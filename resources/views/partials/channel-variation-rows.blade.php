@@ -43,7 +43,7 @@
 
         <td data-label="Variation">
             <div class="cc-var-row__item">
-                <span class="cc-var-row__thumb">@if($vrSrc)<img src="{{ $vrSrc }}" alt="" loading="lazy" decoding="async">@endif</span>
+                <span class="cc-var-row__thumb">@if($vrSrc)<img src="{{ $vrSrc }}" alt="" loading="lazy" decoding="async" data-thumb>@endif</span>
                 <span class="cc-var-row__name">{{ $vrName !== '' ? $vrName : 'Unnamed variation' }}</span>
                 @if($vrSku !== '')
                     <span class="cc-var-row__sku">{{ $vrSku }}</span>

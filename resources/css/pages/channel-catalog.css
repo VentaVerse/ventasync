@@ -265,6 +265,37 @@
     object-fit: cover;
 }
 
+/* A box with no photo shows the shipped placeholder. The "No image"
+   label stays for a screen reader only, and the import pages' glyph gives
+   way to the same picture. While a photo is in the box the placeholder
+   goes, so a photo with a transparent background never shows it through;
+   a photo that fails is removed by thumb-fallback.js and it returns. */
+.cc-thumb,
+.cc-var-row__thumb {
+    background-image: url('/images/brand/no-image.svg');
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 48%;
+}
+
+.cc-thumb:has(> img:not([hidden])),
+.cc-var-row__thumb:has(> img) {
+    background-image: none;
+}
+
+.cc-thumb > .co-item__none {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.cc-thumb > .co-item__ph {
+    display: none;
+}
+
 /* The small copy used inside the unmatched linker, where the row is a
    dropdown result rather than a table row. */
 .cc-thumb--sm { width: 36px; height: 36px; }
@@ -522,6 +553,17 @@
     margin: 0;
     accent-color: var(--bl-brand-deep);
     cursor: pointer;
+}
+
+/* A finger gets the 24px floor on the face itself. A pseudo-element hit
+   area cannot do it: a checkbox is a replaced element, Chromium draws no
+   ::after on it, and a tap beside the 14px box landed on the row. A 44px
+   face would dominate the row it belongs to. */
+@media (pointer: coarse) {
+    .cc-check {
+        width: 24px;
+        height: 24px;
+    }
 }
 
 /* ------------------------------------------------------------------

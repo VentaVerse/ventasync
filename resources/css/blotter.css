@@ -845,6 +845,21 @@
         object-fit: cover;
     }
 
+    /* A box with no photo shows the shipped placeholder; the word "None"
+       stays for a screen reader only. While a photo is in the box the
+       placeholder goes, so a transparent photo never shows it through. */
+    .bl-thumb {
+        font-size: 0;
+        background-image: url('/images/brand/no-image.svg');
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: 60%;
+    }
+
+    .bl-thumb:has(> img) {
+        background-image: none;
+    }
+
     .bl-mono {
         font-family: var(--font-mono);
         font-size: 11.5px;
@@ -1307,10 +1322,12 @@
     }
 
     /* Bridged channel pages have their own page wrapper and no padding of
-       their own; this is where their gutter comes from. */
+       their own; this is where their gutter comes from. A notice is not
+       among them: --bl-pad is 0 inside .x-content, so it set a notice's
+       own side padding to nothing, the icon sat on the border and the
+       close covered the end of the first line. */
     .x-content > .cc-page,
     .x-content > .co-page,
-    .x-content > .alert,
     .x-content > .fm-section,
     .x-fh-panel > .alert {
         padding-inline: var(--bl-pad);
@@ -2551,9 +2568,8 @@
            were both 14x14 - under even WCAG 2.2 AA 2.5.8's 24px floor, on the
            page fulfilment staff use one-handed in a warehouse.
 
-           The checkbox grows its HIT AREA rather than its face: a 44px tick
-           box would dominate the row it belongs to. Same technique as
-           .bl-hint__btn below. */
+           The checkbox is sized in pages/channel-catalog.css, whose layer
+           wins over this one. */
         .x-menu__trigger,
         .x-btn--sm {
             min-width: 44px;
@@ -2566,18 +2582,20 @@
             align-items: center;
         }
 
-        .cc-check {
-            position: relative;
+        /* The + beside Product group, Manage group and Clear: each measured
+           19 to 22px tall on a phone. The checkbox and a notice's close
+           carry their own coarse rules beside their sizes, in the layers
+           that set them. */
+        .lsm-group__add {
+            min-width: 44px;
+            min-height: 44px;
         }
 
-        .cc-check::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 44px;
-            height: 44px;
-            transform: translate(-50%, -50%);
+        .lss-group__manage,
+        .x-filters__reset {
+            display: inline-flex;
+            align-items: center;
+            min-height: 44px;
         }
     }
 

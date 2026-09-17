@@ -4835,12 +4835,25 @@
        banner is reporting was the least legible thing in it. */
     .alert a { color: var(--bl-alert-link); }
 
+    /* The close sits in a column the text never enters: absolutely placed
+       over a padding the text also used, it covered the end of the first
+       line wherever that line reached the right edge. */
+    .alert:has(> .alert-close) {
+        padding-right: 44px;
+    }
+
     .alert .alert-close {
         position: absolute;
-        top: 9px;
-        right: 11px;
+        top: 3px;
+        right: 3px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 32px;
+        min-height: 32px;
         padding: 0;
         border: 0;
+        border-radius: var(--bl-r-ctrl);
         background: none;
         color: var(--bl-ink-3);
         font-size: 16px;
@@ -4849,6 +4862,11 @@
     }
 
     .alert .alert-close:hover { color: var(--bl-ink); }
+
+    @media (pointer: coarse) {
+        .alert:has(> .alert-close) { padding-right: 52px; }
+        .alert .alert-close { top: 0; right: 0; min-width: 44px; min-height: 44px; }
+    }
 
     .toast-container {
         position: fixed;

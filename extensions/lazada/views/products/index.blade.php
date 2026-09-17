@@ -343,26 +343,26 @@
                        aria-label="Select every listing on this page">
             </th>
             @endif
-            <th scope="col" class="cc-col-id">
+            <th scope="col" class="cc-col-id" @if($sort === 'id') aria-sort="{{ $dir === 'asc' ? 'ascending' : 'descending' }}" @endif>
                 <a class="x-th-sort" href="{{ $sortUrl('id') }}">
                     ID
                     @if($sort === 'id')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
-            <th scope="col">
+            <th scope="col" @if($sort === 'product') aria-sort="{{ $dir === 'asc' ? 'ascending' : 'descending' }}" @endif>
                 <a class="x-th-sort" href="{{ $sortUrl('product') }}">
                     Product
                     @if($sort === 'product')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
-            <th scope="col" class="cc-col-qty x-td-num">
+            <th scope="col" class="cc-col-qty x-td-num" @if($sort === 'quantity') aria-sort="{{ $dir === 'asc' ? 'ascending' : 'descending' }}" @endif>
                 <a class="x-th-sort x-th-sort--num" href="{{ $sortUrl('quantity') }}">
                     Stock
                     @if($sort === 'quantity')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
             <th scope="col" class="cc-col-price x-td-num">Price</th>
-            <th scope="col" class="cc-col-sync">
+            <th scope="col" class="cc-col-sync" @if($sort === 'lazada_status') aria-sort="{{ $dir === 'asc' ? 'ascending' : 'descending' }}" @endif>
                 <a class="x-th-sort" href="{{ $sortUrl('lazada_status') }}">
                     Listing
                     @if($sort === 'lazada_status')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif

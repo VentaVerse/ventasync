@@ -301,7 +301,7 @@
                     <div class="cc-thumb">
                         <span class="co-item__none">No image</span>
                         @if($thumbSrc)
-                            <img src="{{ $thumbSrc }}" alt="" loading="lazy" decoding="async">
+                            <img src="{{ $thumbSrc }}" alt="" loading="lazy" decoding="async" data-thumb>
                         @endif
                     </div>
                     <div class="co-item__body">
