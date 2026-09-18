@@ -7,16 +7,21 @@ use App\Support\Catalog\ProductImages;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * A named mark, defined once in the catalog and chosen by any listing or
- * any product group (the owner, 2026-09-10).
+ * A named mark belonging to ONE STORE, chosen by that store's listings and
+ * its product groups.
  *
  * It holds everything about the mark - which picture, where it sits, how
  * big and how strong - so choosing one is a single decision rather than
- * five fields repeated per store. Which of a product's pictures get it is
+ * five fields repeated per listing. Which of a product's pictures get it is
  * the listing's choice, not the template's.
  *
- * The picture is a PATH into the image library, so replacing that file
- * updates every template pointing at it.
+ * The store owns the list, named by (integration, store_id), exactly as a
+ * description template is. A mark carries a shop's words as much as its
+ * logo, so it is no more portable between stores than a returns policy is,
+ * and nothing here will hand one store's mark to another.
+ *
+ * The picture is a PATH into the shared image library, so one logo serves
+ * every store that marks with it and replacing that file updates them all.
  */
 class WatermarkTemplate extends Model
 {
@@ -29,10 +34,24 @@ class WatermarkTemplate extends Model
         'opacity' => 'float',
     ];
 
-    /** Every template, by name, for a picker. */
-    public static function forPicker()
+    /** One store's templates, by name, for a picker. */
+    public static function forStore(string $integration, int $storeId)
     {
-        return static::query()->orderBy('name')->get(['id', 'name', 'image_path']);
+        return static::ofStore($integration, $storeId)->orderBy('name')->get(['id', 'name', 'image_path']);
+    }
+
+    /** Everything one store holds, and nothing another store does. */
+    public static function ofStore(string $integration, int $storeId)
+    {
+        return static::query()->where('integration', $integration)->where('store_id', $storeId);
+    }
+
+    /** The name of one of this store's templates, or null. */
+    public static function nameOf(?int $id, string $integration, int $storeId): ?string
+    {
+        return ($id === null || $id <= 0)
+            ? null
+            : static::ofStore($integration, $storeId)->whereKey($id)->value('name');
     }
 
     /**
@@ -40,11 +59,14 @@ class WatermarkTemplate extends Model
      * else none. The same order every other setting on a listing keeps -
      * the price rule and the category both resolve this way, and a fourth
      * ordering for the same idea would be a thing to remember.
+     *
+     * An id belonging to another store resolves to none, so a listing can
+     * never wear a mark its store does not hold.
      */
-    public static function resolve(?int $listingTemplateId, ?int $groupTemplateId): ?self
+    public static function resolve(?int $listingTemplateId, ?int $groupTemplateId, string $integration, int $storeId): ?self
     {
         foreach ([$listingTemplateId, $groupTemplateId] as $id) {
-            if ($id !== null && $id > 0 && ($row = static::query()->find($id))) {
+            if ($id !== null && $id > 0 && ($row = static::ofStore($integration, $storeId)->find($id))) {
                 return $row;
             }
         }
@@ -52,12 +74,12 @@ class WatermarkTemplate extends Model
         return null;
     }
 
-    /** A submitted template id, kept only when that template exists. */
-    public static function idOrNull(mixed $id): ?int
+    /** A submitted template id, kept only when this store holds that template. */
+    public static function idOrNull(mixed $id, string $integration, int $storeId): ?int
     {
         $id = (int) $id;
 
-        return ($id > 0 && static::query()->whereKey($id)->exists()) ? $id : null;
+        return ($id > 0 && static::ofStore($integration, $storeId)->whereKey($id)->exists()) ? $id : null;
     }
 
     /** Where the mark lives on disk, for the stamper. */

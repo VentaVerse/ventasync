@@ -238,15 +238,20 @@ a.lsm-chanid:focus-visible {
     background: var(--bl-chrome);
 }
 
+/* The same row the rail draws, in a shell: one height, one type size, one
+   gap, so the two cuts through the list read as siblings rather than as one
+   control shrunk. The 10px inset is also what lands the first label on the
+   table's own first heading: the shell's 1px edge and 2px padding make up
+   the rest of the 12px a cell pads by. */
 .lss__b {
     display: flex;
     align-items: center;
-    gap: 7px;
-    min-height: 29px;
-    padding: 0 12px;
+    gap: 10px;
+    min-height: 32px;
+    padding: 0 10px;
     border-radius: 9px;
     color: var(--bl-ink-2);
-    font-size: 13px;
+    font-size: 13.5px;
     font-weight: 560;
     text-decoration: none;
     white-space: nowrap;
@@ -270,7 +275,7 @@ a.lsm-chanid:focus-visible {
 
 .lss__n {
     font-family: var(--font-mono);
-    font-size: 11.5px;
+    font-size: 12px;
     font-variant-numeric: tabular-nums;
     color: var(--bl-ink-3);
 }
@@ -288,6 +293,13 @@ a.lsm-chanid:focus-visible {
     align-items: center;
     justify-content: space-between;
     gap: 10px;
+    /* The rail's first row and this one open their columns together, so they
+       read on one line: the shell's own edge and padding sit 3px above the
+       pill inside it, and that is given back here. */
+    margin-top: -3px;
+    /* The filter row below pads its own bottom and nothing at the top, so
+       without this the search and its selects sit against the segment. */
+    margin-bottom: 14px;
 }
 
 .lss-group {

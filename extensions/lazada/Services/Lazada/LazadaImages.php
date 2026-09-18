@@ -232,7 +232,9 @@ class LazadaImages
         $paths = \App\Services\Media\ListingWatermark::paths(
             array_slice(\App\Support\Catalog\ProductImages::paths($productId, $own), 0, self::MAX_IMAGES),
             $listing,
-            \App\Services\Media\ListingWatermark::groupTemplateId('lazada_product_groups', 'lazada_product_group_products', 'lazada_product_group_id', $productId, 'lazada_setting_id', (int) ($listing?->lazada_setting_id ?? 0) ?: null)
+            \App\Services\Media\ListingWatermark::groupTemplateId('lazada_product_groups', 'lazada_product_group_products', 'lazada_product_group_id', $productId, 'lazada_setting_id', (int) ($listing?->lazada_setting_id ?? 0) ?: null),
+            'lazada',
+            (int) ($listing?->lazada_setting_id ?? 0)
         );
         // Lazada fetches each picture by URL: the square push copy, under its 1 MB limit.
         $paths = \App\Services\Media\ImageCache::pushPaths($paths);

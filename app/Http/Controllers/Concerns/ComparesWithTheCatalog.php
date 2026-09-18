@@ -119,8 +119,22 @@ trait ComparesWithTheCatalog
         $listing->catalog_seen_at = CatalogCopy::seenAtFor($productId);
         $listing->save();
 
-        return redirect()->to(BackTo::safe($data['back'] ?? null, $this->catalogChangeFallback($productId)))
+        /* Save stays on the listing, the one page that can push what was
+           just changed and the one that shows what the listing is still
+           missing. The way back rides along so the page's own back link
+           still returns where the seller came from; the panel does not
+           reopen, because nothing sends it back. */
+        return redirect()->to($this->backToListing($productId, $data['back'] ?? null))
             ->with('status', 'Saved.');
+    }
+
+    /** The listing's own page, carrying the way back when the panel sent one. */
+    private function backToListing(int $productId, ?string $back): string
+    {
+        $to = $this->catalogChangeFallback($productId);
+        $back = BackTo::safe($back, '');
+
+        return $back === '' ? $to : $to . (str_contains($to, '?') ? '&' : '?') . 'back=' . urlencode($back);
     }
 
     public function catalogChangeIgnore(Request $request, int $productId)

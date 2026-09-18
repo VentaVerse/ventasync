@@ -2805,7 +2805,7 @@ class ShopeeProductController extends Controller
                 ->get(['brand_id', 'name'])
             : collect();
 
-        return view('ext-shopee::listings.edit', \App\Integrations\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('shopee_product_groups', 'shopee_product_group_products', 'shopee_product_group_id', $productId, 'shopee_setting_id', (int) ($listing->shopee_setting_id ?? 0) ?: null)) + [
+        return view('ext-shopee::listings.edit', \App\Integrations\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('shopee_product_groups', 'shopee_product_group_products', 'shopee_product_group_id', $productId, 'shopee_setting_id', (int) ($listing->shopee_setting_id ?? 0) ?: null), 'shopee', \App\Integrations\Listings\ListingStore::id('shopee')) + [
             'listingState' => $listingState,
             'product' => $product,
             'listing' => $listing,
@@ -3056,7 +3056,7 @@ class ShopeeProductController extends Controller
         $fields = [
             'shopee_category_id' => $data['shopee_category_id'] ?? null,
             'description_prefix_id' => ((int) ($data['description_prefix_id'] ?? 0)) ?: null,
-            ...\App\Integrations\Listings\ListingImages::submittedWatermark($request),
+            ...\App\Integrations\Listings\ListingImages::submittedWatermark($request, 'shopee', \App\Integrations\Listings\ListingStore::id('shopee')),
             'description_suffix_id' => ((int) ($data['description_suffix_id'] ?? 0)) ?: null,
             'shopee_brand_id' => ((int) ($data['shopee_brand_id'] ?? 0)) > 0 ? (int) $data['shopee_brand_id'] : null,
             'logistic_ids' => array_map('intval', $data['logistic_ids'] ?? []),

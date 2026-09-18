@@ -267,6 +267,11 @@ class MultistoreWorkspaceTest extends TestCase
         if (\Illuminate\Support\Facades\Route::has('ext.'.$channel.'.description-templates.index')) {
             $rows[] = ['Catalog', 'Description Templates', route('ext.'.$channel.'.description-templates.index', ['store' => $storeId])];
         }
+        /* The store's own watermark templates, beside its words: a mark is
+           worn on the way to a store, so the list belongs to the store. */
+        if (\Illuminate\Support\Facades\Route::has('ext.'.$channel.'.watermarks.index')) {
+            $rows[] = ['Catalog', 'Watermarks', route('ext.'.$channel.'.watermarks.index', ['store' => $storeId])];
+        }
         // Import joined 2026-09-04 (cleanup point 11) - every channel has it.
         $rows[] = ['Catalog', 'Import', route('ext.'.$channel.'.products.import', ['store' => $storeId])];
         $rows[] = ['Channel', 'Settings', route('ext.'.$channel.'.settings.show', ['store' => $storeId])];

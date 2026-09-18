@@ -1,22 +1,18 @@
 @extends('layouts.blotter')
-@section('title', 'Watermarks')
+@section('title', $channelName . ' Watermarks')
 
 @section('content')
-@php
-    $canManage = auth()->user()?->hasPermission('manage_catalog/watermark_template') ?? false;
-@endphp
-
 <div class="x-list-head">
     <div>
         <h1 class="x-page-title">Watermarks</h1>
         <p class="x-page-sub">{{ number_format($templates->total()) }} {{ Str::plural('template', $templates->total()) }}</p>
     </div>
     @if($canManage)
-        <x-ui.button variant="primary" :href="route('watermarks.create')">New template</x-ui.button>
+        <x-ui.button variant="primary" :href="$createUrl">New template</x-ui.button>
     @endif
 </div>
 
-<form method="GET" action="{{ route('watermarks.index') }}" class="x-filters">
+<form method="GET" action="{{ $indexUrl }}" class="x-filters">
     <x-ui.input type="search" name="q" value="{{ $q }}" placeholder="Search templates" class="x-filters__search" />
 </form>
 
@@ -25,7 +21,7 @@
     <x-ui.empty title="{{ $q !== '' ? 'Nothing matches that' : 'No watermark templates yet' }}">
         @if($canManage)
             <x-slot:action>
-                <x-ui.button variant="primary" :href="$q !== '' ? route('watermarks.index') : route('watermarks.create')">
+                <x-ui.button variant="primary" :href="$q !== '' ? $indexUrl : $createUrl">
                     {{ $q !== '' ? 'Show all' : 'New template' }}
                 </x-ui.button>
             </x-slot:action>
@@ -51,7 +47,7 @@
                     </td>
                     <td data-label="Name">
                         @if($canManage)
-                            <a href="{{ route('watermarks.edit', $t->id) }}">{{ $t->name }}</a>
+                            <a href="{{ $editUrl($t->id) }}">{{ $t->name }}</a>
                         @else
                             {{ $t->name }}
                         @endif
@@ -60,7 +56,7 @@
                     <td data-label="Size" class="x-td-num">{{ rtrim(rtrim(number_format((float) $t->size_percent, 2), '0'), '.') }}%</td>
                     <td class="x-td-actions">
                         @if($canManage)
-                            <form method="POST" action="{{ route('watermarks.destroy', $t->id) }}"
+                            <form method="POST" action="{{ $destroyUrl($t->id) }}"
                                   data-confirm="Delete the template &quot;{{ $t->name }}&quot;? Any listing or product group using it goes up unmarked from then on."
                                   data-confirm-verb="Delete" data-confirm-tone="danger">
                                 @csrf

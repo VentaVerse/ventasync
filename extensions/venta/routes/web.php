@@ -1,6 +1,7 @@
 <?php
 
 use Extensions\venta\Controllers\VentaDescriptionTemplateController;
+use Extensions\venta\Controllers\VentaWatermarkTemplateController;
 use Extensions\venta\Controllers\VentaListingController;
 use Extensions\venta\Controllers\VentaSettingsController;
 use Extensions\venta\Controllers\VentaProductGroupController;
@@ -47,6 +48,18 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::post('/venta/{store}/description-templates', [VentaDescriptionTemplateController::class, 'store'])->name('ext.venta.description-templates.store')->defaults('permission_tier', 'manage');
     Route::put('/venta/{store}/description-templates/{template}', [VentaDescriptionTemplateController::class, 'update'])->whereNumber('template')->name('ext.venta.description-templates.update')->defaults('permission_tier', 'manage');
     Route::delete('/venta/{store}/description-templates/{template}', [VentaDescriptionTemplateController::class, 'destroy'])->whereNumber('template')->name('ext.venta.description-templates.destroy')->defaults('permission_tier', 'manage');
+
+    /* Watermark templates: a named mark this store's listings and product
+       groups pick from, kept the way its description templates are. Read
+       tier lists them and previews one; manage tier writes them, and a form
+       page is a MANAGE surface even though it is a GET. */
+    Route::get('/venta/{store}/watermarks', [VentaWatermarkTemplateController::class, 'index'])->name('ext.venta.watermarks.index');
+    Route::get('/venta/{store}/watermarks/preview', [VentaWatermarkTemplateController::class, 'preview'])->name('ext.venta.watermarks.preview');
+    Route::get('/venta/{store}/watermarks/create', [VentaWatermarkTemplateController::class, 'create'])->name('ext.venta.watermarks.create')->defaults('permission_tier', 'manage');
+    Route::post('/venta/{store}/watermarks', [VentaWatermarkTemplateController::class, 'store'])->name('ext.venta.watermarks.store')->defaults('permission_tier', 'manage');
+    Route::get('/venta/{store}/watermarks/{template}/edit', [VentaWatermarkTemplateController::class, 'edit'])->whereNumber('template')->name('ext.venta.watermarks.edit')->defaults('permission_tier', 'manage');
+    Route::put('/venta/{store}/watermarks/{template}', [VentaWatermarkTemplateController::class, 'update'])->whereNumber('template')->name('ext.venta.watermarks.update')->defaults('permission_tier', 'manage');
+    Route::delete('/venta/{store}/watermarks/{template}', [VentaWatermarkTemplateController::class, 'destroy'])->whereNumber('template')->name('ext.venta.watermarks.destroy')->defaults('permission_tier', 'manage');
     Route::get('/venta/{store}/product-groups/{group}/edit', [VentaProductGroupController::class, 'edit'])->name('ext.venta.product-groups.edit');
     Route::get('/venta/{store}/product-groups/{group}/products', [VentaProductGroupController::class, 'products'])->name('ext.venta.product-groups.products');
     // Read tier, beside the products list it mirrors, NOT with the writes.

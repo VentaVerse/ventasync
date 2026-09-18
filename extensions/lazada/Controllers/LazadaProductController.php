@@ -2621,7 +2621,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
         $groupBand = $listing->exists ? $this->groupBandFor($listing) : ['current' => null, 'groups' => [], 'values' => []];
 
-        return view('ext-lazada::products.form', \App\Integrations\Listings\ListingImages::cardData((int) $listing->product_id, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('lazada_product_groups', 'lazada_product_group_products', 'lazada_product_group_id', (int) $listing->product_id, 'lazada_setting_id', (int) ($listing->lazada_setting_id ?? 0) ?: null)) + [
+        return view('ext-lazada::products.form', \App\Integrations\Listings\ListingImages::cardData((int) $listing->product_id, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('lazada_product_groups', 'lazada_product_group_products', 'lazada_product_group_id', (int) $listing->product_id, 'lazada_setting_id', (int) ($listing->lazada_setting_id ?? 0) ?: null), 'lazada', \App\Integrations\Listings\ListingStore::id('lazada')) + [
             'readiness' => $readiness,
             'listingState' => $listingState,
             'coverage' => $coverage,
@@ -2784,7 +2784,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             $listing->description = \App\Integrations\Listings\ListingContent::descriptionToSave($data['description'] ?? null, $listing->description, $request->input('description_edited'));
         }
         $listing->description_prefix_id = ((int) ($data['description_prefix_id'] ?? 0)) ?: null;
-        $listing->forceFill(\App\Integrations\Listings\ListingImages::submittedWatermark($request));
+        $listing->forceFill(\App\Integrations\Listings\ListingImages::submittedWatermark($request, 'lazada', \App\Integrations\Listings\ListingStore::id('lazada')));
         $listing->description_suffix_id = ((int) ($data['description_suffix_id'] ?? 0)) ?: null;
         $listing->primary_category_id = $data['primary_category_id'] ?? null;
         $listing->brand_id = $data['brand_id'] ?? null;

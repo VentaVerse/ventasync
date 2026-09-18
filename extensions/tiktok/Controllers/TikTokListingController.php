@@ -172,7 +172,7 @@ class TikTokListingController extends Controller
 
         $hasVariations = isset(\Extensions\tiktok\Services\TikTok\TikTokVariationPush::withVariations([$productId])[$productId]);
 
-        return view('ext-tiktok::listings.edit', \App\Integrations\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('tiktok_product_groups', 'tiktok_product_group_products', 'tiktok_product_group_id', $productId, 'tiktok_setting_id', (int) ($listing->tiktok_setting_id ?? 0) ?: null)) + [
+        return view('ext-tiktok::listings.edit', \App\Integrations\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('tiktok_product_groups', 'tiktok_product_group_products', 'tiktok_product_group_id', $productId, 'tiktok_setting_id', (int) ($listing->tiktok_setting_id ?? 0) ?: null), 'tiktok', \App\Integrations\Listings\ListingStore::id('tiktok')) + [
             'coverage' => $coverage,
             ...\App\Integrations\Listings\ListingVariations::cardData(
                 'tiktok', $covStoreId, $productId,
@@ -275,7 +275,7 @@ class TikTokListingController extends Controller
                 'package_width' => $blank($data['package_width'] ?? null),
                 'package_height' => $blank($data['package_height'] ?? null),
                 'description_prefix_id' => ((int) ($data['description_prefix_id'] ?? 0)) ?: null,
-                ...\App\Integrations\Listings\ListingImages::submittedWatermark($request),
+                ...\App\Integrations\Listings\ListingImages::submittedWatermark($request, 'tiktok', \App\Integrations\Listings\ListingStore::id('tiktok')),
                 'description_suffix_id' => ((int) ($data['description_suffix_id'] ?? 0)) ?: null,
                 'attribute_values' => array_filter(
                     array_map(fn ($v) => trim((string) $v), $data['attributes'] ?? []),

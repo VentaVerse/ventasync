@@ -36,6 +36,7 @@ class ListingWatermarkTest extends TestCase
     private function template(string $name): WatermarkTemplate
     {
         return WatermarkTemplate::create([
+            'integration' => 'shopee', 'store_id' => 1,
             'name' => $name, 'image_path' => $this->png('catalog/marks/' . $name . '.png', true),
             'position' => 'bottom-right', 'size_percent' => 20, 'offset_x_percent' => 0, 'offset_y_percent' => 0, 'opacity' => 1,
         ]);
@@ -53,8 +54,8 @@ class ListingWatermarkTest extends TestCase
         $groups = $this->template('group');
         $pictures = [$this->png('catalog/p/a.png'), $this->png('catalog/p/b.png')];
 
-        $mine = ListingWatermark::paths($pictures, (object) ['watermark_template_id' => $own->id, 'watermark_all_images' => false], $groups->id);
-        $lent = ListingWatermark::paths($pictures, (object) ['watermark_template_id' => null, 'watermark_all_images' => false], $groups->id);
+        $mine = ListingWatermark::paths($pictures, (object) ['watermark_template_id' => $own->id, 'watermark_all_images' => false], $groups->id, 'shopee', 1);
+        $lent = ListingWatermark::paths($pictures, (object) ['watermark_template_id' => null, 'watermark_all_images' => false], $groups->id, 'shopee', 1);
 
         $this->assertStringStartsWith(StampedImages::DIR . '/', $mine[0]);
         $this->assertNotSame($mine[0], $lent[0], 'a listing with its own template is not marked with its group\'s');
@@ -66,10 +67,10 @@ class ListingWatermarkTest extends TestCase
         $own = $this->template('own');
         $pictures = [$this->png('catalog/p/a.png'), $this->png('catalog/p/b.png')];
 
-        $all = ListingWatermark::paths($pictures, (object) ['watermark_template_id' => $own->id, 'watermark_all_images' => true], null);
+        $all = ListingWatermark::paths($pictures, (object) ['watermark_template_id' => $own->id, 'watermark_all_images' => true], null, 'shopee', 1);
         $this->assertStringStartsWith(StampedImages::DIR . '/', $all[1]);
 
-        $this->assertSame($pictures, ListingWatermark::paths($pictures, null, null));
+        $this->assertSame($pictures, ListingWatermark::paths($pictures, null, null, 'shopee', 1));
     }
 
     public function test_the_group_template_is_read_from_the_products_group_in_that_store(): void

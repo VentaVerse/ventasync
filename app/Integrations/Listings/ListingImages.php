@@ -39,9 +39,11 @@ final class ListingImages
      * @param  ?array<int, mixed>  $stored  the listing's own arrangement, or null to follow the catalog
      * @param  ?object  $listing  the listing row, for its watermark choice
      * @param  ?int  $groupTemplateId  the template the listing's product group lends
+     * @param  string  $integration  the channel, half of the store's name
+     * @param  int  $storeId  the store whose watermark templates this page offers
      * @return array<string, mixed>
      */
-    public static function cardData(int $productId, ?array $stored, ?object $listing = null, ?int $groupTemplateId = null): array
+    public static function cardData(int $productId, ?array $stored, ?object $listing, ?int $groupTemplateId, string $integration, int $storeId): array
     {
         $submitted = null;
         $old = old('image_order');
@@ -56,7 +58,7 @@ final class ListingImages
         $groupTemplateId = ((int) $groupTemplateId) ?: null;
 
         $paths = ProductImages::paths($productId, $submitted ?? $stored);
-        $template = WatermarkTemplate::resolve($templateId, $groupTemplateId);
+        $template = WatermarkTemplate::resolve($templateId, $groupTemplateId, $integration, $storeId);
         $stamper = app(StampedImages::class);
         // A marked tile is stamped on its preview copy as the page draws it, so opening a listing writes nothing.
         $shown = function (string $path, int $i) use ($template, $allImages, $stamper): string {
@@ -74,10 +76,10 @@ final class ListingImages
             'tiles' => array_map(fn (string $path, int $i) => ['path' => $path, 'url' => $shown($path, $i)], $paths, array_keys($paths)),
             'catalogTiles' => ProductImages::tiles($productId),
             'browseUrl' => route('products.images.browse'),
-            'watermarkOptions' => WatermarkTemplate::forPicker(),
+            'watermarkOptions' => WatermarkTemplate::forStore($integration, $storeId),
             'watermarkTemplateId' => $templateId,
             'watermarkAllImages' => $allImages,
-            'watermarkLent' => $groupTemplateId ? WatermarkTemplate::query()->whereKey($groupTemplateId)->value('name') : null,
+            'watermarkLent' => WatermarkTemplate::nameOf($groupTemplateId, $integration, $storeId),
         ];
     }
 
@@ -86,10 +88,10 @@ final class ListingImages
      *
      * @return array{watermark_template_id: ?int, watermark_all_images: bool}
      */
-    public static function submittedWatermark(\Illuminate\Http\Request $request): array
+    public static function submittedWatermark(\Illuminate\Http\Request $request, string $integration, int $storeId): array
     {
         return [
-            'watermark_template_id' => WatermarkTemplate::idOrNull($request->input('watermark_template_id')),
+            'watermark_template_id' => WatermarkTemplate::idOrNull($request->input('watermark_template_id'), $integration, $storeId),
             'watermark_all_images' => $request->boolean('watermark_all_images'),
         ];
     }

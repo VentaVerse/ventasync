@@ -130,7 +130,10 @@ class TikTokCatalogChangeTest extends TestCase
             'back' => '/channels',
             'listing' => ['title' => 'Plug v2'],
             'catalog' => ['title' => 'Not allowed'],
-        ])->assertRedirect('/channels')->assertSessionHas('status', 'Saved.');
+        /* Save stays on the listing, carrying the way back: the one page
+           that can push what was just changed. */
+        ])->assertRedirect(route('ext.tiktok.listings.edit', $pid) . '?back=' . urlencode('/channels'))
+            ->assertSessionHas('status', 'Saved.');
 
         $pfx = (string) config('catalog.prefix');
         $this->assertSame('Plug v2', DB::table($pfx . 'product_description')->where('product_id', $pid)->value('name'), 'no catalog permission, no catalog write');

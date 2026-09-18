@@ -147,7 +147,10 @@ class ShopeeCatalogChangeTest extends TestCase
             'back' => '/channels',
             'listing' => ['title' => 'Plug for Shopee', 'description' => '<p>Catalog words.</p>', 'description_edited' => '1'],
             'catalog' => ['title' => 'Plug, catalog name', 'description_edited' => '0'],
-        ])->assertRedirect('/channels')->assertSessionHas('status', 'Saved.');
+        /* Save stays on the listing, carrying the way back: the one page
+           that can push what was just changed. */
+        ])->assertRedirect(route('ext.shopee.listings.edit', $pid) . '?back=' . urlencode('/channels'))
+            ->assertSessionHas('status', 'Saved.');
 
         $pfx = (string) config('catalog.prefix');
         $this->assertSame('Plug, catalog name', DB::table($pfx . 'product_description')->where('product_id', $pid)->value('name'));

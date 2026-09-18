@@ -1,6 +1,7 @@
 <?php
 
 use Extensions\lazada\Controllers\LazadaDescriptionTemplateController;
+use Extensions\lazada\Controllers\LazadaWatermarkTemplateController;
 use Extensions\lazada\Controllers\LazadaSettingsController;
 use Extensions\lazada\Controllers\LazadaApiExplorerController;
 use Extensions\lazada\Controllers\LazadaProductController;
@@ -82,6 +83,18 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
         Route::post('/lazada/{store}/description-templates', [LazadaDescriptionTemplateController::class, 'store'])->name('ext.lazada.description-templates.store')->defaults('permission_tier', 'manage');
         Route::put('/lazada/{store}/description-templates/{template}', [LazadaDescriptionTemplateController::class, 'update'])->whereNumber('template')->name('ext.lazada.description-templates.update')->defaults('permission_tier', 'manage');
         Route::delete('/lazada/{store}/description-templates/{template}', [LazadaDescriptionTemplateController::class, 'destroy'])->whereNumber('template')->name('ext.lazada.description-templates.destroy')->defaults('permission_tier', 'manage');
+
+        /* Watermark templates: a named mark this store's listings and product
+           groups pick from, kept the way its description templates are. Read
+           tier lists them and previews one; manage tier writes them, and a form
+           page is a MANAGE surface even though it is a GET. */
+        Route::get('/lazada/{store}/watermarks', [LazadaWatermarkTemplateController::class, 'index'])->name('ext.lazada.watermarks.index');
+        Route::get('/lazada/{store}/watermarks/preview', [LazadaWatermarkTemplateController::class, 'preview'])->name('ext.lazada.watermarks.preview');
+        Route::get('/lazada/{store}/watermarks/create', [LazadaWatermarkTemplateController::class, 'create'])->name('ext.lazada.watermarks.create')->defaults('permission_tier', 'manage');
+        Route::post('/lazada/{store}/watermarks', [LazadaWatermarkTemplateController::class, 'store'])->name('ext.lazada.watermarks.store')->defaults('permission_tier', 'manage');
+        Route::get('/lazada/{store}/watermarks/{template}/edit', [LazadaWatermarkTemplateController::class, 'edit'])->whereNumber('template')->name('ext.lazada.watermarks.edit')->defaults('permission_tier', 'manage');
+        Route::put('/lazada/{store}/watermarks/{template}', [LazadaWatermarkTemplateController::class, 'update'])->whereNumber('template')->name('ext.lazada.watermarks.update')->defaults('permission_tier', 'manage');
+        Route::delete('/lazada/{store}/watermarks/{template}', [LazadaWatermarkTemplateController::class, 'destroy'])->whereNumber('template')->name('ext.lazada.watermarks.destroy')->defaults('permission_tier', 'manage');
         // ext.lazada.product-groups.searchProducts (the whole-catalogue picker
         // behind the dual list and "Add a product by name") retired with both
         // on 2026-09-05 (#201, the Shopee shape ported back): a group only

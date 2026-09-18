@@ -1037,7 +1037,7 @@ class VentaListingController extends Controller
         $hasVariations = VentaListing::withVariations([$productId]) !== [];
         $pushPrice = VentaListing::ruleFor($listing, $group)(VentaListing::startFor($listing, (float) $product->price, $hasVariations));
 
-        return view('ext-venta::listings.edit', \App\Integrations\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('venta_product_groups', 'venta_product_group_products', 'venta_product_group_id', $productId, 'venta_setting_id', $store)) + [
+        return view('ext-venta::listings.edit', \App\Integrations\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('venta_product_groups', 'venta_product_group_products', 'venta_product_group_id', $productId, 'venta_setting_id', $store), 'venta', \App\Integrations\Listings\ListingStore::id('venta')) + [
             /* What this listing still needs before the store would take
                it, by the same computation the Ready column reads, so the
                page cannot promise what the push refuses. */
@@ -1146,7 +1146,7 @@ class VentaListingController extends Controller
                 'package_width' => $blank($data['package_width'] ?? null),
                 'package_height' => $blank($data['package_height'] ?? null),
                 'description_prefix_id' => ((int) ($data['description_prefix_id'] ?? 0)) ?: null,
-                ...\App\Integrations\Listings\ListingImages::submittedWatermark($request),
+                ...\App\Integrations\Listings\ListingImages::submittedWatermark($request, 'venta', \App\Integrations\Listings\ListingStore::id('venta')),
                 'description_suffix_id' => ((int) ($data['description_suffix_id'] ?? 0)) ?: null,
                 'meta_title' => $blank($data['meta_title'] ?? null),
                 'meta_description' => $blank($data['meta_description'] ?? null),

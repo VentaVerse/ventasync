@@ -163,7 +163,11 @@ class CatalogChangeTest extends TestCase
                 'price' => '150', 'weight' => '0.05', 'length' => '2', 'width' => '2', 'height' => '1',
             ],
             'catalog' => ['title' => 'Plug, catalog name', 'description' => '<p>Catalog words.</p>', 'description_edited' => '0', 'price' => '150'],
-        ])->assertRedirect('/channels')->assertSessionHas('status', 'Saved.');
+        /* Save stays on the listing, carrying the way back: the one page
+           that can push what was just changed, and the one that shows what
+           the listing is still missing. */
+        ])->assertRedirect(route('ext.lazada.products.edit', $pid) . '?back=' . urlencode('/channels'))
+            ->assertSessionHas('status', 'Saved.');
 
         $pfx = (string) config('catalog.prefix');
         $this->assertSame('Plug, catalog name', DB::table($pfx . 'product_description')->where('product_id', $pid)->value('name'));
@@ -199,7 +203,9 @@ class CatalogChangeTest extends TestCase
             'back' => '/channels',
             'listing' => ['title' => 'Plug v2', 'price' => '', 'weight' => '', 'length' => '', 'width' => '', 'height' => ''],
             'catalog' => ['title' => 'Plug v2', 'price' => '130', 'weight' => '0', 'length' => '2.5', 'width' => '2', 'height' => '1'],
-        ])->assertSessionHasNoErrors()->assertRedirect('/channels')->assertSessionHas('status', 'Saved.');
+        ])->assertSessionHasNoErrors()
+            ->assertRedirect(route('ext.lazada.products.edit', $pid) . '?back=' . urlencode('/channels'))
+            ->assertSessionHas('status', 'Saved.');
 
         $this->assertEquals(0, (float) DB::table($pfx . 'product')->where('product_id', $pid)->value('weight'), 'an empty catalog weight saves as it was');
         $this->assertEquals(2.5, (float) DB::table($pfx . 'product')->where('product_id', $pid)->value('length'));

@@ -276,7 +276,7 @@
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Watermark</h2></div>
                 <div class="fm-card__body">
-                    @include('partials.watermark-pick', ['selected' => old('watermark_template_id', $group->watermark_template_id ?? null), 'canManage' => $canManageShopee])
+                    @include('partials.watermark-pick', ['selected' => old('watermark_template_id', $group->watermark_template_id ?? null), 'integration' => 'shopee', 'canManage' => $canManageShopee])
                 </div>
             </div>
 

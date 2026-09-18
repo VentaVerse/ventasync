@@ -7,7 +7,6 @@
 @section('content')
 @php
     $positions = \App\Services\Media\Watermarker::POSITIONS;
-    $action = $mode === 'create' ? route('watermarks.store') : route('watermarks.update', $template->id);
 @endphp
 
 <div class="fm-page">
@@ -22,7 +21,7 @@
 
     <div class="fm-head">
         <div class="fm-head__main">
-            <a class="fm-back" href="{{ route('watermarks.index') }}" data-guard-leave>
+            <a class="fm-back" href="{{ $indexUrl }}" data-guard-leave>
                 <x-ui.icon name="chevron-left" size="14" /> Watermarks
             </a>
             <h1 class="fm-title">{{ $mode === 'create' ? 'New watermark template' : $template->name }}</h1>
@@ -30,7 +29,7 @@
     </div>
 
     <form id="wm-form" method="POST" action="{{ $action }}" data-guard-unsaved
-          data-wm-preview-url="{{ route('watermarks.preview') }}">
+          data-wm-preview-url="{{ $previewUrl }}">
         @csrf
         @if($mode !== 'create') @method('PUT') @endif
 
@@ -151,7 +150,7 @@
             </aside>
         </div>
 
-        <x-ui.form-bar :cancel="route('watermarks.index')">
+        <x-ui.form-bar :cancel="$indexUrl">
             <x-slot:note>{{ $mode === 'edit' ? 'Template ' . $template->id : '' }}</x-slot:note>
             <x-slot:primary><x-ui.button type="submit" variant="primary">Save template</x-ui.button></x-slot:primary>
         </x-ui.form-bar>

@@ -1,6 +1,7 @@
 <?php
 
 use Extensions\tiktok\Controllers\TikTokDescriptionTemplateController;
+use Extensions\tiktok\Controllers\TikTokWatermarkTemplateController;
 use Extensions\tiktok\Controllers\TiktokSettingsController;
 use Extensions\tiktok\Controllers\TiktokApiExplorerController;
 use Extensions\tiktok\Controllers\TikTokOrderController;
@@ -69,6 +70,18 @@ Route::middleware(['auth', \Extensions\tiktok\Http\ResolveTikTokStore::class])
         Route::post('/tiktok/{store}/description-templates', [TikTokDescriptionTemplateController::class, 'store'])->name('ext.tiktok.description-templates.store')->defaults('permission_tier', 'manage');
         Route::put('/tiktok/{store}/description-templates/{template}', [TikTokDescriptionTemplateController::class, 'update'])->whereNumber('template')->name('ext.tiktok.description-templates.update')->defaults('permission_tier', 'manage');
         Route::delete('/tiktok/{store}/description-templates/{template}', [TikTokDescriptionTemplateController::class, 'destroy'])->whereNumber('template')->name('ext.tiktok.description-templates.destroy')->defaults('permission_tier', 'manage');
+
+        /* Watermark templates: a named mark this store's listings and product
+           groups pick from, kept the way its description templates are. Read
+           tier lists them and previews one; manage tier writes them, and a form
+           page is a MANAGE surface even though it is a GET. */
+        Route::get('/tiktok/{store}/watermarks', [TikTokWatermarkTemplateController::class, 'index'])->name('ext.tiktok.watermarks.index');
+        Route::get('/tiktok/{store}/watermarks/preview', [TikTokWatermarkTemplateController::class, 'preview'])->name('ext.tiktok.watermarks.preview');
+        Route::get('/tiktok/{store}/watermarks/create', [TikTokWatermarkTemplateController::class, 'create'])->name('ext.tiktok.watermarks.create')->defaults('permission_tier', 'manage');
+        Route::post('/tiktok/{store}/watermarks', [TikTokWatermarkTemplateController::class, 'store'])->name('ext.tiktok.watermarks.store')->defaults('permission_tier', 'manage');
+        Route::get('/tiktok/{store}/watermarks/{template}/edit', [TikTokWatermarkTemplateController::class, 'edit'])->whereNumber('template')->name('ext.tiktok.watermarks.edit')->defaults('permission_tier', 'manage');
+        Route::put('/tiktok/{store}/watermarks/{template}', [TikTokWatermarkTemplateController::class, 'update'])->whereNumber('template')->name('ext.tiktok.watermarks.update')->defaults('permission_tier', 'manage');
+        Route::delete('/tiktok/{store}/watermarks/{template}', [TikTokWatermarkTemplateController::class, 'destroy'])->whereNumber('template')->name('ext.tiktok.watermarks.destroy')->defaults('permission_tier', 'manage');
         Route::get('/tiktok/{store}/product-groups/{id}/edit', [TikTokProductGroupController::class, 'edit'])->name('ext.tiktok.product-groups.edit');
         Route::get('/tiktok/{store}/product-groups/{id}/products', [TikTokProductGroupController::class, 'products'])->name('ext.tiktok.product-groups.products');
         // The group page's Add products panel search (#201, Draft C): this

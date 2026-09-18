@@ -417,7 +417,9 @@ class VentaProductPush
         $paths = \App\Services\Media\ListingWatermark::paths(
             \App\Support\Catalog\ProductImages::paths($productId, $this->ownImageOrder($productId)),
             $marking,
-            \App\Services\Media\ListingWatermark::groupTemplateId('venta_product_groups', 'venta_product_group_products', 'venta_product_group_id', $productId, 'venta_setting_id', (int) $this->setting->id)
+            \App\Services\Media\ListingWatermark::groupTemplateId('venta_product_groups', 'venta_product_group_products', 'venta_product_group_id', $productId, 'venta_setting_id', (int) $this->setting->id),
+            'venta',
+            (int) $this->setting->id
         );
 
         return array_map([\App\Support\Catalog\ProductImages::class, 'url'], \App\Services\Media\ImageCache::pushPaths($paths));

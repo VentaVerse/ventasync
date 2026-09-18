@@ -486,41 +486,6 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "catalog/watermarks",
-        "name": "watermarks.index"
-    },
-    {
-        "method": "POST",
-        "uri": "catalog/watermarks",
-        "name": "watermarks.store"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "catalog/watermarks/create",
-        "name": "watermarks.create"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "catalog/watermarks/preview",
-        "name": "watermarks.preview"
-    },
-    {
-        "method": "DELETE",
-        "uri": "catalog/watermarks/{id}",
-        "name": "watermarks.destroy"
-    },
-    {
-        "method": "PUT",
-        "uri": "catalog/watermarks/{id}",
-        "name": "watermarks.update"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "catalog/watermarks/{id}/edit",
-        "name": "watermarks.edit"
-    },
-    {
-        "method": "GET|HEAD",
         "uri": "channels",
         "name": "channels.index"
     },
@@ -1183,6 +1148,41 @@
         "method": "POST",
         "uri": "channels/lazada/{store}/vouchers/{voucherId}/deactivate",
         "name": "ext.lazada.vouchers.deactivate"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/watermarks",
+        "name": "ext.lazada.watermarks.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/watermarks",
+        "name": "ext.lazada.watermarks.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/watermarks/create",
+        "name": "ext.lazada.watermarks.create"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/watermarks/preview",
+        "name": "ext.lazada.watermarks.preview"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/lazada/{store}/watermarks/{template}",
+        "name": "ext.lazada.watermarks.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/lazada/{store}/watermarks/{template}",
+        "name": "ext.lazada.watermarks.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/watermarks/{template}/edit",
+        "name": "ext.lazada.watermarks.edit"
     },
     {
         "method": "GET|HEAD",
@@ -2170,6 +2170,41 @@
         "name": "ext.shopee.vouchers.end"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/watermarks",
+        "name": "ext.shopee.watermarks.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/watermarks",
+        "name": "ext.shopee.watermarks.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/watermarks/create",
+        "name": "ext.shopee.watermarks.create"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/watermarks/preview",
+        "name": "ext.shopee.watermarks.preview"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/shopee/{store}/watermarks/{template}",
+        "name": "ext.shopee.watermarks.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/shopee/{store}/watermarks/{template}",
+        "name": "ext.shopee.watermarks.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/watermarks/{template}/edit",
+        "name": "ext.shopee.watermarks.edit"
+    },
+    {
         "method": "POST",
         "uri": "channels/shopify/save",
         "name": "ext.shopify.save"
@@ -2760,6 +2795,41 @@
         "name": "ext.tiktok.token_refresh"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/watermarks",
+        "name": "ext.tiktok.watermarks.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/watermarks",
+        "name": "ext.tiktok.watermarks.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/watermarks/create",
+        "name": "ext.tiktok.watermarks.create"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/watermarks/preview",
+        "name": "ext.tiktok.watermarks.preview"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/tiktok/{store}/watermarks/{template}",
+        "name": "ext.tiktok.watermarks.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/tiktok/{store}/watermarks/{template}",
+        "name": "ext.tiktok.watermarks.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/watermarks/{template}/edit",
+        "name": "ext.tiktok.watermarks.edit"
+    },
+    {
         "method": "POST",
         "uri": "channels/venta/fetch-brands",
         "name": "ext.venta.fetch_brands"
@@ -3235,6 +3305,41 @@
         "name": "ext.venta.setup_step"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "channels/venta/{store}/watermarks",
+        "name": "ext.venta.watermarks.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/watermarks",
+        "name": "ext.venta.watermarks.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/venta/{store}/watermarks/create",
+        "name": "ext.venta.watermarks.create"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/venta/{store}/watermarks/preview",
+        "name": "ext.venta.watermarks.preview"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/venta/{store}/watermarks/{template}",
+        "name": "ext.venta.watermarks.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/venta/{store}/watermarks/{template}",
+        "name": "ext.venta.watermarks.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/venta/{store}/watermarks/{template}/edit",
+        "name": "ext.venta.watermarks.edit"
+    },
+    {
         "method": "POST",
         "uri": "channels/woocommerce/reviews/{id}/push",
         "name": "ext.woocommerce.reviews.push"
@@ -3638,6 +3743,41 @@
         "method": "POST",
         "uri": "channels/woocommerce/{store}/setup/{step}",
         "name": "ext.woocommerce.setup_step"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/watermarks",
+        "name": "ext.woocommerce.watermarks.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/watermarks",
+        "name": "ext.woocommerce.watermarks.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/watermarks/create",
+        "name": "ext.woocommerce.watermarks.create"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/watermarks/preview",
+        "name": "ext.woocommerce.watermarks.preview"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/woocommerce/{store}/watermarks/{template}",
+        "name": "ext.woocommerce.watermarks.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/woocommerce/{store}/watermarks/{template}",
+        "name": "ext.woocommerce.watermarks.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/watermarks/{template}/edit",
+        "name": "ext.woocommerce.watermarks.edit"
     },
     {
         "method": "POST",

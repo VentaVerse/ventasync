@@ -222,7 +222,7 @@ class LazadaProductGroupController extends Controller
             'brand_id' => $data['brand_id'] ?? null,
             'brand_name_override' => !empty($request->input('no_brand')) ? 'No Brand' : null,
             'markup_fixed' => $data['markup_fixed'] ?? null,
-            'markup_percent' => $data['markup_percent'] ?? null, 'watermark_template_id' => \App\Models\WatermarkTemplate::idOrNull($data['watermark_template_id'] ?? null),
+            'markup_percent' => $data['markup_percent'] ?? null, 'watermark_template_id' => \App\Models\WatermarkTemplate::idOrNull($data['watermark_template_id'] ?? null, 'lazada', \App\Integrations\Listings\ListingStore::id('lazada')),
         ]);
 
         $this->saveGroupAttributes($group, (array) $request->input('attributes', []));
@@ -259,7 +259,7 @@ class LazadaProductGroupController extends Controller
             'brand_id' => $data['brand_id'] ?? null,
             'brand_name_override' => !empty($request->input('no_brand')) ? 'No Brand' : null,
             'markup_fixed' => $data['markup_fixed'] ?? null,
-            'markup_percent' => $data['markup_percent'] ?? null, 'watermark_template_id' => \App\Models\WatermarkTemplate::idOrNull($data['watermark_template_id'] ?? null),
+            'markup_percent' => $data['markup_percent'] ?? null, 'watermark_template_id' => \App\Models\WatermarkTemplate::idOrNull($data['watermark_template_id'] ?? null, 'lazada', \App\Integrations\Listings\ListingStore::id('lazada')),
         ]);
 
         $this->saveGroupAttributes($group, (array) $request->input('attributes', []));

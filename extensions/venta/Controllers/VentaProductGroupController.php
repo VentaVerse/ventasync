@@ -313,7 +313,7 @@ class VentaProductGroupController extends Controller
             'name'                 => $data['name'],
             'venta_category_id'    => $data['venta_category_id'] ?? null,
             'venta_brand_id'       => $data['venta_brand_id'] ?? null,
-            'markup_percent'       => $data['markup_percent'] ?? 0, 'watermark_template_id' => \App\Models\WatermarkTemplate::idOrNull($data['watermark_template_id'] ?? null),
+            'markup_percent'       => $data['markup_percent'] ?? 0, 'watermark_template_id' => \App\Models\WatermarkTemplate::idOrNull($data['watermark_template_id'] ?? null, 'venta', \App\Integrations\Listings\ListingStore::id('venta')),
             'markup_fixed'         => $data['markup_fixed'] ?? 0,
         ]);
 
@@ -358,7 +358,7 @@ class VentaProductGroupController extends Controller
             'name'                 => $data['name'],
             'venta_category_id'    => $data['venta_category_id'] ?? null,
             'venta_brand_id'       => $data['venta_brand_id'] ?? $g->venta_brand_id,
-            'markup_percent'       => $data['markup_percent'] ?? $g->markup_percent, 'watermark_template_id' => \App\Models\WatermarkTemplate::idOrNull($data['watermark_template_id'] ?? null),
+            'markup_percent'       => $data['markup_percent'] ?? $g->markup_percent, 'watermark_template_id' => \App\Models\WatermarkTemplate::idOrNull($data['watermark_template_id'] ?? null, 'venta', \App\Integrations\Listings\ListingStore::id('venta')),
             'markup_fixed'         => $data['markup_fixed'] ?? $g->markup_fixed,
         ]);
 

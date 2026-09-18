@@ -1,6 +1,7 @@
 <?php
 
 use Extensions\shopee\Controllers\ShopeeDescriptionTemplateController;
+use Extensions\shopee\Controllers\ShopeeWatermarkTemplateController;
 use Extensions\shopee\Controllers\ShopeeSettingsController;
 use Extensions\shopee\Controllers\ShopeeApiExplorerController;
 use Extensions\shopee\Controllers\ShopeeOrderController;
@@ -94,6 +95,18 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
         Route::post('/shopee/{store}/description-templates', [ShopeeDescriptionTemplateController::class, 'store'])->name('ext.shopee.description-templates.store')->defaults('permission_tier', 'manage');
         Route::put('/shopee/{store}/description-templates/{template}', [ShopeeDescriptionTemplateController::class, 'update'])->whereNumber('template')->name('ext.shopee.description-templates.update')->defaults('permission_tier', 'manage');
         Route::delete('/shopee/{store}/description-templates/{template}', [ShopeeDescriptionTemplateController::class, 'destroy'])->whereNumber('template')->name('ext.shopee.description-templates.destroy')->defaults('permission_tier', 'manage');
+
+        /* Watermark templates: a named mark this store's listings and product
+           groups pick from, kept the way its description templates are. Read
+           tier lists them and previews one; manage tier writes them, and a form
+           page is a MANAGE surface even though it is a GET. */
+        Route::get('/shopee/{store}/watermarks', [ShopeeWatermarkTemplateController::class, 'index'])->name('ext.shopee.watermarks.index');
+        Route::get('/shopee/{store}/watermarks/preview', [ShopeeWatermarkTemplateController::class, 'preview'])->name('ext.shopee.watermarks.preview');
+        Route::get('/shopee/{store}/watermarks/create', [ShopeeWatermarkTemplateController::class, 'create'])->name('ext.shopee.watermarks.create')->defaults('permission_tier', 'manage');
+        Route::post('/shopee/{store}/watermarks', [ShopeeWatermarkTemplateController::class, 'store'])->name('ext.shopee.watermarks.store')->defaults('permission_tier', 'manage');
+        Route::get('/shopee/{store}/watermarks/{template}/edit', [ShopeeWatermarkTemplateController::class, 'edit'])->whereNumber('template')->name('ext.shopee.watermarks.edit')->defaults('permission_tier', 'manage');
+        Route::put('/shopee/{store}/watermarks/{template}', [ShopeeWatermarkTemplateController::class, 'update'])->whereNumber('template')->name('ext.shopee.watermarks.update')->defaults('permission_tier', 'manage');
+        Route::delete('/shopee/{store}/watermarks/{template}', [ShopeeWatermarkTemplateController::class, 'destroy'])->whereNumber('template')->name('ext.shopee.watermarks.destroy')->defaults('permission_tier', 'manage');
         // ext.shopee.product-groups.searchProducts (the whole-catalogue picker
         // behind the dual list and "Add a product by name") retired with both
         // on 2026-09-05 (#201): a group only holds what THIS STORE carries,

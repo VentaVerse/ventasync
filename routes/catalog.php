@@ -6,7 +6,6 @@ use App\Http\Controllers\Catalog\ProductImageController;
 use App\Http\Controllers\Catalog\ProductOptionController;
 use App\Http\Controllers\Catalog\ManufacturerController;
 use App\Http\Controllers\Catalog\CategoryController;
-use App\Http\Controllers\Catalog\WatermarkTemplateController;
 use App\Http\Controllers\Api\CatalogController as ApiCatalogController;
 
 // IA migration (2026-08-08, Task 4): Catalog section. Required from
@@ -112,25 +111,6 @@ Route::prefix('catalog')->group(function () {
         Route::put('/manufacturers/{id}', [ManufacturerController::class, 'update'])->name('manufacturers.update');
         Route::delete('/manufacturers/{id}', [ManufacturerController::class, 'destroy'])->name('manufacturers.destroy');
         Route::post('/manufacturers/bulk-delete', [ManufacturerController::class, 'bulkDestroy'])->name('manufacturers.bulk_delete');
-    });
-
-    /* ── Watermark templates (VENT2-128) ──
-       A named mark, defined once in the catalog and chosen by any listing
-       or product group. Read tier lists them and can preview one; manage
-       tier writes them, and a form page is a MANAGE surface even though it
-       is a GET, the way every other catalog form here is. */
-    Route::group([], function () {
-        Route::get('/watermarks', [WatermarkTemplateController::class, 'index'])->name('watermarks.index');
-        Route::get('/watermarks/preview', [WatermarkTemplateController::class, 'preview'])->name('watermarks.preview');
-    });
-    Route::group([], function () {
-        Route::get('/watermarks/create', [WatermarkTemplateController::class, 'create'])->name('watermarks.create')
-            ->defaults('permission_tier', 'manage');
-        Route::post('/watermarks', [WatermarkTemplateController::class, 'store'])->name('watermarks.store');
-        Route::get('/watermarks/{id}/edit', [WatermarkTemplateController::class, 'edit'])->whereNumber('id')->name('watermarks.edit')
-            ->defaults('permission_tier', 'manage');
-        Route::put('/watermarks/{id}', [WatermarkTemplateController::class, 'update'])->whereNumber('id')->name('watermarks.update');
-        Route::delete('/watermarks/{id}', [WatermarkTemplateController::class, 'destroy'])->whereNumber('id')->name('watermarks.destroy');
     });
 
     // ── Categories — READ ──

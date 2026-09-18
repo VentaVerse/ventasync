@@ -79,7 +79,7 @@ class TikTokProductPush
         $paths = \App\Support\Catalog\ProductImages::paths((int) $erp->product_id, $own);
         $marking = \Extensions\tiktok\Models\TikTokListing::query()->where('product_id', (int) $erp->product_id)
             ->first(['tiktok_setting_id', 'watermark_template_id', 'watermark_all_images']);
-        $paths = \App\Services\Media\ListingWatermark::paths(array_slice($paths, 0, self::MAX_IMAGES), $marking, \App\Services\Media\ListingWatermark::groupTemplateId('tiktok_product_groups', 'tiktok_product_group_products', 'tiktok_product_group_id', (int) $erp->product_id, 'tiktok_setting_id', (int) ($marking?->tiktok_setting_id ?? 0) ?: null));
+        $paths = \App\Services\Media\ListingWatermark::paths(array_slice($paths, 0, self::MAX_IMAGES), $marking, \App\Services\Media\ListingWatermark::groupTemplateId('tiktok_product_groups', 'tiktok_product_group_products', 'tiktok_product_group_id', (int) $erp->product_id, 'tiktok_setting_id', (int) ($marking?->tiktok_setting_id ?? 0) ?: null), 'tiktok', (int) ($marking?->tiktok_setting_id ?? 0));
         $imageUris = [];
         foreach (array_slice($paths, 0, self::MAX_IMAGES) as $path) {
             $uri = $uploadUri($path);

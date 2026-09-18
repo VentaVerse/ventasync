@@ -12,6 +12,9 @@ use Illuminate\Support\Facades\Schema;
  * picture only, or every picture when the listing ticks "Apply to all images
  * in a product".
  *
+ * A template belongs to a store, so the store is named on the way in and a
+ * template another store holds is never worn here.
+ *
  * Every channel calls this where it builds the pictures a push sends, and
  * each passes its own table names, so nothing here knows a channel.
  */
@@ -20,11 +23,13 @@ final class ListingWatermark
     /**
      * @param  list<string>  $paths  the pictures in the order they go up, main first
      * @param  ?object  $listing  the listing row, for its template and its "all images" tick
+     * @param  string  $integration  the channel, half of the store's name
+     * @param  int  $storeId  the store whose templates may be worn here
      * @return list<string>
      */
-    public static function paths(array $paths, ?object $listing, ?int $groupTemplateId): array
+    public static function paths(array $paths, ?object $listing, ?int $groupTemplateId, string $integration, int $storeId): array
     {
-        $template = WatermarkTemplate::resolve(((int) ($listing->watermark_template_id ?? 0)) ?: null, $groupTemplateId);
+        $template = WatermarkTemplate::resolve(((int) ($listing->watermark_template_id ?? 0)) ?: null, $groupTemplateId, $integration, $storeId);
 
         return app(StampedImages::class)->paths($paths, $template, (bool) ($listing->watermark_all_images ?? false));
     }
