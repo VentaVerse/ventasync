@@ -48,8 +48,13 @@
                  sidebar this is. With no upload the shipped mark stands in,
                  the same one the sign-in screen shows. --}}
             @php $blCompany = $appSetting->company_name ?? config('app.name', 'VentaSync'); @endphp
-            <img class="h-11 w-auto max-w-[184px] object-contain object-left"
-                 src="{{ !empty($appSetting->logo_path ?? null) ? asset('storage/' . $appSetting->logo_path) : asset('images/brand/ventasync.png') }}"
+            {{-- The sidebar's own copy, fitted to the box Settings gives it, so
+                 a large upload is not downloaded whole and scaled down here. It
+                 draws at the size that copy is: a height fixed here would
+                 decide it instead and make the box do nothing. --}}
+            @php $blLogo = \App\Services\Media\BrandImage::show($appSetting->logo_path ?? null, \App\Services\Media\BrandImage::NAV); @endphp
+            <img class="bl-brand__logo" src="{{ $blLogo['url'] }}"
+                 width="{{ $blLogo['width'] }}" height="{{ $blLogo['height'] }}"
                  alt="{{ $blCompany }}">
             <button type="button" @click="nav = false"
                     class="ml-auto text-side-ink hover:text-white lg:hidden" aria-label="Close navigation">

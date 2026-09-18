@@ -21,6 +21,7 @@ class Setting extends Model
         'logo_path',
         'favicon_path',
         'activity_log_retention_days',
+        'logo_nav_h', 'logo_login_h',
         'image_thumb_size',
         'image_preview_size',
         'image_push_size',

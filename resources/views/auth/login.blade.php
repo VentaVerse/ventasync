@@ -12,9 +12,8 @@
         $company = $appSetting->company_name
             ?? ($setting->company_name ?? null)
             ?: 'VentaSync';
-        $logo = !empty($appSetting->logo_path ?? null)
-            ? asset('storage/' . $appSetting->logo_path)
-            : asset('images/brand/ventasync.png');
+        // The sign-in screen's own copy, fitted to the box Settings gives it.
+        $logo = \App\Services\Media\BrandImage::show($appSetting->logo_path ?? null, \App\Services\Media\BrandImage::LOGIN);
         $favicon = !empty($appSetting->favicon_path ?? null)
             ? asset('storage/' . $appSetting->favicon_path)
             : asset('images/brand/ventasync-icon.png');
@@ -27,7 +26,8 @@
 <body class="bl-app">
 <div class="auth">
     <div class="auth__brand">
-        <img class="auth__logo" src="{{ $logo }}" alt="{{ $company }}">
+        <img class="auth__logo" src="{{ $logo['url'] }}"
+             width="{{ $logo['width'] }}" height="{{ $logo['height'] }}" alt="{{ $company }}">
         <p class="auth__name">{{ $company }}</p>
     </div>
 

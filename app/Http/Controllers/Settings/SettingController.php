@@ -95,9 +95,17 @@ class SettingController extends Controller
             'image_thumb_size'    => ['nullable', 'integer', 'between:' . implode(',', \App\Services\Media\ImageCache::LIMITS['thumb'])],
             'image_preview_size'  => ['nullable', 'integer', 'between:' . implode(',', \App\Services\Media\ImageCache::LIMITS['preview'])],
             'image_push_size'     => ['nullable', 'integer', 'between:' . implode(',', \App\Services\Media\ImageCache::LIMITS['push'])],
+            /* How tall the logo stands in each place. A ceiling, never a
+               stretch: the logo is fitted inside it with its shape kept, and
+               the width it may use belongs to the column, not to Settings. */
+            'logo_nav_h'          => ['nullable', 'integer', 'between:' . implode(',', \App\Services\Media\BrandImage::LIMITS['h'])],
+            'logo_login_h'        => ['nullable', 'integer', 'between:' . implode(',', \App\Services\Media\BrandImage::LIMITS['h'])],
         ]);
         // A size not on the page this save came from is left as it is.
-        foreach (['image_thumb_size', 'image_preview_size', 'image_push_size'] as $size) {
+        foreach ([
+            'image_thumb_size', 'image_preview_size', 'image_push_size',
+            'logo_nav_h', 'logo_login_h',
+        ] as $size) {
             if (! isset($data[$size])) {
                 unset($data[$size]);
             }
@@ -144,6 +152,7 @@ class SettingController extends Controller
 
         MailConfigServiceProvider::flushCache();
         \App\Services\Media\ImageCache::forget();
+        \App\Services\Media\BrandImage::forget();
 
         $changes = ActivityLogger::diff($original, $setting->getAttributes(), [
             'company_name', 'company_email', 'phone', 'address_line1', 'address_line2', 'city', 'state', 'postal_code', 'country',

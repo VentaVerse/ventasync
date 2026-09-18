@@ -5092,9 +5092,22 @@
         text-align: center;
     }
 
+    /* The sidebar's logo, same rule as the sign-in one: the size is on the
+       tag, this only keeps a wide mark inside the column. */
+    .bl-brand__logo {
+        max-width: 100%;
+        height: auto;
+        object-fit: contain;
+        object-position: left center;
+    }
+
+    /* The logo draws at the size its own file is, set on the tag from the box
+       in Settings. A height here would decide it instead and the box would do
+       nothing. The only rule left is the one that keeps a wide mark inside a
+       narrow panel. */
     .auth__logo {
-        height: 96px;
-        width: auto;
+        max-width: 100%;
+        height: auto;
         object-fit: contain;
     }
 

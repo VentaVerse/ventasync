@@ -74,6 +74,23 @@
                                     value="{{ old('image_' . $kind . '_size', $setting->{'image_' . $kind . '_size'} ?? \App\Services\Media\ImageCache::DEFAULTS[$kind]) }}" />
                     </x-ui.field>
                 @endforeach
+
+                {{-- The logo is fitted inside its box with its shape kept, so
+                     only the tighter of the two numbers can bind. The height is
+                     the one worth choosing; the width a mark may use is the room
+                     its column has. --}}
+                @foreach([
+                    \App\Services\Media\BrandImage::NAV => 'Sidebar logo height (px)',
+                    \App\Services\Media\BrandImage::LOGIN => 'Sign-in logo height (px)',
+                ] as $place => $label)
+                    <x-ui.field :label="$label" for="st-logo-{{ $place }}-h" name="logo_{{ $place }}_h">
+                        <x-ui.input type="number" id="st-logo-{{ $place }}-h" name="logo_{{ $place }}_h"
+                                    min="{{ \App\Services\Media\BrandImage::LIMITS['h'][0] }}"
+                                    max="{{ \App\Services\Media\BrandImage::LIMITS['h'][1] }}"
+                                    class="fm-input--num" :readonly="$ro"
+                                    value="{{ old('logo_' . $place . '_h', \App\Services\Media\BrandImage::height($place)) }}" />
+                    </x-ui.field>
+                @endforeach
             </div>
         </section>
 
