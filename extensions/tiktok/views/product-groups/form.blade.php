@@ -118,35 +118,22 @@
                 </div>
 
                 <div class="fm-fields">
-                    <x-ui.field label="TikTok category" for="pg-category" name="tiktok_category_id" :required="true" wide
-                                hint="Only leaf categories are listed. TikTok Shop accepts nothing else when it creates a product.">
-                        <div class="gf-combo"
-                             data-category-combo
-                             data-combo-mode="local"
-                             @if($canManageTiktok) data-combo-refresh-url="{{ route('ext.tiktok.categories.sync') }}" @endif>
-                            <div class="gf-combo__field">
-                                <input type="hidden" name="tiktok_category_id" data-combo-value value="{{ $selectedCategoryId }}">
-                                <x-ui.input id="pg-category" type="search" autocomplete="off"
-                                            data-combo-input
-                                            value="{{ $selectedCategory
-                                                ? $selectedCategory->name . ' (' . $selectedCategory->id . ')'
-                                                : '' }}"
-                                            placeholder="Type to search TikTok categories"
-                                            :disabled="!$canManageTiktok" />
-                                <div class="gf-combo__results" data-combo-results role="listbox"
-                                     aria-label="TikTok leaf categories" hidden></div>
-                            </div>
-                            @if($canManageTiktok)
-                                <x-ui.button type="button" size="sm" data-combo-refresh>Refresh</x-ui.button>
-                            @endif
-
-                            {{-- Data only, no behaviour. JSON_HEX_TAG means a
-                                 category named "</script>" cannot close this
-                                 element, and the picker reads every name into
-                                 textContent. --}}
-                            <script type="application/json" data-combo-options>{!! json_encode($categoryOptions, $jsonFlags) !!}</script>
-                        </div>
-                    </x-ui.field>
+                    @include('partials.category-tree-pick', [
+                        'name' => 'tiktok_category_id',
+                        'id' => 'pg-category',
+                        'label' => 'TikTok category',
+                        'value' => (int) $selectedCategoryId,
+                        'valueLabel' => '',
+                        'channel' => 'tiktok',
+                        'storeId' => 0,
+                        'searchUrl' => null,
+                        'childrenUrl' => route('ext.tiktok.products.category_children'),
+                        'pathUrl' => route('ext.tiktok.products.category_path'),
+                        'refreshUrl' => $canManageTiktok ? route('ext.tiktok.categories.sync') : null,
+                        'canManage' => $canManageTiktok,
+                        'required' => true,
+                        'requiredWord' => 'Pick a TikTok category from the list.',
+                    ])
                 </div>
             </section>
 

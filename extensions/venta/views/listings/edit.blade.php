@@ -188,14 +188,20 @@
                 <section class="fm-section">
                     <div class="fm-section__head"><h2 class="fm-section__title">Category on {{ $storeName }}</h2></div>
                     <div class="fm-fields">
-                        <x-ui.field label="Category" for="vl-category" name="venta_category_id">
-                            <select id="vl-category" name="venta_category_id" class="x-input" @disabled(!$canManage)>
-                                <option value="0" @selected((int) old('venta_category_id', $shownCategoryId) === 0)>None</option>
-                                @foreach($storeCategories as $category)
-                                    <option value="{{ $category->venta_category_id }}" @selected((int) old('venta_category_id', $shownCategoryId) === (int) $category->venta_category_id)>{{ $category->name }}</option>
-                                @endforeach
-                            </select>
-                        </x-ui.field>
+                        @include('partials.category-tree-pick', [
+                            'name' => 'venta_category_id',
+                            'id' => 'vl-category',
+                            'label' => 'Category',
+                            'value' => (int) old('venta_category_id', $shownCategoryId),
+                            'valueLabel' => '',
+                            'channel' => 'venta',
+                            'storeId' => $setting->id,
+                            'searchUrl' => null,
+                            'childrenUrl' => route('ext.venta.listings.category_children', ['store' => $setting->id]),
+                            'pathUrl' => route('ext.venta.listings.category_path', ['store' => $setting->id]),
+                            'canManage' => $canManage,
+                            'required' => false,
+                        ])
                     </div>
                 </section>
 

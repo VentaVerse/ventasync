@@ -255,6 +255,8 @@
                             'label' => 'Shopee category',
                             'value' => $selectedCategoryId,
                             'valueLabel' => '',
+                            'channel' => 'shopee',
+                            'storeId' => 0,
                             'searchUrl' => route('ext.shopee.products.searchCategories'),
                             'childrenUrl' => route('ext.shopee.products.category_children'),
                             'pathUrl' => route('ext.shopee.products.category_path'),

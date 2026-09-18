@@ -125,29 +125,22 @@
                 </div>
 
                 <div class="fm-fields">
-                    <x-ui.field label="Shopee category" for="pg-category" name="shopee_category_id" :required="true" wide
-                                hint="Only leaf categories are listed. Shopee accepts nothing else when it creates a product.">
-                        <div class="gf-combo"
-                             data-category-combo
-                             data-combo-mode="remote"
-                             data-combo-search-url="{{ route('ext.shopee.product-groups.searchCategories') }}"
-                             data-combo-lookup-url="{{ route('ext.shopee.product-groups.categoryLookup') }}"
-                             @if($canManageShopee) data-combo-refresh-url="{{ route('ext.shopee.product-groups.refreshCategories') }}" @endif>
-                            <div class="gf-combo__field">
-                                <input type="hidden" id="pg-category-value" name="shopee_category_id" data-combo-value
-                                       value="{{ $selectedCategoryId > 0 ? $selectedCategoryId : '' }}">
-                                <x-ui.input id="pg-category" type="search" autocomplete="off"
-                                            data-combo-input
-                                            placeholder="Type to search Shopee categories"
-                                            :disabled="!$canManageShopee" />
-                                <div class="gf-combo__results" data-combo-results role="listbox"
-                                     aria-label="Shopee leaf categories" hidden></div>
-                            </div>
-                            @if($canManageShopee)
-                                <x-ui.button type="button" size="sm" data-combo-refresh>Refresh</x-ui.button>
-                            @endif
-                        </div>
-                    </x-ui.field>
+                    @include('partials.category-tree-pick', [
+                        'name' => 'shopee_category_id',
+                        'id' => 'pg-category',
+                        'label' => 'Shopee category',
+                        'value' => $selectedCategoryId,
+                        'valueLabel' => '',
+                        'channel' => 'shopee',
+                        'storeId' => 0,
+                        'searchUrl' => route('ext.shopee.product-groups.searchCategories'),
+                        'childrenUrl' => route('ext.shopee.products.category_children'),
+                        'pathUrl' => route('ext.shopee.products.category_path'),
+                        'refreshUrl' => $canManageShopee ? route('ext.shopee.product-groups.refreshCategories') : null,
+                        'canManage' => $canManageShopee,
+                        'required' => true,
+                        'requiredWord' => 'Pick a Shopee category from the list.',
+                    ])
 
                     <x-ui.field label="Shopee brand" for="pg-brand" name="shopee_brand_id" wide>
                         @php

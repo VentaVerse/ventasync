@@ -1,8 +1,8 @@
-/* THE CATEGORY PICKER: SEARCH, AND THE TREE BEHIND IT.
+/* THE CATEGORY PICKER.
 
-   The field keeps the anatomy of every other field on the page, so nothing
-   here is a surface of its own: no tint, no shadow, no oversized control.
-   The tree is a plain bordered pane like the table beside it. */
+   The field wears the page's own field anatomy, so it reads as a field that
+   happens to open something, not as a surface of its own. The picker borrows
+   the house picker shell (.fm-pick) the image library already uses. */
 
 .ctp {
     display: flex;
@@ -10,96 +10,90 @@
     gap: var(--bl-space-2);
 }
 
-.ctp__bar {
+/* The field: the whole path, and a pencil saying it can be changed. */
+.ctp__field {
     display: flex;
     align-items: center;
-    gap: var(--bl-space-2);
-}
-
-.ctp__search {
-    position: relative;
-    flex: 1;
-    min-width: 0;
-}
-
-.ctp__glass {
-    position: absolute;
-    top: 50%;
-    left: 11px;
-    transform: translateY(-50%);
-    color: var(--bl-ink-3);
-    pointer-events: none;
-}
-
-.ctp__search .x-input {
-    padding-left: 32px;
-}
-
-.ctp__browse {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    flex: none;
+    gap: var(--bl-space-3);
+    width: 100%;
     min-height: var(--bl-control-h);
-    padding: 0 13px;
-    border: 1px solid var(--bl-rule-2);
+    padding: 0 10px;
+    border: 1px solid var(--bl-field-edge);
     border-radius: var(--bl-r-ctrl);
     background: var(--bl-sheet);
-    color: var(--bl-ink-2);
-    font-size: 13px;
-    font-weight: 560;
-    cursor: pointer;
-    transition: background var(--bl-motion-fast), color var(--bl-motion-fast);
-}
-
-.ctp__browse:hover:not(:disabled) {
-    background: var(--bl-chrome);
     color: var(--bl-ink);
+    font: inherit;
+    font-size: 13.5px;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color var(--bl-motion-fast), background var(--bl-motion-fast);
 }
 
-.ctp__browse:disabled {
-    opacity: .55;
+.ctp__field:hover:not(:disabled) {
+    border-color: var(--bl-brand-deep);
+}
+
+.ctp__field:disabled {
+    background: var(--bl-chrome);
+    color: var(--bl-ink-3);
     cursor: default;
 }
 
-.ctp__browse:focus-visible {
+.ctp__field:focus-visible {
     outline: 2px solid var(--bl-brand);
     outline-offset: 1px;
 }
 
-/* The chosen path, in words, under the field. */
-.ctp__path {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 7px;
-    margin: 0;
-    font-size: 13px;
+.ctp__field-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ctp__field-text--none {
     color: var(--bl-ink-3);
 }
 
-.ctp__sep {
-    color: var(--bl-rule-2);
+.ctp__pencil {
+    flex: none;
+    color: var(--bl-ink-3);
 }
 
-.ctp__part--last {
-    font-weight: 600;
-    color: var(--bl-ink);
+.ctp__field:hover:not(:disabled) .ctp__pencil {
+    color: var(--bl-ink-2);
 }
 
-/* The tree: one column per level, the two innermost open, everything
-   behind them folded to a spine so depth costs no width. */
-.ctp__tree {
-    border: 1px solid var(--bl-rule-2);
-    border-radius: var(--bl-r-ctrl);
+.ctp__say {
+    margin: 0;
+    font-size: 13px;
+    color: var(--bl-bad);
+}
+
+/* Inside the picker. */
+.ctp__search {
+    max-width: 320px;
+}
+
+.ctp__picked {
+    font-size: 13px;
+    font-weight: 560;
+    color: var(--bl-ink-2);
     overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
+/* A column per level, all of them open. Depth scrolls sideways rather than
+   folding: a level that hides itself gives no sign it is there. */
 .ctp__cols {
     display: flex;
     align-items: stretch;
-    min-height: 232px;
-    max-height: 340px;
+    min-height: 320px;
+    max-height: 52vh;
+    border: 1px solid var(--bl-rule-2);
+    border-radius: var(--bl-r-ctrl);
     overflow-x: auto;
     scrollbar-width: thin;
 }
@@ -107,7 +101,8 @@
 .ctp__col {
     display: flex;
     flex-direction: column;
-    flex: 1 1 0;
+    flex: none;
+    width: 244px;
     min-width: 0;
     border-right: 1px solid var(--bl-rule);
 }
@@ -192,72 +187,22 @@
     color: var(--bl-ink-3);
 }
 
-/* A level behind the two open ones: its chosen name, turned on its side,
-   and a press reopens it. */
-.ctp__spine {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    flex: none;
-    width: 42px;
-    padding: 11px 0;
-    border: 0;
-    border-right: 1px solid var(--bl-rule);
-    background: var(--bl-chrome);
-    color: var(--bl-ink-2);
-    font: inherit;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background var(--bl-motion-fast), color var(--bl-motion-fast);
-}
-
-.ctp__spine:hover {
-    background: var(--bl-chrome-2);
-    color: var(--bl-ink);
-}
-
-.ctp__spine:focus-visible {
-    outline: 2px solid var(--bl-brand);
-    outline-offset: -2px;
-}
-
-.ctp__spine-caret {
-    color: var(--bl-ink-3);
-}
-
-.ctp__spine-name {
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-height: 250px;
-}
-
-/* Search results, over the field. */
+/* Search results stand in for the columns while they are showing. */
 .ctp__results {
-    position: absolute;
-    z-index: 30;
-    top: calc(100% + 4px);
-    right: 0;
-    left: 0;
     display: flex;
     flex-direction: column;
     gap: 1px;
-    max-height: 264px;
+    min-height: 320px;
+    max-height: 52vh;
     padding: 5px;
     border: 1px solid var(--bl-rule-2);
     border-radius: var(--bl-r-ctrl);
-    background: var(--bl-sheet);
-    box-shadow: var(--bl-lift);
     overflow-y: auto;
 }
 
 .ctp__result {
-    min-height: 32px;
-    padding: 7px 10px;
+    min-height: 34px;
+    padding: 8px 10px;
     border: 0;
     border-radius: 9px;
     background: transparent;
@@ -278,38 +223,24 @@
     cursor: default;
 }
 
-.ctp__say {
-    margin: 0;
-    font-size: 13px;
-    color: var(--bl-bad);
-}
-
-/* Narrow: one column at a time carries the whole width, and the spines keep
-   the way back, so the tree never pushes the form sideways. */
 @media (max-width: 700px) {
-    .ctp__bar {
-        flex-wrap: wrap;
-    }
-
-    .ctp__search {
-        flex: 1 1 100%;
-    }
-
     .ctp__col {
-        flex: 0 0 auto;
-        min-width: 208px;
+        width: 208px;
     }
 
     .ctp__row,
     .ctp__result {
         min-height: 40px;
     }
+
+    .ctp__search {
+        max-width: none;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
     .ctp__row,
-    .ctp__browse,
-    .ctp__spine {
+    .ctp__field {
         transition: none;
     }
 }

@@ -136,43 +136,20 @@
                 </div>
 
                 <div class="fm-fields">
-                    <x-ui.field label="Lazada category" for="pg-category-input" name="lazada_category_id" wide
-                                hint="Pick it before filling the attributes below. Changing it reloads them.">
-                        {{-- The shared searchable combobox (local mode), the
-                             same control the Shopee and TikTok product group forms
-                             carry. #pg-category stays the HIDDEN value
-                             input: the attributes panel listens for change
-                             on that id and reads its value, exactly as it
-                             read the old select. --}}
-                        @php
-                            $lzSelectedCategory = $selectedCategoryId !== ''
-                                ? ($lazadaCategories ?? collect())->firstWhere('category_id', (int) $selectedCategoryId)
-                                : null;
-                            $lzCategoryOptions = ($lazadaCategories ?? collect())->map(fn ($c) => [
-                                'id'   => (string) $c->category_id,
-                                'name' => (string) $c->name,
-                            ])->values();
-                        @endphp
-                        <div class="gf-combo" data-category-combo data-combo-mode="local"
-                             @if($canManageLazada) data-combo-refresh-url="{{ route('ext.lazada.product-groups.refreshCategories') }}" @endif>
-                            <div class="gf-combo__field">
-                                <input type="hidden" id="pg-category" name="lazada_category_id" data-combo-value
-                                       value="{{ $selectedCategoryId }}">
-                                <x-ui.input id="pg-category-input" type="search" autocomplete="off"
-                                            data-combo-input
-                                            value="{{ $lzSelectedCategory
-                                                ? $lzSelectedCategory->name . ' (' . $lzSelectedCategory->category_id . ')'
-                                                : '' }}"
-                                            placeholder="Type to search Lazada categories"
-                                            :disabled="!$canManageLazada" />
-                                <div class="gf-combo__results" data-combo-results role="listbox"
-                                     aria-label="Lazada categories" hidden></div>
-                            </div>
-                            @if($canManageLazada)
-                                <x-ui.button type="button" size="sm" data-combo-refresh>Refresh</x-ui.button>
-                            @endif
-                        </div>
-                    </x-ui.field>
+                    @include('partials.category-tree-pick', [
+                        'name' => 'lazada_category_id',
+                        'id' => 'pg-category-input',
+                        'label' => 'Lazada category',
+                        'value' => (int) ($selectedCategoryId ?? 0),
+                        'valueLabel' => '',
+                        'channel' => 'lazada',
+                        'storeId' => 0,
+                        'searchUrl' => null,
+                        'childrenUrl' => route('ext.lazada.products.category_children'),
+                        'pathUrl' => route('ext.lazada.products.category_path'),
+                        'canManage' => $canManageLazada ?? true,
+                        'required' => false,
+                    ])
 
                     <x-ui.field label="Brand" for="pg-brand" name="brand_id" wide
                                 hint="Start typing and pick a match, or say there is no brand. Lazada rejects a name it does not know.">

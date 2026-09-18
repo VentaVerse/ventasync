@@ -113,17 +113,20 @@
                     <p class="fm-section__note">No categories on file for {{ $storeName }} yet. Fetch them on the store's Settings page first; products pushed without one go up under the catalogue's own category names.</p>
                 @endif
                 <div class="fm-fields">
-                    <x-ui.field label="Category" for="pg-category" name="venta_category_id" wide>
-                        <div class="x-select-wrap">
-                            <select id="pg-category" name="venta_category_id" class="x-input" @disabled(!$canManageVenta)>
-                                <option value="">None (the catalogue's own category names)</option>
-                                @foreach($categoryOptions as $opt)
-                                    <option value="{{ $opt['id'] }}" @selected((int) old('venta_category_id', $group->venta_category_id ?? 0) === $opt['id'])>{{ $opt['label'] }}</option>
-                                @endforeach
-                            </select>
-                            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-                        </div>
-                    </x-ui.field>
+                    @include('partials.category-tree-pick', [
+                        'name' => 'venta_category_id',
+                        'id' => 'pg-category',
+                        'label' => 'Category',
+                        'value' => (int) old('venta_category_id', $group->venta_category_id ?? 0),
+                        'valueLabel' => '',
+                        'channel' => 'venta',
+                        'storeId' => $setting->id,
+                        'searchUrl' => null,
+                        'childrenUrl' => route('ext.venta.listings.category_children', ['store' => $setting->id]),
+                        'pathUrl' => route('ext.venta.listings.category_path', ['store' => $setting->id]),
+                        'canManage' => $canManageVenta,
+                        'required' => false,
+                    ])
                 </div>
             </section>
         </div>

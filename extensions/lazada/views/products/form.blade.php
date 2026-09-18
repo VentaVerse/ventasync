@@ -353,37 +353,21 @@
                     </div>
 
                     <div class="fm-fields">
-                        <x-ui.field label="Lazada category" for="lz-category" name="primary_category_id" :required="true" wide
-                                    hint="{{ $mode === 'create' ? 'Pick the category; its attributes are filled in on the edit screen.' : 'Pick the category and its attributes appear below.' }}">
-                            {{-- The shared searchable combobox instead of a
-                                 5,000-option select (the owner, 2026-08-24).
-                                 Local mode: the page already carries the
-                                 cached category list. --}}
-                            @php
-                                $lzSelectedCategoryId = (string) old('primary_category_id', $effectiveCategoryId ?? $listing->primary_category_id);
-                                $lzSelectedCategory = $lzSelectedCategoryId !== ''
-                                    ? ($categories ?? collect())->firstWhere('category_id', (int) $lzSelectedCategoryId)
-                                    : null;
-                                $lzCategoryOptions = ($categories ?? collect())->map(fn ($c) => [
-                                    'id'   => (string) $c->category_id,
-                                    'name' => (string) $c->name,
-                                ])->values();
-                            @endphp
-                            <div class="gf-combo" data-category-combo data-combo-required="Pick a Lazada category from the list." data-combo-mode="local">
-                                <div class="gf-combo__field">
-                                    <input type="hidden" name="primary_category_id" data-combo-value
-                                           value="{{ $lzSelectedCategoryId }}">
-                                    <x-ui.input id="lz-category" type="search" autocomplete="off"
-                                                data-combo-input
-                                                value="{{ $lzSelectedCategory
-                                                    ? $lzSelectedCategory->name . ' (' . $lzSelectedCategory->category_id . ')'
-                                                    : '' }}"
-                                                placeholder="Type to search Lazada categories" />
-                                    <div class="gf-combo__results" data-combo-results role="listbox"
-                                         aria-label="Lazada categories" hidden></div>
-                                </div>
-                                <script type="application/json" data-combo-options>{!! json_encode($lzCategoryOptions, $jsonFlags) !!}</script>
-                            </div>
+                        @include('partials.category-tree-pick', [
+                            'name' => 'primary_category_id',
+                            'id' => 'lz-category',
+                            'label' => 'Lazada category',
+                            'value' => (int) old('primary_category_id', $effectiveCategoryId ?? $listing->primary_category_id),
+                            'valueLabel' => '',
+                            'channel' => 'lazada',
+                            'storeId' => 0,
+                            'searchUrl' => null,
+                            'childrenUrl' => route('ext.lazada.products.category_children'),
+                            'pathUrl' => route('ext.lazada.products.category_path'),
+                            'canManage' => true,
+                            'required' => true,
+                            'requiredWord' => 'Pick a Lazada category from the list.',
+                        ])
                             @if($mode === 'edit')
                                 {{-- The template read lives beside the category it
                                      belongs to (the owner, 2026-09-06: it had drifted to
@@ -395,7 +379,6 @@
                                     <x-ui.button type="button" size="sm" data-attributes-reread :disabled="empty($listing->primary_category_id)">Re-read the template</x-ui.button>
                                 </div>
                             @endif
-                        </x-ui.field>
 
                         <x-ui.field label="Brand" for="lz-brand" name="brand_id" :required="true" wide
                                     hint="Start typing and pick a match, or say there is no brand. Lazada rejects a name it does not know.">

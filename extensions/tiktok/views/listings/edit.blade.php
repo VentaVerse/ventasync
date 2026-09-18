@@ -185,6 +185,8 @@
                             'label' => 'TikTok category',
                             'value' => (int) old('tiktok_category_id', $shown->tiktok_category_id ?? 0),
                             'valueLabel' => $category ? $category->name : '',
+                            'channel' => 'tiktok',
+                            'storeId' => 0,
                             'searchUrl' => route('ext.tiktok.products.searchCategories'),
                             'childrenUrl' => route('ext.tiktok.products.category_children'),
                             'pathUrl' => route('ext.tiktok.products.category_path'),
