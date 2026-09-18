@@ -1,5 +1,6 @@
-@extends('layouts.blotter')
+@extends('layouts.channel')
 @section('title', ($mode === 'create' ? 'New' : 'Edit') . ' watermark template')
+@section('breadcrumb', $mode === 'create' ? 'New template' : $template->name)
 
 {{-- The page shows its own summary and marks the offending fields inline. --}}
 @section('own-errors', true)

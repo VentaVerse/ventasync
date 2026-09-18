@@ -1,5 +1,6 @@
-@extends('layouts.blotter')
+@extends('layouts.channel')
 @section('title', $channelName . ' Watermarks')
+@section('breadcrumb', 'Watermarks')
 
 @section('content')
 <div class="x-list-head">
