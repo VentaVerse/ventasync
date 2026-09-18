@@ -113,6 +113,30 @@ class WatermarkTemplate extends Model
      */
     public const MAX_TRANSPARENCY = 90;
 
+    /**
+     * What this mark would draw, as a short name.
+     *
+     * Everything that changes the marked picture is in it: which file, where
+     * it sits, how big, how strong, and when that file last changed. A cached
+     * marked copy carries this in its name, so editing a template does not
+     * spoil anything: the next draw simply asks for a name nothing has
+     * written yet, and the copies nobody wants any more are ordinary orphans.
+     */
+    public function fingerprint(): string
+    {
+        $mark = $this->markPath();
+
+        return substr(sha1(implode('|', [
+            (string) $this->image_path,
+            (string) $this->position,
+            (string) $this->size_percent,
+            (string) $this->offset_x_percent,
+            (string) $this->offset_y_percent,
+            (string) $this->opacity,
+            is_file($mark) ? (string) filemtime($mark) : '0',
+        ])), 0, 8);
+    }
+
     /** The mark as a URL, for a preview. */
     public function markUrl(): string
     {

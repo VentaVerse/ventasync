@@ -297,6 +297,27 @@
         </tr>
     </x-slot:head>
 
+    @php
+
+        /* The mark each row wears, resolved for the whole page at once:
+
+           a row shows its picture as it goes up, so nobody is quietly
+
+           unaware that a watermark is on. */
+
+        $marks = new \App\Integrations\Listings\ListingMarks(
+
+            'shopee', \App\Integrations\Listings\ListingStore::id('shopee'),
+
+            $products->pluck('product_id')->map(fn ($v) => (int) $v)->all(),
+
+            'shopee_listings', 'shopee_setting_id', 'shopee_product_groups', 'shopee_product_group_products', 'shopee_product_group_id', 'shopee_setting_id'
+
+        );
+
+    @endphp
+
+
     @foreach($products as $p)
         @php
             $links = $shopeeLinks->get($p->product_id, collect());
@@ -306,7 +327,7 @@
             $variationCount = $optRows ? count($optRows) : 0;
 
             $img = trim((string) ($p->image ?? ''));
-            $thumbSrc = $img !== '' ? \App\Services\Media\ImageCache::url($img) : '';
+            $thumbSrc = $marks->thumb((int) $p->product_id, $img) ?? '';
 
             $syncFailed = $link && !is_null($link->last_sync_ok) && !$link->last_sync_ok;
             $pName = (string) ($rowTitles[(int) $p->product_id] ?? $p->name);

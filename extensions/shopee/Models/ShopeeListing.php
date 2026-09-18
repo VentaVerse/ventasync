@@ -16,7 +16,8 @@ class ShopeeListing extends Model
     protected $table = 'shopee_listings';
 
     protected $fillable = [
-        'shopee_setting_id',
+                'image_off', 'video_path', 'video_off',
+'shopee_setting_id',
         'description_prefix_id', 'description_suffix_id', 'watermark_template_id', 'watermark_all_images',
         'product_id',
         'shopee_category_id', 'shopee_brand_id', 'logistic_ids',
@@ -32,7 +33,7 @@ class ShopeeListing extends Model
         'watermark_all_images' => 'boolean',
         'logistic_ids' => 'array',
         'attribute_values' => 'array',
-        'image_order' => 'array',
+        'image_order' => 'array', 'image_off' => 'array',
         'last_push_settings' => 'array',
         'last_pushed_at' => 'datetime',
         'last_checked_at' => 'datetime',

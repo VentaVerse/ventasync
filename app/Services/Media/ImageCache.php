@@ -4,6 +4,7 @@ namespace App\Services\Media;
 
 use App\Models\Setting;
 use Illuminate\Support\Facades\Schema;
+use App\Models\WatermarkTemplate;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -178,13 +179,78 @@ final class ImageCache
         return $absolute;
     }
 
-    /** Where the copy of this picture at this size lives. */
-    public static function target(string $source, int $side): string
+    /**
+     * Where the copy of this picture at this size lives, marked when a mark
+     * is named.
+     *
+     * The mark is part of the name, never a folder of its own: one flat cache
+     * mirroring the library, the way the size already reads. A template that
+     * is edited answers to a new name, so nothing is ever invalidated and the
+     * copies nobody wants become ordinary orphans.
+     */
+    public static function target(string $source, int $side, string $mark = ''): string
     {
         $info = pathinfo($source);
         $dir = ($info['dirname'] ?? '.') === '.' ? '' : $info['dirname'] . '/';
+        $stamp = $mark === '' ? '' : '-w' . $mark;
 
-        return self::DIR . '/' . $dir . $info['filename'] . '-' . $side . 'x' . $side . '.jpg';
+        return self::DIR . '/' . $dir . $info['filename'] . '-' . $side . 'x' . $side . $stamp . '.jpg';
+    }
+
+    /**
+     * The marked copy of this picture, made now when it does not exist or is
+     * older than the picture. Null when it cannot be made, which is never a
+     * reason to fail: the caller shows the plain copy instead.
+     */
+    public static function marked(string $path, WatermarkTemplate $template, string $kind = self::THUMB): ?string
+    {
+        $source = self::safe($path);
+        if ($source === null || str_starts_with($source, self::DIR . '/')) {
+            return null;
+        }
+
+        $disk = Storage::disk('public');
+        if (! $disk->exists($source)) {
+            return null;
+        }
+
+        $side = self::side($kind);
+        $target = self::target($source, $side, $template->fingerprint());
+        if (self::fresh($target, $source)) {
+            return $target;
+        }
+
+        // The mark goes on the sized copy, so a mark is measured against what goes up.
+        $plain = self::path($source, $kind);
+        if ($plain === null) {
+            return null;
+        }
+
+        $bytes = $template->stamp($disk->path($plain));
+        if ($bytes === null) {
+            return null;
+        }
+        $bytes = self::compressed($bytes, self::PUSH_MAX_BYTES);
+        if ($bytes === null) {
+            return null;
+        }
+        $disk->put($target, $bytes);
+
+        return $target;
+    }
+
+    /** The marked copy's URL, or the plain one when it cannot be marked. */
+    public static function markedUrl(?string $path, ?WatermarkTemplate $template, string $kind = self::THUMB): ?string
+    {
+        $path = trim((string) $path);
+        if ($path === '') {
+            return null;
+        }
+        if ($template !== null && ($marked = self::marked($path, $template, $kind)) !== null) {
+            return self::publicUrl($marked);
+        }
+
+        return self::url($path, $kind);
     }
 
     /** A copy exists and was made after the picture it copies last changed. */

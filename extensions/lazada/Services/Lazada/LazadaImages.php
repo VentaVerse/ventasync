@@ -237,7 +237,7 @@ class LazadaImages
     public function getProductImageUrls(int $productId, ?object $productRow, ?array $own = null, ?object $listing = null): array
     {
         $paths = \App\Services\Media\ListingWatermark::paths(
-            array_slice(\App\Support\Catalog\ProductImages::paths($productId, $own), 0, self::MAX_IMAGES),
+            \App\Integrations\Listings\ListingImages::sending(\App\Support\Catalog\ProductImages::paths($productId, $own), $listing),
             $listing,
             \App\Services\Media\ListingWatermark::groupTemplateId('lazada_product_groups', 'lazada_product_group_products', 'lazada_product_group_id', $productId, 'lazada_setting_id', (int) ($listing?->lazada_setting_id ?? 0) ?: null),
             'lazada',
@@ -253,14 +253,10 @@ class LazadaImages
             }
         }
 
-        // Lazada takes at most eight images on a product (its seller guide);
-        // the first eight go, main image first, and the push is never refused
-        // for the rest (the owner, 2026-09-05).
-        return array_slice($images, 0, self::MAX_IMAGES);
+        /* Every picture that is on goes up. How many Lazada takes is
+           Lazada's to say, and it says so on the push. */
+        return $images;
     }
-
-    /** How many images Lazada accepts on a product. */
-    public const MAX_IMAGES = 8;
 
     /**
      * Lazada requires "inlink" images for product create/update.

@@ -41,7 +41,6 @@ class ProductVideoController extends Controller
                 'url' => \App\Services\Media\ImageCache::publicUrl($stored['path']),
                 'size' => ProductVideoFile::megabytes($stored['bytes']),
                 'length' => $stored['duration_ms'] !== null ? ProductVideoFile::seconds($stored['duration_ms'] / 1000) : null,
-                'refusals' => ProductVideoFile::refusals($stored['bytes'], $stored['duration_ms']),
             ],
         ]);
     }

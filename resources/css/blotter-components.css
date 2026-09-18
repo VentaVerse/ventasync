@@ -645,6 +645,19 @@
         gap: 8px;
     }
 
+    /* What the store said about this section's own thing, beside its heading
+       rather than at the top of the page: a refusal about pictures belongs
+       where the pictures are turned off, and one about a video beside the
+       video. */
+    .fm-section__bad {
+        flex: 1;
+        min-width: 0;
+        margin: 0;
+        font-size: 13px;
+        font-weight: 560;
+        color: var(--bl-bad);
+    }
+
     /* The side rail's panels. A ruled sheet, not a raised slab: this world
        has no shadows, so a panel is told apart by its hairline and its
        ground. */

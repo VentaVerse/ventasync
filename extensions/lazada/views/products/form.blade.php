@@ -465,9 +465,16 @@
                 @if($mode === 'edit')
                     @include('partials.channel-images-card', [
                         'anchor' => 'lz-images', 'storeName' => 'Lazada', 'tiles' => $tiles, 'catalogTiles' => $catalogTiles,
-                        'limit' => \Extensions\lazada\Services\Lazada\LazadaImages::MAX_IMAGES, 'fetchesOverWeb' => false,
+                        'fetchesOverWeb' => false,
                         'editable' => true, 'canManage' => true, 'browseUrl' => $browseUrl,
                     ])
+
+                    @include('partials.channel-video-card', [
+                        'anchor' => 'lz-video', 'storeName' => 'Lazada',
+                        'productId' => (int) $listing->product_id,
+                        'uploadUrl' => route('products.video.upload'),
+                        'canManage' => true,
+                    ] + \App\Integrations\Listings\ListingVideo::cardData((int) $listing->product_id, $listing ?? null))
 
                     @include('partials.listing-variations-card', [
                         'title' => 'Variations on Lazada', 'storeName' => 'Lazada', 'canManage' => true,

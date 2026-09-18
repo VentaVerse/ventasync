@@ -228,7 +228,15 @@ class ShopeeListingStateTest extends TestCase
         $this->assertNull(app(ShopeeListingStates::class)->errors([$pid])[$pid]);
     }
 
-    public function test_a_push_sends_at_most_nine_images_main_first(): void
+    /**
+     * EVERY PICTURE THAT IS ON GOES UP, MAIN FIRST.
+     *
+     * How many Shopee takes is Shopee's to say and it changes without telling
+     * anyone, so nothing here counts against a number of ours. Shopee refuses
+     * a set it thinks is too long, and the seller answers by holding some
+     * back, which is what `image_off` is for.
+     */
+    public function test_a_push_sends_every_picture_that_is_on_main_first(): void
     {
         $pid = $this->product('MANY', 'catalog/main.png');
         $pfx = (string) config('catalog.prefix');
@@ -236,12 +244,25 @@ class ShopeeListingStateTest extends TestCase
             \Illuminate\Support\Facades\DB::table($pfx . 'product_image')->insert(['product_id' => $pid, 'image' => "catalog/g{$i}.png", 'sort_order' => $i]);
         }
         $product = \Illuminate\Support\Facades\DB::table($pfx . 'product')->where('product_id', $pid)->first();
+        $create = app(\Extensions\shopee\Services\Shopee\ShopeeItemCreate::class);
 
-        $paths = app(\Extensions\shopee\Services\Shopee\ShopeeItemCreate::class)->catalogImagePaths($product);
+        $paths = $create->catalogImagePaths($product);
 
-        $this->assertCount(9, $paths, 'Shopee refuses more than nine');
+        $this->assertCount(13, $paths, 'nothing is trimmed on a store\'s behalf');
         $this->assertSame('catalog/main.png', $paths[0], 'the main image leads');
-        $this->assertSame('catalog/g8.png', $paths[8]);
+
+        // Held back is not removed: the picture keeps its place and stops going up.
+        $listing = ShopeeListing::query()->create([
+            'product_id' => $pid,
+            'image_off' => ['catalog/g2.png', 'catalog/g5.png'],
+        ]);
+
+        $sent = $create->catalogImagePaths($product, $listing->fresh());
+
+        $this->assertCount(11, $sent);
+        $this->assertNotContains('catalog/g2.png', $sent);
+        $this->assertNotContains('catalog/g5.png', $sent);
+        $this->assertSame('catalog/main.png', $sent[0], 'the main image still leads');
     }
 
     public function test_live_and_a_catalog_change_are_different_facts_and_both_are_told(): void

@@ -271,6 +271,27 @@
         </tr>
     </x-slot:head>
 
+    @php
+
+        /* The mark each row wears, resolved for the whole page at once:
+
+           a row shows its picture as it goes up, so nobody is quietly
+
+           unaware that a watermark is on. */
+
+        $marks = new \App\Integrations\Listings\ListingMarks(
+
+            'tiktok', \App\Integrations\Listings\ListingStore::id('tiktok'),
+
+            $products->pluck('product_id')->map(fn ($v) => (int) $v)->all(),
+
+            'tiktok_listings', 'tiktok_setting_id', 'tiktok_product_groups', 'tiktok_product_group_products', 'tiktok_product_group_id', 'tiktok_setting_id'
+
+        );
+
+    @endphp
+
+
     @foreach($products as $p)
         @php
             $pid = (int) $p->product_id;
@@ -281,7 +302,7 @@
             $pGroups = $groupsByProductId->get($pid, []);
             $optRows = $optionRowsByProductId->get($pid);
             $img = trim((string) ($p->image ?? ''));
-            $thumbSrc = $img !== '' ? \App\Services\Media\ImageCache::url($img) : '';
+            $thumbSrc = $marks->thumb((int) $p->product_id, $img) ?? '';
             /* The mirrored status for this row; the tab row says when it
                was refreshed. Never refreshed reads as exactly that, not as a guess. */
             $rowLiveStatus = null;

@@ -1135,10 +1135,7 @@ class ShopeeProductController extends Controller
             'category' => $categoryName ?: ($listing?->shopee_category_id ? '#' . $listing->shopee_category_id : null),
             'couriers' => $courierNames,
             'images' => $imageCount,
-            // Not a gap: the push goes, with the first nine (the owner, 2026-09-05).
-            'images_note' => $imageCount > \Extensions\shopee\Services\Shopee\ShopeeItemCreate::MAX_IMAGES
-                ? 'Shopee takes at most ' . \Extensions\shopee\Services\Shopee\ShopeeItemCreate::MAX_IMAGES . ', so the first ' . \Extensions\shopee\Services\Shopee\ShopeeItemCreate::MAX_IMAGES . ' go up'
-                : null,
+            'images_note' => null,
             'variations' => $variationCount,
             // The words exactly as the push will send them, templates included.
             'title' => $content['title'],
@@ -1400,11 +1397,6 @@ class ShopeeProductController extends Controller
         if ($rode['models'] !== null) {
             $flash .= '. ' . $rode['models'] . ' variations went with it.';
         }
-        // More images than Shopee takes is not an error: say what went (the owner, 2026-09-05).
-        if ($imageNote = $create->imageNote($product, $listing)) {
-            $flash .= ' ' . $imageNote;
-        }
-
         // Accepted: back to the Listings page the operator came from, search and all (the owner, 2026-09-06).
 
         return ['ok' => true, 'message' => $flash];
@@ -3057,6 +3049,7 @@ class ShopeeProductController extends Controller
          * hidden input, JSON, holding the library paths; the rules for
          * reading it are ListingImages'. */
         $imageOrder = \App\Integrations\Listings\ListingImages::submitted($productId, $data['image_order'] ?? null);
+        $imageOff = \App\Integrations\Listings\ListingImages::submittedOff($productId, $request->input('image_off'));
 
         $blank = fn ($v) => ($v === null || trim((string) $v) === '') ? null : $v;
 
@@ -3064,6 +3057,8 @@ class ShopeeProductController extends Controller
             'shopee_category_id' => $data['shopee_category_id'] ?? null,
             'description_prefix_id' => ((int) ($data['description_prefix_id'] ?? 0)) ?: null,
             ...\App\Integrations\Listings\ListingImages::submittedWatermark($request, 'shopee', \App\Integrations\Listings\ListingStore::id('shopee')),
+            ...\App\Integrations\Listings\ListingVideo::submitted($request),
+            'image_off' => $imageOff,
             'description_suffix_id' => ((int) ($data['description_suffix_id'] ?? 0)) ?: null,
             'shopee_brand_id' => ((int) ($data['shopee_brand_id'] ?? 0)) > 0 ? (int) $data['shopee_brand_id'] : null,
             'logistic_ids' => array_map('intval', $data['logistic_ids'] ?? []),

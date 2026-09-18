@@ -30,7 +30,6 @@ class ProductVideo extends Model
             'size' => ProductVideoFile::megabytes((int) $this->bytes),
             'length' => $this->duration_ms !== null ? ProductVideoFile::seconds($this->duration_ms / 1000) : null,
             'aiGenerated' => (bool) $this->ai_generated,
-            'refusals' => ProductVideoFile::refusals((int) $this->bytes, $this->duration_ms),
         ];
     }
 }

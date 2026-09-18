@@ -615,8 +615,19 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $productThumbsById = collect();
         $optionRowsByProductId = collect();
         if (!empty($pageIds)) {
-            $productThumbsById = $products->mapWithKeys(function ($r) {
-                return [(int) $r->product_id => $this->images()->toDisplayImageUrl($r->image ?? null)];
+            /* The mark each row wears, resolved for the whole page at once:
+               a row shows its picture as it goes up, so nobody is quietly
+               unaware that a watermark is on. */
+            $marks = new \App\Integrations\Listings\ListingMarks(
+                'lazada', \App\Integrations\Listings\ListingStore::id('lazada'),
+                $products->pluck('product_id')->map(fn ($v) => (int) $v)->all(),
+                'lazada_products', 'lazada_setting_id',
+                'lazada_product_groups', 'lazada_product_group_products', 'lazada_product_group_id', 'lazada_setting_id'
+            );
+            $productThumbsById = $products->mapWithKeys(function ($r) use ($marks) {
+                $marked = $marks->thumb((int) $r->product_id, $r->image ?? null);
+
+                return [(int) $r->product_id => $marked ?? $this->images()->toDisplayImageUrl($r->image ?? null)];
             });
             $optionRowsByProductId = \App\Support\VariationRows::forListing($pageIds, 'lazada', (int) (LazadaSetting::defaultStore()?->id ?? 0));
         }
@@ -2791,7 +2802,10 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             $listing->description = \App\Integrations\Listings\ListingContent::descriptionToSave($data['description'] ?? null, $listing->description, $request->input('description_edited'));
         }
         $listing->description_prefix_id = ((int) ($data['description_prefix_id'] ?? 0)) ?: null;
-        $listing->forceFill(\App\Integrations\Listings\ListingImages::submittedWatermark($request, 'lazada', \App\Integrations\Listings\ListingStore::id('lazada')));
+        $listing->forceFill(
+            \App\Integrations\Listings\ListingImages::submittedWatermark($request, 'lazada', \App\Integrations\Listings\ListingStore::id('lazada'))
+            + \App\Integrations\Listings\ListingVideo::submitted($request)
+        );
         $listing->description_suffix_id = ((int) ($data['description_suffix_id'] ?? 0)) ?: null;
         $listing->primary_category_id = $data['primary_category_id'] ?? null;
         $listing->brand_id = $data['brand_id'] ?? null;
@@ -2863,6 +2877,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                 (int) $listing->product_id,
                 $data['image_order'] ?? null
             );
+            $listing->image_off = \App\Integrations\Listings\ListingImages::submittedOff((int) $listing->product_id, $request->input('image_off'));
         }
 
         /* The discount RULE (#146): percent off with a window; the sale

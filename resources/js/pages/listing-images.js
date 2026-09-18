@@ -5,7 +5,7 @@
  * Three jobs:
  *   1. arrange - drag a tile with a pointer, or focus one, press the space
  *      bar and use the arrow keys. The order in the list IS the order the
- *      push sends, so the tiles past the channel's limit grey out as the
+ *      push sends. A tile turned off greys out; how many a store takes is
  *      arrangement changes rather than at page load only;
  *   2. drop a picture from this listing, and add one from the image
  *      library (partials/image-library-pick);
@@ -21,9 +21,9 @@
     var list = null;
     var input = null;
     var words = null;
+    var offInput = null;
     var say = null;
     var resetBtn = null;
-    var limit = 0;
     var catalog = [];
 
     function pathsNow() {
@@ -40,23 +40,6 @@
         return true;
     }
 
-    /* The same sentence the server writes (partials/channel-images-card).
-       Two copies is one copy too many, but the card must keep answering as
-       tiles move without a round trip, and the page must not flash a
-       different sentence on load - so when one changes, both change. */
-    function sentence(count) {
-        if (count === 0) {
-            return 'No pictures yet.';
-        }
-        var sent = limit > 0 ? Math.min(count, limit) : count;
-        if (limit <= 0) {
-            return count + (count === 1 ? ' image goes up.' : ' images go up.');
-        }
-        var s = sent + ' of ' + limit + (limit === 1 ? ' image goes up' : ' images go up');
-        if (sent < count) s += ', ' + (count - sent) + ' held back';
-        return s + '.';
-    }
-
     /* Every visible fact about the list is derived from its order, so one
        function answers for all of them and nothing can drift apart. */
     function refresh() {
@@ -67,17 +50,30 @@
         items.forEach(function (li, i) {
             var rank = li.querySelector('.lc-images__rank');
             if (rank) rank.textContent = String(i + 1);
-            var held = limit > 0 && i >= limit;
+            var held = li.hasAttribute('data-off');
             li.classList.toggle('lc-images__item--held', held);
-            li.setAttribute('aria-label', 'Picture ' + (i + 1) + ' of ' + items.length + (held ? ', held back' : ''));
+            li.setAttribute('aria-label', 'Picture ' + (i + 1) + ' of ' + items.length + (held ? ', off' : ''));
             // One tab stop for the list: the focused tile, or the first.
             li.setAttribute('tabindex', li === (focused || items[0]) ? '0' : '-1');
             var drop = li.querySelector('[data-images-drop]');
             if (drop) drop.setAttribute('aria-label', 'Remove picture ' + (i + 1) + ' from this listing');
         });
 
+        if (offInput) {
+            /* Off is a list of paths, the same shape the arrangement uses.
+               Empty means nothing is held back. */
+            var offNow = [];
+            items.forEach(function (li) {
+                if (li.hasAttribute('data-off')) offNow.push(li.getAttribute('data-path'));
+            });
+            var offNext = offNow.length ? JSON.stringify(offNow) : '';
+            if (offNext !== offInput.value) {
+                offInput.value = offNext;
+                offInput.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
+
         var paths = pathsNow();
-        words.textContent = sentence(items.length);
         var next = paths.length === 0 || sameAsCatalog(paths) ? '' : JSON.stringify(paths);
         if (next !== input.value) {
             input.value = next;
@@ -217,7 +213,7 @@
         var li = e.target.closest ? e.target.closest('.lc-images__item') : null;
         if (!li || li.parentNode !== list) return;
         // A press on a verb is a press, never the start of a drag.
-        if (e.target.closest('[data-images-drop]')) return;
+        if (e.target.closest('[data-images-drop]') || e.target.closest('[data-images-off]')) return;
         if (e.pointerType === 'mouse' && e.button !== 0) return;
 
         if (e.pointerType === 'mouse') {
@@ -268,7 +264,7 @@
     function onKeyDown(e) {
         var li = e.target.closest ? e.target.closest('.lc-images__item') : null;
         if (!li || li.parentNode !== list) return;
-        if (e.target.closest('[data-images-drop]')) return;
+        if (e.target.closest('[data-images-drop]') || e.target.closest('[data-images-off]')) return;
 
         var back = e.key === 'ArrowLeft' || e.key === 'ArrowUp';
         var forward = e.key === 'ArrowRight' || e.key === 'ArrowDown';
@@ -326,11 +322,59 @@
         if (grabbed === li) grabbed = null;
         li.remove();
         refresh();
-        announce('Picture removed. ' + words.textContent);
+        announce('Picture removed.');
         if (next) {
             next.setAttribute('tabindex', '0');
             next.focus();
         }
+    }
+
+    /** The eye, open or struck through. Built, never innerHTML'd from data. */
+    function eyeIcon(isOff) {
+        var ns = 'http://www.w3.org/2000/svg';
+        var svg = document.createElementNS(ns, 'svg');
+        svg.setAttribute('width', '12');
+        svg.setAttribute('height', '12');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.setAttribute('fill', 'none');
+        svg.setAttribute('stroke', 'currentColor');
+        svg.setAttribute('stroke-width', '2');
+        svg.setAttribute('stroke-linecap', 'round');
+        svg.setAttribute('stroke-linejoin', 'round');
+        svg.setAttribute('aria-hidden', 'true');
+
+        var d = document.createElementNS(ns, 'path');
+        d.setAttribute('d', isOff
+            ? 'M9.9 4.24A9 9 0 0 1 12 4c7 0 10 8 10 8a18 18 0 0 1-2.16 3.19M6.61 6.61A18 18 0 0 0 2 12s3 8 10 8a9 9 0 0 0 5.39-1.61M2 2l20 20'
+            : 'M2 12s3-8 10-8 10 8 10 8-3 8-10 8-10-8-10-8z');
+        svg.appendChild(d);
+
+        if (!isOff) {
+            var c = document.createElementNS(ns, 'circle');
+            c.setAttribute('cx', '12');
+            c.setAttribute('cy', '12');
+            c.setAttribute('r', '3');
+            svg.appendChild(c);
+        }
+
+        return svg;
+    }
+
+    /** Hold a picture back, or send it again. Off is not gone. */
+    function toggleOff(li) {
+        var isOff = li.hasAttribute('data-off');
+        if (isOff) {
+            li.removeAttribute('data-off');
+        } else {
+            li.setAttribute('data-off', '');
+        }
+        var verb = li.querySelector('[data-images-off]');
+        if (verb) {
+            verb.textContent = '';
+            verb.appendChild(eyeIcon(!isOff));
+        }
+        refresh();
+        announce(isOff ? 'Picture on.' : 'Picture off.');
     }
 
     function index(li) {
@@ -357,7 +401,7 @@
 
         var held = document.createElement('span');
         held.className = 'lc-images__held';
-        held.textContent = 'Held back';
+        held.textContent = 'Off';
         li.appendChild(held);
 
         var verbs = document.createElement('span');
@@ -372,6 +416,14 @@
             + ' stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
             + '<path d="M18 6 6 18M6 6l12 12"/></svg>';
         verbs.appendChild(drop);
+
+        var off = document.createElement('button');
+        off.type = 'button';
+        off.className = 'lc-images__verb lc-images__verb--off';
+        off.setAttribute('data-images-off', '');
+        off.setAttribute('tabindex', '-1');
+        off.appendChild(eyeIcon(false));
+        verbs.appendChild(off);
 
         li.appendChild(verbs);
 
@@ -402,11 +454,11 @@
         list = card.querySelector('[data-images-list]');
         input = card.querySelector('[data-images-input]');
         words = card.querySelector('[data-images-words]');
+        offInput = card.querySelector('[data-images-off-input]');
         say = card.querySelector('[data-images-say]');
         resetBtn = card.querySelector('[data-images-reset]');
         if (!list || !input || !words) return;
 
-        limit = parseInt(card.getAttribute('data-limit') || '0', 10) || 0;
         try {
             catalog = JSON.parse(card.getAttribute('data-catalog') || '[]') || [];
         } catch (e) {
@@ -419,6 +471,12 @@
         list.addEventListener('pointercancel', onPointerUp);
         list.addEventListener('keydown', onKeyDown);
         list.addEventListener('click', function (e) {
+            var off = e.target.closest('[data-images-off]');
+            if (off) {
+                toggleOff(off.closest('.lc-images__item'));
+
+                return;
+            }
             var drop = e.target.closest('[data-images-drop]');
             if (!drop) return;
             remove(drop.closest('.lc-images__item'));
@@ -453,7 +511,7 @@
                             if (grabbed === li) grabbed = null;
                             li.remove();
                             refresh();
-                            announce('Picture removed. ' + words.textContent);
+                            announce('Picture removed.');
                         }
                     },
                 });

@@ -81,28 +81,44 @@ class ProductVideoTest extends TestCase
         $this->assertStringStartsWith('video/' . $productId . '/', $answer['path'], 'a video never lands in catalog/, which is the picture library');
         $this->assertSame('demo clip.mp4', $answer['original_name']);
         $this->assertSame('30 seconds', $answer['length']);
-        $this->assertSame([], $answer['refusals']);
+        $this->assertArrayNotHasKey('refusals', $answer, 'no verdict is offered on a store\'s behalf');
         Storage::disk('public')->assertExists($answer['path']);
     }
 
-    public function test_a_video_the_stores_refuse_is_taken_and_named(): void
+    /**
+     * NOTHING IS MEASURED AGAINST A STORE'S LIMITS, HERE OR ANYWHERE.
+     *
+     * A marketplace changes what it takes without telling anyone, so a limit
+     * written into this application would one day refuse a video the store
+     * would have accepted, and the seller could not tell our guess from the
+     * store's answer. The video is sent and the store answers.
+     */
+    public function test_no_store_limit_is_written_into_this_application(): void
     {
         Storage::fake('public');
         $manager = $this->manager();
 
-        $short = $this->actingAs($manager)->postJson(route('products.video.upload'), [
+        $answer = $this->actingAs($manager)->postJson(route('products.video.upload'), [
             'video' => UploadedFile::fake()->createWithContent('quick.mp4', $this->mp4(6)),
             'product_id' => $this->product('VID-2'),
         ])->assertOk()->json('video');
 
-        $this->assertSame('6 seconds', $short['length']);
-        $this->assertSame(['Shopee refuses a video under 10 seconds. This one runs 6 seconds.'], $short['refusals']);
+        $this->assertSame('6 seconds', $answer['length'], 'what the file says about itself is still read');
+        $this->assertArrayNotHasKey('refusals', $answer, 'no verdict is offered on a store\'s behalf');
 
-        $long = ProductVideoFile::refusals(31000000, 75000);
-        $this->assertSame([
-            'Shopee refuses a video over 30 MB. This one is 29.6 MB.',
-            'Shopee refuses a video over 60 seconds. This one runs 1 minute 15 seconds.',
-        ], $long);
+        foreach ([
+            'app/Services/Media/ProductVideoFile.php',
+            'app/Integrations/Listings/ListingVideo.php',
+            'resources/views/partials/channel-video-card.blade.php',
+            'resources/views/catalog/products/partials/video_manager.blade.php',
+        ] as $file) {
+            $src = (string) file_get_contents(base_path($file));
+            $this->assertNotSame('', $src, "{$file} must exist for this guard to mean anything");
+            foreach (['30 MB', '100 MB', '60 seconds', '10 to 60'] as $limit) {
+                $this->assertStringNotContainsString($limit, $src,
+                    "{$file} writes down a store's limit; it will drift and refuse a video the store would take");
+            }
+        }
     }
 
     public function test_the_product_keeps_the_video_it_was_saved_with_and_lets_it_go(): void
@@ -230,6 +246,12 @@ class ProductVideoTest extends TestCase
 
         $page->assertSee('Video')
             ->assertSee('This video was made or helped by AI')
-            ->assertSee('MP4 or MOV. Every store takes 10 to 60 seconds, up to 30 MB.');
+            ->assertSee('MP4 or MOV.');
+
+        /* The catalog names no channel and no channel's limits. What a store
+           takes is that store's business, said on its own listing page. */
+        foreach (['Shopee', 'Lazada', 'TikTok', '30 MB', '10 to 60 seconds'] as $coupling) {
+            $page->assertDontSee($coupling);
+        }
     }
 }

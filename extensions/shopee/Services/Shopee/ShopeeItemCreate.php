@@ -27,7 +27,6 @@ use Illuminate\Support\Facades\Http;
 class ShopeeItemCreate
 {
     /** Shopee takes at most this many images on an item. */
-    public const MAX_IMAGES = 9;
 
     /**
      * The pictures that go up, capped at Shopee's nine (the owner, 2026-09-05:
@@ -42,34 +41,20 @@ class ShopeeItemCreate
      */
     public function catalogImagePaths(object $product, ?ShopeeListing $listing = null): array
     {
-        $paths = array_slice(
+        /* Every picture that is on goes up. How many Shopee takes is
+           Shopee's to say, and it says so on the push. */
+        $paths = \App\Integrations\Listings\ListingImages::sending(
             \App\Support\Catalog\ProductImages::paths((int) $product->product_id, $listing?->image_order),
-            0,
-            self::MAX_IMAGES
+            $listing
         );
 
         return \App\Services\Media\ListingWatermark::paths($paths, $listing, \App\Services\Media\ListingWatermark::groupTemplateId('shopee_product_groups', 'shopee_product_group_products', 'shopee_product_group_id', (int) $product->product_id, 'shopee_setting_id', (int) ($listing?->shopee_setting_id ?? 0) ?: null), 'shopee', (int) ($listing?->shopee_setting_id ?? 0));
     }
 
-    /** How many pictures this listing has, before the cap. */
+    /** How many pictures this listing has. */
     public function catalogImageCount(object $product, ?ShopeeListing $listing = null): int
     {
         return count(\App\Support\Catalog\ProductImages::paths((int) $product->product_id, $listing?->image_order));
-    }
-
-    /**
-     * The sentence a push carries when there are more pictures than Shopee
-     * takes (the owner, 2026-09-05: not an error, the push goes, but say so).
-     * Null when nothing was left behind.
-     */
-    public function imageNote(object $product, ?ShopeeListing $listing = null): ?string
-    {
-        $count = $this->catalogImageCount($product, $listing);
-        if ($count <= self::MAX_IMAGES) {
-            return null;
-        }
-
-        return 'Shopee takes at most ' . self::MAX_IMAGES . ' images, so the first ' . self::MAX_IMAGES . ' of its ' . $count . ' went up.';
     }
 
     public function resolveLocalImagePath(string $path): ?string

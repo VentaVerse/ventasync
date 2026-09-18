@@ -13,7 +13,8 @@ class LazadaProduct extends Model
     protected $table = 'lazada_products';
 
     protected $fillable = [
-        'lazada_setting_id', 'product_id', 'item_name', 'description',
+                'image_off', 'video_path', 'video_off',
+'lazada_setting_id', 'product_id', 'item_name', 'description',
         'description_prefix_id', 'description_suffix_id', 'watermark_template_id', 'watermark_all_images',
         'primary_category_id', 'brand_id', 'brand_name_override', 'image_order',
         // The markups were missing here, and every create() that passed them
@@ -40,7 +41,7 @@ class LazadaProduct extends Model
         'last_pushed_at' => 'datetime',
         'last_push_failed_at' => 'datetime',
         'last_push_settings' => 'array',
-        'image_order' => 'array',
+        'image_order' => 'array', 'image_off' => 'array',
         'catalog_seen_at' => 'datetime',
         'sale_percent' => 'float',
         'sale_starts_at' => 'datetime',

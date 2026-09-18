@@ -207,9 +207,17 @@
 
                 @include('partials.channel-images-card', [
                     'anchor' => 'vl-images', 'storeName' => $storeName, 'tiles' => $tiles, 'catalogTiles' => $catalogTiles,
-                    'limit' => null, 'fetchesOverWeb' => true,
+                    'fetchesOverWeb' => true,
                     'editable' => true, 'canManage' => $canManage, 'browseUrl' => $browseUrl,
                 ])
+
+
+                @include('partials.channel-video-card', [
+                    'anchor' => 'vl-video', 'storeName' => $storeName,
+                    'productId' => (int) $product->product_id,
+                    'uploadUrl' => route('products.video.upload'),
+                    'canManage' => $canManage,
+                ] + \App\Integrations\Listings\ListingVideo::cardData((int) $product->product_id, $listing ?? null))
 
                 @include('partials.listing-variations-card', [
                     'title' => 'Variations on ' . $storeName, 'storeName' => $storeName, 'canManage' => $canManage,

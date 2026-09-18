@@ -13,12 +13,10 @@ use Illuminate\Support\Str;
  * it, so the picture library never lists it and a store that fetches by URL
  * can still reach it.
  *
- * The three stores disagree, so the seller is told at upload rather than at
- * push, and nothing is refused on their behalf:
- *
- *   Shopee        10 to 60 seconds, 30 MB
- *   Lazada        up to 100 MB, and a per-seller quota
- *   TikTok Shop   up to 100 MB, 9:16 to 16:9, 20 to 60 seconds recommended
+ * NOTHING HERE KNOWS WHAT A STORE WILL TAKE. A marketplace changes its limits
+ * without telling anyone, so a limit written down here would one day refuse a
+ * video the store would have accepted. The video is sent and the store
+ * answers.
  *
  * How long it runs is read from the file's own header (an MP4 keeps it in
  * the mvhd atom), because the server has no ffmpeg and exec() is off.
@@ -26,11 +24,6 @@ use Illuminate\Support\Str;
 final class ProductVideoFile
 {
     public const DIR = 'video';
-
-    /** What every store takes: the strictest of the three. */
-    public const MAX_BYTES = 30000000;
-    public const MIN_SECONDS = 10;
-    public const MAX_SECONDS = 60;
 
     /** What the upload accepts at all, so a refusal is about the stores, not the format. */
     public const MIME = ['video/mp4', 'video/quicktime'];
@@ -97,30 +90,6 @@ final class ProductVideoFile
         if ($folder !== self::DIR && $disk->files($folder) === [] && $disk->directories($folder) === []) {
             $disk->deleteDirectory($folder);
         }
-    }
-
-    /**
-     * The stores that will refuse this video, each with the reason, so the
-     * seller reads it at upload rather than after a push.
-     *
-     * @return list<string>
-     */
-    public static function refusals(int $bytes, ?int $durationMs): array
-    {
-        $out = [];
-        $seconds = $durationMs !== null ? $durationMs / 1000 : null;
-
-        if ($bytes > self::MAX_BYTES) {
-            $out[] = 'Shopee refuses a video over 30 MB. This one is ' . self::megabytes($bytes) . '.';
-        }
-        if ($seconds !== null && $seconds < self::MIN_SECONDS) {
-            $out[] = 'Shopee refuses a video under 10 seconds. This one runs ' . self::seconds($seconds) . '.';
-        }
-        if ($seconds !== null && $seconds > self::MAX_SECONDS) {
-            $out[] = 'Shopee refuses a video over 60 seconds. This one runs ' . self::seconds($seconds) . '.';
-        }
-
-        return $out;
     }
 
     /** "30.4 MB" */

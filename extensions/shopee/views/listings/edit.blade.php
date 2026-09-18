@@ -334,9 +334,17 @@
 
                 @include('partials.channel-images-card', [
                     'anchor' => 'sl-images', 'storeName' => 'Shopee', 'tiles' => $tiles, 'catalogTiles' => $catalogTiles,
-                    'limit' => \Extensions\shopee\Services\Shopee\ShopeeItemCreate::MAX_IMAGES, 'fetchesOverWeb' => false,
+                    'fetchesOverWeb' => false,
                     'editable' => true, 'canManage' => $canManage, 'browseUrl' => $browseUrl,
                 ])
+
+
+                @include('partials.channel-video-card', [
+                    'anchor' => 'sl-video', 'storeName' => 'Shopee',
+                    'productId' => (int) $product->product_id,
+                    'uploadUrl' => route('products.video.upload'),
+                    'canManage' => $canManage,
+                ] + \App\Integrations\Listings\ListingVideo::cardData((int) $product->product_id, $listing ?? null))
 
                 @include('partials.listing-variations-card', [
                     'title' => 'Variations on Shopee', 'storeName' => 'Shopee', 'canManage' => $canManage,

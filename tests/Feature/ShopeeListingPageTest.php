@@ -201,10 +201,15 @@ class ShopeeListingPageTest extends TestCase
 
         $page = $this->actingAs($this->manager())->get(route('ext.shopee.listings.edit', $productId))->assertOk();
         $page->assertSee('Images that go up');
-        // The main image plus ten gallery images is eleven; Shopee takes nine.
-        // The channel's allowance is in the sentence (the owner, 2026-09-09).
-        $page->assertSee('9 of 9 images go up, 2 held back.');
-        $page->assertSee('lc-images__item--held', false);
+
+        /* HOW MANY SHOPEE TAKES IS NOT WRITTEN DOWN. Only Shopee knows it and
+           it changes without telling anyone, so every picture that is on goes
+           up and Shopee's own refusal is what the seller reads. The page
+           offers the way to answer it: each picture can be held back without
+           being removed. */
+        $page->assertDontSee('images go up');
+        $page->assertDontSee('held back');
+        $page->assertSee('data-images-off', false);
     }
 
     /**
@@ -375,11 +380,12 @@ class ShopeeListingPageTest extends TestCase
         ]);
 
         $page = $this->actingAs($this->manager())->get(route('ext.shopee.listings.edit', $productId))->assertOk();
-        $page->assertSee('9 of 9 images go up, 2 held back.');
         $page->assertSee('data-listing-images', false);
         $page->assertSee('Add from library');
         $page->assertSee('data-path="' . end($paths) . '"', false);
-        $page->assertSee('lc-images__item--held', false);
+        // Every picture is on until the seller says otherwise.
+        $page->assertDontSee('lc-images__item--held', false);
+        $page->assertSee('data-images-off', false);
     }
 
     /**

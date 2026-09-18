@@ -44,6 +44,7 @@ import './pages/listing-images';
 import './pages/catalog-change';
 import './pages/listing-status-menu';
 import './pages/category-tree-pick';
+import './pages/listing-video';
 import './pages/row-picked';
 import './pages/listing-group-band';
 import './pages/listing-strip';

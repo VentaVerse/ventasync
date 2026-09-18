@@ -30,7 +30,7 @@
             <button type="button" class="st-file__reset" data-pv-remove @unless($pvHas) hidden @endunless>Remove</button>
             <input type="file" id="pv-file" class="st-file__input" accept="video/mp4,video/quicktime" data-pv-input>
         </div>
-        <div class="fm-hint">MP4 or MOV. Every store takes 10 to 60 seconds, up to 30 MB.</div>
+        <div class="fm-hint">MP4 or MOV.</div>
         <p class="st-file__error" id="pv-error" role="status" hidden></p>
 
         <div class="pv__now" data-pv-now @unless($pvHas) hidden @endunless>
@@ -40,17 +40,11 @@
                 <span class="pv__fact" data-pv-length>{{ $pvSaved['length'] ?? '' }}</span>
                 <span class="pv__fact" data-pv-size>{{ $pvSaved['size'] ?? '' }}</span>
             </div>
-            <ul class="pv__warns" data-pv-warns @unless(! empty($pvSaved['refusals'])) hidden @endunless>
-                @foreach(($pvSaved['refusals'] ?? []) as $pvWarn)
-                    <li>{{ $pvWarn }}</li>
-                @endforeach
-            </ul>
         </div>
 
         <label class="pv__ai">
             <input type="checkbox" name="video_ai" value="1" @checked($pvAi)>
             <span>This video was made or helped by AI</span>
         </label>
-        <div class="fm-hint">Shopee asks every seller to declare this. Answering wrongly can cost the shop penalty points.</div>
     </div>
 </section>

@@ -250,6 +250,27 @@
         </tr>
     </x-slot:head>
 
+    @php
+
+        /* The mark each row wears, resolved for the whole page at once:
+
+           a row shows its picture as it goes up, so nobody is quietly
+
+           unaware that a watermark is on. */
+
+        $marks = new \App\Integrations\Listings\ListingMarks(
+
+            'venta', \App\Integrations\Listings\ListingStore::id('venta'),
+
+            $products->pluck('product_id')->map(fn ($v) => (int) $v)->all(),
+
+            'venta_listings', 'venta_setting_id', 'venta_product_groups', 'venta_product_group_products', 'venta_product_group_id', 'venta_setting_id'
+
+        );
+
+    @endphp
+
+
     @foreach($products as $p)
         @php
             $pid = (int) $p->product_id;
@@ -260,7 +281,7 @@
             $pGroups = $groupsByProductId->get($pid, []);
             $optRows = $optionRowsByProductId->get($pid);
             $img = trim((string) ($p->image ?? ''));
-            $thumbSrc = $img !== '' ? \App\Services\Media\ImageCache::url($img) : '';
+            $thumbSrc = $marks->thumb((int) $p->product_id, $img) ?? '';
             /* The mirrored status for this row; the strip says when it was
                refreshed. Never refreshed reads as exactly that, not as a guess. */
             $rowLiveStatus = $listed ? ($listing?->live_status) : null;

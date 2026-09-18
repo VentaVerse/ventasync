@@ -20,7 +20,8 @@
                      A channel that has not taken the arrangeable card yet may
                      pass `images`, a plain list of URLs, instead; the read-only
                      card needs nothing more.
-      limit          ?int  how many the channel takes; null means all of them
+      imagesOff      list<string> (optional) paths this listing holds back
+      imagesError    ?string (optional) what the store said about these pictures
       fetchesOverWeb bool  the store fetches them from this ERP's address (Venta, WooCommerce)
       editable       bool  (optional) the card arranges the order
       canManage      bool  (optional) required with $editable
@@ -35,22 +36,16 @@
     $tiles = $tiles ?? array_map(fn ($url) => ['path' => '', 'url' => $url], $images ?? []);
     $editable = ($editable ?? false) && ($canManage ?? false);
     $imageCount = count($tiles);
-    $sent = $limit !== null ? min($imageCount, (int) $limit) : $imageCount;
-    // Built here rather than inline: a Blade directive glued to the word
-    // before it is not a directive at all, it is printed.
+    /* HOW MANY A STORE TAKES IS NOT WRITTEN DOWN HERE. Only the store knows
+       it and it changes without telling anyone, so every picture that is on
+       goes up and the store's own refusal is what the seller reads. A count
+       against an allowance we invented would be wrong the day they move it. */
+    $imageOff = array_values(array_filter((array) ($imagesOff ?? [])));
     $imageWords = $imageCount === 0
         ? ($editable
             ? 'No pictures yet.'
             : 'The catalog product has no images, so none go up.')
-        /* The channel's allowance is always in the sentence (the owner,
-           2026-09-09): "2 images go up" told an operator nothing about
-           whether there was room for more, and the room is different on
-           every channel - Shopee and TikTok take 9, Lazada 8, WooCommerce
-           20, a storefront all of them. */
-        : ($limit !== null
-            ? $sent . ' of ' . (int) $limit . ' ' . ($limit === 1 ? 'image goes' : 'images go') . ' up'
-                . ($sent < $imageCount ? ', ' . ($imageCount - $sent) . ' held back' : '')
-            : $imageCount . ' ' . ($imageCount === 1 ? 'image goes' : 'images go') . ' up') . '.'
+        : ''
             /* The one fact the tiles cannot show for themselves: a store
                that fetches the pictures from this ERP's address needs that
                address to be reachable from it. True on Venta and
@@ -73,12 +68,17 @@
          @if(!empty($anchor)) id="{{ $anchor }}" @endif
          @if($editable)
              data-listing-images
-             data-limit="{{ $limit !== null ? (int) $limit : '' }}"
              data-browse-url="{{ $browseUrl }}"
              data-catalog="{{ json_encode(array_values($catalogTiles ?? [])) }}"
          @endif>
     <div class="fm-section__head">
         <h2 class="fm-section__title">Images that go up</h2>
+        {{-- What the store said about these pictures, beside them rather than
+             at the top of the page: a store refuses a set it thinks is too
+             long, and the answer is here, where the pictures are turned off. --}}
+        @if(! empty($imagesError))
+            <p class="fm-section__bad">{{ $imagesError }}</p>
+        @endif
         @if($editable)
             <div class="fm-section__aside">
                 <x-ui.button type="button" size="sm" data-images-add>
@@ -114,6 +114,7 @@
 
     @if($editable)
         <input type="hidden" name="image_order" value="{{ $arrangement }}" data-images-input>
+        <input type="hidden" name="image_off" value="{{ $imageOff === [] ? '' : json_encode($imageOff) }}" data-images-off-input>
         <ul class="lc-images lc-images--arrange" data-images-list
             aria-label="The pictures this listing sends, in order"
             aria-describedby="lc-images-help">
@@ -123,16 +124,25 @@
                      Focus moves between tiles with the arrow keys, and the
                      tile's own verbs answer to keys as well as to a press,
                      so nothing here needs a pointer. --}}
-                <li class="lc-images__item{{ $limit !== null && $i >= $sent ? ' lc-images__item--held' : '' }}"
+                @php $tileOff = in_array($tile['path'], $imageOff, true); @endphp
+                <li class="lc-images__item{{ $tileOff ? ' lc-images__item--held' : '' }}"
                     data-path="{{ $tile['path'] }}" tabindex="{{ $i === 0 ? 0 : -1 }}"
+                    @if($tileOff) data-off @endif
                     aria-label="Picture {{ $i + 1 }} of {{ $imageCount }}">
                     <img src="{{ $tile['url'] }}" alt="" loading="lazy" draggable="false">
                     <span class="lc-images__rank">{{ $i + 1 }}</span>
-                    <span class="lc-images__held">Held back</span>
+                    <span class="lc-images__held">Off</span>
                     <span class="lc-images__verbs">
                         <button type="button" class="lc-images__verb lc-images__verb--drop" data-images-drop tabindex="-1"
                                 aria-label="Remove picture {{ $i + 1 }} from this listing">
                             <x-ui.icon name="x" size="12" />
+                        </button>
+                        {{-- Off is not gone: the picture stays where it is and
+                             comes back with one press, so a store that refused
+                             the set can be answered without losing the order. --}}
+                        <button type="button" class="lc-images__verb lc-images__verb--off" data-images-off tabindex="-1"
+                                aria-label="{{ $tileOff ? 'Send picture ' . ($i + 1) . ' again' : 'Hold picture ' . ($i + 1) . ' back' }}">
+                            <x-ui.icon name="{{ $tileOff ? 'eye' : 'eye-off' }}" size="12" />
                         </button>
                     </span>
                 </li>
@@ -147,7 +157,7 @@
     @elseif($imageCount > 0)
         <ul class="lc-images">
             @foreach($tiles as $i => $tile)
-                <li class="lc-images__item{{ $limit !== null && $i >= $sent ? ' lc-images__item--held' : '' }}"><img src="{{ $tile['url'] }}" alt="" loading="lazy"></li>
+                <li class="lc-images__item{{ in_array($tile['path'], $imageOff, true) ? ' lc-images__item--held' : '' }}"><img src="{{ $tile['url'] }}" alt="" loading="lazy"></li>
             @endforeach
         </ul>
     @endif

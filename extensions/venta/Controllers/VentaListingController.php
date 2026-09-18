@@ -1105,7 +1105,8 @@ class VentaListingController extends Controller
          * the input is invisible, so a caller that does not send it must
          * not be read as one that cleared it. */
         $images = $request->has('image_order')
-            ? ['image_order' => \App\Integrations\Listings\ListingImages::submitted($productId, $data['image_order'] ?? null)]
+            ? ['image_order' => \App\Integrations\Listings\ListingImages::submitted($productId, $data['image_order'] ?? null),
+               'image_off' => \App\Integrations\Listings\ListingImages::submittedOff($productId, $request->input('image_off'))]
             : [];
 
         // Saving here never writes the core product.
@@ -1154,6 +1155,7 @@ class VentaListingController extends Controller
                 'package_height' => $blank($data['package_height'] ?? null),
                 'description_prefix_id' => ((int) ($data['description_prefix_id'] ?? 0)) ?: null,
                 ...\App\Integrations\Listings\ListingImages::submittedWatermark($request, 'venta', \App\Integrations\Listings\ListingStore::id('venta')),
+                ...\App\Integrations\Listings\ListingVideo::submitted($request),
                 'description_suffix_id' => ((int) ($data['description_suffix_id'] ?? 0)) ?: null,
                 'meta_title' => $blank($data['meta_title'] ?? null),
                 'meta_description' => $blank($data['meta_description'] ?? null),

@@ -24,7 +24,6 @@
     const player = root.querySelector('[data-pv-player]');
     const lengthEl = root.querySelector('[data-pv-length]');
     const sizeEl = root.querySelector('[data-pv-size]');
-    const warns = root.querySelector('[data-pv-warns]');
     const errorLine = document.getElementById('pv-error');
     const token = root.getAttribute('data-token') || '';
     const productId = root.getAttribute('data-product') || '0';
@@ -40,17 +39,6 @@
         errorLine.hidden = !message;
     }
 
-    function drawWarnings(list) {
-        if (!warns) return;
-        warns.textContent = '';
-        (list || []).forEach(function (line) {
-            const li = document.createElement('li');
-            li.textContent = line;
-            warns.appendChild(li);
-        });
-        warns.hidden = !(list && list.length);
-    }
-
     function show(video) {
         pathField.value = video.path;
         nameField.value = video.original_name || video.name || '';
@@ -59,7 +47,6 @@
         if (player) player.src = video.url || '';
         if (lengthEl) lengthEl.textContent = video.length || 'Length unknown';
         if (sizeEl) sizeEl.textContent = video.size || '';
-        drawWarnings(video.refusals);
         if (now) now.hidden = false;
         if (remove) remove.hidden = false;
     }
@@ -71,7 +58,6 @@
         readout.textContent = 'No file chosen';
         readout.title = '';
         if (player) player.removeAttribute('src');
-        drawWarnings([]);
         if (now) now.hidden = true;
         if (remove) remove.hidden = true;
     }

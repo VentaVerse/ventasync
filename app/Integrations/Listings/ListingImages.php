@@ -80,6 +80,14 @@ final class ListingImages
             'watermarkTemplateId' => $templateId,
             'watermarkAllImages' => $allImages,
             'watermarkLent' => WatermarkTemplate::nameOf($groupTemplateId, $integration, $storeId),
+            /* The pictures this listing holds back, so a tile can show itself
+               off and come back with one press. */
+            'imagesOff' => (function () use ($listing, $refused) {
+                $off = $refused ? old('image_off') : ($listing->image_off ?? null);
+                $off = is_string($off) ? json_decode($off, true) : $off;
+
+                return is_array($off) ? array_values(array_filter($off, 'is_string')) : [];
+            })(),
         ];
     }
 
@@ -94,6 +102,39 @@ final class ListingImages
             'watermark_template_id' => WatermarkTemplate::idOrNull($request->input('watermark_template_id'), $integration, $storeId),
             'watermark_all_images' => $request->boolean('watermark_all_images'),
         ];
+    }
+
+    /**
+     * The pictures this listing holds back, as submitted.
+     *
+     * Off is not gone: the path stays in the arrangement and comes back with
+     * one press. Every path is checked against the library, like the
+     * arrangement itself, because a hidden input is client input.
+     *
+     * @return ?array<int, string>
+     */
+    public static function submittedOff(int $productId, ?string $json): ?array
+    {
+        return self::submitted($productId, $json);
+    }
+
+    /**
+     * The pictures that actually go up: the arrangement, less the ones held
+     * back. HOW MANY A STORE TAKES IS NOT KNOWN HERE and never should be: the
+     * store answers, and the seller turns some off and sends again.
+     *
+     * @param  list<string>  $paths
+     * @return list<string>
+     */
+    public static function sending(array $paths, ?object $listing): array
+    {
+        $off = $listing->image_off ?? null;
+        $off = is_string($off) ? json_decode($off, true) : $off;
+        if (! is_array($off) || $off === []) {
+            return array_values($paths);
+        }
+
+        return array_values(array_filter($paths, fn (string $p) => ! in_array($p, $off, true)));
     }
 
     /**

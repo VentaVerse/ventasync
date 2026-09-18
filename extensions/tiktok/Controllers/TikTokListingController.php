@@ -235,7 +235,8 @@ class TikTokListingController extends Controller
          * the input is invisible, so a caller that does not send it must
          * not be read as one that cleared it. */
         $images = $request->has('image_order')
-            ? ['image_order' => \App\Integrations\Listings\ListingImages::submitted($productId, $data['image_order'] ?? null)]
+            ? ['image_order' => \App\Integrations\Listings\ListingImages::submitted($productId, $data['image_order'] ?? null),
+                  'image_off' => \App\Integrations\Listings\ListingImages::submittedOff($productId, $request->input('image_off'))]
             : [];
 
         /* The listing's own words, as typed. Only a save that carried a
@@ -276,6 +277,7 @@ class TikTokListingController extends Controller
                 'package_height' => $blank($data['package_height'] ?? null),
                 'description_prefix_id' => ((int) ($data['description_prefix_id'] ?? 0)) ?: null,
                 ...\App\Integrations\Listings\ListingImages::submittedWatermark($request, 'tiktok', \App\Integrations\Listings\ListingStore::id('tiktok')),
+                ...\App\Integrations\Listings\ListingVideo::submitted($request),
                 'description_suffix_id' => ((int) ($data['description_suffix_id'] ?? 0)) ?: null,
                 'attribute_values' => array_filter(
                     array_map(fn ($v) => trim((string) $v), $data['attributes'] ?? []),

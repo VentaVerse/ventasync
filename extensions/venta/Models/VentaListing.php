@@ -22,7 +22,8 @@ class VentaListing extends Model
     protected $table = 'venta_listings';
 
     protected $fillable = [
-        'venta_setting_id', 'product_id', 'venta_category_id',
+                'image_off', 'video_path', 'video_off',
+'venta_setting_id', 'product_id', 'venta_category_id',
         'description_prefix_id', 'description_suffix_id', 'watermark_template_id', 'watermark_all_images',
         'markup_percent', 'markup_fixed', 'price',
         'weight', 'package_length', 'package_width', 'package_height',
@@ -45,7 +46,7 @@ class VentaListing extends Model
         'live_checked_at' => 'datetime',
         'last_pushed_at' => 'datetime',
         'last_push_settings' => 'array',
-        'image_order' => 'array',
+        'image_order' => 'array', 'image_off' => 'array',
         'catalog_seen_at' => 'datetime',
     ];
 

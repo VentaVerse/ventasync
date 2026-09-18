@@ -231,9 +231,17 @@
 
                 @include('partials.channel-images-card', [
                     'anchor' => 'tl-images', 'storeName' => 'TikTok Shop', 'tiles' => $tiles, 'catalogTiles' => $catalogTiles,
-                    'limit' => \Extensions\tiktok\Services\TikTok\TikTokProductPush::MAX_IMAGES, 'fetchesOverWeb' => false,
+                    'fetchesOverWeb' => false,
                     'editable' => true, 'canManage' => $canManage, 'browseUrl' => $browseUrl,
                 ])
+
+
+                @include('partials.channel-video-card', [
+                    'anchor' => 'tl-video', 'storeName' => 'TikTok Shop',
+                    'productId' => (int) $product->product_id,
+                    'uploadUrl' => route('products.video.upload'),
+                    'canManage' => $canManage,
+                ] + \App\Integrations\Listings\ListingVideo::cardData((int) $product->product_id, $listing ?? null))
 
                 @include('partials.listing-variations-card', [
                     'title' => 'Variations on TikTok Shop', 'storeName' => 'TikTok Shop', 'canManage' => $canManage,
