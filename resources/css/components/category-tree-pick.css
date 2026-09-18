@@ -1,0 +1,315 @@
+/* THE CATEGORY PICKER: SEARCH, AND THE TREE BEHIND IT.
+
+   The field keeps the anatomy of every other field on the page, so nothing
+   here is a surface of its own: no tint, no shadow, no oversized control.
+   The tree is a plain bordered pane like the table beside it. */
+
+.ctp {
+    display: flex;
+    flex-direction: column;
+    gap: var(--bl-space-2);
+}
+
+.ctp__bar {
+    display: flex;
+    align-items: center;
+    gap: var(--bl-space-2);
+}
+
+.ctp__search {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+}
+
+.ctp__glass {
+    position: absolute;
+    top: 50%;
+    left: 11px;
+    transform: translateY(-50%);
+    color: var(--bl-ink-3);
+    pointer-events: none;
+}
+
+.ctp__search .x-input {
+    padding-left: 32px;
+}
+
+.ctp__browse {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    flex: none;
+    min-height: var(--bl-control-h);
+    padding: 0 13px;
+    border: 1px solid var(--bl-rule-2);
+    border-radius: var(--bl-r-ctrl);
+    background: var(--bl-sheet);
+    color: var(--bl-ink-2);
+    font-size: 13px;
+    font-weight: 560;
+    cursor: pointer;
+    transition: background var(--bl-motion-fast), color var(--bl-motion-fast);
+}
+
+.ctp__browse:hover:not(:disabled) {
+    background: var(--bl-chrome);
+    color: var(--bl-ink);
+}
+
+.ctp__browse:disabled {
+    opacity: .55;
+    cursor: default;
+}
+
+.ctp__browse:focus-visible {
+    outline: 2px solid var(--bl-brand);
+    outline-offset: 1px;
+}
+
+/* The chosen path, in words, under the field. */
+.ctp__path {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 7px;
+    margin: 0;
+    font-size: 13px;
+    color: var(--bl-ink-3);
+}
+
+.ctp__sep {
+    color: var(--bl-rule-2);
+}
+
+.ctp__part--last {
+    font-weight: 600;
+    color: var(--bl-ink);
+}
+
+/* The tree: one column per level, the two innermost open, everything
+   behind them folded to a spine so depth costs no width. */
+.ctp__tree {
+    border: 1px solid var(--bl-rule-2);
+    border-radius: var(--bl-r-ctrl);
+    overflow: hidden;
+}
+
+.ctp__cols {
+    display: flex;
+    align-items: stretch;
+    min-height: 232px;
+    max-height: 340px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.ctp__col {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-width: 0;
+    border-right: 1px solid var(--bl-rule);
+}
+
+.ctp__col:last-child {
+    border-right: 0;
+}
+
+.ctp__col-head {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--bl-rule);
+    background: var(--bl-chrome);
+    font-size: 11.5px;
+    font-weight: 620;
+    letter-spacing: .005em;
+    color: var(--bl-ink-3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ctp__list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 5px;
+    overflow-y: auto;
+}
+
+.ctp__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 32px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--bl-ink-2);
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 560;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--bl-motion-fast), color var(--bl-motion-fast);
+}
+
+.ctp__row:hover {
+    background: var(--bl-chrome);
+    color: var(--bl-ink);
+}
+
+.ctp__row.is-on {
+    background: var(--bl-brand-wash);
+    color: var(--bl-ink);
+    font-weight: 620;
+}
+
+.ctp__row:focus-visible {
+    outline: 2px solid var(--bl-brand);
+    outline-offset: -1px;
+}
+
+.ctp__row-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ctp__row-mark {
+    flex: none;
+    color: var(--bl-ink-3);
+}
+
+.ctp__none {
+    margin: 0;
+    padding: 12px 10px;
+    font-size: 13px;
+    color: var(--bl-ink-3);
+}
+
+/* A level behind the two open ones: its chosen name, turned on its side,
+   and a press reopens it. */
+.ctp__spine {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    flex: none;
+    width: 42px;
+    padding: 11px 0;
+    border: 0;
+    border-right: 1px solid var(--bl-rule);
+    background: var(--bl-chrome);
+    color: var(--bl-ink-2);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background var(--bl-motion-fast), color var(--bl-motion-fast);
+}
+
+.ctp__spine:hover {
+    background: var(--bl-chrome-2);
+    color: var(--bl-ink);
+}
+
+.ctp__spine:focus-visible {
+    outline: 2px solid var(--bl-brand);
+    outline-offset: -2px;
+}
+
+.ctp__spine-caret {
+    color: var(--bl-ink-3);
+}
+
+.ctp__spine-name {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-height: 250px;
+}
+
+/* Search results, over the field. */
+.ctp__results {
+    position: absolute;
+    z-index: 30;
+    top: calc(100% + 4px);
+    right: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    max-height: 264px;
+    padding: 5px;
+    border: 1px solid var(--bl-rule-2);
+    border-radius: var(--bl-r-ctrl);
+    background: var(--bl-sheet);
+    box-shadow: var(--bl-lift);
+    overflow-y: auto;
+}
+
+.ctp__result {
+    min-height: 32px;
+    padding: 7px 10px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--bl-ink-2);
+    font: inherit;
+    font-size: 13.5px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.ctp__result:hover {
+    background: var(--bl-chrome);
+    color: var(--bl-ink);
+}
+
+.ctp__result--none {
+    color: var(--bl-ink-3);
+    cursor: default;
+}
+
+.ctp__say {
+    margin: 0;
+    font-size: 13px;
+    color: var(--bl-bad);
+}
+
+/* Narrow: one column at a time carries the whole width, and the spines keep
+   the way back, so the tree never pushes the form sideways. */
+@media (max-width: 700px) {
+    .ctp__bar {
+        flex-wrap: wrap;
+    }
+
+    .ctp__search {
+        flex: 1 1 100%;
+    }
+
+    .ctp__col {
+        flex: 0 0 auto;
+        min-width: 208px;
+    }
+
+    .ctp__row,
+    .ctp__result {
+        min-height: 40px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ctp__row,
+    .ctp__browse,
+    .ctp__spine {
+        transition: none;
+    }
+}

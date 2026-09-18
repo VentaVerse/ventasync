@@ -30,6 +30,13 @@ use Illuminate\Support\Facades\DB;
  */
 class TikTokProductController extends Controller
 {
+    use \App\Http\Controllers\Concerns\ServesCategoryTree;
+
+    /** The channel whose category tree the picker on these pages reads. */
+    protected function categoryChannel(): string
+    {
+        return 'tiktok';
+    }
     public function index(Request $request)
     {
         $pfx = (string) config('catalog.prefix');

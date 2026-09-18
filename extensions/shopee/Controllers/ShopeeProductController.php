@@ -22,6 +22,13 @@ use Illuminate\Support\Facades\Log;
 
 class ShopeeProductController extends Controller
 {
+    use \App\Http\Controllers\Concerns\ServesCategoryTree;
+
+    /** The channel whose category tree the picker on these pages reads. */
+    protected function categoryChannel(): string
+    {
+        return 'shopee';
+    }
     use \App\Http\Controllers\Concerns\ComparesWithTheCatalog;
 
     /** This store's listing of the product. */

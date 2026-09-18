@@ -975,6 +975,16 @@
         "name": "ext.lazada.products.catalogue_search"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/products/categories/children",
+        "name": "ext.lazada.products.category_children"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/products/categories/path",
+        "name": "ext.lazada.products.category_path"
+    },
+    {
         "method": "POST",
         "uri": "channels/lazada/{store}/products/check",
         "name": "ext.lazada.products.check"
@@ -2011,8 +2021,18 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/products/categories/children",
+        "name": "ext.shopee.products.category_children"
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "channels/shopee/{store}/products/categories/lookup",
         "name": "ext.shopee.products.categoryLookup"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/products/categories/path",
+        "name": "ext.shopee.products.category_path"
     },
     {
         "method": "GET|HEAD",
@@ -2661,8 +2681,18 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/products/categories/children",
+        "name": "ext.tiktok.products.category_children"
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "channels/tiktok/{store}/products/categories/lookup",
         "name": "ext.tiktok.products.categoryLookup"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/products/categories/path",
+        "name": "ext.tiktok.products.category_path"
     },
     {
         "method": "GET|HEAD",
@@ -2958,6 +2988,16 @@
         "method": "POST",
         "uri": "channels/venta/{store}/listings/bulk/push-stock",
         "name": "ext.venta.listings.bulk_push_stock"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/venta/{store}/listings/categories/children",
+        "name": "ext.venta.listings.category_children"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/venta/{store}/listings/categories/path",
+        "name": "ext.venta.listings.category_path"
     },
     {
         "method": "POST",
@@ -3408,6 +3448,16 @@
         "method": "POST",
         "uri": "channels/woocommerce/{store}/listings/bulk/push-stock",
         "name": "ext.woocommerce.listings.bulk_push_stock"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/listings/categories/children",
+        "name": "ext.woocommerce.listings.category_children"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/listings/categories/path",
+        "name": "ext.woocommerce.listings.category_path"
     },
     {
         "method": "POST",

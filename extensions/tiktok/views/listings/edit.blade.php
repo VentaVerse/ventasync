@@ -179,20 +179,19 @@
                 <section class="fm-section" id="tl-category-section">
                     <div class="fm-section__head"><h2 class="fm-section__title">Category and brand</h2></div>
                     <div class="fm-fields">
-                        <x-ui.field label="TikTok category" for="tl-category" name="tiktok_category_id" :required="true" wide
-                                    hint="Only leaf categories are listed. TikTok Shop accepts nothing else.">
-                            <div class="gf-combo" data-category-combo data-combo-required="Pick a TikTok category from the list." data-combo-mode="remote"
-                                 data-combo-search-url="{{ route('ext.tiktok.products.searchCategories') }}"
-                                 data-combo-lookup-url="{{ route('ext.tiktok.products.categoryLookup') }}">
-                                <div class="gf-combo__field">
-                                    <input type="hidden" id="tl-category-value" name="tiktok_category_id" data-combo-value value="{{ old('tiktok_category_id', $shown->tiktok_category_id ?? '') }}">
-                                    <x-ui.input id="tl-category" type="search" autocomplete="off" data-combo-input
-                                                value="{{ $category ? $category->name . ' (' . $category->id . ')' : '' }}"
-                                                placeholder="Type to search TikTok categories" :disabled="!$canManage" />
-                                    <div class="gf-combo__results" data-combo-results role="listbox" aria-label="TikTok leaf categories" hidden></div>
-                                </div>
-                            </div>
-                        </x-ui.field>
+                        @include('partials.category-tree-pick', [
+                            'name' => 'tiktok_category_id',
+                            'id' => 'tl-category',
+                            'label' => 'TikTok category',
+                            'value' => (int) old('tiktok_category_id', $shown->tiktok_category_id ?? 0),
+                            'valueLabel' => $category ? $category->name : '',
+                            'searchUrl' => route('ext.tiktok.products.searchCategories'),
+                            'childrenUrl' => route('ext.tiktok.products.category_children'),
+                            'pathUrl' => route('ext.tiktok.products.category_path'),
+                            'canManage' => $canManage,
+                            'required' => true,
+                            'requiredWord' => 'Pick a TikTok category from the list.',
+                        ])
                         <x-ui.field label="Brand" for="tl-brand" name="brand_id" wide hint="TikTok Shop's own brand list, searched by name. Leave it empty for no brand.">
                             <div class="gf-combo" data-category-combo data-combo-mode="remote" data-combo-plain-label
                                  data-combo-search-url="{{ route('ext.tiktok.products.brandsSearch') }}"

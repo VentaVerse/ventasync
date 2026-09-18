@@ -249,26 +249,19 @@
                         <h2 class="fm-section__title">Category and brand</h2>
                     </div>
                     <div class="fm-fields">
-                        <x-ui.field label="Shopee category" for="sl-category" name="shopee_category_id" :required="true" wide
-                                    hint="Only leaf categories are listed. Shopee accepts nothing else.">
-                            <div class="gf-combo"
-                                 data-category-combo
-                                 data-combo-required="Pick a Shopee category from the list."
-                                 data-combo-mode="remote"
-                                 data-combo-search-url="{{ route('ext.shopee.products.searchCategories') }}"
-                                 data-combo-lookup-url="{{ route('ext.shopee.products.categoryLookup') }}">
-                                <div class="gf-combo__field">
-                                    <input type="hidden" id="sl-category-value" name="shopee_category_id" data-combo-value
-                                           value="{{ $selectedCategoryId > 0 ? $selectedCategoryId : '' }}">
-                                    <x-ui.input id="sl-category" type="search" autocomplete="off"
-                                                data-combo-input
-                                                placeholder="Type to search Shopee categories"
-                                                :disabled="!$canManage" />
-                                    <div class="gf-combo__results" data-combo-results role="listbox"
-                                         aria-label="Shopee leaf categories" hidden></div>
-                                </div>
-                            </div>
-                        </x-ui.field>
+                        @include('partials.category-tree-pick', [
+                            'name' => 'shopee_category_id',
+                            'id' => 'sl-category',
+                            'label' => 'Shopee category',
+                            'value' => $selectedCategoryId,
+                            'valueLabel' => '',
+                            'searchUrl' => route('ext.shopee.products.searchCategories'),
+                            'childrenUrl' => route('ext.shopee.products.category_children'),
+                            'pathUrl' => route('ext.shopee.products.category_path'),
+                            'canManage' => $canManage,
+                            'required' => true,
+                            'requiredWord' => 'Pick a Shopee category from the list.',
+                        ])
                         @php
                             $slBrandId = (int) old('shopee_brand_id', $shown->shopee_brand_id ?? 0);
                             $slBrandName = $slBrandId > 0

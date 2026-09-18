@@ -100,6 +100,13 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
            groups pick from, kept the way its description templates are. Read
            tier lists them and previews one; manage tier writes them, and a form
            page is a MANAGE surface even though it is a GET. */
+
+        /* The category picker's own two reads: one level of the tree, and the
+           path down to a chosen category so a search result opens every column
+           along its way. Depth is never assumed; the page asks until a row says
+           it is a leaf. */
+        Route::get('/shopee/{store}/products/categories/children', [ShopeeProductController::class, 'categoryChildren'])->name('ext.shopee.products.category_children');
+        Route::get('/shopee/{store}/products/categories/path', [ShopeeProductController::class, 'categoryPath'])->name('ext.shopee.products.category_path');
         Route::get('/shopee/{store}/watermarks', [ShopeeWatermarkTemplateController::class, 'index'])->name('ext.shopee.watermarks.index');
         Route::get('/shopee/{store}/watermarks/preview', [ShopeeWatermarkTemplateController::class, 'preview'])->name('ext.shopee.watermarks.preview');
         Route::get('/shopee/{store}/watermarks/create', [ShopeeWatermarkTemplateController::class, 'create'])->name('ext.shopee.watermarks.create')->defaults('permission_tier', 'manage');

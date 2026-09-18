@@ -88,6 +88,13 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
            groups pick from, kept the way its description templates are. Read
            tier lists them and previews one; manage tier writes them, and a form
            page is a MANAGE surface even though it is a GET. */
+
+        /* The category picker's own two reads: one level of the tree, and the
+           path down to a chosen category so a search result opens every column
+           along its way. Depth is never assumed; the page asks until a row says
+           it is a leaf. */
+        Route::get('/lazada/{store}/products/categories/children', [LazadaProductController::class, 'categoryChildren'])->name('ext.lazada.products.category_children');
+        Route::get('/lazada/{store}/products/categories/path', [LazadaProductController::class, 'categoryPath'])->name('ext.lazada.products.category_path');
         Route::get('/lazada/{store}/watermarks', [LazadaWatermarkTemplateController::class, 'index'])->name('ext.lazada.watermarks.index');
         Route::get('/lazada/{store}/watermarks/preview', [LazadaWatermarkTemplateController::class, 'preview'])->name('ext.lazada.watermarks.preview');
         Route::get('/lazada/{store}/watermarks/create', [LazadaWatermarkTemplateController::class, 'create'])->name('ext.lazada.watermarks.create')->defaults('permission_tier', 'manage');

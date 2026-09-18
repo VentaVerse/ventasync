@@ -53,6 +53,13 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
        groups pick from, kept the way its description templates are. Read
        tier lists them and previews one; manage tier writes them, and a form
        page is a MANAGE surface even though it is a GET. */
+
+    /* The category picker's own two reads: one level of the tree, and the
+       path down to a chosen category so a search result opens every column
+       along its way. Depth is never assumed; the page asks until a row says
+       it is a leaf. */
+    Route::get('/venta/{store}/listings/categories/children', [VentaListingController::class, 'categoryChildren'])->name('ext.venta.listings.category_children');
+    Route::get('/venta/{store}/listings/categories/path', [VentaListingController::class, 'categoryPath'])->name('ext.venta.listings.category_path');
     Route::get('/venta/{store}/watermarks', [VentaWatermarkTemplateController::class, 'index'])->name('ext.venta.watermarks.index');
     Route::get('/venta/{store}/watermarks/preview', [VentaWatermarkTemplateController::class, 'preview'])->name('ext.venta.watermarks.preview');
     Route::get('/venta/{store}/watermarks/create', [VentaWatermarkTemplateController::class, 'create'])->name('ext.venta.watermarks.create')->defaults('permission_tier', 'manage');

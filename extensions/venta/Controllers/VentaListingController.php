@@ -27,6 +27,13 @@ use Illuminate\Support\Str;
  */
 class VentaListingController extends Controller
 {
+    use \App\Http\Controllers\Concerns\ServesCategoryTree;
+
+    /** The channel whose category tree the picker on these pages reads. */
+    protected function categoryChannel(): string
+    {
+        return 'venta';
+    }
     use \App\Http\Controllers\Concerns\ComparesWithTheCatalog {
         catalogChangeSave as private saveCatalogChange;
         catalogChangeIgnore as private ignoreCatalogChange;

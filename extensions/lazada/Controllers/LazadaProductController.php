@@ -28,6 +28,13 @@ use Illuminate\Support\Str;
 
 class LazadaProductController extends Controller
 {
+    use \App\Http\Controllers\Concerns\ServesCategoryTree;
+
+    /** The channel whose category tree the picker on these pages reads. */
+    protected function categoryChannel(): string
+    {
+        return 'lazada';
+    }
     use \App\Http\Controllers\Concerns\ComparesWithTheCatalog;
 
     // NOTE: We standardize on lazada_product_id (no legacy lazada_listing_id support).

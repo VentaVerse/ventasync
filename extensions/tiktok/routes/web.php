@@ -75,6 +75,13 @@ Route::middleware(['auth', \Extensions\tiktok\Http\ResolveTikTokStore::class])
            groups pick from, kept the way its description templates are. Read
            tier lists them and previews one; manage tier writes them, and a form
            page is a MANAGE surface even though it is a GET. */
+
+        /* The category picker's own two reads: one level of the tree, and the
+           path down to a chosen category so a search result opens every column
+           along its way. Depth is never assumed; the page asks until a row says
+           it is a leaf. */
+        Route::get('/tiktok/{store}/products/categories/children', [TikTokProductController::class, 'categoryChildren'])->name('ext.tiktok.products.category_children');
+        Route::get('/tiktok/{store}/products/categories/path', [TikTokProductController::class, 'categoryPath'])->name('ext.tiktok.products.category_path');
         Route::get('/tiktok/{store}/watermarks', [TikTokWatermarkTemplateController::class, 'index'])->name('ext.tiktok.watermarks.index');
         Route::get('/tiktok/{store}/watermarks/preview', [TikTokWatermarkTemplateController::class, 'preview'])->name('ext.tiktok.watermarks.preview');
         Route::get('/tiktok/{store}/watermarks/create', [TikTokWatermarkTemplateController::class, 'create'])->name('ext.tiktok.watermarks.create')->defaults('permission_tier', 'manage');
