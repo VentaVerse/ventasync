@@ -74,6 +74,13 @@ class LazadaImages
             return '/' . $this->encodeUrlPath($path);
         }
 
+        /* A page is shown the sized copy, never the original, the way every
+           other channel's listings are: a library photograph is measured in
+           megabytes and a row of them is a thumbnail each. The copy's path
+           is taken, not its url, because this method answers root-relative
+           on purpose. A picture that cannot be copied is shown as it is. */
+        $path = \App\Services\Media\ImageCache::path($path) ?? $path;
+
         // The Laravel public disk is where this install actually keeps them.
         try {
             if (file_exists(public_path('storage/' . $path))) {

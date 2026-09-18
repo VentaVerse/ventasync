@@ -189,9 +189,14 @@
 
                     @foreach($consolidated as $ci)
                         <div class="od-item">
+                            {{-- The store's own picture leads, because it is what the
+                                 buyer saw. Our catalogue's stands in when the store sent
+                                 none, or when the link it sent no longer answers, the way
+                                 the fulfilment panels already do. --}}
+                            @php $itImg = $ci['image'] !== '' ? $ci['image'] : (string) (\App\Support\CatalogImages::urlFor($ci['sku'] ?? '') ?? ''); @endphp
                             <div class="order-img-wrap od-item__media">
-                                @if($ci['image'] !== '')
-                                    <img class="order-img" src="{{ $ci['image'] }}" alt="" loading="lazy" decoding="async">
+                                @if($itImg !== '')
+                                    <img class="order-img" src="{{ $itImg }}" alt="" loading="lazy" decoding="async">
                                 @else
                                     <span class="co-item__none">No image</span>
                                 @endif
