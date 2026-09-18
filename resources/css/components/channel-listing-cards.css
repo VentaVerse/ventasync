@@ -211,3 +211,20 @@
    the label and the way out stay readable so it can be arranged back. */
 .lc-images__item--held img { opacity: .45; }
 .lc-images--arrange .lc-images__item--held { opacity: 1; }
+
+/* Off is not gone: the picture stays in its place, greyed, and comes back
+   with one press. A store refuses a set it thinks is too long and only the
+   store knows that number, so this is how the seller answers it. */
+.lc-images--arrange .lc-images__item[data-off] img {
+    opacity: .32;
+    filter: grayscale(1);
+}
+
+.lc-images__verb--off {
+    color: var(--bl-ink-3);
+}
+
+.lc-images__item[data-off] .lc-images__verb--off {
+    color: var(--bl-ink);
+    background: var(--bl-sheet);
+}

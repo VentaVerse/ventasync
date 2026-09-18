@@ -280,6 +280,18 @@
     .cl-body {
         grid-template-columns: minmax(0, 1fr) 300px;
     }
+
+    /* What it costs stays in sight while the sheet beside it is read: the
+       price rule is the one thing a seller checks against whatever section
+       they are editing, and it sat at the top where a long page left it
+       behind. Under the channel band and the strip, which stay above it. */
+    .cl-rail {
+        position: sticky;
+        top: calc(var(--bl-chband-h, 43px) + var(--cl-strip-h, 0px) + 16px);
+        max-height: calc(100vh - var(--bl-chband-h, 43px) - var(--cl-strip-h, 0px) - 32px);
+        overflow-y: auto;
+        scrollbar-width: thin;
+    }
 }
 
 /* The work: one sheet, sections told apart by a rule and by air. */
