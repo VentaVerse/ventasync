@@ -936,4 +936,21 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
     {
         return app(\Extensions\tiktok\Services\TikTok\TikTokProductRemover::class)->stranded();
     }
+
+    /**
+     * TikTok's automations. Its commands work across the channel's stores
+     * themselves, so there is one set for the channel. TikTok has no review
+     * sync.
+     */
+    public function automations(): array
+    {
+        return [
+            ['tiktok:sync-orders', 'Sync Orders', 15, 'minute', ['no_returns' => true]],
+            ['tiktok:sync-orders', 'Sync Returns', 30, 'minute', ['returns' => true]],
+            ['tiktok:push-stock', 'Push Stock', 30, 'minute'],
+            ['tiktok:push-price', 'Push Price', 30, 'minute'],
+            ['tiktok:refresh-token', 'Refresh Access Token', 12, 'hour'],
+            ['tiktok:refresh-listing-status', 'Refresh Listing Status', 30, 'minute'],
+        ];
+    }
 }

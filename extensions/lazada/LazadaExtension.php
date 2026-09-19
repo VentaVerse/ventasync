@@ -1037,4 +1037,21 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
     {
         return app(\Extensions\lazada\Services\Lazada\LazadaProductRemover::class)->stranded();
     }
+
+    /**
+     * Lazada's automations. Its commands work across the channel's stores
+     * themselves, so there is one set for the channel.
+     */
+    public function automations(): array
+    {
+        return [
+            ['lazada:sync-orders', 'Sync Orders', 15, 'minute', ['no_returns' => true]],
+            ['lazada:sync-orders', 'Sync Returns', 30, 'minute', ['returns' => true]],
+            ['lazada:push-stock', 'Push Stock', 30, 'minute'],
+            ['lazada:push-price', 'Push Price', 30, 'minute'],
+            ['lazada:sync-reviews', 'Sync Reviews', 1, 'hour', ['days' => 7]],
+            ['lazada:refresh-token', 'Refresh Access Token', 12, 'hour'],
+            ['lazada:refresh-listing-status', 'Refresh Listing Status', 30, 'minute'],
+        ];
+    }
 }

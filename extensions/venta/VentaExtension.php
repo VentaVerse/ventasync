@@ -701,4 +701,18 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
     {
         return app(\Extensions\venta\Services\Venta\VentaProductRemover::class)->stranded();
     }
+
+    /**
+     * Venta's automations, one full set per store: every store is a
+     * separate live shop.
+     */
+    public function automations(): array
+    {
+        return \Extensions\venta\Support\VentaScheduledJobs::JOBS;
+    }
+
+    public function automationStoreIds(): ?array
+    {
+        return \Extensions\venta\Models\VentaSetting::query()->pluck('id')->map(fn ($id) => (int) $id)->all();
+    }
 }

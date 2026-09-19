@@ -509,4 +509,18 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
     {
         return app(\Extensions\opencart\Services\OpenCart\OpenCartProductRemover::class)->stranded();
     }
+
+    /**
+     * OpenCart's automations, one full set per store: every store is a
+     * separate live shop.
+     */
+    public function automations(): array
+    {
+        return \Extensions\opencart\Support\OpencartScheduledJobs::JOBS;
+    }
+
+    public function automationStoreIds(): ?array
+    {
+        return \Extensions\opencart\Models\OpenCartSetting::query()->pluck('id')->map(fn ($id) => (int) $id)->all();
+    }
 }

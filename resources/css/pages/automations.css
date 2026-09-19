@@ -37,52 +37,6 @@
     gap: 8px;
 }
 
-/* -------- Empty state -------- */
-
-.automations-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    gap: 10px;
-    padding: 44px 24px;
-    background: var(--auto-surface);
-    border: 1px dashed var(--auto-border-strong);
-    border-radius: 12px;
-    color: var(--auto-text-muted);
-}
-
-.automations-empty-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(15, 23, 42, .04);
-    color: var(--auto-text-muted);
-    margin-bottom: 4px;
-}
-
-.automations-empty-icon svg {
-    width: 24px;
-    height: 24px;
-}
-
-.automations-empty h4 {
-    margin: 0;
-    font-size: 15px;
-    font-weight: 700;
-    color: var(--auto-text-strong);
-}
-
-.automations-empty p {
-    margin: 0;
-    font-size: 13px;
-    max-width: 420px;
-    line-height: 1.5;
-}
-
 /* -------- List & row (table-style) --------
    All jobs live inside a single bordered container with hairline row
    dividers — no per-row card chrome, no gaps between rows. Each row

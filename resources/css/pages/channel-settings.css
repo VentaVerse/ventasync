@@ -592,15 +592,13 @@
     border-radius: var(--bl-r-ctrl);
 }
 
-.cs-page .automations-windows-head h4,
-.cs-page .automations-empty h4 {
+.cs-page .automations-windows-head h4 {
     color: var(--bl-ink);
     font-size: 13px;
     font-weight: 600;
 }
 
-.cs-page .automations-windows-head p,
-.cs-page .automations-empty p { color: var(--bl-ink-2); font-size: 12px; }
+.cs-page .automations-windows-head p { color: var(--bl-ink-2); font-size: 12px; }
 
 .cs-page .automation-name { color: var(--bl-ink); font-size: 13px; font-weight: 500; }
 
@@ -651,8 +649,6 @@
 .cs-page .automation-toggle input:checked + .automation-toggle-track { background: var(--bl-brand-deep); border-color: var(--bl-brand-deep); }
 .cs-page .automation-toggle-thumb { background: var(--bl-ink-3); }
 .cs-page .automation-toggle input:checked + .automation-toggle-track .automation-toggle-thumb { background: #fff; }
-
-.cs-page .automations-empty-icon { color: var(--bl-ink-3); }
 
 /* The partial marks last-run outcome with the legacy badge classes,
    whose light-only greens and reds do not survive the dark theme. */

@@ -47,20 +47,6 @@
 @endphp
 
 <div class="automations-tab">
-    @if($jobs->isEmpty())
-        <div class="automations-empty">
-            <div class="automations-empty-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="4" width="18" height="17" rx="2"/>
-                    <line x1="3" y1="9" x2="21" y2="9"/>
-                    <line x1="8" y1="2" x2="8" y2="6"/>
-                    <line x1="16" y1="2" x2="16" y2="6"/>
-                </svg>
-            </div>
-            <h4>No automations yet</h4>
-            <p>No scheduled jobs are configured for this integration. They&rsquo;ll show up here as soon as the extension registers them.</p>
-        </div>
-    @else
         {{-- One form covers every row. The operator can flip toggles,
              retune cadence values, AND adjust the Sync Windows at the
              top — then commit the lot with the single Save All button
@@ -218,7 +204,6 @@
              and OK. resources/js/automation-run.js drives it; the stepping
              underneath is invisible on purpose. --}}
         @include('partials.automation-run-modal', ['stepUrl' => route('automations.run_step', ['run' => 0]), 'stopUrl' => route('automations.run_stop', ['run' => 0])])
-    @endif
 
     {{-- The one thing every job on this page depends on, and the only thing
          here that lives outside the ERP.

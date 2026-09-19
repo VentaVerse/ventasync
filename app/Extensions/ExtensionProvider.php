@@ -113,4 +113,32 @@ abstract class ExtensionProvider extends ServiceProvider
     {
         return $this->basePath;
     }
+
+    /**
+     * The automations this extension runs, each as
+     * [command, name, every, unit] with an optional fifth entry of options.
+     *
+     * Declared here, in code, rather than written once by a migration: a
+     * migration runs before an extension is switched on, so an install that
+     * switches it on later would never get them. App\Integrations\Support\
+     * AutomationCatalogue keeps the scheduled_jobs table in step with this
+     * list. An extension with nothing to schedule leaves it empty.
+     *
+     * @return array<int, array{0: string, 1: string, 2: int, 3: string, 4?: array<string, mixed>}>
+     */
+    public function automations(): array
+    {
+        return [];
+    }
+
+    /**
+     * The stores the automations are kept for, one full set each, or null
+     * for a single set for the whole channel.
+     *
+     * @return array<int, int>|null
+     */
+    public function automationStoreIds(): ?array
+    {
+        return null;
+    }
 }

@@ -87,6 +87,34 @@ class ExtensionServiceProvider extends ServiceProvider
             }
         });
 
+        /* ─── Declared automations, the same way ───────────────────────────
+         *
+         * Every switched-on extension declares its automations on its
+         * provider, and they are added to scheduled_jobs once all providers
+         * are in, cached on a fingerprint of the declarations so a normal
+         * boot reads no database. Only missing rows are added, switched off;
+         * nothing an operator changed is touched. See
+         * App\Integrations\Support\AutomationCatalogue.
+         *
+         * Not under the test runner: its cache lives one test long, so this
+         * would run on every test's boot, before the test's transaction
+         * opens, and leave rows behind for the tests after it. The tests
+         * call the catalogue themselves. */
+        if (!$this->app->runningUnitTests()) {
+            $this->app->booted(function () {
+                try {
+                    $catalogue = app(\App\Integrations\Support\AutomationCatalogue::class);
+                    $syncKey = 'automations_synced_' . $catalogue->fingerprint();
+                    if (!cache()->has($syncKey) && \Illuminate\Support\Facades\Schema::hasTable('scheduled_jobs')) {
+                        $catalogue->sync();
+                        cache()->put($syncKey, true, now()->addHours(24));
+                    }
+                } catch (\Throwable) {
+                    // Next boot with a working database syncs.
+                }
+            });
+        }
+
         // No view composer here any more. This used to bind
         // $extensionNavGroups onto layouts.app, which was the only view that
         // ever read it: that layout walked the array itself to print its

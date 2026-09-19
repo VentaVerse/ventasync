@@ -1116,4 +1116,22 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
     {
         return app(\Extensions\shopee\Services\Shopee\ShopeeProductRemover::class)->stranded();
     }
+
+    /**
+     * Shopee's automations. Its commands work across the channel's stores
+     * themselves, so there is one set for the channel. An access token lives
+     * four hours, so the refresh runs every two.
+     */
+    public function automations(): array
+    {
+        return [
+            ['shopee:sync-orders', 'Sync Orders', 15, 'minute', ['no_returns' => true]],
+            ['shopee:sync-orders', 'Sync Returns', 30, 'minute', ['returns' => true]],
+            ['shopee:push-stock', 'Push Stock', 30, 'minute'],
+            ['shopee:push-price', 'Push Price', 30, 'minute'],
+            ['shopee:sync-reviews', 'Sync Reviews', 1, 'hour', ['days' => 7]],
+            ['shopee:refresh-token', 'Refresh Access Token', 2, 'hour'],
+            ['shopee:refresh-listing-status', 'Refresh Listing Status', 30, 'minute'],
+        ];
+    }
 }
