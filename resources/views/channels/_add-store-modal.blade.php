@@ -53,7 +53,7 @@
 
                 <x-ui.field label="Store name" name="store_name" :required="true"
                             hint="Your own name for this connection - how you and the reports will recognise it.">
-                    <x-ui.input name="store_name" value="{{ old('store_name') }}" placeholder="e.g. Gearshipper" required />
+                    <x-ui.input name="store_name" value="{{ old('store_name') }}" required />
                 </x-ui.field>
 
                 @foreach($c['fields'] as $field)

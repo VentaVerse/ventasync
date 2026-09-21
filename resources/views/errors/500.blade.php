@@ -46,9 +46,6 @@
                 <li>The MySQL service on this server isn't running</li>
                 <li>The database hasn't been migrated yet (<code>php artisan migrate --seed</code>)</li>
             </ul>
-            <div class="actions">
-                <a href="https://github.com/reboot-interactive/ventasync-legacy/blob/main/INSTALL.md" class="btn btn-primary" target="_blank">Read INSTALL.md</a>
-            </div>
         @else
             <div class="icon">⚠</div>
             <h1>Something went wrong</h1>

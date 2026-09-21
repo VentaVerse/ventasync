@@ -120,7 +120,7 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
                     permission: 'manage_venta/settings',
                     label: 'Add store',
                     fields: [
-                        ['name' => 'base_url', 'label' => 'Store URL', 'type' => 'url', 'placeholder' => 'https://gearshipper.venta.ph', 'hint' => 'The address of your Venta storefront.'],
+                        ['name' => 'base_url', 'label' => 'Store URL', 'type' => 'url', 'placeholder' => 'https://yourstore.venta.ph', 'hint' => 'The address of your Venta storefront.'],
                     ],
                 ),
             ),
