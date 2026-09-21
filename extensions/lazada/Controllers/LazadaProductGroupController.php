@@ -487,7 +487,7 @@ class LazadaProductGroupController extends Controller
             ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
-            // The main catalogue, each row flagged with whether this store
+            // The Master Catalog, each row flagged with whether this store
             // carries it (the owner, 2026-09-05, option 2): a fresh store has
             // nothing listed yet, and a group must not be a dead end there.
             // Adding a product the store does not carry lists it as it joins.

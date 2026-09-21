@@ -397,7 +397,7 @@
         id="venta-add-panel"
         :search-url="route('ext.venta.products.catalogue_search', $setting->id)"
         :add-url="route('ext.venta.products.add_to_store', [$setting->id, '__PID__'])"
-        sub="Search your main catalog. Each product you add joins this store's list, ready to configure and push to {{ $storeName }}."
+        sub="Search your Master Catalog. Each product you add joins this store's list, ready to configure and push to {{ $storeName }}."
         toggle-label="Show products already on this store"
         in-label="On this store"
         scope="this store"

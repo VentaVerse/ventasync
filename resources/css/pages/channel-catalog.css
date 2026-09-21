@@ -943,7 +943,7 @@
 .cc-add-table .x-td-actions .x-btn { white-space: nowrap; }
 
 /* ── The Add products slide-over (#201, Draft C - the owner 2026-09-05) ──────
-   A right-anchored sheet over the Listings table: search your main catalogue
+   A right-anchored sheet over the Listings table: search your Master Catalog
    and add in place; the additions land in the table behind when the panel
    closes. Rides .modal-backdrop's fixed scrim and .active show/hide, the
    mechanism every other dialog uses; only the sheet's anchoring and motion

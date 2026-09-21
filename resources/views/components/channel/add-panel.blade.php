@@ -1,7 +1,7 @@
 {{-- The Add products slide-over (#201, Draft C - the owner 2026-09-05).
 
      One component for every surface that adds products to a list in place:
-     a store's Listings (the main catalogue into this store) and a product
+     a store's Listings (the Master Catalog into this store) and a product
      group's page (this store's products into the group). The page supplies
      the two endpoints and the words; the behaviour is the shared module
      resources/js/pages/channel-add-panel.js, bound from the data- attributes
@@ -22,7 +22,7 @@
     'title' => 'Add products',
     'sub',
     'placeholder' => 'Name, model or SKU',
-    'searchLabel' => 'Search your main catalogue',
+    'searchLabel' => 'Search your Master Catalog',
     'toggleLabel',
     'inLabel',
     'scope',

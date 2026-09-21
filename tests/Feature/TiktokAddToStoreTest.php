@@ -310,7 +310,7 @@ class TiktokAddToStoreTest extends TestCase
         TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => $inGroup, 'sync_status' => 'pending']);
         TikTokProductGroupProduct::create(['tiktok_product_group_id' => $other->id, 'product_id' => $elsewhere, 'sync_status' => 'pending']);
 
-        // Option 2 (the owner, 2026-09-05): the main catalogue, minus what the
+        // Option 2 (the owner, 2026-09-05): the Master Catalog, minus what the
         // group already holds, each row saying whether the store carries it.
         $r = $this->actingAs($this->manager())->getJson($this->groupBase($group->id) . '/products/search')->assertOk();
         $byName = collect($r->json('items'))->keyBy('name');

@@ -311,7 +311,7 @@
                     ? 'Try clearing the search, or widening the product group and status filters.'
                     : ((($lazadaTab ?? 'all') !== 'all')
                         ? 'No listing on this store holds this status right now.'
-                        : 'This store carries nothing yet. Add products from your main catalogue and they will land here, ready to configure and push to Lazada.')">
+                        : 'This store carries nothing yet. Add products from your Master Catalog and they will land here, ready to configure and push to Lazada.')">
         {{-- A new store opens here empty (#201): the way forward is Add
              products, not a dead end. The other two branches keep the reader
              from being stuck behind a filter with no visible way out. --}}

@@ -312,7 +312,7 @@ class LazadaListingStateTest extends TestCase
         $this->actingAs($this->manager())->get(route('ext.lazada.products.index'))
             ->assertOk()->assertDontSee('My very first product');
 
-        // Add products is the main catalogue - the product is here, ready to
+        // Add products is the Master Catalog - the product is here, ready to
         // be added to this store.
         $this->actingAs($this->manager())
             ->get(route('ext.lazada.products.index', ['list' => 'add']))

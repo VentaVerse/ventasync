@@ -235,7 +235,7 @@
                     ? 'Try clearing the search, or widening the product group and status filters.'
                     : ((($shopeeTab ?? 'all') !== 'all')
                         ? 'No listing on this store holds this status right now.'
-                        : 'This store carries nothing yet. Add products from your main catalogue and they will land here, ready to configure and push to Shopee.')">
+                        : 'This store carries nothing yet. Add products from your Master Catalog and they will land here, ready to configure and push to Shopee.')">
         {{-- A new store opens here empty (#201): the way forward is Add
              products, not a dead end. The other two branches keep the reader
              from being stuck behind a filter with no visible way out. --}}
@@ -518,7 +518,7 @@
         id="shopee-add-panel"
         :search-url="route('ext.shopee.products.catalogue_search')"
         :add-url="route('ext.shopee.products.add_to_store', ['productId' => '__PID__'])"
-        sub="Search your main catalogue. Each product you add joins this store's list, ready to configure and push to Shopee."
+        sub="Search your Master Catalog. Each product you add joins this store's list, ready to configure and push to Shopee."
         toggle-label="Show products already on this store"
         in-label="On this store"
         scope="this store"

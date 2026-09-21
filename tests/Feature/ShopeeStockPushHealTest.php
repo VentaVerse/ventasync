@@ -292,7 +292,7 @@ class ShopeeStockPushHealTest extends TestCase
            Variations card, and the verb that sends the missing ones. */
         $page->assertDontSee('2 of 3 variations');
         $page->assertDontSee('In the catalogue but not on Shopee');
-        $page->assertSee('Not in your main catalog');  // Shopee's STRANGER model, flagged
+        $page->assertSee('Not in your Master Catalog');  // Shopee's STRANGER model, flagged
         $page->assertSee('Push missing variations');   // and the verb that fixes it
         $page->assertSee('Re-read variations from Shopee');
 

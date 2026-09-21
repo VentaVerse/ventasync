@@ -46,7 +46,7 @@ class Navigation
 
             ['label' => 'Channels', 'icon' => 'plug', 'items' => self::channelEntries()],
 
-            ['label' => 'Catalog', 'icon' => 'package', 'items' => [
+            ['label' => 'Master Catalog', 'icon' => 'package', 'items' => [
                 ['label' => 'Products', 'route' => 'products.index',
                  'keywords' => ['sku', 'variation', 'stock', 'price']],
                 ['label' => 'Categories', 'route' => 'categories.index',

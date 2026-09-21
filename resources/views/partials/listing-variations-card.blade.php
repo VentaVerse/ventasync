@@ -62,7 +62,7 @@
                 @endforeach
                 @foreach($extras as $sku)
                     <tr>
-                        <td>Not in your main catalog</td>
+                        <td>Not in your Master Catalog</td>
                         <td>{{ $sku }}</td>
                         <td><x-ui.badge tone="warning">Listed</x-ui.badge></td>
                         <td></td>

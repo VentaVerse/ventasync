@@ -150,7 +150,7 @@ class ShopeeItemImportTest extends TestCase
 
         $this->assertStringContainsString('Nothing fetched yet', $html);
         $this->assertStringContainsString('Fetch from Shopee', $html);
-        $this->assertStringContainsString('your main catalog', $html);
+        $this->assertStringContainsString('your Master Catalog', $html);
 
         $workbench = $this->actingAs($manager)
             ->get(route('ext.shopee.products.index'))->assertOk()->getContent();

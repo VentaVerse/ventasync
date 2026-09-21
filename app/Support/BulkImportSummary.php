@@ -18,8 +18,8 @@ class BulkImportSummary
     {
         if ($failed === []) {
             return ['tone' => 'status', 'message' => $done === 1
-                ? 'Imported 1 item into your main catalog.'
-                : "Imported {$done} items into your main catalog."];
+                ? 'Imported 1 item into your Master Catalog.'
+                : "Imported {$done} items into your Master Catalog."];
         }
 
         $shown = array_slice($failed, 0, 3);

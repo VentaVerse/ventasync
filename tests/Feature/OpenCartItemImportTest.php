@@ -212,7 +212,7 @@ class OpenCartItemImportTest extends TestCase
 
         $this->assertStringContainsString('Nothing fetched yet', $html);
         $this->assertStringContainsString('Fetch from One', $html);
-        $this->assertStringContainsString('your main catalog', $html,
+        $this->assertStringContainsString('your Master Catalog', $html,
             'the copy names the destination in plain words');
         Http::assertNothingSent();
     }

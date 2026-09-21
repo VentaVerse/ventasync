@@ -205,6 +205,6 @@ class ChannelItemImportTest extends TestCase
             ->get(route('ext.tiktok.products.import', ['fetch' => 1]))->assertOk()->getContent();
         $this->assertStringContainsString('Imported Strap', $html);
         $this->assertStringContainsString('name="refs[]" value="tt-imp-1"', $html);
-        $this->assertStringContainsString('not in your main catalog', $html);
+        $this->assertStringContainsString('not in your Master Catalog', $html);
     }
 }

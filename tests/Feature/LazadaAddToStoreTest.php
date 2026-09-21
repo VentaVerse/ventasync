@@ -334,7 +334,7 @@ class LazadaAddToStoreTest extends TestCase
         $this->seedProduct('Catalogue only widget', 'OFF-1');
         $this->inGroup($group, $grouped);
 
-        // Option 2 (the owner, 2026-09-05): the main catalogue, minus what the
+        // Option 2 (the owner, 2026-09-05): the Master Catalog, minus what the
         // group already holds, each row saying whether the store carries it.
         $r = $this->actingAs($this->manager())->getJson($this->groupBase($group->id) . '/products/search')->assertOk();
         $byName = collect($r->json('items'))->keyBy('name');

@@ -344,7 +344,7 @@ class ShopeeAddToStoreTest extends TestCase
 
     /**
      * Option 2 (the owner, 2026-09-05): a fresh store has nothing listed, so the
-     * group's panel searches the main catalogue and lists a product on the
+     * group's panel searches the Master Catalog and lists a product on the
      * store as it joins the group. Before this the empty store answered
      * "Every product on this store is already in this group", which was
      * false in every word.

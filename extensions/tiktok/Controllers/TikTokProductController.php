@@ -69,7 +69,7 @@ class TikTokProductController extends Controller
 
         /* ── Two surfaces on one workbench (#201, the owner 2026-09-05) ──
          * THIS STORE is what this store carries and works day to day; ADD
-         * PRODUCTS is the main catalogue, where a product is added into the
+         * PRODUCTS is the Master Catalog, where a product is added into the
          * store's list - the slide-over is the way in and this full page is
          * its overflow. It has its own lean flow, so it returns before the
          * live-status machinery below, which it does not need. */
@@ -525,7 +525,7 @@ class TikTokProductController extends Controller
 
     /**
      * The full-catalogue Add products page (#201): the overflow behind the
-     * slide-over, for a big first setup or a bulk pick. Your main catalogue,
+     * slide-over, for a big first setup or a bulk pick. Your Master Catalog,
      * each row flagged with whether this store already carries it. A lean
      * read - no live status, no readiness, no push.
      */
@@ -648,7 +648,7 @@ class TikTokProductController extends Controller
 
     /**
      * The Add products panel's search (#201, Draft C - the owner 2026-09-05): the
-     * main catalogue, each row flagged with whether it is already on this
+     * Master Catalog, each row flagged with whether it is already on this
      * store. Capped, on purpose: a slide-over cannot list a whole catalogue,
      * so the operator narrows by searching and the total says how much is
      * still out of view; the full catalogue page is one link away for a

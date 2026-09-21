@@ -22,7 +22,7 @@
         <h1 class="x-page-title">Import from {{ $storeLabel }}</h1>
         @if($fetched !== null)
             <p class="x-page-sub">
-                Read {{ number_format($fetched['found']) }} {{ $fetched['found'] === 1 ? 'item' : 'items' }} on TikTok Shop just now; {{ count($rows) === 0 ? 'all of them match your main catalog.' : number_format(count($rows)) . ' ' . (count($rows) === 1 ? 'is' : 'are') . ' not in your main catalog.' }}
+                Read {{ number_format($fetched['found']) }} {{ $fetched['found'] === 1 ? 'item' : 'items' }} on TikTok Shop just now; {{ count($rows) === 0 ? 'all of them match your Master Catalog.' : number_format(count($rows)) . ' ' . (count($rows) === 1 ? 'is' : 'are') . ' not in your Master Catalog.' }}
             @if(!empty($fetched['truncated'])) The store holds more than that; only the first {{ number_format($fetched['found']) }} were read. Import or link some of these, then fetch again for the rest.@endif
             </p>
         @endif
@@ -47,7 +47,7 @@
              action is self-evident, so one orienting line stands in
              for the explanation a tooltip used to carry. --}}
         <x-ui.empty title="Nothing fetched yet"
-                    description="Read what is listed on TikTok Shop and bring anything missing into your main catalog.">
+                    description="Read what is listed on TikTok Shop and bring anything missing into your Master Catalog.">
             <x-slot:icon><x-ui.icon name="download" size="22" /></x-slot:icon>
             <x-slot:action>
                 <form method="GET" action="{{ route('ext.tiktok.products.import') }}" data-slow-action>
@@ -58,9 +58,9 @@
         </x-ui.empty>
     @elseif(count($rows) === 0)
         <x-ui.empty title="Everything matches"
-                    description="Every item on TikTok Shop already maps to an SKU in your main catalog. Nothing to import." />
+                    description="Every item on TikTok Shop already maps to an SKU in your Master Catalog. Nothing to import." />
     @else
-        <p class="fm-section__note">These items exist on TikTok Shop but not in your main catalog. <x-ui.hint label="How importing works">Import one, or tick several and import them together, to create the real product in your main catalog - details, variations and images included. Or link it to a catalog product it already is.</x-ui.hint></p>
+        <p class="fm-section__note">These items exist on TikTok Shop but not in your Master Catalog. <x-ui.hint label="How importing works">Import one, or tick several and import them together, to create the real product in your Master Catalog - details, variations and images included. Or link it to a catalog product it already is.</x-ui.hint></p>
 
         {{-- Import selected: the checkboxes in the table belong to this
              form through form="", so one press imports every ticked row,
@@ -71,9 +71,9 @@
             <span class="cc-bulkbar__count"><span data-import-count>0</span> selected</span>
             <form id="cc-import-selected" method="POST" action="{{ route('ext.tiktok.products.import_selected') }}"
                   class="cc-bulkbar__actions" data-slow-action
-              data-confirm="Import the selected items into your main catalog?"
-              data-confirm-one="Import the selected item into your main catalog? A real product is created there - name, price, stock, variations and images - and linked. Nothing changes on TikTok Shop."
-              data-confirm-many="Import the :n selected items into your main catalog? A real product is created there for each one - name, price, stock, variations and images - and linked. Nothing changes on TikTok Shop."
+              data-confirm="Import the selected items into your Master Catalog?"
+              data-confirm-one="Import the selected item into your Master Catalog? A real product is created there - name, price, stock, variations and images - and linked. Nothing changes on TikTok Shop."
+              data-confirm-many="Import the :n selected items into your Master Catalog? A real product is created there for each one - name, price, stock, variations and images - and linked. Nothing changes on TikTok Shop."
               data-confirm-tone="primary" data-confirm-verb="Import">
                 @csrf
                 <x-ui.button type="submit" size="sm" variant="primary" data-import-selected-button>Import selected</x-ui.button>
@@ -144,7 +144,7 @@
                     <td class="x-td-actions">
                         <div class="cc-rowact">
                             <form method="POST" action="{{ route('ext.tiktok.products.import_one') }}" data-slow-action
-                                  data-confirm="Import this TikTok Shop product into your main catalog? A real product is created there - name, price, stock, variations and images - and linked to the TikTok Shop product. Nothing changes on TikTok Shop." data-confirm-tone="primary" data-confirm-verb="Import">
+                                  data-confirm="Import this TikTok Shop product into your Master Catalog? A real product is created there - name, price, stock, variations and images - and linked to the TikTok Shop product. Nothing changes on TikTok Shop." data-confirm-tone="primary" data-confirm-verb="Import">
                                 @csrf
                                 <input type="hidden" name="ref" value="{{ $row['ref'] }}">
                                 <x-ui.button type="submit" size="sm" variant="primary">Import</x-ui.button>

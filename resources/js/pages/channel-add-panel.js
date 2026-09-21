@@ -5,7 +5,7 @@
  * <x-channel.add-panel> component, whose root carries every URL and every
  * label as a data- attribute, and this module binds to it. It is inert on
  * any page without that root. The same module serves a store's Listings
- * (main catalogue into this store) and a product group's page (this
+ * (Master Catalog into this store) and a product group's page (this
  * store's products into the group); only the endpoints and the words
  * differ, and the page owns both.
  *
@@ -128,7 +128,7 @@ export function initAddPanel() {
         bits.push(item.quantity + ' in stock');
         if (item.price) bits.push(item.price);
         if (item.elsewhere) bits.push('In ' + item.elsewhere);
-        // A group's panel searches the main catalogue (option 2, 2026-09-05):
+        // A group's panel searches the Master Catalog (option 2, 2026-09-05):
         // a product the store does not carry yet says so, and adding it
         // lists it on the store as it joins the group.
         if (item.listed === false) bits.push('Not on this store yet');

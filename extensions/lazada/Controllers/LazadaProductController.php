@@ -253,7 +253,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
          *
          * THIS STORE is what this store carries and works day to day - its
          * own listing rows, with the seller-center state tabs. ADD PRODUCTS is
-         * the main catalogue, where a product is added into the store's list.
+         * the Master Catalog, where a product is added into the store's list.
          * Multi-store is what earned the split: a store's daily table stops
          * mirroring the whole catalogue and shows only what it consolidated.
          * The add surface has its own lean flow, so it returns before all the
@@ -739,7 +739,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
     }
 
     /**
-     * ADD PRODUCTS (#201, the owner 2026-09-05): the main catalogue, each product
+     * ADD PRODUCTS (#201, the owner 2026-09-05): the Master Catalog, each product
      * shown with whether it is already on this store and, if not, an Add to
      * store action. This is where a store's list is populated. It is a lean
      * read - no live-status walk, no readiness engine, no orphan queue - so it
@@ -869,7 +869,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
     /**
      * The Add products panel's search (#201, Draft C - the owner 2026-09-05): the
-     * main catalogue, each row flagged with whether it is already on this
+     * Master Catalog, each row flagged with whether it is already on this
      * store. Capped, on purpose: a slide-over cannot list a whole catalogue,
      * so the operator narrows by searching and the total says how much is
      * still out of view; the full catalogue page is one link away for a

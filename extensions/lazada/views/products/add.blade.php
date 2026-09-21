@@ -2,7 +2,7 @@
 @section('breadcrumb', 'Listings')
 @section('title', 'Add products to Lazada')
 
-{{-- ADD PRODUCTS (#201, the owner 2026-09-05): your main catalogue, each product
+{{-- ADD PRODUCTS (#201, the owner 2026-09-05): your Master Catalog, each product
      shown with whether it is already on this store and, if not, an Add to
      store action. This is where a store's list is populated; the daily table
      lives on This store (products/index). A lean read - no live status, no
@@ -33,7 +33,7 @@
     <div>
         <h1 class="x-page-title">Add products</h1>
         <p class="x-page-sub">
-            Your main catalogue &middot; {{ number_format((int) ($onStoreTotal ?? 0)) }} already on this store
+            Your Master Catalog &middot; {{ number_format((int) ($onStoreTotal ?? 0)) }} already on this store
         </p>
     </div>
     <div class="cc-head-actions">
@@ -107,7 +107,7 @@
             ? 'Try clearing the search, or widening the manufacturer and group filters.'
             : ($onStore === 'off'
                 ? 'There is nothing left to add — every catalogue product is already on this store.'
-                : 'Add a product to your main catalogue and it will be ready to add to this store.')">
+                : 'Add a product to your Master Catalog and it will be ready to add to this store.')">
         @if($hasFilters)
             <x-slot:action>
                 <x-ui.button :href="route('ext.lazada.products.index', ['list' => 'add'])">Clear filters</x-ui.button>
