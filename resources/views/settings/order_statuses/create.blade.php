@@ -55,7 +55,7 @@
                         <input type="checkbox" class="fm-switch__input" name="subtract_stock" value="1" @checked(old('subtract_stock'))>
                         <span class="fm-switch__track" aria-hidden="true"></span>
                         <span class="fm-switch__text">
-                            <span class="fm-switch__label">Takes stock</span>
+                            <span class="fm-switch__label">Subtract stock</span>
                             <span class="fm-switch__note">Stock comes off the product when an order reaches this status.</span>
                         </span>
                     </label>

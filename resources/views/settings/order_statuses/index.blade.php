@@ -80,7 +80,7 @@
             @endif
             <th scope="col" class="st-col-id">ID</th>
             <th scope="col">Name</th>
-            <th scope="col" class="st-col-flag">Takes stock</th>
+            <th scope="col" class="st-col-flag">Subtract stock</th>
             <th scope="col" class="st-col-flag">Counts as revenue</th>
             <th scope="col" class="bl-col-actions"><span class="x-sr">Actions</span></th>
         </tr>
@@ -103,7 +103,7 @@
                     {{ $s->name }}
                 @endif
             </td>
-            <td class="st-col-flag" data-label="Takes stock">
+            <td class="st-col-flag" data-label="Subtract stock">
                 <x-ui.badge :tone="$s->subtract_stock ? 'success' : 'neutral'">{{ $s->subtract_stock ? 'Yes' : 'No' }}</x-ui.badge>
             </td>
             <td class="st-col-flag" data-label="Counts as revenue">
