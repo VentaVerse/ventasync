@@ -29,7 +29,10 @@
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/",
             "Extensions\\": "extensions/"
-        }
+        },
+        "exclude-from-classmap": [
+            "extensions/opencart/upload-this-to-opencart/"
+        ]
     },
     "autoload-dev": {
         "psr-4": {
