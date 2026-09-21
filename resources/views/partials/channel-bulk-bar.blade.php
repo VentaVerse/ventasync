@@ -91,21 +91,21 @@
          sticky layer, and a dialog drawn inside one is covered by the page. --}}
     <div class="modal-backdrop" :class="{ active: picking }" x-data="{ picking: false }"
          @open-move-picker.window="picking = true" @keydown.escape.window="picking = false" @click.self="picking = false">
-        <div class="modal modal--sm cc-move" role="dialog" aria-modal="true" aria-labelledby="cc-move-title">
+        <div class="modal modal--sm cc-grouppick" role="dialog" aria-modal="true" aria-labelledby="cc-grouppick-title">
             <div class="modal-header">
-                <h2 id="cc-move-title">Move <span x-text="selected.length"></span> to a group</h2>
+                <h2 id="cc-grouppick-title">Move <span x-text="selected.length"></span> to a group</h2>
                 <button class="modal-close" type="button" @click="picking = false" aria-label="Close">&times;</button>
             </div>
-            <div class="cc-move__list">
+            <div class="cc-grouppick__list">
                 @foreach($b['move']['groups'] as $g)
                     @continue((string) $g['id'] === (string) ($b['move']['current'] ?? ''))
                     <form method="POST" action="{{ $b['move']['action'] }}" data-bulk-form data-bulk-field="ids[]">
                         @csrf
                         <input type="hidden" name="group" value="{{ $g['id'] }}">
                         <input type="hidden" name="_return" value="{{ $b['move']['return'] ?? '' }}">
-                        <button type="submit" class="cc-move__pick">
-                            <span class="cc-move__name">{{ $g['name'] }}</span>
-                            <span class="cc-move__n">{{ number_format((int) $g['count']) }}</span>
+                        <button type="submit" class="cc-grouppick__pick">
+                            <span class="cc-grouppick__name">{{ $g['name'] }}</span>
+                            <span class="cc-grouppick__n">{{ number_format((int) $g['count']) }}</span>
                         </button>
                     </form>
                 @endforeach
@@ -114,8 +114,8 @@
                         @csrf
                         <input type="hidden" name="group" value="none">
                         <input type="hidden" name="_return" value="{{ $b['move']['return'] ?? '' }}">
-                        <button type="submit" class="cc-move__pick cc-move__pick--out">
-                            <span class="cc-move__name">{{ \App\Integrations\Listings\StatusMenu::UNGROUPED }}</span>
+                        <button type="submit" class="cc-grouppick__pick cc-grouppick__pick--out">
+                            <span class="cc-grouppick__name">{{ \App\Integrations\Listings\StatusMenu::UNGROUPED }}</span>
                         </button>
                     </form>
                 @endif
