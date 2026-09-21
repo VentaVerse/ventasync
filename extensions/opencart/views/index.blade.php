@@ -125,7 +125,6 @@
      ================================================================ --}}
 <div id="oc-tab-connection" class="cs-panel" @if($csSection !== 'connection') hidden @endif>
 
-    @include('partials.channel-last-run', ['show' => $store->enabled, 'stats' => ['Orders pulled' => $store->last_order_sync_at, 'Products pushed' => $store->last_product_sync_at, 'Categories pulled' => $store->last_category_sync_at, 'Manufacturers pulled' => $store->last_manufacturer_sync_at, 'Reviews pushed' => $store->last_review_push_at]])
 
     <div class="cs-grid">
         <section class="fm-section">
@@ -382,8 +381,7 @@
                     @foreach($statusMap as $map)
                         <tr>
                             <td class="cs-col-src" data-label="OpenCart status">
-                                <span class="cs-code">{{ $map->oc_status_id }}</span>
-                                <span class="cs-map-label">{{ $map->oc_status_name }}</span>
+                                <span class="cs-map-name">{{ $map->oc_status_name }}</span>
                             </td>
                             <td data-label="Sales order status">
                                 <div class="x-select-wrap cs-map-select">

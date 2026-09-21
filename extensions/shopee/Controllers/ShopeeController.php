@@ -469,7 +469,8 @@ public function index(Request $request = null, ShopeeClient $client = null)
         $setting = ShopeeSetting::create([
             'store_name' => $data['store_name'],
             'enabled' => false,
-            'mode' => 'live',
+            // A new store starts in the sandbox: nothing it does reaches a real shop until it is switched over.
+            'mode' => 'sandbox',
         ]);
 
         \App\Services\ActivityLogger::log('created', 'Shopee Store', $setting->id, $setting->store_name);

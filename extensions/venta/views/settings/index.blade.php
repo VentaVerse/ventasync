@@ -166,7 +166,6 @@
 
     @include('partials.channel-connect-flow', ['canManage' => $canManageVenta, 'steps' => $steps])
 
-    @include('partials.channel-last-run', ['show' => $store->enabled, 'stats' => ['Orders pulled' => $store->last_order_sync_at, 'Products pushed' => $store->last_product_sync_at, 'Categories read' => $store->last_category_sync_at, 'Stock pushed' => $store->last_stock_push_at]])
 
     <div class="cs-grid">
         <section class="fm-section">
@@ -357,8 +356,7 @@
                         @foreach($statusMap as $map)
                             <tr>
                                 <td class="cs-col-src" data-label="Venta status">
-                                    <span class="cs-code">{{ $map->venta_status_id }}</span>
-                                    <span class="cs-map-label">{{ $map->venta_status_name }}</span>
+                                    <span class="cs-map-name">{{ $map->venta_status_name }}</span>
                                 </td>
                                 <td data-label="Sales order status">
                                     <div class="x-select-wrap cs-map-select">

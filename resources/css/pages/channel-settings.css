@@ -255,6 +255,85 @@
    Token state. A badge and the expiry beside it, on one line.
    ------------------------------------------------------------------ */
 
+/* One card carries the whole connection: the environment switch in its head,
+   the keys in its body, and what to do with them along its foot. The split
+   grid stays for the pages that still have two columns of their own. */
+.cs-stack {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--bl-space-6);
+    align-items: start;
+}
+
+.cs-envseg { flex: 0 0 auto; }
+
+.cs-connect__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--bl-space-3);
+    margin-top: var(--bl-space-5);
+    padding-top: var(--bl-space-4);
+    border-top: 1px solid var(--bl-rule-2);
+}
+
+.cs-connect__acts {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--bl-space-2);
+    margin-left: auto;
+}
+
+/* The routes round the automatic one: closed until the automatic one fails. */
+.cs-hand {
+    border-top: 1px solid var(--bl-rule-2);
+    margin-top: var(--bl-space-5);
+}
+
+.cs-hand > summary {
+    list-style: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: var(--bl-space-2);
+    padding: var(--bl-space-3) 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--bl-ink-2);
+}
+
+.cs-hand > summary::-webkit-details-marker { display: none; }
+
+.cs-hand > summary::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-right: 1.5px solid var(--bl-ink-3);
+    border-bottom: 1.5px solid var(--bl-ink-3);
+    transform: rotate(-45deg);
+    transition: transform .18s cubic-bezier(.2, .7, .3, 1);
+}
+
+.cs-hand[open] > summary::before { transform: rotate(45deg); }
+
+.cs-hand > summary:hover { color: var(--bl-ink); }
+
+.cs-hand > summary:focus-visible {
+    outline: 2px solid var(--bl-brand);
+    outline-offset: 2px;
+    border-radius: var(--bl-r-ctrl);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cs-hand > summary::before { transition: none; }
+}
+
+/* What Set up store has on file: the categories, couriers or shop a push
+   needs. It reads after the token's own state, quieter than it. */
+.cs-state__fact { font-size: 12px; color: var(--bl-ink-3); }
+
 .cs-state {
     display: flex;
     flex-wrap: wrap;
@@ -285,6 +364,11 @@
 }
 
 .cs-map-label { margin-left: var(--bl-space-2); font-size: 12px; color: var(--bl-ink-3); }
+
+/* A storefront names its statuses and numbers them; the name is the half a
+   seller recognises, so on those channels it stands alone and reads as the
+   row's own text rather than as an aside. */
+.cs-map-name { font-size: 13px; color: var(--bl-ink); }
 
 .cs-page .x-table tbody td { white-space: normal; }
 

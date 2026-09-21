@@ -1183,7 +1183,8 @@ class LazadaController extends Controller
         $setting = LazadaSetting::create([
             'store_name' => $data['store_name'],
             'enabled'    => false,
-            'mode'       => 'live',
+            // A new store starts in the sandbox: nothing it does reaches a real shop until it is switched over.
+            'mode'       => 'sandbox',
         ]);
 
         \App\Services\ActivityLogger::log('created', 'Lazada Store', $setting->id, $setting->store_name);

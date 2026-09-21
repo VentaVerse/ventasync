@@ -107,25 +107,6 @@
         <p class="x-page-sub">{{ ($setting->store_name ?? '') !== '' ? $setting->store_name : 'This store' }} on TikTok Shop, {{ $isSandbox ? 'sandbox' : 'production' }}.</p>
     </div>
     <div class="cs-head-state">
-        @if($canManageTiktok)
-            {{-- Wire unchanged: one hidden `mode` field posted to toggle-mode. --}}
-            <form method="POST" action="{{ route('ext.tiktok.toggle_mode') }}" data-cs-env-form class="cs-head-state__env">
-                @csrf
-                <input type="hidden" name="mode" value="{{ $currentMode }}" data-cs-env-input>
-                <div class="x-segment" role="tablist" aria-label="TikTok environment">
-                    <button type="button" class="x-segment__item {{ $isSandbox ? '' : 'is-active' }}"
-                            role="tab" aria-selected="{{ $isSandbox ? 'false' : 'true' }}"
-                            data-cs-env-option="live">Production</button>
-                    <button type="button" class="x-segment__item {{ $isSandbox ? 'is-active' : '' }}"
-                            role="tab" aria-selected="{{ $isSandbox ? 'true' : 'false' }}"
-                            data-cs-env-option="sandbox">Sandbox</button>
-                </div>
-            </form>
-        @else
-            <span class="cs-env__label">{{ $isSandbox ? 'Sandbox' : 'Production' }}</span>
-        @endif
-        {{-- bl-hint--end: the bubble opens leftward, this sits at the page's right edge. --}}
-        <x-ui.hint class="cs-env__hint bl-hint--end" label="About the environment">Every sync, push and order fetch uses the credentials of the environment selected here. It is also what the Authorise button sends, so switch first and authorise second.</x-ui.hint>
         @if($setting->enabled ?? true)
             <x-ui.badge tone="success">Active</x-ui.badge>
         @else
@@ -173,6 +154,15 @@
 <div id="tt-tab-connection" class="cs-panel" @if($csSection !== 'connection') hidden @endif>
 
 
+    {{-- The environment is posted by this one form; the switch that sets it
+         sits on the card whose keys it governs, in each panel. --}}
+    @if($canManageTiktok)
+        <form method="POST" action="{{ route('ext.tiktok.toggle_mode') }}" data-cs-env-form hidden>
+            @csrf
+            <input type="hidden" name="mode" value="{{ $currentMode }}" data-cs-env-input>
+        </form>
+    @endif
+
     {{-- ---- PRODUCTION ---------------------------------------------- --}}
     @php
         $csCategories = \Extensions\tiktok\Models\TikTokCategory::query()->count();
@@ -189,34 +179,26 @@
             . ', ' . ($csCategories > 0 ? number_format($csCategories) . ' ' . \Illuminate\Support\Str::plural('category', $csCategories) . ' on file' : 'no categories yet');
     @endphp
     <div class="cs-env-panel" data-cs-env-panel="live" @if($isSandbox) hidden @endif>
-    @include('partials.channel-connect-flow', [
-        'canManage' => $canManageTiktok,
-        'steps' => [
-            ['title' => 'Save the keys', 'tone' => $hasCredentials ? 'done' : 'todo',
-             'state' => $hasCredentials ? 'Production keys saved' : 'Fill in the production keys below and save'],
-            ['title' => 'Authorise with TikTok Shop', 'tone' => $hasToken && ! $tokenExpired ? 'done' : ($hasToken ? 'failed' : 'todo'),
-             'hint' => 'Opens TikTok Shop sign-in in a new tab, with the keys of the environment selected above. After you grant access TikTok sends you back with an auth code, and the code is exchanged for a token on its own.',
-             'button' => ['label' => 'Open TikTok Shop authorisation', 'newTab' => true, 'variant' => $hasToken && ! $tokenExpired ? 'secondary' : 'primary', 'href' => route('ext.tiktok.authorize', ['store' => $setting->id ?? null])],
-             'state' => $hasToken && ! $tokenExpired ? ('Token active' . (($setting->expires_at ?? null) ? ', expires ' . \Carbon\Carbon::parse($setting->expires_at)->diffForHumans() : '')) : ($hasToken ? 'Token expired: authorise again, or refresh it by hand' : 'No token yet')],
-            ['title' => 'Set up the store', 'tone' => $csSetUp ? 'done' : 'todo',
-             'hint' => 'Reads the shop (its cipher and warehouse, which nearly every call needs) and the categories every listing needs. It runs on its own after an authorisation; press it again to refresh them.',
-             'button' => ['label' => 'Set up store', 'variant' => $csSetUp ? 'secondary' : 'primary', 'attr' => 'data-setup-open'],
-             'state' => $csSetupState],
-        ],
-    ])
-    @include('partials.channel-last-run', ['show' => ($setting->enabled ?? true) && ($setting->id ?? null), 'stats' => ['Orders pulled' => $setting->last_order_sync_at ?? null, 'Stock pushed' => $setting->last_stock_push_at ?? null]])
-    <div class="cs-grid">
+    <div class="cs-stack">
 
         <section class="fm-section">
             <div class="fm-section__head">
-                <h2 class="fm-section__title">This store</h2>
-                <div class="fm-section__aside">
-                    @if($hasCredentials)
-                        <x-ui.badge tone="success">Configured</x-ui.badge>
-                    @else
-                        <x-ui.badge tone="neutral">Not configured</x-ui.badge>
-                    @endif
+                <div>
+                    <h2 class="fm-section__title">Keys and token</h2>
+                    <p class="fm-section__note">Each environment keeps its own keys and its own token.</p>
                 </div>
+                @if($canManageTiktok)
+                    <div class="x-segment cs-envseg" role="tablist" aria-label="TikTok Shop environment">
+                        <button type="button" class="x-segment__item {{ $isSandbox ? 'is-active' : '' }}"
+                                role="tab" aria-selected="{{ $isSandbox ? 'true' : 'false' }}"
+                                data-cs-env-option="sandbox">Sandbox</button>
+                        <button type="button" class="x-segment__item {{ $isSandbox ? '' : 'is-active' }}"
+                                role="tab" aria-selected="{{ $isSandbox ? 'false' : 'true' }}"
+                                data-cs-env-option="live">Production</button>
+                    </div>
+                @else
+                    <span class="cs-env__label">{{ $isSandbox ? 'Sandbox' : 'Production' }}</span>
+                @endif
             </div>
 
             <form method="POST" action="{{ route('ext.tiktok.save') }}" id="tt-save-live">
@@ -264,33 +246,35 @@
                     </x-ui.field>
                 </div>
 
-                @if($canManageTiktok)
-                <div class="cs-actions">
-                    <x-ui.button type="submit" variant="primary">Save connection</x-ui.button>
-                </div>
-                @endif
-            </form>
-        </section>
-
-        <section class="fm-section">
-            <div class="fm-section__head">
-                <h2 class="fm-section__title">By hand</h2>
-            </div>
-
-            <div class="cs-state">
-                @if($hasToken && !$tokenExpired)
-                    <x-ui.badge tone="success">Token active</x-ui.badge>
-                    @if($setting->expires_at ?? null)
-                        <span class="cs-state__when">Expires {{ \Carbon\Carbon::parse($setting->expires_at)->diffForHumans() }}</span>
+                <div class="cs-connect__foot">
+                    <div class="cs-state">
+                        @if($hasToken && !$tokenExpired)
+                            <x-ui.badge tone="success">Token active</x-ui.badge>
+                            @if($setting->expires_at ?? null)
+                                <span class="cs-state__when">Expires {{ \Carbon\Carbon::parse($setting->expires_at)->diffForHumans() }}</span>
+                            @endif
+                        @elseif($hasToken && $tokenExpired)
+                            <x-ui.badge tone="danger">Token expired</x-ui.badge>
+                            <span class="cs-state__note">Refresh it under Do it by hand, or authorise again.</span>
+                        @else
+                            <x-ui.badge tone="warning">No token</x-ui.badge>
+                            <span class="cs-state__note">Authorise above.</span>
+                        @endif
+                        <span class="cs-state__fact">{{ $csSetupState }}</span>
+                    </div>
+                    @if($canManageTiktok)
+                    <div class="cs-connect__acts">
+                        <x-ui.button type="button" variant="secondary" size="sm" data-setup-open>Set up store</x-ui.button>
+                        <x-ui.button variant="secondary" :href="route('ext.tiktok.authorize', ['store' => $setting->id ?? null])" target="_blank" rel="noopener">Authorize shop</x-ui.button>
+                        <x-ui.button type="submit" variant="primary">Save connection</x-ui.button>
+                    </div>
                     @endif
-                @elseif($hasToken && $tokenExpired)
-                    <x-ui.badge tone="danger">Token expired</x-ui.badge>
-                    <span class="cs-state__note">Refresh it below, or authorise again above.</span>
-                @else
-                    <x-ui.badge tone="warning">No token</x-ui.badge>
-                    <span class="cs-state__note">Authorise above.</span>
-                @endif
-            </div>
+                </div>
+            </form>
+
+        <details class="cs-hand">
+            <summary>Do it by hand</summary>
+
 
             @if($canManageTiktok)
             <div class="cs-steps">
@@ -346,40 +330,33 @@
             @else
             <p class="cs-step__note">Authorising, fetching the shop and refreshing tokens need the TikTok manage permission.</p>
             @endif
+        </details>
         </section>
     </div>
     </div>
 
     {{-- ---- SANDBOX ------------------------------------------------- --}}
     <div class="cs-env-panel" data-cs-env-panel="sandbox" @unless($isSandbox) hidden @endunless>
-    @include('partials.channel-connect-flow', [
-        'canManage' => $canManageTiktok,
-        'steps' => [
-            ['title' => 'Save the keys', 'tone' => $hasSandboxCredentials ? 'done' : 'todo',
-             'state' => $hasSandboxCredentials ? 'Sandbox keys saved' : 'Fill in the sandbox keys below and save'],
-            ['title' => 'Authorise with TikTok Shop', 'tone' => $hasSandboxToken && ! $sandboxTokenExpired ? 'done' : ($hasSandboxToken ? 'failed' : 'todo'),
-             'hint' => 'Opens TikTok Shop sign-in in a new tab, with the keys of the environment selected above. After you grant access TikTok sends you back with an auth code, and the code is exchanged for a token on its own.',
-             'button' => ['label' => 'Open sandbox authorisation', 'newTab' => true, 'variant' => $hasSandboxToken && ! $sandboxTokenExpired ? 'secondary' : 'primary', 'href' => route('ext.tiktok.authorize', ['store' => $setting->id ?? null])],
-             'state' => $hasSandboxToken && ! $sandboxTokenExpired ? ('Token active' . (($setting->sandbox_expires_at ?? null) ? ', expires ' . \Carbon\Carbon::parse($setting->sandbox_expires_at)->diffForHumans() : '')) : ($hasSandboxToken ? 'Token expired: authorise again, or refresh it by hand' : 'No token yet')],
-            ['title' => 'Set up the store', 'tone' => $csSetUp ? 'done' : 'todo',
-             'hint' => 'Reads the shop (its cipher and warehouse, which nearly every call needs) and the categories every listing needs. It runs on its own after an authorisation; press it again to refresh them.',
-             'button' => ['label' => 'Set up store', 'variant' => $csSetUp ? 'secondary' : 'primary', 'attr' => 'data-setup-open'],
-             'state' => $csSetupState],
-        ],
-    ])
-    @include('partials.channel-last-run', ['show' => ($setting->enabled ?? true) && ($setting->id ?? null), 'stats' => ['Orders pulled' => $setting->last_order_sync_at ?? null, 'Stock pushed' => $setting->last_stock_push_at ?? null]])
-    <div class="cs-grid">
+    <div class="cs-stack">
 
         <section class="fm-section">
             <div class="fm-section__head">
-                <h2 class="fm-section__title">This store</h2>
-                <div class="fm-section__aside">
-                    @if($hasSandboxCredentials)
-                        <x-ui.badge tone="success">Sandbox configured</x-ui.badge>
-                    @else
-                        <x-ui.badge tone="neutral">Sandbox not configured</x-ui.badge>
-                    @endif
+                <div>
+                    <h2 class="fm-section__title">Keys and token</h2>
+                    <p class="fm-section__note">Each environment keeps its own keys and its own token.</p>
                 </div>
+                @if($canManageTiktok)
+                    <div class="x-segment cs-envseg" role="tablist" aria-label="TikTok Shop environment">
+                        <button type="button" class="x-segment__item {{ $isSandbox ? 'is-active' : '' }}"
+                                role="tab" aria-selected="{{ $isSandbox ? 'true' : 'false' }}"
+                                data-cs-env-option="sandbox">Sandbox</button>
+                        <button type="button" class="x-segment__item {{ $isSandbox ? '' : 'is-active' }}"
+                                role="tab" aria-selected="{{ $isSandbox ? 'false' : 'true' }}"
+                                data-cs-env-option="live">Production</button>
+                    </div>
+                @else
+                    <span class="cs-env__label">{{ $isSandbox ? 'Sandbox' : 'Production' }}</span>
+                @endif
             </div>
 
             <form method="POST" action="{{ route('ext.tiktok.save') }}" id="tt-save-sandbox">
@@ -424,32 +401,34 @@
                     </x-ui.field>
                 </div>
 
-                @if($canManageTiktok)
-                <div class="cs-actions">
-                    <x-ui.button type="submit" variant="primary">Save connection</x-ui.button>
-                </div>
-                @endif
-            </form>
-        </section>
-
-        <section class="fm-section">
-            <div class="fm-section__head">
-                <h2 class="fm-section__title">By hand</h2>
-            </div>
-
-            <div class="cs-state">
-                @if($hasSandboxToken && !$sandboxTokenExpired)
-                    <x-ui.badge tone="success">Token active</x-ui.badge>
-                    @if($setting->sandbox_expires_at ?? null)
-                        <span class="cs-state__when">Expires {{ \Carbon\Carbon::parse($setting->sandbox_expires_at)->diffForHumans() }}</span>
+                <div class="cs-connect__foot">
+                    <div class="cs-state">
+                        @if($hasSandboxToken && !$sandboxTokenExpired)
+                            <x-ui.badge tone="success">Token active</x-ui.badge>
+                            @if($setting->sandbox_expires_at ?? null)
+                                <span class="cs-state__when">Expires {{ \Carbon\Carbon::parse($setting->sandbox_expires_at)->diffForHumans() }}</span>
+                            @endif
+                        @elseif($hasSandboxToken && $sandboxTokenExpired)
+                            <x-ui.badge tone="danger">Token expired</x-ui.badge>
+                        @else
+                            <x-ui.badge tone="warning">No token</x-ui.badge>
+                            <span class="cs-state__note">Save the sandbox keys, then authorise above.</span>
+                        @endif
+                        <span class="cs-state__fact">{{ $csSetupState }}</span>
+                    </div>
+                    @if($canManageTiktok)
+                    <div class="cs-connect__acts">
+                        <x-ui.button type="button" variant="secondary" size="sm" data-setup-open>Set up store</x-ui.button>
+                        <x-ui.button variant="secondary" :href="route('ext.tiktok.authorize', ['store' => $setting->id ?? null])" target="_blank" rel="noopener">Authorize shop</x-ui.button>
+                        <x-ui.button type="submit" variant="primary">Save connection</x-ui.button>
+                    </div>
                     @endif
-                @elseif($hasSandboxToken && $sandboxTokenExpired)
-                    <x-ui.badge tone="danger">Token expired</x-ui.badge>
-                @else
-                    <x-ui.badge tone="warning">No token</x-ui.badge>
-                    <span class="cs-state__note">Save the sandbox keys, then authorise above.</span>
-                @endif
-            </div>
+                </div>
+            </form>
+
+        <details class="cs-hand">
+            <summary>Do it by hand</summary>
+
 
             @if($canManageTiktok)
             <div class="cs-steps">
@@ -490,6 +469,7 @@
             @else
             <p class="cs-step__note">Authorising, fetching the shop and refreshing tokens need the TikTok manage permission.</p>
             @endif
+        </details>
         </section>
     </div>
     </div>
@@ -539,11 +519,10 @@
                     <tr>
                         <td class="cs-col-src" data-label="TikTok status">
                             <span class="cs-code">{{ $key }}</span>
-                            <span class="cs-map-label">{{ $label }}</span>
                         </td>
                         <td data-label="Sales order status">
                             <div class="x-select-wrap cs-map-select">
-                                <select name="map[{{ $key }}]" class="x-input" aria-label="Sales order status for {{ $label }}" @disabled(!$canManageTiktok)>
+                                <select name="map[{{ $key }}]" class="x-input" aria-label="Sales order status for {{ $key }}" @disabled(!$canManageTiktok)>
                                     @foreach($erpOrderStatuses as $os)
                                         <option value="{{ $os->order_status_id }}" @selected((int) ($orderStatusMap[$key] ?? 0) === (int) $os->order_status_id)>{{ $os->name }}</option>
                                     @endforeach
@@ -582,11 +561,10 @@
                     <tr>
                         <td class="cs-col-src" data-label="TikTok return status">
                             <span class="cs-code">{{ $key }}</span>
-                            <span class="cs-map-label">{{ $label }}</span>
                         </td>
                         <td data-label="Sales order status">
                             <div class="x-select-wrap cs-map-select">
-                                <select name="map[{{ $key }}]" class="x-input" aria-label="Sales order status for {{ $label }}" @disabled(!$canManageTiktok)>
+                                <select name="map[{{ $key }}]" class="x-input" aria-label="Sales order status for {{ $key }}" @disabled(!$canManageTiktok)>
                                     <option value="">Not mapped</option>
                                     @foreach($erpOrderStatuses as $os)
                                         <option value="{{ $os->order_status_id }}" @selected((int) (($returnStatusMap ?? [])[$key] ?? 0) === (int) $os->order_status_id)>{{ $os->name }}</option>
@@ -666,7 +644,7 @@
                         <span class="fm-label">If a call comes back wrong</span>
                         <div class="api-mini">
                             <div>TikTok versions its paths, so /product/202309/... is the whole path, not a prefix.</div>
-                            <div>Most endpoints need the shop cipher. It is added for you once step 3 on the Connection tab has run.</div>
+                            <div>Most endpoints need the shop cipher. It is added for you once Set up store on the Connection tab has run.</div>
                             <div>A POST sends the parameters as a JSON body. A GET sends them as query parameters.</div>
                         </div>
                     </div>

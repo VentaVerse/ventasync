@@ -214,7 +214,7 @@ class SettingsTabReturnTest extends TestCase
         $this->assertStringContainsString('class="bl-hint fm-label__hint"', $html);
         $this->assertStringNotContainsString('class="fm-hint"', $html, 'no description paragraph under a control on this page');
         // The environment note rides the same button.
-        $this->assertStringContainsString('Every sync, push and order fetch uses the credentials of the environment selected here', $html);
+        $this->assertStringContainsString('Each environment keeps its own keys and its own token', $html);
         $this->assertStringNotContainsString('cs-env__note', $html);
     }
 }

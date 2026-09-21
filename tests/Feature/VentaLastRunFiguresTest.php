@@ -7,8 +7,8 @@ use Tests\TestCase;
 /**
  * A figure the settings page prints must be written by something.
  *
- * Venta's Connection tab shows three "Last run" figures. Two of them could
- * never say anything but "Never":
+ * Venta's Connection tab used to show three "Last run" figures. Two of them
+ * could never say anything but "Never":
  *
  *   Orders pulled    last_order_sync_at    written by the sync command  OK
  *   Products pushed  last_product_sync_at  written by NOTHING
@@ -20,9 +20,11 @@ use Tests\TestCase;
  * operator's only reasonable conclusion was that the job had never run.
  *
  * This is the same defect this codebase has been carrying in several places:
- * a display reading a field nothing maintains. The ratchet below is written
- * against the view rather than against a list of columns, so a figure added to
- * that page later is held to the same rule on the day it is added.
+ * a display reading a field nothing maintains. The card itself is gone now,
+ * since each automation's own last run belongs beside the switch that
+ * schedules it. The ratchet stays, written against the view rather than
+ * against a list of columns, so the day one of these figures is printed there
+ * again it is held to the same rule.
  */
 class VentaLastRunFiguresTest extends TestCase
 {
@@ -61,7 +63,12 @@ class VentaLastRunFiguresTest extends TestCase
 
         $displayed = array_unique($m[1]);
 
-        $this->assertNotEmpty($displayed, 'No last-run figures found on the page; this test is not reading it.');
+        // The page prints none today. The rule waits for the next one rather
+        // than failing; a moved view would show up as the missing file.
+        $this->assertFileExists(base_path(self::VIEW), 'the settings view moved; point this rule at its new path');
+        if ($displayed === []) {
+            return;
+        }
 
         $writers = $this->writerSources();
 
