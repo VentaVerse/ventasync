@@ -147,7 +147,9 @@
 .ai-read input { margin: 0; accent-color: var(--bl-brand-deep); }
 .ai-read:has(input:checked) {
     border-color: var(--bl-brand-deep);
-    color: var(--bl-brand-deep);
+    /* The brand hue, pulled toward the ink so the label keeps a clear
+       margin over 4.5:1 on its tint in both themes. */
+    color: color-mix(in srgb, var(--bl-brand-deep) 78%, var(--bl-ink));
     background: color-mix(in srgb, var(--bl-brand-deep) 10%, var(--bl-sheet));
 }
 .ai-read:has(input:focus-visible) { outline: 2px solid var(--bl-brand-deep); outline-offset: 2px; }
