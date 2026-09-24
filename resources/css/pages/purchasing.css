@@ -460,6 +460,31 @@
 
 .po-rcv__spacer { flex: 1 1 auto; }
 
+/* Add to stock or record only: exactly two, mutually exclusive, asked on
+   every receipt. The petty cash Kind switch's shape. */
+.po-rcv__stock { display: flex; flex-wrap: wrap; align-items: center; gap: var(--bl-space-3); }
+.po-rcv__choice { display: inline-flex; padding: 2px; background: var(--bl-chrome); border-radius: var(--bl-r-ctrl); }
+.po-rcv__opt { position: relative; }
+.po-rcv__opt input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.po-rcv__face {
+    display: block;
+    padding: 0 var(--bl-space-4);
+    line-height: calc(var(--bl-control-h-sm) - 2px);
+    font-size: 13px;
+    color: var(--bl-ink-2);
+    border-radius: var(--bl-r-dot);
+    cursor: pointer;
+    transition: background var(--bl-motion-fast), color var(--bl-motion-fast);
+}
+.po-rcv__opt input:checked + .po-rcv__face { background: var(--bl-sheet); color: var(--bl-ink); font-weight: 500; box-shadow: var(--bl-lift); }
+.po-rcv__opt input:focus-visible + .po-rcv__face { outline: 2px solid var(--bl-brand-deep); outline-offset: 1px; }
+.po-rcv__where { min-width: 14rem; }
+/* The warehouse only matters when the stock is added. */
+.po-rcv__stock:has(input[value="0"]:checked) .po-rcv__where { opacity: .45; }
+@media (pointer: coarse) {
+    .po-rcv__face { line-height: 42px; }
+}
+
 /* ============================================================
    DETAIL (`od-` host) additions
    ============================================================ */

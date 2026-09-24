@@ -42,6 +42,18 @@ final class ProductQuantityWriter
      *
      * @throws RuntimeException with a sentence fit to show the caller
      */
+    /** Where the stock history says the movement came from. */
+    private string $source = 'api';
+
+    /** The same writer, recording its movements under another source, such as purchase_order. */
+    public function from(string $source): static
+    {
+        $writer = clone $this;
+        $writer->source = $source;
+
+        return $writer;
+    }
+
     public function set(int $productId, ?string $variationSku, ?int $newQuantity, ?int $changeBy, string $reason, string $actor): array
     {
         if (($newQuantity === null) === ($changeBy === null)) {
@@ -185,7 +197,7 @@ final class ProductQuantityWriter
             qtyAfter: $after,
             // Not 'user' and not 'mobile': the ledger names what actually
             // did this, so a figure nobody remembers changing can be traced.
-            source: 'api',
+            source: $this->source,
             note: $actor . ' set ' . $what . ', qty ' . $before . ' to ' . $after . '. Reason: ' . $reason,
         );
     }

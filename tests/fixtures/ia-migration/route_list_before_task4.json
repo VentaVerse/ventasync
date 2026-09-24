@@ -230,6 +230,11 @@
         "name": null
     },
     {
+        "method": "POST",
+        "uri": "api/v1/purchasing/purchase-orders/{ref}/receive",
+        "name": null
+    },
+    {
         "method": "GET|HEAD",
         "uri": "api/v1/purchasing/vendor-terms",
         "name": null

@@ -25,6 +25,7 @@
         'lazada_sync'   => 'Lazada',
         'shopee_sync'   => 'Shopee',
         'opencart_sync' => 'OpenCart',
+        'purchase_order' => 'Purchase order',
         default         => $s,
     };
 @endphp
