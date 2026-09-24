@@ -243,6 +243,85 @@ class ProductController extends Controller
         ]);
     }
 
+    /**
+     * PATCH /api/v1/products/{id}/variations - change some existing
+     * variations (SKU, switched on or off, picture) and add new ones, with a
+     * stated reason. Every variation not named stays exactly as it is.
+     */
+    public function updateVariations(Request $request, int $id): JsonResponse
+    {
+        if (! Product::whereKey($id)->exists()) {
+            return response()->json(['message' => 'Product not found.'], 404);
+        }
+
+        $data = $request->validate([
+            'changes' => 'nullable|array|max:' . self::MAX_VARIATIONS,
+            'changes.*.sku' => 'required|string|max:64',
+            'changes.*.new_sku' => 'nullable|string|max:64',
+            'changes.*.enabled' => 'nullable|boolean',
+            'changes.*.image_url' => 'nullable|string|max:2048',
+            'add' => 'nullable|array|max:' . self::MAX_VARIATIONS,
+            'add.*.values' => 'required|array|min:1|max:2',
+            'add.*.values.*' => 'required|string|max:128',
+            'add.*.sku' => 'required|string|max:64',
+            'add.*.price' => 'required|numeric|gt:0|max:99999999',
+            'add.*.cost_amount' => 'nullable|numeric|min:0|max:99999999',
+            'add.*.image_url' => 'nullable|string|max:2048',
+            'reason' => 'required|string|min:3|max:500',
+        ]);
+
+        $changes = array_values((array) ($data['changes'] ?? []));
+        $additions = array_values((array) ($data['add'] ?? []));
+        if ($changes === [] && $additions === []) {
+            return response()->json(['message' => 'Name at least one variation to change or add.'], 422);
+        }
+
+        // Pictures first: one that cannot be used changes nothing.
+        $creator = app(ProductCreator::class);
+        $importer = app(CatalogImageImporter::class);
+        $folder = $creator->imageFolder((int) Product::whereKey($id)->value('manufacturer_id'));
+        $stored = [];
+        $where = '';
+        try {
+            foreach ($changes as $i => $change) {
+                if (! empty($change['image_url'])) {
+                    $where = 'The picture for ' . $change['sku'];
+                    $changes[$i]['image'] = $stored[] = $importer->fromUrl((string) $change['image_url'], $folder);
+                }
+            }
+            foreach ($additions as $i => $add) {
+                if (! empty($add['image_url'])) {
+                    $where = 'The picture for ' . $add['sku'];
+                    $additions[$i]['image'] = $stored[] = $importer->fromUrl((string) $add['image_url'], $folder);
+                }
+            }
+        } catch (\RuntimeException $e) {
+            Storage::disk('public')->delete($stored);
+
+            return response()->json(['message' => $where . ' could not be used: ' . $e->getMessage() . ' Nothing was changed.'], 422);
+        }
+
+        try {
+            $report = app(\App\Services\Catalog\VariationEditor::class)->edit($id, $changes, $additions, [
+                'actor' => (string) ($request->user()?->name ?? 'An API application'),
+                'reason' => trim((string) $data['reason']),
+            ]);
+        } catch (\RuntimeException $e) {
+            Storage::disk('public')->delete($stored);
+
+            return response()->json(['message' => $e->getMessage()], 422);
+        } catch (ValidationException $e) {
+            Storage::disk('public')->delete($stored);
+            throw $e;
+        }
+
+        $report['notes'][] = "It is changed in the catalog only. Each store's listing picks it up on its next push.";
+
+        return response()->json(['product_id' => $id] + $report + [
+            'variations' => $this->variations(Product::with('description')->findOrFail($id)),
+        ]);
+    }
+
     /** The answer's before and after carry only what changed. */
     private function shown(array $changed): array
     {

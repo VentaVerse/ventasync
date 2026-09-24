@@ -97,6 +97,7 @@ Route::prefix('v1')->middleware(['auth:sanctum', 'api.audit'])->group(function (
     Route::middleware('scope:products:write')->group(function () {
         Route::put('/products/{id}/price', [\App\Http\Controllers\Api\V1\ProductController::class, 'updatePrice'])->whereNumber('id');
         Route::patch('/products/{id}', [\App\Http\Controllers\Api\V1\ProductController::class, 'update'])->whereNumber('id');
+        Route::patch('/products/{id}/variations', [\App\Http\Controllers\Api\V1\ProductController::class, 'updateVariations'])->whereNumber('id');
         Route::post('/products', [\App\Http\Controllers\Api\V1\ProductController::class, 'store']);
     });
 

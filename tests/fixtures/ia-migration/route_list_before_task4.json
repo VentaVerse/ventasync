@@ -210,6 +210,11 @@
         "name": null
     },
     {
+        "method": "PATCH",
+        "uri": "api/v1/products/{id}/variations",
+        "name": null
+    },
+    {
         "method": "GET|HEAD",
         "uri": "api/v1/purchasing/purchase-orders",
         "name": null
