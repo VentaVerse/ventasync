@@ -18,9 +18,16 @@ final class StoreKey
     /** Channels whose marketplace_source already carries the store. */
     private const SOURCE_NAMES_STORE = ['opencart', 'venta', 'shopify', 'woocommerce'];
 
+    /** Orders entered in VentaSync itself: no channel, no store. */
+    public const MANUAL = 'manual';
+
     /** @return array{source:string, store_id:?int}|null */
     public static function parse(string $key): ?array
     {
+        if ($key === self::MANUAL) {
+            return ['source' => '', 'store_id' => null];
+        }
+
         if (! preg_match('/^([a-z][a-z0-9_-]*)(?::(\d+))?$/', $key, $m)) {
             return null;
         }
@@ -53,6 +60,12 @@ final class StoreKey
         $query->where(function ($q) use ($parsed, $col) {
             foreach ($parsed as $p) {
                 $q->orWhere(function ($w) use ($p, $col) {
+                    // A manual order carries no source at all.
+                    if ($p['source'] === '') {
+                        $w->whereNull($col('marketplace_source'))->orWhere($col('marketplace_source'), '');
+
+                        return;
+                    }
                     /* "opencart" alone is every OpenCart store. Their
                        sources carry the store ("opencart:1"), so the exact
                        match a bare channel gets found none of them. */

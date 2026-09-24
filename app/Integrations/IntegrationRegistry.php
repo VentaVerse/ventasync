@@ -461,6 +461,12 @@ class IntegrationRegistry
     {
         $out = [];
 
+        // Orders entered in VentaSync itself belong to no channel, so no
+        // provider offers them; they are a choice for anyone who sees orders.
+        if ($user && ($user->hasPermission('view_sales/order') || $user->hasPermission('manage_sales/order'))) {
+            $out[] = ['key' => \App\Support\StoreKey::MANUAL, 'label' => 'Manual orders', 'channel' => 'VentaSync', 'source' => '', 'store_id' => null];
+        }
+
         foreach ($this->providers as $id => $provider) {
             if (! $provider instanceof \App\Integrations\Contracts\StoreOptionsProvider || ! $this->passesGates($id, $user)) {
                 continue;
