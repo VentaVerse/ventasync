@@ -266,6 +266,16 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "api/v1/warehousing/stock",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/warehousing/transfers",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "api/vendors",
         "name": null
     },
