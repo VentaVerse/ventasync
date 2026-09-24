@@ -236,6 +236,11 @@
     },
     {
         "method": "POST",
+        "uri": "api/v1/purchasing/purchase-orders/{ref}/payments",
+        "name": null
+    },
+    {
+        "method": "POST",
         "uri": "api/v1/purchasing/purchase-orders/{ref}/receive",
         "name": null
     },
