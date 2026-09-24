@@ -9,10 +9,15 @@ use App\Support\Catalog\ProductImages;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Writes the catalog product fields a store's comparison panel shows: name,
- * description, photos, price, weight and size. Only a field that actually
+ * Writes some of a catalog product's own fields and leaves the rest alone:
+ * name, description, photos, price, weight and size (what a store's
+ * comparison panel shows), and the SKU, whether it is switched on, its brand
+ * and its categories (what an assistant may edit). Only a field that actually
  * changed is written, and the product is marked modified only then, so a
  * save that changed nothing on the catalog raises no Catalog change anywhere.
+ *
+ * Checks that decide whether a value is allowed (a SKU nobody else holds, a
+ * photo before switching on) belong to the caller, which knows what to say.
  */
 final class CatalogBasicsWriter
 {
@@ -21,6 +26,19 @@ final class CatalogBasicsWriter
      * @return list<string>  the fields written
      */
     public function write(int $productId, array $fields): array
+    {
+        return array_keys($this->edit($productId, $fields));
+    }
+
+    /**
+     * The same write, answering with each changed field's old and new value.
+     *
+     * @param  array{title?: string, description?: string, photos?: list<string>, price?: float, weight?: float, length?: float,
+     *               width?: float, height?: float, sku?: string, status?: bool, manufacturer_id?: int, category_ids?: list<int>}  $fields
+     * @param  array{actor?: string, reason?: string}  $by  who asked and why, for the activity log
+     * @return array<string, array{old: mixed, new: mixed}>
+     */
+    public function edit(int $productId, array $fields, array $by = []): array
     {
         $pfx = (string) config('catalog.prefix');
         $lang = (int) config('catalog.default_language_id');
@@ -77,11 +95,39 @@ final class CatalogBasicsWriter
             }
         }
 
+        $sku = trim((string) ($fields['sku'] ?? ''));
+        if ($sku !== '' && $sku !== trim((string) $product->sku)) {
+            $productUpdate['sku'] = $sku;
+            $changes['sku'] = ['old' => (string) $product->sku, 'new' => $sku];
+        }
+
+        if (array_key_exists('status', $fields) && (int) (bool) $fields['status'] !== (int) $product->status) {
+            $productUpdate['status'] = (int) (bool) $fields['status'];
+            $changes['status'] = ['old' => (bool) $product->status, 'new' => (bool) $fields['status']];
+        }
+
+        if (array_key_exists('manufacturer_id', $fields) && (int) $fields['manufacturer_id'] !== (int) $product->manufacturer_id) {
+            $productUpdate['manufacturer_id'] = (int) $fields['manufacturer_id'];
+            $changes['manufacturer_id'] = ['old' => (int) $product->manufacturer_id, 'new' => (int) $fields['manufacturer_id']];
+        }
+
+        $categoryIds = null;
+        if (array_key_exists('category_ids', $fields)) {
+            $wanted = array_values(array_unique(array_map('intval', (array) $fields['category_ids'])));
+            $held = DB::table($pfx . 'product_to_category')->where('product_id', $productId)->orderBy('category_id')->pluck('category_id')->map(fn ($id) => (int) $id)->all();
+            $sorted = $wanted;
+            sort($sorted);
+            if ($sorted !== $held) {
+                $categoryIds = $wanted;
+                $changes['category_ids'] = ['old' => $held, 'new' => $sorted];
+            }
+        }
+
         if ($changes === []) {
             return [];
         }
 
-        DB::transaction(function () use ($pfx, $lang, $productId, $words, $wordsUpdate, $productUpdate, $photos) {
+        DB::transaction(function () use ($pfx, $lang, $productId, $words, $wordsUpdate, $productUpdate, $photos, $categoryIds) {
             if ($wordsUpdate !== []) {
                 if ($words !== null) {
                     DB::table($pfx . 'product_description')->where('product_id', $productId)->where('language_id', $lang)->update($wordsUpdate);
@@ -96,12 +142,22 @@ final class CatalogBasicsWriter
             if ($photos !== null) {
                 app(ProductCreator::class)->saveImages($productId, $photos);
             }
+            if ($categoryIds !== null) {
+                DB::table($pfx . 'product_to_category')->where('product_id', $productId)->delete();
+                foreach ($categoryIds as $categoryId) {
+                    DB::table($pfx . 'product_to_category')->insert(['product_id' => $productId, 'category_id' => $categoryId]);
+                }
+            }
             DB::table($pfx . 'product')->where('product_id', $productId)->update($productUpdate + ['date_modified' => now()]);
         });
 
         $name = $wordsUpdate['name'] ?? CatalogCopy::title((string) ($words->name ?? ''));
-        ActivityLogger::log('updated', 'Product', $productId, $name . ' (SKU: ' . ($product->sku ?? '') . ')', $changes);
+        $label = $name . ' (SKU: ' . ($productUpdate['sku'] ?? $product->sku ?? '') . ')';
+        if (isset($by['reason']) && trim((string) $by['reason']) !== '') {
+            $label = trim((string) ($by['actor'] ?? '')) . ' edited ' . $label . '. Reason: ' . trim((string) $by['reason']);
+        }
+        ActivityLogger::log('updated', 'Product', $productId, $label, $changes);
 
-        return array_keys($changes);
+        return $changes;
     }
 }

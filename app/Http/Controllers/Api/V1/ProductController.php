@@ -58,10 +58,237 @@ class ProductController extends Controller
             return response()->json(['message' => 'Product not found.'], 404);
         }
 
-        $payload = $this->present($product);
+        $payload = $this->present($product) + $this->details($product);
         $payload['variations'] = $this->variations($product);
 
         return response()->json($payload);
+    }
+
+    /**
+     * PATCH /api/v1/products/{id} - some of an existing product's fields,
+     * with a stated reason.
+     *
+     * Only what is sent changes; everything else stays as it is. The same
+     * rules as the product Edit page: a SKU nobody else holds, a parcel above
+     * zero, a name that is not blank, and a photo before the product can be
+     * switched on. Cost is locked on an existing product and stock moves
+     * through a stock adjustment, so neither is taken here; the price has its
+     * own endpoint.
+     */
+    public function update(Request $request, int $id): JsonResponse
+    {
+        $product = Product::with('description')->find($id);
+        if (! $product) {
+            return response()->json(['message' => 'Product not found.'], 404);
+        }
+
+        $maxImages = ProductCreator::MAX_IMAGES;
+        $data = $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+            'description' => 'sometimes|nullable|string|max:65000',
+            'sku' => ['sometimes', 'required', 'string', 'max:64', new UniqueSku($id)],
+            'enabled' => 'sometimes|boolean',
+            'weight' => 'sometimes|numeric|gt:0',
+            'length' => 'sometimes|numeric|gt:0',
+            'width' => 'sometimes|numeric|gt:0',
+            'height' => 'sometimes|numeric|gt:0',
+            'manufacturer_name' => 'sometimes|nullable|string|max:255',
+            'category_names' => 'sometimes|array|max:10',
+            'category_names.*' => 'string|max:255',
+            'photos' => 'sometimes|array|max:' . $maxImages,
+            'photos.*' => 'string|max:512',
+            'image_urls' => 'nullable|array|max:' . $maxImages,
+            'image_urls.*' => 'string|max:2048',
+            'image_files' => 'nullable|array|max:' . $maxImages,
+            'image_files.*' => 'array',
+            'image_files.*.filename' => 'required|string|max:255',
+            'image_files.*.data' => 'required|string|max:7700000',
+            'reason' => 'required|string|min:3|max:500',
+        ], [
+            'image_files.*.data.max' => 'Each photo must be 5 MB or smaller.',
+        ]);
+
+        $creator = app(ProductCreator::class);
+        $notes = [];
+        $fields = [];
+
+        if (array_key_exists('name', $data)) {
+            $fields['title'] = trim((string) $data['name']);
+        }
+        if (array_key_exists('description', $data)) {
+            $fields['description'] = (string) ($data['description'] ?? '');
+        }
+        if (array_key_exists('sku', $data)) {
+            $fields['sku'] = trim((string) $data['sku']);
+        }
+        foreach (['weight', 'length', 'width', 'height'] as $key) {
+            if (array_key_exists($key, $data)) {
+                $fields[$key] = (float) $data[$key];
+            }
+        }
+
+        if (array_key_exists('manufacturer_name', $data)) {
+            $brand = trim((string) ($data['manufacturer_name'] ?? ''));
+            $manufacturerId = $creator->resolveManufacturerId(0, $brand);
+            if ($brand !== '' && $manufacturerId === 0) {
+                $notes[] = 'No brand named "' . $brand . '" exists, so the brand was left as it was.';
+            } else {
+                $fields['manufacturer_id'] = $manufacturerId;
+            }
+        }
+
+        if (array_key_exists('category_names', $data)) {
+            $categoryIds = [];
+            $unknown = [];
+            foreach ((array) $data['category_names'] as $categoryName) {
+                $categoryId = $creator->resolveCategoryId(0, (string) $categoryName);
+                if ($categoryId > 0) {
+                    $categoryIds[] = $categoryId;
+                } else {
+                    $unknown[] = (string) $categoryName;
+                }
+            }
+            if ($unknown !== []) {
+                // Half a category list is a different product's list: keep the old one whole.
+                $notes[] = 'No category named "' . implode('", "', $unknown) . '" exists, so the categories were left as they were.';
+            } else {
+                $fields['category_ids'] = $categoryIds;
+            }
+        }
+
+        // Photos: the kept list (by path, as show() gives them) in order,
+        // then any new ones, fetched or decoded before anything writes.
+        $urls = array_values((array) ($data['image_urls'] ?? []));
+        $files = array_values((array) ($data['image_files'] ?? []));
+        $current = \App\Support\Catalog\ProductImages::paths($id);
+        $stored = [];
+        if (array_key_exists('photos', $data) || $urls !== [] || $files !== []) {
+            $kept = array_key_exists('photos', $data) ? array_values((array) $data['photos']) : $current;
+            $strangers = array_values(array_diff($kept, $current));
+            if ($strangers !== []) {
+                return response()->json(['message' => 'These are not photos of this product: ' . implode(', ', $strangers)
+                    . '. Keep photos by the paths products_get gives, and add new ones by link or data. Nothing was changed.'], 422);
+            }
+            if (count($kept) + count($urls) + count($files) > $maxImages) {
+                return response()->json(['message' => "At most {$maxImages} photos in all. Nothing was changed."], 422);
+            }
+
+            $importer = app(CatalogImageImporter::class);
+            $folder = $creator->imageFolder((int) ($fields['manufacturer_id'] ?? $product->manufacturer_id));
+            $where = '';
+            try {
+                foreach ($urls as $i => $url) {
+                    $where = 'Photo link ' . ($i + 1);
+                    $stored[] = $importer->fromUrl((string) $url, $folder);
+                }
+                foreach ($files as $i => $file) {
+                    $where = 'Photo file ' . ($i + 1) . ' (' . (string) $file['filename'] . ')';
+                    $stored[] = $importer->fromBase64((string) $file['data'], (string) $file['filename'], $folder);
+                }
+            } catch (\RuntimeException $e) {
+                Storage::disk('public')->delete($stored);
+
+                return response()->json(['message' => $where . ' could not be used: ' . $e->getMessage() . ' Nothing was changed.'], 422);
+            }
+            $fields['photos'] = array_merge($kept, $stored);
+        }
+
+        // A product needs a photo to be on sale, on the form and here.
+        $photosAfter = $fields['photos'] ?? $current;
+        $enabledAfter = array_key_exists('enabled', $data) ? (bool) $data['enabled'] : (bool) $product->status;
+        if ($enabledAfter && $photosAfter === []) {
+            Storage::disk('public')->delete($stored);
+
+            return response()->json(['message' => 'A product needs at least one photo to be switched on. Nothing was changed.'], 422);
+        }
+        if (array_key_exists('enabled', $data)) {
+            $fields['status'] = (bool) $data['enabled'];
+        }
+
+        $before = $this->present($product) + $this->details($product);
+        $changes = app(\App\Services\Catalog\CatalogBasicsWriter::class)->edit($id, $fields, [
+            'actor' => (string) ($request->user()?->name ?? 'An API application'),
+            'reason' => trim((string) $data['reason']),
+        ]);
+
+        // A new SKU reaches the stores' own links, as the Edit page does it.
+        if (isset($changes['sku'])) {
+            $synced = (new \App\Services\SkuSyncService())->syncSkuChanges($id, [
+                'product_sku' => ['old' => $changes['sku']['old'], 'new' => $changes['sku']['new']],
+                'option_skus' => [],
+            ]);
+            foreach ($synced as $line) {
+                $notes[] = 'SKU synced: ' . $line;
+            }
+        }
+
+        $product = Product::with('description')->findOrFail($id);
+        $after = $this->present($product) + $this->details($product);
+
+        $changed = array_keys($changes);
+        if ($changed === []) {
+            $notes[] = 'Nothing was different from what the product already holds, so nothing was written.';
+        } else {
+            $notes[] = "It is changed in the catalog only. Each store's listing keeps its own copy and shows the change for you to take or leave.";
+        }
+
+        return response()->json([
+            'product_id' => $id,
+            'changed' => array_values(array_map(fn ($k) => match ($k) {
+                'title' => 'name', 'manufacturer_id' => 'brand', 'category_ids' => 'categories', 'images' => 'photos', 'status' => 'enabled', default => $k,
+            }, $changed)),
+            'before' => array_intersect_key($before, $this->shown($changed)),
+            'after' => array_intersect_key($after, $this->shown($changed)),
+            'notes' => $notes,
+        ]);
+    }
+
+    /** The answer's before and after carry only what changed. */
+    private function shown(array $changed): array
+    {
+        $keys = ['name' => 'name', 'title' => 'name', 'description' => 'description', 'sku' => 'sku', 'status' => 'status',
+            'manufacturer_id' => 'brand', 'category_ids' => 'categories', 'images' => 'photos',
+            'weight' => 'weight', 'length' => 'length', 'width' => 'width', 'height' => 'height'];
+
+        return array_flip(array_values(array_intersect_key($keys, array_flip($changed))));
+    }
+
+    /**
+     * What an edit needs to see first: the description, brand, categories,
+     * parcel and photos. On show() only.
+     *
+     * @return array<string, mixed>
+     */
+    private function details(Product $product): array
+    {
+        $pfx = (string) config('catalog.prefix');
+        $lang = (int) config('catalog.default_language_id');
+        $id = (int) $product->product_id;
+
+        $brand = (int) $product->manufacturer_id > 0
+            ? \Illuminate\Support\Facades\DB::table($pfx . 'manufacturer')->where('manufacturer_id', $product->manufacturer_id)->value('name')
+            : null;
+        $categories = \Illuminate\Support\Facades\DB::table($pfx . 'product_to_category as ptc')
+            ->leftJoin($pfx . 'category_description as cd', fn ($j) => $j->on('cd.category_id', '=', 'ptc.category_id')->where('cd.language_id', '=', $lang))
+            ->where('ptc.product_id', $id)
+            ->orderBy('ptc.category_id')
+            ->pluck('cd.name')
+            ->map(fn ($n) => html_entity_decode((string) $n, ENT_QUOTES | ENT_HTML5, 'UTF-8'))
+            ->all();
+
+        return [
+            'description' => (string) ($product->description?->description ?? ''),
+            'brand' => $brand !== null ? html_entity_decode((string) $brand, ENT_QUOTES | ENT_HTML5, 'UTF-8') : null,
+            'categories' => $categories,
+            'weight' => (float) $product->weight,
+            'length' => (float) $product->length,
+            'width' => (float) $product->width,
+            'height' => (float) $product->height,
+            'photos' => array_map(fn (string $path) => [
+                'path' => $path,
+                'url' => \App\Support\Catalog\ProductImages::url($path),
+            ], \App\Support\Catalog\ProductImages::paths($id)),
+        ];
     }
 
     /**

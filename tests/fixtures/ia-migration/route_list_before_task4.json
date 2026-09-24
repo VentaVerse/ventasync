@@ -200,6 +200,11 @@
         "name": null
     },
     {
+        "method": "PATCH",
+        "uri": "api/v1/products/{id}",
+        "name": null
+    },
+    {
         "method": "PUT",
         "uri": "api/v1/products/{id}/price",
         "name": null
