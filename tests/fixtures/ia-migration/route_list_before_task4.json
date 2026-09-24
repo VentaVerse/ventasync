@@ -236,6 +236,31 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "api/v1/reports/categories",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/reports/fees",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/reports/inventory",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/reports/orders",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/reports/payouts",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "api/v1/reports/products",
         "name": null
     },
