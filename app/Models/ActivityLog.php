@@ -9,7 +9,7 @@ class ActivityLog extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'user_id', 'user_name', 'action', 'subject_type',
+        'user_id', 'user_name', 'api_client_id', 'action', 'subject_type',
         'subject_id', 'subject_label', 'changes', 'ip_address', 'source', 'created_at',
     ];
 

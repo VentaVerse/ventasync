@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
+use App\Support\Actor;
 
 class StockHistoryLogger
 {
@@ -24,9 +24,9 @@ class StockHistoryLogger
         ?int $warehouseId = null,
     ): void {
         if ($userId === null) {
-            $user = Auth::user();
-            $userId = $user?->id;
-            $userName = $userName ?? $user?->name;
+            $actor = Actor::current();
+            $userId = $actor->userId;
+            $userName = $userName ?? $actor->name;
         }
 
         DB::table('stock_history')->insert([

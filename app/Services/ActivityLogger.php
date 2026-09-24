@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Models\ActivityLog;
-use Illuminate\Support\Facades\Auth;
+use App\Support\Actor;
 
 class ActivityLogger
 {
@@ -59,11 +59,18 @@ class ActivityLogger
         string  $source = 'user',
     ): void {
         try {
-            $user = Auth::user();
+            $actor = Actor::current();
+
+            // No person pressed anything when an application is the actor,
+            // whatever the caller assumed.
+            if ($actor->isApplication() && $source === 'user') {
+                $source = 'api';
+            }
 
             ActivityLog::create([
-                'user_id'       => $user?->id,
-                'user_name'     => $user ? ($user->name ?? $user->username ?? 'User #' . $user->id) : null,
+                'user_id'       => $actor->userId,
+                'user_name'     => $actor->name,
+                'api_client_id' => $actor->apiClientId,
                 'action'        => $action,
                 'subject_type'  => $subjectType,
                 'subject_id'    => $subjectId,
