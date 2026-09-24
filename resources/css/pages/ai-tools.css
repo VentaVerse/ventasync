@@ -72,7 +72,7 @@
     border-top: 1px dashed var(--bl-rule-2);
 }
 .ai-conn__act { display: flex; gap: var(--bl-space-1); align-items: center; }
-/* Only the Disconnect form, so its button sits in the strip beside Change. */
+/* Only the Delete form, so its button sits in the strip beside Change. */
 .ai-conn__act > form { display: contents; }
 
 /* The panel that renames or re-ticks one assistant: the row's own second
