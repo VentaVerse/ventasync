@@ -2,6 +2,7 @@
 
 namespace App\Extensions;
 
+use App\Mcp\McpToolRegistry;
 use Illuminate\Support\ServiceProvider;
 
 abstract class ExtensionProvider extends ServiceProvider
@@ -20,6 +21,8 @@ abstract class ExtensionProvider extends ServiceProvider
 
         $this->basePath = base_path('extensions/' . $this->id);
 
+        $this->app->singletonIf(McpToolRegistry::class);
+
         // Merge config files if config/ directory exists
         $configPath = $this->basePath . '/config';
         if (is_dir($configPath)) {
@@ -37,11 +40,23 @@ abstract class ExtensionProvider extends ServiceProvider
         }
 
         $this->bootRoutes();
+        $this->app->make(McpToolRegistry::class)->add($this->mcpTools());
         $this->bootViews();
         $this->bootMigrations();
         $this->bootTranslations();
         // A pulled update brings new pictures without an install or enable to publish them.
         ExtensionImages::publish($this->id);
+    }
+
+    /**
+     * The assistant tools this extension brings, as class names. Each still
+     * decides for itself whether an application may see it.
+     *
+     * @return list<class-string>
+     */
+    protected function mcpTools(): array
+    {
+        return [];
     }
 
     // IMPORTANT: Use different method names than parent to avoid recursion

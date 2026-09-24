@@ -86,6 +86,7 @@ return [
         // Str::headline stutters a controller whose class name already ends
         // in Api and sits in an api_ file: "Api Report Api".
         'reports/api_report_api' => 'Reports over the API',
+        'purchasing/api_purchasing_api' => 'Purchasing over the API',
         // Six report screens, one key: the group name titles it.
         'reports/report' => 'Reports',
         'venta/api_venta_order_api' => 'Orders over the API',

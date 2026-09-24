@@ -24,11 +24,14 @@ return [
     // extension-specific resources here — keep core decoupled from modules.
     //
     // resource key => ['label' => ..., 'actions' => [read|write], 'description' => ...]
+    // 'assistant_write' => true offers the write on the AI Tools page; leave
+    // it off for a write no assistant tool stands behind.
 
     'products' => [
         'label'       => 'Products',
         'actions'     => ['read', 'write'],
         'description' => 'Catalog products incl. cost, price and per-channel markup.',
+        'assistant_write' => true,
     ],
 
     'orders' => [
@@ -41,6 +44,7 @@ return [
         'label'       => 'Inventory',
         'actions'     => ['read', 'write'],
         'description' => 'Stock levels and quantity adjustments.',
+        'assistant_write' => true,
     ],
 
 ];

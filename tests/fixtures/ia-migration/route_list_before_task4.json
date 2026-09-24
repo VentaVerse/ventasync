@@ -206,6 +206,36 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "api/v1/purchasing/purchase-orders",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/v1/purchasing/purchase-orders",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/purchasing/purchase-orders/{ref}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/purchasing/vendor-terms",
+        "name": null
+    },
+    {
+        "method": "PUT",
+        "uri": "api/v1/purchasing/vendor-terms",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/purchasing/vendors",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "api/v1/reports/products",
         "name": null
     },
