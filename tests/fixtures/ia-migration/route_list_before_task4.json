@@ -216,6 +216,11 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "api/v1/purchasing/payables",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "api/v1/purchasing/purchase-orders",
         "name": null
     },
