@@ -115,5 +115,7 @@ Route::prefix('v1')->middleware(['auth:sanctum', 'api.audit'])->group(function (
     Route::middleware('scope:orders:read')->group(function () {
         Route::get('/orders', [\App\Http\Controllers\Api\V1\OrderController::class, 'index']);
         Route::get('/orders/{id}', [\App\Http\Controllers\Api\V1\OrderController::class, 'show'])->whereNumber('id');
+        Route::get('/customers', [\App\Http\Controllers\Api\V1\CustomerController::class, 'index']);
+        Route::get('/customers/history', [\App\Http\Controllers\Api\V1\CustomerController::class, 'history']);
     });
 });

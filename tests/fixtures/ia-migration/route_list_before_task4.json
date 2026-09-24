@@ -166,6 +166,16 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "api/v1/customers",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/customers/history",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "api/v1/inventory",
         "name": null
     },

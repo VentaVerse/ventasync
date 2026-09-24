@@ -81,6 +81,7 @@ return [
         'api/marketplace_config' => 'Channel settings',
         'api_v1/product' => 'Products',
         'api_v1/order' => 'Orders',
+        'api_v1/customer' => 'Customers',
         'api_v1/inventory' => 'Inventory',
 
         // Str::headline stutters a controller whose class name already ends
