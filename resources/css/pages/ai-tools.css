@@ -27,7 +27,7 @@
     place-items: center;
     width: 36px;
     height: 36px;
-    border-radius: 9px;
+    border-radius: var(--bl-r-ctrl);
     background: var(--bl-chrome-2);
     color: var(--bl-ink);
     font-size: 12px;
@@ -50,7 +50,7 @@
     align-items: center;
     gap: 6px;
     padding: 2px 8px;
-    border-radius: 999px;
+    border-radius: var(--bl-r-pill);
     background: var(--bl-chrome-2);
     color: var(--bl-ink-2);
     font-size: 12px;
@@ -61,7 +61,7 @@
 
 /* An assistant that can CHANGE something wears it, in the colour the rest
    of the app uses for a thing to be aware of rather than a thing that is
-   wrong. Only drawn when there is something to say (#177). */
+   wrong. Only drawn when there is something to say. */
 .ai-chip--write { color: var(--bl-attn); background: color-mix(in srgb, var(--bl-attn-fill) 14%, var(--bl-sheet)); }
 
 /* The write ticks stand apart from the read ticks: reading is the ordinary
@@ -72,21 +72,21 @@
     border-top: 1px dashed var(--bl-rule-2);
 }
 .ai-conn__act { display: flex; gap: var(--bl-space-1); align-items: center; }
-.ai-conn__act form { display: contents; }
+/* Only the Disconnect form, so its button sits in the strip beside Change. */
+.ai-conn__act > form { display: contents; }
 
-/* the fold that renames or re-ticks one assistant */
-.ai-change { grid-column: 1 / -1; }
-.ai-change summary { list-style: none; cursor: pointer; }
-.ai-change summary::-webkit-details-marker { display: none; }
-.ai-change__body {
-    margin-top: var(--bl-space-2);
+/* The panel that renames or re-ticks one assistant: the row's own second
+   line, full width under the name, not squeezed into the button strip. */
+.ai-change {
+    grid-column: 1 / -1;
     padding: var(--bl-space-3);
     border: 1px solid var(--bl-rule-2);
-    border-radius: var(--radius-ctrl);
+    border-radius: var(--bl-r-ctrl);
     background: var(--bl-chrome);
     display: grid;
     gap: var(--bl-space-3);
 }
+.ai-change[hidden] { display: none; }
 /* The assistant's Save sits at the lower right of its form. */
 .ai-change__foot { display: flex; justify-content: flex-end; }
 .ai-hint { margin: var(--bl-space-3) 0 0; color: var(--bl-ink-3); font-size: 12.5px; }
@@ -115,7 +115,7 @@
     gap: var(--bl-space-2);
     padding: var(--bl-space-3) 6px var(--bl-space-2);
     border: 1px solid var(--bl-rule-2);
-    border-radius: 10px;
+    border-radius: var(--bl-r-ctrl);
     background: var(--bl-sheet);
     color: var(--bl-ink);
     font: inherit;
@@ -128,6 +128,8 @@
 .ai-tile:focus-visible { outline: 2px solid var(--bl-brand-deep); outline-offset: 2px; }
 .ai-tile[aria-pressed="true"] { border-color: var(--bl-brand-deep); box-shadow: 0 0 0 3px color-mix(in srgb, var(--bl-brand-deep) 18%, transparent); }
 .ai-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--bl-space-3); align-items: start; }
+/* What it may update belongs under what it may read, in the same column. */
+.ai-row__writes { grid-column: 2; }
 .ai-reads { display: flex; flex-wrap: wrap; gap: 6px; }
 .ai-read {
     display: inline-flex;
@@ -135,7 +137,7 @@
     gap: 7px;
     padding: 6px 10px;
     border: 1px solid var(--bl-rule-2);
-    border-radius: 999px;
+    border-radius: var(--bl-r-pill);
     background: var(--bl-sheet);
     color: var(--bl-ink);
     font-size: 12.5px;
@@ -152,7 +154,7 @@
 .ai-step__note { margin: 0; color: var(--bl-ink-3); font-size: 12.5px; }
 
 /* the key, once */
-.ai-paste { border: 1px solid var(--bl-rule-2); border-radius: 10px; background: var(--bl-chrome); overflow: hidden; }
+.ai-paste { border: 1px solid var(--bl-rule-2); border-radius: var(--bl-r-ctrl); background: var(--bl-chrome); overflow: hidden; }
 .ai-paste__head {
     display: flex;
     align-items: center;
@@ -178,12 +180,21 @@
 
 /* ---- try asking ---- */
 .ai-ask { margin-top: var(--bl-space-5); display: flex; flex-wrap: wrap; align-items: center; gap: var(--bl-space-2); color: var(--bl-ink-3); font-size: 13px; }
-.ai-ask q { quotes: '\201C' '\201D'; padding: 5px 11px; border-radius: 999px; background: var(--bl-sheet); border: 1px solid var(--bl-rule-2); color: var(--bl-ink-2); font-size: 12.5px; }
+.ai-ask q { quotes: '\201C' '\201D'; padding: 5px 11px; border-radius: var(--bl-r-pill); background: var(--bl-sheet); border: 1px solid var(--bl-rule-2); color: var(--bl-ink-2); font-size: 12.5px; }
 
 @media (max-width: 900px) {
     .ai-grid { grid-template-columns: 1fr; }
     .ai-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .ai-row { grid-template-columns: 1fr; }
+    .ai-row__writes { grid-column: auto; }
     .ai-conn { grid-template-columns: 36px minmax(0, 1fr); }
     .ai-conn__act { grid-column: 2; }
+}
+
+/* A finger needs a 44px target; a mouse keeps the compact controls. */
+@media (pointer: coarse) {
+    .ai-conn__act .x-btn,
+    .ai-change .x-btn,
+    .ai-read { min-height: 44px; }
+    .ai-read { padding-inline: 14px; }
 }
