@@ -236,6 +236,11 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "api/v1/purchasing/sell-through",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "api/v1/purchasing/vendor-terms",
         "name": null
     },
