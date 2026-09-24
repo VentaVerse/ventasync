@@ -41,7 +41,7 @@ return [
     ],
 
     'inventory' => [
-        'label'       => 'Inventory',
+        'label'       => 'Stock',
         'actions'     => ['read', 'write'],
         'description' => 'Stock levels and quantity adjustments.',
         'assistant_write' => true,
