@@ -441,7 +441,14 @@ class TikTokProductGroupController extends Controller
             $query->where('p.status', 0);
         }
 
-        $products = $query->orderBy('p.product_id', 'desc')->paginate(50)->withQueryString();
+        $storeId = \App\Integrations\Listings\ListingStore::id('tiktok');
+        $query->leftJoin('tiktok_product_group_products as gp', fn ($j) => $j->on('gp.product_id', '=', 'p.product_id')->where('gp.tiktok_product_group_id', '=', $group->id));
+        $sortMenu = ['added' => 'gp.id', 'pushed' => 'gp.last_pushed_at'] + \Extensions\tiktok\Services\TikTokListingSort::columns($storeId);
+        $order = \App\Integrations\Listings\ListingSort::chosen($request, 'tiktok.group.' . $group->id);
+        \Extensions\tiktok\Services\TikTokListingSort::join($query, $storeId);
+        \App\Integrations\Listings\ListingSort::apply($query, $order, $sortMenu);
+
+        $products = $query->paginate(50)->withQueryString();
 
         /* PRODUCT truth, derived ACROSS groups (the one-truth port,
          * 2026-08-25). TikTok has no listings table - the pivot rows are
@@ -494,10 +501,12 @@ class TikTokProductGroupController extends Controller
             'optionRowsByProductId' => $optionRowsByProductId,
             /* ONE state per row (#188): the same engine the listings page
              * renders, so badges and menus agree across surfaces. */
+            'order' => $order,
+            'orderOptions' => \App\Integrations\Listings\ListingSort::options(array_keys($sortMenu)),
             'listingStates'        => app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)
                 ->forProducts(array_map('intval', $pageIds)),
-            // The Last sync column (the owner, 2026-09-05), one answer shared with the Listings page.
-            'lastSync'             => app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)
+            // The red error line above a row, the same answer the Listings page reads.
+            'rowErrors'            => app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)
                 ->errors(array_map('intval', $pageIds)),
             'q'                    => $q,
             'syncStatus'           => $syncStatus,

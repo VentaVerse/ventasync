@@ -377,7 +377,13 @@ class ShopeeProductGroupController extends Controller
             $query->whereIn('p.product_id', $tabProductIds ?: [0]);
         }
 
-        $products = $query->orderBy('p.product_id', 'desc')->paginate(50)->appends($request->except('page'));
+        $storeId = \App\Integrations\Listings\ListingStore::id('shopee');
+        $sortMenu = ['added' => 'gp.id', 'pushed' => 'gp.last_pushed_at'] + \Extensions\shopee\Services\ShopeeListingSort::columns($storeId);
+        $order = \App\Integrations\Listings\ListingSort::chosen($request, 'shopee.group.' . $group->id);
+        \Extensions\shopee\Services\ShopeeListingSort::join($query, $storeId);
+        \App\Integrations\Listings\ListingSort::apply($query, $order, $sortMenu);
+
+        $products = $query->paginate(50)->appends($request->except('page'));
 
         /* The GET-time back-fill that used to live here - adopting link
          * item ids into the pivot while rendering - is GONE (stage 2 of
@@ -437,6 +443,8 @@ class ShopeeProductGroupController extends Controller
 
         return view('ext-shopee::product-groups.products', [
             'listingStates' => $listingStates,
+            'order' => $order,
+            'orderOptions' => \App\Integrations\Listings\ListingSort::options(array_keys($sortMenu)),
             // The Last sync column (the owner, 2026-09-05), one answer shared with the Listings page.
             'rowErrors' => app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->errors($displayIds),
             'group' => $group,

@@ -526,9 +526,18 @@ class VentaListingController extends Controller
         $applyMenu($query);
         $applyTab($query);
 
-        $query->orderBy($sortColumns[$sort], $dir);
-        if ($sortColumns[$sort] !== 'p.product_id') {
-            $query->orderBy('p.product_id', 'asc');
+        $storeId = \App\Integrations\Listings\ListingStore::id('venta');
+        $sortMenu = \Extensions\venta\Services\VentaListingSort::columns($storeId);
+        $order = \App\Integrations\Listings\ListingSort::chosen($request, 'venta.listings.' . $storeId);
+        if ($request->filled('sort')) {
+            // A column heading was pressed: it orders the table instead.
+            $query->orderBy($sortColumns[$sort], $dir);
+            if ($sortColumns[$sort] !== 'p.product_id') {
+                $query->orderBy('p.product_id', 'asc');
+            }
+        } else {
+            \Extensions\venta\Services\VentaListingSort::join($query, $storeId);
+            \App\Integrations\Listings\ListingSort::apply($query, $order, $sortMenu);
         }
         $products = $query->paginate(50)->withQueryString();
         foreach ($products as $row) {
@@ -568,6 +577,7 @@ class VentaListingController extends Controller
             'products' => $products,
             'rowTitles' => $rowTitles,
             'q' => $q, 'sort' => $sort, 'dir' => $dir,
+            'order' => $order, 'orderOptions' => \App\Integrations\Listings\ListingSort::options(array_keys($sortMenu)),
             'groupFilter' => $groupFilter, 'erpStatus' => $erpStatus, 'syncStatus' => $syncStatus,
             'allGroups' => VentaProductGroup::where('venta_setting_id', $store)->orderBy('name')->pluck('name', 'id'),
             'groupsByProductId' => $groupsByProductId,
@@ -729,6 +739,12 @@ class VentaListingController extends Controller
         abort_unless(DB::table((string) config('catalog.prefix') . 'product')->where('product_id', $productId)->exists(), 404);
         $wasOn = \Extensions\venta\Services\Venta\VentaStoreProducts::has($store, $productId);
         VentaListing::query()->firstOrCreate(['venta_setting_id' => $store, 'product_id' => $productId]);
+
+        // The Add products window's group choice: this store's group, or none.
+        $groupId = (int) $request->input('group', 0);
+        if ($groupId > 0) {
+            \App\Integrations\OneGroupRule::place('venta_product_group_products', 'venta_product_group_id', 'venta_product_groups', 'venta_setting_id', $store, $groupId, $productId);
+        }
         if ($request->wantsJson()) {
             return response()->json(['ok' => true, 'product_id' => $productId, 'added' => ! $wasOn]);
         }

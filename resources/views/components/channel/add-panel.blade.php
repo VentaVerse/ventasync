@@ -8,6 +8,9 @@
      on the root. Every URL rides an attribute, never a Blade-built string in
      script.
 
+     A page that passes $groups asks which of the store's product groups the
+     products go into, starting on the group the page is standing in.
+
      A slide-over cannot list a whole catalogue, so the search is the way
      through: results are capped by the server and the meta line says how
      much is out of view. A surface with a full-page overflow passes
@@ -31,6 +34,10 @@
     'listLabel' => 'Products',
     'fullUrl' => null,
     'fullLabel' => 'Browse the full catalogue',
+    // The store's product groups (id => name) to add into; null leaves the
+    // choice out. $group is the one chosen when the window opens.
+    'groups' => null,
+    'group' => null,
 ])
 <div id="{{ $id }}" class="modal-backdrop cc-addpanel" data-add-panel
      data-search-url="{{ $searchUrl }}"
@@ -48,6 +55,20 @@
             </button>
         </div>
         <p class="cc-addpanel__sub">{{ $sub }}</p>
+
+        @if($groups !== null)
+            <x-ui.field label="Product group" for="{{ $id }}-group">
+                <div class="x-select-wrap">
+                    <select id="{{ $id }}-group" class="x-input" data-add-panel-group>
+                        <option value="">Ungrouped</option>
+                        @foreach($groups as $groupId => $groupName)
+                            <option value="{{ $groupId }}" @selected((string) $group === (string) $groupId)>{{ $groupName }}</option>
+                        @endforeach
+                    </select>
+                    <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                </div>
+            </x-ui.field>
+        @endif
 
         <div class="cc-addpanel__search">
             <input type="search" class="x-input" placeholder="{{ $placeholder }}" aria-label="{{ $searchLabel }}"

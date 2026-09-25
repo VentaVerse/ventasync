@@ -229,6 +229,10 @@
     <input type="hidden" name="sort" value="{{ $sort }}">
     <input type="hidden" name="dir" value="{{ $dir }}">
 
+    @if(!empty($orderOptions))
+        @include('partials.listing-sort', ['options' => $orderOptions, 'chosen' => $order])
+    @endif
+
     <x-ui.button type="submit" variant="secondary">Search</x-ui.button>
 
     @if($hasFilters)

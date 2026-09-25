@@ -315,9 +315,18 @@ class TikTokProductController extends Controller
             $query->whereIn('p.product_id', $troubleIds ?: [0]);
         }
 
-        $query->orderBy($sortColumns[$sort], $dir);
-        if ($sortColumns[$sort] !== 'p.product_id') {
-            $query->orderBy('p.product_id', 'asc');
+        $storeId = \App\Integrations\Listings\ListingStore::id('tiktok');
+        $sortMenu = \Extensions\tiktok\Services\TikTokListingSort::columns($storeId);
+        $order = \App\Integrations\Listings\ListingSort::chosen($request, 'tiktok.listings.' . $storeId);
+        if ($request->filled('sort')) {
+            // A column heading was pressed: it orders the table instead.
+            $query->orderBy($sortColumns[$sort], $dir);
+            if ($sortColumns[$sort] !== 'p.product_id') {
+                $query->orderBy('p.product_id', 'asc');
+            }
+        } else {
+            \Extensions\tiktok\Services\TikTokListingSort::join($query, $storeId);
+            \App\Integrations\Listings\ListingSort::apply($query, $order, $sortMenu);
         }
         $products = $query->paginate(50)->withQueryString();
         foreach ($products as $row) {
@@ -396,6 +405,8 @@ class TikTokProductController extends Controller
         $listedTotal = count($listedProductIds);
 
         return view('ext-tiktok::products.index', [
+            'order' => $order,
+            'orderOptions' => \App\Integrations\Listings\ListingSort::options(array_keys($sortMenu)),
             'products' => $products,
             'rowTitles' => $rowTitles,
             'troubleFilter' => $troubleFilter,
@@ -636,6 +647,12 @@ class TikTokProductController extends Controller
         // pivot alone; the listing record it gains here changes nothing for it.
         $wasOn = TikTokStoreProducts::has($productId);
         TikTokListing::firstOrCreate(['product_id' => $productId]);
+
+        // The Add products window's group choice: this store's group, or none.
+        $groupId = (int) $request->input('group', 0);
+        if ($groupId > 0) {
+            \App\Integrations\OneGroupRule::place('tiktok_product_group_products', 'tiktok_product_group_id', 'tiktok_product_groups', 'tiktok_setting_id', \App\Integrations\Listings\ListingStore::id('tiktok'), $groupId, $productId);
+        }
 
         // The Add products panel adds in place and asks for JSON (#201,
         // Draft C); the full catalogue page still posts a form and lands back.

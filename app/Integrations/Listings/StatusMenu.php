@@ -237,4 +237,35 @@ final class StatusMenu
             'label' => $parts === [] ? null : implode(' · ', $parts),
         ];
     }
+
+    /**
+     * The store's product groups in a built menu, as id => name, for a
+     * choice of which group to add into.
+     *
+     * @return array<string, string>
+     */
+    public static function groupChoices(array $menu): array
+    {
+        $out = [];
+        foreach ((array) ($menu['groups'] ?? []) as $group) {
+            if (ctype_digit((string) $group['key'])) {
+                $out[(string) $group['key']] = (string) $group['label'];
+            }
+        }
+        asort($out, SORT_NATURAL | SORT_FLAG_CASE);
+
+        return $out;
+    }
+
+    /** The product group the menu stands in, or null for everything or Ungrouped. */
+    public static function chosenGroup(array $menu): ?string
+    {
+        foreach ((array) ($menu['groups'] ?? []) as $group) {
+            if (! empty($group['active']) && ctype_digit((string) $group['key'])) {
+                return (string) $group['key'];
+            }
+        }
+
+        return null;
+    }
 }

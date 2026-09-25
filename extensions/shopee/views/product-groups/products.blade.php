@@ -124,6 +124,10 @@
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
 
+    @if(!empty($orderOptions))
+        @include('partials.listing-sort', ['options' => $orderOptions, 'chosen' => $order])
+    @endif
+
     <x-ui.button type="submit" variant="secondary">Search</x-ui.button>
 
     @if($hasFilters)
@@ -361,6 +365,10 @@
                     <span class="x-cell-muted">Unlinked</span>
                 @else
                     <span class="x-cell-muted">Not listed</span>
+                @endif
+                @php $ccState = ($listingStates ?? [])[(int) $p->product_id] ?? null; @endphp
+                @if($ccState?->driftLabel() && $canManageShopee)
+                    @include('partials.catalog-change-button', ['href' => route('ext.shopee.listings.edit', [$p->product_id, 'compare' => 1, 'back' => request()->getRequestUri()])])
                 @endif
 
                 {{-- "Not checked" is not a warning and is not styled as one.

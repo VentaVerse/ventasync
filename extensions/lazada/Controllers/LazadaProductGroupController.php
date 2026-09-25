@@ -388,7 +388,13 @@ class LazadaProductGroupController extends Controller
             $query->where('gp.sync_status', 'unlinked');
         }
 
-        $products = $query->orderBy('p.product_id', 'desc')->paginate(50)->appends($request->except('page'));
+        $storeId = \App\Integrations\Listings\ListingStore::id('lazada');
+        $sortMenu = ['added' => 'gp.id', 'pushed' => 'gp.last_pushed_at'] + \Extensions\lazada\Services\LazadaListingSort::columns($storeId);
+        $order = \App\Integrations\Listings\ListingSort::chosen($request, 'lazada.group.' . $group->id);
+        \Extensions\lazada\Services\LazadaListingSort::join($query, $storeId);
+        \App\Integrations\Listings\ListingSort::apply($query, $order, $sortMenu);
+
+        $products = $query->paginate(50)->appends($request->except('page'));
 
         // Pivot map for templates
         $pivotProductIds = $products->pluck('product_id')->toArray();
@@ -422,6 +428,8 @@ class LazadaProductGroupController extends Controller
             /* ONE state per row (#188): the same engine the Listings page
              * renders, so this page's badges and menus can never disagree
              * with it. */
+            'order' => $order,
+            'orderOptions' => \App\Integrations\Listings\ListingSort::options(array_keys($sortMenu)),
             'listingStates' => app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)
                 ->forProducts(array_map('intval', $pivotProductIds)),
             // The Last sync column (the owner, 2026-09-05), one answer shared with the Listings page.

@@ -96,6 +96,10 @@
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
 
+    @if(!empty($orderOptions))
+        @include('partials.listing-sort', ['options' => $orderOptions, 'chosen' => $order])
+    @endif
+
     <x-ui.button type="submit" variant="secondary">Search</x-ui.button>
 
     @if($hasFilters)
@@ -294,6 +298,10 @@
                     @elseif($hasVentaId)
                         <span class="cc-checked cc-checked--never">Not checked since the push</span>
                     @endif
+                @endif
+                @php $ccState = ($listingStates ?? [])[(int) $p->product_id] ?? null; @endphp
+                @if($ccState?->driftLabel() && $canManageVenta)
+                    @include('partials.catalog-change-button', ['href' => route('ext.venta.listings.edit', [$setting->id, (int) $p->product_id, 'compare' => 1, 'back' => request()->getRequestUri()])])
                 @endif
             </td>
 

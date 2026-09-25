@@ -479,7 +479,13 @@ class VentaProductGroupController extends Controller
             $query->whereIn('p.product_id', \Extensions\venta\Services\Venta\VentaListingStates::for($store)->erroredProductIds() ?: [0]);
         }
 
-        $products = $query->orderBy('p.product_id', 'desc')->paginate(50)->withQueryString();
+        $storeId = \App\Integrations\Listings\ListingStore::id('venta');
+        $sortMenu = ['added' => 'vpgp.id', 'pushed' => 'vpgp.last_pushed_at'] + \Extensions\venta\Services\VentaListingSort::columns($storeId);
+        $order = \App\Integrations\Listings\ListingSort::chosen($request, 'venta.group.' . $g->id);
+        \Extensions\venta\Services\VentaListingSort::join($query, $storeId);
+        \App\Integrations\Listings\ListingSort::apply($query, $order, $sortMenu);
+
+        $products = $query->paginate(50)->withQueryString();
 
         // Variation rows: the shared combinations-first query the core
         // product list uses, image and proper option names included
@@ -503,6 +509,8 @@ class VentaProductGroupController extends Controller
             'rowTitles'            => $rowTitles,
             'optionRowsByProductId' => $optionRowsByProductId,
             // The Ready column reads the engine, the way every page does (2026-09-06).
+            'order' => $order,
+            'orderOptions' => \App\Integrations\Listings\ListingSort::options(array_keys($sortMenu)),
             'listingStates'        => \Extensions\venta\Services\Venta\VentaListingStates::for((int) $setting->id)->forProducts(array_map('intval', $paginatedIds)),
             'rowErrors'            => \Extensions\venta\Services\Venta\VentaListingStates::for((int) $setting->id)->errors(array_map('intval', $paginatedIds)),
             'manualIds'            => $manualIds,

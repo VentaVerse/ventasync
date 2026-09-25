@@ -173,6 +173,23 @@ class ShopeeCatalogChangeTest extends TestCase
             ->assertSee('compare=1', false);
     }
 
+    public function test_the_group_page_shows_the_same_catalog_change_as_the_listings_table(): void
+    {
+        $pid = $this->product('Plug', '<p>Words.</p>');
+        ShopeeListing::query()->create(['product_id' => $pid]);
+        $this->editCatalog($pid, ['name' => 'Plug v2']);
+        $group = \Extensions\shopee\Models\ShopeeProductGroup::create(['name' => 'Plugs', 'shopee_category_id' => 100013, 'logistic_ids' => [41003]]);
+        DB::table('shopee_product_group_products')->insert(['shopee_product_group_id' => $group->id, 'product_id' => $pid]);
+
+        $manager = $this->user(false);
+        $manager->userGroup->permissions()->attach(Permission::whereIn('key', ['manage_shopee/product_group', 'view_shopee/product_group'])->pluck('id')->all());
+
+        $this->actingAs($manager)->get(route('ext.shopee.product-groups.products', $group->id))
+            ->assertOk()
+            ->assertSee('Catalog change')
+            ->assertSee(e(route('ext.shopee.listings.edit', [$pid, 'compare' => 1])), false);
+    }
+
     /**
      * The push review modal shows the description as WORDS, while the
      * listing keeps markup. Pushing without retyping there must not flatten

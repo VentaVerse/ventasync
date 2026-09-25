@@ -41,4 +41,5 @@ final class ShopeeStoreProducts
     {
         return (int) DB::query()->fromSub(self::query(), 'os')->count();
     }
+
 }

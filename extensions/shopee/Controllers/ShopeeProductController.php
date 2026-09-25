@@ -466,11 +466,20 @@ class ShopeeProductController extends Controller
         $applyTrouble($query);
         $applyTab($query);
 
-        $query->orderBy($sortColumns[$sort], $dir);
-        // A stable tiebreak, or two products with the same name swap places
-        // between pages and a row appears twice while another never shows.
-        if ($sortColumns[$sort] !== 'p.product_id') {
-            $query->orderBy('p.product_id', 'asc');
+        $storeId = \App\Integrations\Listings\ListingStore::id('shopee');
+        $sortMenu = \Extensions\shopee\Services\ShopeeListingSort::columns($storeId);
+        $order = \App\Integrations\Listings\ListingSort::chosen($request, 'shopee.listings.' . $storeId);
+        if ($request->filled('sort')) {
+            // A column heading was pressed: it orders the table instead.
+            $query->orderBy($sortColumns[$sort], $dir);
+            // A stable tiebreak, or two products with the same name swap places
+            // between pages and a row appears twice while another never shows.
+            if ($sortColumns[$sort] !== 'p.product_id') {
+                $query->orderBy('p.product_id', 'asc');
+            }
+        } else {
+            \Extensions\shopee\Services\ShopeeListingSort::join($query, $storeId);
+            \App\Integrations\Listings\ListingSort::apply($query, $order, $sortMenu);
         }
 
         $products = $query->paginate(50)->withQueryString();
@@ -590,6 +599,8 @@ class ShopeeProductController extends Controller
             'shopeeLinks' => $shopeeLinks,
             'sort' => $sort,
             'dir' => $dir,
+            'order' => $order,
+            'orderOptions' => \App\Integrations\Listings\ListingSort::options(array_keys($sortMenu)),
             'syncStatus' => $syncStatus,
             'manufacturerFilter' => $manufacturerFilter,
             'groupFilter' => $groupFilter,
@@ -740,6 +751,12 @@ class ShopeeProductController extends Controller
         // alone; the listing record it gains here changes nothing for it.
         $wasOn = ShopeeStoreProducts::has($productId);
         ShopeeListing::firstOrCreate(['product_id' => $productId]);
+
+        // The Add products window's group choice: this store's group, or none.
+        $groupId = (int) $request->input('group', 0);
+        if ($groupId > 0) {
+            \App\Integrations\OneGroupRule::place('shopee_product_group_products', 'shopee_product_group_id', 'shopee_product_groups', 'shopee_setting_id', \App\Integrations\Listings\ListingStore::id('shopee'), $groupId, $productId);
+        }
 
         // The Add products panel adds in place and asks for JSON (#201,
         // Draft C); the full catalogue page still posts a form and lands back.
@@ -3550,5 +3567,6 @@ class ShopeeProductController extends Controller
             ? 'Delisted. Buyers no longer see this item on Shopee.'
             : 'Published. The item is visible on Shopee again.');
     }
+
 
 }

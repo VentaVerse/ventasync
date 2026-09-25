@@ -568,7 +568,15 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         // Unlinked leftovers stay pinned to the top, as they always were:
         // a cut link is unfinished business, not one row among two thousand.
         $query->orderByRaw('(lp.unlinked_at IS NOT NULL) desc');
-        if (isset($sortExpressions[$sort])) {
+        $storeId = \App\Integrations\Listings\ListingStore::id('lazada');
+        $sortMenu = \Extensions\lazada\Services\LazadaListingSort::columns($storeId, 'lp');
+        $order = \App\Integrations\Listings\ListingSort::chosen($request, 'lazada.listings.' . $storeId);
+        $byHeading = $request->filled('sort');
+        if (! $byHeading) {
+            \Extensions\lazada\Services\LazadaListingSort::joinGroup($query, $storeId);
+            \App\Integrations\Listings\ListingSort::apply($query, $order, $sortMenu);
+        } elseif (isset($sortExpressions[$sort])) {
+            // A column heading was pressed: it orders the table instead.
             $query->orderByRaw($sortExpressions[$sort] . ' ' . $dir);
         } else {
             $query->orderBy($sortColumns[$sort], $dir);
@@ -585,7 +593,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         // A stable tiebreak, or two products with the same name swap places
         // between pages and a row appears twice while another never shows.
-        if (($sortColumns[$sort] ?? null) !== 'p.product_id') {
+        if ($byHeading && ($sortColumns[$sort] ?? null) !== 'p.product_id') {
             $query->orderBy('p.product_id', 'asc');
         }
 
@@ -703,6 +711,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             'optionRowsByProductId' => $optionRowsByProductId,
             'allGroups' => $allGroups,
             'allManufacturers' => $allManufacturers,
+            'order' => $order,
+            'orderOptions' => \App\Integrations\Listings\ListingSort::options(array_keys($sortMenu)),
             'sort' => $sort,
             'dir' => $dir,
             'q' => $q,
@@ -857,6 +867,12 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         abort_unless($exists, 404);
 
         $row = LazadaProduct::firstOrCreate(['product_id' => $productId]);
+
+        // The Add products window's group choice: this store's group, or none.
+        $groupId = (int) $request->input('group', 0);
+        if ($groupId > 0) {
+            \App\Integrations\OneGroupRule::place('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'lazada_setting_id', \App\Integrations\Listings\ListingStore::id('lazada'), $groupId, $productId);
+        }
 
         // The Add products panel adds in place and asks for JSON (#201,
         // Draft C); the full catalogue page still posts a form and lands back.

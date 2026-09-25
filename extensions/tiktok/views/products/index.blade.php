@@ -184,6 +184,10 @@
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
+    @if(!empty($orderOptions))
+        @include('partials.listing-sort', ['options' => $orderOptions, 'chosen' => $order])
+    @endif
+
     <x-ui.button type="submit" variant="secondary">Search</x-ui.button>
     @if($hasFilters)
         <a class="x-filters__reset" href="{{ route('ext.tiktok.products.index') }}">Clear</a>
@@ -450,6 +454,8 @@
         id="tiktok-add-panel"
         :search-url="route('ext.tiktok.products.catalogue_search')"
         :add-url="route('ext.tiktok.products.add_to_store', ['productId' => '__PID__'])"
+        :groups="\App\Integrations\Listings\StatusMenu::groupChoices($statusMenu ?? [])"
+        :group="\App\Integrations\Listings\StatusMenu::chosenGroup($statusMenu ?? [])"
         sub="Search your Master Catalog. Each product you add joins this store's list, ready to configure and push to TikTok Shop."
         toggle-label="Show products already on this store"
         in-label="On this store"

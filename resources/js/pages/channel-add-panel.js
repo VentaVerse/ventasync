@@ -75,6 +75,8 @@ export function initAddPanel() {
     const list = panel.querySelector('[data-add-panel-list]');
     const meta = panel.querySelector('[data-add-panel-meta]');
     const addedEl = panel.querySelector('[data-add-panel-added]');
+    // The product group the adds go into, when the page offers the choice.
+    const groupPick = panel.querySelector('[data-add-panel-group]');
     const tokenInput = panel.querySelector('input[name="_token"]');
     const token = tokenInput ? tokenInput.value : '';
 
@@ -205,7 +207,7 @@ export function initAddPanel() {
                     'Content-Type': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest',
                 },
-                body: JSON.stringify(move ? { move: true } : {}),
+                body: JSON.stringify(Object.assign(move ? { move: true } : {}, groupPick && groupPick.value ? { group: groupPick.value } : {})),
             });
             if (!res.ok) throw new Error(String(res.status));
             added += 1;

@@ -128,4 +128,33 @@ class OneGroupRule
             . implode('; ', $parts) . ($more > 0 ? "; and {$more} more" : '')
             . '. Use Move here to transfer one.';
     }
+
+    /**
+     * Put one product in a group of the store it was just added to, moving it
+     * out of any other group on that store. A group that is not this store's
+     * is refused (false) and nothing changes.
+     */
+    public static function place(string $pivotTable, string $groupFk, string $groupTable, string $storeFk, int $storeId, int $groupId, int $productId): bool
+    {
+        $belongs = DB::table($groupTable)->where('id', $groupId)
+            ->when($storeId > 0, fn ($q) => $q->where($storeFk, $storeId))
+            ->exists();
+        if (! $belongs) {
+            return false;
+        }
+
+        self::claim($pivotTable, $groupFk, $groupTable, $storeFk, $groupId, [$productId], [$productId]);
+
+        if (! DB::table($pivotTable)->where($groupFk, $groupId)->where('product_id', $productId)->exists()) {
+            $row = [$groupFk => $groupId, 'product_id' => $productId];
+            foreach (['created_at', 'updated_at'] as $stamp) {
+                if (\Illuminate\Support\Facades\Schema::hasColumn($pivotTable, $stamp)) {
+                    $row[$stamp] = now();
+                }
+            }
+            DB::table($pivotTable)->insert($row);
+        }
+
+        return true;
+    }
 }
