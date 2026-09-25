@@ -125,7 +125,7 @@ That's it.
 
 ## Need Help?
 
-Email `support@example.com` with:
+Contact us at [ventasync.com/contact](https://ventasync.com/contact) with:
 - Your OpenCart version (Help → About in OpenCart admin)
 - The exact error message
 - Whether Debug Logging was enabled (and the relevant lines from `system/storage/logs/error.log`)

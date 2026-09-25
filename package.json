@@ -1,6 +1,6 @@
 {
     "$schema": "https://www.schemastore.org/package.json",
-    "name": "ventasync-legacy",
+    "name": "ventasync",
     "version": "0.220.0",
     "description": "VentaSync — self-hosted multi-marketplace ERP",
     "private": true,

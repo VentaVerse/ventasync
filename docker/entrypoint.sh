@@ -7,7 +7,7 @@
 #
 #   1. Waits for the database to be reachable (60s budget)
 #   2. Runs migrations + seeds the default admin user if
-#      AGILA_AUTO_MIGRATE=true
+#      VENTASYNC_AUTO_MIGRATE=true
 #   3. Clears stale caches
 #   4. Hands off to supervisord
 #
@@ -54,8 +54,8 @@ done
 
 # ── 2. Run migrations + seed default admin ─────────────────────────────
 
-if [ "${AGILA_AUTO_MIGRATE:-false}" = "true" ]; then
-    echo "[entrypoint] Running migrations + seeding default admin (AGILA_AUTO_MIGRATE=true)..."
+if [ "${VENTASYNC_AUTO_MIGRATE:-false}" = "true" ]; then
+    echo "[entrypoint] Running migrations + seeding default admin (VENTASYNC_AUTO_MIGRATE=true)..."
     php artisan migrate --force --seed --no-interaction
 fi
 
@@ -70,7 +70,7 @@ fi
 #     paths during image build.
 #
 # If perf becomes a concern, we re-introduce the cache steps here under
-# a flag (AGILA_CACHE_ON_BOOT=true) and ensure they're robust.
+# a flag (VENTASYNC_CACHE_ON_BOOT=true) and ensure they're robust.
 
 echo "[entrypoint] Clearing any stale caches..."
 php artisan optimize:clear 2>/dev/null || true

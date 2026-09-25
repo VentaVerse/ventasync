@@ -18,7 +18,6 @@ vendor
 auth.json
 
 # Runtime state
-storage/agila
 storage/app/private
 storage/app/public
 storage/framework/cache

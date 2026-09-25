@@ -138,7 +138,7 @@ APP_URL=https://erp.yourdomain.com
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_DATABASE=agila_suites
+DB_DATABASE=ventasync
 DB_USERNAME=your_user
 DB_PASSWORD=your_password
 
@@ -214,7 +214,7 @@ Plus customers receive 1 year of feature updates from purchase date.
 
 **AGPL-3.0-or-later.** You may use, modify, and distribute VentaSync under the terms of the GNU Affero General Public License v3.0 or later. If you modify and serve VentaSync over a network, you must make your modified source available to users.
 
-Plus modules are distributed under separate commercial licenses. See https://example.com/pricing for details.
+Plus modules are distributed under separate commercial licenses. See https://ventasync.com/pricing for details.
 
 ---
 
@@ -224,4 +224,4 @@ Plus modules are distributed under separate commercial licenses. See https://exa
 - **Plus:** Email support included for 1 year
 - **Enterprise:** Dedicated support contracts available
 
-Website: https://example.com
+Website: https://ventasync.com

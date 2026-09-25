@@ -11,7 +11,7 @@ return [
     | deployed VentaSync license authority.
     |
     */
-    'server_url' => env('LICENSE_SERVER_URL', 'https://example.com'),
+    'server_url' => env('LICENSE_SERVER_URL', 'https://ventasync.com'),
 
     /*
     |--------------------------------------------------------------------------
@@ -22,7 +22,7 @@ return [
     | activation flow validates the typed key matches this slug before storing.
     |
     */
-    'core_slug' => env('LICENSE_CORE_SLUG', 'ventasync-legacy'),
+    'core_slug' => env('LICENSE_CORE_SLUG', 'ventasync'),
 
     /*
     |--------------------------------------------------------------------------

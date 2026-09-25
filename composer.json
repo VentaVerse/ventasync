@@ -1,10 +1,10 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "ventasync/ventasync-legacy",
+    "name": "ventaverse/ventasync",
     "type": "project",
     "description": "VentaSync — self-hosted multi-marketplace ERP for Lazada, Shopee, TikTok, Shopify, OpenCart and more.",
     "keywords": ["erp", "ecommerce", "laravel", "lazada", "shopee", "tiktok", "shopify", "opencart", "marketplace", "multichannel"],
-    "homepage": "https://example.com",
+    "homepage": "https://ventasync.com",
     "license": "AGPL-3.0-or-later",
     "require": {
         "php": "^8.2",

@@ -19,17 +19,17 @@ This is a standard Laravel 12 install. If you've deployed any Laravel app before
 
 ```bash
 cd /var/www
-wget https://github.com/reboot-interactive/ventasync-legacy/archive/refs/heads/main.zip
-unzip main.zip && mv ventasync-legacy-main ventasync-legacy
-cd ventasync-legacy
+wget https://github.com/VentaVerse/VentaSync/archive/refs/heads/main.zip
+unzip main.zip && mv VentaSync-main ventasync
+cd ventasync
 composer install --no-dev --optimize-autoloader
 ```
 
 **Option B — git clone (for development / contributing):**
 
 ```bash
-git clone https://github.com/reboot-interactive/ventasync-legacy.git
-cd ventasync-legacy
+git clone https://github.com/VentaVerse/VentaSync.git
+cd ventasync
 composer install --no-dev --optimize-autoloader
 ```
 
@@ -53,7 +53,7 @@ APP_DEBUG=false
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_DATABASE=agila_suites
+DB_DATABASE=ventasync
 DB_USERNAME=your_db_user
 DB_PASSWORD=your_db_password
 ```
@@ -114,7 +114,7 @@ Open `https://your-domain.com` → log in with `admin` / `admin` → **change th
 server {
     listen 80;
     server_name your-domain.com;
-    root /var/www/ventasync-legacy/public;
+    root /var/www/ventasync/public;
     index index.php;
 
     location / {
@@ -137,18 +137,18 @@ server {
 To upgrade an existing install to a new release:
 
 ```bash
-cd /var/www/ventasync-legacy
+cd /var/www/ventasync
 
 # 1. Back up your database first
-mysqldump -u agila_user -p agila_suites > backup-$(date +%Y%m%d).sql
+mysqldump -u ventasync_user -p ventasync > backup-$(date +%Y%m%d).sql
 
 # 2. Replace files (preserving .env and storage/)
-mv .env /tmp/agila.env.backup
+mv .env /tmp/ventasync.env.backup
 rm -rf app bootstrap config database extensions public/build resources routes vendor
-wget -O /tmp/agila.zip https://github.com/reboot-interactive/ventasync-legacy/archive/refs/heads/main.zip
-unzip /tmp/agila.zip -d /tmp/
-cp -r /tmp/ventasync-legacy-main/* .
-mv /tmp/agila.env.backup .env
+wget -O /tmp/ventasync.zip https://github.com/VentaVerse/VentaSync/archive/refs/heads/main.zip
+unzip /tmp/ventasync.zip -d /tmp/
+cp -r /tmp/VentaSync-main/* .
+mv /tmp/ventasync.env.backup .env
 
 # 3. Run new migrations + clear caches
 php artisan migrate --force
@@ -194,11 +194,11 @@ Plus tier features (paid):
 
 Each Plus extension ships as a separate folder under `extensions/{id}/` — drop it in, run `php artisan migrate --force`, done.
 
-For Plus licensing, see [example.com](https://example.com) (TBD).
+For Plus licensing, see [ventasync.com/pricing](https://ventasync.com/pricing).
 
 ---
 
 ## Need help?
 
-- Open an issue at https://github.com/reboot-interactive/ventasync-legacy/issues
-- For Plus / Cloud support, contact `support@example.com` (TBD)
+- Open an issue at https://github.com/VentaVerse/VentaSync/issues
+- For Plus / Cloud support, use [ventasync.com/contact](https://ventasync.com/contact)

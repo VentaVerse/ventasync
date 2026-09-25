@@ -26,9 +26,9 @@ class AuthController extends Controller
         }
 
         // Revoke any existing mobile tokens for this user to prevent accumulation
-        $user->tokens()->where('name', 'agila-mobile')->delete();
+        $user->tokens()->where('name', 'ventasync-mobile')->delete();
 
-        $token = $user->createToken('agila-mobile')->plainTextToken;
+        $token = $user->createToken('ventasync-mobile')->plainTextToken;
 
         return response()->json([
             'token' => $token,
