@@ -60,6 +60,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
        it is a leaf. */
     Route::get('/venta/{store}/listings/categories/children', [VentaListingController::class, 'categoryChildren'])->name('ext.venta.listings.category_children');
     Route::get('/venta/{store}/listings/categories/path', [VentaListingController::class, 'categoryPath'])->name('ext.venta.listings.category_path');
+    Route::get('/venta/{store}/listings/categories/search', [VentaListingController::class, 'categorySearch'])->name('ext.venta.listings.category_search');
     Route::get('/venta/{store}/watermarks', [VentaWatermarkTemplateController::class, 'index'])->name('ext.venta.watermarks.index');
     Route::get('/venta/{store}/watermarks/preview', [VentaWatermarkTemplateController::class, 'preview'])->name('ext.venta.watermarks.preview');
     Route::get('/venta/{store}/watermarks/create', [VentaWatermarkTemplateController::class, 'create'])->name('ext.venta.watermarks.create')->defaults('permission_tier', 'manage');

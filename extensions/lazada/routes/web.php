@@ -95,6 +95,7 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
            it is a leaf. */
         Route::get('/lazada/{store}/products/categories/children', [LazadaProductController::class, 'categoryChildren'])->name('ext.lazada.products.category_children');
         Route::get('/lazada/{store}/products/categories/path', [LazadaProductController::class, 'categoryPath'])->name('ext.lazada.products.category_path');
+        Route::get('/lazada/{store}/products/categories/search', [LazadaProductController::class, 'categorySearch'])->name('ext.lazada.products.category_search');
         Route::get('/lazada/{store}/watermarks', [LazadaWatermarkTemplateController::class, 'index'])->name('ext.lazada.watermarks.index');
         Route::get('/lazada/{store}/watermarks/preview', [LazadaWatermarkTemplateController::class, 'preview'])->name('ext.lazada.watermarks.preview');
         Route::get('/lazada/{store}/watermarks/create', [LazadaWatermarkTemplateController::class, 'create'])->name('ext.lazada.watermarks.create')->defaults('permission_tier', 'manage');

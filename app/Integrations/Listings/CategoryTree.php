@@ -144,6 +144,44 @@ final class CategoryTree
         return [];
     }
 
+    /**
+     * Categories whose name holds $q, leaves only, each with the readable
+     * path down to it. What the picker's search box shows: only a leaf can
+     * be confirmed, so only leaves are worth offering.
+     *
+     * @return list<array{id: int, name: string, path: string}>
+     */
+    public static function search(string $channel, int $storeId, string $q, int $limit = 25): array
+    {
+        $q = trim($q);
+        if (! self::knows($channel) || $q === '') {
+            return [];
+        }
+        $s = self::SHAPES[$channel];
+
+        $query = self::scoped($channel, $storeId)
+            ->where(function ($w) use ($q, $s) {
+                $w->where('name', 'like', '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $q) . '%');
+                if (ctype_digit($q)) {
+                    $w->orWhere($s['id'], (int) $q);
+                }
+            });
+
+        $s['leaf'] !== null
+            ? $query->where($s['leaf'], 1)
+            /* A channel that keeps no leaf flag is asked by counting: a
+               category nothing points at is the end of its branch. */
+            : $query->whereNotIn($s['id'], self::scoped($channel, $storeId)->distinct()->pluck($s['parent'])->filter()->all());
+
+        $rows = $query->orderBy('name')->limit(max(1, min(50, $limit)))->get([$s['id'] . ' as id', 'name']);
+
+        return $rows->map(fn ($r) => [
+            'id' => (int) $r->id,
+            'name' => (string) $r->name,
+            'path' => implode(' / ', array_column(self::path($channel, $storeId, (int) $r->id), 'name')),
+        ])->values()->all();
+    }
+
     /** This channel's rows, narrowed to the store when its categories are the store's own. */
     private static function scoped(string $channel, int $storeId)
     {

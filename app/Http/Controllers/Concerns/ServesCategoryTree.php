@@ -71,6 +71,24 @@ trait ServesCategoryTree
     }
 
     /**
+     * Leaves whose name holds the typed words, each carrying its readable
+     * path, so the picker's search box works on every channel whose tree
+     * is stored - not only the ones that wrote a search of their own.
+     */
+    public function categorySearch(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'q' => 'required|string|min:2|max:120',
+        ]);
+
+        $channel = $this->categoryChannel();
+
+        return response()->json([
+            'items' => CategoryTree::search($channel, ListingStore::id($channel), (string) $data['q']),
+        ]);
+    }
+
+    /**
      * Every column a path needs: the roots, then the children of each step
      * above the last.
      *

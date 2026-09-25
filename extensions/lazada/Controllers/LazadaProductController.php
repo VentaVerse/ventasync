@@ -3534,21 +3534,22 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             ->unique()
             ->all();
 
+        /* A SKU anywhere in the Master Catalog counts as "already here", the
+         * way Shopee's importer reads it - not only on products this channel
+         * has linked. A product imported from Shopee, or typed in by hand,
+         * must not be offered for a second import under the same code. */
         $pfx = (string) config('catalog.prefix');
         $existingSkus = [];
-        $lazProducts = LazadaProduct::query()->get(['id', 'product_id']);
-        foreach ($lazProducts as $lp) {
-            $pid = (int) $lp->product_id;
-            $mainSku = DB::table($pfx . 'product')->where('product_id', $pid)->value('model');
-            if ($mainSku) $existingSkus[trim((string) $mainSku)] = true;
-            $ovSkus = DB::table($pfx . 'product_option_value')
-                ->where('product_id', $pid)
-                ->whereNotNull('sku')
-                ->where('sku', '!=', '')
-                ->pluck('sku');
-            foreach ($ovSkus as $os) {
-                $existingSkus[trim((string) $os)] = true;
-            }
+        foreach (DB::table($pfx . 'product')->get(['model', 'sku']) as $ep) {
+            if ($ep->model !== null && trim((string) $ep->model) !== '') $existingSkus[strtolower(trim((string) $ep->model))] = true;
+            if ($ep->sku !== null && trim((string) $ep->sku) !== '') $existingSkus[strtolower(trim((string) $ep->sku))] = true;
+        }
+        $ovSkus = DB::table($pfx . 'product_option_value')
+            ->whereNotNull('sku')
+            ->where('sku', '!=', '')
+            ->pluck('sku');
+        foreach ($ovSkus as $os) {
+            $existingSkus[strtolower(trim((string) $os))] = true;
         }
 
         $rows = [];
@@ -3560,7 +3561,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             $skusForItem = $itemSkus[(string) $itemId] ?? [];
             $matched = false;
             foreach ($skusForItem as $sku) {
-                if (isset($existingSkus[$sku])) {
+                if (isset($existingSkus[strtolower(trim((string) $sku))])) {
                     $matched = true;
                     break;
                 }

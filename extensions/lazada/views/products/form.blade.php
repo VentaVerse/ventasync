@@ -361,7 +361,7 @@
                             'valueLabel' => '',
                             'channel' => 'lazada',
                             'storeId' => 0,
-                            'searchUrl' => null,
+                            'searchUrl' => route('ext.lazada.products.category_search'),
                             'childrenUrl' => route('ext.lazada.products.category_children'),
                             'pathUrl' => route('ext.lazada.products.category_path'),
                             'canManage' => true,

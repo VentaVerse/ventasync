@@ -126,7 +126,7 @@
                         'valueLabel' => '',
                         'channel' => 'tiktok',
                         'storeId' => 0,
-                        'searchUrl' => null,
+                        'searchUrl' => route('ext.tiktok.products.searchCategories'),
                         'childrenUrl' => route('ext.tiktok.products.category_children'),
                         'pathUrl' => route('ext.tiktok.products.category_path'),
                         'refreshUrl' => $canManageTiktok ? route('ext.tiktok.categories.sync') : null,

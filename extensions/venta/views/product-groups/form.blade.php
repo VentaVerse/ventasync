@@ -121,7 +121,7 @@
                         'valueLabel' => '',
                         'channel' => 'venta',
                         'storeId' => $setting->id,
-                        'searchUrl' => null,
+                        'searchUrl' => route('ext.venta.listings.category_search', ['store' => $setting->id]),
                         'childrenUrl' => route('ext.venta.listings.category_children', ['store' => $setting->id]),
                         'pathUrl' => route('ext.venta.listings.category_path', ['store' => $setting->id]),
                         'canManage' => $canManageVenta,
