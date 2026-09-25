@@ -143,12 +143,61 @@ function initRange() {
                 from.focus();
             }
             press(key);
+            document.dispatchEvent(new CustomEvent('range:changed'));
         });
     });
 
     // Typing a date by hand is a custom range by definition.
-    from.addEventListener('change', function () { press('custom'); });
-    to.addEventListener('change', function () { press('custom'); });
+    from.addEventListener('change', function () { press('custom'); document.dispatchEvent(new CustomEvent('range:changed')); });
+    to.addEventListener('change', function () { press('custom'); document.dispatchEvent(new CustomEvent('range:changed')); });
+}
+
+/* ------------------------------------------------------------------
+   Choices that follow the dates
+   ------------------------------------------------------------------
+   A deleted store, or a disabled channel's, is a store choice only while
+   the dates hold a month it sold in. The page carries those months, so the
+   list follows the dates as they change, before the report is run. A
+   ticked choice stays whatever the dates. */
+
+function initPeriodChoices() {
+    const choices = Array.from(document.querySelectorAll('[data-sold-months]'));
+    const from = document.querySelector('[data-range-from]');
+    const to = document.querySelector('[data-range-to]');
+    if (!choices.length || !from || !to) return;
+
+    function isHeading(el) {
+        return el.classList.contains('rp-pick__group') || el.classList.contains('rp-pick__section');
+    }
+
+    function follow() {
+        const first = from.value ? from.value.slice(0, 7) : '';
+        const last = to.value ? to.value.slice(0, 7) : '';
+
+        choices.forEach(function (choice) {
+            const box = choice.querySelector('input[type=checkbox]');
+            const sold = choice.getAttribute('data-sold-months').split(' ').some(function (m) {
+                return (!first || m >= first) && (!last || m <= last);
+            });
+            choice.hidden = !sold && !(box && box.checked);
+        });
+
+        // A heading shows while anything under it does: a group runs to
+        // the next group, a section to the next heading of either kind.
+        document.querySelectorAll('.rp-pick__list').forEach(function (list) {
+            list.querySelectorAll('.rp-pick__group, .rp-pick__section').forEach(function (heading) {
+                const group = heading.classList.contains('rp-pick__group');
+                let any = false;
+                for (let el = heading.nextElementSibling; el; el = el.nextElementSibling) {
+                    if (group ? el.classList.contains('rp-pick__group') : isHeading(el)) break;
+                    if (!isHeading(el) && !el.hidden) { any = true; break; }
+                }
+                heading.hidden = !any;
+            });
+        });
+    }
+
+    document.addEventListener('range:changed', follow);
 }
 
 /* ------------------------------------------------------------------
@@ -421,6 +470,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!document.querySelector('[data-reports-page]')) return;
 
     initRange();
+    initPeriodChoices();
     initGroups();
     initDrilldown();
 });

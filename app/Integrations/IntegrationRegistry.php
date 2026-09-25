@@ -481,7 +481,7 @@ class IntegrationRegistry
      * disabled channel's own tables. With a user, only stores whose orders
      * they may view; without one, every store, for an API caller.
      *
-     * @return list<array{key:string, label:string, channel:string, source:string, store_id:?int, deleted:bool, channel_off:bool}>
+     * @return list<array{key:string, label:string, channel:string, source:string, store_id:?int, deleted:bool, channel_off:bool, months:list<string>}>
      */
     public function unlistedStoreOptions(?User $user, ?string $from = null, ?string $to = null): array
     {
@@ -497,15 +497,24 @@ class IntegrationRegistry
         $query = \Illuminate\Support\Facades\DB::table((string) config('catalog.prefix') . 'order')
             ->where('marketplace_source', '<>', '')
             ->whereNotNull('marketplace_source')
-            ->groupBy('marketplace_source', 'store_id')
-            ->selectRaw('marketplace_source, store_id, MAX(order_id) AS latest');
+            ->groupByRaw("marketplace_source, store_id, DATE_FORMAT(date_added, '%Y-%m')")
+            ->selectRaw("marketplace_source, store_id, DATE_FORMAT(date_added, '%Y-%m') AS month, MAX(order_id) AS latest");
         if ($from) {
             $query->where('date_added', '>=', $from . ' 00:00:00');
         }
         if ($to) {
             $query->where('date_added', '<=', $to . ' 23:59:59');
         }
-        $rows = $query->get();
+
+        // One row per store, carrying the months it sold in.
+        $rows = [];
+        foreach ($query->get() as $r) {
+            $id = $r->marketplace_source . '|' . $r->store_id;
+            $rows[$id] ??= (object) ['marketplace_source' => $r->marketplace_source, 'store_id' => $r->store_id, 'latest' => 0, 'months' => []];
+            $rows[$id]->latest = max($rows[$id]->latest, (int) $r->latest);
+            $rows[$id]->months[] = (string) $r->month;
+        }
+        $rows = collect(array_values($rows));
 
         $names = $rows->isEmpty() ? collect() : \Illuminate\Support\Facades\DB::table((string) config('catalog.prefix') . 'order')
             ->whereIn('order_id', $rows->pluck('latest'))->pluck('store_name', 'order_id');
@@ -556,6 +565,7 @@ class IntegrationRegistry
                 'store_id' => $storeId,
                 'deleted' => $on,
                 'channel_off' => ! $on,
+                'months' => array_values(array_unique($row->months)),
             ];
         }
 
@@ -567,27 +577,26 @@ class IntegrationRegistry
 
     /**
      * The report store filter: the live stores the user may read by, then
-     * the deleted stores and a disabled channel's stores with orders in the
-     * period.
+     * every deleted store and disabled channel's store that ever sold, each
+     * marked 'in_period' when it sold between the two dates or is ticked.
+     * The page shows the rest as the dates change, without a reload.
      *
      * @return list<array<string, mixed>>
      */
     public function reportStoreOptions(?User $user, ?string $from = null, ?string $to = null, array $selected = []): array
     {
-        $deleted = $this->unlistedStoreOptions($user, $from, $to);
+        $fromMonth = $from ? substr($from, 0, 7) : null;
+        $toMonth = $to ? substr($to, 0, 7) : null;
+        $selected = array_map('strval', $selected);
 
-        // A store still ticked stays listed outside its period, or the
-        // filter would read "All" while it narrows the report.
-        $missing = array_diff(array_map('strval', $selected), array_column($deleted, 'key'));
-        if ($missing !== []) {
-            foreach ($this->unlistedStoreOptions($user) as $opt) {
-                if (in_array($opt['key'], $missing, true)) {
-                    $deleted[] = $opt;
-                }
-            }
-        }
+        $unlisted = array_map(function (array $opt) use ($fromMonth, $toMonth, $selected) {
+            $sold = array_filter($opt['months'], fn (string $m) => ($fromMonth === null || $m >= $fromMonth) && ($toMonth === null || $m <= $toMonth));
+            $opt['in_period'] = $sold !== [] || in_array($opt['key'], $selected, true);
 
-        return array_merge($this->visibleStoreOptions($user), $deleted);
+            return $opt;
+        }, $this->unlistedStoreOptions($user));
+
+        return array_merge($this->visibleStoreOptions($user), $unlisted);
     }
 
     /**

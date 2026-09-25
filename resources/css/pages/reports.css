@@ -404,6 +404,11 @@
 
 .rp-pick__group:first-child { margin-top: 0; }
 
+/* A store outside the chosen period, and a heading left with none. */
+.rp-choice[hidden],
+.rp-pick__group[hidden],
+.rp-pick__section[hidden] { display: none; }
+
 .rp-pick__section {
     margin-top: var(--bl-space-1);
     font-size: 11px;
