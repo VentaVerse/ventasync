@@ -450,6 +450,29 @@ class IntegrationRegistry
     }
 
     /**
+     * Every live store of every enabled channel, and Manual orders, with no
+     * person to gate them: for an API caller, whose scope is the gate.
+     *
+     * @return list<array{key:string, label:string, channel:string, source:string, store_id:?int}>
+     */
+    public function storeOptions(): array
+    {
+        $out = [['key' => \App\Support\StoreKey::MANUAL, 'label' => 'Manual orders', 'channel' => 'VentaSync', 'source' => '', 'store_id' => null]];
+
+        foreach ($this->providers as $id => $provider) {
+            if (! $provider instanceof \App\Integrations\Contracts\StoreOptionsProvider || ! $this->passesGates($id, null)) {
+                continue;
+            }
+            foreach ($provider->availableStoreOptions() as $opt) {
+                unset($opt['permission']);
+                $out[] = $opt;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
      * Stores the user may read by, as filter choices, in provider order
      * (per-store reports, the owner, 2026-09-05). Live stores only: a deleted
      * store's orders keep the name stamped on them and stay inside the
