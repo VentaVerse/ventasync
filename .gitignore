@@ -19,7 +19,6 @@
 /storage/*.key
 /storage/pail
 /storage/dist
-/storage/agila
 /vendor
 Homestead.json
 Homestead.yaml
@@ -32,7 +31,6 @@ Thumbs.db
 /screenshot*.jpg
 /*.png
 /*.jpg
-!/ventasync-legacy.png
 !/logo*.png
 /.claude
 /docs
@@ -64,3 +62,13 @@ CLAUDE.md
 
 # Legacy OpenCart DB dumps for one-time backfill (do not commit)
 temp_for_delete/
+
+# Local leftovers that never belong in the repo
+*.bak
+*.community-bak
+/.impeccable/
+/.playwright-mcp/
+/public/draft-*.html
+/public/mockup-*.html
+/storage/*.csv
+/storage/*.sql

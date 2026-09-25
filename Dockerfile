@@ -10,13 +10,13 @@
 # Bakes the two Cloud-specific behavior flags into the image so they
 # can't be flipped off by a Coolify operator misconfiguration:
 #
-#   AGILA_LICENSE_BYPASS=true   — Plus extensions skip license check
-#   AGILA_AUTO_MIGRATE=true     — entrypoint runs `migrate --force --seed`,
+#   VENTASYNC_LICENSE_BYPASS=true   — Plus extensions skip license check
+#   VENTASYNC_AUTO_MIGRATE=true     — entrypoint runs `migrate --force --seed`,
 #                                 seeding the default admin user
 #
-# Per-tenant env vars (DB credentials, APP_URL, etc.) are set by Coolify
-# per the spec at ops/INSTALL-CLOUD.md. The Cloud provisioning step
-# rotates the seeded admin/admin password before exposing the tenant.
+# Per-tenant env vars (DB credentials, APP_URL, etc.) are set by the
+# hosting platform. Provisioning rotates the seeded admin/admin password
+# before exposing the tenant.
 
 # ─── Stage 1: composer (PHP production deps) ───────────────────────────
 FROM composer:2 AS composer
@@ -123,7 +123,7 @@ RUN { \
         echo 'realpath_cache_size=4096K'; \
         echo 'realpath_cache_ttl=600'; \
         echo 'expose_php=Off'; \
-    } > /usr/local/etc/php/conf.d/agila.ini
+    } > /usr/local/etc/php/conf.d/ventasync.ini
 
 # Nginx + supervisord
 COPY docker/nginx.conf /etc/nginx/nginx.conf
@@ -155,7 +155,6 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Permissions for runtime-writable dirs
 RUN mkdir -p \
-        storage/agila \
         storage/framework/cache \
         storage/framework/cache/data \
         storage/framework/sessions \
@@ -169,8 +168,8 @@ RUN mkdir -p \
 
 # Cloud-specific behavior — baked in, cannot be overridden by Coolify env vars
 # safely (the application's check_env reads ENV directives that Dockerfile baked).
-ENV AGILA_LICENSE_BYPASS=true \
-    AGILA_AUTO_MIGRATE=true \
+ENV VENTASYNC_LICENSE_BYPASS=true \
+    VENTASYNC_AUTO_MIGRATE=true \
     APP_ENV=production \
     APP_DEBUG=false \
     LOG_CHANNEL=stderr
