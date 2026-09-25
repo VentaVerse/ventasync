@@ -228,6 +228,17 @@ class UserGroupController extends Controller
          * Read before the sync, because after it there is nothing to compare. */
         $before = $group->permissions()->pluck('key', 'permissions.id');
 
+        // The form lists only what enabled extensions offer. A disabled
+        // extension's grants are not on it, and are kept as they were so
+        // they are there when it is enabled again.
+        $disabled = \App\Models\Extension::where('enabled', false)->pluck('id')->all();
+        $unseen = $before->filter(function ($key) use ($disabled) {
+            $area = preg_match('/^(?:view|manage)_([a-z0-9_]+)\//', (string) $key, $m) ? $m[1] : '';
+
+            return $area !== '' && in_array($area, $disabled, true);
+        })->keys()->all();
+        $permissionIds = array_values(array_unique(array_merge(array_map('intval', $permissionIds), $unseen)));
+
         $group->permissions()->sync($permissionIds);
 
         $after = $group->fresh()->permissions()->pluck('key', 'permissions.id');

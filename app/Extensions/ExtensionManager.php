@@ -268,7 +268,9 @@ class ExtensionManager
 
         $extension->update(['enabled' => false]);
 
-        $this->removePermissions($id);
+        // The permissions stay, with every group's grants: a disabled
+        // extension is coming back. Uninstall is what removes them.
+        app(\App\Services\PermissionHierarchy::class)->invalidate();
         $this->clearCache();
 
         return true;

@@ -536,8 +536,9 @@ class IntegrationRegistry
                 }
                 $channel = (string) ($manifest['name'] ?? \Illuminate\Support\Str::headline($channelId));
             }
-            // Disabling a channel removes its permissions, so its stores are
-            // gated by the core order list, where their orders still show.
+            // A disabled channel's permissions are not on the group editor to
+            // grant or withdraw, so its stores are gated by the core order
+            // list, where their orders still show.
             if ($user && ! $user->hasPermission($on ? 'view_' . $channelId . '/order' : 'view_sales/order')) {
                 continue;
             }
