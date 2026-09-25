@@ -404,6 +404,12 @@
 
 .rp-pick__group:first-child { margin-top: 0; }
 
+.rp-pick__section {
+    margin-top: var(--bl-space-1);
+    font-size: 11px;
+    color: var(--bl-ink-3);
+}
+
 .rp-pick__foot {
     display: flex;
     align-items: center;

@@ -473,6 +473,106 @@ class IntegrationRegistry
     }
 
     /**
+     * Deleted stores that have orders between the two dates (either open),
+     * shaped like a live store's option with 'deleted' => true. A deleted
+     * store has no settings row to name it, so its name is the one stamped
+     * on its latest order. With a user, only channels whose orders they may
+     * view; without one, every channel, for an API caller.
+     *
+     * @return list<array{key:string, label:string, channel:string, source:string, store_id:?int, deleted:bool}>
+     */
+    public function deletedStoreOptions(?User $user, ?string $from = null, ?string $to = null): array
+    {
+        $live = [];
+        $channels = [];
+        foreach ($this->storeOptions() as $opt) {
+            $live[$opt['key']] = true;
+            if ($opt['source'] !== '') {
+                $channels[strstr($opt['source'], ':', true) ?: $opt['source']] ??= $opt['channel'];
+            }
+        }
+
+        $query = \Illuminate\Support\Facades\DB::table((string) config('catalog.prefix') . 'order')
+            ->where('marketplace_source', '<>', '')
+            ->whereNotNull('marketplace_source')
+            ->groupBy('marketplace_source', 'store_id')
+            ->selectRaw('marketplace_source, store_id, MAX(order_id) AS latest');
+        if ($from) {
+            $query->where('date_added', '>=', $from . ' 00:00:00');
+        }
+        if ($to) {
+            $query->where('date_added', '<=', $to . ' 23:59:59');
+        }
+        $rows = $query->get();
+
+        $names = $rows->isEmpty() ? collect() : \Illuminate\Support\Facades\DB::table((string) config('catalog.prefix') . 'order')
+            ->whereIn('order_id', $rows->pluck('latest'))->pluck('store_name', 'order_id');
+
+        $out = [];
+        foreach ($rows as $row) {
+            $source = (string) $row->marketplace_source;
+            $channelId = strstr($source, ':', true) ?: $source;
+            $storeId = str_contains($source, ':') ? null : (int) $row->store_id;
+            // An order from before stores were stamped carries no store.
+            if ($storeId === 0) {
+                continue;
+            }
+            $key = \App\Support\StoreKey::of($source, (int) $row->store_id);
+            if (isset($live[$key]) || isset($out[$key])) {
+                continue;
+            }
+            $provider = $this->providers[$channelId] ?? null;
+            if (! $provider instanceof \App\Integrations\Contracts\StoreOptionsProvider || ! $this->passesGates($channelId, $user)) {
+                continue;
+            }
+            if ($user && ! $user->hasPermission('view_' . $channelId . '/order')) {
+                continue;
+            }
+
+            $channel = $channels[$channelId] ?? \Illuminate\Support\Str::headline($channelId);
+            $name = trim((string) ($names[$row->latest] ?? ''));
+            if (str_starts_with(mb_strtolower($name), mb_strtolower($channel) . ':')) {
+                $name = trim(mb_substr($name, mb_strlen($channel) + 1));
+            }
+
+            $out[$key] = [
+                'key' => $key,
+                'label' => $name !== '' ? $name : 'Store #' . ($storeId ?? substr($source, strlen($channelId) + 1)),
+                'channel' => $channel,
+                'source' => $source,
+                'store_id' => $storeId,
+                'deleted' => true,
+            ];
+        }
+
+        return array_values($out);
+    }
+
+    /**
+     * The report store filter: the live stores the user may read by, then
+     * the deleted ones with orders in the period.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function reportStoreOptions(?User $user, ?string $from = null, ?string $to = null, array $selected = []): array
+    {
+        $deleted = $this->deletedStoreOptions($user, $from, $to);
+
+        // A deleted store still ticked stays listed outside its period, or
+        // the filter would read "All" while it narrows the report.
+        $missing = array_diff(array_map('strval', $selected), array_column($deleted, 'key'));
+        if ($missing !== []) {
+            foreach ($this->deletedStoreOptions($user) as $opt) {
+                if (in_array($opt['key'], $missing, true)) {
+                    $deleted[] = $opt;
+                }
+            }
+        }
+
+        return array_merge($this->visibleStoreOptions($user), $deleted);
+    }
+
+    /**
      * Stores the user may read by, as filter choices, in provider order
      * (per-store reports, the owner, 2026-09-05). Live stores only: a deleted
      * store's orders keep the name stamped on them and stay inside the
