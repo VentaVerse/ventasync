@@ -1090,6 +1090,11 @@
         "name": "ext.lazada.products.category_path"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/products/categories/search",
+        "name": "ext.lazada.products.category_search"
+    },
+    {
         "method": "POST",
         "uri": "channels/lazada/{store}/products/check",
         "name": "ext.lazada.products.check"
@@ -3105,6 +3110,11 @@
         "name": "ext.venta.listings.category_path"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "channels/venta/{store}/listings/categories/search",
+        "name": "ext.venta.listings.category_search"
+    },
+    {
         "method": "POST",
         "uri": "channels/venta/{store}/listings/check",
         "name": "ext.venta.listings.check"
@@ -3563,6 +3573,11 @@
         "method": "GET|HEAD",
         "uri": "channels/woocommerce/{store}/listings/categories/path",
         "name": "ext.woocommerce.listings.category_path"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/listings/categories/search",
+        "name": "ext.woocommerce.listings.category_search"
     },
     {
         "method": "POST",
