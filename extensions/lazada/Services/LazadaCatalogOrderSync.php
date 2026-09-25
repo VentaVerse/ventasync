@@ -56,10 +56,20 @@ class LazadaCatalogOrderSync
 
             $shippingFirstname = trim((string) ($addr['first_name'] ?? $firstname));
             $shippingLastname = trim((string) ($addr['last_name'] ?? $lastname));
+
+            /* The order's name columns hold 32 characters. A longer buyer
+               name failed the whole insert, the failure was swallowed, and
+               the sale never reached the ERP: 16 Lazada orders, May to
+               September (the owner, 2026-09-25). */
+            [$firstname, $lastname, $shippingFirstname, $shippingLastname] = array_map(
+                fn (string $name) => mb_substr($name, 0, 32),
+                [$firstname, $lastname, $shippingFirstname, $shippingLastname]
+            );
             $shippingAddress1 = trim((string) ($addr['address1'] ?? ($addr['address'] ?? '')));
             $shippingAddress2 = trim((string) ($addr['address2'] ?? ''));
             $shippingCity = trim((string) ($addr['city'] ?? ''));
-            $shippingPostcode = trim((string) ($addr['post_code'] ?? ($addr['zip_code'] ?? '')));
+            // Ten characters, the column's width: a buyer who typed "Barangay 535" here failed the insert the same way.
+            $shippingPostcode = mb_substr(trim((string) ($addr['post_code'] ?? ($addr['zip_code'] ?? ''))), 0, 10);
             $shippingCountry = trim((string) ($addr['country'] ?? ''));
             $shippingZone = trim((string) ($addr['state'] ?? ($addr['region'] ?? '')));
             $telephone = trim((string) ($addr['phone'] ?? ($addr['phone1'] ?? ($src['receiver_phone'] ?? ''))));

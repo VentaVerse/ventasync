@@ -549,10 +549,17 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
 
         // Second: try the finance transaction API for detailed commission breakdown
         try {
+            /* The transactions are searched from the order's own day, the
+               same 170-day span as before. It was the last 170 days, which
+               found nothing for an order older than that: a sale fetched
+               from January came back with no commission and no payment fee
+               (the owner, 2026-09-25). An order with no date keeps the old span. */
+            $from = $order->order_created_at ? $order->order_created_at->copy()->subDay() : now()->subDays(170);
+            $to = $from->copy()->addDays(171)->min(now()->addDay());
             $trxRes = $this->runSignedApiCall($client, $setting, 'GET', '/finance/transaction/details/get', [
                 'trade_order_id' => (string) $order->order_id,
-                'start_time'     => now()->subDays(170)->format('Y-m-d'),
-                'end_time'       => now()->addDay()->format('Y-m-d'),
+                'start_time'     => $from->format('Y-m-d'),
+                'end_time'       => $to->format('Y-m-d'),
             ], 'lazada.finance.transaction_details');
 
             if (!($trxRes['ok'] ?? false) || !is_array($trxRes['body'] ?? null)) {
