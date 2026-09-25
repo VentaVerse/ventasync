@@ -473,15 +473,17 @@ class IntegrationRegistry
     }
 
     /**
-     * Deleted stores that have orders between the two dates (either open),
-     * shaped like a live store's option with 'deleted' => true. A deleted
-     * store has no settings row to name it, so its name is the one stamped
-     * on its latest order. With a user, only channels whose orders they may
-     * view; without one, every channel, for an API caller.
+     * Stores the channels no longer list that have orders between the two
+     * dates (either open): a deleted store ('deleted' => true), and every
+     * store of a channel whose extension is disabled ('channel_off' =>
+     * true), since a disabled channel is not loaded to list its own. Both
+     * are named by the name stamped on their latest order; nothing reads a
+     * disabled channel's own tables. With a user, only stores whose orders
+     * they may view; without one, every store, for an API caller.
      *
-     * @return list<array{key:string, label:string, channel:string, source:string, store_id:?int, deleted:bool}>
+     * @return list<array{key:string, label:string, channel:string, source:string, store_id:?int, deleted:bool, channel_off:bool}>
      */
-    public function deletedStoreOptions(?User $user, ?string $from = null, ?string $to = null): array
+    public function unlistedStoreOptions(?User $user, ?string $from = null, ?string $to = null): array
     {
         $live = [];
         $channels = [];
@@ -508,6 +510,7 @@ class IntegrationRegistry
         $names = $rows->isEmpty() ? collect() : \Illuminate\Support\Facades\DB::table((string) config('catalog.prefix') . 'order')
             ->whereIn('order_id', $rows->pluck('latest'))->pluck('store_name', 'order_id');
 
+        $extensions = app(ExtensionManager::class);
         $out = [];
         foreach ($rows as $row) {
             $source = (string) $row->marketplace_source;
@@ -521,15 +524,24 @@ class IntegrationRegistry
             if (isset($live[$key]) || isset($out[$key])) {
                 continue;
             }
+
             $provider = $this->providers[$channelId] ?? null;
-            if (! $provider instanceof \App\Integrations\Contracts\StoreOptionsProvider || ! $this->passesGates($channelId, $user)) {
-                continue;
+            $on = $provider instanceof \App\Integrations\Contracts\StoreOptionsProvider && $extensions->isEnabled($channelId);
+            if ($on) {
+                $channel = $channels[$channelId] ?? (string) ($extensions->getManifest($channelId)['name'] ?? \Illuminate\Support\Str::headline($channelId));
+            } else {
+                $manifest = $extensions->getManifest($channelId);
+                if ($manifest === null) {
+                    continue;
+                }
+                $channel = (string) ($manifest['name'] ?? \Illuminate\Support\Str::headline($channelId));
             }
-            if ($user && ! $user->hasPermission('view_' . $channelId . '/order')) {
+            // Disabling a channel removes its permissions, so its stores are
+            // gated by the core order list, where their orders still show.
+            if ($user && ! $user->hasPermission($on ? 'view_' . $channelId . '/order' : 'view_sales/order')) {
                 continue;
             }
 
-            $channel = $channels[$channelId] ?? \Illuminate\Support\Str::headline($channelId);
             $name = trim((string) ($names[$row->latest] ?? ''));
             if (str_starts_with(mb_strtolower($name), mb_strtolower($channel) . ':')) {
                 $name = trim(mb_substr($name, mb_strlen($channel) + 1));
@@ -541,28 +553,33 @@ class IntegrationRegistry
                 'channel' => $channel,
                 'source' => $source,
                 'store_id' => $storeId,
-                'deleted' => true,
+                'deleted' => $on,
+                'channel_off' => ! $on,
             ];
         }
 
-        return array_values($out);
+        $out = array_values($out);
+        usort($out, fn ($a, $b) => [$a['channel'], mb_strtolower($a['label'])] <=> [$b['channel'], mb_strtolower($b['label'])]);
+
+        return $out;
     }
 
     /**
      * The report store filter: the live stores the user may read by, then
-     * the deleted ones with orders in the period.
+     * the deleted stores and a disabled channel's stores with orders in the
+     * period.
      *
      * @return list<array<string, mixed>>
      */
     public function reportStoreOptions(?User $user, ?string $from = null, ?string $to = null, array $selected = []): array
     {
-        $deleted = $this->deletedStoreOptions($user, $from, $to);
+        $deleted = $this->unlistedStoreOptions($user, $from, $to);
 
-        // A deleted store still ticked stays listed outside its period, or
-        // the filter would read "All" while it narrows the report.
+        // A store still ticked stays listed outside its period, or the
+        // filter would read "All" while it narrows the report.
         $missing = array_diff(array_map('strval', $selected), array_column($deleted, 'key'));
         if ($missing !== []) {
-            foreach ($this->deletedStoreOptions($user) as $opt) {
+            foreach ($this->unlistedStoreOptions($user) as $opt) {
                 if (in_array($opt['key'], $missing, true)) {
                     $deleted[] = $opt;
                 }
