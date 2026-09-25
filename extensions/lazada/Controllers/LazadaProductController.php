@@ -3571,11 +3571,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             }
 
             $itemName = $product['attributes']['name'] ?? ($product['name'] ?? 'Unknown');
-            $imageUrl = null;
-            $images = $product['images'] ?? ($product['skus'][0]['Images'] ?? []);
-            if (is_array($images) && !empty($images)) {
-                $imageUrl = is_string($images[0] ?? null) ? $images[0] : null;
-            }
+            $imageUrl = \Extensions\lazada\Services\Lazada\LazadaImages::ofItem($product)[0] ?? null;
             $skuCount = is_array($product['skus'] ?? null) ? count($product['skus']) : 0;
 
             $rows[] = [

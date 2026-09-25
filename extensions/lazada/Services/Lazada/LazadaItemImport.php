@@ -92,7 +92,7 @@ class LazadaItemImport
                     'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
                 ]);
 
-                $imageUrls = (array) ($data['images'] ?? ($first['Images'] ?? []));
+                $imageUrls = LazadaImages::ofItem($data);
                 $paths = $this->downloadImages($imageUrls, $itemId);
                 if ($paths !== []) {
                     DB::table($pfx . 'product')->where('product_id', $productId)->update(['image' => $paths[0]]);
@@ -179,7 +179,7 @@ class LazadaItemImport
 
         $rowFor = function (array $s) use ($itemId) {
             $imagePath = '';
-            $img = (string) (data_get($s, 'Images.0') ?? '');
+            $img = LazadaImages::secure((string) (data_get($s, 'Images.0') ?? ''));
             if ($img !== '') {
                 $imagePath = $this->downloadImages([$img], $itemId, 'v' . substr(md5($img), 0, 6))[0] ?? '';
             }

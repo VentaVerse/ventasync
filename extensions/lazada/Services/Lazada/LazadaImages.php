@@ -478,6 +478,49 @@ class LazadaImages
             : $leftOut . ' pictures were left out of the description.';
     }
 
+    /**
+     * The pictures of an item as Lazada's product API answers it, in order,
+     * each once, every one https.
+     *
+     * An item's own `images` list comes back EMPTY, not missing, when its
+     * pictures live on its variations. Reading it with `??` took the empty
+     * list as the answer, so 32 of the 34 items the Import page offered
+     * showed no picture and would have imported without one (the owner,
+     * 2026-09-26). The item's own list when it has one, else every
+     * variation's pictures.
+     *
+     * @return list<string>
+     */
+    public static function ofItem(array $item): array
+    {
+        $own = array_filter((array) ($item['images'] ?? []), fn ($u) => is_string($u) && trim($u) !== '');
+        if ($own === []) {
+            $own = [];
+            foreach ((array) ($item['skus'] ?? []) as $sku) {
+                foreach ((array) (is_array($sku) ? ($sku['Images'] ?? []) : []) as $u) {
+                    if (is_string($u) && trim($u) !== '') {
+                        $own[] = $u;
+                    }
+                }
+            }
+        }
+
+        return array_values(array_unique(array_map([self::class, 'secure'], $own)));
+    }
+
+    /**
+     * A Lazada picture link over https. Some come back as http (an older
+     * image host), which a browser will not show inside this https page and
+     * App\Support\RemoteImage will not download; the same file is served
+     * over https.
+     */
+    public static function secure(string $url): string
+    {
+        $url = trim($url);
+
+        return preg_match('#^http://#i', $url) ? 'https://' . substr($url, 7) : $url;
+    }
+
     /** The Lazada link for one description picture, or null when it cannot be sent. */
     private function descriptionImageLink(string $src, string $region, array $creds, LazadaClient $client): ?string
     {
