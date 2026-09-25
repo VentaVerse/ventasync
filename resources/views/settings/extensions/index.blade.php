@@ -120,7 +120,7 @@
                         @if($ext['installed'])
                             @if($ext['enabled'])
                                 <button type="button" class="x-menu__item" data-confirm-tone="primary"
-                                        data-confirm="Disable {{ $ext['name'] }}? Its pages stop being reachable and its permissions are removed from every user group. Its data is kept."
+                                        data-confirm="Disable {{ $ext['name'] }}? Its pages stop being reachable. Its data and every group's access to it are kept for when it is enabled again."
                                         data-confirm-submit="st-ext-toggle-{{ $ext['id'] }}">Disable</button>
                             @else
                                 <button type="button" class="x-menu__item" data-confirm-tone="primary"
