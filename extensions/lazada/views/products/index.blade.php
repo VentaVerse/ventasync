@@ -226,9 +226,6 @@
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
 
-    <input type="hidden" name="sort" value="{{ $sort }}">
-    <input type="hidden" name="dir" value="{{ $dir }}">
-
     @if(!empty($orderOptions))
         @include('partials.listing-sort', ['options' => $orderOptions, 'chosen' => $order])
     @endif
