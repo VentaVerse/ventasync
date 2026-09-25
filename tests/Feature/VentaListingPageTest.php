@@ -598,7 +598,7 @@ class VentaListingPageTest extends TestCase
         // A core order as it stands today, with a cost that is NOT the
         // catalogue's current one - which is the whole point.
         $oid = (int) DB::table($pfx . 'order')->insertGetId([
-            'invoice_prefix' => 'INV-', 'store_id' => 0, 'store_name' => 'Xenon', 'store_url' => '',
+            'invoice_prefix' => 'INV-', 'store_id' => 0, 'store_name' => 'Test store', 'store_url' => '',
             'customer_id' => 0, 'customer_group_id' => 0, 'firstname' => 'A', 'lastname' => 'B', 'email' => 'a@b.test',
             'telephone' => '', 'fax' => '', 'custom_field' => '',
             'payment_firstname' => '', 'payment_lastname' => '', 'payment_company' => '', 'payment_address_1' => '', 'payment_address_2' => '',

@@ -38,7 +38,6 @@
             ? asset('storage/' . $appSetting->favicon_path)
             : asset('images/brand/ventasync-icon.png');
     @endphp
-    {{-- See layouts/channel: the product is VentaSync, "Xenon" is residue. --}}
     <title>@yield('title', 'VentaSync') - {{ $__companyName }}</title>
     <link rel="icon" type="image/png" href="{{ $__faviconUrl }}">
     <link rel="shortcut icon" href="{{ $__faviconUrl }}">

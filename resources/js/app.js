@@ -67,7 +67,7 @@ import './pages/order-form';
 import './pages/push-review';
 
 import { initNavGroups } from './nav-groups';
-import xenonPalette from './palette';
+import ventasyncPalette from './palette';
 import pettyCash from './pages/petty-cash';
 import credentialField from './credential-field';
 
@@ -84,7 +84,7 @@ import Alpine from 'alpinejs';
 initNavGroups();
 
 window.Alpine = Alpine;
-Alpine.data('xenonPalette', xenonPalette);
+Alpine.data('ventasyncPalette', ventasyncPalette);
 Alpine.data('pettyCash', pettyCash);
 Alpine.data('credentialField', credentialField);
 Alpine.start();

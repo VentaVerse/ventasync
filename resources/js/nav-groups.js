@@ -2,10 +2,19 @@
 // containing the current route is opened by the server via data-nav-open and
 // that override is never written back to storage, so navigating into a group
 // does not permanently change the user's preference.
-const KEY = 'xenon-nav-groups';
+const KEY = 'ventasync-nav-groups';
+const EARLIER_KEY = 'xenon-nav-groups';
 
 function read() {
-    try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { return {}; }
+    try {
+        // Groups saved under the earlier key are carried over once.
+        const earlier = localStorage.getItem(EARLIER_KEY);
+        if (earlier !== null) {
+            if (localStorage.getItem(KEY) === null) localStorage.setItem(KEY, earlier);
+            localStorage.removeItem(EARLIER_KEY);
+        }
+        return JSON.parse(localStorage.getItem(KEY) || '{}');
+    } catch (e) { return {}; }
 }
 
 function write(state) {

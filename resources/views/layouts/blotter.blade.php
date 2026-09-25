@@ -106,7 +106,7 @@
                  control states it. --}}
             <button type="button" class="x-search-trigger"
                     x-data="{ mac: /Mac|iPod|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '') }"
-                    @click="$dispatch('xenon-open-palette')"
+                    @click="$dispatch('ventasync-open-palette')"
                     aria-label="Search. Opens the command palette.">
                 <x-ui.icon name="search" size="14" />
                 <span class="x-search-trigger__label">Search products, orders, SKUs</span>
@@ -124,18 +124,18 @@
                     <div class="hidden sm:block">{{ $headerStatus }}</div>
                 @endisset
 
-                <div class="flex items-center gap-px" x-data="{ mode: (window.xenonTheme && window.xenonTheme.get()) || 'light' }">
-                    <button type="button" @click="mode='light'; window.xenonTheme.set('light')"
+                <div class="flex items-center gap-px" x-data="{ mode: (window.ventasyncTheme && window.ventasyncTheme.get()) || 'light' }">
+                    <button type="button" @click="mode='light'; window.ventasyncTheme.set('light')"
                             :class="mode === 'light' ? 'bg-ink text-paper' : 'text-ink-3 hover:text-ink'"
                             class="grid h-6 w-6 place-items-center rounded-[2px]" aria-label="Light theme">
                         <x-ui.icon name="sun" size="13" />
                     </button>
-                    <button type="button" @click="mode='dark'; window.xenonTheme.set('dark')"
+                    <button type="button" @click="mode='dark'; window.ventasyncTheme.set('dark')"
                             :class="mode === 'dark' ? 'bg-ink text-paper' : 'text-ink-3 hover:text-ink'"
                             class="grid h-6 w-6 place-items-center rounded-[2px]" aria-label="Dark theme">
                         <x-ui.icon name="moon" size="13" />
                     </button>
-                    <button type="button" @click="mode='system'; window.xenonTheme.set('system')"
+                    <button type="button" @click="mode='system'; window.ventasyncTheme.set('system')"
                             :class="mode === 'system' ? 'bg-ink text-paper' : 'text-ink-3 hover:text-ink'"
                             class="grid h-6 w-6 place-items-center rounded-[2px]" aria-label="Match system theme">
                         <x-ui.icon name="monitor" size="13" />

@@ -37,7 +37,7 @@
 
             <x-ui.menu label="Review actions">
                 <button type="button" class="x-menu__item x-menu__item--danger"
-                        data-confirm="Delete every review stored here? This removes all {{ number_format($platformCounts['all'] ?? 0) }} of them from Xenon. Reviews already pushed to OpenCart stay there. This cannot be undone."
+                        data-confirm="Delete every review stored here? This removes all {{ number_format($platformCounts['all'] ?? 0) }} of them from VentaSync. Reviews already pushed to OpenCart stay there. This cannot be undone."
                         data-confirm-submit="rv-delete-all">Delete every review</button>
             </x-ui.menu>
         </div>

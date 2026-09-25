@@ -12,7 +12,7 @@
  *
  * Registered as an Alpine.data factory in app.js, before Alpine.start().
  */
-export default function xenonPalette(entries) {
+export default function ventasyncPalette(entries) {
     return {
         entries,
         open: false,
