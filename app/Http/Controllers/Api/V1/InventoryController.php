@@ -29,33 +29,11 @@ class InventoryController extends Controller
      */
     public function adjust(Request $request): JsonResponse
     {
-        $data = $request->validate([
-            'product_id' => 'required|integer|min:1',
-            'variation_sku' => 'nullable|string|max:64',
-            // Exactly one of the two. A caller that knows the count says
-            // it; a caller recording an arrival says how many arrived.
-            'new_quantity' => 'required_without:change_by|prohibits:change_by|nullable|integer|min:0|max:99999999',
-            'change_by' => 'required_without:new_quantity|nullable|integer|min:-99999999|max:99999999',
-            'reason' => 'required|string|min:3|max:500',
-        ]);
-
         try {
-            $result = app(\App\Services\Catalog\ProductQuantityWriter::class)->set(
-                (int) $data['product_id'],
-                $data['variation_sku'] ?? null,
-                isset($data['new_quantity']) ? (int) $data['new_quantity'] : null,
-                isset($data['change_by']) ? (int) $data['change_by'] : null,
-                trim((string) $data['reason']),
-                (string) ($request->user()?->name ?? 'An API application')
-            );
-        } catch (\RuntimeException $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            return response()->json(app(\App\Actions\Stock\AdjustStock::class)->handle($request->all()));
+        } catch (\App\Support\Api\Refused $e) {
+            return response()->json(['message' => $e->getMessage()], $e->status);
         }
-
-        return response()->json($result + [
-            'note' => 'Saved on the catalog product. Marketplace stock changes on the next stock push or sync, not now. '
-                . 'Stock that arrived on a purchase order should be received in Purchasing instead, so its unit cost is recorded.',
-        ]);
     }
 
     public function index(Request $request): JsonResponse
