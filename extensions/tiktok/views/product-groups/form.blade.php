@@ -104,7 +104,7 @@
                     <h2 class="fm-section__title">Name</h2>
                 </div>
                 <div class="fm-fields">
-                    <x-ui.field label="Product product group name" for="pg-name" name="name" :required="true" wide
+                    <x-ui.field label="Product group name" for="pg-name" name="name" :required="true" wide
                                 hint="What this batch of products is, in the words your team uses. It is never sent to TikTok Shop.">
                         <x-ui.input id="pg-name" name="name" value="{{ old('name', $group->name) }}"
                                     placeholder="Guitar pedals" :disabled="!$canManageTiktok" />
@@ -177,7 +177,7 @@
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Price markup</h2></div>
                 <div class="fm-card__body">
-                    <p class="fm-section__note">The percentage is taken off the catalog price first, then the fixed amount is added on top. Leave both empty to push the catalog price as it is.</p>
+                    <p class="fm-section__note">The percentage is added to the catalog price first, then the fixed amount on top. Leave both empty to push the catalog price as it is.</p>
 
                     <x-ui.field label="Percentage of price" for="pg-markup-percent" name="markup_percent"
                                 hint="5 means the pushed price is 5% above the catalog price.">

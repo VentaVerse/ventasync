@@ -88,7 +88,7 @@
                 </div>
 
                 <div class="fm-fields">
-                    <x-ui.field label="Product product group name" for="pg-name" name="name" :required="true" wide
+                    <x-ui.field label="Product group name" for="pg-name" name="name" :required="true" wide
                                 hint="What this batch of products is, in the words your team uses. It is never sent to OpenCart.">
                         <x-ui.input id="pg-name" name="name" value="{{ old('name', $group->name) }}" placeholder="Guitar pedals" :disabled="!$canManageOpencart" />
                     </x-ui.field>

@@ -133,7 +133,7 @@
                          with :data-confirm so it follows the selection. --}}
                     <button type="button" class="bl-btn bl-btn-sm x-btn--danger"
                             @click="$refs.bulkAction.value = 'delete'"
-                            :data-confirm="'Delete ' + selected.length + (selected.length === 1 ? ' product' : ' products') + '? This cannot be undone. Anything listed on a store is deleted there too.'"
+                            :data-confirm="'Delete ' + selected.length + (selected.length === 1 ? ' product' : ' products') + '? This cannot be undone. Anything listed on a store stays there; only VentaSync\'s record is removed.'"
                             data-confirm-submit="product-bulk-form">Delete</button>
                 </div>
             </div>
