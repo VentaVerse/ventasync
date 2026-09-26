@@ -40,6 +40,12 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // An AI assistant signed in to /mcp with OAuth: the assistant its
+        // sign-in was approved as (App\Http\Middleware\AuthenticateMcpCaller).
+        'mcp' => [
+            'driver' => 'mcp-sign-in',
+        ],
     ],
 
     /*

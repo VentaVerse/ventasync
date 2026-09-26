@@ -200,3 +200,9 @@
     .ai-read { min-height: 44px; }
     .ai-read { padding-inline: 14px; }
 }
+
+/* ---- the sign-in approval (Claude, ChatGPT) ---- */
+.ai-signin { max-width: 640px; margin: var(--bl-space-5) auto; }
+.ai-signin__form { display: grid; gap: var(--bl-space-4); }
+.ai-signin__foot { display: flex; justify-content: flex-end; }
+.ai-signin__cancel { margin-top: var(--bl-space-3); display: flex; justify-content: flex-end; }

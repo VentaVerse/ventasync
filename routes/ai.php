@@ -17,5 +17,10 @@ use Laravel\Mcp\Facades\Mcp;
 */
 
 Mcp::web('/mcp', VentaSyncServer::class)
-    ->middleware(['throttle:api', 'auth:sanctum', 'mcp.access'])
+    ->middleware(['throttle:api', 'mcp.auth', 'mcp.access'])
     ->name('mcp');
+
+// How Claude and ChatGPT find the sign-in: the protected-resource and
+// authorization-server documents, and self-registration of their client.
+// The approval itself is AI Tools' page (ai-tools.oauth-approve).
+Mcp::oauthRoutes();

@@ -90,5 +90,6 @@ class Kernel extends HttpKernel
         'api.audit' => \App\Http\Middleware\LogApiRequest::class,
         'api.limits' => \App\Http\Middleware\EnforceApiClientLimits::class,
         'mcp.access' => \App\Http\Middleware\EnsureMcpAccess::class,
+        'mcp.auth' => \App\Http\Middleware\AuthenticateMcpCaller::class,
     ];
 }

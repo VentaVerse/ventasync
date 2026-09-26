@@ -1,6 +1,26 @@
 [
     {
         "method": "GET|HEAD",
+        "uri": ".well-known/oauth-authorization-server",
+        "name": "mcp.oauth.authorization-server"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": ".well-known/oauth-authorization-server/{path}",
+        "name": "mcp.oauth.authorization-server.nested"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": ".well-known/oauth-protected-resource",
+        "name": "mcp.oauth.protected-resource"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": ".well-known/oauth-protected-resource/{path}",
+        "name": "mcp.oauth.protected-resource.nested"
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "/",
         "name": "root"
     },
@@ -23,6 +43,11 @@
         "method": "POST",
         "uri": "ai-tools",
         "name": "ai_tools.store"
+    },
+    {
+        "method": "POST",
+        "uri": "ai-tools/sign-in",
+        "name": "ai_tools.sign_in"
     },
     {
         "method": "DELETE",
@@ -4078,6 +4103,36 @@
         "method": "POST",
         "uri": "mcp",
         "name": "mcp"
+    },
+    {
+        "method": "DELETE",
+        "uri": "oauth/authorize",
+        "name": "passport.authorizations.deny"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "oauth/authorize",
+        "name": "passport.authorizations.authorize"
+    },
+    {
+        "method": "POST",
+        "uri": "oauth/authorize",
+        "name": "passport.authorizations.approve"
+    },
+    {
+        "method": "POST",
+        "uri": "oauth/register",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "oauth/token",
+        "name": "passport.token"
+    },
+    {
+        "method": "POST",
+        "uri": "oauth/token/refresh",
+        "name": "passport.token.refresh"
     },
     {
         "method": "GET|HEAD",

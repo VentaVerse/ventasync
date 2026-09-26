@@ -20,6 +20,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // OAuth serves one purpose here: an AI assistant signing in to /mcp.
+        // The device-code flow is not used, so its routes are not offered.
+        \Laravel\Passport\Passport::$deviceCodeGrantEnabled = false;
         $this->app->singleton(\App\Integrations\IntegrationRegistry::class);
     }
 
@@ -28,6 +31,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // An assistant's sign-in: VentaSync's own approval page, where the
+        // person names it and ticks what it may do; a short access token,
+        // renewed by the assistant for as long as it stays connected.
+        \Laravel\Passport\Passport::authorizationView('ai-tools.oauth-approve');
+        \Laravel\Passport\Passport::tokensExpireIn(now()->addHour());
+        \Laravel\Passport\Passport::refreshTokensExpireIn(now()->addDays(60));
+        \Illuminate\Support\Facades\Auth::viaRequest('mcp-sign-in', fn (\Illuminate\Http\Request $request) => $request->attributes->get('mcp_assistant'));
         // Refuse to run schema-destroying artisan commands (migrate:fresh,
         // migrate:refresh, migrate:reset, migrate:rollback, db:wipe) against
         // any database whose name does not end in `_test`.

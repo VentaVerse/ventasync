@@ -47,6 +47,10 @@ class PermissionCatalogue
     private const NEVER_GATED = [
         'App\Http\Controllers\Auth\\',
         'Laravel\Sanctum\\',
+        // An assistant's sign-in: finding it, registering, the token and
+        // Cancel. The approval itself is AI Tools' own route, which is gated.
+        'Laravel\Passport\\',
+        'Laravel\Mcp\\',
         'App\Http\Controllers\DashboardController',
         'App\Http\Controllers\HomeController',
         // Search and the command palette return only what the caller may

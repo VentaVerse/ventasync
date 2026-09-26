@@ -45,6 +45,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/ai-tools', [\App\Http\Controllers\AiTools\AssistantController::class, 'store'])->name('ai_tools.store');
     Route::put('/ai-tools/{apiClient}', [\App\Http\Controllers\AiTools\AssistantController::class, 'update'])->whereNumber('apiClient')->name('ai_tools.update');
     Route::delete('/ai-tools/{apiClient}', [\App\Http\Controllers\AiTools\AssistantController::class, 'destroy'])->whereNumber('apiClient')->name('ai_tools.destroy');
+    // The approval Claude's and ChatGPT's sign-in opens (ai-tools.oauth-approve).
+    Route::post('/ai-tools/sign-in', [\App\Http\Controllers\AiTools\AssistantController::class, 'approveSignIn'])->name('ai_tools.sign_in');
 
     // Universal admin scheduler, Automations tab on each integration
     // settings page POSTs here. The route is shared across integrations
