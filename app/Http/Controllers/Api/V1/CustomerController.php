@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Support\Api\Refused;
+use App\Support\Api\Input;
 use App\Services\Sales\CustomerLedger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,33 +16,23 @@ use Illuminate\Http\Request;
  */
 class CustomerController extends Controller
 {
-    public function __construct(private readonly CustomerLedger $ledger)
-    {
-    }
-
     public function index(Request $request): JsonResponse
     {
-        $data = $request->validate([
-            'search' => ['required', 'string', 'min:2', 'max:255'],
-            'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
-        ]);
-
-        return response()->json([
-            'data' => $this->ledger->search($data['search'], (int) ($data['limit'] ?? 25)),
-        ]);
+        return $this->run(fn () => app(\App\Actions\Sales\CustomerReads::class)->index(Input::from($request)));
     }
 
     public function history(Request $request): JsonResponse
     {
-        $data = $request->validate([
-            'key' => ['required', 'array', 'min:1', 'max:' . CustomerLedger::MAX_KEYS],
-            'key.*' => ['required', 'string', 'max:255', 'regex:/^(email|phone|name):.+$/'],
-            'date_from' => ['nullable', 'date_format:Y-m-d'],
-            'date_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:date_from'],
-        ]);
+        return $this->run(fn () => app(\App\Actions\Sales\CustomerReads::class)->history(Input::from($request)));
+    }
 
-        return response()->json([
-            'data' => $this->ledger->history($data['key'], $data['date_from'] ?? null, $data['date_to'] ?? null),
-        ]);
+    /** A shared rule's answer as JSON, or its refusal with its status. */
+    private function run(\Closure $rule, int $status = 200): JsonResponse
+    {
+        try {
+            return response()->json($rule(), $status);
+        } catch (Refused $e) {
+            return response()->json(['message' => $e->getMessage()], $e->status);
+        }
     }
 }

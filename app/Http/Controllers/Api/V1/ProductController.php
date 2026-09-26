@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Catalog\ProductWrites;
 use App\Http\Controllers\Controller;
+use App\Support\Api\Input;
 use App\Support\Api\Refused;
 use App\Models\Catalog\Product;
 use Illuminate\Http\JsonResponse;
@@ -19,39 +20,6 @@ class ProductController extends Controller
 {
     /** The most variations a product is created with here. */
     public const MAX_VARIATIONS = ProductWrites::MAX_VARIATIONS;
-
-    public function index(Request $request): JsonResponse
-    {
-        $perPage = (int) $request->integer('per_page', 25);
-        $perPage = max(1, min($perPage, 100));
-        $page = max(1, (int) $request->integer('page', 1));
-
-        $query = Product::query()->with('description');
-
-        \App\Support\Catalog\ProductSearch::apply($query, trim((string) $request->query('search', '')));
-
-        $products = $query->orderBy('product_id')->paginate($perPage, ['*'], 'page', $page);
-
-        $writes = app(ProductWrites::class);
-        $products->getCollection()->transform(fn (Product $product) => $writes->present($product));
-
-        return response()->json($products);
-    }
-
-    public function show(Request $request, int $id): JsonResponse
-    {
-        $product = Product::with('description')->find($id);
-
-        if (! $product) {
-            return response()->json(['message' => 'Product not found.'], 404);
-        }
-
-        $writes = app(ProductWrites::class);
-        $payload = $writes->present($product) + $writes->details($product);
-        $payload['variations'] = $writes->variations($product);
-
-        return response()->json($payload);
-    }
 
     /** The answer's before and after carry only what changed. */
 
@@ -92,5 +60,15 @@ class ProductController extends Controller
         } catch (Refused $e) {
             return response()->json(['message' => $e->getMessage()], $e->status);
         }
+    }
+
+    public function index(Request $request): JsonResponse
+    {
+        return $this->run(fn () => app(\App\Actions\Catalog\ProductReads::class)->index(Input::from($request)));
+    }
+
+    public function show(Request $request, int $id): JsonResponse
+    {
+        return $this->run(fn () => app(\App\Actions\Catalog\ProductReads::class)->show(Input::from($request), $id));
     }
 }
