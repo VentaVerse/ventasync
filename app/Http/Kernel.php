@@ -88,6 +88,7 @@ class Kernel extends HttpKernel
         // External API (Settings → API): scope enforcement + audit log
         'scope' => \App\Http\Middleware\EnsureApiScope::class,
         'api.audit' => \App\Http\Middleware\LogApiRequest::class,
+        'api.limits' => \App\Http\Middleware\EnforceApiClientLimits::class,
         'mcp.access' => \App\Http\Middleware\EnsureMcpAccess::class,
     ];
 }

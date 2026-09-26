@@ -25,7 +25,12 @@ class RouteServiceProvider extends ServiceProvider
     public function boot(): void
     {
         RateLimiter::for('api', function (Request $request) {
-            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+            // A person and an application can share an id number; each counts apart.
+            $caller = $request->user();
+            $key = $caller === null ? 'ip:' . $request->ip()
+                : ($caller instanceof \App\Models\ApiClient ? 'app:' : 'user:') . $caller->getKey();
+
+            return Limit::perMinute(60)->by($key);
         });
 
         // Global numeric constraint for DB-id route parameters.

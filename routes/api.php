@@ -85,7 +85,7 @@ Route::middleware('auth:sanctum')->group(function () {
 | audit-logged via `api.audit` (App\Http\Middleware\LogApiRequest).
 |
 */
-Route::prefix('v1')->middleware(['auth:sanctum', 'api.audit'])->group(function () {
+Route::prefix('v1')->middleware(['auth:sanctum', 'api.limits', 'api.audit'])->group(function () {
     Route::middleware('scope:products:read')->group(function () {
         Route::get('/products', [\App\Http\Controllers\Api\V1\ProductController::class, 'index']);
         Route::get('/products/{id}', [\App\Http\Controllers\Api\V1\ProductController::class, 'show']);
