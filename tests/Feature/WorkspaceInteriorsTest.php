@@ -1686,10 +1686,11 @@ class WorkspaceInteriorsTest extends TestCase
             ->get(route('ext.lazada.products.index', ['sort' => 'quantity', 'dir' => 'asc']))
             ->assertOk()->getContent();
 
-        $this->assertStringContainsString('name="sort" value="quantity"', $html);
-        $this->assertStringContainsString('name="dir" value="asc"', $html);
         // Clicking the column already sorted ascending flips it to descending.
         $this->assertStringContainsString('sort=quantity&amp;dir=desc', $html);
+        // The filter form does not carry the heading's sort, so the Sort
+        // menu's choice is never outranked by a heading pressed earlier.
+        $this->assertStringNotContainsString('name="sort" value="quantity"', $html);
     }
 
     /* =================================================================
