@@ -206,3 +206,4 @@
 .ai-signin__form { display: grid; gap: var(--bl-space-4); }
 .ai-signin__foot { display: flex; justify-content: flex-end; }
 .ai-signin__cancel { margin-top: var(--bl-space-3); display: flex; justify-content: flex-end; }
+.ai-signin-switch { display: flex; align-items: center; justify-content: space-between; gap: var(--bl-space-3); padding: var(--bl-space-3) var(--bl-space-5) 0; color: var(--bl-ink-2); font-size: 13px; }

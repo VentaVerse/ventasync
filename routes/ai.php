@@ -1,6 +1,7 @@
 <?php
 
 use App\Mcp\VentaSyncServer;
+use Illuminate\Support\Facades\Route;
 use Laravel\Mcp\Facades\Mcp;
 
 /*
@@ -22,5 +23,6 @@ Mcp::web('/mcp', VentaSyncServer::class)
 
 // How Claude and ChatGPT find the sign-in: the protected-resource and
 // authorization-server documents, and self-registration of their client.
-// The approval itself is AI Tools' page (ai-tools.oauth-approve).
-Mcp::oauthRoutes();
+// The approval itself is AI Tools' page (ai-tools.oauth-approve). All of
+// it answers only while sign-in is switched on under AI Tools.
+Route::middleware('mcp.sign-in')->group(fn () => Mcp::oauthRoutes());

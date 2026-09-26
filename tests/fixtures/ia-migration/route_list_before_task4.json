@@ -50,6 +50,11 @@
         "name": "ai_tools.sign_in"
     },
     {
+        "method": "PUT",
+        "uri": "ai-tools/sign-in-setting",
+        "name": "ai_tools.sign_in_setting"
+    },
+    {
         "method": "DELETE",
         "uri": "ai-tools/{apiClient}",
         "name": "ai_tools.destroy"

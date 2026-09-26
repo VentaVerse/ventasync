@@ -33,10 +33,12 @@ class Setting extends Model
         'mail_encryption',
         'mail_from_address',
         'mail_from_name',
+        'mcp_sign_in',
     ];
 
     protected $casts = [
         'mail_password' => 'encrypted',
+        'mcp_sign_in' => 'boolean',
     ];
 
     public static function singleton(): self
