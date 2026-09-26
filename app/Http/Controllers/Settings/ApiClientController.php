@@ -25,7 +25,9 @@ class ApiClientController extends Controller
 
     public function index(Request $request)
     {
+        // AI assistants are connected and managed on AI Tools only.
         $clients = ApiClient::query()
+            ->where('mcp_enabled', false)
             ->with(['tokens' => fn ($q) => $q->latest()])
             ->latest()
             ->get()
@@ -92,6 +94,7 @@ class ApiClientController extends Controller
      */
     public function edit(Request $request, ApiClient $apiClient)
     {
+        $this->notAnAssistant($apiClient);
         $token = $apiClient->tokens()->latest()->first();
 
         return view('settings.api.edit', [
@@ -104,6 +107,7 @@ class ApiClientController extends Controller
 
     public function update(Request $request, ApiClient $apiClient)
     {
+        $this->notAnAssistant($apiClient);
         $data = $request->validate([
             'name'       => ['required', 'string', 'max:255'],
             'scopes'     => ['required', 'array', 'min:1'],
@@ -141,6 +145,7 @@ class ApiClientController extends Controller
 
     public function rotate(Request $request, ApiClient $apiClient)
     {
+        $this->notAnAssistant($apiClient);
         $current = $apiClient->tokens()->latest()->first();
         if (! $current) {
             return redirect()->route('api_clients.index')
@@ -168,6 +173,7 @@ class ApiClientController extends Controller
 
     public function destroy(Request $request, ApiClient $apiClient)
     {
+        $this->notAnAssistant($apiClient);
         $apiClient->tokens()->delete();
         $apiClient->delete();
 
@@ -201,17 +207,22 @@ class ApiClientController extends Controller
         return array_values(array_unique($abilities));
     }
 
+    /** An assistant is AI Tools' to edit, rotate or delete; here it does not exist. */
+    private function notAnAssistant(ApiClient $apiClient): void
+    {
+        abort_if((bool) $apiClient->mcp_enabled, 404);
+    }
+
     /**
-     * The AI assistant fields (#131). Allowed IPs arrive one per line and
-     * may be single addresses or CIDR ranges; the per-minute cap is blank
-     * for none, which keeps the API's no-rate-limit decision.
+     * An application's limits. Allowed IPs arrive one per line and may be
+     * single addresses or CIDR ranges; the per-minute cap is blank for none,
+     * which keeps the API's no-rate-limit decision.
      *
      * @return array<string, array<int, mixed>>
      */
     private function mcpRules(): array
     {
         return [
-            'mcp_enabled'      => ['nullable', 'boolean'],
             'allowed_ips'      => ['nullable', 'string', 'max:2000', function (string $attribute, mixed $value, \Closure $fail) {
                 foreach ($this->splitIps((string) $value) as $ip) {
                     if (! self::looksLikeIpOrRange($ip)) {
@@ -229,7 +240,7 @@ class ApiClientController extends Controller
         $ips = $this->splitIps((string) $request->input('allowed_ips', ''));
 
         return [
-            'mcp_enabled'      => $request->boolean('mcp_enabled'),
+            'mcp_enabled'      => false,
             'allowed_ips'      => $ips === [] ? null : $ips,
             'calls_per_minute' => $request->filled('calls_per_minute') ? (int) $request->integer('calls_per_minute') : null,
         ];

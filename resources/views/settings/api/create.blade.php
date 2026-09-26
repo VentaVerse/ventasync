@@ -82,7 +82,7 @@
                 </div>
             </div>
 
-            @include('settings.api.partials.mcp', ['mcpEnabled' => (bool) old('mcp_enabled', false), 'allowedIps' => '', 'callsPerMinute' => ''])
+            @include('settings.api.partials.limits', ['allowedIps' => '', 'callsPerMinute' => ''])
         </div>
     </div>
 

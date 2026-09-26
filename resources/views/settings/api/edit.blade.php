@@ -112,7 +112,7 @@
                 </div>
             </div>
 
-            @include('settings.api.partials.mcp', ['mcpEnabled' => (bool) old('mcp_enabled', $client->mcp_enabled), 'allowedIps' => implode("\n", (array) ($client->allowed_ips ?? [])), 'callsPerMinute' => $client->calls_per_minute])
+            @include('settings.api.partials.limits', ['allowedIps' => implode("\n", (array) ($client->allowed_ips ?? [])), 'callsPerMinute' => $client->calls_per_minute])
         </div>
     </div>
 

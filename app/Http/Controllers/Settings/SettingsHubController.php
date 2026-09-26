@@ -82,7 +82,7 @@ class SettingsHubController extends Controller
                  'keywords' => ['role', 'permission', 'access', 'group']],
                 // Built on the API branch and never listed here, so the page
                 // existed with no way to click to it (the owner, 2026-08-28).
-                ['label' => 'API Applications', 'description' => 'Tokens for the mobile app and AI assistants',
+                ['label' => 'API Applications', 'description' => 'Keys for other software to read or change your data',
                  'route' => 'api_clients.index', 'icon' => 'plug',
                  'keywords' => ['api', 'token', 'mcp', 'assistant', 'claude', 'integration', 'scope']],
             ],
