@@ -17,6 +17,7 @@
 /public/storage
 /public/images/extensions
 /storage/*.key
+/storage/oauth-keys.lock
 /storage/pail
 /storage/dist
 /vendor
