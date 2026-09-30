@@ -101,6 +101,136 @@
         });
     });
 
+    // ------------------------------------------------------------ view token
+    // A [data-token-view] trigger opens the token dialog and fetches the
+    // token into its field. Written with .value and .textContent only. The
+    // field is emptied on close so the token does not sit in the page.
+    const tokenModal = document.querySelector('[data-token-modal]');
+    if (tokenModal) {
+        const tokenTitle = tokenModal.querySelector('[data-token-title]');
+        const tokenStatus = tokenModal.querySelector('[data-token-status]');
+        const tokenRow = tokenModal.querySelector('[data-token-row]');
+        const tokenField = tokenModal.querySelector('#st-token-value');
+        const csrf = document.querySelector('meta[name="csrf-token"]');
+        let tokenTrigger = null;
+        let tokenRequest = 0;
+
+        const say = function (text) {
+            tokenStatus.textContent = text;
+            tokenStatus.hidden = text === '';
+        };
+
+        const openTokenModal = function () {
+            tokenModal.classList.add('active');
+            (tokenRow.hidden ? tokenModal.querySelector('.modal-close') : tokenField).focus();
+        };
+
+        const closeTokenModal = function () {
+            tokenRequest++;
+            tokenModal.classList.remove('active');
+            tokenField.value = '';
+            tokenRow.hidden = true;
+            say('');
+            if (tokenTrigger && document.contains(tokenTrigger)) tokenTrigger.focus();
+            tokenTrigger = null;
+        };
+
+        document.addEventListener('click', function (ev) {
+            const trigger = ev.target.closest('[data-token-view]');
+            if (!trigger) return;
+            ev.preventDefault();
+
+            tokenTrigger = trigger;
+            const request = ++tokenRequest;
+            tokenTitle.textContent = 'Token for ' + (trigger.dataset.tokenName || 'this application');
+            tokenField.value = '';
+            tokenRow.hidden = true;
+            say('Loading the token.');
+            openTokenModal();
+
+            fetch(trigger.dataset.tokenView, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrf ? csrf.content : '',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+            })
+                .then(function (res) {
+                    return res.json().catch(function () { return {}; }).then(function (body) {
+                        return { ok: res.ok, status: res.status, body: body };
+                    });
+                })
+                .then(function (answer) {
+                    if (request !== tokenRequest) return;
+                    if (answer.ok && typeof answer.body.token === 'string') {
+                        tokenField.value = answer.body.token;
+                        say('');
+                        tokenRow.hidden = false;
+                        tokenField.focus();
+                        return;
+                    }
+                    if (answer.status === 404 && answer.body.message) say(answer.body.message);
+                    else if (answer.status === 419) say('Your session has expired. Reload the page and try again.');
+                    else say('The token could not be loaded.');
+                })
+                .catch(function () {
+                    if (request === tokenRequest) say('The token could not be loaded.');
+                });
+        });
+
+        tokenModal.querySelectorAll('[data-token-close]').forEach(function (btn) {
+            btn.addEventListener('click', closeTokenModal);
+        });
+
+        tokenModal.addEventListener('click', function (ev) {
+            if (ev.target === tokenModal) closeTokenModal();
+        });
+
+        document.addEventListener('keydown', function (ev) {
+            if (!tokenModal.classList.contains('active')) return;
+            if (ev.key === 'Escape') {
+                ev.preventDefault();
+                closeTokenModal();
+                return;
+            }
+            if (ev.key !== 'Tab') return;
+            const focusable = Array.prototype.filter.call(
+                tokenModal.querySelectorAll('button, input'),
+                function (el) { return !el.disabled && el.offsetParent !== null; }
+            );
+            if (!focusable.length) return;
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (ev.shiftKey && document.activeElement === first) {
+                ev.preventDefault();
+                last.focus();
+            } else if (!ev.shiftKey && document.activeElement === last) {
+                ev.preventDefault();
+                first.focus();
+            }
+        });
+
+        if (tokenModal.hasAttribute('data-token-open')) openTokenModal();
+    }
+
+    // ---------------------------------------------------------- scope matrix
+    // Set all puts every resource at one level. A resource that offers no
+    // write stops at Read rather than being skipped.
+    document.querySelectorAll('[data-scope-matrix]').forEach(function (matrix) {
+        matrix.querySelectorAll('[data-scope-all]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                const want = button.dataset.scopeAll;
+                matrix.querySelectorAll('.st-level').forEach(function (level) {
+                    const pick = level.querySelector('.st-level__input[value="' + want + '"]')
+                        || level.querySelector('.st-level__input[value="read"]');
+                    if (pick) pick.checked = true;
+                });
+            });
+        });
+    });
+
     // ---------------------------------------------------------------- select
     // A read-only field holding something the operator has to take away with
     // them (the one-time API token) selects itself when focused, so keyboard

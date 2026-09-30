@@ -284,9 +284,13 @@
                     <div class="od-fact">
                         <span class="od-fact__k">Tracking number</span>
                         <span class="od-fact__v od-fact__v--mono">
-                            <a href="{{ $order->trackingHref() }}" target="_blank" rel="noopener">
-                                {{ $order->tracking_number }}<x-ui.icon name="external-link" size="11" class="od-stamp__out" />
-                            </a>
+                            @if($trackingHref = $order->trackingHref())
+                                <a href="{{ $trackingHref }}" target="_blank" rel="noopener">
+                                    {{ $order->tracking_number }}<x-ui.icon name="external-link" size="11" class="od-stamp__out" />
+                                </a>
+                            @else
+                                {{ $order->tracking_number }}
+                            @endif
                         </span>
                     </div>
                     @endif

@@ -122,26 +122,35 @@ class Order extends BaseModel
         return $this->hasMany(\App\Models\OrderPayment::class, 'order_id', 'order_id');
     }
 
-    /** A general tracking site, for an order whose store gives no tracking page. */
-    public const FALLBACK_TRACKING_URL = 'https://parcelsapp.com/en/tracking/';
-
     /**
-     * Where the tracking number links: the store's own tracking page for this
-     * parcel when it gave a valid http(s) address, otherwise the general
-     * tracking site. Null when the order has no tracking number.
+     * A tracking page address as a store gave it, or null when it is empty,
+     * too long for the column, or not an http(s) address.
      */
-    public function trackingHref(): ?string
+    public static function cleanTrackingUrl(mixed $url): ?string
     {
-        $number = trim((string) $this->tracking_number);
-        if ($number === '') {
+        if (! is_string($url)) {
             return null;
         }
 
-        $url = trim((string) $this->tracking_url);
-        if ($url !== '' && filter_var($url, FILTER_VALIDATE_URL) && in_array(strtolower((string) parse_url($url, PHP_URL_SCHEME)), ['http', 'https'], true)) {
-            return $url;
+        $url = trim($url);
+        if ($url === '' || strlen($url) > 500 || ! filter_var($url, FILTER_VALIDATE_URL)) {
+            return null;
         }
 
-        return self::FALLBACK_TRACKING_URL . rawurlencode($number);
+        return in_array(strtolower((string) parse_url($url, PHP_URL_SCHEME)), ['http', 'https'], true) ? $url : null;
+    }
+
+    /**
+     * Where the tracking number links: the store's own tracking page for this
+     * parcel. Null when there is no tracking number or the store gave no
+     * usable address, and the number is then shown as plain text.
+     */
+    public function trackingHref(): ?string
+    {
+        if (trim((string) $this->tracking_number) === '') {
+            return null;
+        }
+
+        return self::cleanTrackingUrl($this->tracking_url);
     }
 }

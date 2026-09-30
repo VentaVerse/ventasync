@@ -49,6 +49,9 @@
         <div class="fm-head__actions">
             <x-ui.menu label="{{ $client->name }} actions">
                 <button type="button" class="x-menu__item"
+                        data-token-view="{{ route('api_clients.token', $client->id) }}"
+                        data-token-name="{{ $client->name }}">View token</button>
+                <button type="button" class="x-menu__item"
                         data-confirm="Rotate the token for {{ $client->name }}? The current token stops working the moment the new one is issued."
                         data-confirm-submit="st-api-rotate-form">Rotate token</button>
                 <div class="x-menu__sep"></div>
@@ -63,7 +66,7 @@
         <div class="fm-col fm-col--main">
             <section class="fm-section">
                 <div class="fm-section__head">
-                    <h2 class="fm-section__title">Name</h2>
+                    <h2 class="fm-section__title">Application</h2>
                 </div>
 
                 <div class="fm-fields">
@@ -77,13 +80,9 @@
 
             <section class="fm-section">
                 <div class="fm-section__head">
-                    <h2 class="fm-section__title">What it may reach</h2>
+                    <h2 class="fm-section__title">Permissions</h2>
                 </div>
-                <p class="fm-section__note">
-                    Read lets it fetch. Write lets it change. Changing these takes effect on the
-                    existing token straight away. The token value itself does not change, and it is
-                    never shown again. If you need a new one, rotate it.
-                </p>
+                <p class="fm-section__note">Changes apply to the current token as soon as you save. The token itself stays the same.</p>
 
                 @include('settings.api.partials.scopes', ['scopes' => $scopes, 'current' => $current])
             </section>
@@ -92,7 +91,7 @@
         <div class="fm-col fm-col--side">
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Expiry</h2></div>
-                <div class="fm-card__body">
+                <div class="fm-card__body st-expiry">
                     <label class="fm-switch">
                         <input type="checkbox" class="fm-switch__input" name="no_expiry" value="1"
                                data-toggle-disables="st-api-expires" @checked($noExpiry)>
@@ -104,8 +103,8 @@
                     </label>
                     @error('no_expiry')<div class="fm-error">{{ $message }}</div>@enderror
 
-                    <x-ui.field label="Stop working on" for="st-api-expires" name="expires_at"
-                                hint="Turn off No expiry to set a date. It has to be in the future.">
+                    <x-ui.field label="Stop working on" for="st-api-expires" name="expires_at" class="st-expiry-date"
+                                hint="The token stops working at the end of this day.">
                         <x-ui.input type="date" id="st-api-expires" name="expires_at"
                                     class="st-date" value="{{ $expiresValue }}" :disabled="$noExpiry" />
                     </x-ui.field>
@@ -121,6 +120,8 @@
         <x-slot:primary><x-ui.button type="submit" variant="primary">Save changes</x-ui.button></x-slot:primary>
     </x-ui.form-bar>
 </form>
+
+@include('settings.api.partials.token-modal')
 
 <form id="st-api-rotate-form" method="POST" action="{{ route('api_clients.rotate', $client->id) }}" class="x-sr">
     @csrf

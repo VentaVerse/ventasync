@@ -8,10 +8,8 @@
     // manage_api_clients. See routes/settings.php.
     $canManage = auth()->user()?->hasPermission('manage_settings/api_client') ?? false;
 
-    // The plaintext token exists for exactly one request, flashed by
-    // ApiClientController after create or rotate. It is never stored in
-    // readable form and never rendered on any other page, so this is the
-    // only place in the product where it can appear at all.
+    // Flashed for one request after create or rotate; the dialog opens with
+    // it. Any other time the dialog fetches the token when asked.
     $newToken = session('new_token');
 @endphp
 
@@ -28,24 +26,7 @@
     @endif
 </div>
 
-@if($newToken)
-    {{-- Shown once and never again. Not a modal: a modal that cannot be
-         reopened hides the one thing this page exists to hand over. --}}
-    <div class="st-token">
-        <p class="st-token__title">Token for {{ session('new_token_client') }}</p>
-        <p class="st-token__note">
-            Copy it now and store it wherever that application keeps its credentials. This is the
-            only time it can be read. If it is lost, rotate the application to issue a new one.
-        </p>
-        <div class="st-token__row">
-            {{-- No inline handler: resources/js/pages/settings.js selects the
-                 field on focus and drives the copy button. --}}
-            <input class="x-input st-token__value" id="st-api-token" type="text" readonly
-                   data-select-on-focus value="{{ $newToken }}" aria-label="New API token">
-            <x-ui.button type="button" data-copy-target="st-api-token">Copy</x-ui.button>
-        </div>
-    </div>
-@endif
+@include('settings.api.partials.token-modal', ['flash' => $newToken, 'flashName' => session('new_token_client')])
 
 @include('partials.flash')
 
@@ -113,6 +94,9 @@
                 @if($canManage)
                 <x-ui.menu label="{{ $row->model->name }} actions">
                     <a class="x-menu__item" href="{{ route('api_clients.edit', $row->model->id) }}">Edit</a>
+                    <button type="button" class="x-menu__item"
+                            data-token-view="{{ route('api_clients.token', $row->model->id) }}"
+                            data-token-name="{{ $row->model->name }}">View token</button>
                     <button type="button" class="x-menu__item"
                             data-confirm="Rotate the token for {{ $row->model->name }}? The current token stops working the moment the new one is issued."
                             data-confirm-submit="st-api-rot-{{ $row->model->id }}">Rotate token</button>

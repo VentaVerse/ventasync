@@ -34,7 +34,7 @@
         <div class="fm-col fm-col--main">
             <section class="fm-section">
                 <div class="fm-section__head">
-                    <h2 class="fm-section__title">Name</h2>
+                    <h2 class="fm-section__title">Application</h2>
                 </div>
 
                 <div class="fm-fields">
@@ -48,12 +48,9 @@
 
             <section class="fm-section">
                 <div class="fm-section__head">
-                    <h2 class="fm-section__title">What it may reach</h2>
+                    <h2 class="fm-section__title">Permissions</h2>
                 </div>
-                <p class="fm-section__note">
-                    Read lets it fetch. Write lets it change. Grant the smallest set that does the
-                    job: the token opens exactly this and nothing else. At least one is required.
-                </p>
+                <p class="fm-section__note">The token opens exactly what is granted here and nothing else.</p>
 
                 @include('settings.api.partials.scopes', ['scopes' => $scopes, 'current' => []])
             </section>
@@ -62,7 +59,7 @@
         <div class="fm-col fm-col--side">
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Expiry</h2></div>
-                <div class="fm-card__body">
+                <div class="fm-card__body st-expiry">
                     <label class="fm-switch">
                         <input type="checkbox" class="fm-switch__input" name="no_expiry" value="1"
                                data-toggle-disables="st-api-expires" @checked($noExpiry)>
@@ -74,8 +71,8 @@
                     </label>
                     @error('no_expiry')<div class="fm-error">{{ $message }}</div>@enderror
 
-                    <x-ui.field label="Stop working on" for="st-api-expires" name="expires_at"
-                                hint="Turn off No expiry to set a date. It has to be in the future.">
+                    <x-ui.field label="Stop working on" for="st-api-expires" name="expires_at" class="st-expiry-date"
+                                hint="The token stops working at the end of this day.">
                         <x-ui.input type="date" id="st-api-expires" name="expires_at"
                                     class="st-date" value="{{ old('expires_at') }}" :disabled="$noExpiry" />
                     </x-ui.field>
@@ -87,7 +84,6 @@
     </div>
 
     <x-ui.form-bar :cancel="route('api_clients.index')">
-        <x-slot:note>The token is shown once, right after you create this.</x-slot:note>
         <x-slot:primary><x-ui.button type="submit" variant="primary">Create and issue token</x-ui.button></x-slot:primary>
     </x-ui.form-bar>
 </form>

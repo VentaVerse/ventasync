@@ -1541,20 +1541,36 @@
     .st-body--one .fm-col--main { max-width: 900px; }
     .st-form--wide .fm-body { grid-template-columns: minmax(0, 1fr); }
 
-    /* Permission scopes: a name, then its two tiers, on one grid so the
-       checkboxes line up down the page. */
+    /* Permission scopes: a resource, then one None / Read / Read & write
+       pill. The tier colours are the user-group pill's, so a level reads the
+       same on both pages. Native radios carry the value and the arrow keys;
+       the thumb follows the checked one through :has, with no script. */
+    .st-scopes {
+        --st-level-h: 32px;
+        --st-level-text-on: #fff;
+        border: 1px solid var(--bl-rule);
+        border-radius: var(--bl-r-ctrl);
+        overflow: hidden;
+    }
+
+    :root[data-theme="dark"] .st-scopes { --st-level-text-on: var(--bl-paper); }
+
     .st-scopes__head,
     .st-scope {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 176px;
+        grid-template-columns: minmax(0, 1fr) 264px;
         align-items: center;
-        gap: 12px;
-        padding: 6px 0;
+        gap: var(--bl-space-4);
+        padding: var(--bl-space-3) var(--bl-space-4);
         border-bottom: 1px solid var(--bl-rule);
     }
 
+    .st-scope:last-child { border-bottom: 0; }
+    .st-scope:hover { background: var(--bl-chrome-2); }
+
     .st-scopes__head {
-        border-bottom: 1px solid var(--bl-rule-2);
+        padding-block: var(--bl-space-2);
+        background: var(--bl-chrome);
         font-size: var(--bl-lab-size);
         font-stretch: var(--bl-lab-stretch);
         font-weight: var(--bl-lab-weight);
@@ -1563,30 +1579,144 @@
         color: var(--bl-ink-3);
     }
 
-    .st-scope__tiers {
+    /* The three buttons sit over the pill's three columns. */
+    .st-scopes__all {
+        position: relative;
         display: grid;
-        grid-template-columns: 84px 84px;
-        gap: 8px;
-        align-items: center;
+        grid-template-columns: repeat(3, 1fr);
+        width: 264px;
+        padding-inline: 4px;
     }
 
-    .st-scopes__tier { text-align: center; }
-    .st-tier { display: flex; align-items: center; justify-content: center; gap: 8px; }
-    .st-tier__box { width: 15px; height: 15px; accent-color: var(--bl-ink); }
+    .st-scopes__all-lead {
+        position: absolute;
+        right: 100%;
+        top: 50%;
+        transform: translateY(-50%);
+        margin-right: var(--bl-space-2);
+        white-space: nowrap;
+    }
 
-    .st-tier__text {
+    .st-scopes__all-btn {
+        padding: 4px 8px;
+        border: 0;
+        border-radius: var(--bl-r-ctrl);
+        background: none;
+        font: inherit;
+        white-space: nowrap;
+        color: var(--bl-ink-2);
+        cursor: pointer;
+    }
+
+    .st-scopes__all-btn:hover { background: var(--bl-rule); color: var(--bl-ink); }
+    .st-scopes__all-btn:focus-visible { outline: 2px solid var(--bl-brand-deep); outline-offset: 1px; }
+
+    .st-scope__info { min-width: 0; }
+
+    .st-scope__name {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--bl-space-2);
+        font-size: 13.5px;
+        font-weight: 600;
+        color: var(--bl-ink);
+    }
+
+    .st-scope__key {
+        padding: 1px 6px;
+        border: 1px solid var(--bl-rule);
+        border-radius: var(--bl-r-dot);
+        background: var(--bl-chrome);
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        font-weight: 400;
+        color: var(--bl-ink-3);
+    }
+
+    .st-scope__desc {
+        max-width: 62ch;
+        margin-top: 3px;
+        font-size: 12px;
+        line-height: 1.45;
+        color: var(--bl-ink-3);
+    }
+
+    .st-level {
+        position: relative;
+        display: grid;
+        grid-auto-columns: 1fr;
+        grid-auto-flow: column;
+        justify-self: start;
+        width: 264px;
+        height: var(--st-level-h);
+        padding: 3px;
+        border: 1px solid var(--bl-rule);
+        border-radius: 999px;
+        background: var(--bl-chrome);
+    }
+
+    /* A read-only resource keeps the three-column rhythm: its pill is the
+       first two thirds, so every None and Read lines up down the list. */
+    .st-level[data-segments="2"] { width: calc((264px - 8px) * 2 / 3 + 8px); }
+
+    .st-level__thumb {
+        position: absolute;
+        inset-block: 3px;
+        left: 3px;
+        width: calc((100% - 6px) / var(--st-level-n, 3));
+        border-radius: 999px;
+        background: var(--bl-ink-2);
+        transition: transform var(--bl-motion-base), background var(--bl-motion-fast);
+        pointer-events: none;
+    }
+
+    .st-level[data-segments="2"] { --st-level-n: 2; }
+    .st-level:has(.st-level__input[value="read"]:checked) .st-level__thumb { transform: translateX(100%); background: var(--bl-cool); }
+    .st-level:has(.st-level__input[value="write"]:checked) .st-level__thumb { transform: translateX(200%); background: var(--bl-brand-deep); }
+
+    .st-level__seg {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 560;
+        white-space: nowrap;
+        color: var(--bl-ink-2);
+        cursor: pointer;
+        transition: color var(--bl-motion-fast);
+    }
+
+    .st-level__seg:has(:checked) { color: var(--st-level-text-on); }
+    .st-level__seg:has(:focus-visible) { outline: 2px solid var(--bl-brand-deep); outline-offset: 2px; }
+
+    .st-level__input {
         position: absolute;
         width: 1px;
         height: 1px;
-        overflow: hidden;
-        clip-path: inset(50%);
+        opacity: 0;
+        pointer-events: none;
     }
 
-    .st-tier--none { display: flex; justify-content: center; color: var(--bl-ink-3); }
+    @media (prefers-reduced-motion: reduce) {
+        .st-level__thumb { transition: background var(--bl-motion-fast); }
+    }
 
-    .st-token__note { max-width: 62ch; }
-    .st-token__row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; }
-    .st-token__value { flex: 1 1 320px; min-width: 0; font-family: var(--font-mono); }
+    /* The date only matters once No expiry is off; settings.js disables
+       it at the same time so it never posts. */
+    .st-expiry:has(.fm-switch__input:checked) .st-expiry-date { display: none; }
+
+    /* The View token dialog. The field is wide enough for a whole Sanctum
+       token at 12px mono, so it reads without scrolling on a desktop. */
+    .st-reveal { max-width: 620px; }
+    .st-reveal__status { margin: 0 0 var(--bl-space-3); font-size: 13px; color: var(--bl-ink-2); }
+    .st-reveal__row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; }
+    .st-reveal__row[hidden] { display: none; }
+    .st-reveal__value { flex: 1 1 320px; min-width: 0; font-family: var(--font-mono); font-size: 12px; }
+    .st-reveal__foot { display: flex; justify-content: flex-end; margin-top: var(--bl-space-4); }
 
     /* What is on the site now, directly under the control that replaces it.
        Set on a ground so a logo with a transparent background is still
@@ -1653,8 +1783,14 @@
     }
 
     @media (max-width: 720px) {
-        .st-scopes__head { display: none; }
-        .st-scope { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+        .st-scopes__head { grid-template-columns: minmax(0, 1fr); }
+        .st-scopes__head > span:first-child { display: none; }
+        .st-scopes__all { grid-template-columns: auto repeat(3, 1fr); align-items: center; width: 100%; padding-inline: 0; }
+        .st-scopes__all-lead { position: static; transform: none; }
+        .st-scopes__all-btn { min-height: 36px; }
+        .st-scope { grid-template-columns: minmax(0, 1fr); gap: var(--bl-space-2); }
+        .st-level { width: 100%; --st-level-h: 40px; }
+        .st-level[data-segments="2"] { width: calc((100% - 8px) * 2 / 3 + 8px); }
     }
 }
 

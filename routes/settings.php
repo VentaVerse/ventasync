@@ -108,6 +108,7 @@ Route::prefix('settings')->group(function () {
         ->defaults('permission_tier', 'manage');
         Route::put('/api/{apiClient}', [ApiClientController::class, 'update'])->whereNumber('apiClient')->name('api_clients.update');
         Route::post('/api/{apiClient}/rotate', [ApiClientController::class, 'rotate'])->whereNumber('apiClient')->name('api_clients.rotate');
+        Route::post('/api/{apiClient}/token', [ApiClientController::class, 'token'])->whereNumber('apiClient')->middleware('throttle:20,1')->name('api_clients.token');
         Route::delete('/api/{apiClient}', [ApiClientController::class, 'destroy'])->whereNumber('apiClient')->name('api_clients.destroy');
     });
 

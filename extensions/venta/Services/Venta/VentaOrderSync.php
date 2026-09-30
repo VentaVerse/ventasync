@@ -536,8 +536,7 @@ class VentaOrderSync
             // The storefront's own tracking page for the parcel; a payload that
             // does not carry the field leaves the stored one alone.
             if (array_key_exists('tracking_link', $raw)) {
-                $link = trim((string) ($raw['tracking_link'] ?? ''));
-                $orderData['tracking_url'] = ($link !== '' && strlen($link) <= 500) ? $link : null;
+                $orderData['tracking_url'] = \App\Models\Catalog\Order::cleanTrackingUrl($raw['tracking_link'] ?? null);
             }
 
             if ($existing) {

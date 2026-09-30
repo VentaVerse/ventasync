@@ -4,15 +4,19 @@ namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
 use App\Models\ApiClient;
+use App\Services\ActivityLogger;
 use App\Services\ApiScopeRegistry;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Settings → API. Manages API Applications (external 3rd-party clients) and
  * their scoped Sanctum tokens: create with a Read/Write scope matrix and
- * optional expiry, rotate, and revoke. The plaintext token is shown once,
- * immediately after create/rotate, via a flashed session value.
+ * optional expiry, rotate, view, and revoke. The plaintext token opens in a
+ * dialog right after create/rotate, and can be viewed again later from an
+ * encrypted copy kept on the application.
  *
  * Read gated by view_api_clients|manage_api_clients; writes by
  * manage_api_clients (enforced at the route level).
@@ -73,13 +77,15 @@ class ApiClientController extends Controller
 
         $expiresAt = $this->resolveExpiry($request);
 
-        $client = ApiClient::create([
-            'name'       => $data['name'],
-            'active'     => true,
-            'created_by' => $request->user()->id,
-        ] + ['mcp_enabled' => false] + \App\Support\Api\ClientLimits::fields($request));
+        [$client, $plain] = DB::transaction(function () use ($data, $request, $abilities, $expiresAt) {
+            $client = ApiClient::create([
+                'name'       => $data['name'],
+                'active'     => true,
+                'created_by' => $request->user()->id,
+            ] + ['mcp_enabled' => false] + \App\Support\Api\ClientLimits::fields($request));
 
-        $plain = $client->createToken($client->name, $abilities, $expiresAt)->plainTextToken;
+            return [$client, $client->issueViewableToken($abilities, $expiresAt)];
+        });
 
         return redirect()->route('api_clients.index')
             ->with('status', 'API application created.')
@@ -122,20 +128,26 @@ class ApiClientController extends Controller
 
         $expiresAt = $this->resolveExpiry($request);
 
-        $apiClient->update(['name' => $data['name']] + ['mcp_enabled' => false] + \App\Support\Api\ClientLimits::fields($request));
-
         // Update the existing token's scopes + expiry in place (token value
         // unchanged). If somehow there is no token, issue one and reveal it.
-        $token = $apiClient->tokens()->latest()->first();
-        if ($token) {
-            $token->abilities = $abilities;
-            $token->expires_at = $expiresAt;
-            $token->save();
+        $plain = DB::transaction(function () use ($apiClient, $data, $request, $abilities, $expiresAt) {
+            $apiClient->update(['name' => $data['name']] + ['mcp_enabled' => false] + \App\Support\Api\ClientLimits::fields($request));
 
+            $token = $apiClient->tokens()->latest()->first();
+            if ($token) {
+                $token->abilities = $abilities;
+                $token->expires_at = $expiresAt;
+                $token->save();
+
+                return null;
+            }
+
+            return $apiClient->issueViewableToken($abilities, $expiresAt);
+        });
+
+        if ($plain === null) {
             return redirect()->route('api_clients.index')->with('status', 'API application updated.');
         }
-
-        $plain = $apiClient->createToken($apiClient->name, $abilities, $expiresAt)->plainTextToken;
 
         return redirect()->route('api_clients.index')
             ->with('status', 'API application updated.')
@@ -161,14 +173,39 @@ class ApiClientController extends Controller
         $expiresAt = $current->expires_at;
 
         // Revoke every existing token, then issue a fresh one with the same
-        // scopes + expiry policy. Old token immediately becomes invalid.
-        $apiClient->tokens()->delete();
-        $plain = $apiClient->createToken($apiClient->name, $abilities, $expiresAt)->plainTextToken;
+        // scopes + expiry policy. Old token immediately becomes invalid. One
+        // transaction, so a failure keeps the old token working.
+        $plain = DB::transaction(function () use ($apiClient, $abilities, $expiresAt) {
+            $apiClient->tokens()->delete();
+
+            return $apiClient->issueViewableToken($abilities, $expiresAt);
+        });
 
         return redirect()->route('api_clients.index')
             ->with('status', 'Token rotated. The previous token no longer works.')
             ->with('new_token', $plain)
             ->with('new_token_client', $apiClient->name);
+    }
+
+    /**
+     * The current token, for the View token dialog. POST, so the value never
+     * lands in a URL or a browser history entry, and every view is logged.
+     */
+    public function token(Request $request, ApiClient $apiClient): JsonResponse
+    {
+        $this->notAnAssistant($apiClient);
+
+        $plain = $apiClient->viewableToken();
+        if ($plain === null) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'This token was issued before tokens could be viewed again. Rotate it to get one that can.',
+            ], 404)->header('Cache-Control', 'no-store');
+        }
+
+        ActivityLogger::log('api_client.token_viewed', 'api_client', $apiClient->id, $apiClient->name);
+
+        return response()->json(['ok' => true, 'token' => $plain])->header('Cache-Control', 'no-store');
     }
 
     public function destroy(Request $request, ApiClient $apiClient)
@@ -181,8 +218,10 @@ class ApiClientController extends Controller
     }
 
     /**
-     * Turn the posted scope matrix (scopes[resource][action]=1) into a flat
-     * list of "resource:action" abilities, validated against the catalog.
+     * Turn the posted scope matrix into a flat list of "resource:action"
+     * abilities, validated against the catalog. A resource posts a level
+     * (scopes[resource]=none|read|write, where write includes read) or the
+     * older per-action shape (scopes[resource][action]=1).
      */
     private function resolveScopes(Request $request): array
     {
@@ -193,6 +232,13 @@ class ApiClientController extends Controller
         foreach ($posted as $resource => $actions) {
             if (! isset($catalog[$resource])) {
                 continue;
+            }
+            if (is_string($actions)) {
+                $actions = match ($actions) {
+                    'read'  => ['read' => 1],
+                    'write' => ['read' => 1, 'write' => 1],
+                    default => [],
+                };
             }
             foreach ((array) $actions as $action => $on) {
                 if (! $on) {

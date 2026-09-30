@@ -1,51 +1,72 @@
 {{--
     The API scope matrix, shared by create and edit.
 
-    Wire, byte for byte with the pre-redesign view and with
-    ApiClientController@resolveScopes: one checkbox per offered action,
-    named `scopes[{resource}][{action}]` with value 1. A resource that
-    does not offer a tier renders a dash and no control at all, so the
-    posted shape can never carry an action the catalog would drop.
+    One radio group per resource, named `scopes[{resource}]`, posting a
+    level: none, read, or write. Write posts both abilities, because the
+    scope middleware checks each ability on its own and a token that can
+    change something it cannot read is never what anyone meant.
+    ApiClientController@resolveScopes turns the level into abilities and
+    drops any level the catalog does not offer for that resource.
 
     Expects:
       $scopes  ApiScopeRegistry::all(), keyed by resource
       $current array of "resource:action" strings already granted (edit
                page), or [] on create
 --}}
-@php $current = $current ?? []; @endphp
+@php
+    $current = $current ?? [];
+    $levels = ['none' => 'None', 'read' => 'Read', 'write' => 'Read & write'];
+@endphp
 
-<div class="st-scopes">
+<div class="st-scopes" data-scope-matrix>
     <div class="st-scopes__head">
         <span>Resource</span>
-        <span class="st-scope__tiers">
-            <span class="st-scopes__tier">Read</span>
-            <span class="st-scopes__tier">Write</span>
+        <span class="st-scopes__all" role="group" aria-label="Set every resource">
+            <span class="st-scopes__all-lead" aria-hidden="true">Set all</span>
+            @foreach($levels as $value => $label)
+                <button type="button" class="st-scopes__all-btn" data-scope-all="{{ $value }}"
+                        aria-label="Set every resource to {{ $label }}">{{ $label }}</button>
+            @endforeach
         </span>
     </div>
 
     @foreach($scopes as $key => $meta)
+        @php
+            $offersWrite = in_array('write', $meta['actions'], true);
+            $offered = $offersWrite ? $levels : array_slice($levels, 0, 2, true);
+
+            // An edit page shows what the token holds; a failed save shows
+            // what was posted. A legacy write-only grant reads as Read & write.
+            $held = in_array("$key:write", $current, true) && $offersWrite
+                ? 'write'
+                : (in_array("$key:read", $current, true) ? 'read' : 'none');
+            $level = old("scopes.$key", $held);
+            if (is_array($level)) {
+                $level = ! empty($level['write']) && $offersWrite ? 'write' : (! empty($level['read']) ? 'read' : 'none');
+            }
+            if (! array_key_exists($level, $offered)) {
+                $level = 'none';
+            }
+        @endphp
+
         <div class="st-scope">
-            <div>
-                <div class="st-scope__name">{{ $meta['label'] }}</div>
+            <div class="st-scope__info">
+                <div class="st-scope__name" id="st-scope-{{ $key }}">
+                    {{ $meta['label'] }}
+                    <code class="st-scope__key">{{ $key }}</code>
+                </div>
                 <div class="st-scope__desc">{{ $meta['description'] }}</div>
             </div>
 
-            <div class="st-scope__tiers">
-                @foreach(['read', 'write'] as $action)
-                    @if(in_array($action, $meta['actions'], true))
-                        <label class="st-tier">
-                            <input type="checkbox" class="st-tier__box"
-                                   name="scopes[{{ $key }}][{{ $action }}]" value="1"
-                                   @checked(old("scopes.$key.$action", in_array("$key:$action", $current, true)))
-                                   aria-label="{{ $meta['label'] }}, {{ $action }}">
-                            <span class="st-tier__text">{{ ucfirst($action) }}</span>
-                        </label>
-                    @else
-                        <span class="st-tier--none">
-                            <span class="x-sr">{{ $meta['label'] }} offers no {{ $action }} access</span>
-                            <span aria-hidden="true">-</span>
-                        </span>
-                    @endif
+            <div class="st-level" role="radiogroup" aria-labelledby="st-scope-{{ $key }}"
+                 data-segments="{{ count($offered) }}">
+                <span class="st-level__thumb" aria-hidden="true"></span>
+                @foreach($offered as $value => $label)
+                    <label class="st-level__seg">
+                        <input type="radio" class="st-level__input" name="scopes[{{ $key }}]"
+                               value="{{ $value }}" @checked($level === $value)>
+                        <span>{{ $label }}</span>
+                    </label>
                 @endforeach
             </div>
         </div>
