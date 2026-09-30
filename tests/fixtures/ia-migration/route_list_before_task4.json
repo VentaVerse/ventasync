@@ -275,6 +275,11 @@
         "name": null
     },
     {
+        "method": "PUT",
+        "uri": "api/v1/purchasing/purchase-orders/{ref}",
+        "name": null
+    },
+    {
         "method": "POST",
         "uri": "api/v1/purchasing/purchase-orders/{ref}/payments",
         "name": null
@@ -4688,6 +4693,11 @@
         "method": "POST",
         "uri": "settings/api/{apiClient}/rotate",
         "name": "api_clients.rotate"
+    },
+    {
+        "method": "POST",
+        "uri": "settings/api/{apiClient}/token",
+        "name": "api_clients.token"
     },
     {
         "method": "GET|HEAD",
