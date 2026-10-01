@@ -42,6 +42,13 @@ class TikTokPayoutSync
     /** The order statuses that can have been settled into a statement. */
     public const PAYABLE_STATUSES = ['COMPLETED', 'DELIVERED'];
 
+    /** TikTok's "too many requests" code. */
+    private const RATE_LIMITED = 36009002;
+
+    private const RATE_LIMIT_PAUSE_SECONDS = 3;
+
+    private const CALL_GAP_MICROSECONDS = 200000;
+
     public function __construct(private readonly TikTokClient $client)
     {
     }
@@ -221,8 +228,18 @@ class TikTokPayoutSync
      */
     private function call(array $creds, string $path, array $params): array
     {
+        /* TikTok rate-limits the statement reads (HTTP 429, code 36009002,
+         * "a dependent service is temporarily rate limited": the scheduled
+         * run failed at 01:04 and 02:04 on 2026-10-02). A short gap between
+         * calls, and one retry after a pause when it says so. */
+        usleep(self::CALL_GAP_MICROSECONDS);
         $result = $this->client->get($creds['app_key'], $creds['app_secret'], $creds['token'], $path, $params, $creds['shop_cipher'] ?: null);
         $body = is_array($result['body'] ?? null) ? $result['body'] : [];
+        if ((int) ($result['status'] ?? 0) === 429 || (int) ($body['code'] ?? 0) === self::RATE_LIMITED) {
+            sleep(self::RATE_LIMIT_PAUSE_SECONDS);
+            $result = $this->client->get($creds['app_key'], $creds['app_secret'], $creds['token'], $path, $params, $creds['shop_cipher'] ?: null);
+            $body = is_array($result['body'] ?? null) ? $result['body'] : [];
+        }
         $code = (int) ($body['code'] ?? -1);
 
         TikTokApiLog::safeCreate([

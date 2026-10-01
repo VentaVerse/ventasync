@@ -84,7 +84,7 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
             attention: \Extensions\lazada\Services\Lazada\LazadaPayoutSync::attention(),
             stores: fn () => \Extensions\lazada\Models\LazadaSetting::enabledStores(),
             readBalance: fn (object $store) => app(\Extensions\lazada\Services\Lazada\LazadaBalance::class)->read($store),
-            pageRoute: 'ext.lazada.payouts.index',
+            pageRoute: 'ext.lazada.dashboard',
         ));
     }
 
@@ -116,10 +116,6 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
                     new MenuItem('Orders', 'ext.lazada.orders.index', 'view_lazada/order', null, $p + ['tab' => 'TO_SHIP'], 'Sell'),
                     new MenuItem('Returns', 'ext.lazada.orders.returns', 'view_lazada/order', null, $p, 'Sell'),
                     new MenuItem('Vouchers', 'ext.lazada.vouchers.index', 'view_lazada/voucher', null, $p, 'Sell'),
-                    // Payouts (the owner, 2026-10-01): only a store that is switched on has
-                    // money at Lazada to show. The count is its orders not truly paid.
-                    ...($store->enabled ? [new MenuItem('Payouts', 'ext.lazada.payouts.index', 'view_lazada/payout', null, $p, 'Sell',
-                        badge: app(\App\Services\Payouts\PayoutAttention::class)->badge(\Extensions\lazada\Services\Lazada\LazadaPayoutSync::attention(), (int) $store->id))] : []),
                     new MenuItem('Listings', 'ext.lazada.products.index', 'view_lazada/product', null, $p, 'Catalog'),
                     new MenuItem('Product Groups', 'ext.lazada.product-groups.index', 'view_lazada/product_group', null, $p, 'Catalog'),
                     new MenuItem('Description Templates', 'ext.lazada.description-templates.index', 'view_lazada/description_template', null, $p, 'Catalog'),

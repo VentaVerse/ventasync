@@ -2,12 +2,13 @@
 
 namespace App\Services\Payouts;
 
+use App\Support\PayoutStatus as PayoutStatusAlias;
+
 /**
- * Every store's payouts at once (the owner, 2026-10-01): the store cards on the
- * Payouts report and the dashboard rail, and the report's one Needs
- * attention list across all stores. Only stores whose payouts this person
- * may see, only stores that are switched on; nothing here waits on a
- * marketplace (PayoutBalances::kept).
+ * Every store's payouts at once (the owner, 2026-10-01): the panels on the
+ * Payouts report, a store's Overview and the dashboard rail. Only stores
+ * whose payouts this person may see, only stores that are switched on;
+ * nothing here waits on a marketplace (PayoutBalances::kept).
  */
 class PayoutOverview
 {
@@ -38,7 +39,13 @@ class PayoutOverview
                 'storeName' => (string) ($store->store_name ?: 'Store #' . $store->id),
                 'balance' => $balance,
                 'summary' => $this->attention->summary($channel->attention, (int) $store->id),
-                'url' => route($channel->pageRoute, ['store' => (int) $store->id]),
+                // The Payouts report, already run for this store (2026-10-02),
+                // or the store's Overview for someone who cannot open Reports.
+                'url' => $this->reportUrl($user, $channel, $store) ?? route($channel->pageRoute, ['store' => (int) $store->id]),
+                // Its unpaid orders: the same report, narrowed to the payout
+                // states an unpaid order is in.
+                'unpaid_url' => $this->reportUrl($user, $channel, $store, unpaid: true),
+                'report_url' => $this->reportUrl($user, $channel, $store),
             ];
         }
 
@@ -46,55 +53,22 @@ class PayoutOverview
     }
 
     /**
-     * The unpaid orders of every store, in one list.
-     *
-     * @param  array<string, list<int|null>>|null  $only
-     * @return array{rows: list<array<string, mixed>>, counts: array<string, int>, not_paid: float, not_paid_count: int, charged: float, charged_count: int, stores_owing: int, has_short: bool}
+     * Reports > Payouts, run for one store, all time: opening it shows that
+     * store's report at once. Null when the Reports extension is off or this
+     * person cannot read reports, so no panel ever links to a door shut.
      */
-    public function attention(?object $user, ?array $only = null): array
+    public function reportUrl(?object $user, PayoutChannel $channel, object $store, bool $unpaid = false): ?string
     {
-        $rows = [];
-        $counts = array_fill_keys(['overdue', 'nopayout', 'failed', 'short', 'refunded'], 0);
-        $notPaid = 0.0;
-        $charged = 0.0;
-        $owing = 0;
-        $hasShort = false;
-
-        foreach ($this->registry->storesFor($user, $only) as ['channel' => $channel, 'store' => $store]) {
-            $one = $this->attention->forStore($channel->attention, (int) $store->id);
-            $hasShort = $hasShort || ($channel->attention['received_column'] ?? null) !== null;
-            foreach ($one['counts'] as $k => $n) {
-                $counts[$k] += $n;
-            }
-            $notPaid += $one['not_paid'];
-            $charged += $one['charged'];
-            $owing += $one['not_paid_count'] > 0 ? 1 : 0;
-
-            $storeName = (string) ($store->store_name ?: 'Store #' . $store->id);
-            foreach ($one['rows'] as $r) {
-                $value = ($channel->attention['order_key'] ?? 'ref') === 'id' ? $r['id'] : $r['ref'];
-                $rows[] = $r + [
-                    'channel' => $channel,
-                    'storeName' => $storeName,
-                    'order_url' => route($channel->attention['order_route'], [
-                        'store' => (int) $store->id,
-                        $channel->attention['order_param'] => $value,
-                    ]),
-                ];
-            }
+        if (! \Illuminate\Support\Facades\Route::has('ext.reports.payouts')
+            || ! ($user && method_exists($user, 'hasPermission') && $user->hasPermission('view_reports/report'))) {
+            return null;
         }
 
-        usort($rows, [PayoutAttention::class, 'compare']);
-
-        return [
-            'rows' => $rows,
-            'counts' => $counts,
-            'not_paid' => round($notPaid, 2),
-            'not_paid_count' => count($rows) - $counts['refunded'],
-            'charged' => round($charged, 2),
-            'charged_count' => $counts['refunded'],
-            'stores_owing' => $owing,
-            'has_short' => $hasShort,
-        ];
+        return route('ext.reports.payouts', array_filter([
+            'store' => [$channel->id . ':' . (int) $store->id],
+            'date_from' => \Extensions\reports\Services\ReportPeriod::ALL_TIME_FROM,
+            'date_to' => now()->format('Y-m-d'),
+            'payout_status' => $unpaid ? [PayoutStatusAlias::RELEASING, PayoutStatusAlias::NO_PAYOUT, PayoutStatusAlias::FAILED] : null,
+        ]));
     }
 }

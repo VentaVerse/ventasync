@@ -83,7 +83,22 @@ abstract class ChannelDashboardController extends Controller
         // one store per page for free.
         $trend = $metrics->trend($channel);
 
+        /* The store's payouts (the owner, 2026-10-02): its panel in the right
+         * column, in the marketplace's own words, for a channel that pays out
+         * per order and someone who may see its payouts. Never waits on the
+         * marketplace (PayoutBalances::kept). */
+        $payoutCard = null;
+        if (app(\App\Services\Payouts\PayoutRegistry::class)->channel($this->channel) !== null) {
+            try {
+                $payoutCard = app(\App\Services\Payouts\PayoutOverview::class)
+                    ->cards($user, [$this->channel => [$store !== null && $store !== '' ? (int) $store : null]])[0] ?? null;
+            } catch (\Throwable $e) {
+                report($e); // a payout problem never takes the Overview down
+            }
+        }
+
         return view('channels.workspace', [
+            'channelPayoutCard' => $payoutCard,
             'channelTrend' => $trend,
             'channelBestSellers' => $trend ? $metrics->bestSellers($channel) : [],
             'channelHealth' => $workspace->health($card, $channel),

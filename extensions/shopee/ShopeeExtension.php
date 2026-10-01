@@ -93,7 +93,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             attention: \Extensions\shopee\Services\Shopee\ShopeePayoutSync::attention(),
             stores: fn () => \Extensions\shopee\Models\ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get(),
             readBalance: fn (object $store) => app(\Extensions\shopee\Services\Shopee\ShopeeBalance::class)->read($store),
-            pageRoute: 'ext.shopee.payouts.index',
+            pageRoute: 'ext.shopee.dashboard',
         ));
     }
 
@@ -127,10 +127,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                     new MenuItem('Orders', 'ext.shopee.orders.index', 'view_shopee/order', null, $p, 'Sell'),
                     new MenuItem('Returns', 'ext.shopee.orders.returns', 'view_shopee/order', null, $p, 'Sell'),
                     new MenuItem('Vouchers', 'ext.shopee.vouchers.index', 'view_shopee/voucher', null, $p, 'Sell'),
-                    // Payouts (the owner, 2026-10-01): only a store that is switched on has
-                    // money at Shopee to show. The count is its orders not truly paid.
-                    ...($store->enabled ? [new MenuItem('Payouts', 'ext.shopee.payouts.index', 'view_shopee/payout', null, $p, 'Sell',
-                        badge: app(\App\Services\Payouts\PayoutAttention::class)->badge(\Extensions\shopee\Services\Shopee\ShopeePayoutSync::attention(), (int) $store->id))] : []),
                     new MenuItem('Listings', 'ext.shopee.products.index', 'view_shopee/product', null, $p, 'Catalog'),
                     new MenuItem('Product Groups', 'ext.shopee.product-groups.index', 'view_shopee/product_group', null, $p, 'Catalog'),
                     new MenuItem('Description Templates', 'ext.shopee.description-templates.index', 'view_shopee/description_template', null, $p, 'Catalog'),

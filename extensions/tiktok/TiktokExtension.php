@@ -79,7 +79,7 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
             attention: \Extensions\tiktok\Services\TikTok\TikTokPayoutSync::attention(),
             stores: fn () => \Extensions\tiktok\Models\TikTokSetting::enabledStores(),
             readBalance: fn (object $store) => app(\Extensions\tiktok\Services\TikTok\TikTokBalance::class)->read($store),
-            pageRoute: 'ext.tiktok.payouts.index',
+            pageRoute: 'ext.tiktok.dashboard',
         ));
     }
 
@@ -111,10 +111,6 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
                     new MenuItem('Orders', 'ext.tiktok.orders.index', 'view_tiktok/order', null, $p, 'Sell'),
                     new MenuItem('Returns', 'ext.tiktok.orders.returns', 'view_tiktok/order', null, $p, 'Sell'),
                     new MenuItem('Coupons', 'ext.tiktok.coupons.index', 'view_tiktok/coupon', null, $p, 'Sell'),
-                    // Payouts (the owner, 2026-10-01): only a store that is switched on has
-                    // money at TikTok to show. The count is its orders not truly paid.
-                    ...($store->enabled ? [new MenuItem('Payouts', 'ext.tiktok.payouts.index', 'view_tiktok/payout', null, $p, 'Sell',
-                        badge: app(\App\Services\Payouts\PayoutAttention::class)->badge(\Extensions\tiktok\Services\TikTok\TikTokPayoutSync::attention(), (int) $store->id))] : []),
                     new MenuItem('Listings', 'ext.tiktok.products.index', 'view_tiktok/product', null, $p, 'Catalog'),
                     new MenuItem('Product Groups', 'ext.tiktok.product-groups.index', 'view_tiktok/product_group', null, $p, 'Catalog'),
                     new MenuItem('Description Templates', 'ext.tiktok.description-templates.index', 'view_tiktok/description_template', null, $p, 'Catalog'),

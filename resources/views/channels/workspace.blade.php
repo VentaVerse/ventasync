@@ -174,6 +174,12 @@
                 </section>
             @endif
 
+            {{-- Payouts (the owner, 2026-10-02): the store's money at its
+                 marketplace, between what is waiting and the connection. --}}
+            @if(! empty($channelPayoutCard))
+                @include('payouts.partials.money-panel', ['card' => $channelPayoutCard, 'compact' => true])
+            @endif
+
             {{-- Connection last. It matters on the day it breaks and never
                  otherwise, and the badge in the channel sidebar already carries
                  the alarm. --}}

@@ -16,7 +16,7 @@ final class PayoutChannel
      * @param  array<string, mixed>  $attention  the PayoutAttention descriptor of its order table
      * @param  Closure(): iterable<object>  $stores  its stores that are switched on
      * @param  Closure(object): array  $readBalance  the live money at the marketplace for one store
-     * @param  string  $pageRoute  the store's own Payouts page, taking {store}
+     * @param  string  $pageRoute  the store's Overview, taking {store}, which carries its payout panel
      * @param  (Closure(object): list<array<string, mixed>>)|null  $extraFacts  figures from the ERP's own data
      */
     public function __construct(
