@@ -19,6 +19,7 @@
 
 <div class="x-list-head">
     <div>
+        @include('partials.back-to-settings')
         <h1 class="x-page-title">Currencies</h1>
         <p class="x-page-sub">
             {{ number_format($currencies->total()) }} {{ Str::plural('currency', $currencies->total()) }}.

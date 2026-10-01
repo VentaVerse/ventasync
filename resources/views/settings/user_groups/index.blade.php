@@ -14,6 +14,7 @@
 
 <div class="x-list-head">
     <div>
+        @include('partials.back-to-settings')
         <h1 class="x-page-title">User groups</h1>
         <p class="x-page-sub">{{ number_format($groups->total()) }} {{ Str::plural('group', $groups->total()) }}. A group decides what everyone in it may open and change.</p>
     </div>

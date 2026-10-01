@@ -15,6 +15,7 @@
 
 <div class="x-list-head">
     <div>
+        @include('partials.back-to-settings')
         <h1 class="x-page-title">API applications</h1>
         <p class="x-page-sub">
             Other software that talks to this ERP. Each one gets a token that only opens the

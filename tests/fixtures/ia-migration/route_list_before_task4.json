@@ -4880,6 +4880,26 @@
         "name": "extensions.install"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "settings/extensions/mobileapp",
+        "name": "ext.mobileapp.settings.index"
+    },
+    {
+        "method": "PUT",
+        "uri": "settings/extensions/mobileapp",
+        "name": "ext.mobileapp.settings.update"
+    },
+    {
+        "method": "DELETE",
+        "uri": "settings/extensions/mobileapp/phones/{phone}",
+        "name": "ext.mobileapp.settings.revoke"
+    },
+    {
+        "method": "POST",
+        "uri": "settings/extensions/mobileapp/test",
+        "name": "ext.mobileapp.settings.test"
+    },
+    {
         "method": "DELETE",
         "uri": "settings/extensions/{extension}",
         "name": "extensions.uninstall"
@@ -4913,26 +4933,6 @@
         "method": "GET|HEAD",
         "uri": "settings/maintenance",
         "name": "settings.maintenance"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "settings/mobile-app",
-        "name": "ext.mobileapp.settings.index"
-    },
-    {
-        "method": "PUT",
-        "uri": "settings/mobile-app",
-        "name": "ext.mobileapp.settings.update"
-    },
-    {
-        "method": "DELETE",
-        "uri": "settings/mobile-app/phones/{phone}",
-        "name": "ext.mobileapp.settings.revoke"
-    },
-    {
-        "method": "POST",
-        "uri": "settings/mobile-app/test",
-        "name": "ext.mobileapp.settings.test"
     },
     {
         "method": "GET|HEAD",

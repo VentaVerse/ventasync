@@ -85,6 +85,7 @@
 
     <div class="x-list-head">
         <div>
+            @include('partials.back-to-settings')
             <h1 class="x-page-title">Error log</h1>
             <p class="x-page-sub">
                 Non-fatal PHP errors this application caught: warnings, notices and deprecations.

@@ -17,6 +17,7 @@
 
 <div class="x-list-head">
     <div>
+        @include('partials.back-to-settings')
         <h1 class="x-page-title">Users</h1>
         <p class="x-page-sub">{{ number_format($users->total()) }} {{ Str::plural('person', $users->total()) }} who can sign in</p>
     </div>

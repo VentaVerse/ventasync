@@ -38,6 +38,7 @@
 
     <div class="x-list-head">
         <div>
+            @include('partials.back-to-settings')
             <h1 class="x-page-title">Extensions</h1>
             <p class="x-page-sub">
                 {{ number_format($rows->count()) }} {{ Str::plural('extension', $rows->count()) }} on this server,

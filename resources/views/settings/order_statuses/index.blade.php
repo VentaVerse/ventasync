@@ -14,6 +14,7 @@
 
 <div class="x-list-head">
     <div>
+        @include('partials.back-to-settings')
         <h1 class="x-page-title">Order statuses</h1>
         <p class="x-page-sub">{{ number_format($statuses->total()) }} {{ Str::plural('status', $statuses->total()) }} an order can move through. Each marketplace maps its own statuses onto these in that channel's settings.</p>
     </div>
