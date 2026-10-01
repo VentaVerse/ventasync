@@ -100,7 +100,7 @@
 .rp-lead__v {
     display: block;
     margin-top: 2px;
-    font-family: var(--font-mono);
+    font-family: inherit;
     font-variant-numeric: tabular-nums;
     font-size: 30px;
     line-height: var(--bl-control-h, 32px);
@@ -114,7 +114,7 @@
     flex-wrap: wrap;
     gap: var(--bl-space-1) var(--bl-space-3);
     margin-top: var(--bl-space-1);
-    font-family: var(--font-mono);
+    font-family: inherit;
     font-variant-numeric: tabular-nums;
     font-size: 12px;
     color: var(--bl-ink-3);
@@ -130,7 +130,7 @@
 .rp-facts {
     flex: 1 1 340px;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(156px, 1fr));
     gap: var(--bl-space-3) 0;
     align-content: center;
 }
@@ -150,7 +150,7 @@
 .rp-fact__v {
     display: block;
     margin-top: 1px;
-    font-family: var(--font-mono);
+    font-family: inherit;
     font-variant-numeric: tabular-nums;
     font-size: 15px;
     line-height: 22px;
@@ -166,7 +166,7 @@
     .rp-band { padding: var(--bl-space-4); gap: var(--bl-space-4); }
     .rp-lead { flex: 1 1 100%; }
     .rp-lead__v { font-size: 26px; line-height: 32px; }
-    .rp-facts { flex: 1 1 100%; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); }
+    .rp-facts { flex: 1 1 100%; grid-template-columns: repeat(auto-fit, minmax(152px, 1fr)); }
     .rp-fact:first-child { border-left: 0; padding-left: 0; }
 }
 
@@ -272,7 +272,7 @@
     background: transparent;
     border: 0;
     color: var(--bl-ink);
-    font-family: var(--font-mono);
+    font-family: inherit;
     font-variant-numeric: tabular-nums;
     font-size: 12px;
 }
@@ -507,12 +507,13 @@
    same trap the transfers list hit in Task 1. */
 .rp-page .x-table tbody tr[hidden] { display: none; }
 
-/* Figures. Mono, tabular, right-aligned. `.x-td-num` supplies the
+/* Figures. The app's own face (2026-10-02: one number style across every
+   report and the rest of the app), tabular, right-aligned. `.x-td-num` supplies the
    alignment; this supplies the face, on the cell so the whole column
    including its dash placeholder lines up. */
 .rp-scroll .x-table td.x-td-num,
 .rp-fig {
-    font-family: var(--font-mono);
+    font-family: inherit;
     font-variant-numeric: tabular-nums;
     font-size: 12px;
 }
@@ -685,7 +686,7 @@
     /* The figures sit ON their gridlines: the first at the top edge and
        the last at the baseline, so half a line hangs above and below. */
     margin: -6px 0;
-    font-family: var(--font-mono);
+    font-family: inherit;
     font-variant-numeric: tabular-nums;
     font-size: 11px;
     line-height: 12px;
@@ -757,7 +758,7 @@
 .rp-trend__figure-v {
     flex: 0 0 auto;
     transform: translateY(calc(-100% - 3px));
-    font-family: var(--font-mono);
+    font-family: inherit;
     font-variant-numeric: tabular-nums;
     font-size: 11px;
     line-height: 12px;
@@ -776,7 +777,7 @@
     grid-template-columns: auto minmax(0, 1fr);
     column-gap: var(--bl-space-3);
     margin-top: var(--bl-space-2);
-    font-family: var(--font-mono);
+    font-family: inherit;
     font-size: 11px;
     color: var(--bl-ink-3);
 }
@@ -801,7 +802,7 @@
 }
 .rp-rank__v {
     grid-column: 2;
-    font-family: var(--font-mono);
+    font-family: inherit;
     font-variant-numeric: tabular-nums;
     font-size: 12px;
     color: var(--bl-ink-2);
@@ -892,7 +893,7 @@
 .rp-sub tbody tr:last-child td { border-bottom: 0; }
 .rp-sub .rp-num {
     text-align: right;
-    font-family: var(--font-mono);
+    font-family: inherit;
     font-variant-numeric: tabular-nums;
 }
 .rp-sub__link { color: var(--bl-brand-deep); text-decoration: none; }
@@ -1000,3 +1001,19 @@
 .rp-pos  { color: var(--bl-brand-deep); }
 .rp-neg  { color: var(--bl-bad); }
 .rp-warn { color: var(--bl-attn-fill); }
+
+/* ------------------------------------------------------------------
+   The Payouts table (2026-10-02): nine columns that fit beside the
+   sidebar. The marketplace's own number sits under ours and the paid
+   date under the payout state; long buyer names end in an ellipsis.
+   ------------------------------------------------------------------ */
+.rp-payouts .x-table .x-col-date { width: 98px; white-space: nowrap; }
+.rp-payouts .x-table .x-col-chan { width: 92px; }
+.rp-payouts .x-table td.x-cell-strong { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-mkt-id { display: block; margin-top: 2px; font-family: var(--font-mono); font-size: 11.5px; color: var(--bl-ink-3); }
+.rp-paid-on { display: block; margin-top: 3px; font-size: 11.5px; color: var(--bl-ink-3); font-variant-numeric: tabular-nums; }
+
+/* A laptop keeps the money columns: the marketplace's own state steps aside. */
+@media (min-width: 761px) and (max-width: 1360px) {
+    .rp-payouts .x-table .rp-col-mstat { display: none; }
+}
