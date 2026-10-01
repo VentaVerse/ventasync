@@ -1507,11 +1507,13 @@ class LazadaProductGroupController extends Controller
                 'access_token' => (string) $creds['access_token'],
             ];
 
-            if (!empty($skuIdList)) {
-                $params['sku_id_list'] = json_encode($skuIdList, JSON_UNESCAPED_SLASHES);
-            } else {
-                $params['seller_sku_list'] = json_encode($sellerSkuList, JSON_UNESCAPED_SLASHES);
+            // Lazada retired seller_sku_list on /product/remove: without the
+            // item's sku ids nothing is sent and the product counts as failed.
+            if (empty($skuIdList)) {
+                $errCount++;
+                continue;
             }
+            $params['sku_id_list'] = json_encode($skuIdList, JSON_UNESCAPED_SLASHES);
             $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
 
             $result = $client->post((string) $setting->region, $apiPath, $params);

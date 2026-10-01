@@ -225,6 +225,9 @@ class LazadaListingStateTest extends TestCase
             'product_id' => $productId, 'lazada_item_id' => '701',
             'live_status' => 'active', 'live_checked_at' => now(),
         ]);
+        // Lazada names the item's SKUs by id; removal sends sku_id_list only.
+        $this->getResponses['/product/item/get'] = ['ok' => true, 'status' => 200,
+            'body' => ['code' => '0', 'data' => ['item_id' => 701, 'skus' => [['SkuId' => 9001, 'SellerSku' => 'DE-1']]]]];
 
         $this->actingAs($this->manager())
             ->post(route('ext.lazada.products.delete_lazada', $listing->product_id))

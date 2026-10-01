@@ -112,28 +112,18 @@ class TikTokOrderController extends Controller
         if ($request->boolean('refresh') && $canManage) {
             try {
                 $c = $this->creds();
-                $client = new TikTokClient();
-                $result = $client->getProduct($c['app_key'], $c['app_secret'], $c['token'], $order->order_id, $c['shop_cipher']);
+                $client = app(TikTokClient::class);
+                $detailResult = $client->getOrderDetail($c['app_key'], $c['app_secret'], $c['token'], [(string) $order->order_id], $c['shop_cipher']);
 
-                // Use the order detail endpoint instead
-                $detailResult = $client->post(
-                    $c['app_key'], $c['app_secret'], $c['token'],
-                    '/order/202309/orders',
-                    [],
-                    ['order_ids' => [$order->order_id]],
-                    $c['shop_cipher']
-                );
-
-                if (($detailResult['ok'] ?? false) && is_array($detailResult['body'])) {
-                    $orders = $detailResult['body']['data']['orders'] ?? [];
-                    if (!empty($orders[0])) {
-                        $detail = $orders[0];
-                        $order->status = $detail['status'] ?? $order->status;
-                        $order->raw = $detail;
-                        $order->buyer_name = $detail['recipient_address']['name'] ?? ($detail['buyer_name'] ?? $order->buyer_name);
-                        $order->save();
-                        $order->load('products');
-                    }
+                // TikTok's verdict is the body's code, never HTTP 200 alone.
+                $body = is_array($detailResult['body'] ?? null) ? $detailResult['body'] : [];
+                $detail = $body['data']['orders'][0] ?? null;
+                if (($detailResult['ok'] ?? false) && (int) ($body['code'] ?? -1) === 0 && is_array($detail)) {
+                    $order->status = $detail['status'] ?? $order->status;
+                    $order->raw = $detail;
+                    $order->buyer_name = $detail['recipient_address']['name'] ?? ($detail['buyer_name'] ?? $order->buyer_name);
+                    $order->save();
+                    $order->load('products');
                 } else {
                     $apiError = true;
                 }

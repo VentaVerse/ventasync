@@ -1240,7 +1240,6 @@ class LazadaOrderController extends Controller
     {
         $request->validate([
             'reason_id' => ['required', 'integer'],
-            'reason_detail' => ['nullable', 'string', 'max:500'],
         ]);
 
         $setting = LazadaSetting::defaultStore()?->decrypted();
@@ -1269,79 +1268,52 @@ class LazadaOrderController extends Controller
         }
 
         $reasonId = (int)$request->input('reason_id');
-        $reasonDetail = (string)($request->input('reason_detail') ?? '');
 
-        $errors = [];
-        foreach ($items['order_item_ids'] as $oid) {
-            $cancelRes = null;
-            $attempt = 0;
-            $maxAttempts = 5;
+        /* Seller cancellation, as Lazada documents it now: one request for
+           the whole order with every item in it and the reason picked from
+           the list the validate call offered. The older per-item cancel has
+           no page in Lazada's documentation any more. */
+        $attempt = 0;
+        while (true) {
+            $cancelRes = $this->runSignedApiCall(
+                $client,
+                $setting->region,
+                $creds['app_key'],
+                $creds['app_secret'],
+                $creds['access_token'],
+                'GET',
+                '/order/reverse/cancel/create',
+                true,
+                [
+                    'order_id' => (string) $orderId,
+                    'order_item_id_list' => json_encode(array_values(array_map('strval', $items['order_item_ids']))),
+                    'reason_id' => (string) $reasonId,
+                ],
+                'lazada.order.reverse.cancel.create'
+            );
 
-            // Throttle calls to avoid hitting Lazada rate limits (ApiCallLimit).
-            // Keep a minimum interval between calls during this request.
-            static $lastCancelCallAtUs = 0;
+            $body = is_array($cancelRes['body'] ?? null) ? $cancelRes['body'] : [];
+            $code = (string) ($body['code'] ?? '');
 
-            while (true) {
-                $nowUs = (int)(microtime(true) * 1000000);
-                $minIntervalUs = 1100000; // 1.1s between cancel calls
-                if ($lastCancelCallAtUs > 0 && ($nowUs - $lastCancelCallAtUs) < $minIntervalUs) {
-                    usleep($minIntervalUs - ($nowUs - $lastCancelCallAtUs));
-                }
-
-                $cancelRes = $this->runSignedApiCall(
-                    $client,
-                    $setting->region,
-                    $creds['app_key'],
-                    $creds['app_secret'],
-                    $creds['access_token'],
-                    'POST',
-                    '/order/cancel',
-                    true,
-                    [
-                        'reason_id' => $reasonId,
-                        'reason_detail' => $reasonDetail,
-                        'order_item_id' => $oid,
-                    ],
-                    'lazada.order.cancel'
-                );
-
-                $lastCancelCallAtUs = (int)(microtime(true) * 1000000);
-
-                $bodyTmp = $cancelRes['body'] ?? [];
-                $codeTmp = is_array($bodyTmp) ? ($bodyTmp['code'] ?? null) : null;
-
-                // Lazada rate limiting: respect the ban window and retry a few times.
-                if ($codeTmp === 'ApiCallLimit' && $attempt < $maxAttempts) {
-                    $attempt++;
-
-                    $msg = is_array($bodyTmp) ? (string)($bodyTmp['message'] ?? '') : '';
-                    $banSeconds = 1;
-                    if (preg_match('/\bban\s+will\s+last\s+(\d+)\s+seconds?\b/i', $msg, $mm)) {
-                        $banSeconds = max(1, (int)$mm[1]);
-                    }
-
-                    // Sleep for ban duration (+1s safety) then retry.
-                    sleep($banSeconds + 1);
-                    continue;
-                }
-
-                break;
+            // Lazada rate limiting: wait out the ban window and try again.
+            if ($code === 'ApiCallLimit' && $attempt < 5) {
+                $attempt++;
+                $banSeconds = preg_match('/\bban\s+will\s+last\s+(\d+)\s+seconds?\b/i', (string) ($body['message'] ?? ''), $mm) ? max(1, (int) $mm[1]) : 1;
+                sleep($banSeconds + 1);
+                continue;
             }
-
-            $body = $cancelRes['body'] ?? [];
-            if (!($cancelRes['ok'] ?? false) || (is_array($body) && isset($body['code']) && isset($body['message']))) {
-                $errors[] = [
-                    'order_item_id' => $oid,
-                    'raw' => $cancelRes,
-                ];
-            }
+            break;
         }
 
-        if (!empty($errors)) {
+        // The verdict is Lazada's code; a tip of type "error" is a refusal too.
+        $tip = is_array($body['data'] ?? null) ? $body['data'] : [];
+        if (!($cancelRes['ok'] ?? false) || $code !== '0' || strtolower((string) ($tip['tip_type'] ?? '')) === 'error') {
+            $why = trim((string) ($tip['tip_content'] ?? '')) ?: trim((string) ($body['message'] ?? '')) ?: 'Lazada did not accept the cancellation.';
+
             return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
                 'ok' => false,
-                'message' => 'Some items failed to cancel. Please try again or check Lazada Seller Center.',
-                'raw' => $errors,
+                'message' => 'Lazada did not cancel order #' . $orderId . ': ' . $why,
+                'raw' => $cancelRes,
             ]);
         }
 
@@ -1370,8 +1342,9 @@ class LazadaOrderController extends Controller
     }
 
     /**
-     * "Recreate Package" (local-only fallback).
-     * For now we revert the local status so the order goes back to "To Pack" in our ERP.
+     * "Recreate Package": asks Lazada to repack the order's packages, which
+     * sends the order back to To Pack, and drops the stored label so the
+     * next Pack & Print fetches a fresh one.
      */
     public function recreatePackage(Request $request, LazadaClient $client, $orderId)
     {
@@ -1427,22 +1400,13 @@ class LazadaOrderController extends Controller
             ]);
         }
 
-        $orderItemList = [];
-        foreach (array_values($items['order_item_ids']) as $oid) {
-            $orderItemList[] = (string) $oid;
-        }
-
-        $packReqPayload = [
-            'delivery_type' => 'dropship',
-            'shipping_allocate_type' => 'TFS',
-            'pack_order_list' => [
-                [
-                    'order_id' => (string) $orderId,
-                    'package_id' => (string) $packageIds[0],
-                    'order_item_list' => $orderItemList,
-                ],
-            ],
-        ];
+        /* Repack, as Lazada documents it now: the packages, up to 20, and
+           nothing else. Lazada answers per package; "success" on the batch
+           does not mean every package went through, item_err_code "0" does. */
+        $packages = array_map(
+            fn ($p) => ['package_id' => (string) $p],
+            array_slice(array_values(array_unique(array_filter(array_map('strval', $packageIds)))), 0, 20)
+        );
 
         $repackRes = $this->runSignedApiCall(
             $client,
@@ -1451,28 +1415,25 @@ class LazadaOrderController extends Controller
             $creds['app_secret'],
             $creds['access_token'],
             'POST',
-            '/order/repack',
+            '/order/package/repack',
             true,
             [
-                'package_id' => (string) $packageIds[0],
-                'packReq' => json_encode($packReqPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                'rePackReq' => json_encode(['packages' => $packages], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
             ],
-            'lazada.order.repack'
+            'lazada.order.package.repack'
         );
 
-        if (!($repackRes['ok'] ?? false)) {
-            return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
-                'ok' => false,
-                'message' => 'Failed to repack order on Lazada.',
-                'raw' => $repackRes,
-            ]);
-        }
+        $body = is_array($repackRes['body'] ?? null) ? $repackRes['body'] : [];
+        $result = is_array($body['result'] ?? null) ? $body['result'] : [];
+        $answers = (array) ($result['data']['packages'] ?? []);
+        $refused = array_values(array_filter($answers, fn ($a) => is_array($a) && (string) ($a['item_err_code'] ?? '') !== '0'));
 
-        $body = $repackRes['body'] ?? [];
-        if (is_array($body) && isset($body['code']) && isset($body['message'])) {
+        if (!($repackRes['ok'] ?? false) || (string) ($body['code'] ?? '0') !== '0' || empty($result['success']) || $answers === [] || $refused !== []) {
+            $why = trim((string) ($refused[0]['msg'] ?? '')) ?: trim((string) ($result['error_msg'] ?? '')) ?: trim((string) ($body['message'] ?? '')) ?: 'Lazada did not accept the repack.';
+
             return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
                 'ok' => false,
-                'message' => 'Lazada error: ' . $body['code'] . ' - ' . $body['message'],
+                'message' => 'Lazada did not repack order #' . $orderId . ': ' . $why,
                 'raw' => $repackRes,
             ]);
         }

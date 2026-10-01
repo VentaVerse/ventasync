@@ -1246,8 +1246,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         $apiPath = '/product/remove';
         $timestamp = (string) round(microtime(true) * 1000);
-        // Lazada /product/remove expects seller_sku_list and/or sku_id_list as API params (NOT XML payload).
-        // Prefer sku_id_list when we have lazada_item_id + sku_id to avoid ambiguity when duplicate SellerSku exists.
+        // Lazada /product/remove takes sku_id_list as an API param (NOT an XML payload).
 
         $skuIdList = [];
 
@@ -1278,14 +1277,13 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             'access_token' => (string) $creds['access_token'],
         ];
 
-        // If sku_id_list is available, prefer sending ONLY sku_id_list.
-        // This matches the previously successful behavior in your logs and avoids Lazada edge cases where
-        // seller_sku_list-only calls return E006.
-        if (!empty($skuIdList)) {
-            $params['sku_id_list'] = json_encode($skuIdList, JSON_UNESCAPED_SLASHES);
-        } else {
-            $params['seller_sku_list'] = json_encode($sellerSkuList, JSON_UNESCAPED_SLASHES);
+        // Lazada retired seller_sku_list on /product/remove: sku_id_list is the
+        // only way to name what to remove, so without it nothing is sent.
+        if (empty($skuIdList)) {
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
+                ->with('error', 'Lazada did not return the SKU ids for product #' . (int) $productId . ', so nothing was deleted. Try again.');
         }
+        $params['sku_id_list'] = json_encode($skuIdList, JSON_UNESCAPED_SLASHES);
         $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
 
         // /product/remove does NOT consistently support GET across regions/accounts.
@@ -2418,11 +2416,14 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'access_token' => (string) $creds['access_token'],
         ];
 
-        if (!empty($skuIdList)) {
-            $params['sku_id_list'] = json_encode($skuIdList, JSON_UNESCAPED_SLASHES);
-        } else {
-            $params['seller_sku_list'] = json_encode($sellerSkuList, JSON_UNESCAPED_SLASHES);
+        // Lazada retired seller_sku_list on /product/remove: without the
+        // item's sku ids nothing is sent, and the row says why.
+        if (empty($skuIdList)) {
+            $this->persistProductSyncStatus($listing, 'bulk_delete_from_lazada', ['ok' => false, 'body' => ['code' => 'NO_SKU_ID', 'message' => 'Lazada did not return the SKU ids for this item, so nothing was deleted.']]);
+            $errCount++;
+            continue;
         }
+        $params['sku_id_list'] = json_encode($skuIdList, JSON_UNESCAPED_SLASHES);
         $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
 
         $result = $client->post((string) $setting->region, $apiPath, $params);

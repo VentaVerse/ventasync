@@ -388,8 +388,11 @@ class TiktokOrderDetailTest extends TestCase
         $order = $this->order('AWAITING_COLLECTION', ['order_id' => 'TT7788990011299']);
 
         Http::fake([
-            '*/order/202309/orders*' => Http::response([
+            '*/order/202507/orders*' => Http::response([
+                'code' => 0,
+                'message' => 'Success',
                 'data' => ['orders' => [[
+                    'id' => 'TT7788990011299',
                     'status' => 'AWAITING_SHIPMENT',
                     'recipient_address' => ['name' => 'Karen Lim'],
                 ]]],
@@ -401,8 +404,34 @@ class TiktokOrderDetailTest extends TestCase
             ->get('/channels/tiktok/'.$this->tiktokStore->id.'/orders/'.$order->id.'/show?refresh=1');
 
         $response->assertOk();
-        Http::assertSent(fn ($request) => str_contains($request->url(), '/order/202309/orders'));
+        // Get Order Detail as TikTok documents it: a GET, the ids in the query.
+        Http::assertSent(fn ($request) => $request->method() === 'GET'
+            && str_contains($request->url(), '/order/202507/orders?')
+            && str_contains($request->url(), 'ids=TT7788990011299'));
+        Http::assertSentCount(1);
         $this->assertSame('AWAITING_SHIPMENT', $order->fresh()->status);
+        $this->assertSame('Karen Lim', $order->fresh()->buyer_name);
+    }
+
+    public function test_a_refusal_in_the_body_leaves_the_order_and_says_so(): void
+    {
+        TikTokSetting::query()->orderBy('id')->firstOrFail()->fill([
+            'mode' => 'live',
+            'app_key' => 'test-app-key',
+            'app_secret' => 'test-app-secret',
+            'access_token' => 'test-access-token',
+            'shop_cipher' => 'test-shop-cipher',
+        ])->save();
+        $order = $this->order('AWAITING_COLLECTION', ['order_id' => 'TT7788990011300']);
+
+        Http::fake(['*' => Http::response(['code' => 36009004, 'message' => 'Invalid order id.', 'data' => (object) []], 200)]);
+
+        $this->actingAs($this->manager())
+            ->get('/channels/tiktok/'.$this->tiktokStore->id.'/orders/'.$order->id.'/show?refresh=1')
+            ->assertOk()
+            ->assertViewHas('api_error', true);
+
+        $this->assertSame('AWAITING_COLLECTION', $order->fresh()->status);
     }
 
     // ------------------------------------------------------------------

@@ -283,9 +283,12 @@ class TikTokClient
         return $this->post($appKey, $appSecret, $accessToken, '/order/202309/orders/search', ['page_size' => $pageSize], $body, $shopCipher);
     }
 
+    /** Get Order Detail: a GET with the order ids in the query, at most 50. */
     public function getOrderDetail(string $appKey, string $appSecret, string $accessToken, array $orderIds, ?string $shopCipher = null): array
     {
-        return $this->post($appKey, $appSecret, $accessToken, '/order/202309/orders', [], ['order_ids' => $orderIds], $shopCipher);
+        return $this->get($appKey, $appSecret, $accessToken, '/order/202507/orders', [
+            'ids' => implode(',', array_slice(array_values(array_map('strval', $orderIds)), 0, 50)),
+        ], $shopCipher);
     }
 
     // -- Finance ----------------------------------------------------------
