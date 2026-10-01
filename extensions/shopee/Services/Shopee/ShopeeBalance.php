@@ -6,21 +6,20 @@ use Carbon\Carbon;
 use Extensions\shopee\Models\ShopeeSetting;
 
 /**
- * The money at Shopee for one store, in Seller Center's own words (the owner,
- * 2026-10-01). Every figure was matched to Seller Center on 1 Oct 2026:
+ * The money at Shopee for one store, in Shopee Seller Center's own words
+ * (the owner, 2026-10-01: accuracy, not normalisation). Every figure matched his
+ * Seller Center screenshots on 1 Oct 2026 to the centavo:
  *
- *   Balance              current_balance on the newest wallet transaction
- *   Pending release      get_income_overview total_income.pending_amount
- *   Released this week   escrow credited since Monday, net of the escrow
- *                        deductions (ESCROW_VERIFIED_MINUS) Shopee takes
- *   Released this month  the same since the 1st
- *   Last withdrawal      the newest WITHDRAWAL_CREATED not cancelled
- *
- * The same five figures, in the same words, as TikTokBalance: both pay
- * each order into a balance the seller withdraws from (the owner, 2026-10-01).
+ *   Seller Balance          (Balance Overview) current_balance on the newest
+ *                           wallet transaction
+ *   Pending · Total         (Income Overview) get_income_overview pending_amount
+ *   Released · This Week    escrow credited since Monday, net of the escrow
+ *                           deductions (ESCROW_VERIFIED_MINUS) Shopee takes
+ *   Released · This Month   the same since the 1st
+ *   Released · Total        get_income_overview released_amount
  *
  * Read live, never stored: a page that cannot reach Shopee says so instead
- * of showing an old balance. The caller caches it for a few minutes.
+ * of showing an old balance. PayoutBalances keeps the last good read.
  */
 class ShopeeBalance
 {
@@ -84,6 +83,7 @@ class ShopeeBalance
             return ['ok' => false, 'error' => $why];
         }
         $pending = $overview['body']['response']['total_income']['pending_amount'] ?? null;
+        $releasedTotal = $overview['body']['response']['total_income']['released_amount'] ?? null;
 
         $released = fn (Carbon $since) => array_sum(array_map(
             fn ($l) => (float) ($l['amount'] ?? 0),
@@ -91,32 +91,18 @@ class ShopeeBalance
                 && (int) ($l['create_time'] ?? 0) >= $since->getTimestamp())
         ));
 
-        // The last withdrawal: in what was read, else step back for it.
-        $withdrawal = $this->lastWithdrawal($lines);
-        for ($i = 0, $to = $from->getTimestamp() - 1; $withdrawal === null && $i < self::QUIET_WINDOWS; $i++, $to -= self::WINDOW_SECONDS) {
-            $read = $this->wallet($auth, $to - self::WINDOW_SECONDS + 1, $to, self::MAX_PAGES);
-            if (is_string($read)) {
-                break;   // the balance stands without it
-            }
-            $withdrawal = $this->lastWithdrawal($read);
-        }
-
         return [
             'ok' => true,
             'lead' => [
-                'label' => 'Balance',
+                'label' => 'Seller Balance',
                 'amount' => $newest !== null ? (float) ($newest['current_balance'] ?? 0) : null,
-                'note' => $newest !== null ? 'Withdrawable now' : 'No wallet activity in the last four months',
+                'note' => $newest !== null ? null : 'No wallet activity in the last four months',
             ],
             'facts' => [
-                ['label' => 'Pending release', 'amount' => is_numeric($pending) ? (float) $pending : null],
-                ['label' => 'Released this week', 'amount' => round($released($weekStart), 2)],
-                ['label' => 'Released this month', 'amount' => round($released($monthStart), 2)],
-                [
-                    'label' => 'Last withdrawal',
-                    'amount' => $withdrawal ? abs((float) ($withdrawal['amount'] ?? 0)) : null,
-                    'sub' => $withdrawal ? Carbon::createFromTimestamp((int) $withdrawal['create_time'])->setTimezone(config('app.timezone'))->format('j M Y') : 'None in four months',
-                ],
+                ['label' => 'Pending · Total', 'amount' => is_numeric($pending) ? (float) $pending : null],
+                ['label' => 'Released · This Week', 'amount' => round($released($weekStart), 2)],
+                ['label' => 'Released · This Month', 'amount' => round($released($monthStart), 2)],
+                ['label' => 'Released · Total', 'amount' => is_numeric($releasedTotal) ? (float) $releasedTotal : null],
             ],
         ];
     }
@@ -151,28 +137,6 @@ class ShopeeBalance
         } while (($response['more'] ?? false) && $page <= $maxPages);
 
         return $lines;
-    }
-
-    /** The newest withdrawal that was not cancelled. */
-    private function lastWithdrawal(array $lines): ?array
-    {
-        $cancelled = [];
-        foreach ($lines as $line) {
-            if (($line['transaction_type'] ?? '') === 'WITHDRAWAL_CANCELLED') {
-                $cancelled[(string) ($line['withdrawal_id'] ?? '')] = true;
-            }
-        }
-        $last = null;
-        foreach ($lines as $line) {
-            if (($line['transaction_type'] ?? '') !== 'WITHDRAWAL_CREATED' || isset($cancelled[(string) ($line['withdrawal_id'] ?? '')])) {
-                continue;
-            }
-            if ($last === null || (int) ($line['create_time'] ?? 0) > (int) ($last['create_time'] ?? 0)) {
-                $last = $line;
-            }
-        }
-
-        return $last;
     }
 
     private function newest(array $lines): ?array

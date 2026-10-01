@@ -6,20 +6,21 @@ use Carbon\Carbon;
 use Extensions\lazada\Models\LazadaSetting;
 
 /**
- * The money at Lazada for one store (the owner, 2026-10-01).
+ * The money at Lazada for one store, in Lazada Seller Center's own words
+ * (the owner, 2026-10-01: accuracy, not normalisation).
  *
- * Lazada's Open Platform has no balance call: the account-transactions
- * query answers empty and no balance path exists (checked 1 Oct 2026). So
- * this shows what Lazada does publish, each matched to Seller Center that
- * day, and says plainly that the balance itself lives in Seller Center:
+ *   To be released tomorrow  every finance line after the latest daily
+ *                            statement (matched ₱148.39 exactly)
+ *   Orders to be confirmed   delivered orders the buyer has not confirmed,
+ *                            as a count: Lazada's payout estimate for them
+ *                            is not in its API
  *
- *   Latest statement     the newest daily statement's payout
- *   Ongoing statement    today's finance lines, not yet in a statement
- *                        (matched "Ongoing" ₱148.39 exactly)
- *   Paid out this month  payouts of the statements issued this month
- *   Statements unpaid    statements Lazada has issued but not paid
+ * Lazada's Open Platform has no balance and no withdrawal call: the
+ * account-transactions query answers empty and every balance path is
+ * refused (checked 1 Oct 2026). So Total Balance, Withdrawable and To
+ * Release are named as Seller Center's alone, never guessed.
  *
- * Read live, never stored. The caller caches it for a few minutes.
+ * Read live, never stored. PayoutBalances keeps the last good read.
  */
 class LazadaBalance
 {
@@ -54,20 +55,6 @@ class LazadaBalance
         usort($statements, fn ($a, $b) => strcmp((string) ($b['statement_number'] ?? ''), (string) ($a['statement_number'] ?? '')));
         $latest = $statements[0] ?? null;
 
-        $monthStart = now()->startOfMonth();
-        $paidThisMonth = 0.0;
-        $unpaid = 0.0;
-        $unpaidCount = 0;
-        foreach ($statements as $s) {
-            $payout = $this->amount($s['payout'] ?? 0);
-            if ((string) ($s['paid'] ?? '') !== '1') {
-                $unpaid += $payout;
-                $unpaidCount++;
-            } elseif ($this->time($s['created_at'] ?? null)?->gte($monthStart)) {
-                $paidThisMonth += $payout;
-            }
-        }
-
         // The ongoing statement: every finance line after the latest statement's day.
         $latestDay = $latest ? $this->statementDay($latest) : null;
         $ongoingFrom = ($latestDay ?? now()->startOfDay()->subDay())->copy()->addDay();
@@ -96,21 +83,25 @@ class LazadaBalance
             $pages++;
         } while (count($lines) === self::PAGE_SIZE && $pages < self::MAX_PAGES);
 
+        // Delivered and waiting for the buyer to confirm. Lazada works out
+        // what each will pay and does not share it, so this is a count.
+        $toConfirm = \Extensions\lazada\Models\LazadaOrder::query()
+            ->where('lazada_setting_id', $store->id)
+            ->where('status', 'delivered')
+            ->where(fn ($q) => $q->whereNull('payout_status')->orWhere('payout_status', '!=', \App\Support\PayoutStatus::PAID))
+            ->count();
+
         return [
             'ok' => true,
             'lead' => [
-                'label' => 'Latest statement',
-                'amount' => $latest ? $this->amount($latest['payout'] ?? 0) : null,
-                'note' => $latest
-                    ? ($latestDay ? $latestDay->format('j M') : (string) ($latest['statement_number'] ?? '')) . ((string) ($latest['paid'] ?? '') === '1' ? ', paid' : ', not paid yet')
-                    : 'No statement in the last two months',
+                'label' => 'To be released tomorrow',
+                'amount' => round($ongoing, 2),
+                'note' => null,
             ],
             'facts' => [
-                ['label' => 'Ongoing statement', 'amount' => round($ongoing, 2)],
-                ['label' => 'Paid out this month', 'amount' => round($paidThisMonth, 2)],
-                ['label' => 'Statements not paid', 'amount' => round($unpaid, 2), 'sub' => $unpaidCount === 1 ? '1 statement' : $unpaidCount . ' statements'],
+                ['label' => 'Orders to be confirmed', 'text' => $toConfirm === 1 ? '1 order' : number_format($toConfirm) . ' orders'],
             ],
-            'note' => 'Lazada does not share the wallet balance with apps. Your total balance is in Seller Center, under Finance.',
+            'note' => 'Total Balance, Withdrawable and To Release are shown only in Lazada Seller Center. Lazada does not share them with apps.',
         ];
     }
 

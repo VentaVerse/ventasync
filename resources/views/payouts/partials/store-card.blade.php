@@ -1,7 +1,9 @@
 {{-- One store's money at its marketplace, as a card (the owner, 2026-10-01):
      the dashboard rail and the Payouts report both draw it, from
      App\Services\Payouts\PayoutOverview::cards(). The lead figure and two
-     facts in Seller Center's words, then what the store has not been paid.
+     facts, labelled exactly as the channel's own Seller Center labels them,
+     then what the store has not been paid. A figure the channel does not
+     share is named in the note, never guessed.
      Never waits on the marketplace: it shows what was last read, with its
      age, and says so when nothing has been read yet.
 
@@ -34,9 +36,13 @@
                         <div>
                             <span class="po-label">{{ $fact['label'] }}</span>
                             <span class="po-card__fact">{{ array_key_exists('text', $fact) ? $fact['text'] : $poPeso($fact['amount']) }}</span>
+                            @if(!empty($fact['sub']))<span class="po-card__sub">{{ $fact['sub'] }}</span>@endif
                         </div>
                     @endforeach
                 </div>
+            @endif
+            @if(!empty($poBal['note']))
+                <p class="po-card__note">{{ $poBal['note'] }}</p>
             @endif
         @elseif($poBal)
             <p class="po-note">{{ $card['channel']->name }} did not answer. Nothing is guessed, so no balance is shown.</p>

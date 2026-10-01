@@ -6,22 +6,20 @@ use Carbon\Carbon;
 use Extensions\tiktok\Models\TikTokSetting;
 
 /**
- * The money at TikTok Shop for one store (the owner, 2026-10-01), from the
- * shop's money movements (Get Withdrawals, /finance/202309/withdrawals):
- * each statement settles into the shop's balance as a SETTLE record, and
- * the seller's bank transfer is a WITHDRAW record that empties it.
+ * The money at TikTok Shop for one store, in TikTok Shop Seller Center's own
+ * words (the owner, 2026-10-01: accuracy, not normalisation), from the shop's
+ * money movements (Get Withdrawals): each statement settles into the
+ * balance as a SETTLE record, and a bank transfer is a WITHDRAW record.
  *
- *   Balance                every SETTLE since the newest WITHDRAW
- *                          (matched Seller Center's ₱23,534.68 exactly)
- *   Pending release        Get Unsettled Transactions' estimated settlement
- *   Released this week     SETTLE records since Monday
- *   Released this month    SETTLE records since the 1st
- *   Last withdrawal        the newest WITHDRAW, and when
+ *   Available to withdraw                (Withdrawals) every SETTLE since
+ *                                        the newest WITHDRAW; matched ₱23,534.68
+ *   To Settle                            (Transactions) Get Unsettled
+ *                                        Transactions' estimated settlement
+ *   Total settlement amount · Last week  SETTLE records of last Monday-Sunday;
+ *                                        matched ₱7,701.79
+ *   Total settlement amount · Last month SETTLE records of last month
  *
- * The same five figures, in the same words, as ShopeeBalance: both pay
- * each order into a balance the seller withdraws from (the owner, 2026-10-01).
- *
- * Read live, never stored. The caller caches it for a few minutes.
+ * Read live, never stored. PayoutBalances keeps the last good read.
  */
 class TikTokBalance
 {
@@ -85,7 +83,6 @@ class TikTokBalance
         $since = $last ? $at($last) : 0;
 
         $settles = array_filter($records, fn ($r) => $type($r) === 'SETTLE');
-        $settledSince = fn (int $ts) => round(array_sum(array_map($amount, array_filter($settles, fn ($r) => $at($r) >= $ts))), 2);
         $available = array_sum(array_map($amount, array_filter($settles, fn ($r) => $at($r) > $since)));
 
         // Pending release: the orders TikTok has not settled yet, with its
@@ -97,23 +94,26 @@ class TikTokBalance
         $pending = $pendingOk ? (float) str_replace(',', '', (string) ($ubody['data']['sum_est_settlement_amount'] ?? 0)) : null;
         $pendingCount = $pendingOk ? (int) ($ubody['data']['total_count'] ?? 0) : null;
 
+        // TikTok's "Last week" and "Last month" are the calendar week
+        // (Monday to Sunday) and month before this one, by settlement date
+        // in the shop's own time zone: Last week matched ₱7,701.79 exactly.
+        $thisWeek = now()->startOfWeek(Carbon::MONDAY);
+        $thisMonth = now()->startOfMonth();
+        $settledBetween = fn (Carbon $from, Carbon $to) => round(array_sum(array_map($amount, array_filter($settles,
+            fn ($r) => $at($r) >= $from->getTimestamp() && $at($r) < $to->getTimestamp()))), 2);
+
         return [
             'ok' => true,
             'lead' => [
-                'label' => 'Balance',
+                'label' => 'Available to withdraw',
                 'amount' => round($available, 2),
-                'note' => $last ? 'Withdrawable now' : 'Withdrawable now; no withdrawal in the last year',
+                'note' => null,
             ],
             'facts' => [
-                ['label' => 'Pending release', 'amount' => $pending,
+                ['label' => 'To Settle', 'amount' => $pending,
                     'sub' => $pendingCount === null ? 'TikTok did not answer' : ($pendingCount === 1 ? '1 order' : $pendingCount . ' orders')],
-                ['label' => 'Released this week', 'amount' => $settledSince(now()->startOfWeek(Carbon::MONDAY)->getTimestamp())],
-                ['label' => 'Released this month', 'amount' => $settledSince(now()->startOfMonth()->getTimestamp())],
-                [
-                    'label' => 'Last withdrawal',
-                    'amount' => $last ? $amount($last) : null,
-                    'sub' => $last ? Carbon::createFromTimestamp($at($last))->setTimezone(config('app.timezone'))->format('j M Y') : 'None in a year',
-                ],
+                ['label' => 'Total settlement amount · Last week', 'amount' => $settledBetween($thisWeek->copy()->subWeek(), $thisWeek)],
+                ['label' => 'Total settlement amount · Last month', 'amount' => $settledBetween($thisMonth->copy()->subMonthNoOverflow(), $thisMonth)],
             ],
         ];
     }
