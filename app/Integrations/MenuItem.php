@@ -17,6 +17,9 @@ class MenuItem
      *                        #<section> in the URL and the page's own tab
      *                        script opens that tab, so these never invent a
      *                        destination the page does not already have.
+     * @param int|null $badge A count the menu shows beside the label, such as
+     *                        a store's unpaid orders on Payouts. Null or 0
+     *                        shows nothing.
      */
     public function __construct(
         public string $label,
@@ -26,6 +29,7 @@ class MenuItem
         public array $routeParams = [],
         public ?string $group = null,
         public array $children = [],
+        public ?int $badge = null,
     ) {
     }
 }

@@ -210,6 +210,29 @@
         background: var(--bl-paper);
     }
 
+    /* A count beside a menu item (Payouts' unpaid orders): the bad-state
+       red, small and tabular, pushed to the item's far edge. */
+    .x-chnav__child:has(.x-chnav__count) {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .x-chnav__count {
+        min-width: 20px;
+        height: 18px;
+        padding: 0 6px;
+        border-radius: var(--bl-r-pill, 999px);
+        background: var(--bl-bad-wash, #fde8e6);
+        color: var(--bl-bad);
+        font-size: 11px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        line-height: 18px;
+        text-align: center;
+    }
+
     .x-chnav__child.is-active {
         color: var(--bl-ink);
         font-weight: 650;

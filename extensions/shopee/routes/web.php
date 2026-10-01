@@ -150,6 +150,9 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
         // Vouchers (#153): a live read of the shop's vouchers.
         Route::get('/shopee/{store}/vouchers', [\Extensions\shopee\Controllers\ShopeeVoucherController::class, 'index'])->name('ext.shopee.vouchers.index');
 
+        // Payouts (the owner, 2026-10-01): the money at Shopee, and the orders it has not truly paid for.
+        Route::get('/shopee/{store}/payouts', [\Extensions\shopee\Controllers\ShopeePayoutController::class, 'index'])->name('ext.shopee.payouts.index');
+
         // The individual listing page: live marketplace state + the
         // listing record's own settings and content. Readable by the view
         // tier (the page renders read-only with every field disabled and

@@ -121,7 +121,7 @@
                             @php $mbOn = ($item['active'] ?? false) || (!empty($item['route']) && request()->routeIs($item['route'])); @endphp
                             <a class="x-chnav__child {{ $mbOn ? 'is-active' : '' }}"
                                @if($mbOn) aria-current="page" @endif
-                               href="{{ $item['url'] }}">{{ $item['label'] }}</a>
+                               href="{{ $item['url'] }}">{{ $item['label'] }}@if(!empty($item['badge']))<span class="x-chnav__count" title="{{ $item['badge'] }} to look at">{{ $item['badge'] > 99 ? '99+' : $item['badge'] }}</span>@endif</a>
                             @foreach($item['children'] ?? [] as $mbChild)
                                 <a class="x-chnav__child x-chnav__child--section {{ $mbSectionOn($mbChild['url']) ? 'is-active' : '' }}"
                                    @if($mbSectionOn($mbChild['url'])) aria-current="page" @endif

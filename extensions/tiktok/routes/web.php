@@ -99,6 +99,8 @@ Route::middleware(['auth', \Extensions\tiktok\Http\ResolveTikTokStore::class])
 
         // Coupons (#153): a live read of the shop's coupons.
         Route::get('/tiktok/{store}/coupons', [TikTokCouponController::class, 'index'])->name('ext.tiktok.coupons.index');
+        // Payouts (the owner, 2026-10-01): the money at TikTok Shop, and the orders it has not truly paid for.
+        Route::get('/tiktok/{store}/payouts', [\Extensions\tiktok\Controllers\TikTokPayoutController::class, 'index'])->name('ext.tiktok.payouts.index');
 
         // Listings (#156): the index with TikTok's own status on load, the
         // combobox endpoints the listing page reads.

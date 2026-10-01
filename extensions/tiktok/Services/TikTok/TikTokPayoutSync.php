@@ -47,6 +47,26 @@ class TikTokPayoutSync
     }
 
     /**
+     * How a store's Payouts page reads TikTok orders (App\Services\Payouts\
+     * PayoutAttention). The order page is addressed by the row id.
+     *
+     * @return array<string, mixed>
+     */
+    public static function attention(): array
+    {
+        return [
+            'channel' => 'tiktok',
+            'table' => 'tiktok_orders',
+            'store_column' => 'tiktok_setting_id',
+            'id_column' => 'order_id',
+            'payable' => self::PAYABLE_STATUSES,
+            'order_route' => 'ext.tiktok.orders.show',
+            'order_param' => 'id',
+            'order_key' => 'id',
+        ];
+    }
+
+    /**
      * @param  array{app_key: string, app_secret: string, token: string, shop_cipher: string}  $creds
      * @param  int|null  $sinceTs  read statements generated on or after this time; null reads from
      *                             the oldest order still waiting, which is what a backfill wants

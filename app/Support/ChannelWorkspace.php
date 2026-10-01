@@ -925,6 +925,7 @@ class ChannelWorkspace
                 'label' => $item->label,
                 'route' => $item->routeName,
                 'url' => $url,
+                'badge' => $item->badge > 0 ? $item->badge : null,
                 // The page's own sections, ready as links. ?tab= is the
                 // deep-link the settings tab script already honours first
                 // in its restore order (channel-settings.js), so these

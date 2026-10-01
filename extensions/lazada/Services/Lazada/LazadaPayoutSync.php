@@ -46,6 +46,26 @@ class LazadaPayoutSync
     }
 
     /**
+     * How a store's Payouts page reads Lazada orders (App\Services\Payouts\
+     * PayoutAttention).
+     *
+     * @return array<string, mixed>
+     */
+    public static function attention(): array
+    {
+        return [
+            'channel' => 'lazada',
+            'table' => 'lazada_orders',
+            'store_column' => 'lazada_setting_id',
+            'id_column' => 'order_id',
+            'payable' => self::PAYABLE_STATUSES,
+            'order_route' => 'ext.lazada.orders.show',
+            'order_param' => 'orderId',
+            'order_key' => 'ref',
+        ];
+    }
+
+    /**
      * @param  (callable(string): void)|null  $say  progress lines, for a console
      * @param  bool  $recheck  read the orders already Paid too: the statement match this
      *                         replaced marked orders Paid that Lazada never credited

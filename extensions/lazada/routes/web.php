@@ -65,6 +65,8 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
 
         // Vouchers (#153): a live read of the shop's vouchers.
         Route::get('/lazada/{store}/vouchers', [\Extensions\lazada\Controllers\LazadaVoucherController::class, 'index'])->name('ext.lazada.vouchers.index');
+        // Payouts (the owner, 2026-10-01): the money at Lazada, and the orders it has not truly paid for.
+        Route::get('/lazada/{store}/payouts', [\Extensions\lazada\Controllers\LazadaPayoutController::class, 'index'])->name('ext.lazada.payouts.index');
         Route::get('/lazada/{store}/products/search-catalog', [LazadaProductController::class, 'searchCatalogProducts'])->name('ext.lazada.products.search_catalog');
         Route::get('/lazada/{store}/brands', [LazadaBrandController::class, 'index'])->name('ext.lazada.brands.index');
         Route::get('/lazada/{store}/brands/autocomplete', [LazadaBrandController::class, 'autocomplete'])->name('ext.lazada.brands.autocomplete');

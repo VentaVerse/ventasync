@@ -1,0 +1,322 @@
+/* A store's Payouts page (resources/views/payouts/store.blade.php; the owner,
+   2026-10-01, the approved draft). Two panels on the paper: the money at
+   the marketplace in its own words, then the orders not truly paid. Money
+   is tabular everywhere so columns of pesos line up. */
+
+.po-page {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+}
+
+.po-head {
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 16px 20px;
+}
+
+.po-head__actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+}
+
+.po-checked {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--bl-ink-3);
+}
+
+/* Panels */
+.po-panel {
+    background: var(--bl-sheet);
+    border-radius: var(--bl-r-panel);
+    box-shadow: var(--bl-lift);
+    overflow: hidden;
+    animation: po-rise .32s cubic-bezier(.2, .7, .2, 1) both;
+}
+
+.po-attn { animation-delay: .06s; }
+
+@keyframes po-rise {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+}
+
+.po-panel__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px 12px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--bl-rule);
+}
+
+.po-panel__title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--bl-ink);
+}
+
+.po-label {
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: .005em;
+    color: var(--bl-ink-3);
+}
+
+.po-note {
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--bl-ink-3);
+}
+
+.po-live {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.po-live__again {
+    font-size: 12.5px;
+    font-weight: 600;
+}
+
+/* The money: one lead figure, then the channel's own facts */
+.po-money__grid {
+    display: grid;
+    grid-template-columns: minmax(220px, 1.2fr) repeat(3, minmax(0, 1fr));
+}
+
+.po-money__grid--1 { grid-template-columns: minmax(220px, 1.2fr) minmax(0, 1fr); }
+.po-money__grid--2 { grid-template-columns: minmax(220px, 1.2fr) repeat(2, minmax(0, 1fr)); }
+.po-money__grid--4 { grid-template-columns: minmax(220px, 1.2fr) repeat(4, minmax(0, 1fr)); }
+
+.po-lead,
+.po-fact {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 16px 18px;
+    min-width: 0;
+}
+
+.po-fact { border-left: 1px solid var(--bl-rule); }
+
+.po-lead__value {
+    font-size: 30px;
+    line-height: 1.1;
+    font-weight: 700;
+    font-stretch: 104%;
+    letter-spacing: -.02em;
+    font-variant-numeric: tabular-nums;
+    color: var(--bl-ink);
+}
+
+.po-fact__value {
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: -.01em;
+    font-variant-numeric: tabular-nums;
+    color: var(--bl-ink);
+}
+
+.po-money__note {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin: 0;
+    padding: 11px 18px;
+    border-top: 1px solid var(--bl-rule);
+    font-size: 12.5px;
+    color: var(--bl-ink-3);
+}
+
+.po-money__down {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 22px 18px;
+}
+
+.po-money__down-title {
+    margin: 0;
+    font-size: 14.5px;
+    font-weight: 700;
+    color: var(--bl-attn);
+}
+
+/* Needs attention */
+.po-attn__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px 28px;
+    padding: 18px 18px 12px;
+}
+
+.po-attn__intro {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-width: 62ch;
+}
+
+.po-attn__sub {
+    margin: 0;
+    font-size: 13.5px;
+    color: var(--bl-ink-2);
+}
+
+.po-totals {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px 28px;
+    margin: 0;
+}
+
+.po-total {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+}
+
+.po-total dd { margin: 0; }
+
+.po-total__value {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -.01em;
+    font-variant-numeric: tabular-nums;
+    color: var(--bl-ink);
+}
+
+.po-total--bad .po-total__value { color: var(--bl-bad); }
+
+.po-segs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 0 18px;
+}
+
+.po-seg {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 32px;
+    padding: 0 12px;
+    border: 1px solid var(--bl-rule-2);
+    border-radius: var(--bl-r-pill);
+    background: var(--bl-sheet);
+    color: var(--bl-ink-2);
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: background-color .12s ease, color .12s ease, border-color .12s ease;
+}
+
+.po-seg:hover {
+    border-color: var(--bl-ink-3);
+    color: var(--bl-ink);
+}
+
+.po-seg.is-on,
+.po-seg.is-on:hover {
+    background: var(--bl-ink);
+    border-color: var(--bl-ink);
+    color: var(--bl-sheet);
+}
+
+.po-seg__n {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    opacity: .8;
+}
+
+.po-blurb {
+    margin: 0;
+    padding: 10px 18px 14px;
+    border-bottom: 1px solid var(--bl-rule);
+    font-size: 12.5px;
+    color: var(--bl-ink-3);
+}
+
+.po-attn .x-table-wrap {
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.po-ref {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    letter-spacing: -.01em;
+}
+
+.po-neg {
+    color: var(--bl-bad);
+    font-weight: 600;
+}
+
+.po-est {
+    margin-left: 4px;
+    font-size: 11.5px;
+    color: var(--bl-ink-3);
+    text-decoration: none;
+    cursor: help;
+}
+
+.po-clean {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 40px 18px 44px;
+    text-align: center;
+    color: var(--bl-good);
+}
+
+.po-clean__title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--bl-ink);
+}
+
+.po-clean .po-note { max-width: 56ch; }
+
+@media (max-width: 1000px) {
+    .po-money__grid,
+    .po-money__grid--1,
+    .po-money__grid--2,
+    .po-money__grid--4 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .po-lead { grid-column: 1 / -1; }
+
+    .po-fact {
+        border-left: 0;
+        border-top: 1px solid var(--bl-rule);
+    }
+
+    .po-fact:nth-child(odd) { border-left: 1px solid var(--bl-rule); }
+}
+
+@media (max-width: 640px) {
+    .po-total { align-items: flex-start; }
+    .po-segs { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .po-panel { animation: none; }
+    .po-seg { transition: none; }
+}
