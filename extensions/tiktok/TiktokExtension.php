@@ -80,18 +80,6 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
             stores: fn () => \Extensions\tiktok\Models\TikTokSetting::enabledStores(),
             readBalance: fn (object $store) => app(\Extensions\tiktok\Services\TikTok\TikTokBalance::class)->read($store),
             pageRoute: 'ext.tiktok.payouts.index',
-            // Delivered or completed, in no statement yet, and not given up on.
-            extraFacts: function (object $store): array {
-                $n = \Extensions\tiktok\Models\TikTokOrder::query()
-                    ->where('tiktok_setting_id', $store->id)
-                    ->whereIn('status', \Extensions\tiktok\Services\TikTok\TikTokPayoutSync::PAYABLE_STATUSES)
-                    ->where(fn ($q) => $q->whereNull('payout_status')->orWhereNotIn('payout_status', [
-                        \App\Support\PayoutStatus::PAID, \App\Support\PayoutStatus::NO_PAYOUT, \App\Support\PayoutStatus::FAILED,
-                    ]))
-                    ->count();
-
-                return [['label' => 'To settle', 'text' => $n === 1 ? '1 order' : number_format($n) . ' orders']];
-            },
         ));
     }
 

@@ -11,16 +11,23 @@ use Extensions\tiktok\Models\TikTokSetting;
  * each statement settles into the shop's balance as a SETTLE record, and
  * the seller's bank transfer is a WITHDRAW record that empties it.
  *
- *   Available to withdraw  every SETTLE since the newest WITHDRAW
+ *   Balance                every SETTLE since the newest WITHDRAW
  *                          (matched Seller Center's ₱23,534.68 exactly)
- *   Settled last 7 days    SETTLE records of the last seven days
+ *   Pending release        Get Unsettled Transactions' estimated settlement
+ *   Released this week     SETTLE records since Monday
+ *   Released this month    SETTLE records since the 1st
  *   Last withdrawal        the newest WITHDRAW, and when
+ *
+ * The same five figures, in the same words, as ShopeeBalance: both pay
+ * each order into a balance the seller withdraws from (the owner, 2026-10-01).
  *
  * Read live, never stored. The caller caches it for a few minutes.
  */
 class TikTokBalance
 {
     private const PATH = '/finance/202309/withdrawals';
+
+    private const UNSETTLED = '/finance/202507/orders/unsettled';
 
     /** How far back to look for the last withdrawal. */
     private const LOOKBACK_DAYS = 365;
@@ -78,19 +85,30 @@ class TikTokBalance
         $since = $last ? $at($last) : 0;
 
         $settles = array_filter($records, fn ($r) => $type($r) === 'SETTLE');
+        $settledSince = fn (int $ts) => round(array_sum(array_map($amount, array_filter($settles, fn ($r) => $at($r) >= $ts))), 2);
         $available = array_sum(array_map($amount, array_filter($settles, fn ($r) => $at($r) > $since)));
-        $weekAgo = now()->subDays(7)->getTimestamp();
-        $lastWeek = array_sum(array_map($amount, array_filter($settles, fn ($r) => $at($r) >= $weekAgo)));
+
+        // Pending release: the orders TikTok has not settled yet, with its
+        // own estimate of what each will settle for.
+        $unsettled = $this->client->get($creds['app_key'], $creds['app_secret'], $creds['token'], self::UNSETTLED,
+            ['sort_field' => 'order_create_time', 'page_size' => 50], $creds['shop_cipher'] ?: null);
+        $ubody = is_array($unsettled['body'] ?? null) ? $unsettled['body'] : [];
+        $pendingOk = ($unsettled['ok'] ?? false) && (int) ($ubody['code'] ?? -1) === 0;
+        $pending = $pendingOk ? (float) str_replace(',', '', (string) ($ubody['data']['sum_est_settlement_amount'] ?? 0)) : null;
+        $pendingCount = $pendingOk ? (int) ($ubody['data']['total_count'] ?? 0) : null;
 
         return [
             'ok' => true,
             'lead' => [
-                'label' => 'Available to withdraw',
+                'label' => 'Balance',
                 'amount' => round($available, 2),
-                'note' => $last ? 'Settled since your last withdrawal' : 'No withdrawal in the last year',
+                'note' => $last ? 'Withdrawable now' : 'Withdrawable now; no withdrawal in the last year',
             ],
             'facts' => [
-                ['label' => 'Settled last 7 days', 'amount' => round($lastWeek, 2)],
+                ['label' => 'Pending release', 'amount' => $pending,
+                    'sub' => $pendingCount === null ? 'TikTok did not answer' : ($pendingCount === 1 ? '1 order' : $pendingCount . ' orders')],
+                ['label' => 'Released this week', 'amount' => $settledSince(now()->startOfWeek(Carbon::MONDAY)->getTimestamp())],
+                ['label' => 'Released this month', 'amount' => $settledSince(now()->startOfMonth()->getTimestamp())],
                 [
                     'label' => 'Last withdrawal',
                     'amount' => $last ? $amount($last) : null,
