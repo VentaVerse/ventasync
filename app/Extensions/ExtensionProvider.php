@@ -81,6 +81,17 @@ abstract class ExtensionProvider extends ServiceProvider
                 ->middleware(['auth:sanctum', 'api.limits', 'api.audit'])
                 ->group($apiRouteFile);
         }
+
+        // The app door: the same endpoints for the mobile app, reached with a
+        // person's login token under that person's permissions. The
+        // extension's routes/app.php gives each route its own `perm:`.
+        $appRouteFile = $this->basePath . '/routes/app.php';
+        if (file_exists($appRouteFile)) {
+            $this->app['router']
+                ->prefix('api')
+                ->middleware(['api', 'auth:sanctum', 'app.person'])
+                ->group($appRouteFile);
+        }
     }
 
     protected function bootViews(): void

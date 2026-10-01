@@ -24,7 +24,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login']);
 
-Route::middleware('auth:sanctum')->group(function () {
+// The app door: a person signed in with the mobile app's login token, never
+// an outside application's API key (that is /api/v1's). Each route below
+// also needs the same permission its web page needs.
+Route::middleware(['auth:sanctum', 'app.person'])->group(function () {
     Route::get('/user', function (Request $request) {
         return $request->user();
     });
@@ -72,6 +75,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/products/{id}/quantity', [ApiProductController::class, 'showQuantity']);
         Route::put('/products/{id}/quantity', [ApiProductController::class, 'updateQuantity']);
     });
+
+    /* The same shared rules the partner API runs, answering the same JSON,
+       for a person under their own permissions. An extension adds its own
+       app routes from its routes/app.php. */
+    Route::middleware('perm:view_sales/order')->group(function () {
+        Route::get('/customers', [\App\Http\Controllers\Api\V1\CustomerController::class, 'index']);
+        Route::get('/customers/history', [\App\Http\Controllers\Api\V1\CustomerController::class, 'history']);
+    });
+    Route::get('/inventory', [\App\Http\Controllers\Api\V1\InventoryController::class, 'index'])->middleware('perm:view_catalog/product');
+    Route::post('/inventory/adjust', [\App\Http\Controllers\Api\V1\InventoryController::class, 'adjust'])->middleware('perm:manage_catalog/product');
 });
 
 /*

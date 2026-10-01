@@ -29,6 +29,9 @@ class StockHistoryLogger
             $userName = $userName ?? $actor->name;
         }
 
+        // A person's change through the mobile app says so.
+        $source = \App\Support\AppDoor::source($source);
+
         DB::table('stock_history')->insert([
             'product_id'              => $productId,
             'product_option_value_id' => $optionValueId,

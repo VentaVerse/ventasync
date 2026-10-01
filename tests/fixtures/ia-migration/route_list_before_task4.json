@@ -96,6 +96,16 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "api/customers",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/customers/history",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "api/dashboard",
         "name": null
     },
@@ -112,6 +122,16 @@
     {
         "method": "POST",
         "uri": "api/device-token",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/inventory",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/inventory/adjust",
         "name": null
     },
     {
@@ -182,6 +202,91 @@
     {
         "method": "GET|HEAD",
         "uri": "api/purchase-orders/products",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/purchasing/payables",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/purchasing/purchase-orders",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/purchasing/purchase-orders",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/purchasing/purchase-orders/{ref}",
+        "name": null
+    },
+    {
+        "method": "PUT",
+        "uri": "api/purchasing/purchase-orders/{ref}",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/purchasing/purchase-orders/{ref}/payments",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/purchasing/purchase-orders/{ref}/receive",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/purchasing/sell-through",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/purchasing/vendor-terms",
+        "name": null
+    },
+    {
+        "method": "PUT",
+        "uri": "api/purchasing/vendor-terms",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/purchasing/vendors",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/reports/categories",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/reports/fees",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/reports/inventory",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/reports/orders",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/reports/payouts",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/reports/products",
         "name": null
     },
     {
@@ -372,6 +477,16 @@
     {
         "method": "GET|HEAD",
         "uri": "api/warehousing/products",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/warehousing/stock",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/warehousing/transfers",
         "name": null
     },
     {

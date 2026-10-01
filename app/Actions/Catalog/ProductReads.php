@@ -23,7 +23,7 @@ final class ProductReads
 
         \App\Support\Catalog\ProductSearch::apply($query, trim((string) $request->query('search', '')));
 
-        $products = $query->orderBy('product_id')->paginate($perPage, ['*'], 'page', $page)->withPath(url('/api/v1/products'));
+        $products = $query->orderBy('product_id')->paginate($perPage, ['*'], 'page', $page)->withPath(\App\Support\AppDoor::pagePath('products'));
 
         $writes = app(ProductWrites::class);
         $products->getCollection()->transform(fn (Product $product) => $writes->present($product));

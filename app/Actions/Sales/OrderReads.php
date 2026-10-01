@@ -73,7 +73,7 @@ final class OrderReads
         }
 
         $defaultCode = Money::defaultCode();
-        $paginated = $query->orderByDesc('o.date_added')->paginate($perPage)->withPath(url('/api/v1/orders'));
+        $paginated = $query->orderByDesc('o.date_added')->paginate($perPage)->withPath(\App\Support\AppDoor::pagePath('orders'));
         $paginated->through(fn ($row) => self::applyCurrencyShape($row, $defaultCode));
 
         return $this->json($paginated);

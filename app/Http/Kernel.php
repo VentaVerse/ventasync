@@ -84,6 +84,7 @@ class Kernel extends HttpKernel
         'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'perm' => \App\Http\Middleware\EnsurePermission::class,
+        'app.person' => \App\Http\Middleware\EnsureAppPerson::class,
 
         // External API (Settings → API): scope enforcement + audit log
         'scope' => \App\Http\Middleware\EnsureApiScope::class,

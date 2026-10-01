@@ -67,6 +67,9 @@ class ActivityLogger
                 $source = 'api';
             }
 
+            // A person's change through the mobile app says so.
+            $source = \App\Support\AppDoor::source($source);
+
             ActivityLog::create([
                 'user_id'       => $actor->userId,
                 'user_name'     => $actor->name,

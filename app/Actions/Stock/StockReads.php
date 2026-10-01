@@ -51,7 +51,7 @@ final class StockReads
         $query->orderBy(($lowStock || $threshold !== null) ? 'quantity' : 'product_id',
             ($lowStock || $threshold !== null) ? 'asc' : 'asc');
 
-        $items = $query->paginate($perPage)->withPath(url('/api/v1/inventory'));
+        $items = $query->paginate($perPage)->withPath(\App\Support\AppDoor::pagePath('inventory'));
 
         // Stock is asked about per variation ("how many Blue are left"),
         // and quantity here is the total across them, so every row carries
