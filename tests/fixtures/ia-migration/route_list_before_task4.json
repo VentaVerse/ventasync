@@ -160,6 +160,31 @@
         "name": null
     },
     {
+        "method": "DELETE",
+        "uri": "api/mobile/device-token",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/mobile/device-token",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/mobile/login",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/mobile/logout",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/mobile/user",
+        "name": null
+    },
+    {
         "method": "GET|HEAD",
         "uri": "api/order-statuses",
         "name": null
@@ -4913,6 +4938,26 @@
         "method": "GET|HEAD",
         "uri": "settings/maintenance",
         "name": "settings.maintenance"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings/mobile-app",
+        "name": "ext.mobileapp.settings.index"
+    },
+    {
+        "method": "PUT",
+        "uri": "settings/mobile-app",
+        "name": "ext.mobileapp.settings.update"
+    },
+    {
+        "method": "DELETE",
+        "uri": "settings/mobile-app/phones/{phone}",
+        "name": "ext.mobileapp.settings.revoke"
+    },
+    {
+        "method": "POST",
+        "uri": "settings/mobile-app/test",
+        "name": "ext.mobileapp.settings.test"
     },
     {
         "method": "GET|HEAD",

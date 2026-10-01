@@ -6,7 +6,7 @@ use App\Models\Catalog\Order;
 use Extensions\opencart\Models\OpenCartOrderStatusMap;
 use Extensions\opencart\Models\OpenCartSetting;
 use Extensions\opencart\Models\OpenCartSyncLog;
-use App\Services\FcmService;
+use App\Events\OrderStatusChanged;
 use App\Services\OrderStockService;
 use App\Services\ActivityLogger;
 use Illuminate\Support\Facades\DB;
@@ -497,25 +497,9 @@ class OpenCartOrderSync
             ], source: 'system');
         }
 
-        // Direct FCM dispatch - kept here because this sync uses DB::table()->insertGetId()
-        // and DB::table()->update(), which bypass Eloquent observers (App\Observers\OrderObserver).
-        // If this sync is ever converted to use Order::create()/$order->save(), remove this block.
+        // This sync writes the order table directly, which no observer sees.
         if ($coreOrderId && $oldStatusId !== $coreStatusId) {
-            try {
-                $firstProduct = ($raw['products'] ?? [])[0] ?? null;
-                $itemName = $firstProduct ? trim($firstProduct['name'] ?? '') : trim(($raw['firstname'] ?? '') . ' ' . ($raw['lastname'] ?? ''));
-                // $raw['total'] is stored into order.total verbatim (OC
-                // convention - see the comment above this transaction), which
-                // is always the default currency. Labelling it with
-                // $raw['currency_code'] (the as-transacted code) would print
-                // the wrong currency next to a default-currency figure for
-                // any foreign order, same as the bug this fixes in
-                // App\Observers\OrderObserver.
-                $total = number_format((float) ($raw['total'] ?? 0), 2) . ' ' . \App\Support\Money::defaultCode();
-                (new FcmService())->notifyIfNeeded($coreOrderId, $oldStatusId, $coreStatusId, $itemName, $total, $marketplaceSource);
-            } catch (\Throwable $e) {
-                Log::warning('FCM notification failed: ' . $e->getMessage());
-            }
+            OrderStatusChanged::fire($coreOrderId, $oldStatusId, $coreStatusId);
         }
 
         // Adjust stock based on status transition (after transaction so products are committed)

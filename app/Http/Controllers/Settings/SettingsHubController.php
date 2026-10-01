@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Settings;
 
+use App\Extensions\ExtensionManager;
 use App\Http\Controllers\Controller;
 use App\Support\Navigation;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Route;
 
 class SettingsHubController extends Controller
 {
@@ -94,6 +96,37 @@ class SettingsHubController extends Controller
                  'route' => 'error_log.index', 'icon' => 'alert-triangle',
                  'keywords' => ['log', 'exception', 'debug', 'trace']],
             ],
+            'Extensions' => self::extensionDestinations(),
         ];
+    }
+
+    /**
+     * A card for each enabled extension whose manifest declares a settings
+     * page under "settings". Channels keep their settings on their own pages
+     * and declare none.
+     */
+    private static function extensionDestinations(): array
+    {
+        $extensions = app(ExtensionManager::class);
+        $cards = [];
+
+        foreach ($extensions->getEnabledIds() as $id) {
+            $settings = $extensions->getManifest($id)['settings'] ?? null;
+            if (! is_array($settings) || empty($settings['route']) || ! Route::has((string) $settings['route'])) {
+                continue;
+            }
+
+            $cards[] = [
+                'label' => (string) ($settings['label'] ?? $extensions->getManifest($id)['name'] ?? $id),
+                'description' => (string) ($settings['description'] ?? ''),
+                'route' => (string) $settings['route'],
+                'icon' => (string) ($settings['icon'] ?? 'puzzle'),
+                'keywords' => array_values(array_map('strval', (array) ($settings['keywords'] ?? []))),
+            ];
+        }
+
+        usort($cards, fn (array $a, array $b) => strcmp($a['label'], $b['label']));
+
+        return $cards;
     }
 }

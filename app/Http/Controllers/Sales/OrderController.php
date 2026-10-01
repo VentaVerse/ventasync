@@ -214,7 +214,7 @@ class OrderController extends Controller
 
         ActivityLogger::log('created', 'Order', (int) $order->order_id, '#' . $order->order_id . ' ' . trim($request->firstname . ' ' . $request->lastname));
 
-        // FCM notification dispatched centrally by App\Observers\OrderObserver
+        // The status move is announced by App\Observers\OrderObserver.
         // on Order::create above.
 
         // Create order products
@@ -499,7 +499,7 @@ class OrderController extends Controller
             ['status' => [(string) $oldStatusName, (string) $newStatusName]]
         );
 
-        // FCM notification dispatched centrally by App\Observers\OrderObserver
+        // The status move is announced by App\Observers\OrderObserver.
         // on $order->update() above.
 
         return redirect()->route('orders.show', $id)->with('status', 'Order status updated.');

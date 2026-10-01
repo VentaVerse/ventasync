@@ -8,7 +8,7 @@ use App\Models\Catalog\OrderOption;
 use App\Models\Catalog\OrderProduct;
 use App\Models\Catalog\OrderTotal;
 use App\Services\OrderStockService;
-use App\Services\FcmService;
+use App\Events\OrderStatusChanged;
 use App\Services\ActivityLogger;
 use Extensions\venta\Models\VentaOrder;
 use Extensions\venta\Models\VentaOrderProduct;
@@ -704,23 +704,14 @@ class VentaOrderSync
             app(\App\Services\Orders\MarketplaceFeeNormalizer::class)->forOrder($coreOrderId);
         });
 
-        // Post-transaction: activity log, FCM, stock
+        // Post-transaction: activity log, status announcement, stock
         if ($coreOrderId && $oldStatusId !== $coreStatusId) {
             ActivityLogger::log('updated', 'Order', $coreOrderId, 'Venta #' . $ventaOrderId, [
                 'order_status_id' => [(string) $oldStatusId, (string) $coreStatusId],
             ], source: 'system');
 
-            // Direct FCM dispatch - kept here because this sync uses DB::table()->insertGetId()
-            // and DB::table()->update(), which bypass Eloquent observers (App\Observers\OrderObserver).
-            // If this sync is ever converted to use Order::create()/$order->save(), remove this block.
-            try {
-                $firstItem = ($raw['items'] ?? [])[0] ?? null;
-                $itemName = $firstItem ? trim($firstItem['name'] ?? '') : trim($firstname . ' ' . $lastname);
-                $totalStr = number_format((float) ($totals['total'] ?? 0), 2) . ' PHP';
-                (new FcmService())->notifyIfNeeded($coreOrderId, $oldStatusId, $coreStatusId, $itemName, $totalStr, $marketplaceSource);
-            } catch (\Throwable $e) {
-                Log::warning('FCM notification failed: ' . $e->getMessage());
-            }
+            // This sync writes the order table directly, which no observer sees.
+            OrderStatusChanged::fire($coreOrderId, $oldStatusId, $coreStatusId);
 
             if (!$this->skipStockAdjust) {
                 try {

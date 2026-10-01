@@ -2,6 +2,9 @@
 
 namespace App\Support;
 
+use App\Models\User;
+use Illuminate\Support\Facades\Gate;
+
 /**
  * The app door: the mobile app's own API routes, which a person reaches with
  * the token their login returned, under their own permissions. The shared
@@ -15,6 +18,19 @@ final class AppDoor
     public const ATTRIBUTE = 'door';
 
     public const VALUE = 'app';
+
+    /**
+     * The ability an extension may define to turn the app off for some
+     * people. Nobody defines it, everybody may sign in.
+     */
+    public const SIGN_IN = 'app.sign-in';
+
+    public const SIGN_IN_REFUSED = 'The app is turned off for this account.';
+
+    public static function mayEnter(User $user): bool
+    {
+        return ! Gate::has(self::SIGN_IN) || Gate::forUser($user)->allows(self::SIGN_IN);
+    }
 
     public static function isApp(): bool
     {

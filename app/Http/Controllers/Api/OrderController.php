@@ -192,7 +192,7 @@ class OrderController extends Controller
             OrderStockService::adjustStock($order, $oldStatusId, $newStatusId);
         }
 
-        // FCM notification dispatched centrally by App\Observers\OrderObserver
+        // The status move is announced by App\Observers\OrderObserver.
         // on $order->update() above.
 
         return response()->json(['message' => 'Order status updated.']);

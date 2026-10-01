@@ -27,6 +27,10 @@ class EnsureAppPerson
             ], 401);
         }
 
+        if (! AppDoor::mayEnter($user)) {
+            return response()->json(['message' => AppDoor::SIGN_IN_REFUSED], 403);
+        }
+
         $request->attributes->set(AppDoor::ATTRIBUTE, AppDoor::VALUE);
 
         return $next($request);

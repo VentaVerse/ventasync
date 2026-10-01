@@ -10,6 +10,12 @@
     // pre-redesign page offered every one of them to a read-tier operator.
     $canManage = auth()->user()?->hasPermission('manage_settings/extension') ?? false;
 
+    // An enabled extension that declares a settings page offers it from its row, as OpenCart's Edit does.
+    $manager = app(\App\Extensions\ExtensionManager::class);
+    $settingsRoute = fn (array $ext) => $ext['enabled']
+        && ($route = $manager->getManifest($ext['id'])['settings']['route'] ?? null)
+        && \App\Support\Navigation::allows($route) ? $route : null;
+
     // ExtensionManager::all() is the whole inventory: one entry per
     // extensions/*/extension.json on disk, merged with the `extensions`
     // table. Three states come out of that merge and the page names all
@@ -115,9 +121,14 @@
                     <x-ui.badge :tone="$state['tone']">{{ $state['label'] }}</x-ui.badge>
                 </td>
                 <td class="x-td-actions">
-                    @if($canManage)
+                    @php $settingsAt = $settingsRoute($ext); @endphp
+                    @if($canManage || $settingsAt)
                     <x-ui.menu label="{{ $ext['name'] }} actions">
-                        @if($ext['installed'])
+                        @if($settingsAt)
+                            <a class="x-menu__item" href="{{ route($settingsAt) }}">Settings</a>
+                            @if($canManage)<div class="x-menu__sep"></div>@endif
+                        @endif
+                        @if($canManage && $ext['installed'])
                             @if($ext['enabled'])
                                 <button type="button" class="x-menu__item" data-confirm-tone="primary"
                                         data-confirm="Disable {{ $ext['name'] }}? Its pages stop being reachable. Its data and every group's access to it are kept for when it is enabled again."
@@ -131,7 +142,7 @@
                             <button type="button" class="x-menu__item x-menu__item--danger"
                                     data-confirm="Uninstall {{ $ext['name'] }}? Every row in the tables it declares is deleted and its permissions are removed. The files stay on disk so it can be installed again."
                                     data-confirm-submit="st-ext-uninstall-{{ $ext['id'] }}">Uninstall</button>
-                        @else
+                        @elseif($canManage)
                             <button type="button" class="x-menu__item" data-confirm-tone="primary"
                                     data-confirm="Install {{ $ext['name'] }}? Its database migrations run now. It arrives disabled, so enable it afterwards to switch it on."
                                     data-confirm-submit="st-ext-install-{{ $ext['id'] }}">Install</button>
