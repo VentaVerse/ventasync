@@ -81,7 +81,8 @@ final class PayoutStatus
     {
         return (clone $waiting)
             ->where($createdColumn, '<', now()->subDays($days))
-            ->where(fn ($q) => $q->whereNull('payout_status')->orWhereNotIn('payout_status', [self::PAID, self::NO_PAYOUT]))
+            // A settled return is as final as Paid: never stamped over.
+            ->where(fn ($q) => $q->whereNull('payout_status')->orWhereNotIn('payout_status', [self::PAID, self::NO_PAYOUT, self::RETURNED]))
             ->update(['payout_status' => self::NO_PAYOUT, 'paid_at' => null]);
     }
 }

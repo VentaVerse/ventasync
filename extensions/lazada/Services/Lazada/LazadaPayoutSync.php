@@ -41,6 +41,12 @@ class LazadaPayoutSync
 
     private const PATH = '/finance/transaction/details/get';
 
+    /** Older orders looked up per run. */
+    private const MAX_OLD_CHECKS = 40;
+
+    /** An old order found nothing for is looked up again after this long. */
+    private const OLD_CHECK_TTL = 30 * 86400;
+
     public function __construct(private readonly LazadaClient $client)
     {
     }
@@ -83,6 +89,12 @@ class LazadaPayoutSync
         }
 
         $payable = LazadaOrder::query()->where('lazada_setting_id', $store->id)->whereIn('status', self::PAYABLE_STATUSES);
+
+        // An order past the look-back is looked up on its own before it is
+        // ever called No payout found (2026-10-02: three orders from 2021-2023,
+        // paid within days back then, reached VentaSync this year and were
+        // stamped without a look).
+        $out['paid'] += $this->checkOldOrders($store, $setting, $creds, $days, $out['requests']);
         $out['no_payout'] = PayoutStatus::retireOlderThan($payable, $days);
 
         $waiting = (clone $payable)
@@ -162,6 +174,90 @@ class LazadaPayoutSync
      *
      * @return list<array<string, mixed>>|string
      */
+    /**
+     * Look up, one order at a time, delivered orders past the look-back that
+     * are not Paid: the order's own finance lines over the year after it was
+     * placed. Its Item Price Credit makes it Paid, dated by that line. Each
+     * is looked up once a month at most. Returns how many were found paid.
+     */
+    private function checkOldOrders(LazadaSetting $store, object $setting, array $creds, int $days, int &$requests): int
+    {
+        $old = LazadaOrder::query()
+            ->where('lazada_setting_id', $store->id)
+            ->whereIn('status', self::PAYABLE_STATUSES)
+            ->where('order_created_at', '<', now()->subDays($days))
+            ->where(fn ($q) => $q->whereNull('payout_status')->orWhere('payout_status', '!=', PayoutStatus::PAID))
+            ->orderByDesc('order_created_at')
+            ->get(['id', 'order_id', 'order_created_at'])
+            ->filter(fn ($o) => ! \Illuminate\Support\Facades\Cache::has('lazada:old-check:' . $o->id))
+            ->take(self::MAX_OLD_CHECKS);
+
+        $paid = 0;
+        foreach ($old as $o) {
+            \Illuminate\Support\Facades\Cache::put('lazada:old-check:' . $o->id, 1, self::OLD_CHECK_TTL);
+            $start = Carbon::instance($o->order_created_at)->subDay()->startOfDay();
+            $creditedOn = null;
+            for ($w = 0; $w < 2 && $creditedOn === null; $w++) {
+                $from = $start->copy()->addDays($w * self::WINDOW_DAYS);
+                if ($from->isFuture()) {
+                    break;
+                }
+                $lines = $this->linesForOrder($setting, $creds, (string) $o->order_id, $from, $from->copy()->addDays(self::WINDOW_DAYS - 1)->min(now()));
+                $requests++;
+                if (is_string($lines)) {
+                    break; // looked up again next month; nothing is guessed meanwhile
+                }
+                foreach ($lines as $line) {
+                    if (($line['fee_name'] ?? '') === 'Item Price Credit' && ($day = $this->day((string) ($line['transaction_date'] ?? '')))) {
+                        $creditedOn = $creditedOn === null || $day->lt($creditedOn) ? $day : $creditedOn;
+                    }
+                }
+            }
+            if ($creditedOn !== null) {
+                LazadaOrder::query()->whereKey($o->id)->update([
+                    'payout_status' => PayoutStatus::PAID,
+                    'paid_at' => $creditedOn->toDateTimeString(),
+                ]);
+                $paid++;
+            }
+        }
+
+        return $paid;
+    }
+
+    /**
+     * Every finance line of one order in a window, or why Lazada refused.
+     *
+     * @return list<array<string, mixed>>|string
+     */
+    private function linesForOrder(object $setting, array $creds, string $orderId, Carbon $from, Carbon $to): array|string
+    {
+        $params = [
+            'app_key' => (string) $creds['app_key'],
+            'sign_method' => 'sha256',
+            'timestamp' => (string) round(microtime(true) * 1000),
+            'access_token' => (string) $creds['access_token'],
+            'start_time' => $from->toDateString(),
+            'end_time' => $to->toDateString(),
+            'trade_order_id' => $orderId,
+            'limit' => (string) self::PAGE_SIZE,
+            'offset' => '0',
+        ];
+        $params['sign'] = $this->client->sign(self::PATH, $params, (string) $creds['app_secret']);
+        $result = $this->client->get((string) $setting->region, self::PATH, $params);
+
+        $body = is_array($result['body'] ?? null) ? $result['body'] : [];
+        if (empty($result['ok']) || (string) ($body['code'] ?? '0') !== '0') {
+            return trim((string) ($body['message'] ?? '')) ?: ('HTTP ' . ($result['status'] ?? 0));
+        }
+        $data = $body['data'] ?? [];
+        if (is_array($data) && ! array_is_list($data)) {
+            $data = $data['data'] ?? $data['items'] ?? [];
+        }
+
+        return is_array($data) ? array_values(array_filter($data, 'is_array')) : [];
+    }
+
     private function creditsBetween(object $setting, array $creds, Carbon $from, Carbon $to, int $offset): array|string
     {
         $params = [

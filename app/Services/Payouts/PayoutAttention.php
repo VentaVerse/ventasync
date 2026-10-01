@@ -52,13 +52,29 @@ class PayoutAttention
             ->whereIn('status', $d['payable'])
             ->where(fn ($q) => $q->whereNull('payout_status')->orWhere('payout_status', '!=', PayoutStatus::PAID))
             ->orderBy('order_updated_at')
-            ->get(['id', $d['id_column'] . ' as ref', 'status', 'payout_status', 'order_created_at', 'order_updated_at', 'fees', 'raw', 'catalog_order_id']);
+            ->get(array_merge(
+                ['id', $d['id_column'] . ' as ref', 'status', 'payout_status', 'order_created_at', 'order_updated_at', 'fees', 'raw', 'catalog_order_id'],
+                ! empty($d['received_column']) ? [$d['received_column'] . ' as received'] : [],
+            ));
 
         $rows = [];
         foreach ($candidates as $o) {
             $expected = PayoutExpectation::for($d['channel'], $o->fees, $o->raw);
             $amount = $expected['amount'];
             $done = $this->date($o->order_updated_at) ?? $this->date($o->order_created_at);
+
+            /* A return Sync Payouts settled (2026-10-02): refunded to the
+             * buyer, closed with what the marketplace kept or paid. It is
+             * listed only when money was kept, by that net amount; a return
+             * that cost nothing, or that compensation outweighed, is done. */
+            if ($o->payout_status === PayoutStatus::RETURNED) {
+                $net = isset($o->received) && $o->received !== null ? (float) $o->received : $amount;
+                if ($net !== null && $net < 0) {
+                    $rows[] = $this->row('refunded', $o, $done, $net, false, null);
+                }
+
+                continue;
+            }
 
             $flag = match (true) {
                 $amount !== null && $amount < 0 && ! $expected['estimated'] => 'refunded',
