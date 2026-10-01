@@ -66,8 +66,6 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
                 return $ordersExit;
             }
 
-            $this->info('--- Syncing TikTok payout statuses ---');
-            $this->syncPayouts($raw);
         }
 
         if (!$skipReturns) {
@@ -77,35 +75,6 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
 
         return 0;
     }
-
-    /**
-     * Which delivered and completed orders TikTok Shop has paid out, from
-     * the statements of the last PAYOUT_DAYS days. Older ones are the
-     * backfill's (tiktok:backfill-payouts).
-     */
-    private function syncPayouts(TikTokSetting $raw): bool
-    {
-        $creds = TikTokReturnSync::credsFrom($raw);
-        if (!$creds) {
-            $this->error('Missing TikTok credentials. Configure TikTok settings first.');
-            return false;
-        }
-        $expiresAt = $raw->mode === 'sandbox' ? $raw->sandbox_expires_at : $raw->expires_at;
-        if ($expiresAt && $expiresAt->isPast()) {
-            $this->warn('TikTok access token expired (' . $expiresAt . '). Refresh it first.');
-            return false;
-        }
-
-        $result = app(\Extensions\tiktok\Services\TikTok\TikTokPayoutSync::class)
-            ->sync($raw, $creds, now()->subDays(self::PAYOUT_DAYS)->getTimestamp());
-
-        $result['ok'] ? $this->info('  ' . $result['message']) : $this->error('  ' . $result['message']);
-
-        return $result['ok'];
-    }
-
-    /** How far back a scheduled run reads statements. */
-    private const PAYOUT_DAYS = 45;
 
     /** Returns and refunds, over their own look-back window. */
     private function syncReturns(TikTokSetting $raw): void
@@ -450,7 +419,7 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
         $skipReturns = ! empty($args['--no-returns']);
         $units = [];
         foreach (TikTokSetting::enabledStores() as $store) {
-            foreach (array_values(array_filter(['orders', 'payouts', 'returns'], fn ($p) => $returnsOnly ? $p === 'returns' : ($p !== 'returns' || ! $skipReturns))) as $phase) {
+            foreach (array_values(array_filter(['orders', 'returns'], fn ($p) => $returnsOnly ? $p === 'returns' : ($p !== 'returns' || ! $skipReturns))) as $phase) {
                 $units[] = $store->id . ':' . $phase;
             }
         }
@@ -483,13 +452,6 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
                     $exit === 0 ? $ok++ : $failed++;
                     if ($exit !== 0) {
                         $notes[] = 'orders: TikTok Shop refused the sync';
-                    }
-                } elseif ($phase === 'payouts') {
-                    if ($this->syncPayouts($store)) {
-                        $ok++;
-                    } else {
-                        $failed++;
-                        $notes[] = 'payouts: TikTok Shop refused the statements';
                     }
                 } elseif ($phase === 'returns') {
                     $this->syncReturns($store);

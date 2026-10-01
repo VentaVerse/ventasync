@@ -403,8 +403,11 @@ class ChannelStatusTone
             'RELEASING'  => 'info',
             'IN_TRANSIT' => 'info',
             'UNPAID'     => 'warning',
+            'NOT_SHIPPED' => 'warning',
             // TikTok Shop says the transfer did not go through: still owed.
             'PAYMENT_FAILED' => 'warning',
+            // Never released within the look-back: worth asking the marketplace.
+            'NO_PAYOUT_FOUND' => 'warning',
             'CANCELLED'  => 'danger',
             'RETURNED'   => 'danger',
             'UNKNOWN'    => 'neutral',
@@ -711,7 +714,9 @@ class ChannelStatusTone
             'RELEASING'  => 'Releasing',
             'IN_TRANSIT' => 'In transit',
             'UNPAID'     => 'Unpaid',
+            'NOT_SHIPPED' => 'Not shipped',
             'PAYMENT_FAILED' => 'Payment failed',
+            'NO_PAYOUT_FOUND' => 'No payout found',
             'CANCELLED'  => 'Cancelled',
             'RETURNED'   => 'Returned',
             'UNKNOWN'    => 'Unknown',

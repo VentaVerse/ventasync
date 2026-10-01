@@ -2,6 +2,7 @@
 
 namespace Extensions\tiktok\Services\TikTok;
 
+use App\Support\PayoutStatus;
 use Extensions\tiktok\Models\TikTokApiLog;
 use Extensions\tiktok\Models\TikTokOrder;
 use Extensions\tiktok\Models\TikTokSetting;
@@ -32,14 +33,14 @@ class TikTokPayoutSync
     /** Statements are paged 100 at a time; a run reads at most this many. */
     public const MAX_STATEMENTS = 400;
 
-    public const PAID = 'Paid';
+    public const PAID = PayoutStatus::PAID;
 
-    public const RELEASING = 'Releasing';
+    public const RELEASING = PayoutStatus::RELEASING;
 
-    public const FAILED = 'Payment failed';
+    public const FAILED = PayoutStatus::FAILED;
 
     /** The order statuses that can have been settled into a statement. */
-    private const SETTLED_STATUSES = ['COMPLETED', 'DELIVERED'];
+    public const PAYABLE_STATUSES = ['COMPLETED', 'DELIVERED'];
 
     public function __construct(private readonly TikTokClient $client)
     {
@@ -59,7 +60,9 @@ class TikTokPayoutSync
 
         $waiting = TikTokOrder::query()
             ->where('tiktok_setting_id', $store->id)
-            ->whereIn('status', self::SETTLED_STATUSES)
+            ->whereIn('status', self::PAYABLE_STATUSES)
+            // A look-back's job has marked the older ones No payout found (TikTokSyncPayouts).
+            ->when($sinceTs !== null, fn ($q) => $q->where('order_created_at', '>=', date('Y-m-d H:i:s', $sinceTs)))
             ->where(fn ($q) => $q->whereNull('payout_status')->orWhere('payout_status', '!=', self::PAID))
             ->get(['id', 'order_id', 'order_created_at', 'payout_status']);
 

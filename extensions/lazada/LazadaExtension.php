@@ -69,6 +69,7 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
             \Extensions\lazada\Commands\LazadaRefreshListingStatus::class,
             \Extensions\lazada\Commands\LazadaRefreshToken::class,
             \Extensions\lazada\Commands\LazadaSyncOrders::class,
+            \Extensions\lazada\Commands\LazadaSyncPayouts::class,
             \Extensions\lazada\Commands\LazadaSyncReviews::class,
         ]);
 
@@ -1047,6 +1048,7 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
         return [
             ['lazada:sync-orders', 'Sync Orders', 15, 'minute', ['no_returns' => true]],
             ['lazada:sync-orders', 'Sync Returns', 30, 'minute', ['returns' => true]],
+            ['lazada:sync-payouts', 'Sync Payouts', 1, 'hour', ['days' => \App\Support\PayoutStatus::DEFAULT_LOOKBACK_DAYS]],
             ['lazada:push-stock', 'Push Stock', 30, 'minute'],
             ['lazada:push-price', 'Push Price', 30, 'minute'],
             ['lazada:sync-reviews', 'Sync Reviews', 1, 'hour', ['days' => 7]],

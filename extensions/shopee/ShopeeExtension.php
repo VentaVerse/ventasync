@@ -78,6 +78,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             \Extensions\shopee\Commands\ShopeeRefreshListingStatus::class,
             \Extensions\shopee\Commands\ShopeeRefreshToken::class,
             \Extensions\shopee\Commands\ShopeeSyncOrders::class,
+            \Extensions\shopee\Commands\ShopeeSyncPayouts::class,
             \Extensions\shopee\Commands\ShopeeSyncReviews::class,
         ]);
 
@@ -1125,6 +1126,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         return [
             ['shopee:sync-orders', 'Sync Orders', 15, 'minute', ['no_returns' => true]],
             ['shopee:sync-orders', 'Sync Returns', 30, 'minute', ['returns' => true]],
+            ['shopee:sync-payouts', 'Sync Payouts', 1, 'hour', ['days' => \App\Support\PayoutStatus::DEFAULT_LOOKBACK_DAYS]],
             ['shopee:push-stock', 'Push Stock', 30, 'minute'],
             ['shopee:push-price', 'Push Price', 30, 'minute'],
             ['shopee:sync-reviews', 'Sync Reviews', 1, 'hour', ['days' => 7]],

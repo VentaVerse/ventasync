@@ -64,6 +64,7 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
             \Extensions\tiktok\Commands\TikTokRefreshListingStatus::class,
             \Extensions\tiktok\Commands\TikTokRefreshToken::class,
             \Extensions\tiktok\Commands\TikTokSyncOrders::class,
+            \Extensions\tiktok\Commands\TikTokSyncPayouts::class,
             \Extensions\tiktok\Commands\TikTokBackfillPayouts::class,
         ]);
 
@@ -948,6 +949,7 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
         return [
             ['tiktok:sync-orders', 'Sync Orders', 15, 'minute', ['no_returns' => true]],
             ['tiktok:sync-orders', 'Sync Returns', 30, 'minute', ['returns' => true]],
+            ['tiktok:sync-payouts', 'Sync Payouts', 1, 'hour', ['days' => \App\Support\PayoutStatus::DEFAULT_LOOKBACK_DAYS]],
             ['tiktok:push-stock', 'Push Stock', 30, 'minute'],
             ['tiktok:push-price', 'Push Price', 30, 'minute'],
             ['tiktok:refresh-token', 'Refresh Access Token', 12, 'hour'],

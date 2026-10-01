@@ -44,6 +44,12 @@
     // (no DB column for it on the integration settings table).
     $reviewsJob = $jobs->firstWhere('command', "{$integration}:sync-reviews");
     $hasReviewsWindow = $reviewsJob !== null;
+
+    // Payouts look-back is the Sync Payouts job's own options.days, the
+    // same way: past it, an order still not paid is marked No payout found
+    // (App\Support\PayoutStatus, 2026-10-01).
+    $payoutsJob = $jobs->firstWhere('command', "{$integration}:sync-payouts");
+    $hasPayoutsWindow = $payoutsJob !== null;
 @endphp
 
 <div class="automations-tab">
@@ -60,11 +66,11 @@
             @csrf
             <input type="hidden" name="integration" value="{{ $integration }}">
 
-            @if($hasOrdersWindow || $hasReturnsWindow || $hasReviewsWindow)
+            @if($hasOrdersWindow || $hasReturnsWindow || $hasReviewsWindow || $hasPayoutsWindow)
                 <div class="automations-windows">
                     <div class="automations-windows-head">
                         <h4>Sync windows</h4>
-                        <p>How far back to look when fetching orders, returns, and reviews. Applied globally to the matching jobs below.</p>
+                        <p>How far back to look when fetching orders, returns, reviews, and payouts. Applied globally to the matching jobs below.</p>
                     </div>
                     <div class="automations-windows-body">
                         @if($hasOrdersWindow)
@@ -97,6 +103,16 @@
                                 <input type="number" name="jobs[{{ $reviewsJob->id }}][days]"
                                        value="{{ $reviewsJob->getOption('days', 7) }}"
                                        placeholder="7" min="1" max="365"
+                                       class="input automation-window-value">
+                                <span class="automation-window-suffix">days</span>
+                            </label>
+                        @endif
+                        @if($hasPayoutsWindow)
+                            <label class="automation-window" title="An order still not paid out after this many days is marked No payout found and no longer checked. Raise it to check older orders again.">
+                                <span class="automation-window-prefix">Payouts &mdash; look back</span>
+                                <input type="number" name="jobs[{{ $payoutsJob->id }}][days]"
+                                       value="{{ $payoutsJob->getOption('days', \App\Support\PayoutStatus::DEFAULT_LOOKBACK_DAYS) }}"
+                                       placeholder="{{ \App\Support\PayoutStatus::DEFAULT_LOOKBACK_DAYS }}" min="1" max="365"
                                        class="input automation-window-value">
                                 <span class="automation-window-suffix">days</span>
                             </label>

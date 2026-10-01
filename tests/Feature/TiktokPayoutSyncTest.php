@@ -147,7 +147,8 @@ class TiktokPayoutSyncTest extends TestCase
         $this->callResponses['GET /finance/202501/statements/S2/statement_transactions'] = $this->ok(['transactions' => [$this->orderLine('C')]]);
         $this->callResponses['GET /finance/202501/statements/S3/statement_transactions'] = $this->ok(['transactions' => [$this->orderLine('B')]]);
 
-        $this->artisan('tiktok:sync-orders --no-returns')
+        // Payouts are their own automation (Sync Payouts), out of the order sync.
+        $this->artisan('tiktok:sync-payouts')
             ->expectsOutputToContain('Payouts: 1 paid, 1 releasing, 1 payment failed, from 3 statements; 1 not settled yet.')
             ->assertExitCode(0);
 
@@ -178,14 +179,35 @@ class TiktokPayoutSyncTest extends TestCase
         ]]);
         $this->callResponses['GET /finance/202501/statements/S3/statement_transactions'] = $this->ok(['transactions' => [$this->orderLine('B')]]);
 
-        $this->artisan('tiktok:sync-orders --no-returns')->assertExitCode(0);
+        $this->artisan('tiktok:sync-payouts')->assertExitCode(0);
 
         $this->assertSame('Paid', $this->payoutOf('B')[0]);
 
         // Paid is final: the next run has nothing to ask TikTok Shop about.
         $this->sentCalls = [];
-        $this->artisan('tiktok:sync-orders --no-returns')->assertExitCode(0);
-        $this->assertSame(['/order/202309/orders/search'], array_column($this->sentCalls, 'path'));
+        $this->artisan('tiktok:sync-payouts')->assertExitCode(0);
+        $this->assertSame([], array_column($this->sentCalls, 'path'));
+    }
+
+    /**
+     * The live shop's statements say SETTLED, never PAID (all 97 of them,
+     * 2026-10-01): the money is released to the seller's TikTok balance,
+     * and reaches the bank only by a withdrawal no statement records. Paid
+     * means released to the balance, as Shopee's wallet credit does.
+     */
+    public function test_a_settled_statement_pays_its_orders_out(): void
+    {
+        $this->order('B', 'COMPLETED', now()->subDays(12), 'Releasing');
+        DB::table('tiktok_orders')->where('order_id', 'B')->update(['fees' => json_encode(['commission' => 10, 'revenue' => 100, 'settlement_amount' => 90])]);
+        $paidAt = now()->subHours(3)->timestamp;
+        $this->callResponses['GET /finance/202309/statements'] = $this->ok(['statements' => [
+            $this->statement('S4', 'SETTLED', now()->subDays(1)->startOfDay()->timestamp, $paidAt),
+        ]]);
+        $this->callResponses['GET /finance/202501/statements/S4/statement_transactions'] = $this->ok(['transactions' => [$this->orderLine('B')]]);
+
+        $this->artisan('tiktok:sync-payouts')->assertExitCode(0);
+
+        $this->assertSame(['Paid', date('Y-m-d H:i:s', $paidAt)], array_map(fn ($v) => $v === null ? null : (string) $v, $this->payoutOf('B')));
     }
 
     public function test_the_backfill_reads_from_the_oldest_waiting_order(): void
@@ -297,12 +319,13 @@ class TiktokPayoutSyncTest extends TestCase
         $this->assertSame(1, DB::table('tiktok_api_logs')->where('pack', 'fee-sync')->where('ok', 0)->count(), 'HTTP 200 with a refusal in the body is red');
     }
 
-    public function test_run_now_walks_payouts_as_its_own_step(): void
+    public function test_run_now_on_sync_orders_no_longer_walks_payouts(): void
     {
         $job = new \App\Models\ScheduledJob(['command' => 'tiktok:sync-orders']);
         $units = app(\Extensions\tiktok\Commands\TikTokSyncOrders::class)->automationUnits($job)['units'];
 
         $id = $this->tiktokStore->id;
-        $this->assertSame(["{$id}:orders", "{$id}:payouts", "{$id}:returns"], $units, 'the same order Shopee and Lazada walk');
+        // Payouts are their own automation, Sync Payouts, with its own Run now (2026-10-01).
+        $this->assertSame(["{$id}:orders", "{$id}:returns"], $units, 'the same order Shopee and Lazada walk');
     }
 }

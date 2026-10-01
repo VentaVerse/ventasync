@@ -81,8 +81,6 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
             $this->info('--- Backfilling missing Lazada fees ---');
             $this->backfillMissingFees($client, $setting);
 
-            $this->info('--- Syncing Lazada payout statuses ---');
-            $this->syncPayoutStatuses($client, $setting);
         }
 
         if (!$skipReturns) {
@@ -671,85 +669,6 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
 
         $this->info("  Backfilled fees for {$filled}/{$orders->count()} orders.");
     }
-
-    /**
-     * Fetch payout statements from Lazada and update payout_status/paid_at
-     * for delivered/completed orders that haven't been marked as Paid yet.
-     */
-    private function syncPayoutStatuses(LazadaClient $client, object $setting): void
-    {
-        $region = $setting->region ?? 'ph';
-
-        // Find delivered/completed orders without payout_status = 'Paid'
-        $pendingOrders = LazadaOrder::query()
-            ->where('region', $region)
-            ->whereIn('status', ['delivered', 'completed'])
-            ->where(function ($q) {
-                $q->whereNull('payout_status')
-                  ->orWhere('payout_status', '!=', 'Paid');
-            })
-            ->get();
-
-        if ($pendingOrders->isEmpty()) {
-            $this->info('  No delivered/completed orders awaiting payout check.');
-            return;
-        }
-
-        // Fetch payout statements to find the latest paid date
-        try {
-            $res = $this->runSignedApiCall($client, $setting, 'GET', '/finance/payout/status/get', [
-                'created_after' => now()->subDays(30)->format('Y-m-d'),
-            ], 'lazada.finance.payout_status');
-
-            if (!($res['ok'] ?? false) || !is_array($res['body']['data'] ?? null)) {
-                $this->warn('  Payout status API returned no data.');
-                return;
-            }
-
-            // Find the most recent statement with paid=1
-            $latestPaidDate = null;
-            foreach ($res['body']['data'] as $stmt) {
-                if (($stmt['paid'] ?? '0') === '1' && !empty($stmt['created_at'])) {
-                    $stmtDate = \Carbon\Carbon::parse($stmt['created_at'])->format('Y-m-d');
-                    if (!$latestPaidDate || $stmtDate > $latestPaidDate) {
-                        $latestPaidDate = $stmtDate;
-                    }
-                }
-            }
-
-            if (!$latestPaidDate) {
-                $this->info('  No paid payout statements found.');
-                return;
-            }
-
-            // Orders delivered on or before the latest paid date are considered paid
-            $paidCount = 0;
-            $releasingCount = 0;
-            foreach ($pendingOrders as $order) {
-                $updatedDate = $order->order_updated_at
-                    ? \Carbon\Carbon::parse($order->order_updated_at)->format('Y-m-d')
-                    : null;
-
-                if ($updatedDate && $updatedDate <= $latestPaidDate) {
-                    $order->update([
-                        'payout_status' => 'Paid',
-                        'paid_at' => $latestPaidDate,
-                    ]);
-                    $paidCount++;
-                } else {
-                    if (!$order->payout_status) {
-                        $order->update(['payout_status' => 'Releasing']);
-                    }
-                    $releasingCount++;
-                }
-            }
-
-            $this->info("  Payout statuses: {$paidCount} Paid, {$releasingCount} Releasing (latest paid stmt: {$latestPaidDate})");
-        } catch (\Throwable $e) {
-            $this->warn('  Payout API error: ' . $e->getMessage());
-        }
-    }
-
     private function parseApiDatetime($value): ?string
     {
         if ($value === null) return null;
@@ -785,7 +704,7 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
         $skipReturns = ! empty($args['--no-returns']);
         $units = [];
         foreach (\Extensions\lazada\Models\LazadaSetting::enabledStores() as $store) {
-            foreach (array_values(array_filter(['orders', 'fees', 'payouts', 'returns'], fn ($p) => $returnsOnly ? $p === 'returns' : ($p !== 'returns' || ! $skipReturns))) as $phase) {
+            foreach (array_values(array_filter(['orders', 'fees', 'returns'], fn ($p) => $returnsOnly ? $p === 'returns' : ($p !== 'returns' || ! $skipReturns))) as $phase) {
                 $units[] = $store->id . ':' . $phase;
             }
         }
@@ -825,7 +744,6 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
                 match ($phase) {
                     'orders' => (function () use ($client, $setting, $store) { $this->syncOrders($client, $setting); $store->forceFill(['last_order_sync_at' => now()])->save(); })(),
                     'fees' => $this->backfillMissingFees($client, $setting),
-                    'payouts' => $this->syncPayoutStatuses($client, $setting),
                     'returns' => (function () use ($client, $setting, $store) { $this->syncReturns($client, $setting); $store->forceFill(['last_return_sync_at' => now()])->save(); })(),
                     default => null,
                 };

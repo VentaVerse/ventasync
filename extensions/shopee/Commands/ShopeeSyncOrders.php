@@ -88,8 +88,6 @@ class ShopeeSyncOrders extends Command implements \App\Integrations\Contracts\St
             $this->info('--- Backfilling missing escrow fees ---');
             $this->backfillMissingFees($client, $setting, $auth);
 
-            $this->info('--- Syncing Shopee payout statuses ---');
-            $this->syncPayoutStatuses($client, $setting, $auth);
         }
 
         if (!$skipReturns) {
@@ -541,102 +539,6 @@ class ShopeeSyncOrders extends Command implements \App\Integrations\Contracts\St
 
         $this->info("  Backfilled fees for {$filled}/{$orders->count()} orders.");
     }
-
-    /**
-     * Fetch wallet transactions from Shopee and update payout_status/paid_at
-     * for COMPLETED orders that haven't been marked as Paid yet.
-     */
-    private function syncPayoutStatuses(ShopeeClient $client, object $setting, array $auth): void
-    {
-        $region = $auth['region'] ?? 'ph';
-
-        // Find COMPLETED orders without payout_status = 'Paid'
-        $pendingOrders = ShopeeOrder::query()
-            ->where('shopee_setting_id', (int) $setting->id)
-            ->where('status', 'COMPLETED')
-            ->where(function ($q) {
-                $q->whereNull('payout_status')
-                  ->orWhere('payout_status', '!=', 'Paid');
-            })
-            ->pluck('order_sn')
-            ->all();
-
-        if (empty($pendingOrders)) {
-            $this->info('  No completed orders awaiting payout check.');
-            return;
-        }
-
-        // Fetch wallet transactions (14-day API window, paginated)
-        $paidMap = []; // order_sn => paid_at
-        $pageNo = 1;
-
-        try {
-            do {
-                $res = $client->shopGet(
-                    $auth['mode'],
-                    (int) $auth['partner_id'],
-                    (string) $auth['partner_key'],
-                    (string) $auth['access_token'],
-                    (int) $auth['shop_id'],
-                    '/api/v2/payment/get_wallet_transaction_list',
-                    [
-                        'page_no'          => $pageNo,
-                        'page_size'        => 50,
-                        'create_time_from' => strtotime('-14 days'),
-                        'create_time_to'   => time(),
-                    ]
-                );
-
-                if (!($res['ok'] ?? false)) break;
-
-                $response = $res['body']['response'] ?? [];
-                $transactions = $response['transaction_list'] ?? [];
-                $hasMore = $response['more'] ?? false;
-
-                foreach ($transactions as $trx) {
-                    if (($trx['transaction_type'] ?? '') === 'ESCROW_VERIFIED_ADD'
-                        && ($trx['status'] ?? '') === 'COMPLETED'
-                        && !empty($trx['order_sn'])) {
-                        $paidMap[$trx['order_sn']] = isset($trx['create_time'])
-                            ? date('Y-m-d H:i:s', $trx['create_time'])
-                            : now()->toDateTimeString();
-                    }
-                }
-
-                $pageNo++;
-            } while ($hasMore && $pageNo <= 20);
-        } catch (\Throwable $e) {
-            $this->warn('  Wallet API error: ' . $e->getMessage());
-            return;
-        }
-
-        // Update orders that appear in the wallet payout list
-        $paidCount = 0;
-        $releasingCount = 0;
-        foreach ($pendingOrders as $orderSn) {
-            if (isset($paidMap[$orderSn])) {
-                ShopeeOrder::query()
-                    ->where('shopee_setting_id', (int) $setting->id)
-                    ->where('order_sn', $orderSn)
-                    ->update([
-                        'payout_status' => 'Paid',
-                        'paid_at' => $paidMap[$orderSn],
-                    ]);
-                $paidCount++;
-            } else {
-                // Mark as Releasing (completed but not yet paid out)
-                ShopeeOrder::query()
-                    ->where('shopee_setting_id', (int) $setting->id)
-                    ->where('order_sn', $orderSn)
-                    ->whereNull('payout_status')
-                    ->update(['payout_status' => 'Releasing']);
-                $releasingCount++;
-            }
-        }
-
-        $this->info("  Payout statuses: {$paidCount} Paid, {$releasingCount} Releasing");
-    }
-
     private function syncOrderProducts(ShopeeOrder $order, array $detail): void
     {
         $itemList = $detail['item_list'] ?? [];
@@ -788,7 +690,7 @@ class ShopeeSyncOrders extends Command implements \App\Integrations\Contracts\St
         $skipReturns = ! empty($args['--no-returns']);
         $units = [];
         foreach (ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get() as $store) {
-            foreach (array_values(array_filter(['orders', 'fees', 'payouts', 'returns'], fn ($p) => $returnsOnly ? $p === 'returns' : ($p !== 'returns' || ! $skipReturns))) as $phase) {
+            foreach (array_values(array_filter(['orders', 'fees', 'returns'], fn ($p) => $returnsOnly ? $p === 'returns' : ($p !== 'returns' || ! $skipReturns))) as $phase) {
                 $units[] = $store->id . ':' . $phase;
             }
         }
@@ -827,7 +729,6 @@ class ShopeeSyncOrders extends Command implements \App\Integrations\Contracts\St
                 match ($phase) {
                     'orders' => (function () use ($client, $setting, $auth, $store) { $this->syncOrders($client, $setting, $auth); $store->forceFill(['last_order_sync_at' => now()])->save(); })(),
                     'fees' => $this->backfillMissingFees($client, $setting, $auth),
-                    'payouts' => $this->syncPayoutStatuses($client, $setting, $auth),
                     'returns' => (function () use ($client, $setting, $auth, $store) { $this->syncReturns($client, $setting, $auth); $store->forceFill(['last_return_sync_at' => now()])->save(); })(),
                     default => null,
                 };
