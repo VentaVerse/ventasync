@@ -489,6 +489,7 @@
             @if($canManageLazadaOrders && $pendingSub === 'to_pack' && ($active_tab ?? '') === 'TO_SHIP')
                 <x-ui.button type="submit" variant="primary" size="sm"
                              formaction="{{ route('ext.lazada.orders.bulk_pack_print') }}"
+                             data-pc-channel="lazada" data-pc-bulk="ids[]"
                              formtarget="_self"
                              data-confirm="Pack the selected orders on Lazada? This creates a package for each one and cannot be undone from here."
                              data-confirm-count="Pack :n selected orders on Lazada? This creates a package for each one and cannot be undone from here."
@@ -789,6 +790,7 @@
                     @if($canManageLazadaOrders)
                         @if($isToPack)
                             <form method="POST" action="{{ route('ext.lazada.orders.pack_print', ['orderId' => $orderId]) }}"
+                                  data-pc-channel="lazada" data-pc-order="{{ $o->id }}"
                                   data-confirm="Pack this order now? This creates the packages and makes the waybill available."
                                   data-busy="Packing this order on Lazada">
                                 @csrf

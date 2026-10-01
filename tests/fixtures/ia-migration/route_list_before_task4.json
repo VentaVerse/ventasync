@@ -750,6 +750,16 @@
         "name": "channels.fulfilment"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "channels/fulfilment/packing-check/{channel}/{order}",
+        "name": "fulfilment.packing_check.show"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/fulfilment/packing-check/{channel}/{order}",
+        "name": "fulfilment.packing_check.verify"
+    },
+    {
         "method": "POST",
         "uri": "channels/fulfilment/print/{channel}/packing",
         "name": "fulfilment.print.packing"
@@ -1028,6 +1038,11 @@
         "method": "POST",
         "uri": "channels/lazada/{store}/packs/run",
         "name": "ext.lazada.packs_run"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/payouts",
+        "name": "ext.lazada.payouts.index"
     },
     {
         "method": "GET|HEAD",
@@ -2071,6 +2086,11 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/payouts",
+        "name": "ext.shopee.payouts.index"
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "channels/shopee/{store}/product-groups",
         "name": "ext.shopee.product-groups.index"
     },
@@ -2758,6 +2778,11 @@
         "method": "POST",
         "uri": "channels/tiktok/{store}/packs/run",
         "name": "ext.tiktok.packs_run"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/payouts",
+        "name": "ext.tiktok.payouts.index"
     },
     {
         "method": "GET|HEAD",
@@ -4913,6 +4938,16 @@
         "method": "POST",
         "uri": "settings/extensions/{extension}/toggle",
         "name": "extensions.toggle"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings/fulfilment",
+        "name": "settings.fulfilment"
+    },
+    {
+        "method": "PUT",
+        "uri": "settings/fulfilment",
+        "name": "settings.fulfilment.update"
     },
     {
         "method": "GET|HEAD",

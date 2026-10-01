@@ -153,6 +153,10 @@ Route::prefix('settings')->group(function () {
         Route::delete('/user-groups/{id}', [UserGroupController::class, 'destroy'])->name('user_groups.destroy');
     });
 
+    // ── Fulfilment ──
+    Route::get('/fulfilment', [\App\Http\Controllers\Settings\FulfilmentController::class, 'edit'])->name('settings.fulfilment');
+    Route::put('/fulfilment', [\App\Http\Controllers\Settings\FulfilmentController::class, 'update'])->name('settings.fulfilment.update');
+
     // ── Order Statuses, READ ──
     // IA migration (2026-08-08, Task 3), spec decision 2: this is Settings,
     // not Sales, URI moved under /settings, name untouched (the owner's nav

@@ -72,6 +72,9 @@ class SettingsHubController extends Controller
                 ['label' => 'Order Statuses', 'description' => 'The statuses an order can move through',
                  'route' => 'order_statuses.index', 'icon' => 'receipt',
                  'keywords' => ['status', 'pending', 'shipped', 'workflow']],
+                ['label' => 'Fulfilment', 'description' => 'How orders are packed before booking',
+                 'route' => 'settings.fulfilment', 'icon' => 'package',
+                 'keywords' => ['packing', 'pack', 'count', 'booking', 'ship', 'packer']],
             ],
             'Access' => [
                 ['label' => 'Users', 'description' => 'People who can sign in',

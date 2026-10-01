@@ -639,7 +639,8 @@
                          as empty on every other tab. --}}
                     @if($isToPack && $canManageShopeeOrders)
                         <button type="button" class="btnArrangeShipment x-btn x-btn--secondary x-btn--sm"
-                                data-order-sn="{{ $orderSn }}">Arrange shipment</button>
+                                data-order-sn="{{ $orderSn }}"
+                                data-pc-channel="shopee" data-pc-order="{{ $o->id }}">Arrange shipment</button>
                         {{-- The row's parcel, inert until the dialog opens:
                              resources/js/pages/shopee-orders.js clones this
                              into #spShipParcel by order number. Rendered

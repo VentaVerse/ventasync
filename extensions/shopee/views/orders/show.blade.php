@@ -91,7 +91,7 @@
         <div class="od-head__actions">
             <x-ui.button :href="route('ext.shopee.orders.show', ['orderSn' => $order->order_sn, 'refresh' => 1])">Refresh from Shopee</x-ui.button>
             @if($isToPack)
-                <x-ui.button variant="primary" class="btnArrangeShipment" data-order-sn="{{ $order->order_sn }}">Arrange shipment</x-ui.button>
+                <x-ui.button variant="primary" class="btnArrangeShipment" data-order-sn="{{ $order->order_sn }}" data-pc-channel="shopee" data-pc-order="{{ $order->id }}">Arrange shipment</x-ui.button>
             @endif
         </div>
         @endif

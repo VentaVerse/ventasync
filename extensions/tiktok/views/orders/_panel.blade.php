@@ -662,6 +662,7 @@
                               data-busy="Marking shipped on TikTok Shop">
                             @csrf
                             <x-ui.button type="button" variant="secondary" size="sm" class="btnTtShip"
+                                         data-pc-channel="tiktok" data-pc-order="{{ $o->id }}"
                                          data-order-id="{{ $o->id }}"
                                          data-order-no="{{ $o->order_id ?? $o->id }}">Ship order</x-ui.button>
                         </form>

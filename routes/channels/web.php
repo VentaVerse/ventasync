@@ -51,6 +51,16 @@ Route::prefix('channels')->group(function () {
     // and the controller gates each channel on its own VIEW tier - the same
     // reasoning the Shopee routes file records for tracking and waybill
     // downloads, which are also server-rendered from already-fetched data.
+    // The packing check: an order's lines without quantities, and a count
+    // to verify. The booking routes refuse an order not counted here.
+    Route::get('/fulfilment/packing-check/{channel}/{order}', [\App\Http\Controllers\Fulfilment\PackingCheckController::class, 'show'])
+        ->where('channel', '[a-z]+')->whereNumber('order')
+        ->name('fulfilment.packing_check.show');
+    Route::post('/fulfilment/packing-check/{channel}/{order}', [\App\Http\Controllers\Fulfilment\PackingCheckController::class, 'verify'])
+        ->where('channel', '[a-z]+')->whereNumber('order')
+        ->middleware('throttle:60,1')
+        ->name('fulfilment.packing_check.verify');
+
     Route::post('/fulfilment/print/{channel}/pick', [OrderPrintController::class, 'pick'])
         ->where('channel', '[a-z]+')
         ->name('fulfilment.print.pick');

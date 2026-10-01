@@ -330,7 +330,7 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
         Route::get('/shopee/{store}/orders/fetch-runs/{run}', [ShopeeOrderController::class, 'fetchRunState'])->whereNumber('run')->name('ext.shopee.orders.fetch_run_state');
         Route::post('/shopee/{store}/orders/update-statuses', [ShopeeOrderController::class, 'updateStatuses'])->name('ext.shopee.orders.update_statuses');
         Route::post('/shopee/{store}/orders/reset', [ShopeeOrderController::class, 'reset'])->name('ext.shopee.orders.reset');
-        Route::post('/shopee/{store}/orders/{orderSn}/ship', [ShopeeOrderController::class, 'shipOrder'])->name('ext.shopee.orders.ship');
+        Route::post('/shopee/{store}/orders/{orderSn}/ship', [ShopeeOrderController::class, 'shipOrder'])->middleware('packing.check:shopee')->name('ext.shopee.orders.ship');
         Route::post('/shopee/{store}/orders/fetch-returns', [ShopeeOrderController::class, 'fetchReturns'])->name('ext.shopee.orders.fetch_returns');
     });
 

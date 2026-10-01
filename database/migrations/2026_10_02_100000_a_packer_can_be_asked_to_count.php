@@ -1,0 +1,30 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+/**
+ * Settings > Fulfilment: ask the packer to count each item before booking.
+ * Off until someone switches it on.
+ */
+return new class extends Migration
+{
+    public function up(): void
+    {
+        if (! Schema::hasColumn('settings', 'packing_check')) {
+            Schema::table('settings', function (Blueprint $table) {
+                $table->boolean('packing_check')->default(false);
+            });
+        }
+    }
+
+    public function down(): void
+    {
+        if (Schema::hasColumn('settings', 'packing_check')) {
+            Schema::table('settings', function (Blueprint $table) {
+                $table->dropColumn('packing_check');
+            });
+        }
+    }
+};

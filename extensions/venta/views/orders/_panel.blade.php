@@ -637,6 +637,7 @@
                          colour; the accent is spent on the status badge. --}}
                     @if($vtIsToPack)
                         <x-ui.button type="button" variant="secondary" size="sm" class="btnVentaBook"
+                                     data-pc-channel="venta" data-pc-order="{{ $o->id }}"
                                      data-order-id="{{ $o->id }}"
                                      data-order-no="{{ $vtNumber }}"
                                      data-serviceability-url="{{ route('ext.venta.orders.serviceability', [$storeId, $o->id]) }}"

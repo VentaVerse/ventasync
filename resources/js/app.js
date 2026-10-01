@@ -3,6 +3,8 @@ import './sla-countdown';
 import './invoice-copy';
 import './permission-pill';
 import './credential-mask';
+// Before the confirm dialog, so the count comes first.
+import './packing-check';
 import './confirm-modal';
 import './busy-overlay';
 import './channel-order-fetch';
