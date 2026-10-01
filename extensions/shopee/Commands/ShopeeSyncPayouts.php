@@ -48,6 +48,15 @@ class ShopeeSyncPayouts extends Command
             if (! $result['ok']) {
                 $exit = self::FAILURE;
             }
+
+            // Keep the store's balance fresh too, so the dashboard and the
+            // Payouts report never meet an empty one (PayoutBalances).
+            if ($channel = app(\App\Services\Payouts\PayoutRegistry::class)->channel('shopee')) {
+                $balance = app(\App\Services\Payouts\PayoutBalances::class)->refresh($channel, $store);
+                if (! ($balance['ok'] ?? false)) {
+                    $this->warn('  Balance not read: ' . ($balance['error'] ?? 'no answer') . '.');
+                }
+            }
         }
 
         return $exit;

@@ -3,48 +3,37 @@
 namespace App\Services\Payouts;
 
 use App\Models\ScheduledJob;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 
 /**
  * One store's Payouts page, under its Sell menu (the owner, 2026-10-01). The
- * same page for Shopee, Lazada and TikTok: each channel's controller hands
- * over its attention descriptor and a reader for its live balance, and
- * this puts the two together.
- *
- * The balance is read from the marketplace and kept five minutes, so a page
- * moving between filters does not re-ask it each time. A refusal is kept
- * one minute only, so the next look tries again soon.
+ * same page for every channel in the PayoutRegistry: the money at the
+ * marketplace now (PayoutBalances, read here when older than five minutes,
+ * because someone opened this page to see it), and the orders it has not
+ * truly paid for (PayoutAttention).
  */
 class StorePayoutsPage
 {
-    private const BALANCE_TTL = 300;
-
-    private const REFUSAL_TTL = 60;
-
-    /** A forced re-read is honoured only when the kept one is older than this. */
-    private const MIN_REFRESH_AGE = 60;
-
-    public function __construct(private readonly PayoutAttention $attention)
-    {
+    public function __construct(
+        private readonly PayoutAttention $attention,
+        private readonly PayoutBalances $balances,
+    ) {
     }
 
-    /**
-     * @param  array<string, mixed>  $descriptor  the channel's PayoutSync::attention()
-     * @param  callable(): array  $readBalance  the channel's live balance read
-     * @param  list<array<string, mixed>>  $extraFacts  channel facts from the ERP's own data
-     */
-    public function view(array $descriptor, object $store, string $channelName, callable $readBalance, array $extraFacts = []): View
+    public function view(PayoutChannel $channel, object $store): View
     {
-        $channel = (string) $descriptor['channel'];
         $storeId = (int) $store->id;
 
-        $balance = $this->balance($channel, $storeId, $readBalance, request()->boolean('refresh'));
+        $balance = $this->balances->current($channel, $store, request()->boolean('refresh'));
         if ($balance['ok'] ?? false) {
-            $balance['facts'] = array_merge($balance['facts'] ?? [], $extraFacts);
+            $balance['facts'] = array_merge($balance['facts'] ?? [], $channel->extraFacts($store));
         }
 
-        $attention = $this->attention->forStore($descriptor, $storeId);
+        $attention = $this->attention->forStore($channel->attention, $storeId);
+        $attention['rows'] = array_map(fn ($r) => $r + ['order_url' => route($channel->attention['order_route'], [
+            'store' => $storeId,
+            $channel->attention['order_param'] => ($channel->attention['order_key'] ?? 'ref') === 'id' ? $r['id'] : $r['ref'],
+        ])], $attention['rows']);
 
         $flag = (string) request()->query('flag', 'all');
         if ($flag !== 'all' && ! array_key_exists($flag, $attention['counts'])) {
@@ -52,53 +41,29 @@ class StorePayoutsPage
         }
 
         $job = ScheduledJob::query()
-            ->where('command', $channel . ':sync-payouts')
+            ->where('command', $channel->id . ':sync-payouts')
             ->where(fn ($q) => $q->whereNull('store_id')->orWhere('store_id', $storeId))
             ->orderByRaw('store_id IS NULL')
             ->first();
 
         $user = auth()->user();
         $canRun = $job !== null && $user !== null
-            && ($user->hasPermission("manage_{$channel}/settings") || $user->hasPermission("manage_{$channel}"));
+            && ($user->hasPermission("manage_{$channel->id}/settings") || $user->hasPermission("manage_{$channel->id}"));
 
         return view('payouts.store', [
-            'channel' => $channel,
-            'channelName' => $channelName,
+            'channel' => $channel->id,
+            'channelName' => $channel->name,
             'store' => $store,
             'storeName' => (string) ($store->store_name ?: 'Store #' . $storeId),
             'balance' => $balance,
             'attention' => $attention,
             'rows' => $flag === 'all' ? $attention['rows'] : array_values(array_filter($attention['rows'], fn ($r) => $r['flag'] === $flag)),
             'flag' => $flag,
-            'descriptor' => $descriptor,
+            'descriptor' => $channel->attention,
             'job' => $job,
             'canRun' => $canRun,
             'overdueDays' => PayoutAttention::OVERDUE_DAYS,
-            'hasShort' => ($descriptor['received_column'] ?? null) !== null,
+            'hasShort' => ($channel->attention['received_column'] ?? null) !== null,
         ]);
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function balance(string $channel, int $storeId, callable $read, bool $refresh): array
-    {
-        $key = "payouts:balance:{$channel}:{$storeId}";
-        $kept = Cache::get($key);
-
-        if (is_array($kept) && ! ($refresh && time() - (int) ($kept['checked_at'] ?? 0) >= self::MIN_REFRESH_AGE)) {
-            return $kept;
-        }
-
-        try {
-            $fresh = $read();
-        } catch (\Throwable $e) {
-            report($e);
-            $fresh = ['ok' => false, 'error' => 'The marketplace could not be reached.'];
-        }
-        $fresh['checked_at'] = time();
-        Cache::put($key, $fresh, ($fresh['ok'] ?? false) ? self::BALANCE_TTL : self::REFUSAL_TTL);
-
-        return $fresh;
     }
 }

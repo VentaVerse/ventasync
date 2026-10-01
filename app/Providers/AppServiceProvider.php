@@ -24,6 +24,8 @@ class AppServiceProvider extends ServiceProvider
         // The device-code flow is not used, so its routes are not offered.
         \Laravel\Passport\Passport::$deviceCodeGrantEnabled = false;
         $this->app->singleton(\App\Integrations\IntegrationRegistry::class);
+        // The marketplaces that pay out per order, as their extensions register them.
+        $this->app->singleton(\App\Services\Payouts\PayoutRegistry::class);
     }
 
     /**

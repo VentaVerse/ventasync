@@ -14,18 +14,7 @@
 @php
     $peso = fn (?float $v) => $v === null ? '—' : (($v < 0 ? '−₱' : '₱') . number_format(abs($v), 2));
 
-    $flags = [
-        'overdue' => ['label' => 'Overdue', 'tone' => 'warning',
-            'blurb' => "Done more than {$overdueDays} days ago and still not credited. A normal release takes days, not a month."],
-        'short' => ['label' => 'Paid short', 'tone' => 'warning',
-            'blurb' => 'Credited, but less than the payout ' . $channelName . ' showed when the order completed.'],
-        'failed' => ['label' => 'Payment failed', 'tone' => 'danger',
-            'blurb' => $channelName . ' says it tried to pay these and the payment failed.'],
-        'nopayout' => ['label' => 'No payout found', 'tone' => 'danger',
-            'blurb' => 'Sync Payouts looked back as far as it reads and found no payment. Worth raising with ' . $channelName . '.'],
-        'refunded' => ['label' => 'Refunded · shipping charged', 'tone' => 'info',
-            'blurb' => 'Returned and refunded to the buyer in full; ' . $channelName . ' kept the shipping from your balance. Nothing is owed: it has already been taken.'],
-    ];
+    $flags = \App\Services\Payouts\PayoutAttention::flags($channelName);
 
     $counts = $attention['counts'];
     $total = count($attention['rows']);
@@ -37,11 +26,6 @@
     }
 
     $checkedAt = isset($balance['checked_at']) ? \Illuminate\Support\Carbon::createFromTimestamp($balance['checked_at'])->setTimezone(config('app.timezone')) : null;
-    $orderUrl = function (array $r) use ($descriptor) {
-        $value = $descriptor['order_key'] === 'id' ? $r['id'] : $r['ref'];
-
-        return route($descriptor['order_route'], [$descriptor['order_param'] => $value]);
-    };
 @endphp
 
 <div class="cc-page po-page">
@@ -142,50 +126,7 @@
         @if(count($rows) === 0)
             <x-ui.empty title="Nothing here" description="No order is in this state. Switch the filter to see the rest." />
         @else
-            <x-ui.table class="po-table" caption="Orders not paid as expected">
-                <x-slot:head>
-                    <tr>
-                        <th scope="col">Flag</th>
-                        <th scope="col">{{ $channelName }} order</th>
-                        <th scope="col">VentaSync</th>
-                        <th scope="col">Done</th>
-                        <th scope="col" class="x-td-num">Waiting</th>
-                        <th scope="col" class="x-td-num">Expected payout</th>
-                        <th scope="col" class="x-td-num">Received</th>
-                        <th scope="col" class="x-td-num">Difference</th>
-                    </tr>
-                </x-slot:head>
-                @foreach($rows as $r)
-                    @php
-                        $refunded = $r['flag'] === 'refunded';
-                        $diff = $refunded ? $r['expected'] : (($r['received'] ?? 0) - ($r['expected'] ?? 0));
-                    @endphp
-                    <tr>
-                        <td data-label="Flag"><x-ui.badge :tone="$flags[$r['flag']]['tone']">{{ $flags[$r['flag']]['label'] }}</x-ui.badge></td>
-                        <td data-label="{{ $channelName }} order"><a class="po-ref" href="{{ $orderUrl($r) }}">{{ $r['ref'] }}</a></td>
-                        <td data-label="VentaSync">
-                            @if($r['catalog_order_id'])
-                                <a class="x-num" href="{{ route('orders.show', $r['catalog_order_id']) }}">#{{ $r['catalog_order_id'] }}</a>
-                            @else
-                                <span class="x-cell-muted">Not linked</span>
-                            @endif
-                        </td>
-                        <td data-label="Done">{{ $r['done']?->format('j M Y') ?? '—' }}</td>
-                        <td data-label="Waiting" class="x-td-num">{{ $r['waiting_days'] === 1 ? '1 day' : $r['waiting_days'] . ' days' }}</td>
-                        <td data-label="Expected payout" class="x-td-num">
-                            @if($refunded)
-                                Refunded
-                            @else
-                                {{ $peso($r['expected']) }}@if($r['estimated'])<abbr class="po-est" title="{{ $channelName }} has not reported this order's fees, so this is the order total">est.</abbr>@endif
-                            @endif
-                        </td>
-                        <td data-label="Received" class="x-td-num x-cell-muted">{{ $refunded ? '—' : $peso($r['received']) }}</td>
-                        <td data-label="Difference" class="x-td-num">
-                            <span class="{{ $refunded ? '' : 'po-neg' }}">{{ $peso($diff) }}{{ $refunded ? ' shipping' : '' }}</span>
-                        </td>
-                    </tr>
-                @endforeach
-            </x-ui.table>
+            @include('payouts.partials.attention-table', ['rows' => $rows, 'flags' => $flags, 'showStore' => false, 'orderHead' => $channelName . ' order'])
         @endif
     @else
         <div class="po-clean">

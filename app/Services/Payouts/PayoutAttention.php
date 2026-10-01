@@ -36,6 +36,9 @@ class PayoutAttention
 
     private const BADGE_TTL = 600;
 
+    /** Done this long after it was placed means touched later, not done then. */
+    private const STALE_DONE_DAYS = 60;
+
     /**
      * @param  array{channel: string, table: string, store_column: string, id_column: string, payable: list<string>, received_column?: ?string, short_expected_sql?: ?string}  $d
      * @return array{rows: list<array<string, mixed>>, counts: array<string, int>, not_paid: float, not_paid_count: int, charged: float, charged_count: int}
@@ -88,41 +91,81 @@ class PayoutAttention
             }
         }
 
-        $order = ['overdue' => 0, 'short' => 1, 'failed' => 2, 'nopayout' => 3, 'refunded' => 4];
-        usort($rows, fn ($a, $b) => [$order[$a['flag']], -$a['waiting_days']] <=> [$order[$b['flag']], -$b['waiting_days']]);
+        usort($rows, [self::class, 'compare']);
 
-        $notPaidCount = count($rows) - $counts['refunded'];
-        Cache::put(self::badgeKey($d['channel'], $storeId), $notPaidCount, self::BADGE_TTL);
-
-        return [
-            'rows' => $rows,
-            'counts' => $counts,
+        $summary = [
             'not_paid' => round($notPaid, 2),
-            'not_paid_count' => $notPaidCount,
+            'not_paid_count' => count($rows) - $counts['refunded'],
             'charged' => round($charged, 2),
             'charged_count' => $counts['refunded'],
         ];
+        Cache::put(self::summaryKey($d['channel'], $storeId), $summary, self::BADGE_TTL);
+
+        return ['rows' => $rows, 'counts' => $counts] + $summary;
     }
 
     /**
-     * The store's unpaid count for its menu, at most ten minutes old. Never
-     * throws: a menu must not fail because a count could not be had.
+     * A store's totals, at most ten minutes old, for the dashboard and its
+     * menu. Never throws: a menu or a dashboard must not fail because a
+     * count could not be had.
      *
      * @param  array<string, mixed>  $d
+     * @return array{not_paid: float, not_paid_count: int, charged: float, charged_count: int}|null
      */
-    public function badge(array $d, int $storeId): ?int
+    public function summary(array $d, int $storeId): ?array
     {
         try {
-            return Cache::remember(self::badgeKey($d['channel'], $storeId), self::BADGE_TTL,
-                fn () => $this->forStore($d, $storeId)['not_paid_count']);
+            return Cache::remember(self::summaryKey($d['channel'], $storeId), self::BADGE_TTL, function () use ($d, $storeId) {
+                $all = $this->forStore($d, $storeId);
+
+                return array_intersect_key($all, array_flip(['not_paid', 'not_paid_count', 'charged', 'charged_count']));
+            });
         } catch (\Throwable) {
             return null;
         }
     }
 
-    private static function badgeKey(string $channel, int $storeId): string
+    /** The store's unpaid count for its menu. */
+    public function badge(array $d, int $storeId): ?int
     {
-        return "payouts:attention:{$channel}:{$storeId}";
+        return $this->summary($d, $storeId)['not_paid_count'] ?? null;
+    }
+
+    /**
+     * What each flag is called, its tone, and the sentence under the filter.
+     * One wording for a store's page and the report.
+     *
+     * @return array<string, array{label: string, tone: string, blurb: string}>
+     */
+    public static function flags(string $who = 'the marketplace'): array
+    {
+        $days = self::OVERDUE_DAYS;
+
+        return [
+            'overdue' => ['label' => 'Overdue', 'tone' => 'warning',
+                'blurb' => "Done more than {$days} days ago and still not credited. A normal release takes days, not a month."],
+            'short' => ['label' => 'Paid short', 'tone' => 'warning',
+                'blurb' => "Credited, but less than the payout {$who} showed when the order completed."],
+            'failed' => ['label' => 'Payment failed', 'tone' => 'danger',
+                'blurb' => "{$who} says it tried to pay these and the payment failed."],
+            'nopayout' => ['label' => 'No payout found', 'tone' => 'danger',
+                'blurb' => "Sync Payouts looked back as far as it reads and found no payment. Worth raising with {$who}."],
+            'refunded' => ['label' => 'Refunded · shipping charged', 'tone' => 'info',
+                'blurb' => "Returned and refunded to the buyer in full; {$who} kept the shipping from your balance. Nothing is owed: it has already been taken."],
+        ];
+    }
+
+    /** Missing money first, the longest unpaid first within it; refunds last. */
+    public static function compare(array $a, array $b): int
+    {
+        $order = ['overdue' => 0, 'short' => 1, 'failed' => 2, 'nopayout' => 3, 'refunded' => 4];
+
+        return [$order[$a['flag']], -$a['waiting_days']] <=> [$order[$b['flag']], -$b['waiting_days']];
+    }
+
+    private static function summaryKey(string $channel, int $storeId): string
+    {
+        return "payouts:summary:{$channel}:{$storeId}";
     }
 
     /**
@@ -154,15 +197,34 @@ class PayoutAttention
             ]);
     }
 
+    /**
+     * Days unpaid counts from the day the order was done, and only where
+     * money is still missing: a refund is finished business, so it has none
+     * (the owner, 2026-10-01: "how is 268 days relevant?"). The order date is
+     * what a row shows, because "done" is the order's last update, which a
+     * marketplace can touch years later.
+     */
     private function row(string $flag, object $o, ?CarbonInterface $done, ?float $expected, bool $estimated, ?float $received): array
     {
+        // A last update long after the order was placed is the marketplace
+        // touching an old order, not the order being done: count from the
+        // order date then (Lazada's 2021-2023 orders were touched in 2026).
+        $placed = $this->date($o->order_created_at);
+        $from = $done;
+        if ($placed && (! $done || $placed->diffInDays($done) > self::STALE_DONE_DAYS)) {
+            $from = $placed;
+        }
+        $days = $from ? (int) $from->diffInDays(now()) : 0;
+
         return [
             'flag' => $flag,
             'id' => (int) $o->id,
             'ref' => (string) $o->ref,
             'catalog_order_id' => $o->catalog_order_id ? (int) $o->catalog_order_id : null,
+            'placed' => $placed,
             'done' => $done,
-            'waiting_days' => $done ? (int) $done->diffInDays(now()) : 0,
+            'waiting_days' => $days,
+            'days_unpaid' => $flag === 'refunded' ? null : $days,
             'expected' => $expected,
             'estimated' => $estimated,
             'received' => $received,

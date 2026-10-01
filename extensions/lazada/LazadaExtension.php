@@ -74,6 +74,18 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
         ]);
 
         $this->app->make(IntegrationRegistry::class)->register($this);
+
+        // Payouts (the owner, 2026-10-01): the report, the dashboard and the
+        // store's own page all list Lazada's switched-on stores from here.
+        $this->app->make(\App\Services\Payouts\PayoutRegistry::class)->register(new \App\Services\Payouts\PayoutChannel(
+            id: 'lazada',
+            name: 'Lazada',
+            accent: '#0F146D',
+            attention: \Extensions\lazada\Services\Lazada\LazadaPayoutSync::attention(),
+            stores: fn () => \Extensions\lazada\Models\LazadaSetting::enabledStores(),
+            readBalance: fn (object $store) => app(\Extensions\lazada\Services\Lazada\LazadaBalance::class)->read($store),
+            pageRoute: 'ext.lazada.payouts.index',
+        ));
     }
 
     /** A deleted catalog variation is forgotten here too (VariationForgetter, 2026-09-07). */

@@ -83,6 +83,18 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         ]);
 
         $this->app->make(IntegrationRegistry::class)->register($this);
+
+        // Payouts (the owner, 2026-10-01): the report, the dashboard and the
+        // store's own page all list Shopee's switched-on stores from here.
+        $this->app->make(\App\Services\Payouts\PayoutRegistry::class)->register(new \App\Services\Payouts\PayoutChannel(
+            id: 'shopee',
+            name: 'Shopee',
+            accent: '#EE4D2D',
+            attention: \Extensions\shopee\Services\Shopee\ShopeePayoutSync::attention(),
+            stores: fn () => \Extensions\shopee\Models\ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get(),
+            readBalance: fn (object $store) => app(\Extensions\shopee\Services\Shopee\ShopeeBalance::class)->read($store),
+            pageRoute: 'ext.shopee.payouts.index',
+        ));
     }
 
     /** A deleted catalog variation is forgotten here too (VariationForgetter, 2026-09-07). */

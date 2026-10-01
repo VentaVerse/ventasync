@@ -768,6 +768,25 @@
              cards already have edges, and a rule between two bordered things
              is one line too many. --}}
         <div class="bl-rail-stack min-w-0">
+            {{-- Payouts (the owner, 2026-10-01): one card per Shopee, Lazada and
+                 TikTok store this person may see the payouts of, above
+                 Inventory. Fills the rail beside the orders, chart and share;
+                 someone without the permission sees the rail as before. --}}
+            @if(($payoutCards ?? []) !== [])
+                <div class="bl-panel-head">
+                    <h2>Payouts</h2>
+                    @if(RouteFacade::has('ext.reports.payouts') && ($user?->hasPermission('view_reports/report') ?? false))
+                        <a href="{{ route('ext.reports.payouts') }}"
+                           class="ml-auto border-b border-rule-2 text-[12px] text-ink-2 no-underline hover:border-ink hover:text-ink">
+                            Payouts report
+                        </a>
+                    @endif
+                </div>
+                @foreach($payoutCards as $card)
+                    @include('payouts.partials.store-card', ['card' => $card])
+                @endforeach
+            @endif
+
             <div class="bl-panel-head">
                 <h2>Inventory</h2>
                 {{-- A count, not a peso figure: "Stock at cost" is already in

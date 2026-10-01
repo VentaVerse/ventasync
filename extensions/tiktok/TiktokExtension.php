@@ -69,6 +69,30 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
         ]);
 
         $this->app->make(IntegrationRegistry::class)->register($this);
+
+        // Payouts (the owner, 2026-10-01): the report, the dashboard and the
+        // store's own page all list TikTok Shop's switched-on stores from here.
+        $this->app->make(\App\Services\Payouts\PayoutRegistry::class)->register(new \App\Services\Payouts\PayoutChannel(
+            id: 'tiktok',
+            name: 'TikTok Shop',
+            accent: '#111111',
+            attention: \Extensions\tiktok\Services\TikTok\TikTokPayoutSync::attention(),
+            stores: fn () => \Extensions\tiktok\Models\TikTokSetting::enabledStores(),
+            readBalance: fn (object $store) => app(\Extensions\tiktok\Services\TikTok\TikTokBalance::class)->read($store),
+            pageRoute: 'ext.tiktok.payouts.index',
+            // Delivered or completed, in no statement yet, and not given up on.
+            extraFacts: function (object $store): array {
+                $n = \Extensions\tiktok\Models\TikTokOrder::query()
+                    ->where('tiktok_setting_id', $store->id)
+                    ->whereIn('status', \Extensions\tiktok\Services\TikTok\TikTokPayoutSync::PAYABLE_STATUSES)
+                    ->where(fn ($q) => $q->whereNull('payout_status')->orWhereNotIn('payout_status', [
+                        \App\Support\PayoutStatus::PAID, \App\Support\PayoutStatus::NO_PAYOUT, \App\Support\PayoutStatus::FAILED,
+                    ]))
+                    ->count();
+
+                return [['label' => 'To settle', 'text' => $n === 1 ? '1 order' : number_format($n) . ' orders']];
+            },
+        ));
     }
 
     /** A deleted catalog variation is forgotten here too (VariationForgetter, 2026-09-07). */

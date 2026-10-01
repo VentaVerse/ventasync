@@ -237,7 +237,22 @@ class DashboardController extends Controller
         }
 
 
+        /* The rail's Payouts (the owner, 2026-10-01): one card per store whose
+         * payouts this person may see, scoped by the store control like the
+         * rest of the page. Never waits on a marketplace. */
+        $payoutScope = null;
+        if ($storeKey !== '' && ($parsed = \App\Support\StoreKey::parse($storeKey)) !== null) {
+            $payoutScope = [$parsed['source'] => [$parsed['store_id']]];
+        }
+        try {
+            $payoutCards = app(\App\Services\Payouts\PayoutOverview::class)->cards($request->user(), $payoutScope);
+        } catch (\Throwable $e) {
+            report($e);
+            $payoutCards = [];   // a payout problem never takes the dashboard down
+        }
+
         return view('dashboard.index', array_merge([
+            'payoutCards' => $payoutCards,
             'totalOrders' => $totalOrders,
             'totalRevenue' => $totalRevenue,
             'ordersBySource' => $ordersBySource,
