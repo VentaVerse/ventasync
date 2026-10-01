@@ -65,6 +65,7 @@ import './pages/settings';
 import './pages/ai-tools';
 import './pages/order-form';
 import './pages/push-review';
+import './pages/payouts';
 
 import { initNavGroups } from './nav-groups';
 import ventasyncPalette from './palette';

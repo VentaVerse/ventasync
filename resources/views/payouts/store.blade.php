@@ -92,7 +92,7 @@
 </section>
 
 {{-- The orders it has not truly paid for --}}
-<section class="po-panel po-attn" aria-labelledby="po-attn-h">
+<section class="po-panel po-attn" aria-labelledby="po-attn-h" data-po-attention>
     <header class="po-attn__head">
         <div class="po-attn__intro">
             <h2 id="po-attn-h" class="po-panel__title">Needs attention</h2>
@@ -113,21 +113,20 @@
     </header>
 
     @if($total > 0)
-        <nav class="po-segs" aria-label="Show orders that are">
+        <nav class="po-segs" aria-label="Show orders that are" data-po-filters>
             @foreach($segments as $key => $seg)
                 <a class="po-seg {{ $flag === $key ? 'is-on' : '' }}" @if($flag === $key) aria-current="true" @endif
+                   data-po-flag="{{ $key }}"
+                   data-po-blurb="{{ $key === 'all' ? 'Every order this store has not been paid for as expected.' : $flags[$key]['blurb'] }}"
                    href="{{ request()->fullUrlWithQuery(['flag' => $key === 'all' ? null : $key, 'refresh' => null]) }}">
                     {{ $seg['label'] }} <span class="po-seg__n">{{ $seg['n'] }}</span>
                 </a>
             @endforeach
         </nav>
-        <p class="po-blurb">{{ $flag === 'all' ? 'Every order this store has not been paid for as expected.' : $flags[$flag]['blurb'] }}</p>
+        <p class="po-blurb" data-po-blurb-text>{{ $flag === 'all' ? 'Every order this store has not been paid for as expected.' : $flags[$flag]['blurb'] }}</p>
 
-        @if(count($rows) === 0)
-            <x-ui.empty title="Nothing here" description="No order is in this state. Switch the filter to see the rest." />
-        @else
-            @include('payouts.partials.attention-table', ['rows' => $rows, 'flags' => $flags, 'showStore' => false, 'orderHead' => $channelName . ' order'])
-        @endif
+        @include('payouts.partials.attention-table', ['rows' => $attention['rows'], 'flags' => $flags, 'showStore' => false, 'orderHead' => $channelName . ' order', 'activeFlag' => $flag])
+        <p class="po-filter-empty" data-po-empty @if(count($rows) > 0) hidden @endif>No order is in this state. Switch the filter to see the rest.</p>
     @else
         <div class="po-clean">
             <x-ui.icon name="check" size="22" />

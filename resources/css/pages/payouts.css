@@ -504,3 +504,11 @@
     line-height: 1.45;
     color: var(--bl-ink-3);
 }
+
+.po-filter-empty {
+    margin: 0;
+    padding: 28px 18px;
+    text-align: center;
+    font-size: 13.5px;
+    color: var(--bl-ink-3);
+}

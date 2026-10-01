@@ -9,8 +9,17 @@
                  stores, channel + storeName)
      $flags      the flag labels and tones
      $showStore  whether to add the Store column
-     $orderHead  the order column's heading --}}
+     $orderHead  the order column's heading
+     $activeFlag the filter the page opened on ('all' by default)
+     $limit      rows shown before "Show all" (0 = every row)
+
+     Every row is rendered; the filter tabs show and hide them in place
+     (resources/js/pages/payouts.js), so pressing one never reloads or
+     scrolls the page. Without the script the tabs are plain links. --}}
 @php
+    $activeFlag ??= 'all';
+    $limit ??= 0;
+    $atShown = 0;
     $atPeso = fn (?float $v) => $v === null ? '—' : (($v < 0 ? '−₱' : '₱') . number_format(abs($v), 2));
 @endphp
 <x-ui.table class="po-table" caption="Orders not paid as expected">
@@ -29,10 +38,13 @@
     </x-slot:head>
     @foreach($rows as $r)
         @php
+            $atMatch = $activeFlag === 'all' || $r['flag'] === $activeFlag;
+            $atHidden = ! $atMatch || ($limit > 0 && $atShown >= $limit);
+            if (! $atHidden) { $atShown++; }
             $atRefunded = $r['flag'] === 'refunded';
             $atDiff = $atRefunded ? $r['expected'] : (($r['received'] ?? 0) - ($r['expected'] ?? 0));
         @endphp
-        <tr>
+        <tr data-po-row data-po-flag="{{ $r['flag'] }}" @if($atHidden) hidden @endif>
             <td data-label="Flag"><x-ui.badge :tone="$flags[$r['flag']]['tone']">{{ $flags[$r['flag']]['label'] }}</x-ui.badge></td>
             @if($showStore)
                 <td data-label="Store">
