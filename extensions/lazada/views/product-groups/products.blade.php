@@ -138,7 +138,6 @@
     $gf = ['_return' => $returnTo];
     $bulk = ['group' => true,
         'push' => ['action' => route('ext.lazada.product-groups.push', $group->id), 'label' => 'Send to Lazada', 'fields' => $gf, 'confirm' => 'Send the selected products to Lazada with this product group\'s settings? Anything already on Lazada is updated there.'],
-        'update' => ['action' => route('ext.lazada.product-groups.updateProduct', $group->id), 'label' => 'Send to Lazada', 'fields' => $gf, 'confirm' => 'Update the selected products on Lazada with this product group\'s settings? Anything not yet on Lazada is skipped.'],
         'link' => ['action' => route('ext.lazada.product-groups.check', $group->id), 'label' => 'Link IDs', 'fields' => $gf],
         'switch' => [
             ['action' => route('ext.lazada.products.bulk_toggle'), 'field' => 'product_ids[]', 'verb' => 'deactivate', 'codes' => 'active', 'label' => 'Deactivate :n on Lazada', 'button' => 'Deactivate on Lazada', 'fields' => ['action' => 'deactivate'], 'confirm' => 'Deactivate the selected items on Lazada? Buyers stop seeing them. They can be activated again at any time.'],

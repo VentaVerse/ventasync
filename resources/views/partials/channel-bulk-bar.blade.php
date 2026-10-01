@@ -8,9 +8,13 @@
        4  Delete from {Store}
        5  Remove from this channel
 
-     Group page, the same with the group's own verbs in front and its exit
-     at the end: Send, Update, Link IDs, the switch pair, Remove from
-     product group. The `group` flag picks that shape.
+     Group page, the same with the group's own verb in front and its exit
+     at the end: Send, Link IDs, the switch pair, Remove from product
+     group. The `group` flag picks that shape.
+
+     There is one Send and no Update beside it: Send creates what is not on
+     the store yet and updates what is, so a second button could only do
+     half of the first.
 
      Stock and price left the bar with the row menu's copies of them: they
      were the API's shape showing through, and Send carries whatever the
@@ -31,8 +35,7 @@
 
      Spec keys:
        switch   list of ['action', 'verb', 'codes', 'label' (with :n), 'button', 'confirm', 'fields' => [...]]
-       push     ['action', 'label', 'confirm']   (group only)
-       update   ['action', 'label', 'confirm']   (group only)
+       push     ['action', 'label', 'confirm']
        link     ['action', 'label']
        delete   ['action', 'label', 'confirm']
        remove   ['action', 'label', 'confirm']
@@ -71,9 +74,7 @@
     <div class="cc-bulkbar__actions">
         {{-- Push leads wherever it is offered, group page or Listings. --}}
         @if(! empty($b['push'])){!! $bulkForm($b['push'], $b['push']['label'] ?? 'Push') !!}@endif
-        @if($isGroup)
-            @if(! empty($b['update'])){!! $bulkForm($b['update'], $b['update']['label'] ?? 'Update') !!}@endif
-        @else
+        @if(! $isGroup)
             {!! $switches !!}
         @endif
         @if(! empty($b['move']))
