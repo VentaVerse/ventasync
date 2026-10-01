@@ -19,6 +19,7 @@ use Extensions\tiktok\Models\TikTokSetting;
  * verdict onto each waiting order:
  *
  *   PAID        Paid, paid_at = the statement's payment time
+ *   SETTLED     Paid the same way (what the Philippine shop's statements say)
  *   PROCESSING  Releasing
  *   FAILED      Payment failed
  *
@@ -128,7 +129,10 @@ class TikTokPayoutSync
         foreach ($verdict as $orderId => $v) {
             $order = $byOrderId->get($orderId);
             $values = match ($v['state']) {
-                'PAID' => ['payout_status' => self::PAID, 'paid_at' => $v['paid_at'] > 0 ? date('Y-m-d H:i:s', $v['paid_at']) : now()],
+                // The Philippine shop's statements say SETTLED, never PAID:
+                // all 96 of them on 2026-10-01, each with its payment_id and
+                // payment_time. Read as PAID alone, every one stayed Releasing.
+                'PAID', 'SETTLED' => ['payout_status' => self::PAID, 'paid_at' => $v['paid_at'] > 0 ? date('Y-m-d H:i:s', $v['paid_at']) : now()],
                 'FAILED' => ['payout_status' => self::FAILED, 'paid_at' => null],
                 default => ['payout_status' => self::RELEASING, 'paid_at' => null],
             };
