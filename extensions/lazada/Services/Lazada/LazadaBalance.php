@@ -7,18 +7,18 @@ use Extensions\lazada\Models\LazadaSetting;
 
 /**
  * The money at Lazada for one store, in Lazada Seller Center's own words
- * (the owner, 2026-10-01: accuracy, not normalisation).
+ * (the owner, 2026-10-01/02: accuracy, not normalisation).
  *
+ *   Total Balance            settlements paid into the wallet since the newest
+ *                            withdrawal (the wallet ledger; see totalBalance)
  *   To be released tomorrow  every finance line after the latest daily
  *                            statement (matched ₱148.39 exactly)
  *   Orders to be confirmed   delivered orders the buyer has not confirmed,
  *                            as a count: Lazada's payout estimate for them
  *                            is not in its API
  *
- * Lazada's Open Platform has no balance and no withdrawal call: the
- * account-transactions query answers empty and every balance path is
- * refused (checked 1 Oct 2026). So Total Balance, Withdrawable and To
- * Release are named as Seller Center's alone, never guessed.
+ * To Release is not shown: Lazada keeps its estimate for unconfirmed orders
+ * to itself, and one computed from fees came out 17% off on 2026-10-02.
  *
  * Read live, never stored. PayoutBalances keeps the last good read.
  */
@@ -27,6 +27,12 @@ class LazadaBalance
     private const STATEMENTS = '/finance/payout/status/get';
 
     private const LINES = '/finance/transaction/details/get';
+
+    /** The wallet ledger: settlements in, withdrawals out. */
+    private const LEDGER = '/finance/transaction/accountTransactions/query';
+
+    /** Two weeks reaches back past Monday's auto-withdrawal with room to spare. */
+    private const LEDGER_DAYS = 21;
 
     private const PAGE_SIZE = 500;
 
@@ -91,18 +97,83 @@ class LazadaBalance
             ->where(fn ($q) => $q->whereNull('payout_status')->orWhere('payout_status', '!=', \App\Support\PayoutStatus::PAID))
             ->count();
 
+        $balance = $this->totalBalance($setting, $creds);
+        if (is_string($balance)) {
+            return ['ok' => false, 'error' => $balance];
+        }
+
         return [
             'ok' => true,
             'lead' => [
-                'label' => 'To be released tomorrow',
-                'amount' => round($ongoing, 2),
+                'label' => 'Total Balance',
+                'amount' => $balance,
                 'note' => null,
             ],
             'facts' => [
+                ['label' => 'To be released tomorrow', 'amount' => round($ongoing, 2)],
                 ['label' => 'Orders to be confirmed', 'text' => $toConfirm === 1 ? '1 order' : number_format($toConfirm) . ' orders'],
             ],
-            'note' => 'Total Balance, Withdrawable and To Release are shown only in Lazada Seller Center. Lazada does not share them with apps.',
         ];
+    }
+
+    /**
+     * Lazada's Total Balance, from its wallet ledger (Query Account
+     * Transactions; dates as yyyyMMdd, which is why it once answered
+     * empty): every Settlement paid in since the newest withdrawal. Lazada
+     * auto-withdraws the whole balance every Monday at 08:22; on
+     * 2026-10-02 nine Mondays in a row each took exactly what had been paid
+     * in since the one before, and the result matched Seller Center's
+     * ₱11,694.31 to the centavo. Null when no withdrawal is in the window.
+     */
+    private function totalBalance(object $setting, array $creds): float|string|null
+    {
+        $rows = [];
+        for ($page = 1; $page <= self::MAX_PAGES; $page++) {
+            $body = $this->post($setting, $creds, self::LEDGER, [
+                'start_time' => now()->subDays(self::LEDGER_DAYS)->format('Ymd'),
+                'end_time' => now()->format('Ymd'),
+                'page_num' => (string) $page,
+                'page_size' => '100',
+            ]);
+            if (is_string($body)) {
+                return $body;
+            }
+            $batch = (array) ($body['data']['transactions'] ?? []);
+            array_push($rows, ...array_filter($batch, 'is_array'));
+            if (count($batch) < 100) {
+                break;
+            }
+        }
+
+        $at = fn (array $r) => strtotime((string) ($r['transaction_time'] ?? '')) ?: 0;
+        $withdrawals = array_filter($rows, fn ($r) => ($r['type'] ?? '') === 'Withdrawal');
+        if ($withdrawals === []) {
+            return null;
+        }
+        $last = max(array_map($at, $withdrawals));
+        $since = array_filter($rows, fn ($r) => ($r['type'] ?? '') !== 'Withdrawal' && $at($r) > $last);
+
+        return round(array_sum(array_map(fn ($r) => $this->amount($r['amount'] ?? 0), $since)), 2);
+    }
+
+    /** @return array<string, mixed>|string */
+    private function post(object $setting, array $creds, string $path, array $query): array|string
+    {
+        $params = $query + [
+            'app_key' => (string) $creds['app_key'],
+            'sign_method' => 'sha256',
+            'timestamp' => (string) round(microtime(true) * 1000),
+            'access_token' => (string) $creds['access_token'],
+        ];
+        $params['sign'] = $this->client->sign($path, $params, (string) $creds['app_secret']);
+        $result = $this->client->post((string) $setting->region, $path, $params);
+
+        $body = is_array($result['body'] ?? null) ? $result['body'] : [];
+        if (empty($result['ok']) || (string) ($body['code'] ?? '0') !== '0') {
+            return trim((string) ($body['message'] ?? '')) ?: ('HTTP ' . ($result['status'] ?? 0));
+        }
+
+        return $body;
     }
 
     /** @return array<string, mixed>|string */
