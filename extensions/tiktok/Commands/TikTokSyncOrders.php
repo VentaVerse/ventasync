@@ -65,6 +65,9 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
             if ($ordersExit !== 0) {
                 return $ordersExit;
             }
+
+            $this->info('--- Syncing TikTok payout statuses ---');
+            $this->syncPayouts($raw);
         }
 
         if (!$skipReturns) {
@@ -74,6 +77,35 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
 
         return 0;
     }
+
+    /**
+     * Which delivered and completed orders TikTok Shop has paid out, from
+     * the statements of the last PAYOUT_DAYS days. Older ones are the
+     * backfill's (tiktok:backfill-payouts).
+     */
+    private function syncPayouts(TikTokSetting $raw): bool
+    {
+        $creds = TikTokReturnSync::credsFrom($raw);
+        if (!$creds) {
+            $this->error('Missing TikTok credentials. Configure TikTok settings first.');
+            return false;
+        }
+        $expiresAt = $raw->mode === 'sandbox' ? $raw->sandbox_expires_at : $raw->expires_at;
+        if ($expiresAt && $expiresAt->isPast()) {
+            $this->warn('TikTok access token expired (' . $expiresAt . '). Refresh it first.');
+            return false;
+        }
+
+        $result = app(\Extensions\tiktok\Services\TikTok\TikTokPayoutSync::class)
+            ->sync($raw, $creds, now()->subDays(self::PAYOUT_DAYS)->getTimestamp());
+
+        $result['ok'] ? $this->info('  ' . $result['message']) : $this->error('  ' . $result['message']);
+
+        return $result['ok'];
+    }
+
+    /** How far back a scheduled run reads statements. */
+    private const PAYOUT_DAYS = 45;
 
     /** Returns and refunds, over their own look-back window. */
     private function syncReturns(TikTokSetting $raw): void
@@ -178,6 +210,14 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
 
         if (empty($allOrders)) {
             $this->info('No orders found.');
+            // Orders still missing fees are filled in on a quiet day too.
+            $this->info('--- Backfilling missing TikTok fees ---');
+            $this->backfillMissingFees($client, [
+                'app_key'     => $appKey,
+                'app_secret'  => $appSecret,
+                'token'       => $token,
+                'shop_cipher' => $shopCipher,
+            ]);
             $raw->forceFill(['last_order_sync_at' => now()])->save();
             return 0;
         }
@@ -306,56 +346,55 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
                 $creds['shop_cipher']
             );
 
+            $apiCode = (int) ($result['body']['code'] ?? -1);
+
             TikTokApiLog::safeCreate([
                 'pack'            => 'fee-sync',
                 'method'          => 'GET',
-                'api_path'        => '/finance/202309/orders/' . $order->order_id . '/statement_transactions',
+                'api_path'        => '/finance/202501/orders/' . $order->order_id . '/statement_transactions',
                 'auth_required'   => true,
                 'request_params'  => ['order_id' => $order->order_id],
                 'response_status' => $result['status'] ?? 0,
-                'ok'              => $result['ok'] ?? false,
+                // Green is TikTok's own verdict in the body, never HTTP 200 alone.
+                'ok'              => ($result['ok'] ?? false) && $apiCode === 0,
                 'response_body'   => $result['body'] ?? [],
                 'user_id'         => null,
             ]);
 
-            $apiCode = (int) ($result['body']['code'] ?? -1);
             if ($apiCode !== 0) {
                 return;
             }
 
-            $transactions = $result['body']['data']['statement_transactions'] ?? [];
-            if (!is_array($transactions) || empty($transactions)) {
+            /* Get Transactions by Order 202501: one object per order, its
+               figures per SKU line. An order TikTok has not settled yet has
+               no lines and is asked again on a later run. */
+            $data = $result['body']['data'] ?? [];
+            $lines = is_array($data) ? ($data['sku_transactions'] ?? []) : [];
+            if (!is_array($lines) || empty($lines)) {
                 return;
             }
 
-            // TikTok returns named amount fields per transaction, not typed rows.
-            // Sum across all transactions (usually 1 per order).
             $commissionTotal     = 0.0;
             $transactionFeeTotal = 0.0;
             $shippingFeeTotal    = 0.0;
-            $settlementTotal     = 0.0;
-            $revenueTotal        = 0.0;
-            $platformDiscount    = 0.0;
 
-            foreach ($transactions as $trx) {
-                if (!is_array($trx)) continue;
+            foreach ($lines as $line) {
+                if (!is_array($line)) continue;
 
-                $commissionTotal     += abs((float) ($trx['platform_commission_amount'] ?? 0));
-                $transactionFeeTotal += abs((float) ($trx['transaction_fee_amount'] ?? 0));
-                $shippingFeeTotal    += abs((float) ($trx['actual_shipping_fee_amount'] ?? 0));
-                $settlementTotal     += (float) ($trx['settlement_amount'] ?? 0);
-                $revenueTotal        += (float) ($trx['revenue_amount'] ?? 0);
-                $platformDiscount    += abs((float) ($trx['platform_discount_amount'] ?? 0));
+                $fee = $line['fee_tax_breakdown']['fee'] ?? [];
+                $shipping = $line['shipping_cost_breakdown'] ?? [];
+                $commissionTotal     += abs((float) ($fee['platform_commission_amount'] ?? 0));
+                $transactionFeeTotal += abs((float) ($fee['transaction_fee_amount'] ?? 0));
+                $shippingFeeTotal    += abs((float) ($shipping['actual_shipping_fee_amount'] ?? 0));
             }
 
             $fees = is_array($existingFees) ? $existingFees : [];
             $fees['commission']        = round($commissionTotal, 2);
             $fees['transaction_fee']   = round($transactionFeeTotal, 2);
             $fees['shipping_fee']      = round($shippingFeeTotal, 2);
-            $fees['settlement_amount'] = round($settlementTotal, 2);
-            $fees['revenue']           = round($revenueTotal, 2);
-            $fees['platform_discount'] = round($platformDiscount, 2);
-            $fees['statement'] = array_values(array_filter($transactions, 'is_array'));
+            $fees['settlement_amount'] = round((float) ($data['settlement_amount'] ?? 0), 2);
+            $fees['revenue']           = round((float) ($data['revenue_amount'] ?? 0), 2);
+            $fees['statement'] = $data;
 
             $order->fees = $fees;
             $order->save();
@@ -411,7 +450,7 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
         $skipReturns = ! empty($args['--no-returns']);
         $units = [];
         foreach (TikTokSetting::enabledStores() as $store) {
-            foreach (array_values(array_filter(['orders', 'returns'], fn ($p) => $returnsOnly ? $p === 'returns' : ($p !== 'returns' || ! $skipReturns))) as $phase) {
+            foreach (array_values(array_filter(['orders', 'payouts', 'returns'], fn ($p) => $returnsOnly ? $p === 'returns' : ($p !== 'returns' || ! $skipReturns))) as $phase) {
                 $units[] = $store->id . ':' . $phase;
             }
         }
@@ -444,6 +483,13 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
                     $exit === 0 ? $ok++ : $failed++;
                     if ($exit !== 0) {
                         $notes[] = 'orders: TikTok Shop refused the sync';
+                    }
+                } elseif ($phase === 'payouts') {
+                    if ($this->syncPayouts($store)) {
+                        $ok++;
+                    } else {
+                        $failed++;
+                        $notes[] = 'payouts: TikTok Shop refused the statements';
                     }
                 } elseif ($phase === 'returns') {
                     $this->syncReturns($store);

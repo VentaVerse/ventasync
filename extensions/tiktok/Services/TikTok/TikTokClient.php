@@ -292,7 +292,8 @@ class TikTokClient
 
     public function getOrderStatementTransactions(string $appKey, string $appSecret, string $accessToken, string $orderId, ?string $shopCipher = null): array
     {
-        return $this->get($appKey, $appSecret, $accessToken, '/finance/202309/orders/' . $orderId . '/statement_transactions', [], $shopCipher);
+        // Get Transactions by Order, 202501: the 202309 version was shut off on 2025-12-31.
+        return $this->get($appKey, $appSecret, $accessToken, '/finance/202501/orders/' . $orderId . '/statement_transactions', [], $shopCipher);
     }
 
     // -- Fulfillment ------------------------------------------------------

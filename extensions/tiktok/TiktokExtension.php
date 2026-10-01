@@ -64,6 +64,7 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
             \Extensions\tiktok\Commands\TikTokRefreshListingStatus::class,
             \Extensions\tiktok\Commands\TikTokRefreshToken::class,
             \Extensions\tiktok\Commands\TikTokSyncOrders::class,
+            \Extensions\tiktok\Commands\TikTokBackfillPayouts::class,
         ]);
 
         $this->app->make(IntegrationRegistry::class)->register($this);
