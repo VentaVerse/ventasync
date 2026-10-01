@@ -160,31 +160,6 @@
         "name": null
     },
     {
-        "method": "DELETE",
-        "uri": "api/mobile/device-token",
-        "name": null
-    },
-    {
-        "method": "POST",
-        "uri": "api/mobile/device-token",
-        "name": null
-    },
-    {
-        "method": "POST",
-        "uri": "api/mobile/login",
-        "name": null
-    },
-    {
-        "method": "POST",
-        "uri": "api/mobile/logout",
-        "name": null
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "api/mobile/user",
-        "name": null
-    },
-    {
         "method": "GET|HEAD",
         "uri": "api/order-statuses",
         "name": null
