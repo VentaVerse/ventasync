@@ -61,7 +61,7 @@ final class ProductPriceWriter
             $product->forceFill(['price' => $price, 'date_modified' => now()])->save();
         });
 
-        $this->log($product, 'the product price', '', $before, $price, $reason, $actor);
+        $this->log($product, 'the price of ' . $this->named($product), (string) ($product->sku ?? ''), $before, $price, $reason, $actor);
 
         return ['target' => 'product', 'sku' => (string) ($product->sku ?? ''), 'before' => $before, 'after' => $price];
     }
@@ -111,15 +111,27 @@ final class ProductPriceWriter
         // The catalog product itself moved for every channel that reads it.
         Product::query()->whereKey($product->product_id)->update(['date_modified' => now()]);
 
-        $this->log($product, 'the price of variation ' . $sku, $sku, $before, $price, $reason, $actor);
+        $this->log($product, 'the price of variation ' . $sku . ' of ' . $this->named($product), $sku, $before, $price, $reason, $actor);
 
         return ['target' => 'variation', 'sku' => $sku, 'before' => $before, 'after' => $price];
     }
 
+    /** The product as every other ledger line names it: its name and its SKU. */
+    private function named(Product $product): string
+    {
+        $name = \App\Integrations\Listings\CatalogCopy::title((string) DB::table(config('catalog.prefix') . 'product_description')
+            ->where('product_id', $product->product_id)
+            ->where('language_id', (int) config('catalog.default_language_id'))
+            ->value('name'));
+
+        return ($name !== '' ? $name : 'product ' . $product->product_id) . ' (SKU: ' . (string) ($product->sku ?? '') . ')';
+    }
+
     /**
-     * The audit row. The application is the actor by name, the reason is
-     * the assistant's own words, and both prices are kept so the change
-     * reads without opening the product.
+     * The audit row. The application is the actor by name, the product is
+     * named, the reason is the assistant's own words, and both prices are
+     * kept so the change reads without opening the product. `sku` is the
+     * variation's when one was priced, otherwise the product's own.
      */
     private function log(Product $product, string $what, string $sku, float $before, float $after, string $reason, string $actor): void
     {
@@ -131,6 +143,7 @@ final class ProductPriceWriter
             [
                 'actor' => $actor,
                 'reason' => $reason,
+                'product' => $this->named($product),
                 'sku' => $sku,
                 'price_before' => $before,
                 'price_after' => $after,
