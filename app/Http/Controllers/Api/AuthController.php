@@ -26,8 +26,8 @@ class AuthController extends Controller
             ]);
         }
 
-        if (! AppDoor::mayEnter($user)) {
-            return response()->json(['message' => AppDoor::SIGN_IN_REFUSED], 403);
+        if (($refused = AppDoor::refusal($user)) !== null) {
+            return response()->json(['message' => $refused], 403);
         }
 
         // Revoke any existing mobile tokens for this user to prevent accumulation

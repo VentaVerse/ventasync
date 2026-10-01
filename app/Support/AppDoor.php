@@ -20,16 +20,23 @@ final class AppDoor
     public const VALUE = 'app';
 
     /**
-     * The ability an extension may define to turn the app off for some
-     * people. Nobody defines it, everybody may sign in.
+     * The ability the Mobile app extension defines: who may use the app.
+     * With the extension off nobody defines it, and the app stays shut.
      */
     public const SIGN_IN = 'app.sign-in';
 
+    public const APP_OFF = 'The mobile app is not turned on for this business.';
+
     public const SIGN_IN_REFUSED = 'The app is turned off for this account.';
 
-    public static function mayEnter(User $user): bool
+    /** Why this person may not use the app, or null when they may. */
+    public static function refusal(User $user): ?string
     {
-        return ! Gate::has(self::SIGN_IN) || Gate::forUser($user)->allows(self::SIGN_IN);
+        if (! Gate::has(self::SIGN_IN)) {
+            return self::APP_OFF;
+        }
+
+        return Gate::forUser($user)->allows(self::SIGN_IN) ? null : self::SIGN_IN_REFUSED;
     }
 
     public static function isApp(): bool
