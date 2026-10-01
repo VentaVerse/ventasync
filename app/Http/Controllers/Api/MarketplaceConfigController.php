@@ -15,6 +15,10 @@ class MarketplaceConfigController extends Controller
             'tiktok'          => $this->isMarketplaceActive(\Extensions\tiktok\Models\TikTokSetting::class, 'tiktok_settings'),
             'opencart_stores' => $this->getExtensionStores(\Extensions\opencart\Models\OpenCartSetting::class, 'opencart_settings'),
             'venta_stores'    => $this->getExtensionStores(\Extensions\venta\Models\VentaSetting::class, 'venta_settings'),
+            // Each marketplace store on its own, beside the true/false the app on phones reads.
+            'lazada_stores'   => $this->getExtensionStores(\Extensions\lazada\Models\LazadaSetting::class, 'lazada_settings'),
+            'shopee_stores'   => $this->getExtensionStores(\Extensions\shopee\Models\ShopeeSetting::class, 'shopee_settings'),
+            'tiktok_stores'   => $this->getExtensionStores(\Extensions\tiktok\Models\TikTokSetting::class, 'tiktok_settings'),
         ]);
     }
 
@@ -44,7 +48,7 @@ class MarketplaceConfigController extends Controller
     }
 
     /**
-     * Get enabled stores from an extension settings table (OpenCart / Venta).
+     * Get enabled stores from an extension settings table.
      *
      * Returns an array of [{id, name}] for each enabled store,
      * or an empty array if the extension is not installed.

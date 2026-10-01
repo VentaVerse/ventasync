@@ -731,9 +731,17 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             $pendingSub = '';
         }
 
-        $region = ShopeeSetting::defaultStore()->region ?? 'ph';
-        $base = ShopeeOrder::query()->where('region', $region);
-        $query = ShopeeOrder::query()->where('region', $region);
+        // ?store= narrows the list to one store; without it, the default store's region as before.
+        $storeId = $request->integer('store') ?: null;
+        if ($storeId !== null) {
+            $base = ShopeeOrder::query()->where('shopee_setting_id', $storeId);
+            $query = ShopeeOrder::query()->where('shopee_setting_id', $storeId);
+        } else {
+            $region = ShopeeSetting::defaultStore()->region ?? 'ph';
+            $base = ShopeeOrder::query()->where('region', $region);
+            $query = ShopeeOrder::query()->where('region', $region);
+        }
+        $storeNames = ShopeeSetting::query()->pluck('store_name', 'id');
 
         if ($tab !== 'ALL') {
             $statuses = $tab === 'PENDING' && $pendingSub !== ''
@@ -764,7 +772,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
 
         $orders = $query->orderByDesc('order_created_at')->orderByDesc('created_at')->paginate(20);
 
-        $data = $orders->map(function ($order) {
+        $data = $orders->map(function ($order) use ($storeNames) {
             $raw = $order->raw ?? [];
             $firstProduct = $order->products()->orderBy('id')->first();
             $productRaw = $firstProduct?->raw ?? [];
@@ -774,6 +782,8 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
 
             return [
                 'id'              => $order->id,
+                'store_id'        => (int) $order->shopee_setting_id,
+                'store_name'      => (string) ($storeNames[$order->shopee_setting_id] ?? ''),
                 'order_id'        => (string) $order->order_sn,
                 'status'          => $order->status,
                 'buyer_name'      => $raw['buyer_username'] ?? $raw['buyer_user_name'] ?? '',
@@ -821,6 +831,8 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
 
         return [
             'order_id'          => $order->order_sn,
+            'store_id'          => (int) $order->shopee_setting_id,
+            'store_name'        => (string) ShopeeSetting::query()->whereKey($order->shopee_setting_id)->value('store_name'),
             'status'            => $order->status,
             'buyer_name'        => $raw['buyer_username'] ?? $raw['buyer_user_name'] ?? '',
             'total_amount'      => isset($raw['total_amount']) ? (float) $raw['total_amount'] : null,

@@ -77,6 +77,7 @@ class DashboardController extends Controller
                 'o.date_added',
                 'os.name as status_name',
                 'o.marketplace_source',
+                'o.store_name',
             ]);
 
         $ocStoreNames = $ocStores->pluck('store_name', 'id')->toArray();
@@ -103,6 +104,7 @@ class DashboardController extends Controller
                 'date_added'           => $o->date_added,
                 'status_name'          => $o->status_name ?? '',
                 'marketplace_source'   => self::resolveSourceLabel($o->marketplace_source ?? '', $ocStoreNames),
+                'store_name'           => (string) ($o->store_name ?? ''),
             ]),
         ]);
     }

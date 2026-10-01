@@ -798,9 +798,17 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
             $pendingSub = '';
         }
 
-        $region = LazadaSetting::defaultStore()->region ?? 'ph';
-        $base = LazadaOrder::query()->where('region', $region);
-        $query = LazadaOrder::query()->where('region', $region);
+        // ?store= narrows the list to one store; without it, the default store's region as before.
+        $storeId = $request->integer('store') ?: null;
+        if ($storeId !== null) {
+            $base = LazadaOrder::query()->where('lazada_setting_id', $storeId);
+            $query = LazadaOrder::query()->where('lazada_setting_id', $storeId);
+        } else {
+            $region = LazadaSetting::defaultStore()->region ?? 'ph';
+            $base = LazadaOrder::query()->where('region', $region);
+            $query = LazadaOrder::query()->where('region', $region);
+        }
+        $storeNames = LazadaSetting::query()->pluck('store_name', 'id');
 
         if ($tab !== 'ALL') {
             $statuses = $tab === 'PENDING' && $pendingSub !== ''
@@ -832,7 +840,7 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
 
         $orders = $query->orderByDesc('order_created_at')->orderByDesc('created_at')->paginate(20);
 
-        $data = $orders->map(function ($order) {
+        $data = $orders->map(function ($order) use ($storeNames) {
             $raw = $order->raw ?? [];
             $firstProduct = $order->products()->orderBy('id')->first();
             $productRaw = $firstProduct?->raw ?? [];
@@ -842,6 +850,8 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
 
             return [
                 'id'              => $order->id,
+                'store_id'        => (int) $order->lazada_setting_id,
+                'store_name'      => (string) ($storeNames[$order->lazada_setting_id] ?? ''),
                 'order_id'        => (string) $order->order_id,
                 'status'          => $order->status,
                 'buyer_name'      => $raw['customer_first_name'] ?? $raw['customer_name'] ?? $raw['buyer_name'] ?? '',
@@ -893,6 +903,8 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
 
         return [
             'order_id'          => (string) $order->order_id,
+            'store_id'          => (int) $order->lazada_setting_id,
+            'store_name'        => (string) LazadaSetting::query()->whereKey($order->lazada_setting_id)->value('store_name'),
             'status'            => $order->status,
             'buyer_name'        => $detail['customer_first_name'] ?? $detail['customer_name'] ?? $detail['buyer_name'] ?? '',
             'total_amount'      => isset($detail['price']) ? \App\Support\Money::parse($detail['price']) : null,

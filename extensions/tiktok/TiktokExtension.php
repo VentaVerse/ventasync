@@ -639,8 +639,11 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
             $pendingSub = '';
         }
 
-        $base = TikTokOrder::query();
-        $query = TikTokOrder::query();
+        // ?store= narrows the list to one store; without it, every store as before.
+        $storeId = $request->integer('store') ?: null;
+        $base = TikTokOrder::query()->when($storeId !== null, fn ($q) => $q->where('tiktok_setting_id', $storeId));
+        $query = TikTokOrder::query()->when($storeId !== null, fn ($q) => $q->where('tiktok_setting_id', $storeId));
+        $storeNames = TikTokSetting::query()->pluck('store_name', 'id');
 
         if ($tab !== 'ALL') {
             $statuses = $tab === 'PENDING' && $pendingSub !== ''
@@ -669,7 +672,7 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
 
         $orders = $query->orderByDesc('order_created_at')->orderByDesc('created_at')->paginate(20);
 
-        $data = $orders->map(function ($order) {
+        $data = $orders->map(function ($order) use ($storeNames) {
             $raw = $order->raw ?? [];
             $firstProduct = $order->products()->orderBy('id')->first();
             $productRaw = $firstProduct?->raw ?? [];
@@ -679,6 +682,8 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
 
             return [
                 'id'              => $order->id,
+                'store_id'        => (int) $order->tiktok_setting_id,
+                'store_name'      => (string) ($storeNames[$order->tiktok_setting_id] ?? ''),
                 'order_id'        => (string) $order->order_id,
                 'status'          => $order->status,
                 'buyer_name'      => $order->buyer_name ?? '',
@@ -729,6 +734,8 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
 
         return [
             'order_id'          => (string) $order->order_id,
+            'store_id'          => (int) $order->tiktok_setting_id,
+            'store_name'        => (string) TikTokSetting::query()->whereKey($order->tiktok_setting_id)->value('store_name'),
             'status'            => $order->status,
             'buyer_name'        => $order->buyer_name ?? '',
             'total_amount'      => isset($payment['total_amount']) ? (float) $payment['total_amount'] : null,

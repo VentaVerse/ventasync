@@ -84,6 +84,8 @@ class OrderController extends Controller
                 'date_added'           => $order->date_added,
                 'marketplace_source'   => self::resolveSourceLabel($order->marketplace_source ?? '', $ocStoreNames),
                 'marketplace_order_id' => $order->marketplace_order_id ?? '',
+                'store_id'             => self::storeIdOf($order->marketplace_source ?? '', $order->store_id),
+                'store_name'           => (string) ($order->store_name ?? ''),
                 'product_image'        => $productImage,
             ];
         });
@@ -131,6 +133,8 @@ class OrderController extends Controller
                 'date_modified'      => $order->date_modified,
                 'marketplace_source'   => self::resolveSourceLabel($order->marketplace_source ?? '', $ocStoreNames),
                 'marketplace_order_id' => $order->marketplace_order_id ?? '',
+                'store_id'             => self::storeIdOf($order->marketplace_source ?? '', $order->store_id),
+                'store_name'           => (string) ($order->store_name ?? ''),
             ],
             'products' => $products->map(function ($p) use ($productImages) {
                 return [
@@ -275,7 +279,28 @@ class OrderController extends Controller
             'shopee_pending' => $shopeePending,
             'tiktok_pending' => $tiktokPending,
             'venta_pending'  => (object) $ventaPending,
+            // The same waiting counts per enabled store, keyed by store id.
+            'lazada_pending_by_store' => $this->waitingByStore('lazada_orders', 'lazada_settings', 'lazada_setting_id', ['pending', 'repacked']),
+            'shopee_pending_by_store' => $this->waitingByStore('shopee_orders', 'shopee_settings', 'shopee_setting_id', ['READY_TO_SHIP']),
+            'tiktok_pending_by_store' => $this->waitingByStore('tiktok_orders', 'tiktok_settings', 'tiktok_setting_id', ['AWAITING_SHIPMENT']),
         ]);
+    }
+
+    /** @param array<int, string> $statuses */
+    private function waitingByStore(string $orders, string $stores, string $column, array $statuses): object
+    {
+        if (! Schema::hasTable($orders) || ! Schema::hasTable($stores)) {
+            return (object) [];
+        }
+
+        $counts = DB::table($orders)->whereIn('status', $statuses)
+            ->groupBy($column)->pluck(DB::raw('COUNT(*)'), $column);
+        $out = [];
+        foreach (DB::table($stores)->where('enabled', true)->orderBy('id')->pluck('id') as $id) {
+            $out[(string) $id] = (int) ($counts[$id] ?? 0);
+        }
+
+        return (object) $out;
     }
 
     public function statuses()
@@ -284,6 +309,23 @@ class OrderController extends Controller
             ->get(['order_status_id', 'name']);
 
         return response()->json($statuses);
+    }
+
+    /**
+     * The store an order came from, as the channel numbers it: "venta:3"
+     * names it in the source, a Shopee, Lazada or TikTok order carries it
+     * in store_id. Null for an order entered in VentaSync.
+     */
+    private static function storeIdOf(string $source, $storeId): ?int
+    {
+        if ($source === '') {
+            return null;
+        }
+        if (preg_match('/:(\d+)$/', $source, $m)) {
+            return (int) $m[1];
+        }
+
+        return $storeId !== null ? (int) $storeId : null;
     }
 
     /**
