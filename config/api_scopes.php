@@ -25,7 +25,8 @@ return [
     //
     // resource key => ['label' => ..., 'actions' => [read|write], 'description' => ...]
     // 'assistant_write' => true offers the write on the AI Tools page; leave
-    // it off for a write no assistant tool stands behind.
+    // it off for a write no assistant tool stands behind. 'write_label'
+    // names the write there when it is narrower than the area.
 
     'products' => [
         'label'       => 'Products',
@@ -37,7 +38,11 @@ return [
     'orders' => [
         'label'       => 'Orders',
         'actions'     => ['read', 'write'],
-        'description' => 'Order headers, line items and status.',
+        'description' => 'Order headers, line items and status, and customer payments on accounts receivable.',
+        // The only order write is recording a customer's payment; an
+        // order's status and fulfilment are never written from outside.
+        'assistant_write' => true,
+        'write_label' => 'Customer payments',
     ],
 
     'inventory' => [

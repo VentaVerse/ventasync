@@ -113,6 +113,9 @@ final class OrderReads
         return $this->json([
             'order' => $order,
             'items' => $items,
+            // Its payments when the order is in accounts receivable; null
+            // when it is not tracked there.
+            'receivable' => app(\App\Services\Sales\Receivables::class)->ofOrder($id),
         ]);
     }
 

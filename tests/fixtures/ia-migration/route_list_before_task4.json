@@ -261,6 +261,16 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "api/receivables",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/receivables/payments",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "api/reports/categories",
         "name": null
     },
@@ -412,6 +422,16 @@
     {
         "method": "GET|HEAD",
         "uri": "api/v1/purchasing/vendors",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/receivables",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/v1/receivables/payments",
         "name": null
     },
     {

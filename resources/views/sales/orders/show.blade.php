@@ -764,12 +764,9 @@
                                         <label class="od-field__k" for="od-pay-method">Method</label>
                                         <div class="x-select-wrap">
                                             <select id="od-pay-method" name="payment_method" class="x-input">
-                                                <option value="Bank Transfer">Bank Transfer</option>
-                                                <option value="GCash">GCash</option>
-                                                <option value="Cash">Cash</option>
-                                                <option value="Check">Check</option>
-                                                <option value="Maya">Maya</option>
-                                                <option value="Other">Other</option>
+                                                @foreach(\App\Services\Sales\Receivables::METHODS as $method)
+                                                    <option value="{{ $method }}">{{ $method }}</option>
+                                                @endforeach
                                             </select>
                                             <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
                                         </div>

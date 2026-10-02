@@ -83,6 +83,8 @@ Route::middleware(['auth:sanctum', 'app.person'])->group(function () {
         Route::get('/customers', [\App\Http\Controllers\Api\V1\CustomerController::class, 'index']);
         Route::get('/customers/history', [\App\Http\Controllers\Api\V1\CustomerController::class, 'history']);
     });
+    Route::get('/receivables', [\App\Http\Controllers\Api\V1\ReceivableController::class, 'index'])->middleware('perm:view_sales/order_payment');
+    Route::post('/receivables/payments', [\App\Http\Controllers\Api\V1\ReceivableController::class, 'recordPayment'])->middleware('perm:manage_sales/order_payment');
     Route::get('/inventory', [\App\Http\Controllers\Api\V1\InventoryController::class, 'index'])->middleware('perm:view_catalog/product');
     Route::post('/inventory/adjust', [\App\Http\Controllers\Api\V1\InventoryController::class, 'adjust'])->middleware('perm:manage_catalog/product');
 });
@@ -130,5 +132,11 @@ Route::prefix('v1')->middleware(['auth:sanctum', 'api.limits', 'api.audit'])->gr
         Route::get('/orders/{id}', [\App\Http\Controllers\Api\V1\OrderController::class, 'show'])->whereNumber('id');
         Route::get('/customers', [\App\Http\Controllers\Api\V1\CustomerController::class, 'index']);
         Route::get('/customers/history', [\App\Http\Controllers\Api\V1\CustomerController::class, 'history']);
+        Route::get('/receivables', [\App\Http\Controllers\Api\V1\ReceivableController::class, 'index']);
+    });
+
+    // A customer's payment on accounts receivable, the one orders write.
+    Route::middleware('scope:orders:write')->group(function () {
+        Route::post('/receivables/payments', [\App\Http\Controllers\Api\V1\ReceivableController::class, 'recordPayment']);
     });
 });
