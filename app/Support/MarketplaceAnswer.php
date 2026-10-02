@@ -90,7 +90,7 @@ final class MarketplaceAnswer
 
         $parts = array_filter([$message !== '' ? $message : null, $detail !== '' && $detail !== $message ? $detail : null]);
         if ($parts !== []) {
-            return implode(' — ', $parts) . ($code !== '' && $message === '' ? " ({$code})" : '');
+            return self::joined($parts) . ($code !== '' && $message === '' ? " ({$code})" : '');
         }
 
         return $code !== '' ? $code : null;
@@ -145,7 +145,17 @@ final class MarketplaceAnswer
             $skuError !== '' && $skuError !== $message ? $skuError : null,
         ]);
 
-        return $parts !== [] ? implode(' — ', $parts) : null;
+        return $parts !== [] ? self::joined($parts) : null;
+    }
+
+    /** "The item cannot be updated: model SKU GTR-1PC already exists". */
+    private static function joined(array $parts): string
+    {
+        $parts = array_values($parts);
+        $last = array_pop($parts);
+        $lead = array_map(fn ($p) => rtrim($p, " .:;,"), $parts);
+
+        return implode(': ', [...$lead, $last]);
     }
 
     private static function firstOf(array $body, array $keys): ?string

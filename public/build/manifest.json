@@ -1,6 +1,6 @@
 {
   "resources/css/blotter.css": {
-    "file": "assets/blotter-NV9ZKIJo.css",
+    "file": "assets/blotter-R2nBQp-H.css",
     "src": "resources/css/blotter.css",
     "isEntry": true,
     "name": "blotter",
@@ -21,7 +21,7 @@
     "src": "resources/fonts/JetBrainsMono.woff2"
   },
   "resources/js/app.js": {
-    "file": "assets/app-MOJqWTnP.js",
+    "file": "assets/app-B8a78CX3.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true

@@ -1522,7 +1522,7 @@ class LazadaController extends Controller
         return $this->toSettingsTab('connection')->with('lazada_result', [
             'ok'    => true,
             'title' => 'Sandbox token saved',
-            'data'  => ['message' => 'Pre-issued sandbox access token saved. Mode is now Sandbox — every Lazada API call will use this token until you toggle back to Production.'],
+            'data'  => ['message' => 'Pre-issued sandbox access token saved. Mode is now Sandbox. Every Lazada API call will use this token until you toggle back to Production.'],
         ]);
     }
 

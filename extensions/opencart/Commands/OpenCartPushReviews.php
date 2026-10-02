@@ -56,7 +56,7 @@ class OpenCartPushReviews extends Command
             // Ping check
             $ping = $client->ping();
             if (!($ping['ok'] ?? false)) {
-                $this->warn("  Cannot reach store — skipping.");
+                $this->warn("  Cannot reach store, skipping.");
                 continue;
             }
 

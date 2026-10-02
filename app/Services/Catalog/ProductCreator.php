@@ -136,7 +136,7 @@ class ProductCreator
                 StockHistoryLogger::log(
                     productId: $productId, optionValueId: null, orderId: null, type: 'set',
                     qtyBefore: 0, qtyAfter: $finalQty, source: 'manual',
-                    note: "Product created — initial stock $finalQty",
+                    note: "Product created: initial stock $finalQty",
                 );
             }
         }

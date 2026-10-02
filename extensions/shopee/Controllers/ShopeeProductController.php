@@ -2117,7 +2117,7 @@ class ShopeeProductController extends Controller
         if ($mainModel !== '' && !in_array($mainModel, $allSkus)) $allSkus[] = $mainModel;
         if ($mainSku !== '' && !in_array($mainSku, $allSkus)) $allSkus[] = $mainSku;
 
-        Log::info("$tag ERP product fields — model: '$mainModel', sku: '$mainSku', option_skus: " . json_encode($ovSkus));
+        Log::info("$tag ERP product fields: model: '$mainModel', sku: '$mainSku', option_skus: " . json_encode($ovSkus));
         Log::info("$tag Looking for these SKUs: " . json_encode($allSkus));
 
         if (empty($allSkus)) {
@@ -2148,7 +2148,7 @@ class ShopeeProductController extends Controller
                         ->whereNotNull('shopee_model_id')
                         ->exists();
                     if ($hasModelEntries) {
-                        Log::info("$tag Cache: skipping parent hit (item {$hit->shopee_item_id}, sku: {$hit->sku}) — ERP has option SKUs");
+                        Log::info("$tag Cache: skipping parent hit (item {$hit->shopee_item_id}, sku: {$hit->sku}), ERP has option SKUs");
                         continue;
                     }
                 }
@@ -2160,7 +2160,7 @@ class ShopeeProductController extends Controller
                         'shopee_model_id' => null,
                         'sku' => $hit->sku,
                     ]);
-                    Log::info("$tag MATCHED via cache (parent) — shopee_item_id: {$hit->shopee_item_id}, sku: {$hit->sku}");
+                    Log::info("$tag MATCHED via cache (parent), shopee_item_id: {$hit->shopee_item_id}, sku: {$hit->sku}");
                     return redirect()->back()
                         ->with('status', "Linked to Shopee item {$hit->shopee_item_id} \"{$hit->item_name}\" (SKU: {$hit->sku}) [from cache].");
                 }
@@ -2181,7 +2181,7 @@ class ShopeeProductController extends Controller
                 $linkedAny = true;
                 $cacheItemId = $hit->shopee_item_id;
                 $cacheItemName = $hit->item_name;
-                Log::info("$tag MATCHED via cache (model) — shopee_item_id: {$hit->shopee_item_id}, model_id: {$hit->shopee_model_id}, sku: {$hit->sku}");
+                Log::info("$tag MATCHED via cache (model), shopee_item_id: {$hit->shopee_item_id}, model_id: {$hit->shopee_model_id}, sku: {$hit->sku}");
             }
 
             if ($linkedAny) {
@@ -2224,7 +2224,7 @@ class ShopeeProductController extends Controller
             ]);
 
             if (!($infoResult['ok'] ?? false)) {
-                Log::warning("$tag get_item_base_info FAILED for chunk $chunkIdx — " . json_encode($infoResult['body'] ?? null));
+                Log::warning("$tag get_item_base_info FAILED for chunk $chunkIdx: " . json_encode($infoResult['body'] ?? null));
                 continue;
             }
 
@@ -2257,11 +2257,11 @@ class ShopeeProductController extends Controller
                                 'product_id' => $productId, 'shopee_item_id' => $itemId,
                                 'shopee_model_id' => null, 'sku' => $itemSku,
                             ]);
-                            Log::info("$tag MATCHED via item_sku — shopee_item_id: $itemId, item_sku: $itemSku, item_name: '$itemName', has_model: " . ($hasModel ? 'true' : 'false'));
+                            Log::info("$tag MATCHED via item_sku, shopee_item_id: $itemId, item_sku: $itemSku, item_name: '$itemName', has_model: " . ($hasModel ? 'true' : 'false'));
                             return redirect()->back()
                                 ->with('status', "Linked to Shopee item {$itemId} \"{$itemName}\" (SKU: {$itemSku}).");
                         }
-                        Log::info("$tag item_sku '$itemSku' matches but ERP has option SKUs — deferring to model-level matching");
+                        Log::info("$tag item_sku '$itemSku' matches but ERP has option SKUs, deferring to model-level matching");
                     }
                 }
 
@@ -2286,7 +2286,7 @@ class ShopeeProductController extends Controller
                     ]);
 
                     if (!($modelResult['ok'] ?? false)) {
-                        Log::warning("$tag get_model_list FAILED for item_id=$itemId — " . json_encode($modelResult['body'] ?? null));
+                        Log::warning("$tag get_model_list FAILED for item_id=$itemId: " . json_encode($modelResult['body'] ?? null));
                         continue;
                     }
 
@@ -2316,7 +2316,7 @@ class ShopeeProductController extends Controller
                                 ]);
                             }
                             $linkedAny = true;
-                            Log::info("$tag MATCHED via model_sku — shopee_item_id: $itemId, model_id: $mId, model_sku: $modelSku");
+                            Log::info("$tag MATCHED via model_sku, shopee_item_id: $itemId, model_id: $mId, model_sku: $modelSku");
                         }
                     }
                     if ($linkedAny) {
@@ -2327,7 +2327,7 @@ class ShopeeProductController extends Controller
             }
         }
 
-        Log::warning("$tag NO MATCH — simple items scanned: $simpleCount, model items scanned: $modelItemCount, total Shopee SKUs seen: " . count($allShopeeSkus));
+        Log::warning("$tag NO MATCH: simple items scanned: $simpleCount, model items scanned: $modelItemCount, total Shopee SKUs seen: " . count($allShopeeSkus));
         Log::warning("$tag ERP SKUs wanted: " . json_encode($allSkus));
         Log::warning("$tag Shopee SKUs sample (first 50): " . json_encode(array_slice($allShopeeSkus, 0, 50)));
 

@@ -33,7 +33,7 @@ class OpenCartReclassifyOrders extends Command
         $pfx = (string) config('catalog.prefix');
         $table = $pfx . 'order';
 
-        $this->info($dryRun ? 'DRY RUN — no changes will be made.' : 'Reclassifying opencart orders...');
+        $this->info($dryRun ? 'DRY RUN: no changes will be made.' : 'Reclassifying opencart orders...');
         $this->newLine();
 
         $before = DB::table($table)
@@ -54,7 +54,7 @@ class OpenCartReclassifyOrders extends Command
             })
             ->update(['marketplace_source' => 'lazada']);
 
-        $this->line("Rule 1 — shipping_method contains 'Lazada': <info>{$count1}</info> → lazada");
+        $this->line("Rule 1: shipping_method contains 'Lazada': <info>{$count1}</info> → lazada");
 
         // --- Rule 2: Shopee Payment → shopee ---
         $count2 = DB::table($table)
@@ -62,7 +62,7 @@ class OpenCartReclassifyOrders extends Command
             ->where('payment_method', 'Shopee Payment')
             ->update(['marketplace_source' => 'shopee']);
 
-        $this->line("Rule 2 — payment_method = 'Shopee Payment': <info>{$count2}</info> → shopee");
+        $this->line("Rule 2: payment_method = 'Shopee Payment': <info>{$count2}</info> → shopee");
 
         // --- Rule 3: Lazada payment codes (catch remaining) → lazada ---
         $count3 = DB::table($table)
@@ -70,7 +70,7 @@ class OpenCartReclassifyOrders extends Command
             ->whereIn('payment_method', $this->lazadaPaymentMethods)
             ->update(['marketplace_source' => 'lazada']);
 
-        $this->line("Rule 3 — Lazada payment codes (COD, GCASH_PP, etc.): <info>{$count3}</info> → lazada");
+        $this->line("Rule 3: Lazada payment codes (COD, GCASH_PP, etc.): <info>{$count3}</info> → lazada");
 
         // --- Rule 4: Shopee couriers (catch remaining) → shopee ---
         $count4 = DB::table($table)
@@ -78,7 +78,7 @@ class OpenCartReclassifyOrders extends Command
             ->whereIn('shipping_method', ['SPX Express', 'Shopee Xpress', 'Ninja Van'])
             ->update(['marketplace_source' => 'shopee']);
 
-        $this->line("Rule 4 — Shopee couriers (SPX, Shopee Xpress): <info>{$count4}</info> → shopee");
+        $this->line("Rule 4: Shopee couriers (SPX, Shopee Xpress): <info>{$count4}</info> → shopee");
 
         // --- Summary ---
         $this->newLine();
@@ -93,7 +93,7 @@ class OpenCartReclassifyOrders extends Command
 
         // Show what stays as opencart
         $this->newLine();
-        $this->info('Remaining opencart orders — top payment/shipping combos:');
+        $this->info('Remaining opencart orders, top payment/shipping combos:');
         $leftover = DB::table($table)
             ->where('marketplace_source', 'like', 'opencart:%')
             ->select(DB::raw('payment_method, shipping_method, COUNT(*) as cnt'))
@@ -110,7 +110,7 @@ class OpenCartReclassifyOrders extends Command
         if ($dryRun) {
             DB::rollBack();
             $this->newLine();
-            $this->warn('Dry run complete — no changes committed. Run without --dry-run to apply.');
+            $this->warn('Dry run complete, no changes committed. Run without --dry-run to apply.');
         } else {
             DB::commit();
             $this->newLine();

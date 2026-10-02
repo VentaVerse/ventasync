@@ -49,7 +49,7 @@ class UpdateCurrencyRates extends Command
 
             foreach ($currencies as $code) {
                 if (!isset($rates[$code]) || $rates[$code] <= 0) {
-                    $this->warn("  {$code}: not available — skipped");
+                    $this->warn("  {$code}: not available, skipped");
                     continue;
                 }
 

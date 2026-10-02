@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Pick List - {{ $orderId }}</title>
     <style>
-        /* Print-only standalone page — styles are self-contained (not part of layout) */
+        /* Print-only standalone page: styles are self-contained (not part of layout) */
         html, body { height: 100%; }
         body { font-family: Arial, sans-serif; color:#0f172a; margin:0; background:#e5e7eb; }
         .page {

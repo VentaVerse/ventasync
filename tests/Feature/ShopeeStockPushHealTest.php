@@ -478,17 +478,16 @@ class ShopeeStockPushHealTest extends TestCase
 
         $first = $this->actingAs($user)->postJson(route('automations.run', $job->id))->assertOk()->json('run');
         $this->assertSame('steps', $first['label']);
-        $this->assertSame(3, $first['total'], 'orders, fees, payouts; no returns, as the row says');
+        $this->assertSame(2, $first['total'], 'orders and fees; no returns, as the row says, and payouts are their own automation');
         $this->assertSame(1, $first['done'], 'one phase per request');
         $this->assertSame('running', $first['status']);
 
-        $second = $this->actingAs($user)->postJson(route('automations.run_step', ['run' => $first['id']]))->assertOk()->json('run');
-        $this->assertSame(2, $second['done']);
-        $third = $this->actingAs($user)->postJson(route('automations.run_step', ['run' => $first['id']]))->assertOk();
-        $this->assertSame('done', $third->json('run.status'));
-        $this->assertSame('', $third->json('outcome'), 'finished is the whole sentence; users do not know the steps');
+        $second = $this->actingAs($user)->postJson(route('automations.run_step', ['run' => $first['id']]))->assertOk();
+        $this->assertSame(2, $second->json('run.done'));
+        $this->assertSame('done', $second->json('run.status'));
+        $this->assertSame('', $second->json('outcome'), 'finished is the whole sentence; users do not know the steps');
         $this->assertTrue((bool) $job->fresh()->last_run_ok);
-        $this->assertStringNotContainsString('===', implode(' ', $third->json('run.ledger')), 'the console never reaches the page');
+        $this->assertStringNotContainsString('===', implode(' ', $second->json('run.ledger')), 'the console never reaches the page');
     }
 
     /** The one price rule on the button too (2026-09-07): no listing rule means the group's, never a skip. */

@@ -106,7 +106,7 @@
         :description="$hasFilters
             ? 'Try clearing the search, or widening the manufacturer and group filters.'
             : ($onStore === 'off'
-                ? 'There is nothing left to add — every catalogue product is already on this store.'
+                ? 'There is nothing left to add. Every catalogue product is already on this store.'
                 : 'Add a product to your Master Catalog and it will be ready to add to this store.')">
         @if($hasFilters)
             <x-slot:action>

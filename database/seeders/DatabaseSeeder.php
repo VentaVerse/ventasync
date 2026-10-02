@@ -51,7 +51,7 @@ class DatabaseSeeder extends Seeder
         $existing = DB::table('users')->where('username', 'admin')->first();
 
         if ($existing) {
-            $this->command->info('Admin user already exists — left unchanged.');
+            $this->command->info('Admin user already exists, left unchanged.');
             return;
         }
 

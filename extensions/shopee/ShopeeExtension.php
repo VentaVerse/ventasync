@@ -877,7 +877,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         }
         if ($paused) {
             $banners[] = [
-                'label'    => 'Shopee' . ($pausedLabel ? " ({$pausedLabel})" : '') . ': Order sync paused — ' . $paused,
+                'label'    => 'Shopee' . ($pausedLabel ? " ({$pausedLabel})" : '') . ': Order sync paused. ' . $paused,
                 'severity' => 'error',
                 'href'     => route('ext.shopee.index'),
             ];

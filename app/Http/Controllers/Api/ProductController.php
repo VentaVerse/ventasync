@@ -201,7 +201,7 @@ class ProductController extends Controller
                         qtyBefore: $oldOptQty,
                         qtyAfter: $qty,
                         source: 'mobile',
-                        note: "Mobile edit (option) — qty {$oldOptQty} → {$qty}",
+                        note: "Mobile edit (option): qty {$oldOptQty} → {$qty}",
                     );
                 }
 
@@ -273,7 +273,7 @@ class ProductController extends Controller
                     qtyBefore: $oldProductQty,
                     qtyAfter: $totalQty,
                     source: 'mobile',
-                    note: "Mobile edit — qty {$oldProductQty} → {$totalQty}",
+                    note: "Mobile edit: qty {$oldProductQty} → {$totalQty}",
                 );
             }
         } else {
@@ -299,7 +299,7 @@ class ProductController extends Controller
                     qtyBefore: $oldProductQty,
                     qtyAfter: $newQty,
                     source: 'mobile',
-                    note: "Mobile edit — qty {$oldProductQty} → {$newQty}",
+                    note: "Mobile edit: qty {$oldProductQty} → {$newQty}",
                 );
             }
 

@@ -183,10 +183,11 @@ class TiktokPayoutSyncTest extends TestCase
 
         $this->assertSame('Paid', $this->payoutOf('B')[0]);
 
-        // Paid is final: the next run has nothing to ask TikTok Shop about.
+        // Paid is final: the next run asks about no statement. The store's
+        // balance is still read on every run, which is not about the order.
         $this->sentCalls = [];
         $this->artisan('tiktok:sync-payouts')->assertExitCode(0);
-        $this->assertSame([], array_column($this->sentCalls, 'path'));
+        $this->assertSame(['/finance/202309/withdrawals'], array_values(array_unique(array_column($this->sentCalls, 'path'))));
     }
 
     /**

@@ -1039,7 +1039,7 @@ class VentaProductGroupController extends Controller
             $setting->update(['last_product_sync_at' => now()]);
         }
 
-        $msg = "Push complete — Created: {$created}, Updated: {$updated}, Failed: {$failed}";
+        $msg = "Push complete. Created: {$created}, Updated: {$updated}, Failed: {$failed}";
 
         /*
          * What reconciling FOUND, in the operator's terms.
@@ -1338,7 +1338,7 @@ class VentaProductGroupController extends Controller
 
         if (!$link || !$link->sku) {
             return $this->productsRedirect($store, $group)
-                ->with('error', 'Product not linked to Venta — nothing to delete.');
+                ->with('error', 'Product not linked to Venta, nothing to delete.');
         }
 
         $client = new VentaClient($setting);

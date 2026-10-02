@@ -65,7 +65,7 @@ class ImportProductCosts extends Command
         $this->info("Importing costs by {$lookupBy}...");
 
         if ($dryRun) {
-            $this->warn('DRY RUN — no changes will be saved.');
+            $this->warn('DRY RUN: no changes will be saved.');
         }
 
         while (($data = fgetcsv($handle)) !== false) {
@@ -88,7 +88,7 @@ class ImportProductCosts extends Command
 
             if (!$product) {
                 $notFound++;
-                $this->line("  Row {$row}: {$lookupBy}={$identifier} — product not found");
+                $this->line("  Row {$row}: {$lookupBy}={$identifier}: product not found");
                 continue;
             }
 

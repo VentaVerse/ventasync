@@ -2107,9 +2107,9 @@ public function reset(Request $request)
             $msg = (string)$dataNode['message'];
 
             if ($code === '700040') {
-                $msg .= ' (No printable package yet — order must be packed/ready-to-ship first.)';
+                $msg .= ' (No printable package yet. The order must be packed or ready to ship first.)';
             } elseif ($code === '50008') {
-                $msg .= ' (SOF/DBS order type — not supported via this API.)';
+                $msg .= ' (SOF/DBS orders are not supported by this API.)';
             }
 
             return $this->awbError('Lazada error: ' . $code . ' - ' . $msg);

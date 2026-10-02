@@ -670,7 +670,7 @@ class LazadaProductGroupController extends Controller
             if (! in_array($pivot->sync_status, ['error', 'failed'], true)) {
                 $pivot->update(['sync_status' => 'synced']);
             }
-            return redirect()->back()->with('status', "Lazada item ID {$lazadaProduct->lazada_item_id} — cache refreshed.");
+            return redirect()->back()->with('status', "Lazada item ID {$lazadaProduct->lazada_item_id}: cache refreshed.");
         }
 
         // Search Lazada by each SKU using /products/get with search param

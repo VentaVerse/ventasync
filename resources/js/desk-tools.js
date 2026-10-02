@@ -82,7 +82,7 @@ function initDeskTools(toggle) {
 
         if (label) {
             label.textContent = isFiltered(scope)
-                ? 'Find, dates and sync — filters on'
+                ? 'Find, dates and sync (filters on)'
                 : 'Find, dates and sync';
         }
     }

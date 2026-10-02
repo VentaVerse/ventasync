@@ -20,7 +20,7 @@
 
 <button type="button"
         class="btn-invoice-req"
-        title="Buyer requested an invoice — click for details"
+        title="Buyer requested an invoice. Click for details."
         onclick="document.getElementById('{{ $modalId }}').classList.add('active')">
     <svg class="btn-invoice-req__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M3 1.5h7.5L13 4v10a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V2a.5.5 0 0 1 .5-.5z"/>
@@ -41,7 +41,7 @@
         <div class="inv-modal-body">
             <div class="inv-row">
                 <span class="inv-row__label">Buyer</span>
-                <span class="inv-row__value">{{ $name !== '' ? $name : '—' }}</span>
+                <span class="inv-row__value">{{ $name !== '' ? $name : '-' }}</span>
                 <span></span>
             </div>
             @if($type !== '')
@@ -53,7 +53,7 @@
             @endif
             <div class="inv-row">
                 <span class="inv-row__label">TIN</span>
-                <span class="inv-row__value inv-row__value--mono">{{ $tin !== '' ? $tin : '—' }}</span>
+                <span class="inv-row__value inv-row__value--mono">{{ $tin !== '' ? $tin : '-' }}</span>
                 @if($tin !== '')
                     <button type="button" class="inv-copy-btn" data-copy="{{ $tin }}">Copy</button>
                 @else
@@ -62,7 +62,7 @@
             </div>
             <div class="inv-row">
                 <span class="inv-row__label">Email</span>
-                <span class="inv-row__value {{ $email === '' ? 'inv-row__value--muted' : '' }}">{{ $email !== '' ? $email : '—' }}</span>
+                <span class="inv-row__value {{ $email === '' ? 'inv-row__value--muted' : '' }}">{{ $email !== '' ? $email : '-' }}</span>
                 @if($email !== '')
                     <button type="button" class="inv-copy-btn" data-copy="{{ $email }}">Copy</button>
                 @else
@@ -71,12 +71,12 @@
             </div>
             <div class="inv-row">
                 <span class="inv-row__label">Phone</span>
-                <span class="inv-row__value {{ $phone === '' ? 'inv-row__value--muted' : '' }}">{{ $phone !== '' ? $phone : '—' }}</span>
+                <span class="inv-row__value {{ $phone === '' ? 'inv-row__value--muted' : '' }}">{{ $phone !== '' ? $phone : '-' }}</span>
                 <span></span>
             </div>
             <div class="inv-row">
                 <span class="inv-row__label">Address</span>
-                <span class="inv-row__value">{{ $fullAddr !== '' ? $fullAddr : '—' }}</span>
+                <span class="inv-row__value">{{ $fullAddr !== '' ? $fullAddr : '-' }}</span>
                 @if($fullAddr !== '')
                     <button type="button" class="inv-copy-btn" data-copy="{{ $fullAddr }}">Copy</button>
                 @else

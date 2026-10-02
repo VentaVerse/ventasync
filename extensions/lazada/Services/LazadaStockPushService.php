@@ -118,7 +118,7 @@ class LazadaStockPushService
                 // ERP has variants but this Lazada variant didn't match any of them.
                 // Default to 0 stock so we don't oversell on the marketplace by
                 // pushing a parent-row aggregate.
-                Log::warning('LazadaStockPushService: unmatched Lazada variant — defaulting to 0', [
+                Log::warning('LazadaStockPushService: unmatched Lazada variant, defaulting to 0', [
                     'product_id'        => $productId,
                     'lazada_seller_sku' => $sellerSku,
                     'lazada_sku_id'     => $skuId,

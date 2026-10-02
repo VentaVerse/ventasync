@@ -184,7 +184,7 @@ class LazadaSyncReviews extends Command
                     }
                 }
 
-                $this->info("  [{$itemsChecked}/{$totalItems}] item {$itemId}: " . count($itemReviewIds) . " review(s) — total: {$created} new, {$updated} updated");
+                $this->info("  [{$itemsChecked}/{$totalItems}] item {$itemId}: " . count($itemReviewIds) . " review(s), total: {$created} new, {$updated} updated");
             }
 
             // No extra delay -- rate limiting handled in runSignedApiCall

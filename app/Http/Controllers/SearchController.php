@@ -39,7 +39,7 @@ class SearchController extends Controller
         foreach ($orders as $o) {
             $results[] = [
                 'category' => 'Orders',
-                'label' => '#' . $o->order_id . ' — ' . $o->firstname . ' ' . $o->lastname,
+                'label' => '#' . $o->order_id . ' · ' . $o->firstname . ' ' . $o->lastname,
                 'sub' => $o->marketplace_order_id ?: $o->email,
                 'url' => route('orders.show', $o->order_id),
             ];

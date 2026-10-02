@@ -400,7 +400,7 @@ function initPoLines(form) {
                                 const group = data.filter(function (v) { return v.option_group === p.option_group; });
                                 seen[p.option_group] = group;
 
-                                const baseName = String(p.name || '').split(' — ')[0];
+                                const baseName = p.base_name || String(p.name || '').split(' · ')[0];
                                 const all = resultButton(
                                     'Add all ' + p.option_count + ' variations of ' + baseName,
                                     null,

@@ -155,7 +155,7 @@ class ExtensionController extends Controller
 
         if (!is_array($manifest) || empty($manifest['id'])) {
             File::deleteDirectory($tmpDir);
-            return back()->with('error', 'Invalid extension.json — missing "id" field.');
+            return back()->with('error', 'Invalid extension.json: missing "id" field.');
         }
 
         $extensionId = $manifest['id'];

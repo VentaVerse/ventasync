@@ -88,7 +88,7 @@ class OrderStockService
                     qtyBefore: $ovQtyBefore,
                     qtyAfter: (int) $optionValue->quantity,
                     source: $source,
-                    note: "$orderLabel — {$type}ed {$orderProduct->quantity} (option)",
+                    note: "$orderLabel: {$type}ed {$orderProduct->quantity} (option)",
                 );
 
                 // Sync warehouse inventory for this option value
@@ -114,7 +114,7 @@ class OrderStockService
                     qtyBefore: $pQtyBefore,
                     qtyAfter: (int) $product->quantity,
                     source: $source,
-                    note: "$orderLabel — {$type}ed {$orderProduct->quantity}",
+                    note: "$orderLabel: {$type}ed {$orderProduct->quantity}",
                 );
 
                 // Sync warehouse inventory for product-level (only for products without options)

@@ -346,7 +346,7 @@ class OpenCartController extends Controller
                 $parts[] = "{$label}: " . implode(', ', $counts);
             }
 
-            $msg = "Sync completed — " . implode(' | ', $parts);
+            $msg = "Sync completed: " . implode(' | ', $parts);
 
             return $wantsJson
                 ? response()->json(['status' => $msg])
@@ -414,7 +414,7 @@ class OpenCartController extends Controller
                 $parts[] = "{$label}: " . implode(', ', $counts);
             }
 
-            $msg = "Push completed — " . implode(' | ', $parts);
+            $msg = "Push completed: " . implode(' | ', $parts);
 
             return $wantsJson
                 ? response()->json(['status' => $msg])
@@ -502,7 +502,7 @@ class OpenCartController extends Controller
                 $counts[] = ($log->records_processed > 0 ? "{$log->records_processed} processed" : '0 linked products');
             }
 
-            $msg = 'Push Qty completed — ' . implode(', ', $counts);
+            $msg = 'Push Qty completed: ' . implode(', ', $counts);
 
             return $wantsJson
                 ? response()->json(['status' => $msg])

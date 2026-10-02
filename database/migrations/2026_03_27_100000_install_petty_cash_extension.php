@@ -76,7 +76,7 @@ return new class extends Migration
                 'id'          => 'pettycash',
                 'name'        => 'Petty Cash',
                 'version'     => '1.1.0',
-                'description' => 'Staff petty cash tracking — credits and expense logging',
+                'description' => 'Staff petty cash tracking: credits and expense logging',
                 'author'      => 'VentaSync',
                 'enabled'     => 1,
                 'created_at'  => now(),

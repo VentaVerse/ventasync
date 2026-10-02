@@ -265,7 +265,7 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
                         reference: '#' . $o->order_id,
                         customerName: trim(($o->firstname ?? '') . ' ' . ($o->lastname ?? '')) ?: null,
                         total: (float) $o->total,
-                        statusLabel: (string) ($statuses[$o->order_status_id] ?? '—'),
+                        statusLabel: (string) ($statuses[$o->order_status_id] ?? '-'),
                         orderedAt: $o->date_added ? new \DateTimeImmutable((string) $o->date_added) : null,
                         url: route('orders.show', $o->order_id),
                     ))->all();

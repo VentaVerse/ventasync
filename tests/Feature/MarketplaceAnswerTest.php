@@ -26,7 +26,7 @@ class MarketplaceAnswerTest extends TestCase
         ]), 'an empty message must not hide the error code standing right beside it');
 
         $this->assertSame(
-            'The item cannot be updated. — model SKU GTR-1PC already exists',
+            'The item cannot be updated: model SKU GTR-1PC already exists',
             MarketplaceAnswer::error('Shopee', ['ok' => true, 'body' => [
                 'error' => 'error_param', 'message' => 'The item cannot be updated.',
                 'response' => ['failure_list' => [['fail_message' => 'model SKU GTR-1PC already exists']]],
@@ -55,7 +55,7 @@ class MarketplaceAnswerTest extends TestCase
 
     public function test_tiktok_reads_the_per_sku_refusal_inside_an_accepted_call(): void
     {
-        $this->assertSame('inventory update partially failed — sku 123 not found', MarketplaceAnswer::error('TikTok Shop', [
+        $this->assertSame('inventory update partially failed: sku 123 not found', MarketplaceAnswer::error('TikTok Shop', [
             'ok' => true, 'body' => ['code' => 0, 'message' => 'inventory update partially failed',
                 'data' => ['errors' => [['message' => 'sku 123 not found']]]],
         ]));

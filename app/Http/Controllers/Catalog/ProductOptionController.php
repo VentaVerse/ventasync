@@ -465,7 +465,7 @@ class ProductOptionController extends Controller
             $this->backSyncPov($p, $pov2Agg, $basePrice);
         });
 
-        ActivityLogger::log('updated', 'Product Options', $id, 'Product #' . $id . ' — 2-option');
+        ActivityLogger::log('updated', 'Product Options', $id, 'Product #' . $id . ': 2-option');
 
         return redirect()->route('products.options.edit', $id)->with('status', 'Options saved (2-option combination).');
     }
@@ -714,7 +714,7 @@ class ProductOptionController extends Controller
             DB::table('product_option_combinations')->where('product_id', $id)->delete();
         });
 
-        ActivityLogger::log('updated', 'Product Options', $id, 'Product #' . $id . ' — options removed');
+        ActivityLogger::log('updated', 'Product Options', $id, 'Product #' . $id . ': options removed');
 
         return redirect()->route('products.options.edit', $id)->with('status', 'All options removed.');
     }
