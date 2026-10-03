@@ -2811,9 +2811,8 @@ class WorkspaceInteriorsTest extends TestCase
         $settings->assertSee('Push Price');
         $settings->assertSee('Push Reviews');
 
-        // And the one requirement that lives outside the ERP is stated, or a
-        // row can read "enabled, every 5 minutes" and never run once.
-        $settings->assertSee('schedule:run');
+        // Server setup belongs in the install guide, not on the page.
+        $settings->assertDontSee('schedule:run');
     }
 
     public function test_venta_channel_sourced_names_are_escaped(): void
@@ -3256,7 +3255,7 @@ class WorkspaceInteriorsTest extends TestCase
         $settings->assertSee('Push Stock');
         $settings->assertSee('Push Price');
         $settings->assertSee('Push Reviews');
-        $settings->assertSee('schedule:run');
+        $settings->assertDontSee('schedule:run');
     }
 
     public function test_opencart_channel_sourced_names_are_escaped(): void

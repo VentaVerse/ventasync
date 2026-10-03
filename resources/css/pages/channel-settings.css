@@ -645,30 +645,6 @@
 
 .cs-page .automations-tab { display: flex; flex-direction: column; gap: var(--bl-space-4); }
 
-/* The one requirement that lives outside the ERP. Set as a quiet closing
-   note rather than a callout box: it is true on every install and mostly
-   already satisfied, so it needs to be findable, not alarming. */
-.cs-page .automations-foot {
-    margin: 0;
-    font-size: 12.5px;
-    line-height: 1.6;
-    color: var(--bl-ink-3);
-}
-
-.cs-page .automations-foot__cmd {
-    display: block;
-    margin: 6px 0;
-    padding: 8px 10px;
-    border: 1px solid var(--bl-rule-2);
-    border-radius: var(--bl-r-ctrl);
-    background: var(--bl-chrome);
-    color: var(--bl-ink-2);
-    font-family: var(--font-mono);
-    font-size: 12px;
-    overflow-x: auto;
-    white-space: nowrap;
-}
-
 .cs-page .automations-windows,
 .cs-page .automation-row {
     background: var(--bl-sheet);

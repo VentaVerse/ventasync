@@ -99,7 +99,17 @@ php artisan route:cache
 php artisan view:cache
 ```
 
-### 7. Visit your site
+### 7. Schedule the background jobs
+
+Every automation (order syncs, stock and price pushes, token refresh, mobile app retries and low stock alerts) runs from Laravel's scheduler. Add one entry to your hosting panel's Cron Jobs, set to every minute:
+
+```
+* * * * * php /path/to/ventasync/artisan schedule:run >> /dev/null 2>&1
+```
+
+Without it nothing on any Automations section runs, whatever it says there. How often each job runs is set on its own Automations section, with no further changes to the cron entry.
+
+### 8. Visit your site
 
 Open `https://your-domain.com` → log in with `admin` / `admin` → **change the password immediately** via Settings → Users.
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Integrations\Support\AutomationSettings;
 use App\Models\ScheduledJob;
 use Illuminate\Http\Request;
 
@@ -212,16 +213,10 @@ class AutomationsController extends Controller
     {
         $data = $request->validate([
             'integration'                  => ['nullable', 'string', 'max:32'],
-            'jobs'                         => ['nullable', 'array'],
-            'jobs.*.cadence_value'         => ['required', 'integer', 'min:1', 'max:9999'],
-            'jobs.*.cadence_unit'          => ['required', 'in:minute,hour,day'],
-            'jobs.*.enabled'               => ['nullable'],
-            'jobs.*.days'                  => ['nullable', 'integer', 'min:1', 'max:365'],
-            'jobs.*.days_returns'          => ['nullable', 'integer', 'min:1', 'max:365'],
             'windows'                      => ['nullable', 'array'],
             'windows.sync_last_days'         => ['nullable', 'integer', 'min:1', 'max:365'],
             'windows.sync_last_days_returns' => ['nullable', 'integer', 'min:1', 'max:365'],
-        ]);
+        ] + AutomationSettings::rules());
 
         $ids  = array_map('intval', array_keys($data['jobs'] ?? []));
         $jobs = $ids ? ScheduledJob::whereIn('id', $ids)->get()->keyBy('id') : collect();
@@ -240,30 +235,7 @@ class AutomationsController extends Controller
             }
         }
 
-        $saved = 0;
-        foreach (($data['jobs'] ?? []) as $id => $payload) {
-            $job = $jobs[(int) $id] ?? null;
-            if (!$job) {
-                continue;
-            }
-
-            $job->cadence_value = (int) $payload['cadence_value'];
-            $job->cadence_unit  = (string) $payload['cadence_unit'];
-            $job->enabled       = !empty($payload['enabled']);
-
-            $options = is_array($job->options) ? $job->options : [];
-            if (isset($payload['days']) && $payload['days'] !== '' && $payload['days'] !== null) {
-                $options['days'] = (int) $payload['days'];
-            }
-            if (isset($payload['days_returns']) && $payload['days_returns'] !== '' && $payload['days_returns'] !== null) {
-                $options['days_returns'] = (int) $payload['days_returns'];
-            }
-            $job->options = $options;
-
-            $job->syncCronExpression();
-            $job->save();
-            $saved++;
-        }
+        $saved = AutomationSettings::apply($jobs, $data['jobs'] ?? []);
 
         // Sync-window columns live on each integration's Setting model.
         // Empty string means "clear this window" (revert to the sync

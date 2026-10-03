@@ -3,6 +3,9 @@
 
         @include('partials._automations_tab', ['integration' => 'shopee', 'storeId' => null])
 
+    A page with its own save passes 'form' => its form's id: the rows then
+    belong to that form, and there is no second Save button.
+
     Renders one compact row per scheduled job (with the matching
     integration / store_id). Each row exposes: enabled toggle,
     cadence (every N + unit), per-job options (days / days_returns),
@@ -11,6 +14,7 @@
     a stack of mini-cards.
 --}}
 @php
+    $hostForm = $form ?? null;
     $jobs = \App\Models\ScheduledJob::query()
         ->where('integration', $integration)
         ->when($storeId ?? null, fn($q, $sid) => $q->where('store_id', $sid))
@@ -60,13 +64,15 @@
              (`jobs[ID][field]`); sync-window columns ride under
              `windows[X]` with a hidden `integration` so the controller
              knows which Setting model to write. --}}
+        @if(! $hostForm)
         <form method="POST"
               action="{{ route('automations.batch_update') }}"
               class="automations-batch-form">
             @csrf
             <input type="hidden" name="integration" value="{{ $integration }}">
+        @endif
 
-            @if($hasOrdersWindow || $hasReturnsWindow || $hasReviewsWindow || $hasPayoutsWindow)
+            @if(! $hostForm && ($hasOrdersWindow || $hasReturnsWindow || $hasReviewsWindow || $hasPayoutsWindow))
                 <div class="automations-windows">
                     <div class="automations-windows-head">
                         <h4>Sync windows</h4>
@@ -132,7 +138,7 @@
 
                         {{-- Toggle acts as the row's status indicator at the far left --}}
                         <label class="automation-toggle" title="Enable or disable this job">
-                            <input type="checkbox" name="jobs[{{ $job->id }}][enabled]" value="1" {{ $job->enabled ? 'checked' : '' }}>
+                            <input type="checkbox" name="jobs[{{ $job->id }}][enabled]" value="1" {{ $job->enabled ? 'checked' : '' }} @if($hostForm) form="{{ $hostForm }}" @endif>
                             <span class="automation-toggle-track" aria-hidden="true">
                                 <span class="automation-toggle-thumb"></span>
                             </span>
@@ -157,12 +163,13 @@
                                 <input id="automation-{{ $job->id }}-cadence"
                                        type="number"
                                        name="jobs[{{ $job->id }}][cadence_value]"
+                                       @if($hostForm) form="{{ $hostForm }}" @endif
                                        value="{{ $job->cadence_value }}"
                                        min="1"
                                        max="9999"
                                        class="input automation-cadence-value"
                                        required>
-                                <select name="jobs[{{ $job->id }}][cadence_unit]" class="input automation-cadence-unit" aria-label="Cadence unit">
+                                <select name="jobs[{{ $job->id }}][cadence_unit]" class="input automation-cadence-unit" aria-label="Cadence unit" @if($hostForm) form="{{ $hostForm }}" @endif>
                                     <option value="minute" {{ $job->cadence_unit === 'minute' ? 'selected' : '' }}>min</option>
                                     <option value="hour"   {{ $job->cadence_unit === 'hour'   ? 'selected' : '' }}>hr</option>
                                     <option value="day"    {{ $job->cadence_unit === 'day'    ? 'selected' : '' }}>day</option>
@@ -201,10 +208,12 @@
                 @endforeach
             </div>
 
+        @if(! $hostForm)
             <div class="cs-actions">
                 <x-ui.button type="submit" variant="primary">Save All Automations</x-ui.button>
             </div>
         </form>
+        @endif
 
         {{-- One run form per job, outside the batch form. data-busy raises
              the overlay below while the command runs inside the request
@@ -221,23 +230,4 @@
              underneath is invisible on purpose. --}}
         @include('partials.automation-run-modal', ['stepUrl' => route('automations.run_step', ['run' => 0]), 'stopUrl' => route('automations.run_stop', ['run' => 0])])
 
-    {{-- The one thing every job on this page depends on, and the only thing
-         here that lives outside the ERP.
-
-         Laravel's scheduler decides WHICH job is due; something still has to
-         wake it up every minute. Nothing on this tab said so, so a row could
-         read "enabled, every 5 minutes" and never run once, with no way to
-         tell from this screen. Venta's old tab explained the cron setup and
-         the other three never did - this is that explanation, kept, and now
-         shown on all of them.
-
-         Stated as fact rather than as an instruction with a Copy button: on
-         most installs it is already in place, and the operator needs to
-         recognise it, not re-add it. --}}
-    <p class="automations-foot">
-        These run from the ERP's own scheduler. It needs one entry in your
-        hosting panel's Cron Jobs, set to every minute:
-        <code class="automations-foot__cmd">* * * * * php {{ base_path('artisan') }} schedule:run</code>
-        Without it nothing on this page runs, whatever it says here.
-    </p>
 </div>

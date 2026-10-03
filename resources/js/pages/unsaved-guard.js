@@ -84,8 +84,13 @@
         // input covers typing, change covers selects and checkboxes, and the
         // hidden inputs a script writes (the image arrangement) are caught by
         // the click that wrote them.
+        // Fields outside the form that join it through form="..." are
+        // listened for on the document, since their events never reach it.
         ['input', 'change', 'click'].forEach(function (name) {
-            form.addEventListener(name, function () { window.setTimeout(refresh, 0); });
+            document.addEventListener(name, function (e) {
+                var t = e.target;
+                if (form.contains(t) || (t && t.form === form)) window.setTimeout(refresh, 0);
+            });
         });
 
         /* ANY submit is the page leaving, not only this form's. The strip's
