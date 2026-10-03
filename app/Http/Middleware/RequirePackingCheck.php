@@ -17,6 +17,11 @@ class RequirePackingCheck
 {
     public function handle(Request $request, Closure $next, string $channel): Response
     {
+        // The app's marketplace routes name their channel in the URL.
+        if ($channel === 'platform') {
+            $channel = (string) $request->route('platform');
+        }
+
         if (! PackingCheck::enabled() || $request->user() === null) {
             return $next($request);
         }
@@ -24,7 +29,7 @@ class RequirePackingCheck
         foreach (PackingCheck::ordersOf($channel, $request) as $id) {
             if (! PackingCheck::passed($request->user(), $channel, $id)) {
                 if ($request->expectsJson()) {
-                    return response()->json(['ok' => false, 'message' => PackingCheck::MISSING], 422);
+                    return response()->json(['ok' => false, 'error' => 'count_needed', 'message' => PackingCheck::MISSING], 422);
                 }
 
                 return back()

@@ -729,6 +729,7 @@ class ShopeeOrderController extends Controller
             if ($json) return response()->json(['ok' => false, 'error' => 'already_done', 'message' => $passed], 409);
             return redirect()->route('ext.shopee.orders.index')->with('shopee_orders_last_result', [
                 'ok' => false,
+                'error' => 'already_done',
                 'message' => $passed,
             ]);
         }

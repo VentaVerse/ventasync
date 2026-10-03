@@ -27,6 +27,22 @@ use Illuminate\Support\Facades\Log;
  */
 class VentaFulfilment
 {
+    /** What a booking may send on to the storefront, from the web's modal or the app. */
+    public const BOOKING_RULES = [
+        'courier'           => ['nullable', 'string', 'max:32'],
+        'service'           => ['nullable', 'string', 'max:64'],
+        'parcel'            => ['nullable', 'string', 'max:64'],
+        'shipping_payment'  => ['nullable', 'string', 'max:32'],
+        'buyer_payment'     => ['nullable', 'in:cod,prepaid'],
+        'insure'            => ['nullable', 'boolean'],
+        'length_cm'         => ['nullable', 'numeric', 'min:0.01'],
+        'width_cm'          => ['nullable', 'numeric', 'min:0.01'],
+        'height_cm'         => ['nullable', 'numeric', 'min:0.01'],
+        'weight_kg'         => ['nullable', 'numeric', 'min:0.01'],
+        'pickup_slot'       => ['nullable', 'string', 'max:255'],
+        'pickup_address_id' => ['nullable', 'integer'],
+    ];
+
     public function __construct(
         private VentaSetting $setting,
         private VentaClient $client,

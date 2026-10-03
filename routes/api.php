@@ -55,6 +55,7 @@ Route::middleware(['auth:sanctum', 'app.person', 'app.once'])->group(function ()
         Route::get('/orders', [ApiOrderController::class, 'index']);
         Route::get('/orders/{id}', [ApiOrderController::class, 'show']);
         Route::post('/orders/{id}/status', [ApiOrderController::class, 'updateStatus']);
+        Route::post('/orders/{id}/ship', [ApiOrderController::class, 'ship']);
         Route::get('/order-statuses', [ApiOrderController::class, 'statuses']);
     });
 
@@ -63,6 +64,22 @@ Route::middleware(['auth:sanctum', 'app.person', 'app.once'])->group(function ()
     // is intentionally view-only and only gates menu visibility.
     Route::get('/marketplace/{platform}/orders', [ApiMarketplaceOrderController::class, 'index']);
     Route::get('/marketplace/{platform}/orders/{id}', [ApiMarketplaceOrderController::class, 'show']);
+
+    // The marketplace's own fulfilment buttons; the controller asks the
+    // marketplace which actions it has and gates each on its tier.
+    Route::prefix('/marketplace/{platform}/orders/{id}')->where(['platform' => '[a-z]+', 'id' => '[0-9]+'])->group(function () {
+        foreach (['shipping-options', 'awb', 'tracking'] as $read) {
+            Route::get('/' . $read, [ApiMarketplaceOrderController::class, 'fulfil'])->defaults('action', $read);
+        }
+        foreach (['pack', 'ship'] as $booking) {
+            Route::post('/' . $booking, [ApiMarketplaceOrderController::class, 'fulfil'])->defaults('action', $booking)
+                ->middleware(['packing.check:platform', 'booking.lock:platform']);
+        }
+        foreach (['rts', 'repack'] as $step) {
+            Route::post('/' . $step, [ApiMarketplaceOrderController::class, 'fulfil'])->defaults('action', $step)
+                ->middleware('booking.lock:platform');
+        }
+    });
 
     Route::middleware('perm:manage_venta/order')->group(function () {
         Route::get('/venta-stores', [VentaOrderApiController::class, 'stores']);
@@ -85,6 +102,11 @@ Route::middleware(['auth:sanctum', 'app.person', 'app.once'])->group(function ()
     });
     Route::get('/receivables', [\App\Http\Controllers\Api\V1\ReceivableController::class, 'index'])->middleware('perm:view_sales/order_payment');
     Route::post('/receivables/payments', [\App\Http\Controllers\Api\V1\ReceivableController::class, 'recordPayment'])->middleware('perm:manage_sales/order_payment');
+    // The packing check, the web's pair: a count done on either counts on both.
+    Route::get('/fulfilment/packing-check/{channel}/{order}', [\App\Http\Controllers\Fulfilment\PackingCheckController::class, 'show'])
+        ->where('channel', '[a-z]+')->whereNumber('order');
+    Route::post('/fulfilment/packing-check/{channel}/{order}', [\App\Http\Controllers\Fulfilment\PackingCheckController::class, 'verify'])
+        ->where('channel', '[a-z]+')->whereNumber('order')->middleware('throttle:60,1');
     Route::get('/inventory', [\App\Http\Controllers\Api\V1\InventoryController::class, 'index'])->middleware('perm:view_catalog/product');
     Route::post('/inventory/adjust', [\App\Http\Controllers\Api\V1\InventoryController::class, 'adjust'])->middleware('perm:manage_catalog/product');
 });

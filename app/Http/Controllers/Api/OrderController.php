@@ -8,9 +8,11 @@ use App\Models\Catalog\OrderHistory;
 use App\Models\Catalog\OrderStatus;
 use App\Models\Catalog\Product;
 use App\Services\ActivityLogger;
+use App\Support\Fulfilment\AppFulfilment;
 use App\Services\OrderStockService;
 use App\Support\Money;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -88,6 +90,7 @@ class OrderController extends Controller
                 'store_id'             => self::storeIdOf($order->marketplace_source ?? '', $order->store_id),
                 'store_name'           => (string) ($order->store_name ?? ''),
                 'product_image'        => $productImage,
+                'fulfilment'           => self::fulfilment($order),
             ];
         });
 
@@ -96,10 +99,20 @@ class OrderController extends Controller
 
     public function show($id)
     {
-        $order = Order::where('order_id', (int) $id)->firstOrFail();
+        return response()->json($this->showPayload(Order::where('order_id', (int) $id)->firstOrFail()));
+    }
+
+    /**
+     * An order as the show endpoint draws it, which is also what a
+     * fulfilment action hands back after it acts.
+     *
+     * @return array<string, mixed>
+     */
+    private function showPayload(Order $order): array
+    {
         $products = $order->products()->with('options')->get();
         $totals = $order->totals()->orderBy('sort_order')->get();
-        $history = OrderHistory::where('order_id', (int) $id)
+        $history = OrderHistory::where('order_id', (int) $order->order_id)
             ->with('status')
             ->orderByDesc('date_added')
             ->get();
@@ -111,7 +124,7 @@ class OrderController extends Controller
             ? \Extensions\opencart\Models\OpenCartSetting::pluck('store_name', 'id')->toArray()
             : [];
 
-        return response()->json([
+        return [
             'order' => [
                 'order_id'           => $order->order_id,
                 'firstname'          => $order->firstname,
@@ -136,6 +149,7 @@ class OrderController extends Controller
                 'marketplace_order_id' => $order->marketplace_order_id ?? '',
                 'store_id'             => self::storeIdOf($order->marketplace_source ?? '', $order->store_id),
                 'store_name'           => (string) ($order->store_name ?? ''),
+                'fulfilment'           => self::fulfilment($order),
             ],
             'products' => $products->map(function ($p) use ($productImages) {
                 return [
@@ -163,7 +177,7 @@ class OrderController extends Controller
                 'comment'         => $h->comment ?? '',
                 'date_added'      => $h->date_added,
             ]),
-        ]);
+        ];
     }
 
     public function updateStatus(Request $request, $id)
@@ -174,8 +188,58 @@ class OrderController extends Controller
         ]);
 
         $order = Order::where('order_id', (int) $id)->firstOrFail();
+        $this->changeStatus($order, (int) $request->order_status_id, (string) ($request->comment ?? ''));
+
+        return response()->json(['message' => 'Order status updated.']);
+    }
+
+    /**
+     * A manual order leaves with its courier and tracking number: both are
+     * recorded and the status moves in one step, as the web's status change
+     * moves it, so stock, history and the push follow as they always do.
+     */
+    public function ship(Request $request, $id)
+    {
+        $pfx = (string) config('catalog.prefix');
+        $data = $request->validate([
+            'order_status_id' => ['required', 'integer', Rule::exists($pfx . 'order_status', 'order_status_id')],
+            'tracking_number' => ['required', 'string', 'max:32'],
+            'courier_name'    => ['nullable', 'string', 'max:64'],
+            'comment'         => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $order = Order::where('order_id', (int) $id)->firstOrFail();
+        if ((string) ($order->marketplace_source ?? '') !== '') {
+            return AppFulfilment::refused('This order ships through its store.');
+        }
+        if (trim((string) $order->tracking_number) !== '') {
+            return AppFulfilment::alreadyDone('This order is already shipped.', $this->showPayload($order));
+        }
+
+        $tracking = trim($data['tracking_number']);
+        $courier = trim((string) ($data['courier_name'] ?? ''));
+        $comment = implode("\n", array_filter([
+            'Shipped' . ($courier !== '' ? ' with ' . $courier : '') . ', tracking ' . $tracking . '.',
+            trim((string) ($data['comment'] ?? '')),
+        ]));
+
+        DB::transaction(function () use ($order, $tracking, $data, $comment) {
+            $order->tracking_number = $tracking;
+            $order->save();
+            $this->changeStatus($order, (int) $data['order_status_id'], $comment);
+        });
+
+        return AppFulfilment::ok('Shipped.', $this->showPayload($order->fresh()));
+    }
+
+    /**
+     * Move an order to a status the way the web's status change does: the
+     * history line, the stock, the activity log; the push follows from
+     * App\Observers\OrderObserver on the update.
+     */
+    private function changeStatus(Order $order, int $newStatusId, string $comment): void
+    {
         $oldStatusId = (int) $order->order_status_id;
-        $newStatusId = (int) $request->order_status_id;
 
         $order->update([
             'order_status_id' => $newStatusId,
@@ -187,7 +251,7 @@ class OrderController extends Controller
             'order_id'        => $order->order_id,
             'order_status_id' => $newStatusId,
             'notify'          => 0,
-            'comment'         => $request->comment ?? '',
+            'comment'         => $comment,
             'date_added'      => now(),
             'user_id'         => $user?->id,
             'user_name'       => $user ? ($user->name ?? $user->username ?? 'User #' . $user->id) : 'API',
@@ -206,11 +270,21 @@ class OrderController extends Controller
             '#' . $order->order_id . ' ' . trim($order->firstname . ' ' . $order->lastname),
             ['status' => [(string) $oldStatusName, (string) $newStatusName]]
         );
+    }
 
-        // The status move is announced by App\Observers\OrderObserver.
-        // on $order->update() above.
+    /**
+     * A manual order is to pack until it has a tracking number. An order
+     * from a store ships through that store's own screen.
+     */
+    private static function fulfilment(Order $order): array
+    {
+        if ((string) ($order->marketplace_source ?? '') !== '') {
+            return AppFulfilment::block('sales', (int) $order->order_id, 'other', []);
+        }
 
-        return response()->json(['message' => 'Order status updated.']);
+        $shipped = trim((string) $order->tracking_number) !== '';
+
+        return AppFulfilment::block('sales', (int) $order->order_id, $shipped ? 'shipped' : 'to_pack', $shipped ? [] : ['mark_shipped']);
     }
 
     public function pendingCount(Request $request)

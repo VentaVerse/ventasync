@@ -30,7 +30,7 @@ use Illuminate\Support\Facades\Schema;
 use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Concerns\RevealsCredentials;
 
-class TiktokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, \App\Integrations\Contracts\ListingStateSource, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter, \App\Integrations\Contracts\SaleLinesSource, \App\Integrations\Contracts\MarketplaceOrderRefRenderer
+class TiktokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, \App\Integrations\Contracts\MobileFulfilmentProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, \App\Integrations\Contracts\ListingStateSource, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter, \App\Integrations\Contracts\SaleLinesSource, \App\Integrations\Contracts\MarketplaceOrderRefRenderer
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],
@@ -690,6 +690,7 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
                 'payment_method'  => $raw['payment']['payment_method_name'] ?? null,
                 'tracking_number' => $raw['tracking_number'] ?? null,
                 'date'            => $order->order_created_at?->format('Y-m-d H:i'),
+                'fulfilment'      => \Extensions\tiktok\Services\TikTokAppFulfilment::block($order),
             ];
         });
 
@@ -729,6 +730,7 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
             });
 
         return [
+            'id'                => $order->id,
             'order_id'          => (string) $order->order_id,
             'store_id'          => (int) $order->tiktok_setting_id,
             'store_name'        => (string) TikTokSetting::query()->whereKey($order->tiktok_setting_id)->value('store_name'),
@@ -751,7 +753,18 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
                 ]))),
             'date'              => $order->order_created_at?->format('Y-m-d H:i'),
             'products'          => $products->values(),
+            'fulfilment'        => \Extensions\tiktok\Services\TikTokAppFulfilment::block($order),
         ];
+    }
+
+    public function mobileFulfilmentActions(): array
+    {
+        return \Extensions\tiktok\Services\TikTokAppFulfilment::ACTIONS;
+    }
+
+    public function mobileFulfilmentAction(string $action, int $id, Request $request): \Symfony\Component\HttpFoundation\Response
+    {
+        return app(\Extensions\tiktok\Services\TikTokAppFulfilment::class)->handle($action, $id, $request);
     }
 
     // ── Layout banner + source label ───────────────────────────

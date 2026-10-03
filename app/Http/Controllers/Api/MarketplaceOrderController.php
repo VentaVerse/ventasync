@@ -52,6 +52,35 @@ class MarketplaceOrderController extends Controller
     }
 
     /**
+     * A fulfilment button for one order: pack, ship, print the waybill and
+     * the rest, each answered by the marketplace that owns the order, the
+     * same way its web orders page answers it. A change needs the manage
+     * tier; a read, the view tier.
+     */
+    public function fulfil(Request $request, string $platform, int $id, string $action)
+    {
+        $provider = app(IntegrationRegistry::class)->mobileProviderFor($platform);
+        if (! $provider instanceof \App\Integrations\Contracts\MobileFulfilmentProvider) {
+            return response()->json(['error' => 'Invalid platform'], 404);
+        }
+
+        $actions = $provider->mobileFulfilmentActions();
+        if (! array_key_exists($action, $actions)) {
+            return response()->json(['error' => 'Unknown action'], 404);
+        }
+
+        $key = ($actions[$action] ? 'manage_' : 'view_') . $platform . '/order';
+        if (! $request->user()->hasPermission($key)) {
+            return response()->json([
+                'error'   => 'permission_denied',
+                'message' => "You don't have permission to do this with {$platform} orders.",
+            ], 403);
+        }
+
+        return $provider->mobileFulfilmentAction($action, $id, $request);
+    }
+
+    /**
      * Per-marketplace permission gate: a user with manage_{platform}/order -
      * the same derived key that opens that platform's orders screen in the
      * web interface - can access its orders here. Returns null on pass, a

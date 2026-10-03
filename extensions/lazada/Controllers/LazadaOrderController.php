@@ -534,6 +534,7 @@ class LazadaOrderController extends Controller
         if (count($items['package_ids']) > 0) {
             return redirect()->back()->with('lazada_orders_last_result', [
                 'ok' => false,
+                'error' => 'already_done',
                 'message' => 'This order is already packed.',
             ]);
         }
@@ -1065,6 +1066,7 @@ class LazadaOrderController extends Controller
         if (!($res['ok'] ?? false)) {
             return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
                 'ok' => false,
+                'error' => $res['error'] ?? null,
                 'message' => $res['message'] ?? 'Failed to ship & print.',
                 'raw' => $res['raw'] ?? null,
             ]);
@@ -1096,7 +1098,7 @@ class LazadaOrderController extends Controller
 
         $passed = $this->pastReadyToShip((string) $orderId);
         if ($passed !== null) {
-            return ['ok' => false, 'message' => $passed];
+            return ['ok' => false, 'error' => 'already_done', 'message' => $passed];
         }
 
         $packageIds = [];
@@ -1876,6 +1878,7 @@ public function reset(Request $request)
         if (count($items['package_ids']) > 0) {
             return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
                 'ok' => false,
+                'error' => 'already_done',
                 'message' => 'This order is already packed.',
             ]);
         }
@@ -1968,6 +1971,7 @@ public function reset(Request $request)
         if ($passed !== null) {
             return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
                 'ok' => false,
+                'error' => 'already_done',
                 'message' => $passed,
             ]);
         }

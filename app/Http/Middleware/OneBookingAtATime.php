@@ -23,6 +23,11 @@ class OneBookingAtATime
 
     public function handle(Request $request, Closure $next, string $channel): Response
     {
+        // The app's marketplace routes name their channel in the URL.
+        if ($channel === 'platform') {
+            $channel = (string) $request->route('platform');
+        }
+
         $ids = PackingCheck::ordersOf($channel, $request);
         sort($ids);
 

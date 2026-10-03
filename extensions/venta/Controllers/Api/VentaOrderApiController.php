@@ -3,13 +3,20 @@
 namespace Extensions\venta\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Support\Fulfilment\AppFulfilment;
+use App\Support\FulfilmentSteps;
 use App\Support\Money;
 use Extensions\venta\Models\VentaOrder;
 use Extensions\venta\Models\VentaOrderStatusMap;
 use Extensions\venta\Models\VentaSetting;
+use Extensions\venta\Services\Venta\VentaFulfilment;
+use Extensions\venta\Services\Venta\VentaStatusPlacements;
+use Extensions\venta\VentaExtension;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Symfony\Component\HttpFoundation\Response;
 
 class VentaOrderApiController extends Controller
 {
@@ -56,6 +63,15 @@ class VentaOrderApiController extends Controller
         // Tab filter
         if ($tab !== 'ALL' && $tab !== '') {
             $query->where('status', $tab);
+        }
+
+        // Step filter: the web's To Pack and To Handover, by the statuses
+        // the store places in each.
+        $step = trim((string) $request->query('step', ''));
+        if (in_array($step, ['to_pack', 'to_handover'], true)) {
+            $statusCounts = (clone $baseQuery)->selectRaw('status, COUNT(*) as cnt')->groupBy('status')->pluck('cnt', 'status');
+            $buckets = FulfilmentSteps::bucket('venta.orders', $statusCounts, VentaStatusPlacements::resolver($storeId));
+            $query->whereIn('status', $buckets[$step]['statuses'] ?: ['']);
         }
 
         // Search filter
@@ -109,6 +125,7 @@ class VentaOrderApiController extends Controller
                 'date'            => $order->order_created_at
                     ? $order->order_created_at->format('Y-m-d H:i')
                     : null,
+                'fulfilment'      => self::fulfilment($order),
             ];
         });
 
@@ -119,6 +136,7 @@ class VentaOrderApiController extends Controller
             'total'              => $orders->total(),
             'tab_counts'         => $tabCounts,
             'pending_sub_counts' => (object) [],
+            'step_counts'        => VentaExtension::stepCounts($storeId),
         ]);
     }
 
@@ -135,7 +153,19 @@ class VentaOrderApiController extends Controller
             return response()->json(['error' => 'Order not found'], 404);
         }
 
-        $store = VentaSetting::find($storeId);
+        return response()->json($this->payload($order));
+    }
+
+    /**
+     * An order as the show endpoint draws it, which is also what every
+     * fulfilment action hands back after it acts.
+     *
+     * @return array<string, mixed>
+     */
+    public function payload(VentaOrder $order): array
+    {
+        $order->loadMissing('products');
+        $store = VentaSetting::find($order->venta_setting_id);
         $baseUrl = rtrim($store->base_url ?? '', '/');
         $raw = $order->raw ?? [];
         $shippingAddr = $order->shipping_address ?? [];
@@ -158,7 +188,8 @@ class VentaOrderApiController extends Controller
             ];
         });
 
-        return response()->json([
+        return [
+            'id'                => $order->id,
             'order_id'          => $order->venta_order_number ?: (string) $order->venta_order_id,
             'status'            => $order->status ?? '',
             'buyer_name'        => $order->customer_name ?? '',
@@ -181,7 +212,32 @@ class VentaOrderApiController extends Controller
                 ? $order->order_created_at->format('Y-m-d H:i')
                 : null,
             'products'          => $products->values(),
-        ]);
+            'fulfilment'        => self::fulfilment($order),
+        ];
+    }
+
+    /**
+     * The order's step as the web's VentaCart panel places it, and what it
+     * allows: a parcel on the bench is booked with a courier or by hand,
+     * one past it has a waybill and tracking.
+     */
+    public static function fulfilment(VentaOrder $order): array
+    {
+        $placement = VentaStatusPlacements::stepFor((int) $order->venta_setting_id, trim((string) $order->status)) ?? 'other';
+        $step = match ($placement) {
+            'to_pack', 'to_handover', 'cancelled' => $placement,
+            'shipping' => 'shipped',
+            'delivered' => 'done',
+            default => 'other',
+        };
+
+        return AppFulfilment::block(
+            'venta',
+            (int) $order->id,
+            $step,
+            $step === 'to_pack' ? ['book', 'book_manual'] : [],
+            in_array($step, ['to_handover', 'shipped'], true) ? ['awb', 'tracking'] : [],
+        );
     }
 
     /**
@@ -231,5 +287,140 @@ class VentaOrderApiController extends Controller
         }
 
         return null;
+    }
+
+    // The web's booking buttons, for the app: the same storefront calls the
+    // booking modal makes, through the same service, in the app's shape.
+
+    public function serviceability(int $store, int $id): JsonResponse
+    {
+        [$setting, $order] = $this->storeAndOrder($store, $id);
+
+        return response()->json(VentaFulfilment::for($setting)->serviceability($order));
+    }
+
+    public function pickupSlots(Request $request, int $store, int $id): JsonResponse
+    {
+        [$setting, $order] = $this->storeAndOrder($store, $id);
+        $courier = trim((string) $request->query('courier', ''));
+
+        return response()->json(VentaFulfilment::for($setting)->pickupSlots($order, $courier !== '' ? $courier : null));
+    }
+
+    public function pickupAddresses(int $store): JsonResponse
+    {
+        return response()->json(VentaFulfilment::for($this->store($store))->pickupAddresses());
+    }
+
+    public function shippingCouriers(int $store): JsonResponse
+    {
+        return response()->json(VentaFulfilment::for($this->store($store))->shippingCouriers());
+    }
+
+    public function estimate(Request $request, int $store, int $id): JsonResponse
+    {
+        [$setting, $order] = $this->storeAndOrder($store, $id);
+
+        return response()->json(VentaFulfilment::for($setting)->estimate($order, $this->bookingOptions($request)));
+    }
+
+    public function book(Request $request, int $store, int $id): JsonResponse
+    {
+        [$setting, $order] = $this->storeAndOrder($store, $id);
+        if ($passed = $this->passed($order)) {
+            return $passed;
+        }
+
+        $result = VentaFulfilment::for($setting)->book($order, $this->bookingOptions($request));
+        if (! $result['ok']) {
+            return AppFulfilment::refused($result['message']);
+        }
+        if ($result['already_booked']) {
+            return AppFulfilment::alreadyDone($result['message'], $this->fresh($order));
+        }
+
+        return AppFulfilment::ok($result['message'], $this->fresh($order), [
+            'courier' => $result['courier'],
+            'tracking_number' => $result['tracking_number'],
+        ]);
+    }
+
+    public function bookManual(Request $request, int $store, int $id): JsonResponse
+    {
+        [$setting, $order] = $this->storeAndOrder($store, $id);
+        $data = $request->validate([
+            'shipping_courier_id' => ['nullable', 'integer'],
+            'courier_name' => ['nullable', 'string', 'max:120'],
+            'tracking_number' => ['nullable', 'string', 'max:190'],
+            'comment' => ['nullable', 'string', 'max:500'],
+        ]);
+        if ($passed = $this->passed($order)) {
+            return $passed;
+        }
+
+        $result = VentaFulfilment::for($setting)->bookManual($order, $data);
+        if (! $result['ok']) {
+            return AppFulfilment::refused($result['message']);
+        }
+
+        return AppFulfilment::ok($result['message'], $this->fresh($order), [
+            'courier_name' => $result['courier_name'],
+            'tracking_number' => $result['tracking_number'],
+        ]);
+    }
+
+    public function tracking(int $store, int $id): JsonResponse
+    {
+        [$setting, $order] = $this->storeAndOrder($store, $id);
+
+        return response()->json(VentaFulfilment::for($setting)->tracking($order));
+    }
+
+    public function awb(Request $request, int $store, int $id): Response
+    {
+        [$setting, $order] = $this->storeAndOrder($store, $id);
+        $result = VentaFulfilment::for($setting)->label($order, $request->boolean('refresh'));
+
+        $pdf = $result['ok'] && is_file((string) $result['path']) ? file_get_contents($result['path']) : null;
+
+        return AppFulfilment::waybill($pdf ?: null, 'AWB-venta-' . (int) $order->venta_order_id . '.pdf', false, $result['message']);
+    }
+
+    /** An order already past To Pack is answered here; the storefront is not asked again. */
+    private function passed(VentaOrder $order): ?JsonResponse
+    {
+        $step = self::fulfilment($order)['step'];
+
+        return match ($step) {
+            'to_handover', 'shipped', 'done' => AppFulfilment::alreadyDone('This order is already booked.', $this->fresh($order)),
+            'cancelled' => AppFulfilment::refused('This order was cancelled.'),
+            default => null,
+        };
+    }
+
+    private function fresh(VentaOrder $order): array
+    {
+        return $this->payload($order->fresh());
+    }
+
+    /** The same booking options the web's modal may send on to the storefront. */
+    private function bookingOptions(Request $request): array
+    {
+        $data = $request->validate(VentaFulfilment::BOOKING_RULES);
+
+        return array_filter($data, fn ($v) => $v !== null && $v !== '');
+    }
+
+    private function store(int $store): VentaSetting
+    {
+        return VentaSetting::where('id', $store)->where('enabled', true)->firstOrFail();
+    }
+
+    /** @return array{0: VentaSetting, 1: VentaOrder} */
+    private function storeAndOrder(int $store, int $id): array
+    {
+        $setting = $this->store($store);
+
+        return [$setting, VentaOrder::where('venta_setting_id', $store)->findOrFail($id)];
     }
 }

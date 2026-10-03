@@ -33,7 +33,7 @@ use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Contracts\ListingStateSource;
 use App\Integrations\Concerns\RevealsCredentials;
 
-class ShopeeExtension extends ExtensionProvider implements ListingStateSource, IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, RootRouteHandler, CredentialRevealer, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter, \App\Integrations\Contracts\MarketplaceOrderRefRenderer, \App\Integrations\Contracts\SaleLinesSource
+class ShopeeExtension extends ExtensionProvider implements ListingStateSource, IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, \App\Integrations\Contracts\MobileFulfilmentProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, RootRouteHandler, CredentialRevealer, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter, \App\Integrations\Contracts\MarketplaceOrderRefRenderer, \App\Integrations\Contracts\SaleLinesSource
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],
@@ -790,6 +790,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                 'payment_method'  => $raw['payment_method'] ?? null,
                 'tracking_number' => $raw['tracking_number'] ?? null,
                 'date'            => $order->order_created_at?->format('Y-m-d H:i'),
+                'fulfilment'      => \Extensions\shopee\Services\ShopeeAppFulfilment::block($order),
             ];
         });
 
@@ -826,6 +827,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         });
 
         return [
+            'id'                => $order->id,
             'order_id'          => $order->order_sn,
             'store_id'          => (int) $order->shopee_setting_id,
             'store_name'        => (string) ShopeeSetting::query()->whereKey($order->shopee_setting_id)->value('store_name'),
@@ -847,7 +849,18 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                 ]))),
             'date'              => $order->order_created_at?->format('Y-m-d H:i'),
             'products'          => $products->values(),
+            'fulfilment'        => \Extensions\shopee\Services\ShopeeAppFulfilment::block($order),
         ];
+    }
+
+    public function mobileFulfilmentActions(): array
+    {
+        return \Extensions\shopee\Services\ShopeeAppFulfilment::ACTIONS;
+    }
+
+    public function mobileFulfilmentAction(string $action, int $id, Request $request): \Symfony\Component\HttpFoundation\Response
+    {
+        return app(\Extensions\shopee\Services\ShopeeAppFulfilment::class)->handle($action, $id, $request);
     }
 
     // ── Layout banner + source label ───────────────────────────

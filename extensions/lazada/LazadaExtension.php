@@ -33,7 +33,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver, SkuSyncContributor, DashboardContributor, OrderImagesContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, ListingStateSource, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter, \App\Integrations\Contracts\MarketplaceOrderRefRenderer, \App\Integrations\Contracts\SaleLinesSource
+class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver, SkuSyncContributor, DashboardContributor, OrderImagesContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, \App\Integrations\Contracts\MobileFulfilmentProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, ListingStateSource, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter, \App\Integrations\Contracts\MarketplaceOrderRefRenderer, \App\Integrations\Contracts\SaleLinesSource
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['unpaid'],
@@ -858,6 +858,7 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
                 'payment_method'  => $raw['payment_method'] ?? null,
                 'tracking_number' => $raw['tracking_number'] ?? null,
                 'date'            => $order->order_created_at?->format('Y-m-d H:i'),
+                'fulfilment'      => \Extensions\lazada\Services\LazadaAppFulfilment::block($order),
             ];
         });
 
@@ -898,6 +899,7 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
             });
 
         return [
+            'id'                => $order->id,
             'order_id'          => (string) $order->order_id,
             'store_id'          => (int) $order->lazada_setting_id,
             'store_name'        => (string) LazadaSetting::query()->whereKey($order->lazada_setting_id)->value('store_name'),
@@ -919,7 +921,18 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
             ]))),
             'date'              => $order->order_created_at?->format('Y-m-d H:i'),
             'products'          => $products->values(),
+            'fulfilment'        => \Extensions\lazada\Services\LazadaAppFulfilment::block($order),
         ];
+    }
+
+    public function mobileFulfilmentActions(): array
+    {
+        return \Extensions\lazada\Services\LazadaAppFulfilment::ACTIONS;
+    }
+
+    public function mobileFulfilmentAction(string $action, int $id, Request $request): \Symfony\Component\HttpFoundation\Response
+    {
+        return app(\Extensions\lazada\Services\LazadaAppFulfilment::class)->handle($action, $id, $request);
     }
 
     // ── Layout banner + source label ───────────────────────────

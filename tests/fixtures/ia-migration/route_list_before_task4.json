@@ -126,6 +126,16 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "api/fulfilment/packing-check/{channel}/{order}",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/fulfilment/packing-check/{channel}/{order}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "api/inventory",
         "name": null
     },
@@ -161,6 +171,41 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "api/marketplace/{platform}/orders/{id}/awb",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/marketplace/{platform}/orders/{id}/pack",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/marketplace/{platform}/orders/{id}/repack",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/marketplace/{platform}/orders/{id}/rts",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/marketplace/{platform}/orders/{id}/ship",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/marketplace/{platform}/orders/{id}/shipping-options",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/marketplace/{platform}/orders/{id}/tracking",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "api/order-statuses",
         "name": null
     },
@@ -177,6 +222,11 @@
     {
         "method": "GET|HEAD",
         "uri": "api/orders/{id}",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/orders/{id}/ship",
         "name": null
     },
     {
@@ -492,6 +542,51 @@
     {
         "method": "GET|HEAD",
         "uri": "api/venta/{store}/orders/{id}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/venta/{store}/orders/{id}/awb",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/venta/{store}/orders/{id}/book",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/venta/{store}/orders/{id}/book-manual",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/venta/{store}/orders/{id}/estimate",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/venta/{store}/orders/{id}/pickup-slots",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/venta/{store}/orders/{id}/serviceability",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/venta/{store}/orders/{id}/tracking",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/venta/{store}/pickup-addresses",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/venta/{store}/shipping-couriers",
         "name": null
     },
     {

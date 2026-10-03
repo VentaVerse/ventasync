@@ -135,6 +135,11 @@ final class PackingCheck
         $store = app()->bound($channel . '.route-store') ? app($channel . '.route-store') : $request->route('store');
         $storeId = is_object($store) ? (int) $store->getKey() : (int) $store;
 
+        // The app's routes name every order by its own row id.
+        if ($request->is('api/*') && $request->route('id') !== null) {
+            return [(int) $request->route('id')];
+        }
+
         $ids = match ($channel) {
             'venta' => [(int) $request->route('order')],
             'tiktok' => [(int) $request->route('id')],

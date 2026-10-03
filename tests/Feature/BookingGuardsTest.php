@@ -91,7 +91,7 @@ class BookingGuardsTest extends TestCase
         $this->actingAs($this->packer('shopee'))
             ->post(route('ext.shopee.orders.ship', ['store' => $store->id, 'orderSn' => 'SN-GUARD-1']))
             ->assertRedirect()
-            ->assertSessionHas('shopee_orders_last_result', ['ok' => false, 'message' => "This order's shipment is already arranged."]);
+            ->assertSessionHas('shopee_orders_last_result', ['ok' => false, 'error' => 'already_done', 'message' => "This order's shipment is already arranged."]);
 
         $this->assertTrue(Cache::lock('fulfilment:shopee:' . $order->id, 1)->get(), 'the lock is let go once the request ends');
     }
@@ -104,7 +104,7 @@ class BookingGuardsTest extends TestCase
         $this->actingAs($this->packer('tiktok'))
             ->post(route('ext.tiktok.orders.ship', ['store' => $store->id, 'id' => $order->id]))
             ->assertRedirect()
-            ->assertSessionHas('tiktok_orders_last_result', ['ok' => false, 'message' => 'This order is already shipped.']);
+            ->assertSessionHas('tiktok_orders_last_result', ['ok' => false, 'error' => 'already_done', 'message' => 'This order is already shipped.']);
     }
 
     public function test_a_lazada_order_already_ready_to_ship_is_not_sent_again(): void
@@ -118,7 +118,7 @@ class BookingGuardsTest extends TestCase
         $this->actingAs($this->packer('lazada'))
             ->post(route('ext.lazada.orders.rts', ['store' => $store->id, 'orderId' => '660000000001']))
             ->assertRedirect()
-            ->assertSessionHas('lazada_orders_last_result', ['ok' => false, 'message' => 'This order is already ready to ship.']);
+            ->assertSessionHas('lazada_orders_last_result', ['ok' => false, 'error' => 'already_done', 'message' => 'This order is already ready to ship.']);
 
         $this->actingAs($this->packer('lazada'))
             ->post(route('ext.lazada.orders.ship_print_post', ['store' => $store->id, 'orderId' => '660000000001']))

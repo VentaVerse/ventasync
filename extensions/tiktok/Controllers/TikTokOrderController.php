@@ -380,6 +380,7 @@ class TikTokOrderController extends Controller
         if ($passed !== null) {
             return redirect()->back()->with('tiktok_orders_last_result', [
                 'ok' => false,
+                'error' => 'already_done',
                 'message' => $passed,
             ]);
         }
