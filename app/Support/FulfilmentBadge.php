@@ -32,12 +32,23 @@ class FulfilmentBadge
 
     public static function pending(Authenticatable|User|null $user): int
     {
+        return array_sum(self::byStore($user));
+    }
+
+    /**
+     * The same count per Fulfilment tab, keyed by the tab's store key
+     * ("shopee:1"), for the tabs this user can see.
+     *
+     * @return array<string, int>
+     */
+    public static function byStore(Authenticatable|User|null $user): array
+    {
         if ($user === null) {
-            return 0;
+            return [];
         }
 
-        return (int) Cache::remember(
-            'fulfilment.pending.' . $user->getAuthIdentifier(),
+        return (array) Cache::remember(
+            self::key($user),
             self::TTL,
             fn () => self::compute($user),
         );
@@ -51,34 +62,36 @@ class FulfilmentBadge
     public static function forget(Authenticatable|User|null $user): void
     {
         if ($user !== null) {
-            Cache::forget('fulfilment.pending.' . $user->getAuthIdentifier());
+            Cache::forget(self::key($user));
         }
     }
 
-    protected static function compute(Authenticatable|User $user): int
+    private static function key(Authenticatable|User $user): string
+    {
+        return 'fulfilment.to_pack.' . $user->getAuthIdentifier();
+    }
+
+    /** @return array<string, int> */
+    protected static function compute(Authenticatable|User $user): array
     {
         try {
-            $total = 0;
+            $counts = [];
 
             foreach (app(IntegrationRegistry::class)->visibleOrderTabs($user) as $tab) {
-                /* TO PACK ONLY (the owner, 2026-08-27): the badge is the floor's
-                 * "how much is untouched", so a parcel already packed and
-                 * waiting for the courier does not count against it. A
-                 * channel that names its stages gives its first, To Pack;
-                 * one that does not keeps the whole waiting figure, which
-                 * is all it knows. null means the counter was never
-                 * implemented, which shows the same as zero. */
+                // A channel that names its stages counts its first, To Pack;
+                // one that does not keeps its whole waiting figure. A counter
+                // never implemented counts as zero.
                 $stages = $tab->stageCounts();
                 $count = $stages ? ($stages[0]['count'] ?? 0) : ($tab->unprocessedCount() ?? 0);
-                $total += max(0, (int) $count);
+                $counts[$tab->id] = max(0, (int) $count);
             }
 
-            return $total;
+            return $counts;
         } catch (\Throwable) {
             // A marketplace with an expired token or a missing table must not
             // take down the sidebar, and with it every page in the app. No
             // badge is the honest failure here.
-            return 0;
+            return [];
         }
     }
 }

@@ -202,8 +202,10 @@ class OrderController extends Controller
         return response()->json(['message' => 'Order status updated.']);
     }
 
-    public function pendingCount()
+    public function pendingCount(Request $request)
     {
+        $toPack = \App\Support\FulfilmentBadge::byStore($request->user());
+
         $pendingStatuses = OrderStatus::where(function ($q) {
             $q->where('name', 'like', '%pending%')
               ->orWhere('name', 'like', '%processing%');
@@ -283,6 +285,9 @@ class OrderController extends Controller
             'lazada_pending_by_store' => $this->waitingByStore('lazada_orders', 'lazada_settings', 'lazada_setting_id', ['pending', 'repacked']),
             'shopee_pending_by_store' => $this->waitingByStore('shopee_orders', 'shopee_settings', 'shopee_setting_id', ['READY_TO_SHIP']),
             'tiktok_pending_by_store' => $this->waitingByStore('tiktok_orders', 'tiktok_settings', 'tiktok_setting_id', ['AWAITING_SHIPMENT']),
+            // The sidebar's Fulfilment count for this person, per store.
+            'to_pack_by_channel' => (object) $toPack,
+            'to_pack_total' => array_sum($toPack),
         ]);
     }
 
