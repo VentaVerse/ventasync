@@ -47,7 +47,7 @@ final class CustomerLedger
             ->orderByDesc('o.date_added')
             ->limit(2000)
             ->get(['o.order_id', 'o.firstname', 'o.lastname', 'o.email', 'o.telephone', 'o.customer_group',
-                'o.marketplace_source', 'o.store_name', 'o.order_status_id', 'o.date_added']);
+                'o.marketplace_source', 'o.store_id', 'o.store_name', 'o.order_status_id', 'o.date_added']);
 
         return $this->summarise($orders)->take($limit)->values()->all();
     }
@@ -87,7 +87,7 @@ final class CustomerLedger
         $orders = $query->leftJoin($pfx . 'order_status as os', fn ($j) => $j->on('os.order_status_id', '=', 'o.order_status_id')->where('os.language_id', '=', $lang))
             ->orderByDesc('o.date_added')
             ->get(['o.order_id', 'o.firstname', 'o.lastname', 'o.email', 'o.telephone', 'o.customer_group', 'o.marketplace_source',
-                'o.store_name', 'o.order_status_id', 'o.date_added', 'o.marketplace_order_id', 'os.name as status']);
+                'o.store_id', 'o.store_name', 'o.order_status_id', 'o.date_added', 'o.marketplace_order_id', 'os.name as status']);
 
         // A phone or name key can catch another customer's order; keep only
         // orders whose own identity is one of the keys asked for.
@@ -159,6 +159,7 @@ final class CustomerLedger
                 'order_id' => (int) $o->order_id,
                 'date' => substr((string) $o->date_added, 0, 10),
                 'store' => $o->store_name ?: ($o->marketplace_source ?: 'Manual'),
+                'store_ref' => $this->storeRef($o),
                 'status' => $o->status,
                 'counted' => in_array((int) $o->order_status_id, $counted, true),
                 'marketplace_order_id' => $o->marketplace_order_id ?: null,
@@ -166,6 +167,32 @@ final class CustomerLedger
             ])->values()->all(),
         ];
     }
+
+    /**
+     * The store an order came from, by its store key and its channel as
+     * well as its name: one shop name can be a store on several channels.
+     *
+     * @return array{key: string, channel: string, name: string}
+     */
+    private function storeRef(object $order): array
+    {
+        $source = (string) ($order->marketplace_source ?? '');
+        if ($source === '') {
+            return ['key' => \App\Support\StoreKey::MANUAL, 'channel' => 'Manual', 'name' => ''];
+        }
+
+        $channel = \Illuminate\Support\Str::before($source, ':');
+        $this->channelNames[$channel] ??= (string) (app(\App\Extensions\ExtensionManager::class)->getManifest($channel)['name'] ?? \Illuminate\Support\Str::headline($channel));
+
+        return [
+            'key' => \App\Support\StoreKey::of($source, (int) ($order->store_id ?? 0)),
+            'channel' => $this->channelNames[$channel],
+            'name' => (string) ($order->store_name ?? ''),
+        ];
+    }
+
+    /** @var array<string, string> channel id => its name */
+    private array $channelNames = [];
 
     /** The key an order's customer is known by, or null when every detail is masked or blank. */
     public function identity(object $order): ?string
@@ -210,6 +237,7 @@ final class CustomerLedger
                     'phone' => ($latest->telephone && ! str_contains($latest->telephone, '*')) ? $latest->telephone : null,
                     'customer_types' => $g->pluck('customer_group')->filter()->unique()->values()->all(),
                     'stores' => $g->map(fn ($o) => $o->store_name ?: ($o->marketplace_source ?: 'Manual'))->unique()->values()->all(),
+                    'store_refs' => $g->map(fn ($o) => $this->storeRef($o))->unique('key')->values()->all(),
                     'orders' => $g->count(),
                     'spent' => round((float) $g->sum(fn ($o) => (float) ($spent[$o->order_id] ?? 0)), 2),
                     'first_order' => substr((string) $g->min('date_added'), 0, 10),

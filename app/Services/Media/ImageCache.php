@@ -97,6 +97,21 @@ final class ImageCache
     }
 
     /**
+     * The copy's URL for a phone: a phone opens https pictures only, and
+     * asset() takes the scheme of whatever request is running, which behind
+     * a proxy may be http. Null when there is no picture or no https URL.
+     */
+    public static function appUrl(?string $path, string $kind = self::THUMB): ?string
+    {
+        $url = rescue(fn () => self::url($path, $kind), null, false);
+        if ($url !== null && str_starts_with($url, 'http://') && str_starts_with((string) config('app.url'), 'https://')) {
+            $url = 'https://' . substr($url, 7);
+        }
+
+        return $url !== null && str_starts_with($url, 'https://') ? $url : null;
+    }
+
+    /**
      * The copy's path on the public disk, made now when it does not exist or
      * is older than the picture. Null when the picture is missing or cannot
      * be read.
