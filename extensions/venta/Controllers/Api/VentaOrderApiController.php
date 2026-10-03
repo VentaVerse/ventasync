@@ -383,7 +383,10 @@ class VentaOrderApiController extends Controller
 
         $pdf = $result['ok'] && is_file((string) $result['path']) ? file_get_contents($result['path']) : null;
 
-        return AppFulfilment::waybill($pdf ?: null, 'AWB-venta-' . (int) $order->venta_order_id . '.pdf', false, $result['message']);
+        // Some couriers make the label a few seconds after the booking, and
+        // the storefront's answer does not tell that wait from a refusal, so
+        // the app asks again for as long as the web's booking modal does.
+        return AppFulfilment::waybill($pdf ?: null, 'AWB-venta-' . (int) $order->venta_order_id . '.pdf', true, $result['message']);
     }
 
     /** An order already past To Pack is answered here; the storefront is not asked again. */
