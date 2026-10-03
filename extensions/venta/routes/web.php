@@ -222,9 +222,9 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     // POST carrying the booking options, and quoting a fee is the packer's
     // job, so it rides with the writes rather than the reads.
     Route::post('/venta/{store}/orders/{order}/estimate', [VentaOrderController::class, 'estimate'])->whereNumber('order')->name('ext.venta.orders.estimate');
-    Route::post('/venta/{store}/orders/{order}/book', [VentaOrderController::class, 'book'])->whereNumber('order')->middleware('packing.check:venta')->name('ext.venta.orders.book');
-    Route::post('/venta/{store}/orders/{order}/cancel-booking', [VentaOrderController::class, 'cancelBooking'])->whereNumber('order')->name('ext.venta.orders.cancel_booking');
-    Route::post('/venta/{store}/orders/{order}/book-manual', [VentaOrderController::class, 'bookManual'])->whereNumber('order')->middleware('packing.check:venta')->name('ext.venta.orders.book_manual');
+    Route::post('/venta/{store}/orders/{order}/book', [VentaOrderController::class, 'book'])->whereNumber('order')->middleware(['packing.check:venta', 'booking.lock:venta'])->name('ext.venta.orders.book');
+    Route::post('/venta/{store}/orders/{order}/cancel-booking', [VentaOrderController::class, 'cancelBooking'])->whereNumber('order')->middleware('booking.lock:venta')->name('ext.venta.orders.cancel_booking');
+    Route::post('/venta/{store}/orders/{order}/book-manual', [VentaOrderController::class, 'bookManual'])->whereNumber('order')->middleware(['packing.check:venta', 'booking.lock:venta'])->name('ext.venta.orders.book_manual');
     Route::post('/venta/{store}/orders/{order}/clear-manual', [VentaOrderController::class, 'clearManual'])->whereNumber('order')->name('ext.venta.orders.clear_manual');
     Route::delete('/venta/{store}/orders/{order}', [VentaOrderController::class, 'destroy'])->name('ext.venta.orders.destroy');
     Route::post('/venta/{store}/orders/bulk-delete', [VentaOrderController::class, 'bulkDelete'])->name('ext.venta.orders.bulk_delete');

@@ -369,6 +369,21 @@ class TikTokOrderController extends Controller
     public function shipOrder(Request $request, $id)
     {
         $order = TikTokOrder::findOrFail($id);
+
+        // An order already past this step is answered here, never sent to
+        // TikTok again: a page left open still shows the button.
+        $passed = match (strtoupper((string) $order->status)) {
+            'AWAITING_COLLECTION', 'IN_TRANSIT', 'DELIVERED', 'COMPLETED' => 'This order is already shipped.',
+            'CANCELLED' => 'This order was cancelled.',
+            default => null,
+        };
+        if ($passed !== null) {
+            return redirect()->back()->with('tiktok_orders_last_result', [
+                'ok' => false,
+                'message' => $passed,
+            ]);
+        }
+
         $c = $this->creds();
         $client = new TikTokClient();
 
@@ -405,8 +420,20 @@ class TikTokOrderController extends Controller
             ]);
         }
 
-        // Update local status so order moves to Handover tab immediately
+        // The order's status as TikTok now holds it, so it moves to its
+        // next step at once; the shipped status stands if the read fails.
         $order->update(['status' => 'AWAITING_COLLECTION']);
+        try {
+            $detail = $client->getOrderDetail($c['app_key'], $c['app_secret'], $c['token'], [(string) $order->order_id], $c['shop_cipher']);
+            $read = $detail['body']['data']['orders'][0] ?? null;
+            if (($detail['ok'] ?? false) && (int) ($detail['body']['code'] ?? -1) === 0 && is_array($read) && !empty($read['status'])) {
+                $order->update(['status' => $read['status'], 'raw' => $read]);
+            }
+            (new TikTokCatalogOrderSync())->sync($order->fresh());
+        } catch (\Throwable $e) {
+        }
+
+        \App\Services\ActivityLogger::log('updated', 'TikTok Order', null, 'Shipped order #' . $order->order_id);
 
         $awbUrl = route('ext.tiktok.orders.awb', $order->id);
 
@@ -484,11 +511,14 @@ class TikTokOrderController extends Controller
                     ->header('Content-Disposition', 'inline; filename="AWB-' . $safeOrderId . '.pdf"');
             }
         } catch (\Throwable $e) {
-            // Fall through to redirect if download fails
         }
 
-        // Fallback: redirect to TikTok URL if local save failed
-        return redirect($docUrl);
+        // Served by the ERP or not at all: whoever asked holds a session with
+        // the ERP only, never with the address TikTok's link points to.
+        return redirect()->back()->with('tiktok_orders_last_result', [
+            'ok' => false,
+            'message' => 'The waybill could not be downloaded from TikTok. Try again in a moment.',
+        ]);
     }
 
     public function tracking($id)

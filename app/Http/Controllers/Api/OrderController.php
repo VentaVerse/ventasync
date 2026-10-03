@@ -7,6 +7,7 @@ use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderHistory;
 use App\Models\Catalog\OrderStatus;
 use App\Models\Catalog\Product;
+use App\Services\ActivityLogger;
 use App\Services\OrderStockService;
 use App\Support\Money;
 use Illuminate\Http\Request;
@@ -195,6 +196,16 @@ class OrderController extends Controller
         if ($oldStatusId !== $newStatusId) {
             OrderStockService::adjustStock($order, $oldStatusId, $newStatusId);
         }
+
+        $oldStatusName = OrderStatus::where('order_status_id', $oldStatusId)->value('name') ?? $oldStatusId;
+        $newStatusName = OrderStatus::where('order_status_id', $newStatusId)->value('name') ?? $newStatusId;
+        ActivityLogger::log(
+            'updated',
+            'Order',
+            (int) $order->order_id,
+            '#' . $order->order_id . ' ' . trim($order->firstname . ' ' . $order->lastname),
+            ['status' => [(string) $oldStatusName, (string) $newStatusName]]
+        );
 
         // The status move is announced by App\Observers\OrderObserver.
         // on $order->update() above.

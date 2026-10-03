@@ -1045,11 +1045,6 @@
         "name": "ext.lazada.orders.rts"
     },
     {
-        "method": "GET|HEAD",
-        "uri": "channels/lazada/{store}/orders/{orderId}/ship-print",
-        "name": "ext.lazada.orders.ship_print"
-    },
-    {
         "method": "POST",
         "uri": "channels/lazada/{store}/orders/{orderId}/ship-print",
         "name": "ext.lazada.orders.ship_print_post"

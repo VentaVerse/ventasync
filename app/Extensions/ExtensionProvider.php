@@ -89,7 +89,7 @@ abstract class ExtensionProvider extends ServiceProvider
         if (file_exists($appRouteFile)) {
             $this->app['router']
                 ->prefix('api')
-                ->middleware(['api', 'auth:sanctum', 'app.person'])
+                ->middleware(['api', 'auth:sanctum', 'app.person', 'app.once'])
                 ->group($appRouteFile);
         }
     }

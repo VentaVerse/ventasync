@@ -270,7 +270,6 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
         Route::get('/lazada/{store}/orders/{orderId}/pick-list', [LazadaOrderController::class, 'pickList'])->name('ext.lazada.orders.pick_list');
         Route::get('/lazada/{store}/orders/{orderId}/logistics-trace', [LazadaOrderController::class, 'logisticsTrace'])->name('ext.lazada.orders.logistics_trace');
         Route::get('/lazada/{store}/orders/{orderId}/cancel-reasons', [LazadaOrderController::class, 'cancelReasons'])->name('ext.lazada.orders.cancel_reasons');
-        Route::get('/lazada/{store}/orders/{orderId}/ship-print', [LazadaOrderController::class, 'shipAndPrint'])->name('ext.lazada.orders.ship_print');
     });
 
     // ── Lazada Orders — WRITE (sync, pack, ship, cancel) ───────
@@ -284,12 +283,12 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
         Route::get('/lazada/{store}/orders/fetch-runs/{run}', [LazadaOrderController::class, 'fetchRunState'])->whereNumber('run')->name('ext.lazada.orders.fetch_run_state');
         Route::post('/lazada/{store}/orders/update-statuses', [LazadaOrderController::class, 'updateStatuses'])->name('ext.lazada.orders.update_statuses');
         Route::post('/lazada/{store}/orders/reset', [LazadaOrderController::class, 'reset'])->name('ext.lazada.orders.reset');
-        Route::post('/lazada/{store}/orders/{orderId}/pack', [LazadaOrderController::class, 'pack'])->middleware('packing.check:lazada')->name('ext.lazada.orders.pack');
-        Route::post('/lazada/{store}/orders/{orderId}/pack-print', [LazadaOrderController::class, 'packAndPrint'])->middleware('packing.check:lazada')->name('ext.lazada.orders.pack_print');
-        Route::post('/lazada/{store}/orders/bulk-pack-print', [LazadaOrderController::class, 'bulkPackPrint'])->middleware('packing.check:lazada')->name('ext.lazada.orders.bulk_pack_print');
-        Route::post('/lazada/{store}/orders/{orderId}/recreate-package', [LazadaOrderController::class, 'recreatePackage'])->name('ext.lazada.orders.recreate_package');
-        Route::post('/lazada/{store}/orders/{orderId}/rts', [LazadaOrderController::class, 'rts'])->name('ext.lazada.orders.rts');
-        Route::post('/lazada/{store}/orders/{orderId}/ship-print', [LazadaOrderController::class, 'shipAndPrintPost'])->name('ext.lazada.orders.ship_print_post');
+        Route::post('/lazada/{store}/orders/{orderId}/pack', [LazadaOrderController::class, 'pack'])->middleware(['packing.check:lazada', 'booking.lock:lazada'])->name('ext.lazada.orders.pack');
+        Route::post('/lazada/{store}/orders/{orderId}/pack-print', [LazadaOrderController::class, 'packAndPrint'])->middleware(['packing.check:lazada', 'booking.lock:lazada'])->name('ext.lazada.orders.pack_print');
+        Route::post('/lazada/{store}/orders/bulk-pack-print', [LazadaOrderController::class, 'bulkPackPrint'])->middleware(['packing.check:lazada', 'booking.lock:lazada'])->name('ext.lazada.orders.bulk_pack_print');
+        Route::post('/lazada/{store}/orders/{orderId}/recreate-package', [LazadaOrderController::class, 'recreatePackage'])->middleware('booking.lock:lazada')->name('ext.lazada.orders.recreate_package');
+        Route::post('/lazada/{store}/orders/{orderId}/rts', [LazadaOrderController::class, 'rts'])->middleware('booking.lock:lazada')->name('ext.lazada.orders.rts');
+        Route::post('/lazada/{store}/orders/{orderId}/ship-print', [LazadaOrderController::class, 'shipAndPrintPost'])->middleware('booking.lock:lazada')->name('ext.lazada.orders.ship_print_post');
         Route::post('/lazada/{store}/orders/{orderId}/cancel', [LazadaOrderController::class, 'cancel'])->name('ext.lazada.orders.cancel');
     });
 

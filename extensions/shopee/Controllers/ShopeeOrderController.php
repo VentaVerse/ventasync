@@ -718,6 +718,21 @@ class ShopeeOrderController extends Controller
             ]);
         }
 
+        // An order already past this step is answered here, never sent to
+        // Shopee again: a page left open still shows the button.
+        $passed = match (strtoupper((string) $order->status)) {
+            'PROCESSED', 'SHIPPED', 'TO_CONFIRM_RECEIVE', 'COMPLETED' => 'This order\'s shipment is already arranged.',
+            'IN_CANCEL', 'CANCELLED' => 'This order was cancelled.',
+            default => null,
+        };
+        if ($passed !== null) {
+            if ($json) return response()->json(['ok' => false, 'error' => 'already_done', 'message' => $passed], 409);
+            return redirect()->route('ext.shopee.orders.index')->with('shopee_orders_last_result', [
+                'ok' => false,
+                'message' => $passed,
+            ]);
+        }
+
         // Step 1: Get shipping parameter
         $paramRes = $client->shopGet(
             $auth['mode'],

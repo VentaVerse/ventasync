@@ -242,7 +242,7 @@ Route::middleware(['auth', \Extensions\tiktok\Http\ResolveTikTokStore::class])
         Route::get('/tiktok/{store}/orders/fetch-runs/{run}', [TikTokOrderController::class, 'fetchRunState'])->whereNumber('run')->name('ext.tiktok.orders.fetch_run_state');
         Route::post('/tiktok/{store}/orders/returns/fetch', [TikTokOrderController::class, 'fetchReturns'])->name('ext.tiktok.orders.fetch_returns');
         Route::post('/tiktok/{store}/orders/update-statuses', [TikTokOrderController::class, 'updateStatuses'])->name('ext.tiktok.orders.updateStatuses');
-        Route::post('/tiktok/{store}/orders/{id}/ship', [TikTokOrderController::class, 'shipOrder'])->middleware('packing.check:tiktok')->name('ext.tiktok.orders.ship');
+        Route::post('/tiktok/{store}/orders/{id}/ship', [TikTokOrderController::class, 'shipOrder'])->middleware(['packing.check:tiktok', 'booking.lock:tiktok'])->name('ext.tiktok.orders.ship');
     });
 });
 

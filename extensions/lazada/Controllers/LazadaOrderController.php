@@ -529,6 +529,15 @@ class LazadaOrderController extends Controller
             ]);
         }
 
+        // Lazada makes a second package for an order packed twice, so an
+        // order that already has one is answered here and never packed again.
+        if (count($items['package_ids']) > 0) {
+            return redirect()->back()->with('lazada_orders_last_result', [
+                'ok' => false,
+                'message' => 'This order is already packed.',
+            ]);
+        }
+
         if (count($items['order_item_ids']) === 0) {
             return redirect()->back()->with('lazada_orders_last_result', [
                 'ok' => false,
@@ -590,17 +599,7 @@ class LazadaOrderController extends Controller
             ]);
         }
 
-        // Best-effort: refresh local order status
-        try {
-            $st = $this->fetchOrderStatusFromApi($client, $setting, (string)$orderId);
-            if ($st !== null) {
-                LazadaOrder::query()->where('region', $setting->region)->where('order_id', (string)$orderId)->update(['status' => $st]);
-            }
-            $lo = LazadaOrder::query()->where('region', $setting->region)->where('order_id', (string)$orderId)->first();
-            if ($lo) { (new LazadaCatalogOrderSync)->sync($lo); }
-        } catch (\Throwable $e) {
-            // ignore
-        }
+        $this->afterBooking($client, $setting, (string) $orderId, 'Packed order #');
 
         return redirect()->back()->with('lazada_orders_last_result', [
             'ok' => true,
@@ -898,26 +897,27 @@ class LazadaOrderController extends Controller
         }
 
         if (($doc['type'] ?? '') === 'url') {
-            $url = (string) ($doc['value'] ?? '');
-            if ($url !== '' && preg_match('#^https?://#i', $url)) {
-                return redirect()->away($url);
+            $bin = $this->downloadPdf((string) ($doc['value'] ?? ''));
+            if ($bin === null) {
+                return $this->awbError(self::WAYBILL_UNREACHABLE);
             }
-
-            return $this->awbError('The waybill response contained an unusable link.');
-        }
-
-        $bin = base64_decode((string) $doc['value'], true);
-        if ($bin === false || $bin === '') {
-            return $this->awbError('Invalid document returned from Lazada.');
+        } else {
+            $bin = base64_decode((string) $doc['value'], true);
+            if ($bin === false || $bin === '') {
+                return $this->awbError('Invalid document returned from Lazada.');
+            }
         }
 
         // Same shape the single AWB handles: sometimes the base64 is an HTML
         // wrapper around the real PDF's address rather than the PDF itself.
-        if (!str_starts_with($bin, '%PDF')) {
-            if (preg_match('/<iframe[^>]+src="([^"]+)"/i', $bin, $m) && str_starts_with($m[1], 'http')) {
-                return redirect()->away($m[1]);
+        if (!str_starts_with($bin, '%PDF') && preg_match('/<iframe[^>]+src="([^"]+)"/i', $bin, $m)) {
+            $bin = $this->downloadPdf((string) $m[1]);
+            if ($bin === null) {
+                return $this->awbError(self::WAYBILL_UNREACHABLE);
             }
+        }
 
+        if (!str_starts_with($bin, '%PDF')) {
             return $this->awbError('Lazada returned a document that is not a PDF.');
         }
 
@@ -1056,21 +1056,6 @@ class LazadaOrderController extends Controller
      * - Redirects to AWB PDF.
      * Use target="_blank" in the UI so the PDF opens in a new tab.
      */
-    public function shipAndPrint(Request $request, LazadaClient $client, $orderId)
-    {
-        $res = $this->shipAndPrintInternal($request, $client, $orderId, true);
-        if (!($res['ok'] ?? false)) {
-            return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
-                'ok' => false,
-                'message' => $res['message'] ?? 'Failed to ship & print.',
-                'raw' => $res['raw'] ?? null,
-            ]);
-        }
-
-        // Direct open (same tab) for legacy usage: redirect to AWB
-        return redirect()->route('ext.lazada.orders.awb', ['orderId' => $orderId]);
-    }
-
     /**
      * Ship (RTS) and then open AWB in a NEW TAB (AWB only), while keeping the user on the current orders tab.
      */
@@ -1107,6 +1092,11 @@ class LazadaOrderController extends Controller
         $order = LazadaOrder::query()->where('region', $setting->region)->where('order_id', (string)$orderId)->first();
         if (!$order) {
             return ['ok' => false, 'message' => 'Order not found in local database. Please fetch orders first.'];
+        }
+
+        $passed = $this->pastReadyToShip((string) $orderId);
+        if ($passed !== null) {
+            return ['ok' => false, 'message' => $passed];
         }
 
         $packageIds = [];
@@ -1167,18 +1157,47 @@ class LazadaOrderController extends Controller
             return ['ok' => false, 'message' => 'Lazada error: ' . $body['code'] . ' - ' . $body['message'], 'raw' => $rtsRes];
         }
 
-        try {
-            $st = $this->fetchOrderStatusFromApi($client, $setting, (string)$orderId);
-            if ($st !== null) {
-                LazadaOrder::query()->where('region', $setting->region)->where('order_id', (string)$orderId)->update(['status' => $st]);
-            }
-            $lo = LazadaOrder::query()->where('region', $setting->region)->where('order_id', (string)$orderId)->first();
-            if ($lo) { (new LazadaCatalogOrderSync)->sync($lo); }
-        } catch (\Throwable $e) {
-            // ignore
-        }
+        $this->afterBooking($client, $setting, (string) $orderId, 'Marked ready to ship order #');
 
         return ['ok' => true];
+    }
+
+    /**
+     * What every booking does once Lazada has accepted it: the order's
+     * status as Lazada now holds it, the catalog order in step, and an
+     * activity line. A failed read leaves the next order sync to catch up.
+     */
+    private function afterBooking(LazadaClient $client, object $setting, string $orderId, string $logLabel): void
+    {
+        try {
+            $st = $this->fetchOrderStatusFromApi($client, $setting, $orderId);
+            if ($st !== null) {
+                LazadaOrder::query()->where('region', $setting->region)->where('order_id', $orderId)->update(['status' => $st]);
+            }
+            $lo = LazadaOrder::query()->where('region', $setting->region)->where('order_id', $orderId)->first();
+            if ($lo) {
+                (new LazadaCatalogOrderSync)->sync($lo);
+            }
+        } catch (\Throwable $e) {
+        }
+
+        ActivityLogger::log('updated', 'Lazada Order', null, $logLabel . $orderId);
+    }
+
+    /**
+     * Why an order cannot be marked ready to ship again, or null when it
+     * can. Read from the stored status, which every booking here refreshes,
+     * so a page left open still gets a plain answer.
+     */
+    private function pastReadyToShip(string $orderId): ?string
+    {
+        $status = strtolower((string) LazadaOrder::query()->where('order_id', $orderId)->value('status'));
+
+        return match ($status) {
+            'ready_to_ship', 'shipped', 'delivered' => 'This order is already ready to ship.',
+            'canceled', 'cancelled' => 'This order was cancelled.',
+            default => null,
+        };
     }
 
 /**
@@ -1852,6 +1871,15 @@ public function reset(Request $request)
             ]);
         }
 
+        // Lazada makes a second package for an order packed twice, so an
+        // order that already has one is answered here and never packed again.
+        if (count($items['package_ids']) > 0) {
+            return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
+                'ok' => false,
+                'message' => 'This order is already packed.',
+            ]);
+        }
+
         if (count($items['order_item_ids']) === 0) {
             return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
                 'ok' => false,
@@ -1913,6 +1941,8 @@ public function reset(Request $request)
             ]);
         }
 
+        $this->afterBooking($client, $setting, (string) $orderId, 'Packed order #');
+
         return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
             'ok' => true,
             'message' => 'Packed. You can now try Print AWB (and then Ready To Ship).',
@@ -1931,6 +1961,14 @@ public function reset(Request $request)
             return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
                 'ok' => false,
                 'message' => 'Missing Lazada credentials/token. Please configure Lazada settings and generate access token first.',
+            ]);
+        }
+
+        $passed = $this->pastReadyToShip((string) $orderId);
+        if ($passed !== null) {
+            return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
+                'ok' => false,
+                'message' => $passed,
             ]);
         }
 
@@ -2002,20 +2040,37 @@ public function reset(Request $request)
             ]);
         }
 
-        try {
-            $st = $this->fetchOrderStatusFromApi($client, $setting, (string)$orderId);
-            if ($st !== null) {
-                LazadaOrder::query()->where('region', $setting->region)->where('order_id', (string)$orderId)->update(['status' => $st]);
-            }
-            $lo = LazadaOrder::query()->where('region', $setting->region)->where('order_id', (string)$orderId)->first();
-            if ($lo) { (new LazadaCatalogOrderSync)->sync($lo); }
-        } catch (\Throwable $e) {}
+        $this->afterBooking($client, $setting, (string) $orderId, 'Marked ready to ship order #');
 
         return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
             'ok' => true,
             'message' => 'Marked Ready To Ship.',
             'raw' => $rtsRes,
         ]);
+    }
+
+    private const WAYBILL_UNREACHABLE = 'The waybill could not be downloaded from Lazada. Try again in a moment.';
+
+    /**
+     * A waybill Lazada answers with a link is fetched here and served by
+     * the ERP: whoever asked holds a session with the ERP only, never with
+     * the address the link points to. Null when it is not a reachable PDF.
+     */
+    private function downloadPdf(string $url): ?string
+    {
+        if (!preg_match('#^https://#i', $url)) {
+            return null;
+        }
+
+        try {
+            $resp = Http::timeout(30)->withHeaders(['User-Agent' => 'LaravelERP/1.0'])->get($url);
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        $bin = $resp->ok() ? $resp->body() : '';
+
+        return is_string($bin) && str_starts_with($bin, '%PDF') ? $bin : null;
     }
 
     private function awbError(string $message)
@@ -2124,28 +2179,13 @@ public function reset(Request $request)
         $storePath = \App\Support\Fulfilment\Waybills::relative('lazada', (int) $setting->id, (string) $orderId);
 
         if (($doc['type'] ?? '') === 'url') {
-            $url = (string)($doc['value'] ?? '');
-            if ($url !== '' && preg_match('#^https?://#i', $url)) {
-                try {
-                    $resp = Http::timeout(30)->withHeaders([
-                        'User-Agent' => 'LaravelERP/1.0',
-                    ])->get($url);
-
-                    if ($resp->ok()) {
-                        $bin = $resp->body();
-                        if (is_string($bin) && $bin !== '' && (str_starts_with($bin, '%PDF') || str_contains(strtolower((string)$resp->header('content-type')), 'pdf'))) {
-                            Storage::disk('local')->put($storePath, $bin);
-                        }
-                    }
-                } catch (\Throwable $e) {
-                    // Best-effort only; do not block the user from viewing AWB.
-                }
+            $bin = $this->downloadPdf((string) ($doc['value'] ?? ''));
+            if ($bin === null) {
+                return $this->awbError(self::WAYBILL_UNREACHABLE);
             }
-
-            return redirect()->away($url);
+        } else {
+            $bin = base64_decode((string) $doc['value'], true);
         }
-
-        $bin = base64_decode($doc['value'], true);
         if ($bin === false) {
             return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
                 'ok' => false,
@@ -2154,37 +2194,22 @@ public function reset(Request $request)
             ]);
         }
 
-        // Lazada sometimes returns a base64-encoded HTML iframe that embeds the PDF URL.
-        // If so, extract the src URL and redirect there.
-        if (!str_starts_with($bin, '%PDF')) {
-            if (preg_match('/<iframe[^>]+src=\"([^\"]+)\"/i', $bin, $m) && isset($m[1]) && str_starts_with($m[1], 'http')) {
-                $url = (string)$m[1];
-                if ($url !== '' && preg_match('#^https?://#i', $url)) {
-                    try {
-                        $resp = Http::timeout(30)->withHeaders([
-                            'User-Agent' => 'LaravelERP/1.0',
-                        ])->get($url);
-                        if ($resp->ok()) {
-                            $pdf = $resp->body();
-                            if (is_string($pdf) && $pdf !== '' && (str_starts_with($pdf, '%PDF') || str_contains(strtolower((string)$resp->header('content-type')), 'pdf'))) {
-                                Storage::disk('local')->put($storePath, $pdf);
-                            }
-                        }
-                    } catch (\Throwable $e) {
-                        // Best-effort only.
-                    }
-                }
-                return redirect()->away($m[1]);
+        // Lazada sometimes returns an HTML wrapper whose iframe holds the PDF's address.
+        if (!str_starts_with($bin, '%PDF') && preg_match('/<iframe[^>]+src="([^"]+)"/i', $bin, $m)) {
+            $bin = $this->downloadPdf((string) $m[1]);
+            if ($bin === null) {
+                return $this->awbError(self::WAYBILL_UNREACHABLE);
             }
         }
 
-        // If it's a PDF binary, persist it locally (best-effort)
-        if (str_starts_with($bin, '%PDF')) {
-            try {
-                Storage::disk('local')->put($storePath, $bin);
-            } catch (\Throwable $e) {
-                // Best-effort only.
-            }
+        if (!str_starts_with($bin, '%PDF')) {
+            return $this->awbError('Lazada returned a document that is not a PDF.');
+        }
+
+        try {
+            Storage::disk('local')->put($storePath, $bin);
+        } catch (\Throwable $e) {
+            // The waybill is still served; only the saved copy is missing.
         }
 
         return response($bin, 200, [

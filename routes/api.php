@@ -27,7 +27,7 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10
 // The app door: a person signed in with the mobile app's login token, never
 // an outside application's API key (that is /api/v1's). Each route below
 // also needs the same permission its web page needs.
-Route::middleware(['auth:sanctum', 'app.person'])->group(function () {
+Route::middleware(['auth:sanctum', 'app.person', 'app.once'])->group(function () {
     Route::get('/user', function (Request $request) {
         return $request->user();
     });

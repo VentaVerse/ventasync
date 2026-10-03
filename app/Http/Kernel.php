@@ -85,7 +85,9 @@ class Kernel extends HttpKernel
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'perm' => \App\Http\Middleware\EnsurePermission::class,
         'app.person' => \App\Http\Middleware\EnsureAppPerson::class,
+        'app.once' => \App\Http\Middleware\AnswerAppRepeatsOnce::class,
         'packing.check' => \App\Http\Middleware\RequirePackingCheck::class,
+        'booking.lock' => \App\Http\Middleware\OneBookingAtATime::class,
 
         // External API (Settings → API): scope enforcement + audit log
         'scope' => \App\Http\Middleware\EnsureApiScope::class,
