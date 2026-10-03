@@ -286,11 +286,10 @@ class ShopeeOrdersPanel
             ->appends($request->query());
 
         // Detect which orders have saved AWB PDFs
-        $awbDir = storage_path('app/shopee-awb');
         $savedAwbs = [];
         foreach ($orders as $o) {
-            $sn = preg_replace('/[^A-Za-z0-9_-]/', '', $o->order_sn ?? '');
-            if ($sn !== '' && file_exists($awbDir . '/' . $sn . '.pdf')) {
+            $sn = (string) ($o->order_sn ?? '');
+            if ($sn !== '' && file_exists(\App\Support\Fulfilment\Waybills::path('shopee', (int) $o->shopee_setting_id, $sn))) {
                 $savedAwbs[$o->order_sn] = true;
             }
         }

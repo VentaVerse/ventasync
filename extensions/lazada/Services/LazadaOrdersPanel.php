@@ -300,11 +300,10 @@ class LazadaOrdersPanel
         $live_statuses = [];
 
         // Detect which orders have saved AWB PDFs locally
-        $awbDir = storage_path('app/lazada-awb');
         $savedAwbs = [];
         foreach ($orders as $o) {
-            $oid = preg_replace('/[^0-9A-Za-z_-]/', '', $o->order_id ?? '');
-            if ($oid !== '' && file_exists($awbDir . '/' . $oid . '.pdf')) {
+            $oid = (string) ($o->order_id ?? '');
+            if ($oid !== '' && file_exists(\App\Support\Fulfilment\Waybills::path('lazada', (int) $o->lazada_setting_id, $oid))) {
                 $savedAwbs[$o->order_id] = true;
             }
         }

@@ -1439,9 +1439,7 @@ class LazadaOrderController extends Controller
         }
 
         // Delete old local AWB so the next Pack & Print fetches a fresh one
-        $safeId = preg_replace('/[^0-9A-Za-z_-]/', '', (string) $orderId);
-        $awbPath = 'lazada-awb/' . ($safeId !== '' ? $safeId : 'awb') . '.pdf';
-        Storage::disk('local')->delete($awbPath);
+        Storage::disk('local')->delete(\App\Support\Fulfilment\Waybills::relative('lazada', (int) $setting->id, (string) $orderId));
 
         // Refresh local order status from API
         try {
@@ -2030,7 +2028,7 @@ public function reset(Request $request)
     {
         // Serve saved AWB if it exists locally
         $safeOrderId = preg_replace('/[^0-9A-Za-z_-]/', '', (string) $orderId);
-        $localPath = storage_path('app/lazada-awb/' . ($safeOrderId !== '' ? $safeOrderId : 'awb') . '.pdf');
+        $localPath = \App\Support\Fulfilment\Waybills::path('lazada', (int) LazadaSetting::defaultStore()?->id, (string) $orderId);
 
         if (file_exists($localPath)) {
             return response(file_get_contents($localPath), 200, [
@@ -2123,8 +2121,7 @@ public function reset(Request $request)
         // Save-to-server behavior:
         // When the user opens the AWB, we also store it into local storage (best-effort) so the server
         // keeps a copy. This avoids extra UI changes and matches the "automatic into the server" request.
-        $safeOrderId = preg_replace('/[^0-9A-Za-z_-]/', '', (string)$orderId);
-        $storePath = 'lazada-awb/' . ($safeOrderId !== '' ? $safeOrderId : 'awb') . '.pdf';
+        $storePath = \App\Support\Fulfilment\Waybills::relative('lazada', (int) $setting->id, (string) $orderId);
 
         if (($doc['type'] ?? '') === 'url') {
             $url = (string)($doc['value'] ?? '');

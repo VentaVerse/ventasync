@@ -421,8 +421,7 @@ class TikTokOrderController extends Controller
     {
         $order = TikTokOrder::findOrFail($id);
         $safeOrderId = preg_replace('/[^A-Za-z0-9_-]/', '', (string) $order->order_id);
-        $awbDir = storage_path('app/tiktok-awb');
-        $awbPath = $awbDir . '/' . $safeOrderId . '.pdf';
+        $awbPath = \App\Support\Fulfilment\Waybills::path('tiktok', (int) $order->tiktok_setting_id, (string) $order->order_id);
 
         // Serve saved AWB if it exists locally (unless refresh requested)
         if (file_exists($awbPath) && !$request->boolean('refresh')) {
@@ -478,10 +477,7 @@ class TikTokOrderController extends Controller
             $pdfContent = \Illuminate\Support\Facades\Http::timeout(15)->get($docUrl)->body();
 
             if ($pdfContent && str_starts_with($pdfContent, '%PDF')) {
-                if (!is_dir($awbDir)) {
-                    mkdir($awbDir, 0755, true);
-                }
-                file_put_contents($awbPath, $pdfContent);
+                \App\Support\Fulfilment\Waybills::save($awbPath, $pdfContent);
 
                 return response($pdfContent, 200)
                     ->header('Content-Type', 'application/pdf')

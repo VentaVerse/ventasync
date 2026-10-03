@@ -433,7 +433,7 @@ class VentaFulfilment
 
     private function labelPath(VentaOrder $order): string
     {
-        return storage_path('app/venta-awb/' . (int) $this->setting->id . '/' . (int) $order->venta_order_id . '.pdf');
+        return \App\Support\Fulfilment\Waybills::path('venta', (int) $this->setting->id, (string) (int) $order->venta_order_id);
     }
 
     private function forgetLabel(VentaOrder $order): void

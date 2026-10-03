@@ -982,8 +982,7 @@ class ShopeeOrderController extends Controller
 
         // Serve saved AWB if it exists locally
         $safeOrderSn = preg_replace('/[^A-Za-z0-9_-]/', '', $orderSn);
-        $awbDir = storage_path('app/shopee-awb');
-        $awbPath = $awbDir . '/' . $safeOrderSn . '.pdf';
+        $awbPath = \App\Support\Fulfilment\Waybills::path('shopee', (int) ShopeeSetting::defaultStore()?->id, $orderSn);
 
         if (file_exists($awbPath)) {
             if ($json) return response()->json(['ok' => true, 'ready' => true]);
@@ -1131,10 +1130,7 @@ class ShopeeOrderController extends Controller
 
         // Binary PDF returned directly — save to disk then serve
         if (is_string($body) && str_starts_with($body, '%PDF')) {
-            if (!is_dir($awbDir)) {
-                mkdir($awbDir, 0755, true);
-            }
-            file_put_contents($awbPath, $body);
+            \App\Support\Fulfilment\Waybills::save($awbPath, $body);
 
             if ($json) return response()->json(['ok' => true, 'ready' => true]);
             return response($body, 200)
