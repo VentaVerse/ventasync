@@ -143,3 +143,7 @@
     .mb-person__switch { height: 62px; }
     .mb-checks { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 var(--bl-space-3); }
 }
+
+/* The settings form and the Automations section are siblings on one page:
+   the form steps out of the layout so both sit in the page's own column. */
+.mb-form { display: contents; }
