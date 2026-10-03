@@ -22,6 +22,7 @@ class ShopeeSetting extends Model
         'mode',
         'partner_id',
         'partner_key',
+        'push_partner_key',
         'shop_id',
         'access_token',
         'refresh_token',
@@ -38,6 +39,7 @@ class ShopeeSetting extends Model
         'last_review_sync_at',
         'sandbox_partner_id',
         'sandbox_partner_key',
+        'sandbox_push_partner_key',
         'sandbox_shop_id',
         'sandbox_access_token',
         'sandbox_refresh_token',
@@ -123,7 +125,7 @@ class ShopeeSetting extends Model
     {
         $s = (object) $this->toArray();
 
-        foreach (['partner_key', 'access_token', 'refresh_token', 'sandbox_partner_key', 'sandbox_access_token', 'sandbox_refresh_token'] as $k) {
+        foreach (['partner_key', 'push_partner_key', 'access_token', 'refresh_token', 'sandbox_partner_key', 'sandbox_push_partner_key', 'sandbox_access_token', 'sandbox_refresh_token'] as $k) {
             if (!empty($s->$k)) {
                 try {
                     $s->$k = decrypt($s->$k);

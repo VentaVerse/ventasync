@@ -959,6 +959,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             'sandbox_access_token' => 'Sandbox access token',
             'sandbox_refresh_token' => 'Sandbox refresh token',
             'push_partner_key' => 'Push partner key',
+            'sandbox_push_partner_key' => 'Sandbox push partner key',
         ];
     }
 
@@ -1012,18 +1013,22 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
     }
 
     /**
-     * Shopee signs each push HMAC-SHA256(partner_key, url + '|' + body)
-     * into the Authorization header. Checked against both the bare and
-     * the full URL, since the registered callback may carry a query.
+     * Shopee signs each push HMAC-SHA256(key, url + '|' + body) into the
+     * Authorization header, the key being the app's push partner key.
+     * Checked against both the bare and the full URL, since the registered
+     * callback may carry a query, and against their https form, since
+     * behind a proxy the request may arrive as http.
      */
     public function verifyWebhook(\Illuminate\Http\Request $request): bool
     {
-        /* Multi-store S5 (#194): the push is signed with a PARTNER key,
-         * and each store may sit under its own partner app. The store the
-         * payload names (shop_id) offers its key first; every other
-         * enabled store's key is tried after it, because stores under one
-         * partner app share a key and the payload's store may be the
-         * second row holding it. An unmatched signature stays a refusal. */
+        /* Each store may sit under its own partner app. The store the
+         * payload names (shop_id) offers its keys first; every other
+         * enabled store's keys are tried after it, because stores under
+         * one app share them and the payload's store may be the second row
+         * holding them. Both environments' push keys are tried, since a
+         * store's mode says which app it calls, not which app may push to
+         * it. The partner key comes last, for an app with no push key of
+         * its own. An unmatched signature stays a refusal. */
         $received = (string) $request->header('Authorization', '');
         if ($received === '') {
             return false;
@@ -1033,15 +1038,23 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         $named = $this->webhookStore((array) json_decode((string) $request->getContent(), true));
         $stores = ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get();
         foreach (($named ? collect([$named])->merge($stores) : $stores) as $store) {
-            $auth = ShopeeSetting::activeAuth($store->decrypted());
-            $key = (string) ($auth['partner_key'] ?? '');
-            if ($key !== '') {
-                $keys[$key] = true;
+            $setting = $store->decrypted();
+            $auth = ShopeeSetting::activeAuth($setting);
+            foreach ([$setting->push_partner_key ?? null, $setting->sandbox_push_partner_key ?? null, $auth['partner_key'] ?? null] as $key) {
+                if (is_string($key) && $key !== '') {
+                    $keys[$key] = true;
+                }
             }
         }
 
+        $urls = [];
+        foreach ([$request->url(), $request->fullUrl()] as $url) {
+            $urls[$url] = true;
+            $urls[preg_replace('/^http:/i', 'https:', $url)] = true;
+        }
+
         foreach (array_keys($keys) as $key) {
-            foreach ([$request->url(), $request->fullUrl()] as $url) {
+            foreach (array_keys($urls) as $url) {
                 if (hash_equals(hash_hmac('sha256', $url . '|' . $request->getContent(), $key), $received)) {
                     return true;
                 }

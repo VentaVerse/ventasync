@@ -253,6 +253,19 @@
                         <x-ui.input id="sp-redirect" type="text" readonly value="{{ $defaultRedirect }}" data-select-on-click />
                     </x-ui.field>
 
+                    <x-ui.field label="Webhook URL" for="sp-webhook" wide>
+                        <x-ui.input id="sp-webhook" type="text" readonly value="{{ $webhookUrl }}" data-select-on-click />
+                    </x-ui.field>
+
+                    <x-ui.credential
+                        name="push_partner_key"
+                        id="sp-push-partner-key"
+                        label="Push Partner Key"
+                        channel="shopee"
+                        :length="\App\Support\Credentials::length($setting->push_partner_key ?? null)"
+                        :can-reveal="$canManageShopee"
+                        :disabled="!$canManageShopee" />
+
                 </div>
 
                 <div class="cs-connect__foot">
@@ -428,6 +441,19 @@
                                 hint="Register this exact URL in your Shopee Open Platform sandbox app. To change it, edit APP_URL in the environment file.">
                         <x-ui.input id="sp-sb-redirect" type="text" readonly value="{{ $defaultRedirect }}" data-select-on-click />
                     </x-ui.field>
+
+                    <x-ui.field label="Webhook URL" for="sp-sb-webhook" wide>
+                        <x-ui.input id="sp-sb-webhook" type="text" readonly value="{{ $webhookUrl }}" data-select-on-click />
+                    </x-ui.field>
+
+                    <x-ui.credential
+                        name="sandbox_push_partner_key"
+                        id="sp-sb-push-partner-key"
+                        label="Sandbox Push Partner Key"
+                        channel="shopee"
+                        :length="\App\Support\Credentials::length($setting->sandbox_push_partner_key ?? null)"
+                        :can-reveal="$canManageShopee"
+                        :disabled="!$canManageShopee" />
 
                 </div>
 

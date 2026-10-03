@@ -241,6 +241,7 @@ public function index(Request $request = null, ShopeeClient $client = null)
         return view('ext-shopee::index', [
             'setting' => $setting?->decrypted(),
             'defaultRedirect' => $this->computedRedirectUri(),
+            'webhookUrl' => preg_replace('/^http:/i', 'https:', route('channels.webhooks.receive', ['channel' => 'shopee'])),
             'result' => session('shopee_result'),
             'orderStatusMap' => $orderStatusMap,
             'erpOrderStatuses' => $erpOrderStatuses,
@@ -257,11 +258,13 @@ public function index(Request $request = null, ShopeeClient $client = null)
             'env' => 'nullable|in:live,sandbox',
             'partner_id' => 'nullable|integer|min:1',
             'partner_key' => 'nullable|string',
+            'push_partner_key' => 'nullable|string|max:255',
             'shop_id' => 'nullable|integer|min:1',
             'access_token' => 'nullable|string',
             'region' => 'nullable|in:sg,my,th,vn,id,ph,tw,br,mx,co,cl,pl',
             'sandbox_partner_id' => 'nullable|integer|min:1',
             'sandbox_partner_key' => 'nullable|string',
+            'sandbox_push_partner_key' => 'nullable|string|max:255',
             'sandbox_shop_id' => 'nullable|integer|min:1',
             'sandbox_access_token' => 'nullable|string',
             'sandbox_region' => 'nullable|in:sg,my,th,vn,id,ph,tw,br,mx,co,cl,pl',
@@ -292,12 +295,14 @@ public function index(Request $request = null, ShopeeClient $client = null)
             if (!empty($data['partner_id']))    $setting->partner_id = $data['partner_id'];
             if (!empty($data['shop_id']))       $setting->shop_id = $data['shop_id'];
             if (!empty($data['partner_key']))   $setting->partner_key = encrypt(trim($data['partner_key']));
+            if (!empty($data['push_partner_key'])) $setting->push_partner_key = encrypt(trim($data['push_partner_key']));
             if (!empty($data['access_token']))  $setting->access_token = encrypt(trim($data['access_token']));
             $setting->region = $data['region'] ?? null;
         } else {
             if (!empty($data['sandbox_partner_id']))    $setting->sandbox_partner_id = $data['sandbox_partner_id'];
             if (!empty($data['sandbox_shop_id']))       $setting->sandbox_shop_id = $data['sandbox_shop_id'];
             if (!empty($data['sandbox_partner_key']))   $setting->sandbox_partner_key = encrypt(trim($data['sandbox_partner_key']));
+            if (!empty($data['sandbox_push_partner_key'])) $setting->sandbox_push_partner_key = encrypt(trim($data['sandbox_push_partner_key']));
             if (!empty($data['sandbox_access_token']))  $setting->sandbox_access_token = encrypt(trim($data['sandbox_access_token']));
             $setting->sandbox_region = $data['sandbox_region'] ?? null;
         }
