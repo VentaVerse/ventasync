@@ -6,8 +6,10 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Support\CatalogImages;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * The packing check: before an order is booked, the packer types how many
@@ -17,7 +19,8 @@ use Illuminate\Support\Facades\Cache;
  *
  * A correct count leaves a pass for that person and order, which the
  * booking routes require while the check is switched on, so a booking
- * cannot skip the count.
+ * cannot skip the count. A booking spends the pass, so booking the order
+ * again, after a cancel or a repack, needs a fresh count.
  */
 final class PackingCheck
 {
@@ -157,6 +160,60 @@ final class PackingCheck
         };
 
         return array_values(array_unique(array_filter(array_map('intval', $ids))));
+    }
+
+    /** @param  list<int>  $ids */
+    public static function spend(User $user, string $channel, array $ids): void
+    {
+        foreach ($ids as $id) {
+            Cache::forget(self::passKey($user, $channel, $id));
+        }
+    }
+
+    /**
+     * Of the orders a booking request was about, the ones it booked, read
+     * from its answer the way the app reads a web button's outcome. An order
+     * already booked counts as booked; a refusal keeps the pass, so the
+     * packer can try again without counting twice.
+     *
+     * @param  list<int>  $ids
+     * @return list<int>
+     */
+    public static function booked(string $channel, array $ids, Request $request, Response $response): array
+    {
+        if ($response instanceof JsonResponse) {
+            $data = (array) $response->getData(true);
+
+            return self::succeeded((bool) ($data['ok'] ?? $response->isSuccessful()), $data['error'] ?? null) ? $ids : [];
+        }
+
+        if (! $response->isRedirection()) {
+            return $response->isSuccessful() ? $ids : [];
+        }
+
+        // Only what this request flashed: the last request's flash is still
+        // readable and would speak for a booking it was not about.
+        $session = $request->hasSession() ? $request->session() : null;
+        $fresh = (array) ($session?->get('_flash.new') ?? []);
+
+        if (in_array($channel . '_bulk_pack', $fresh, true)) {
+            $packed = array_map('intval', (array) ($session->get($channel . '_bulk_pack')['packed_ids'] ?? []));
+
+            return array_values(array_intersect($ids, $packed));
+        }
+
+        if (in_array($channel . '_orders_last_result', $fresh, true)) {
+            $result = (array) $session->get($channel . '_orders_last_result');
+
+            return self::succeeded((bool) ($result['ok'] ?? false), $result['error'] ?? null) ? $ids : [];
+        }
+
+        return [];
+    }
+
+    private static function succeeded(bool $ok, mixed $error): bool
+    {
+        return $ok || $error === 'already_done';
     }
 
     private static function passKey(User $user, string $channel, int $id): string

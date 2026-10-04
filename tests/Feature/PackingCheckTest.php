@@ -132,6 +132,88 @@ class PackingCheckTest extends TestCase
             ->assertSessionHas('error', 'Count the items before booking this order.');
     }
 
+    /**
+     * A stand-in Lazada booking behind the real middleware, answering the
+     * way the channel buttons do: JSON, a flash, or a bulk pack's flash.
+     */
+    private function standInBooking(): void
+    {
+        \Illuminate\Support\Facades\Route::middleware(['web', 'auth', 'packing.check:lazada'])
+            ->post('/_test/lazada/book', fn (\Illuminate\Http\Request $r) => match ($r->input('answer')) {
+                'json-ok' => response()->json(['ok' => true]),
+                'json-refused' => response()->json(['ok' => false, 'message' => 'No courier.'], 422),
+                'json-already' => response()->json(['ok' => false, 'error' => 'already_done'], 409),
+                'flash-ok' => back()->with('lazada_orders_last_result', ['ok' => true, 'message' => 'Packed.']),
+                'flash-refused' => back()->with('lazada_orders_last_result', ['ok' => false, 'message' => 'No courier.']),
+                'bulk' => back()->with('lazada_bulk_pack', ['packed_ids' => [(int) $r->input('ids.0')]]),
+                default => back(),
+            });
+        $this->app['router']->getRoutes()->refreshNameLookups();
+    }
+
+    private function countRight(User $packer, LazadaOrder $order): void
+    {
+        $this->actingAs($packer)
+            ->postJson(route('fulfilment.packing_check.verify', ['channel' => 'lazada', 'order' => $order->id]), ['counts' => ['l0' => '2', 'l1' => '4']])
+            ->assertOk();
+    }
+
+    private function counted(User $packer, LazadaOrder $order): bool
+    {
+        return \App\Support\Fulfilment\PackingCheck::passed($packer, 'lazada', $order->id);
+    }
+
+    public function test_one_count_books_once(): void
+    {
+        $this->standInBooking();
+        $order = $this->lazadaOrder();
+        $packer = $this->packer();
+        $book = fn (string $answer) => $this->actingAs($packer)->post('/_test/lazada/book', ['ids' => [$order->id], 'answer' => $answer]);
+
+        foreach (['json-refused', 'flash-refused', 'nothing'] as $answer) {
+            $this->countRight($packer, $order);
+            $book($answer);
+            $this->assertTrue($this->counted($packer, $order), $answer . ': a refused booking keeps the count for a retry');
+        }
+
+        foreach (['json-ok', 'json-already', 'flash-ok'] as $answer) {
+            $this->countRight($packer, $order);
+            $book($answer);
+            $this->assertFalse($this->counted($packer, $order), $answer . ': a booking spends the count');
+            $book($answer)->assertSessionHas('error', 'Count the items before booking this order.');
+        }
+    }
+
+    public function test_a_stale_flash_does_not_speak_for_a_booking(): void
+    {
+        $this->standInBooking();
+        $order = $this->lazadaOrder();
+        $packer = $this->packer();
+        $this->countRight($packer, $order);
+
+        // A success flashed by the request before, then a booking that answered nothing.
+        $this->actingAs($packer)
+            ->withSession(['lazada_orders_last_result' => ['ok' => true], '_flash' => ['old' => ['lazada_orders_last_result'], 'new' => []]])
+            ->post('/_test/lazada/book', ['ids' => [$order->id], 'answer' => 'nothing']);
+
+        $this->assertTrue($this->counted($packer, $order));
+    }
+
+    public function test_a_bulk_pack_spends_only_the_orders_it_packed(): void
+    {
+        $this->standInBooking();
+        $a = $this->lazadaOrder('A-1');
+        $b = $this->lazadaOrder('B-1');
+        $packer = $this->packer();
+        $this->countRight($packer, $a);
+        $this->countRight($packer, $b);
+
+        $this->actingAs($packer)->post('/_test/lazada/book', ['ids' => [$a->id, $b->id], 'answer' => 'bulk']);
+
+        $this->assertFalse($this->counted($packer, $a), 'packed');
+        $this->assertTrue($this->counted($packer, $b), 'not packed, so its count still stands');
+    }
+
     public function test_every_booking_route_on_every_channel_waits_for_the_count(): void
     {
         $packer = $this->packer();

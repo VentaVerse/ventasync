@@ -11,7 +11,7 @@ use Symfony\Component\HttpFoundation\Response;
  * A booking route waits for the packing check while it is switched on:
  * every order in the request must have been counted correctly by the person
  * booking it. The page asks for the count first; this is what refuses a
- * request that skipped it.
+ * request that skipped it. A booking spends the count it used.
  */
 class RequirePackingCheck
 {
@@ -26,8 +26,10 @@ class RequirePackingCheck
             return $next($request);
         }
 
-        foreach (PackingCheck::ordersOf($channel, $request) as $id) {
-            if (! PackingCheck::passed($request->user(), $channel, $id)) {
+        $user = $request->user();
+        $ids = PackingCheck::ordersOf($channel, $request);
+        foreach ($ids as $id) {
+            if (! PackingCheck::passed($user, $channel, $id)) {
                 if ($request->expectsJson()) {
                     return response()->json(['ok' => false, 'error' => 'count_needed', 'message' => PackingCheck::MISSING], 422);
                 }
@@ -38,6 +40,9 @@ class RequirePackingCheck
             }
         }
 
-        return $next($request);
+        $response = $next($request);
+        PackingCheck::spend($user, $channel, PackingCheck::booked($channel, $ids, $request, $response));
+
+        return $response;
     }
 }
