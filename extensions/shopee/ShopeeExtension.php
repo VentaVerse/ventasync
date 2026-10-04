@@ -52,6 +52,9 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
 
     protected string $id = 'shopee';
 
+    /** The pushes that name one order (3 status, 4 tracking number) or one return (29). */
+    private const ORDER_PUSH_TYPES = ['order_status', 'order_tracking', 'return_update'];
+
     public function boot(): void
     {
         parent::boot();
@@ -68,6 +71,18 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
          * the memo. The batch check has always shared an instance this way -
          * this is what makes the bulk push able to afford the guard too. */
         $this->app->scoped(\Extensions\shopee\Services\Shopee\ShopeeLinkCheck::class);
+
+        /* AN ORDER PUSH APPLIED THE MOMENT IT LANDS (2026-10-04). The
+         * webhook endpoint stores a push and answers Shopee; for a store that
+         * applies order pushes, this then brings that one order in after the
+         * answer has gone, so Shopee never waits on our read of the order.
+         * webhooks:process stays the fallback a minute later for any push
+         * this does not finish. */
+        \App\Models\ChannelWebhookEvent::created(function (\App\Models\ChannelWebhookEvent $event) {
+            if ($event->channel === 'shopee' && $event->signature_ok && in_array($event->event_type, self::ORDER_PUSH_TYPES, true)) {
+                $this->app->terminating(fn () => $this->applyPushNow((int) $event->id));
+            }
+        });
 
         // Registered in every runtime, not only the console: the Automations
         // tab's Run now calls Artisan inside a web request (live, 2026-09-07).
@@ -1102,11 +1117,19 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         if (isset($data['item_id'], $data['item_status'])) {
             return 'item_status';
         }
+        // The order pushes share a shape (an ordersn); their codes tell them apart.
+        $code = isset($payload['code']) ? (int) $payload['code'] : null;
+        if ($code === 4 && isset($data['ordersn'])) {
+            return 'order_tracking';
+        }
+        if ($code === 29) {
+            return 'return_update';
+        }
         if (isset($data['ordersn'])) {
             return 'order_status';
         }
 
-        return isset($payload['code']) ? 'code_' . (int) $payload['code'] : null;
+        return $code !== null ? 'code_' . $code : null;
     }
 
     /**
@@ -1139,14 +1162,109 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                 : "item {$itemId} is not linked here; nothing to refresh";
         }
 
-        if ($event->event_type === 'order_status') {
-            $sn = (string) ($data['ordersn'] ?? '');
-            $status = (string) ($data['status'] ?? '');
-
-            return "order {$sn} moved to {$status} on Shopee; the next order sync applies it (stock rides that path)";
+        if (in_array($event->event_type, self::ORDER_PUSH_TYPES, true)) {
+            return $this->applyOrderPush($event, $data);
         }
 
         return 'stored; no handler for ' . ($event->event_type ?? 'this shape') . ' yet';
+    }
+
+    /**
+     * One order push: for a store that applies them, read that order (or
+     * return) from Shopee now and write it by the order sync's own path
+     * (ShopeeOrderIngest), stock included. The status the push carries is
+     * only named in the outcome, never applied: Shopee is asked for the
+     * current state. For any other store the push is recorded and the
+     * order sync applies the change, as before.
+     */
+    private function applyOrderPush(\App\Models\ChannelWebhookEvent $event, array $data): string
+    {
+        $isReturn = $event->event_type === 'return_update';
+        $sn = (string) ($data['ordersn'] ?? '');
+        $returnSn = (string) ($data['return_sn'] ?? '');
+        $what = $isReturn ? 'return ' . ($returnSn !== '' ? $returnSn : '(no return_sn)') : 'order ' . $sn;
+        $status = (string) ($data['status'] ?? '');
+        $said = $event->event_type === 'order_tracking' ? 'tracking number' : ($status !== '' ? $status : 'an update');
+
+        $store = $this->webhookStore((array) $event->payload);
+        if (! $store) {
+            return "{$what}: {$said} on Shopee, for a shop this ERP does not hold; nothing applied";
+        }
+        if (! $store->apply_order_pushes) {
+            return "{$what}: {$said} on Shopee; the next " . ($isReturn ? 'return' : 'order') . ' sync applies it (order pushes are off for this store)';
+        }
+        if ($isReturn && $returnSn === '') {
+            return "{$what}: return push without a return number; the next return sync applies it";
+        }
+        if (! $isReturn && $sn === '') {
+            return 'order push without an order number; nothing applied';
+        }
+
+        $setting = $store->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (! $auth['complete']) {
+            return "{$what}: the store is not connected to Shopee; the next sync applies it";
+        }
+        if ($paused = Cache::get('shopee_sync_paused:' . $store->id)) {
+            return "{$what}: the store is paused after a Shopee error ({$paused}); the next sync applies it";
+        }
+
+        $ingest = app(\Extensions\shopee\Services\Shopee\ShopeeOrderIngest::class);
+
+        if ($isReturn) {
+            $error = $ingest->returnBySn($setting, $auth, $returnSn);
+
+            return $error === null ? "{$what} read from Shopee and saved" : "failed: {$error}";
+        }
+
+        $r = $ingest->orders($setting, $auth, [$sn]);
+        if ($r['created'] > 0) {
+            return "{$what} ({$said}) brought in from Shopee";
+        }
+        if ($r['updated'] > 0) {
+            return "{$what} ({$said}) updated from Shopee";
+        }
+        if ($r['busy'] > 0) {
+            return "{$what} ({$said}) was being written by another sync; left to it";
+        }
+        if ($r['missing'] !== []) {
+            return "failed: Shopee did not return {$what}";
+        }
+
+        return "failed: Shopee did not answer for {$what}";
+    }
+
+    /**
+     * After the push's answer has gone (the endpoint's terminating phase),
+     * apply it at once rather than at the next webhooks:process. Marks the
+     * row as processed only if nothing else has, so the minute job does not
+     * apply it a second time; were it to anyway, applying is idempotent.
+     * Never throws: a push this cannot apply is left for the minute job.
+     */
+    private function applyPushNow(int $eventId): void
+    {
+        try {
+            $event = \App\Models\ChannelWebhookEvent::query()->find($eventId);
+            if (! $event || $event->processed_at !== null) {
+                return;
+            }
+            $store = $this->webhookStore((array) $event->payload);
+            if (! $store || ! $store->apply_order_pushes) {
+                return; // off: recorded only, and the minute job says so on the row
+            }
+
+            $outcome = $this->handleWebhookEvent($event);
+            if (str_starts_with($outcome, 'failed:')) {
+                return; // left unprocessed, so webhooks:process tries it again
+            }
+
+            \App\Models\ChannelWebhookEvent::query()
+                ->whereKey($eventId)
+                ->whereNull('processed_at')
+                ->update(['processed_at' => now(), 'outcome' => mb_substr($outcome . ' (on arrival)', 0, 255)]);
+        } catch (\Throwable $e) {
+            Log::warning('Shopee push could not be applied on arrival; webhooks:process will', ['event' => $eventId, 'error' => $e->getMessage()]);
+        }
     }
 
     // ── A catalog delete forgets the product on this channel, inside VentaSync only (ProductRemover, 2026-09-07) ──

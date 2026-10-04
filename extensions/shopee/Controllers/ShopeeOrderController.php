@@ -461,24 +461,28 @@ class ShopeeOrderController extends Controller
                 $orderSn = (string) ($o['order_sn'] ?? '');
                 if ($orderSn === '') continue;
                 $read++;
-                if (ShopeeOrder::query()->where('region', $auth['region'] ?? 'ph')->where('order_sn', $orderSn)->exists()) {
-                    continue; // already held: a Fetch never rewrites what Update statuses maintains
-                }
-                try {
-                    $newOrder = ShopeeOrder::query()->create([
-                        'region' => $auth['region'] ?? 'ph',
-                        'order_sn' => $orderSn,
-                        'status' => (string) ($o['order_status'] ?? ''),
-                        'order_created_at' => $this->parseTimestamp($o['create_time'] ?? null),
-                        'order_updated_at' => $this->parseTimestamp($o['update_time'] ?? null),
-                        'raw' => $o,
-                    ]);
-                    $created++;
-                    try { $this->syncOrderProductsFromDetail($newOrder, $o); } catch (\Throwable $e) {}
-                    try { (new ShopeeCatalogOrderSync)->setSkipStockAdjust($skipStock)->sync($newOrder); } catch (\Throwable $e) {}
-                } catch (\Throwable $e) {
-                    $failed++;
-                }
+                // Checked and created under the order's lock, so a push or the
+                // order sync creating the same order cannot make a second row.
+                \Extensions\shopee\Services\Shopee\ShopeeOrderIngest::locked($orderSn, function () use ($auth, $orderSn, $o, $skipStock, &$created, &$failed) {
+                    if (ShopeeOrder::query()->where('region', $auth['region'] ?? 'ph')->where('order_sn', $orderSn)->exists()) {
+                        return; // already held: a Fetch never rewrites what Update statuses maintains
+                    }
+                    try {
+                        $newOrder = ShopeeOrder::query()->create([
+                            'region' => $auth['region'] ?? 'ph',
+                            'order_sn' => $orderSn,
+                            'status' => (string) ($o['order_status'] ?? ''),
+                            'order_created_at' => $this->parseTimestamp($o['create_time'] ?? null),
+                            'order_updated_at' => $this->parseTimestamp($o['update_time'] ?? null),
+                            'raw' => $o,
+                        ]);
+                        $created++;
+                        try { $this->syncOrderProductsFromDetail($newOrder, $o); } catch (\Throwable $e) {}
+                        try { (new ShopeeCatalogOrderSync)->setSkipStockAdjust($skipStock)->sync($newOrder); } catch (\Throwable $e) {}
+                    } catch (\Throwable $e) {
+                        $failed++;
+                    }
+                });
             }
         }
 
@@ -606,31 +610,34 @@ class ShopeeOrderController extends Controller
                 $orderSn = (string) ($o['order_sn'] ?? '');
                 if ($orderSn === '') continue;
 
-                $existing = ShopeeOrder::query()
-                    ->where('region', $auth['region'] ?? 'ph')
-                    ->where('order_sn', $orderSn)
-                    ->first();
+                // Under the order's lock, as every Shopee order write is.
+                \Extensions\shopee\Services\Shopee\ShopeeOrderIngest::locked($orderSn, function () use ($auth, $orderSn, $o, &$updated, &$skipped) {
+                    $existing = ShopeeOrder::query()
+                        ->where('region', $auth['region'] ?? 'ph')
+                        ->where('order_sn', $orderSn)
+                        ->first();
 
-                if (!$existing) {
-                    $skipped++;
-                    continue;
-                }
+                    if (!$existing) {
+                        $skipped++;
+                        return;
+                    }
 
-                $existing->fill([
-                    'status'           => (string) ($o['order_status'] ?? $existing->status),
-                    'order_created_at' => $this->parseTimestamp($o['create_time'] ?? null) ?? $existing->order_created_at,
-                    'order_updated_at' => $this->parseTimestamp($o['update_time'] ?? null) ?? $existing->order_updated_at,
-                    'raw'              => $o,
-                ])->save();
-                $updated++;
+                    $existing->fill([
+                        'status'           => (string) ($o['order_status'] ?? $existing->status),
+                        'order_created_at' => $this->parseTimestamp($o['create_time'] ?? null) ?? $existing->order_created_at,
+                        'order_updated_at' => $this->parseTimestamp($o['update_time'] ?? null) ?? $existing->order_updated_at,
+                        'raw'              => $o,
+                    ])->save();
+                    $updated++;
 
-                try {
-                    $this->syncOrderProductsFromDetail($existing, $o);
-                } catch (\Throwable $e) {}
+                    try {
+                        $this->syncOrderProductsFromDetail($existing, $o);
+                    } catch (\Throwable $e) {}
 
-                try {
-                    (new ShopeeCatalogOrderSync)->sync($existing);
-                } catch (\Throwable $e) {}
+                    try {
+                        (new ShopeeCatalogOrderSync)->sync($existing);
+                    } catch (\Throwable $e) {}
+                });
             }
         }
 
@@ -873,13 +880,20 @@ class ShopeeOrderController extends Controller
             ]);
         }
 
-        // Update local status
-        $order->status = 'PROCESSED';
-        $order->save();
+        // Update local status, under the order's lock: Shopee's push for
+        // this same change lands a second later and writes the order too.
+        \Extensions\shopee\Services\Shopee\ShopeeOrderIngest::locked($orderSn, function () use ($order) {
+            $order->refresh();
+            // A push that got here first may already hold a later status; never step back from it.
+            if (! in_array(strtoupper((string) $order->status), ['PROCESSED', 'SHIPPED', 'TO_CONFIRM_RECEIVE', 'COMPLETED'], true)) {
+                $order->status = 'PROCESSED';
+                $order->save();
+            }
 
-        try {
-            (new ShopeeCatalogOrderSync)->sync($order);
-        } catch (\Throwable $e) {}
+            try {
+                (new ShopeeCatalogOrderSync)->sync($order);
+            } catch (\Throwable $e) {}
+        });
 
         ActivityLogger::log('updated', 'Shopee Order', null, 'Shipped order #' . $orderSn);
 

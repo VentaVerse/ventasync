@@ -23,6 +23,7 @@ class ShopeeSetting extends Model
         'partner_id',
         'partner_key',
         'push_partner_key',
+        'apply_order_pushes',
         'shop_id',
         'access_token',
         'refresh_token',
@@ -51,6 +52,7 @@ class ShopeeSetting extends Model
 
     protected $casts = [
         'enabled' => 'boolean',
+        'apply_order_pushes' => 'boolean',
         'expires_at' => 'datetime',
         'refresh_expires_at' => 'datetime',
         'sandbox_expires_at' => 'datetime',

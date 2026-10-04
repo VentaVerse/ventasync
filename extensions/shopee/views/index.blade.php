@@ -266,6 +266,15 @@
                         :can-reveal="$canManageShopee"
                         :disabled="!$canManageShopee" />
 
+                    <x-ui.field label="Apply order pushes" for="sp-apply-pushes" name="apply_order_pushes" wide
+                                hint="On: a new order, a status change, a tracking number or a return reaches the ERP the moment Shopee sends its push, by the same path as the order sync, stock included. Off: pushes are only recorded and the order sync brings every change in.">
+                        <input type="hidden" name="apply_order_pushes" value="0">
+                        <label class="fm-switch cs-store-switch">
+                            <input type="checkbox" class="fm-switch__input" id="sp-apply-pushes" name="apply_order_pushes" value="1" @checked((bool) ($setting->apply_order_pushes ?? false)) @disabled(!$canManageShopee)>
+                            <span class="fm-switch__track" aria-hidden="true"></span>
+                        </label>
+                    </x-ui.field>
+
                 </div>
 
                 <div class="cs-connect__foot">

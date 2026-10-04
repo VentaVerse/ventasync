@@ -259,6 +259,7 @@ public function index(Request $request = null, ShopeeClient $client = null)
             'partner_id' => 'nullable|integer|min:1',
             'partner_key' => 'nullable|string',
             'push_partner_key' => 'nullable|string|max:255',
+            'apply_order_pushes' => 'nullable|boolean',
             'shop_id' => 'nullable|integer|min:1',
             'access_token' => 'nullable|string',
             'region' => 'nullable|in:sg,my,th,vn,id,ph,tw,br,mx,co,cl,pl',
@@ -282,6 +283,11 @@ public function index(Request $request = null, ShopeeClient $client = null)
         }
         if (array_key_exists('enabled', $data) && $data['enabled'] !== null) {
             $setting->enabled = (bool) $data['enabled'];
+        }
+
+        // Order pushes on or off: sent only by the form that carries the switch.
+        if (array_key_exists('apply_order_pushes', $data) && $data['apply_order_pushes'] !== null) {
+            $setting->apply_order_pushes = (bool) $data['apply_order_pushes'];
         }
 
         $env = $data['env'] ?? 'live';

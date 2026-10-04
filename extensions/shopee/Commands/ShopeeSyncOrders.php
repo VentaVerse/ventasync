@@ -4,11 +4,9 @@ namespace Extensions\shopee\Commands;
 
 use Extensions\shopee\Models\ShopeeApiLog;
 use Extensions\shopee\Models\ShopeeOrder;
-use Extensions\shopee\Models\ShopeeOrderProduct;
-use Extensions\shopee\Models\ShopeeReturn;
 use Extensions\shopee\Models\ShopeeSetting;
 use Extensions\shopee\Services\Shopee\ShopeeClient;
-use Extensions\shopee\Services\ShopeeCatalogOrderSync;
+use Extensions\shopee\Services\Shopee\ShopeeOrderIngest;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -106,7 +104,6 @@ class ShopeeSyncOrders extends Command implements \App\Integrations\Contracts\St
         $syncDays = $cliDays !== null && $cliDays !== ''
             ? max(1, (int) $cliDays)
             : (($setting->sync_last_days ?? null) > 0 ? (int) $setting->sync_last_days : 14);
-        $region = $auth['region'] ?? 'ph';
 
         $latestUpdated = ShopeeOrder::query()
             ->where('shopee_setting_id', (int) $setting->id)
@@ -201,118 +198,15 @@ class ShopeeSyncOrders extends Command implements \App\Integrations\Contracts\St
             $windowFrom = $windowTo;
         }
 
-        // Fetch details in batches of 50, then create or update each order
-        $created = 0;
-        $updated = 0;
-        $errors = 0;
-
-        foreach (array_chunk($allOrderSns, 50) as $chunk) {
-            $detailRes = $client->shopGet(
-                $auth['mode'],
-                (int) $auth['partner_id'],
-                (string) $auth['partner_key'],
-                (string) $auth['access_token'],
-                (int) $auth['shop_id'],
-                '/api/v2/order/get_order_detail',
-                [
-                    'order_sn_list' => implode(',', $chunk),
-                    'response_optional_fields' => 'buyer_username,recipient_address,total_amount,item_list,pay_time,shipping_carrier,tracking_no,payment_method,currency',
-                ]
-            );
-
-            if (!($detailRes['ok'] ?? false)) {
-                $errors += count($chunk);
-                continue;
-            }
-
-            $detailBody = $detailRes['body'] ?? [];
-            $detailResp = $detailBody['response'] ?? $detailBody;
-            $detailList = $detailResp['order_list'] ?? [];
-            if (!is_array($detailList)) $detailList = [];
-
-            // Buyer invoice info — batched once per chunk, results applied below.
-            $invoiceMap = $this->fetchBuyerInvoiceForChunk($client, $setting, $auth, $chunk);
-
-            foreach ($detailList as $o) {
-                if (!is_array($o)) continue;
-
-                $orderSn = (string) ($o['order_sn'] ?? '');
-                if ($orderSn === '') continue;
-
-                $existing = ShopeeOrder::query()
-                    ->where('shopee_setting_id', (int) $setting->id)
-                    ->where('order_sn', $orderSn)
-                    ->first();
-
-                if ($existing) {
-                    // --- Update existing order ---
-                    $fillExisting = [
-                        'status'           => (string) ($o['order_status'] ?? $existing->status),
-                        'order_created_at' => $this->parseTimestamp($o['create_time'] ?? null) ?? $existing->order_created_at,
-                        'order_updated_at' => $this->parseTimestamp($o['update_time'] ?? null) ?? $existing->order_updated_at,
-                        'raw'              => $o,
-                    ];
-                    if (array_key_exists($orderSn, $invoiceMap)) {
-                        $fillExisting['buyer_invoice'] = $invoiceMap[$orderSn];
-                    }
-                    $existing->fill($fillExisting)->save();
-                    $updated++;
-
-                    try {
-                        $this->syncOrderProducts($existing, $o);
-                    } catch (\Throwable $e) {
-                        Log::warning('Shopee sync: failed to sync items for order ' . $orderSn, ['error' => $e->getMessage()]);
-                    }
-
-                    try {
-                        (new ShopeeCatalogOrderSync)->sync($existing);
-                    } catch (\Throwable $e) {
-                        Log::warning('Shopee sync: catalog sync failed for order ' . $orderSn, ['error' => $e->getMessage()]);
-                    }
-
-                    $this->fetchFeesIfReady($client, $setting, $auth, $existing);
-                } else {
-                    // --- Create new order ---
-                    try {
-                        $newOrder = ShopeeOrder::query()->create([
-                            'shopee_setting_id' => (int) $setting->id,
-                            'region'           => $region,
-                            'order_sn'         => $orderSn,
-                            'status'           => (string) ($o['order_status'] ?? ''),
-                            'order_created_at' => $this->parseTimestamp($o['create_time'] ?? null),
-                            'order_updated_at' => $this->parseTimestamp($o['update_time'] ?? null),
-                            'raw'              => $o,
-                            'buyer_invoice'    => $invoiceMap[$orderSn] ?? null,
-                        ]);
-                        $created++;
-
-                        try {
-                            $this->syncOrderProducts($newOrder, $o);
-                        } catch (\Throwable $e) {
-                            Log::warning('Shopee sync: failed to sync items for order ' . $orderSn, ['error' => $e->getMessage()]);
-                        }
-
-                        try {
-                            (new ShopeeCatalogOrderSync)->sync($newOrder);
-                        } catch (\Throwable $e) {
-                            Log::warning('Shopee sync: failed to sync order ' . $orderSn . ' to catalog', ['error' => $e->getMessage()]);
-                        }
-
-                        $this->fetchFeesIfReady($client, $setting, $auth, $newOrder);
-                    } catch (\Throwable $e) {
-                        $errors++;
-                        Log::error('Shopee sync: failed to create order ' . $orderSn, ['error' => $e->getMessage()]);
-                    }
-                }
-            }
-        }
-
-        $this->info("  Synced: {$created} new, {$updated} updated" . ($errors > 0 ? ", {$errors} errors" : ''));
+        // Read each order's detail and write it: the one path an order push takes too.
+        $r = app(ShopeeOrderIngest::class)->orders($setting, $auth, $allOrderSns);
+        $this->info("  Synced: {$r['created']} new, {$r['updated']} updated"
+            . ($r['errors'] > 0 ? ", {$r['errors']} errors" : '')
+            . ($r['busy'] > 0 ? ", {$r['busy']} being written by a push" : ''));
     }
 
     private function syncReturns(ShopeeClient $client, object $setting, array $auth): void
     {
-        $region = $auth['region'] ?? 'ph';
         $saved = 0;
         $errors = 0;
         $pageNo = 0;
@@ -381,67 +275,13 @@ class ShopeeSyncOrders extends Command implements \App\Integrations\Contracts\St
                 $returnSn = $ret['return_sn'] ?? null;
                 if (!$returnSn) continue;
 
-                $detailRes = $client->shopGet(
-                    $auth['mode'],
-                    (int) $auth['partner_id'],
-                    (string) $auth['partner_key'],
-                    (string) $auth['access_token'],
-                    (int) $auth['shop_id'],
-                    '/api/v2/returns/get_return_detail',
-                    ['return_sn' => $returnSn]
-                );
-
-                if (!($detailRes['ok'] ?? false)) {
+                $error = app(ShopeeOrderIngest::class)->returnBySn($setting, $auth, (string) $returnSn, is_array($ret) ? $ret : []);
+                if ($error !== null) {
                     $errors++;
-                    $this->warn("  Failed to fetch detail for return_sn {$returnSn}");
+                    $this->warn('  ' . $error);
                     continue;
                 }
-
-                $detailBody = $detailRes['body'] ?? [];
-                $detail = $detailBody['response'] ?? $detailBody;
-
-                $orderSn = (string) ($detail['order_sn'] ?? ($ret['order_sn'] ?? ''));
-
-                $shopeeOrder = null;
-                if ($orderSn !== '') {
-                    $shopeeOrder = ShopeeOrder::query()
-                        ->where('shopee_setting_id', (int) $setting->id)
-                        ->where('order_sn', $orderSn)
-                        ->first();
-                }
-
-                try {
-                    ShopeeReturn::query()->updateOrCreate(
-                        [
-                            'shopee_setting_id' => (int) $setting->id,
-                            'return_sn' => $returnSn,
-                        ],
-                        [
-                            'region'            => $region,
-                            'order_sn'          => $orderSn,
-                            'shopee_order_id'   => $shopeeOrder?->id,
-                            'status'            => (string) ($detail['status'] ?? ($ret['status'] ?? '')),
-                            'needs_logistics'          => array_key_exists('needs_logistics', $detail) ? (bool) $detail['needs_logistics'] : null,
-                            'return_solution'          => array_key_exists('return_solution', $detail) ? (int) $detail['return_solution'] : null,
-                            'reverse_logistics_status' => (string) ($detail['reverse_logistics_status'] ?? ''),
-                            'is_arrived_at_warehouse'  => array_key_exists('is_arrived_at_warehouse', $detail) ? (bool) $detail['is_arrived_at_warehouse'] : null,
-                            'seller_compensation_status' => (string) ($detail['seller_compensation']['seller_compensation_status'] ?? ''),
-                            'reason'            => (string) ($detail['reason'] ?? ($ret['reason'] ?? '')),
-                            'reason_text'       => (string) ($detail['text_reason'] ?? ($detail['reason_text'] ?? '')),
-                            'refund_amount'     => (float) ($detail['refund_amount'] ?? ($ret['refund_amount'] ?? 0)),
-                            'currency'          => (string) ($detail['currency'] ?? ''),
-                            'items'             => $detail['item'] ?? ($detail['items'] ?? null),
-                            'negotiation'       => $detail['negotiation'] ?? null,
-                            'raw'               => $detail,
-                            'return_created_at' => $this->parseTimestamp($detail['create_time'] ?? null),
-                            'return_updated_at' => $this->parseTimestamp($detail['update_time'] ?? null),
-                        ]
-                    );
-                    $saved++;
-                } catch (\Throwable $e) {
-                    $errors++;
-                    Log::error('Shopee sync: failed to save return ' . $returnSn, ['error' => $e->getMessage()]);
-                }
+                $saved++;
             }
 
             $more = (bool) ($respData['more'] ?? false);
@@ -455,59 +295,6 @@ class ShopeeSyncOrders extends Command implements \App\Integrations\Contracts\St
         }
 
         $this->info("  Synced: {$saved} return(s)" . ($errors > 0 ? ", {$errors} error(s)" : ''));
-    }
-
-    /**
-     * Fetch escrow/fee details for completed orders.
-     * Only calls the API if: order is COMPLETED and fees not already stored.
-     */
-    private function fetchFeesIfReady(ShopeeClient $client, object $setting, array $auth, ShopeeOrder $order): void
-    {
-        $status = strtoupper(trim((string) $order->status));
-
-        // Fetch escrow for any order past payment (SHIPPED, TO_CONFIRM_RECEIVE, COMPLETED)
-        $eligibleStatuses = ['SHIPPED', 'TO_CONFIRM_RECEIVE', 'COMPLETED'];
-        if (!in_array($status, $eligibleStatuses)) return;
-
-        // Skip if already has fee data
-        if (!empty($order->fees)) return;
-
-        try {
-            $escrowRes = $client->shopGet(
-                $auth['mode'],
-                (int) $auth['partner_id'],
-                (string) $auth['partner_key'],
-                (string) $auth['access_token'],
-                (int) $auth['shop_id'],
-                '/api/v2/payment/get_escrow_detail',
-                ['order_sn' => $order->order_sn]
-            );
-
-            ShopeeApiLog::safeCreate([
-                'pack'            => 'shopee.sync.get_escrow_detail',
-                'method'          => 'GET',
-                'api_path'        => '/api/v2/payment/get_escrow_detail',
-                'auth_required'   => true,
-                'request_params'  => ['order_sn' => $order->order_sn],
-                'response_status' => (int) ($escrowRes['status'] ?? 0),
-                'ok'              => (bool) ($escrowRes['ok'] ?? false),
-                'response_body'   => is_array($escrowRes['body'] ?? null) ? $escrowRes['body'] : null,
-            ]);
-
-            if (($escrowRes['ok'] ?? false) && is_array($escrowRes['body'] ?? null)) {
-                $escrowBody = $escrowRes['body'];
-                $escrowData = $escrowBody['response'] ?? $escrowBody;
-                if (is_array($escrowData) && !empty($escrowData)) {
-                    $orderIncome = $escrowData['order_income'] ?? null;
-                    $order->fees = is_array($orderIncome) && !empty($orderIncome)
-                        ? $escrowData
-                        : $escrowData;
-                    $order->save();
-                }
-            }
-        } catch (\Throwable $e) {
-            // Best-effort — don't break the sync
-        }
     }
 
     /**
@@ -529,8 +316,9 @@ class ShopeeSyncOrders extends Command implements \App\Integrations\Contracts\St
         }
 
         $filled = 0;
+        $ingest = app(ShopeeOrderIngest::class);
         foreach ($orders as $order) {
-            $this->fetchFeesIfReady($client, $setting, $auth, $order);
+            $ingest->feesIfReady($auth, $order);
             if (!empty($order->fresh()->fees)) {
                 $filled++;
             }
@@ -539,143 +327,6 @@ class ShopeeSyncOrders extends Command implements \App\Integrations\Contracts\St
 
         $this->info("  Backfilled fees for {$filled}/{$orders->count()} orders.");
     }
-    private function syncOrderProducts(ShopeeOrder $order, array $detail): void
-    {
-        $itemList = $detail['item_list'] ?? [];
-        if (!is_array($itemList)) return;
-
-        foreach ($itemList as $it) {
-            if (!is_array($it)) continue;
-
-            $itemId = (string) ($it['item_id'] ?? '');
-            $modelId = (string) ($it['model_id'] ?? '');
-
-            // Prefer model_sku (variant) over item_sku (parent) so option-value stock resolves correctly
-            $sku = trim((string) ($it['model_sku'] ?? ''));
-            if ($sku === '') {
-                $sku = trim((string) ($it['item_sku'] ?? ''));
-            }
-
-            ShopeeOrderProduct::query()->updateOrCreate(
-                [
-                    'shopee_order_id' => $order->id,
-                    'item_id'         => $itemId !== '' ? $itemId : null,
-                    'model_id'        => $modelId !== '' ? $modelId : null,
-                ],
-                [
-                    'sku'       => $sku !== '' ? $sku : null,
-                    'name'      => ($v = trim((string) ($it['item_name'] ?? ''))) !== '' ? $v : null,
-                    'variation' => ($v = trim((string) ($it['model_name'] ?? ''))) !== '' ? $v : null,
-                    'quantity'  => max(1, (int) ($it['model_quantity_purchased'] ?? ($it['quantity'] ?? 1))),
-                    'price'     => (float) ($it['model_discounted_price'] ?? ($it['model_original_price'] ?? 0)),
-                    'image'     => ($v = trim((string) ($it['image_info']['image_url'] ?? ''))) !== '' ? $v : null,
-                    'raw'       => $it,
-                ]
-            );
-        }
-    }
-
-    private function parseTimestamp($value): ?string
-    {
-        if ($value === null) return null;
-
-        if (is_int($value) || (is_string($value) && ctype_digit($value))) {
-            $num = (int) $value;
-            if ($num > 0) return date('Y-m-d H:i:s', $num);
-            return null;
-        }
-
-        $str = trim((string) $value);
-        if ($str === '') return null;
-
-        $ts = strtotime($str);
-        return $ts === false ? null : date('Y-m-d H:i:s', $ts);
-    }
-
-    /**
-     * Fetch buyer-invoice info for a chunk of order SNs in a single API call
-     * and return a map of order_sn => normalized invoice payload.
-     *
-     * Persisted shape (so the UI doesn't have to care which marketplace it came from):
-     *   - { is_requested: true,  type, name, tin, email, phone, address: {...} }  (buyer requested)
-     *   - { is_requested: false }                                                  (buyer declined)
-     *   - { error: "...message..." }                                               (Shopee couldn't classify)
-     */
-    private function fetchBuyerInvoiceForChunk(ShopeeClient $client, object $setting, array $auth, array $chunk): array
-    {
-        $queries = array_map(fn ($sn) => ['order_sn' => (string) $sn], $chunk);
-
-        $res = $client->shopPost(
-            $auth['mode'],
-            (int) $auth['partner_id'],
-            (string) $auth['partner_key'],
-            (string) $auth['access_token'],
-            (int) $auth['shop_id'],
-            '/api/v2/order/get_buyer_invoice_info',
-            [],
-            ['queries' => $queries]
-        );
-
-        ShopeeApiLog::safeCreate([
-            'pack'            => 'shopee.sync.get_buyer_invoice_info',
-            'method'          => 'POST',
-            'api_path'        => '/api/v2/order/get_buyer_invoice_info',
-            'auth_required'   => true,
-            'request_params'  => ['count' => count($queries)],
-            'response_status' => (int) ($res['status'] ?? 0),
-            'ok'              => (bool) ($res['ok'] ?? false),
-            'response_body'   => is_array($res['body'] ?? null) ? $res['body'] : null,
-        ]);
-
-        if (!($res['ok'] ?? false)) {
-            return [];
-        }
-
-        $list = $res['body']['invoice_info_list'] ?? [];
-        if (!is_array($list)) return [];
-
-        $map = [];
-        foreach ($list as $item) {
-            $sn = (string) ($item['order_sn'] ?? '');
-            if ($sn === '') continue;
-
-            $err = trim((string) ($item['error'] ?? ''));
-            if ($err !== '') {
-                $map[$sn] = ['error' => $err];
-                continue;
-            }
-
-            if (($item['is_requested'] ?? false) !== true) {
-                $map[$sn] = ['is_requested' => false];
-                continue;
-            }
-
-            $d = $item['invoice_detail'] ?? [];
-            $ab = is_array($d['address_breakdown'] ?? null) ? $d['address_breakdown'] : [];
-
-            $map[$sn] = [
-                'is_requested' => true,
-                'type'         => (string) ($item['invoice_type'] ?? ''),
-                'name'         => (string) ($d['name'] ?? ''),
-                'tin'          => (string) ($d['tax_id'] ?? ''),
-                'email'        => (string) ($d['email'] ?? ''),
-                'phone'        => (string) ($d['phone_number'] ?? ''),
-                'address'      => [
-                    'full'             => (string) ($ab['full_address'] ?? ($d['address'] ?? '')),
-                    'region'           => (string) ($ab['region'] ?? ''),
-                    'state'            => (string) ($ab['state'] ?? ''),
-                    'city'             => (string) ($ab['city'] ?? ''),
-                    'town'             => (string) ($ab['town'] ?? ''),
-                    'barangay'         => (string) ($ab['barangay'] ?? ''),
-                    'postcode'         => (string) ($ab['postcode'] ?? ''),
-                    'detailed_address' => (string) ($ab['detailed_address'] ?? ''),
-                ],
-            ];
-        }
-
-        return $map;
-    }
-
 
     /**
      * Run now walks this sync one phase per request (SteppableAutomation,
