@@ -267,7 +267,7 @@
                         :disabled="!$canManageShopee" />
 
                     <x-ui.field label="Apply order pushes" for="sp-apply-pushes" name="apply_order_pushes" wide
-                                hint="On: a new order, a status change, a tracking number or a return reaches the ERP the moment Shopee sends its push, by the same path as the order sync, stock included. Off: pushes are only recorded and the order sync brings every change in.">
+                                hint="One switch for this store in either mode. On: a new order, a status change, a tracking number or a return reaches the ERP the moment Shopee sends its push, by the same path as the order sync, stock included. Off: pushes are only recorded and the order sync brings every change in.">
                         <input type="hidden" name="apply_order_pushes" value="0">
                         <label class="fm-switch cs-store-switch">
                             <input type="checkbox" class="fm-switch__input" id="sp-apply-pushes" name="apply_order_pushes" value="1" @checked((bool) ($setting->apply_order_pushes ?? false)) @disabled(!$canManageShopee)>
@@ -463,6 +463,18 @@
                         :length="\App\Support\Credentials::length($setting->sandbox_push_partner_key ?? null)"
                         :can-reveal="$canManageShopee"
                         :disabled="!$canManageShopee" />
+
+                    {{-- The store's one switch, the same one as on the
+                         production panel, so a sandbox store can turn it on
+                         without being saved over to production. --}}
+                    <x-ui.field label="Apply order pushes" for="sp-sb-apply-pushes" name="apply_order_pushes" wide
+                                hint="One switch for this store in either mode. On: a new order, a status change, a tracking number or a return reaches the ERP the moment Shopee sends its push, by the same path as the order sync, stock included. Off: pushes are only recorded and the order sync brings every change in.">
+                        <input type="hidden" name="apply_order_pushes" value="0">
+                        <label class="fm-switch cs-store-switch">
+                            <input type="checkbox" class="fm-switch__input" id="sp-sb-apply-pushes" name="apply_order_pushes" value="1" @checked((bool) ($setting->apply_order_pushes ?? false)) @disabled(!$canManageShopee)>
+                            <span class="fm-switch__track" aria-hidden="true"></span>
+                        </label>
+                    </x-ui.field>
 
                 </div>
 
