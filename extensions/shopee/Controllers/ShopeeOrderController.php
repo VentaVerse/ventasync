@@ -883,9 +883,13 @@ class ShopeeOrderController extends Controller
         // Update local status, under the order's lock: Shopee's push for
         // this same change lands a second later and writes the order too.
         \Extensions\shopee\Services\Shopee\ShopeeOrderIngest::locked($orderSn, function () use ($order) {
-            $order->refresh();
-            // A push that got here first may already hold a later status; never step back from it.
-            if (! in_array(strtoupper((string) $order->status), ['PROCESSED', 'SHIPPED', 'TO_CONFIRM_RECEIVE', 'COMPLETED'], true)) {
+            // Pushes on: one that got here first may already hold a later
+            // status, so re-read the order and never step back from it.
+            $pushesOn = \Extensions\shopee\Services\Shopee\ShopeeOrderIngest::pushesOn();
+            if ($pushesOn) {
+                $order->refresh();
+            }
+            if (! $pushesOn || ! in_array(strtoupper((string) $order->status), ['PROCESSED', 'SHIPPED', 'TO_CONFIRM_RECEIVE', 'COMPLETED'], true)) {
                 $order->status = 'PROCESSED';
                 $order->save();
             }

@@ -79,7 +79,8 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
          * webhooks:process stays the fallback a minute later for any push
          * this does not finish. */
         \App\Models\ChannelWebhookEvent::created(function (\App\Models\ChannelWebhookEvent $event) {
-            if ($event->channel === 'shopee' && $event->signature_ok && in_array($event->event_type, self::ORDER_PUSH_TYPES, true)) {
+            if ($event->channel === 'shopee' && $event->signature_ok && in_array($event->event_type, self::ORDER_PUSH_TYPES, true)
+                && $this->webhookStore((array) $event->payload)?->apply_order_pushes) {
                 $this->app->terminating(fn () => $this->applyPushNow((int) $event->id));
             }
         });
@@ -1117,8 +1118,16 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         if (isset($data['item_id'], $data['item_status'])) {
             return 'item_status';
         }
-        // The order pushes share a shape (an ordersn); their codes tell them apart.
         $code = isset($payload['code']) ? (int) $payload['code'] : null;
+        // Order pushes off for the store the push names: named as before.
+        if (! $this->webhookStore($payload)?->apply_order_pushes) {
+            if (isset($data['ordersn'])) {
+                return 'order_status';
+            }
+
+            return $code !== null ? 'code_' . $code : null;
+        }
+        // The order pushes share a shape (an ordersn); their codes tell them apart.
         if ($code === 4 && isset($data['ordersn'])) {
             return 'order_tracking';
         }
@@ -1188,10 +1197,11 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
 
         $store = $this->webhookStore((array) $event->payload);
         if (! $store) {
-            return "{$what}: {$said} on Shopee, for a shop this ERP does not hold; nothing applied";
+            return "order {$sn} moved to {$status} on Shopee; the next order sync applies it (stock rides that path)";
         }
         if (! $store->apply_order_pushes) {
-            return "{$what}: {$said} on Shopee; the next " . ($isReturn ? 'return' : 'order') . ' sync applies it (order pushes are off for this store)';
+            // Off: recorded only, in the words it always had.
+            return "order {$sn} moved to {$status} on Shopee; the next order sync applies it (stock rides that path)";
         }
         if ($isReturn && $returnSn === '') {
             return "{$what}: return push without a return number; the next return sync applies it";

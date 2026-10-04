@@ -52,7 +52,10 @@ class ShopeeOrderIngest
     {
         $out = ['created' => 0, 'updated' => 0, 'errors' => 0, 'busy' => 0, 'missing' => []];
         $region = $auth['region'] ?? 'ph';
-        $orderSns = array_values(array_unique(array_filter(array_map('strval', $orderSns), fn ($sn) => $sn !== '')));
+        $orderSns = array_values(array_filter(array_map('strval', $orderSns), fn ($sn) => $sn !== ''));
+        if (self::pushesOn()) {
+            $orderSns = array_values(array_unique($orderSns));
+        }
 
         foreach (array_chunk($orderSns, 50) as $chunk) {
             $detailRes = $this->client->shopGet(
@@ -328,6 +331,13 @@ class ShopeeOrderIngest
      */
     public static function locked(string $orderSn, callable $write): bool
     {
+        // Switch off on every store: the write runs as it always did, unlocked.
+        if (! self::pushesOn()) {
+            $write();
+
+            return true;
+        }
+
         try {
             Cache::lock('shopee_order_write:' . $orderSn, self::LOCK_SECONDS)->block(self::LOCK_WAIT_SECONDS, $write);
 
@@ -337,6 +347,23 @@ class ShopeeOrderIngest
 
             return false;
         }
+    }
+
+    /**
+     * THE SWITCH (Shopee Settings > Apply order pushes). Off on every store,
+     * the order sync runs exactly as it did before order pushes were
+     * applied: no locks, no new guards, pushes only recorded. On for any
+     * store, every Shopee order write takes the order's lock, since an
+     * order number is never shared between stores. Read once per process.
+     */
+    public static function pushesOn(): bool
+    {
+        static $on = null;
+
+        return $on ??= \Extensions\shopee\Models\ShopeeSetting::query()
+            ->where('enabled', true)
+            ->where('apply_order_pushes', true)
+            ->exists();
     }
 
     private function syncOrderProducts(ShopeeOrder $order, array $detail): void
