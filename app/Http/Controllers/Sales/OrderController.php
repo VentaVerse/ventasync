@@ -133,178 +133,179 @@ class OrderController extends Controller
         // known - this only matters when the order carries no products.
         $rawTotal = (float) ($request->total ?? 0);
 
-        $order = Order::create([
-            'invoice_no'           => 0,
-            'invoice_prefix'       => '',
-            'store_id'             => 0,
-            'store_name'           => '',
-            'store_url'            => '',
-            'customer_id'          => 0,
-            'customer_group_id'    => 0,
-            'firstname'            => $request->firstname,
-            'lastname'             => $request->lastname ?? '',
-            'email'                => $request->email ?? '',
-            'telephone'            => $request->telephone ?? '',
-            'fax'                  => '',
-            'custom_field'         => '',
-            'payment_firstname'    => $request->payment_firstname ?? $request->firstname,
-            'payment_lastname'     => $request->payment_lastname ?? ($request->lastname ?? ''),
-            'payment_company'      => $request->payment_company ?? '',
-            'payment_address_1'    => $request->payment_address_1 ?? '',
-            'payment_address_2'    => $request->payment_address_2 ?? '',
-            'payment_city'         => $request->payment_city ?? '',
-            'payment_postcode'     => $request->payment_postcode ?? '',
-            'payment_country'      => $request->payment_country ?? '',
-            'payment_country_id'   => 0,
-            'payment_zone'         => $request->payment_zone ?? '',
-            'payment_zone_id'      => 0,
-            'payment_address_format' => '',
-            'payment_custom_field' => '',
-            'payment_method'       => $request->payment_method ?? '',
-            'payment_cost'         => 0,
-            'payment_code'         => '',
-            'shipping_firstname'   => $request->shipping_firstname ?? $request->firstname,
-            'shipping_lastname'    => $request->shipping_lastname ?? ($request->lastname ?? ''),
-            'shipping_company'     => $request->shipping_company ?? '',
-            'shipping_address_1'   => $request->shipping_address_1 ?? '',
-            'shipping_address_2'   => $request->shipping_address_2 ?? '',
-            'shipping_city'        => $request->shipping_city ?? '',
-            'shipping_postcode'    => $request->shipping_postcode ?? '',
-            'shipping_country'     => $request->shipping_country ?? '',
-            'shipping_country_id'  => 0,
-            'shipping_zone'        => $request->shipping_zone ?? '',
-            'shipping_zone_id'     => 0,
-            'shipping_address_format' => '',
-            'shipping_custom_field' => '',
-            'shipping_method'      => $request->shipping_method ?? '',
-            'shipping_cost'        => 0,
-            'shipping_code'        => '',
-            'comment'              => $request->comment ?? '',
-            'total'                => OrderCurrencyService::toBase($rawTotal, $rate),
-            'foreign_total'        => $isDefault ? null : round($rawTotal, 4),
-            'extra_cost'           => 0,
-            'order_status_id'      => $request->order_status_id,
-            'affiliate_id'         => 0,
-            'commission'           => 0,
-            'marketing_id'         => 0,
-            'tracking'             => '',
-            'language_id'          => 1,
-            'currency_id'          => $currency['id'],
-            'currency_code'        => $currency['code'],
-            'currency_value'       => $currency['rate'],
-            'ip'                   => $request->ip() ?? '',
-            'forwarded_ip'         => '',
-            'user_agent'           => '',
-            'accept_language'      => '',
-            'courier_id'           => 0,
-            'tracking_number'      => '',
-            'date_added'           => $now,
-            'date_modified'        => $now,
-            'oe_import'            => 0,
-        ]);
+        // One save, so the order never stands without its lines and its
+        // notification is written once both are in.
+        DB::transaction(function () use ($request, $now, $rawTotal, $rate, $isDefault, $currency) {
+            $order = Order::create([
+                'invoice_no'           => 0,
+                'invoice_prefix'       => '',
+                'store_id'             => 0,
+                'store_name'           => '',
+                'store_url'            => '',
+                'customer_id'          => 0,
+                'customer_group_id'    => 0,
+                'firstname'            => $request->firstname,
+                'lastname'             => $request->lastname ?? '',
+                'email'                => $request->email ?? '',
+                'telephone'            => $request->telephone ?? '',
+                'fax'                  => '',
+                'custom_field'         => '',
+                'payment_firstname'    => $request->payment_firstname ?? $request->firstname,
+                'payment_lastname'     => $request->payment_lastname ?? ($request->lastname ?? ''),
+                'payment_company'      => $request->payment_company ?? '',
+                'payment_address_1'    => $request->payment_address_1 ?? '',
+                'payment_address_2'    => $request->payment_address_2 ?? '',
+                'payment_city'         => $request->payment_city ?? '',
+                'payment_postcode'     => $request->payment_postcode ?? '',
+                'payment_country'      => $request->payment_country ?? '',
+                'payment_country_id'   => 0,
+                'payment_zone'         => $request->payment_zone ?? '',
+                'payment_zone_id'      => 0,
+                'payment_address_format' => '',
+                'payment_custom_field' => '',
+                'payment_method'       => $request->payment_method ?? '',
+                'payment_cost'         => 0,
+                'payment_code'         => '',
+                'shipping_firstname'   => $request->shipping_firstname ?? $request->firstname,
+                'shipping_lastname'    => $request->shipping_lastname ?? ($request->lastname ?? ''),
+                'shipping_company'     => $request->shipping_company ?? '',
+                'shipping_address_1'   => $request->shipping_address_1 ?? '',
+                'shipping_address_2'   => $request->shipping_address_2 ?? '',
+                'shipping_city'        => $request->shipping_city ?? '',
+                'shipping_postcode'    => $request->shipping_postcode ?? '',
+                'shipping_country'     => $request->shipping_country ?? '',
+                'shipping_country_id'  => 0,
+                'shipping_zone'        => $request->shipping_zone ?? '',
+                'shipping_zone_id'     => 0,
+                'shipping_address_format' => '',
+                'shipping_custom_field' => '',
+                'shipping_method'      => $request->shipping_method ?? '',
+                'shipping_cost'        => 0,
+                'shipping_code'        => '',
+                'comment'              => $request->comment ?? '',
+                'total'                => OrderCurrencyService::toBase($rawTotal, $rate),
+                'foreign_total'        => $isDefault ? null : round($rawTotal, 4),
+                'extra_cost'           => 0,
+                'order_status_id'      => $request->order_status_id,
+                'affiliate_id'         => 0,
+                'commission'           => 0,
+                'marketing_id'         => 0,
+                'tracking'             => '',
+                'language_id'          => 1,
+                'currency_id'          => $currency['id'],
+                'currency_code'        => $currency['code'],
+                'currency_value'       => $currency['rate'],
+                'ip'                   => $request->ip() ?? '',
+                'forwarded_ip'         => '',
+                'user_agent'           => '',
+                'accept_language'      => '',
+                'courier_id'           => 0,
+                'tracking_number'      => '',
+                'date_added'           => $now,
+                'date_modified'        => $now,
+                'oe_import'            => 0,
+            ]);
 
-        // Add initial history entry
-        OrderHistory::create(array_merge($this->currentUser(), [
-            'order_id'        => $order->order_id,
-            'order_status_id' => $request->order_status_id,
-            'notify'          => 0,
-            'comment'         => $request->comment ?? '',
-            'date_added'      => $now,
-        ]));
+            // Add initial history entry
+            OrderHistory::create(array_merge($this->currentUser(), [
+                'order_id'        => $order->order_id,
+                'order_status_id' => $request->order_status_id,
+                'notify'          => 0,
+                'comment'         => $request->comment ?? '',
+                'date_added'      => $now,
+            ]));
 
-        ActivityLogger::log('created', 'Order', (int) $order->order_id, '#' . $order->order_id . ' ' . trim($request->firstname . ' ' . $request->lastname));
+            ActivityLogger::log('created', 'Order', (int) $order->order_id, '#' . $order->order_id . ' ' . trim($request->firstname . ' ' . $request->lastname));
 
-        // The status move is announced by App\Observers\OrderObserver.
-        // on Order::create above.
+            // Create order products
+            $products = $request->input('products', []);
+            if (!empty($products)) {
+                $pfx = (string) config('catalog.prefix');
+                $orderTotal = 0;
+                $orderForeignTotal = 0;
 
-        // Create order products
-        $products = $request->input('products', []);
-        if (!empty($products)) {
-            $pfx = (string) config('catalog.prefix');
-            $orderTotal = 0;
-            $orderForeignTotal = 0;
+                foreach ($products as $p) {
+                    $qty = (int) ($p['quantity'] ?? 1);
+                    $foreignPrice = (float) ($p['price'] ?? 0);
+                    $foreignTotal = $foreignPrice * $qty;
+                    $foreignCost = (float) ($p['cost'] ?? 0);
 
-            foreach ($products as $p) {
-                $qty = (int) ($p['quantity'] ?? 1);
-                $foreignPrice = (float) ($p['price'] ?? 0);
-                $foreignTotal = $foreignPrice * $qty;
-                $foreignCost = (float) ($p['cost'] ?? 0);
+                    $price = OrderCurrencyService::toBase($foreignPrice, $rate);
+                    $lineTotal = OrderCurrencyService::toBase($foreignTotal, $rate);
+                    // Cost arrives in order currency too (the create/edit forms
+                    // convert it client-side alongside price) - it must go
+                    // through the same conversion, or a foreign order ends up
+                    // with a PHP price/total but a foreign-currency cost, which
+                    // corrupts COGS/profitability reporting. There is no
+                    // foreign_cost column by design: cost is internal-only and
+                    // never shown on a customer document, so the foreign figure
+                    // is derivable on demand as cost ÷ currency_value.
+                    $cost = OrderCurrencyService::toBase($foreignCost, $rate);
 
-                $price = OrderCurrencyService::toBase($foreignPrice, $rate);
-                $lineTotal = OrderCurrencyService::toBase($foreignTotal, $rate);
-                // Cost arrives in order currency too (the create/edit forms
-                // convert it client-side alongside price) - it must go
-                // through the same conversion, or a foreign order ends up
-                // with a PHP price/total but a foreign-currency cost, which
-                // corrupts COGS/profitability reporting. There is no
-                // foreign_cost column by design: cost is internal-only and
-                // never shown on a customer document, so the foreign figure
-                // is derivable on demand as cost ÷ currency_value.
-                $cost = OrderCurrencyService::toBase($foreignCost, $rate);
+                    $orderTotal += $lineTotal;
+                    $orderForeignTotal += $foreignTotal;
 
-                $orderTotal += $lineTotal;
-                $orderForeignTotal += $foreignTotal;
+                    $orderProductId = DB::table($pfx . 'order_product')->insertGetId([
+                        'order_id'      => $order->order_id,
+                        'product_id'    => (int) ($p['product_id'] ?? 0),
+                        'name'          => $p['name'] ?? '',
+                        'model'         => $p['model'] ?? '',
+                        'quantity'      => $qty,
+                        'price'         => $price,
+                        'foreign_price' => $isDefault ? null : round($foreignPrice, 4),
+                        'total'         => $lineTotal,
+                        'foreign_total' => $isDefault ? null : round($foreignTotal, 4),
+                        'tax'           => 0,
+                        'reward'        => 0,
+                        'cost'          => $cost,
+                    ]);
 
-                $orderProductId = DB::table($pfx . 'order_product')->insertGetId([
-                    'order_id'      => $order->order_id,
-                    'product_id'    => (int) ($p['product_id'] ?? 0),
-                    'name'          => $p['name'] ?? '',
-                    'model'         => $p['model'] ?? '',
-                    'quantity'      => $qty,
-                    'price'         => $price,
-                    'foreign_price' => $isDefault ? null : round($foreignPrice, 4),
-                    'total'         => $lineTotal,
-                    'foreign_total' => $isDefault ? null : round($foreignTotal, 4),
-                    'tax'           => 0,
-                    'reward'        => 0,
-                    'cost'          => $cost,
+                    // Save option value if selected
+                    $povId = (int) ($p['option_value_id'] ?? 0);
+                    if ($povId > 0 && $orderProductId) {
+                        $pov = DB::table($pfx . 'product_option_value')
+                            ->where('product_option_value_id', $povId)
+                            ->first(['product_option_id', 'option_value_id']);
+
+                        DB::table($pfx . 'order_option')->insert([
+                            'order_id'                 => $order->order_id,
+                            'order_product_id'         => $orderProductId,
+                            'product_option_id'        => $pov->product_option_id ?? 0,
+                            'product_option_value_id'  => $povId,
+                            'name'                     => $p['option_name'] ?? '',
+                            'value'                    => $p['option_value'] ?? '',
+                            'type'                     => 'select',
+                        ]);
+                    }
+                }
+
+                // Update order total from line items
+                $order->update([
+                    'total'         => $orderTotal,
+                    'foreign_total' => $isDefault ? null : round($orderForeignTotal, 4),
                 ]);
 
-                // Save option value if selected
-                $povId = (int) ($p['option_value_id'] ?? 0);
-                if ($povId > 0 && $orderProductId) {
-                    $pov = DB::table($pfx . 'product_option_value')
-                        ->where('product_option_value_id', $povId)
-                        ->first(['product_option_id', 'option_value_id']);
-
-                    DB::table($pfx . 'order_option')->insert([
-                        'order_id'                 => $order->order_id,
-                        'order_product_id'         => $orderProductId,
-                        'product_option_id'        => $pov->product_option_id ?? 0,
-                        'product_option_value_id'  => $povId,
-                        'name'                     => $p['option_name'] ?? '',
-                        'value'                    => $p['option_value'] ?? '',
-                        'type'                     => 'select',
-                    ]);
-                }
+                // Create order totals
+                DB::table($pfx . 'order_total')->insert([
+                    'order_id'   => $order->order_id,
+                    'code'       => 'sub_total',
+                    'title'      => 'Sub-Total',
+                    'value'      => $orderTotal,
+                    'sort_order' => 1,
+                ]);
+                DB::table($pfx . 'order_total')->insert([
+                    'order_id'   => $order->order_id,
+                    'code'       => 'total',
+                    'title'      => 'Total',
+                    'value'      => $orderTotal,
+                    'sort_order' => 9,
+                ]);
             }
 
-            // Update order total from line items
-            $order->update([
-                'total'         => $orderTotal,
-                'foreign_total' => $isDefault ? null : round($orderForeignTotal, 4),
-            ]);
-
-            // Create order totals
-            DB::table($pfx . 'order_total')->insert([
-                'order_id'   => $order->order_id,
-                'code'       => 'sub_total',
-                'title'      => 'Sub-Total',
-                'value'      => $orderTotal,
-                'sort_order' => 1,
-            ]);
-            DB::table($pfx . 'order_total')->insert([
-                'order_id'   => $order->order_id,
-                'code'       => 'total',
-                'title'      => 'Total',
-                'value'      => $orderTotal,
-                'sort_order' => 9,
-            ]);
-        }
-
-        // Adjust stock based on new status (after products are inserted)
-        $order->load('products');
-        OrderStockService::adjustStock($order, 0, (int) $request->order_status_id);
+            // Adjust stock based on new status (after products are inserted)
+            $order->load('products');
+            OrderStockService::adjustStock($order, 0, (int) $request->order_status_id);
+        });
 
         return redirect()->route('orders.index')->with('status', 'Order created.');
     }
