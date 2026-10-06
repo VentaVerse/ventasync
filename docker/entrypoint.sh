@@ -59,7 +59,25 @@ if [ "${VENTASYNC_AUTO_MIGRATE:-false}" = "true" ]; then
     php artisan migrate --force --seed --no-interaction
 fi
 
-# ── 3. Clear stale caches (Laravel compiles on-demand) ─────────────────
+# ── 3. Link public/storage ─────────────────────────────────────────────
+#
+# Everything the app serves from the public disk is reached through
+# public/storage: product images, the logo, generated thumbnails. The link
+# cannot come from the image, because it is gitignored and because it points
+# at an absolute path that belongs to whoever built it. So it is made here,
+# the way the Pterodactyl boot script makes it (ventasync-boot), which is the
+# other runtime for this same application.
+#
+# It is remade on every start, not only the first: public/ is image content
+# and is replaced on each deploy, while storage/app/public is usually a
+# mounted volume that outlives it.
+
+if [ ! -e public/storage ]; then
+    echo "[entrypoint] Linking public/storage..."
+    php artisan storage:link --no-interaction 2>/dev/null || true
+fi
+
+# ── 4. Clear stale caches (Laravel compiles on-demand) ─────────────────
 #
 # We don't pre-warm config:cache / route:cache / view:cache because:
 #   - Cache state can mismatch across container restarts if env vars
@@ -75,7 +93,7 @@ fi
 echo "[entrypoint] Clearing any stale caches..."
 php artisan optimize:clear 2>/dev/null || true
 
-# ── 4. Ensure storage + bootstrap/cache are writable ───────────────────
+# ── 5. Ensure storage + bootstrap/cache are writable ───────────────────
 
 chown -R nobody:nobody storage bootstrap/cache 2>/dev/null || true
 chmod -R 775 storage bootstrap/cache 2>/dev/null || true
