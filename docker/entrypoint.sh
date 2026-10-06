@@ -10,7 +10,7 @@
 #
 #   1. Refuses to start without the settings the app cannot run without
 #   2. Waits for the database to be reachable (60s budget)
-#   3. Runs migrations, and seeds on the first start only, when
+#   3. Runs migrations, and seeds until the first account exists, when
 #      VENTASYNC_AUTO_MIGRATE=true
 #   4. Links public/storage
 #   5. Clears stale caches
@@ -74,12 +74,12 @@ while [ "$attempt" -lt "$max_attempts" ]; do
     sleep 1
 done
 
-# ── 3. Migrations, and the first start's seed ──────────────────────────
+# ── 3. Migrations, and the seed ────────────────────────────────────────
 #
-# Seeding runs only while there is no user yet. Run on every start, it would
-# bring back admin/admin whenever the admin account had been renamed or
-# removed. On that first seed the admin password becomes ADMIN_PASSWORD when
-# it is set, so a tenant never answers to admin/admin.
+# The seed switches on the extensions a new install starts with and makes no
+# user: the first person to open the install creates the administrator. It
+# runs until that account exists, and leaves an extension switched off by
+# hand alone.
 
 if [ "${VENTASYNC_AUTO_MIGRATE:-false}" = "true" ]; then
     say "Running migrations..."
@@ -87,15 +87,8 @@ if [ "${VENTASYNC_AUTO_MIGRATE:-false}" = "true" ]; then
 
     has_users=$(php artisan tinker --execute='echo DB::table("users")->exists() ? "yes" : "no";' 2>/dev/null | tail -n 1)
     if [ "$has_users" = "no" ]; then
-        say "First start: seeding..."
+        say "No account yet: seeding..."
         php artisan db:seed --force --no-interaction || fail "Seeding failed."
-        if [ -n "${ADMIN_PASSWORD:-}" ]; then
-            php artisan tinker --execute='DB::table("users")->where("username", "admin")->update(["password" => Hash::make(getenv("ADMIN_PASSWORD"))]);' >/dev/null \
-                || fail "Could not set the admin password."
-            say "The admin password is the one set in ADMIN_PASSWORD."
-        else
-            say "WARNING: ADMIN_PASSWORD is not set, so the admin signs in with admin/admin. Change it on first login."
-        fi
     fi
 fi
 

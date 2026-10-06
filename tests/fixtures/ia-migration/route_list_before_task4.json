@@ -5171,6 +5171,16 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "setup",
+        "name": "first-account"
+    },
+    {
+        "method": "POST",
+        "uri": "setup",
+        "name": "first-account.store"
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "shopee",
         "name": "ext.shopee.index"
     },

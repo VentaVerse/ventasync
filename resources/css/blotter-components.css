@@ -5145,6 +5145,17 @@
         gap: 14px;
     }
 
+    /* Two short fields on one line, so the first account form stays one screen tall. */
+    .auth__pair {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+
+    @media (max-width: 420px) {
+        .auth__pair { grid-template-columns: 1fr; }
+    }
+
     .auth__row {
         display: flex;
         flex-wrap: wrap;

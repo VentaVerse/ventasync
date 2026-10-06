@@ -5,23 +5,16 @@ namespace Database\Seeders;
 use App\Extensions\ExtensionManager;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 
 /**
- * Bootstraps a fresh install:
- *   1. Default admin user (username admin / password admin) — operator
- *      can log in immediately after `php artisan migrate --seed`.
- *   2. Every Community-tier extension found on disk is installed +
- *      enabled. Plus-tier extensions (audit/reports/shopify/purchasing/
- *      opencart) stay disabled — they need license activation.
+ * Bootstraps a fresh install: every Community-tier extension found on disk
+ * is installed and enabled, and Plus-tier ones are installed but left off.
  *
- * The seeder is idempotent — re-running it does not overwrite an
- * existing admin user or re-enable a manually-disabled extension.
+ * No user is made. A new install opens on the first account page, and that
+ * account is the administrator (App\Support\FirstAccount).
  *
- * DEFAULT ADMIN CREDENTIALS (CHANGE IMMEDIATELY AFTER FIRST LOGIN):
- *   username: admin
- *   email:    admin@admin.com
- *   password: admin
+ * Idempotent: running it again does not re-enable an extension switched off
+ * by hand.
  */
 class DatabaseSeeder extends Seeder
 {
@@ -35,47 +28,7 @@ class DatabaseSeeder extends Seeder
 
     public function run(): void
     {
-        $this->seedAdminUser();
         $this->seedCommunityExtensions();
-    }
-
-    private function seedAdminUser(): void
-    {
-        $adminGroupId = DB::table('user_groups')->where('name', 'Administrator')->value('id');
-
-        if (!$adminGroupId) {
-            $this->command->error('Administrator user group not found. Run migrations first.');
-            return;
-        }
-
-        $existing = DB::table('users')->where('username', 'admin')->first();
-
-        if ($existing) {
-            $this->command->info('Admin user already exists, left unchanged.');
-            return;
-        }
-
-        DB::table('users')->insert([
-            'name'          => 'Admin',
-            'username'      => 'admin',
-            'email'         => 'admin@admin.com',
-            'user_group_id' => $adminGroupId,
-            'password'      => Hash::make('admin'),
-            'created_at'    => now(),
-            'updated_at'    => now(),
-        ]);
-
-        $this->command->newLine();
-        $this->command->getOutput()->writeln('<bg=green;fg=white> ✓ Admin user created </>');
-        $this->command->newLine();
-        $this->command->getOutput()->writeln('  <fg=yellow;options=bold>Default credentials</> (change immediately):');
-        $this->command->newLine();
-        $this->command->getOutput()->writeln('    Username: <fg=cyan>admin</>');
-        $this->command->getOutput()->writeln('    Email:    <fg=cyan>admin@admin.com</>');
-        $this->command->getOutput()->writeln('    Password: <fg=cyan>admin</>');
-        $this->command->newLine();
-        $this->command->getOutput()->writeln('  <fg=red>Security: change this password through Settings → Users on first login.</>');
-        $this->command->newLine();
     }
 
     /**
