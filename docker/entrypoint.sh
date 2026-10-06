@@ -2,101 +2,138 @@
 #
 # VentaSync Cloud container entrypoint.
 #
-# Runs once before supervisord (which then keeps PHP-FPM + nginx alive).
-# Does the per-tenant bootstrap on every container start:
+# Runs on every container start, then hands over to supervisord, which keeps
+# PHP-FPM, nginx, the scheduler and the queue worker alive. It does what a
+# manual install does by hand, and what the Pterodactyl boot script
+# (ventasync-boot) does for the other runtime; the two should take the same
+# steps:
 #
-#   1. Waits for the database to be reachable (60s budget)
-#   2. Runs migrations + seeds the default admin user if
+#   1. Refuses to start without the settings the app cannot run without
+#   2. Waits for the database to be reachable (60s budget)
+#   3. Runs migrations, and seeds on the first start only, when
 #      VENTASYNC_AUTO_MIGRATE=true
-#   3. Clears stale caches
-#   4. Hands off to supervisord
+#   4. Links public/storage
+#   5. Clears stale caches
+#   6. Hands off to supervisord
 #
-# The default admin user (admin/admin) is created by the seeder. The
-# Cloud provisioning step rotates the password before exposing the
-# tenant to the operator (see ops/INSTALL-CLOUD.md).
-#
-# Designed to be idempotent — safe to re-run on every container restart.
+# Idempotent: safe to re-run on every container restart.
 
 set -e
 
 cd /var/www/html
 
-echo "[entrypoint] VentaSync Cloud — starting..."
+say()  { echo "[entrypoint] $*"; }
+fail() { echo "[entrypoint] ERROR: $*"; exit 1; }
 
-# ── 1. Wait for the database ───────────────────────────────────────────
+say "VentaSync Cloud, starting..."
+
+# ── 1. Required settings ───────────────────────────────────────────────
+#
+# The image carries no .env, so every setting comes from the platform's
+# environment variables. APP_KEY in particular cannot be generated here: the
+# container's files are thrown away on each deploy, and a new key would sign
+# everyone out and make every stored secret unreadable.
+
+missing=""
+for key in APP_KEY APP_URL DB_DATABASE DB_USERNAME DB_PASSWORD; do
+    eval "value=\${$key:-}"
+    [ -n "$value" ] || missing="$missing $key"
+done
+[ -z "$missing" ] || fail "Set these environment variables first:$missing (APP_KEY: run 'php artisan key:generate --show' anywhere and paste the result)."
+
+# ── 2. Wait for the database ───────────────────────────────────────────
 
 DB_HOST="${DB_HOST:-database}"
 DB_PORT="${DB_PORT:-3306}"
+export DB_HOST DB_PORT
 
-echo "[entrypoint] Waiting for database at ${DB_HOST}:${DB_PORT} (max 60s)..."
+say "Waiting for database at ${DB_HOST}:${DB_PORT} (max 60s)..."
 
+# The credentials are read from the environment inside PHP, never pasted into
+# the code, so a password with a quote in it still connects.
 attempt=0
 max_attempts=60
 while [ "$attempt" -lt "$max_attempts" ]; do
-    if php -r "
+    if php -r '
         try {
-            new PDO('mysql:host=${DB_HOST};port=${DB_PORT};dbname=${DB_DATABASE}', '${DB_USERNAME}', '${DB_PASSWORD}', [PDO::ATTR_TIMEOUT => 2, PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+            new PDO("mysql:host=" . getenv("DB_HOST") . ";port=" . getenv("DB_PORT") . ";dbname=" . getenv("DB_DATABASE"),
+                getenv("DB_USERNAME"), getenv("DB_PASSWORD"),
+                [PDO::ATTR_TIMEOUT => 2, PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
             exit(0);
-        } catch (Exception \$e) {
+        } catch (Exception $e) {
             exit(1);
         }
-    " 2>/dev/null; then
-        echo "[entrypoint] Database is reachable."
+    ' 2>/dev/null; then
+        say "Database is reachable."
         break
     fi
     attempt=$((attempt + 1))
     if [ "$attempt" -eq "$max_attempts" ]; then
-        echo "[entrypoint] ERROR: Database did not become reachable in ${max_attempts}s. Exiting."
-        exit 1
+        fail "Database did not become reachable in ${max_attempts}s."
     fi
     sleep 1
 done
 
-# ── 2. Run migrations + seed default admin ─────────────────────────────
+# ── 3. Migrations, and the first start's seed ──────────────────────────
+#
+# Seeding runs only while there is no user yet. Run on every start, it would
+# bring back admin/admin whenever the admin account had been renamed or
+# removed. On that first seed the admin password becomes ADMIN_PASSWORD when
+# it is set, so a tenant never answers to admin/admin.
 
 if [ "${VENTASYNC_AUTO_MIGRATE:-false}" = "true" ]; then
-    echo "[entrypoint] Running migrations + seeding default admin (VENTASYNC_AUTO_MIGRATE=true)..."
-    php artisan migrate --force --seed --no-interaction
+    say "Running migrations..."
+    php artisan migrate --force --no-interaction || fail "Migrations failed. Check the database settings."
+
+    has_users=$(php artisan tinker --execute='echo DB::table("users")->exists() ? "yes" : "no";' 2>/dev/null | tail -n 1)
+    if [ "$has_users" = "no" ]; then
+        say "First start: seeding..."
+        php artisan db:seed --force --no-interaction || fail "Seeding failed."
+        if [ -n "${ADMIN_PASSWORD:-}" ]; then
+            php artisan tinker --execute='DB::table("users")->where("username", "admin")->update(["password" => Hash::make(getenv("ADMIN_PASSWORD"))]);' >/dev/null \
+                || fail "Could not set the admin password."
+            say "The admin password is the one set in ADMIN_PASSWORD."
+        else
+            say "WARNING: ADMIN_PASSWORD is not set, so the admin signs in with admin/admin. Change it on first login."
+        fi
+    fi
 fi
 
-# ── 3. Link public/storage ─────────────────────────────────────────────
+# ── 4. Link public/storage ─────────────────────────────────────────────
 #
 # Everything the app serves from the public disk is reached through
 # public/storage: product images, the logo, generated thumbnails. The link
 # cannot come from the image, because it is gitignored and because it points
-# at an absolute path that belongs to whoever built it. So it is made here,
-# the way the Pterodactyl boot script makes it (ventasync-boot), which is the
-# other runtime for this same application.
+# at an absolute path that belongs to whoever built it. So it is made here.
 #
 # It is remade on every start, not only the first: public/ is image content
 # and is replaced on each deploy, while storage/app/public is usually a
 # mounted volume that outlives it.
 
 if [ ! -e public/storage ]; then
-    echo "[entrypoint] Linking public/storage..."
-    php artisan storage:link --no-interaction 2>/dev/null || true
+    say "Linking public/storage..."
+    php artisan storage:link --no-interaction >/dev/null \
+        || say "WARNING: public/storage could not be linked; pictures will not show."
 fi
 
-# ── 4. Clear stale caches (Laravel compiles on-demand) ─────────────────
+# ── 5. Clear stale caches (Laravel compiles on-demand) ─────────────────
 #
 # We don't pre-warm config:cache / route:cache / view:cache because:
 #   - Cache state can mismatch across container restarts if env vars
 #     change (e.g., APP_URL on domain rename).
-#   - Cold-cache first-request penalty is ~50ms on modest hardware —
+#   - Cold-cache first-request penalty is ~50ms on modest hardware,
 #     not worth the operational complexity.
 #   - view:cache in particular has had issues with the extension view
 #     paths during image build.
-#
-# If perf becomes a concern, we re-introduce the cache steps here under
-# a flag (VENTASYNC_CACHE_ON_BOOT=true) and ensure they're robust.
 
-echo "[entrypoint] Clearing any stale caches..."
+say "Clearing any stale caches..."
 php artisan optimize:clear 2>/dev/null || true
 
-# ── 5. Ensure storage + bootstrap/cache are writable ───────────────────
+# ── 6. Ensure storage + bootstrap/cache are writable ───────────────────
 
+mkdir -p storage/app/public storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs
 chown -R nobody:nobody storage bootstrap/cache 2>/dev/null || true
 chmod -R 775 storage bootstrap/cache 2>/dev/null || true
 
-echo "[entrypoint] Bootstrap complete. Handing off to supervisord."
+say "Bootstrap complete. Handing off to supervisord."
 exec /usr/bin/supervisord -c /etc/supervisord.conf

@@ -10,13 +10,13 @@
 # Bakes the two Cloud-specific behavior flags into the image so they
 # can't be flipped off by a Coolify operator misconfiguration:
 #
-#   VENTASYNC_LICENSE_BYPASS=true   — Plus extensions skip license check
-#   VENTASYNC_AUTO_MIGRATE=true     — entrypoint runs `migrate --force --seed`,
-#                                 seeding the default admin user
+#   VENTASYNC_LICENSE_BYPASS=true   : Plus extensions skip license check
+#   VENTASYNC_AUTO_MIGRATE=true     : entrypoint runs `migrate --force`, and
+#                                   seeds the admin user on the first start
 #
-# Per-tenant env vars (DB credentials, APP_URL, etc.) are set by the
-# hosting platform. Provisioning rotates the seeded admin/admin password
-# before exposing the tenant.
+# Per-tenant env vars (APP_KEY, APP_URL, DB credentials, ADMIN_PASSWORD)
+# are set by the hosting platform. The admin's password is ADMIN_PASSWORD
+# from the first start, so a tenant never answers to admin/admin.
 
 # ─── Stage 1: composer (PHP production deps) ───────────────────────────
 FROM composer:2 AS composer
