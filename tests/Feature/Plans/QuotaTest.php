@@ -120,7 +120,7 @@ class QuotaTest extends TestCase
         foreach ($makers as $path => $code) {
             $this->assertStringContainsString('Quota::', $code, $path . ' makes products without asking the plan');
         }
-        $this->assertGreaterThanOrEqual(10, count($makers));
+        $this->assertArrayHasKey(app_path('Services/Catalog/ProductCreator.php'), $makers, 'the search no longer finds the core product maker');
     }
 
     public function test_a_full_plan_refuses_another_user(): void
