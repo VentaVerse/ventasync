@@ -16,6 +16,9 @@
     $sortArrow = fn (string $col) => $sort === $col
         ? ($dir === 'asc' ? 'chevron-up' : 'chevron-down')
         : null;
+
+    [, $maxProducts] = \App\Plans\Quota::standing('products');
+    $planFull = \App\Plans\Quota::refusal('products') !== null;
 @endphp
 
 @section('content')
@@ -26,12 +29,19 @@
             <p class="x-page-sub">
                 {{ number_format($products->total()) }} {{ Str::plural('product', $products->total()) }}
                 @if($hasFilters) matching this filter @endif
+                @if($maxProducts !== null && ! $hasFilters) of {{ number_format($maxProducts) }} on your plan @endif
             </p>
         </div>
         @if($canManageProducts)
-            <x-ui.button variant="primary" :href="route('products.create')">
-                <x-ui.icon name="plus" size="14" /> New product
-            </x-ui.button>
+            @if($planFull)
+                <x-ui.button variant="primary" disabled>
+                    <x-ui.icon name="plus" size="14" /> New product
+                </x-ui.button>
+            @else
+                <x-ui.button variant="primary" :href="route('products.create')">
+                    <x-ui.icon name="plus" size="14" /> New product
+                </x-ui.button>
+            @endif
         @endif
     </div>
 

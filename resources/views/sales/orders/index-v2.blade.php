@@ -4,14 +4,25 @@
 @section('content')
 @php
     $canManageOrders = true;
+    $ordersFull = \App\Plans\Quota::refusal('orders_month');
 @endphp
+@include('partials.flash')
+@if($ordersFull)
+    <div class="fm-flash" role="status">
+        <div class="fm-note fm-note--fail"><div class="fm-note__body">{{ $ordersFull }} This month's are used up, so new orders, marketplace orders included, are not taken in until the 1st.</div></div>
+    </div>
+@endif
 <div class="x-list-head">
     <div>
         <h1 class="x-page-title">Orders</h1>
         <p class="x-page-sub">{{ number_format($orders->total()) }} {{ $orders->total() === 1 ? 'order' : 'orders' }}{{ request()->hasAny(['status', 'source', 'q', 'search']) ? ' match' : '' }}</p>
     </div>
     @if($canManageOrders)
-    <x-ui.button variant="primary" :href="route('orders.create')">New order</x-ui.button>
+        @if($ordersFull)
+            <x-ui.button variant="primary" disabled>New order</x-ui.button>
+        @else
+            <x-ui.button variant="primary" :href="route('orders.create')">New order</x-ui.button>
+        @endif
     @endif
 </div>
 

@@ -13,6 +13,10 @@ class OpenCartItemImport
 {
     public function import(OpenCartSetting $setting, int $ocProductId): array
     {
+        if ($refused = \App\Plans\Quota::importRefusal()) {
+            return $refused;
+        }
+
         $client = new OpenCartClient($setting);
 
         $answer = $client->getProducts(1, 1, null, (int) $ocProductId);

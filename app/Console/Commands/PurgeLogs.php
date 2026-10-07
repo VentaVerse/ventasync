@@ -20,6 +20,10 @@ class PurgeLogs extends Command
 
         $total = array_sum($removed);
 
+        foreach (\App\Plans\FileRetention::purge() as $what => $count) {
+            $this->line(sprintf('%-24s %s', $what, number_format($count) . ' files'));
+        }
+
         foreach ($removed as $table => $count) {
             $this->line(sprintf('%-24s %s', $table, number_format($count)));
         }

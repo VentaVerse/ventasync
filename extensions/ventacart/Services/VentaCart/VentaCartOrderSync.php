@@ -449,6 +449,7 @@ class VentaCartOrderSync
                     ->update($orderData);
             } else {
                 $orderData['date_added'] = isset($raw['created_at']) ? \Carbon\Carbon::parse($raw['created_at'])->format('Y-m-d H:i:s') : now()->toDateTimeString();
+                \App\Plans\Quota::refuseOrder();
                 $coreOrderId = DB::table($pfx . 'order')->insertGetId($orderData, 'order_id');
                 $created = true;
             }

@@ -90,6 +90,10 @@ if [ "${VENTASYNC_AUTO_MIGRATE:-false}" = "true" ]; then
         say "No account yet: seeding..."
         php artisan db:seed --force --no-interaction || fail "Seeding failed."
     fi
+
+    # A hosted plan switches on what it newly includes, such as a bought
+    # add-on. On a self-hosted install this does nothing.
+    php artisan plan:apply --no-interaction || say "Could not apply the plan. Extensions are as they were."
 fi
 
 # ── 4. Link public/storage ─────────────────────────────────────────────

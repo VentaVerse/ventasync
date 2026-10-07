@@ -317,6 +317,7 @@ class OpenCartOrderSync
                     ->update($orderData);
             } else {
                 $orderData['date_added'] = $dateAdded;
+                \App\Plans\Quota::refuseOrder();
                 $coreOrderId = DB::table($pfx . 'order')->insertGetId($orderData, 'order_id');
                 $created = true;
             }

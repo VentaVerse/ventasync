@@ -5,6 +5,7 @@
 @section('content')
 @php
     $canManage = auth()->user()?->hasPermission('manage_settings/extension') ?? false;
+    $canUpload = $canManage && \App\Plans\Plan::allowsUploads();
 
     $manager = app(\App\Extensions\ExtensionManager::class);
     $settingsRoute = fn (array $ext) => $ext['enabled']
@@ -35,15 +36,17 @@
                     @csrf
                     <x-ui.button type="submit"><x-ui.icon name="refresh-cw" size="14" /> Refresh</x-ui.button>
                 </form>
-                <x-ui.button type="button" @click="installOpen = !installOpen"
-                             x-bind:aria-expanded="installOpen ? 'true' : 'false'">
-                    <x-ui.icon name="plus" size="14" /> Install extension
-                </x-ui.button>
+                @if($canUpload)
+                    <x-ui.button type="button" @click="installOpen = !installOpen"
+                                 x-bind:aria-expanded="installOpen ? 'true' : 'false'">
+                        <x-ui.icon name="plus" size="14" /> Install extension
+                    </x-ui.button>
+                @endif
             </div>
         @endif
     </div>
 
-    @if($canManage)
+    @if($canUpload)
     <form method="POST" action="{{ route('extensions.install') }}" enctype="multipart/form-data"
           class="st-install" x-show="installOpen" x-cloak x-transition.duration.120ms>
         @csrf
@@ -85,11 +88,13 @@
 
         @foreach($rows as $ext)
             @php
-                $state = ! $ext['installed']
+                $state = $ext['locked']
+                    ? ['label' => 'Not in your plan', 'tone' => 'neutral']
+                    : (! $ext['installed']
                     ? ['label' => 'Not installed', 'tone' => 'warning']
                     : ($ext['enabled']
                         ? ['label' => 'Enabled', 'tone' => 'success']
-                        : ['label' => 'Disabled', 'tone' => 'neutral']);
+                        : ['label' => 'Disabled', 'tone' => 'neutral']));
             @endphp
             <tr id="{{ $ext['id'] }}">
                 <td data-label="Extension">
@@ -108,7 +113,7 @@
                 </td>
                 <td class="x-td-actions">
                     @php $settingsAt = $settingsRoute($ext); @endphp
-                    @if($canManage || $settingsAt)
+                    @if(! $ext['locked'] && ($canManage || $settingsAt))
                     <x-ui.menu label="{{ $ext['name'] }} actions">
                         @if($settingsAt)
                             <a class="x-menu__item" href="{{ route($settingsAt) }}">Settings</a>

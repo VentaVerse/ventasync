@@ -3,6 +3,7 @@
 namespace App\Extensions;
 
 use App\Models\Extension;
+use App\Plans\Plan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
@@ -75,6 +76,8 @@ class ExtensionManager
 
             $this->enabledCache = Extension::where('enabled', true)
                 ->pluck('id')
+                ->filter(fn ($id) => Plan::allowsExtension($id))
+                ->values()
                 ->all();
         } catch (\Throwable $e) {
             $this->enabledCache = [];
@@ -113,8 +116,9 @@ class ExtensionManager
                 'description'      => $manifest['description'] ?? '',
                 'author'           => $manifest['author'] ?? '',
                 'license_required' => !empty($manifest['license_required']),
-                'enabled'          => $dbRecord ? (bool) $dbRecord->enabled : false,
+                'enabled'          => $dbRecord ? (bool) $dbRecord->enabled && Plan::allowsExtension($id) : false,
                 'installed'        => $dbRecord !== null,
+                'locked'           => !Plan::allowsExtension($id),
                 'license_key'      => $dbRecord->license_key ?? null,
             ];
         }
@@ -126,7 +130,7 @@ class ExtensionManager
     {
         $manifest = $this->getManifest($id);
 
-        if ($manifest === null) {
+        if ($manifest === null || !Plan::allowsExtension($id)) {
             return false;
         }
 
@@ -191,7 +195,7 @@ class ExtensionManager
     {
         $extension = Extension::find($id);
 
-        if (!$extension) {
+        if (!$extension || !Plan::allowsExtension($id)) {
             return false;
         }
 

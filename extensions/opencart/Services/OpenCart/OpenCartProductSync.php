@@ -724,6 +724,9 @@ class OpenCartProductSync
                         ->update($data);
                 }
             } else {
+                if ($full = \App\Plans\Quota::refusal('products')) {
+                    throw new \App\Plans\PlanLimitReached('Not imported. ' . $full);
+                }
                 $data['date_added'] = (isset($raw['date_added']) && $raw['date_added'] !== '0000-00-00 00:00:00') ? $raw['date_added'] : now()->toDateTimeString();
                 $coreProductId = DB::table($pfx . 'product')->insertGetId($data, 'product_id');
                 $created = true;
