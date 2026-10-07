@@ -183,6 +183,13 @@ class ExtensionController extends Controller
         return back()->with('success', "Extension '{$extension}' installed.");
     }
 
+    public function refresh()
+    {
+        \App\Support\AppCaches::refresh();
+
+        return back()->with('success', 'Refreshed.');
+    }
+
     public function uninstall(ExtensionManager $manager, string $extension)
     {
         $row = Extension::find($extension);

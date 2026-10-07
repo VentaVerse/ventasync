@@ -30,10 +30,16 @@
             </p>
         </div>
         @if($canManage)
-            <x-ui.button type="button" @click="installOpen = !installOpen"
-                         x-bind:aria-expanded="installOpen ? 'true' : 'false'">
-                <x-ui.icon name="plus" size="14" /> Install extension
-            </x-ui.button>
+            <div class="st-head-actions">
+                <form method="POST" action="{{ route('extensions.refresh') }}">
+                    @csrf
+                    <x-ui.button type="submit"><x-ui.icon name="refresh-cw" size="14" /> Refresh</x-ui.button>
+                </form>
+                <x-ui.button type="button" @click="installOpen = !installOpen"
+                             x-bind:aria-expanded="installOpen ? 'true' : 'false'">
+                    <x-ui.icon name="plus" size="14" /> Install extension
+                </x-ui.button>
+            </div>
         @endif
     </div>
 

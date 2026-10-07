@@ -39,6 +39,7 @@ Route::prefix('settings')->group(function () {
         Route::post('/currencies/update-rates', [CurrencyController::class, 'updateRates'])->name('currencies.update_rates');
 
         Route::post('/extensions/install', [ExtensionController::class, 'install'])->name('extensions.install');
+        Route::post('/extensions/refresh', [ExtensionController::class, 'refresh'])->name('extensions.refresh');
         Route::post('/extensions/{extension}/toggle', [ExtensionController::class, 'toggle'])->name('extensions.toggle');
         Route::post('/extensions/{extension}/reinstall', [ExtensionController::class, 'reinstall'])->name('extensions.reinstall');
         Route::delete('/extensions/{extension}', [ExtensionController::class, 'uninstall'])->name('extensions.uninstall');

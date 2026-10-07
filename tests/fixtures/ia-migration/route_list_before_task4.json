@@ -5415,6 +5415,11 @@
         "name": "ext.mobileapp.settings.test"
     },
     {
+        "method": "POST",
+        "uri": "settings/extensions/refresh",
+        "name": "extensions.refresh"
+    },
+    {
         "method": "DELETE",
         "uri": "settings/extensions/{extension}",
         "name": "extensions.uninstall"
