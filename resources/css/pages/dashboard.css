@@ -1,0 +1,35 @@
+.db-store {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.db-store .x-select-wrap {
+    min-width: 176px;
+}
+
+.db-store__select {
+    min-height: 32px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    font-size: 13px;
+}
+
+.db-rank__channel {
+    margin-left: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--bl-ink-3);
+}
+
+@media (max-width: 640px) {
+    .db-head-actions {
+        flex-wrap: wrap;
+        width: 100%;
+    }
+
+    .db-store,
+    .db-store .x-select-wrap {
+        width: 100%;
+    }
+}

@@ -1,0 +1,10 @@
+.pd-col-products { width: 44%; }
+.pd-col-qty      { width: 5%; }
+.pd-col-price    { width: 10%; }
+.pd-col-total    { width: 11%; }
+.pd-col-status   { width: 15%; }
+.pd-col-date     { width: 15%; }
+
+@media (max-width: 700px) {
+    #pedallion-orders-page .x-table tbody td.x-td-num { text-align: left; }
+}

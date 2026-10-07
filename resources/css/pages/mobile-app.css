@@ -1,0 +1,135 @@
+.mb-ok { color: var(--bl-good); }
+.mb-bad { color: var(--bl-bad); }
+
+.mb-sub { display: block; margin-top: 2px; font-size: 12px; color: var(--bl-ink-3); }
+.mb-sub--k { margin: 0 0 2px; font-size: var(--bl-lab-size); }
+.mb-sub--bad { color: var(--bl-bad); }
+.mb-none { margin: 0; font-size: 13px; color: var(--bl-ink-3); }
+
+.mb-people {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
+}
+.mb-person-wrap { position: relative; }
+.mb-person-wrap + .mb-person-wrap { border-top: 1px solid var(--bl-rule); }
+
+.mb-person__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 64px 196px 20px;
+    align-items: center;
+    gap: var(--bl-space-4);
+    padding: var(--bl-space-3) var(--bl-space-4);
+    cursor: pointer;
+    list-style: none;
+}
+.mb-person__row::-webkit-details-marker { display: none; }
+.mb-person__row:hover { background: var(--bl-chrome-2); }
+.mb-person__row:focus-visible { outline: 2px solid var(--bl-brand-deep); outline-offset: -2px; }
+
+.mb-person__who { min-width: 0; }
+.mb-person__name { display: block; font-weight: 600; color: var(--bl-ink); }
+.mb-person__meta { display: flex; flex-direction: column; min-width: 0; font-size: 13px; color: var(--bl-ink); }
+.mb-person__meta--num { align-items: flex-end; }
+.mb-person__chev { color: var(--bl-ink-3); transition: transform var(--bl-motion-fast); }
+.mb-person[open] .mb-person__chev { transform: rotate(180deg); }
+
+.mb-person__switch {
+    position: absolute;
+    top: 0;
+    right: calc(var(--bl-space-4) + 20px + var(--bl-space-4));
+    height: 64px;
+    display: flex;
+    align-items: center;
+    gap: var(--bl-space-4);
+}
+.mb-person__sw { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.mb-switch { justify-content: flex-end; }
+
+.mb-person__switch:has(.mb-sign-in:not(:checked)) .mb-person__sw--pushes {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+.mb-person__body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--bl-space-2);
+    padding: var(--bl-space-2) var(--bl-space-4) var(--bl-space-5);
+    border-top: 1px dashed var(--bl-rule);
+}
+.mb-person__part {
+    display: flex;
+    flex-direction: column;
+    gap: var(--bl-space-2);
+    min-width: 0;
+    padding-top: var(--bl-space-3);
+}
+.mb-person__part + .mb-person__part { border-top: 1px solid var(--bl-rule); }
+
+.mb-checks {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 2px var(--bl-space-4);
+}
+.mb-checks--one { grid-template-columns: minmax(0, 1fr); }
+
+.mb-check {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-height: 34px;
+    font-size: 13px;
+    color: var(--bl-ink);
+    cursor: pointer;
+}
+.mb-check input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    flex: none;
+    accent-color: var(--bl-ink);
+}
+.mb-check:has(input:not(:checked)) { color: var(--bl-ink-2); }
+
+.mb-phones { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; max-width: 640px; }
+.mb-phone {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--bl-space-3);
+    padding: var(--bl-space-2) 0;
+    border-bottom: 1px solid var(--bl-rule);
+    font-size: 13px;
+    color: var(--bl-ink);
+}
+.mb-phone:last-child { border-bottom: 0; }
+.mb-phone__name { min-width: 0; }
+
+@media (pointer: coarse) {
+    .mb-check { min-height: 44px; }
+}
+
+@media (max-width: 900px) {
+    .mb-person__row {
+        grid-template-columns: minmax(0, 1fr) 196px 20px;
+        grid-template-areas: "who gap chev" "phones phones phones";
+        row-gap: var(--bl-space-2);
+    }
+    .mb-person__who { grid-area: who; }
+    .mb-person__meta--num {
+        grid-area: phones;
+        flex-direction: row;
+        align-items: baseline;
+        justify-content: flex-start;
+        gap: 6px;
+    }
+    .mb-person__meta--num .mb-sub--k { margin: 0; }
+    .mb-person__gap { grid-area: gap; }
+    .mb-person__chev { grid-area: chev; }
+    .mb-person__switch { height: 62px; }
+    .mb-checks { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 var(--bl-space-3); }
+}
+
+.mb-form { display: contents; }

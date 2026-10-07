@@ -1,0 +1,117 @@
+@layer components {
+    .x-toolbar {
+        display: flex;
+        align-items: flex-start;
+        gap: var(--bl-space-3);
+        margin-bottom: var(--bl-space-4);
+    }
+
+    .x-toolbar .x-filters {
+        flex: 1;
+        min-width: 0;
+        margin-bottom: 0;
+    }
+
+    .x-toolbar__sync {
+        margin-left: auto;
+    }
+
+    @media (max-width: 900px) {
+        .x-toolbar { flex-wrap: wrap; }
+    }
+
+    .x-fold {
+        position: relative;
+        flex: none;
+    }
+
+    .x-fold__trigger {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        height: var(--bl-control-h);
+        padding: 0 11px;
+        border: 1px solid var(--bl-field-edge);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-sheet);
+        color: var(--bl-ink);
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+
+    .x-fold__trigger:hover {
+        background: var(--bl-chrome);
+    }
+
+    .x-fold__count {
+        min-width: 18px;
+        padding: 0 5px;
+        border-radius: var(--bl-r-pill);
+        background: var(--bl-brand-deep);
+        color: var(--bl-paper);
+        font-size: 11px;
+        font-weight: 650;
+        font-variant-numeric: tabular-nums;
+        text-align: center;
+    }
+
+    .x-fold__chev {
+        color: var(--bl-ink-3);
+        transition: transform var(--bl-motion-fast);
+    }
+
+    .x-fold__chev.is-open {
+        transform: rotate(180deg);
+    }
+
+    .x-fold__panel {
+        position: absolute;
+        z-index: 30;
+        top: calc(100% + 6px);
+        right: 0;
+        min-width: 320px;
+        max-width: min(560px, calc(100vw - 32px));
+        padding: var(--bl-space-4);
+        background: var(--bl-sheet);
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-panel);
+        box-shadow: var(--bl-lift-2);
+    }
+
+    .x-fold__hint {
+        margin: 0 0 var(--bl-space-3);
+        font-size: 12.5px;
+        color: var(--bl-ink-2);
+    }
+
+    .x-fold__panel .x-cmdbar__row,
+    .x-fold__panel .x-filters__group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--bl-space-3);
+        align-items: flex-end;
+    }
+
+    .x-fold__panel .x-cmdbar__spacer {
+        display: none;
+    }
+
+    .x-fold__panel .x-cmdbar__actions {
+        display: flex;
+        gap: var(--bl-space-2);
+        align-items: center;
+        margin-top: var(--bl-space-3);
+        width: 100%;
+    }
+
+    @media (max-width: 640px) {
+        .x-fold__panel {
+            right: auto;
+            left: 0;
+            min-width: 0;
+            width: calc(100vw - 32px);
+        }
+    }
+}

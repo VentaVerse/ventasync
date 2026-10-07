@@ -1,0 +1,32 @@
+{
+    "id": "shopee",
+    "name": "Shopee",
+    "version": "0.30.0",
+    "description": "Shopee marketplace integration: OAuth, products, product groups, orders, returns, logistics, reviews",
+    "logs": {
+        "shopee_api_logs": {
+            "label": "API calls"
+        }
+    },
+    "author": "VentaSync",
+    "tier": "community",
+    "license_required": false,
+    "tables": [
+        "shopee_settings",
+        "shopee_api_logs",
+        "shopee_categories",
+        "shopee_category_templates",
+        "shopee_logistics",
+        "shopee_item_cache",
+        "shopee_orders",
+        "shopee_order_products",
+        "shopee_order_status_map",
+        "shopee_product_groups",
+        "shopee_product_group_products",
+        "shopee_product_group_attributes",
+        "shopee_product_links",
+        "shopee_returns",
+        "shopee_unmatched_items"
+    ],
+    "nav": []
+}

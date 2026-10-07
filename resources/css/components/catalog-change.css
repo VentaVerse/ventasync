@@ -1,0 +1,247 @@
+.lcx-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: var(--bl-control-h-sm);
+    padding: 0 10px;
+    border: 1px solid var(--bl-field-edge);
+    border-radius: var(--bl-r-ctrl);
+    background: var(--bl-sheet);
+    color: var(--bl-ink);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 560;
+    white-space: nowrap;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background var(--bl-motion-fast), border-color var(--bl-motion-fast);
+}
+
+.lcx-btn:hover {
+    background: var(--bl-attn-wash);
+    border-color: var(--bl-attn);
+}
+
+.lcx-btn:focus-visible {
+    outline: 2px solid var(--bl-brand);
+    outline-offset: 2px;
+}
+
+.lcx-btn__dot {
+    width: 8px;
+    height: 8px;
+    flex: none;
+    background: var(--bl-attn-fill);
+}
+
+.cc-col-sync .lcx-btn {
+    margin-top: 6px;
+}
+
+.lcx-panel .cc-addpanel__sheet {
+    width: min(960px, 100vw);
+}
+
+.lcx-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--bl-space-3);
+    flex: 1;
+    min-height: 0;
+}
+
+.lcx-cols,
+.lcx-pair {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--bl-space-4);
+}
+
+.lcx-cols {
+    padding-bottom: var(--bl-space-2);
+    border-bottom: 1px solid var(--bl-rule);
+}
+
+.lcx-col {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--bl-ink-3);
+}
+
+.lcx-col b {
+    display: block;
+    font-size: 13px;
+    font-weight: 620;
+    color: var(--bl-ink);
+}
+
+.lcx-list {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    margin-inline: calc(var(--bl-space-5) * -1);
+    padding-inline: var(--bl-space-5);
+}
+
+.lcx-f {
+    display: grid;
+    gap: 7px;
+    padding-block: var(--bl-space-3);
+    border-top: 1px solid var(--bl-rule);
+}
+
+.lcx-f:first-child {
+    border-top: 0;
+}
+
+.lcx-cell {
+    display: grid;
+    gap: 4px;
+    align-content: start;
+    min-width: 0;
+}
+
+.lcx-side {
+    display: none;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--bl-ink-3);
+}
+
+.lcx-side--label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.lcx-cell .note-editor.note-frame {
+    min-width: 0;
+}
+
+.lcx-tiles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.lcx-tile {
+    position: relative;
+    width: 66px;
+    height: 66px;
+    flex: none;
+    overflow: hidden;
+    border-radius: 8px;
+    background: var(--bl-chrome-2);
+}
+
+.lcx-tile img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.lcx-tile__n {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    min-width: 16px;
+    padding: 0 4px;
+    border-radius: var(--bl-r-pill);
+    background: var(--bl-ink);
+    color: var(--bl-paper);
+    font-size: 10.5px;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+}
+
+.lcx-tile__x {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    border: 0;
+    border-radius: var(--bl-r-pill);
+    background: color-mix(in srgb, var(--bl-ink) 72%, transparent);
+    color: var(--bl-paper);
+    cursor: pointer;
+}
+
+.lcx-add {
+    display: grid;
+    place-items: center;
+    width: 66px;
+    height: 66px;
+    border: 1px dashed var(--bl-field-edge);
+    border-radius: 8px;
+    background: none;
+    color: var(--bl-ink-2);
+    cursor: pointer;
+}
+
+.lcx-add:hover {
+    background: var(--bl-chrome);
+    color: var(--bl-ink);
+}
+
+.lcx-tile__x:focus-visible,
+.lcx-add:focus-visible {
+    outline: 2px solid var(--bl-brand);
+    outline-offset: 2px;
+}
+
+.lcx-parcel {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.lcx-parcel__f {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+
+.lcx-mini {
+    font-size: 11px;
+    color: var(--bl-ink-3);
+}
+
+.lcx-foot {
+    justify-content: flex-end;
+}
+
+@media (max-width: 760px) {
+    .lcx-cols {
+        display: none;
+    }
+
+    .lcx-pair {
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--bl-space-3);
+    }
+
+    .lcx-side {
+        display: block;
+    }
+
+    .lcx-side--label {
+        position: static;
+        width: auto;
+        height: auto;
+        overflow: visible;
+        clip-path: none;
+    }
+
+    .lcx-parcel {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}

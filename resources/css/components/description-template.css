@@ -1,0 +1,21 @@
+.dt-modal__body {
+    padding: var(--bl-space-5);
+}
+
+.dt-modal__foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--bl-space-2);
+    padding: 0 var(--bl-space-5) var(--bl-space-5);
+}
+
+.dt-pick {
+    display: flex;
+    align-items: center;
+    gap: var(--bl-space-2);
+}
+
+.dt-pick .x-select-wrap {
+    flex: 1 1 auto;
+    min-width: 0;
+}

@@ -1,0 +1,48 @@
+.tt-col-products { width: 30%; }
+.tt-col-qty      { width: 5%; }
+.tt-col-price    { width: 8%; }
+.tt-col-total    { width: 9%; }
+.tt-col-ship     { width: 11%; }
+.tt-col-status   { width: 12%; }
+.tt-col-act      { width: 25%; }
+
+.ttd-fees { gap: 0; }
+
+.ttd-total-fees {
+    margin-top: var(--bl-space-2);
+    padding-top: var(--bl-space-2);
+    border-top: 1px solid var(--bl-rule);
+}
+
+.ttd-parcel {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--bl-space-2);
+}
+
+.ttd-raw {
+    max-height: 420px;
+    margin: var(--bl-space-3) 0 0;
+    padding: var(--bl-space-3);
+    overflow: auto;
+    background: var(--bl-chrome);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--bl-ink-2);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+@media (min-width: 641px) and (max-width: 900px) {
+    .tt-col-ship { display: none; }
+    #tiktok-orders-page .x-table td[data-label="Shipping"] { display: none; }
+}
+
+@media (max-width: 640px) {
+    #tiktok-orders-page .x-table tbody td.x-td-num { text-align: left; }
+}
+
+.tt-hidden { display: none !important; }

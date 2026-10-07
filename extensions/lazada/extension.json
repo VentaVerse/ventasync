@@ -1,0 +1,35 @@
+{
+    "id": "lazada",
+    "name": "Lazada",
+    "version": "0.30.0",
+    "description": "Lazada marketplace integration: OAuth, products, product groups, orders, returns, brands",
+    "logs": {
+        "lazada_api_logs": {
+            "label": "API calls"
+        }
+    },
+    "author": "VentaSync",
+    "tier": "community",
+    "license_required": false,
+    "tables": [
+        "lazada_settings",
+        "lazada_api_logs",
+        "lazada_categories",
+        "lazada_category_templates",
+        "lazada_brands",
+        "lazada_image_links",
+        "lazada_orders",
+        "lazada_order_items",
+        "lazada_order_products",
+        "lazada_order_status_map",
+        "lazada_product_groups",
+        "lazada_product_group_products",
+        "lazada_product_group_attributes",
+        "lazada_product_attributes",
+        "lazada_products",
+        "lazada_product_variants",
+        "lazada_reverse_orders",
+        "lazada_unmatched_items"
+    ],
+    "nav": []
+}

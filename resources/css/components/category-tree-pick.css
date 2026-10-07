@@ -1,0 +1,235 @@
+.ctp {
+    display: flex;
+    flex-direction: column;
+    gap: var(--bl-space-2);
+}
+
+.ctp__field {
+    display: flex;
+    align-items: center;
+    gap: var(--bl-space-3);
+    width: 100%;
+    min-height: var(--bl-control-h);
+    padding: 0 10px;
+    border: 1px solid var(--bl-field-edge);
+    border-radius: var(--bl-r-ctrl);
+    background: var(--bl-sheet);
+    color: var(--bl-ink);
+    font: inherit;
+    font-size: 13.5px;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color var(--bl-motion-fast), background var(--bl-motion-fast);
+}
+
+.ctp__field:hover:not(:disabled) {
+    border-color: var(--bl-brand-deep);
+}
+
+.ctp__field:disabled {
+    background: var(--bl-chrome);
+    color: var(--bl-ink-3);
+    cursor: default;
+}
+
+.ctp__field:focus-visible {
+    outline: 2px solid var(--bl-brand);
+    outline-offset: 1px;
+}
+
+.ctp__field-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ctp__field-text--none {
+    color: var(--bl-ink-3);
+}
+
+.ctp__pencil {
+    flex: none;
+    color: var(--bl-ink-3);
+}
+
+.ctp__field:hover:not(:disabled) .ctp__pencil {
+    color: var(--bl-ink-2);
+}
+
+.ctp__say {
+    margin: 0;
+    font-size: 13px;
+    color: var(--bl-bad);
+}
+
+.ctp__search {
+    max-width: 320px;
+}
+
+.ctp__picked {
+    font-size: 13px;
+    font-weight: 560;
+    color: var(--bl-ink-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ctp__cols {
+    display: flex;
+    align-items: stretch;
+    min-height: 320px;
+    max-height: 52vh;
+    border: 1px solid var(--bl-rule-2);
+    border-radius: var(--bl-r-ctrl);
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.ctp__col {
+    display: flex;
+    flex-direction: column;
+    flex: none;
+    width: 244px;
+    min-width: 0;
+    border-right: 1px solid var(--bl-rule);
+}
+
+.ctp__col:last-child {
+    border-right: 0;
+}
+
+.ctp__col-head {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--bl-rule);
+    background: var(--bl-chrome);
+    font-size: 11.5px;
+    font-weight: 620;
+    letter-spacing: .005em;
+    color: var(--bl-ink-3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ctp__list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 5px;
+    overflow-y: auto;
+}
+
+.ctp__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 32px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--bl-ink-2);
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 560;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--bl-motion-fast), color var(--bl-motion-fast);
+}
+
+.ctp__row:hover {
+    background: var(--bl-chrome);
+    color: var(--bl-ink);
+}
+
+.ctp__row.is-on {
+    background: var(--bl-brand-wash);
+    color: var(--bl-ink);
+    font-weight: 620;
+}
+
+.ctp__row:focus-visible {
+    outline: 2px solid var(--bl-brand);
+    outline-offset: -1px;
+}
+
+.ctp__row-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ctp__row-mark {
+    flex: none;
+    color: var(--bl-ink-3);
+}
+
+.ctp__none {
+    margin: 0;
+    padding: 12px 10px;
+    font-size: 13px;
+    color: var(--bl-ink-3);
+}
+
+.ctp__results {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-height: 320px;
+    max-height: 52vh;
+    padding: 5px;
+    border: 1px solid var(--bl-rule-2);
+    border-radius: var(--bl-r-ctrl);
+    overflow-y: auto;
+}
+
+.ctp__result {
+    min-height: 34px;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--bl-ink-2);
+    font: inherit;
+    font-size: 13.5px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.ctp__result:hover {
+    background: var(--bl-chrome);
+    color: var(--bl-ink);
+}
+
+.ctp__result--none {
+    color: var(--bl-ink-3);
+    cursor: default;
+}
+
+@media (max-width: 700px) {
+    .ctp__col {
+        width: 208px;
+    }
+
+    .ctp__row,
+    .ctp__result {
+        min-height: 40px;
+    }
+
+    .ctp__search {
+        max-width: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ctp__row,
+    .ctp__field {
+        transition: none;
+    }
+}

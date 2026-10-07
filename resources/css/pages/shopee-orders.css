@@ -1,0 +1,234 @@
+.sp-col-products { width: 31%; }
+.sp-col-qty    { width: 5%; }
+.sp-col-price  { width: 9%; }
+.sp-col-total  { width: 10%; }
+.sp-col-ship   { width: 12%; }
+.sp-col-status { width: 13%; }
+.sp-col-act    { width: 20%; }
+
+#shopee-orders-page .btn-invoice-req {
+    height: var(--bl-control-h-sm);
+    padding: 0 var(--bl-space-2);
+    gap: var(--bl-space-1);
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule-2);
+    border-radius: var(--bl-r-dot);
+    color: var(--bl-ink-2);
+    font-size: 12px;
+    font-weight: 500;
+    transition: background var(--bl-motion-fast), color var(--bl-motion-fast);
+}
+
+#shopee-orders-page .btn-invoice-req:hover {
+    background: var(--bl-chrome-2);
+    color: var(--bl-ink);
+    transform: none;
+}
+
+.sp-hidden { display: none; }
+
+.sp-ship-addr-label {
+    margin-bottom: var(--bl-space-2);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--bl-ink);
+}
+
+.sp-ship-addr {
+    padding: var(--bl-space-3) var(--bl-space-4);
+    border: 2px solid var(--bl-brand-deep);
+    border-radius: var(--bl-r-ctrl);
+    background: color-mix(in srgb, var(--bl-brand-deep) 5%, transparent);
+}
+
+.sp-ship-addr__flags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--bl-space-1);
+    margin-top: var(--bl-space-1);
+}
+
+.sp-ship-flag {
+    display: inline-block;
+    padding: 1px var(--bl-space-2);
+    border-radius: var(--bl-r-dot);
+    font-size: 11px;
+}
+
+.sp-ship-flag--pickup { background: color-mix(in srgb, var(--bl-brand-deep) 15%, transparent); color: var(--bl-brand-deep); }
+.sp-ship-flag--return { background: color-mix(in srgb, var(--bl-cool) 15%, transparent); color: var(--bl-cool); }
+.sp-ship-flag--other  { background: color-mix(in srgb, var(--bl-ink-3) 15%, transparent); color: var(--bl-ink-3); }
+
+.sp-ship-branch {
+    display: block;
+    margin-bottom: var(--bl-space-2);
+    padding: var(--bl-space-3) var(--bl-space-4);
+    border: 2px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
+    cursor: pointer;
+    transition: border-color var(--bl-motion-fast);
+}
+
+.sp-ship-branch:hover { border-color: var(--bl-rule-2); }
+
+.sp-ship-branch__radio { margin-top: 3px; accent-color: var(--bl-brand-deep); }
+.sp-ship-branch__text { flex: 1; min-width: 0; }
+
+.sp-track-event {
+    margin-bottom: var(--bl-space-3);
+    padding-left: var(--bl-space-3);
+    border-left: 2px solid var(--bl-brand-deep);
+}
+
+.spd-items .od-items__head,
+.spd-items .od-item {
+    grid-template-columns: 96px minmax(0, 1fr) 4rem 8rem;
+}
+
+@container odmain (max-width: 560px) {
+    .spd-items .od-items__head,
+    .spd-items .od-item {
+        grid-template-columns: 72px minmax(0, 1fr);
+    }
+}
+
+.spd-parcel {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--bl-space-2);
+}
+
+.spd-invoice {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--bl-space-3) var(--bl-space-5);
+    padding: var(--bl-space-1) 0;
+}
+
+.spd-invoice__wide { grid-column: 1 / -1; }
+
+.spd-return {
+    display: flex;
+    flex-direction: column;
+    gap: var(--bl-space-3);
+    padding: var(--bl-space-4);
+    background: var(--bl-chrome);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
+}
+
+.spd-return + .spd-return { margin-top: var(--bl-space-3); }
+
+.spd-return__head {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: var(--bl-space-3) var(--bl-space-4);
+}
+
+.spd-return__reason { padding-top: var(--bl-space-1); border-top: 1px solid var(--bl-rule); }
+
+.spd-return__note {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--bl-ink-2);
+    overflow-wrap: anywhere;
+}
+
+.spd-return__nego { margin-top: var(--bl-space-1); }
+
+.spd-lines { display: flex; flex-direction: column; }
+
+.spd-lines__head,
+.spd-lines__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 3.5rem 7rem;
+    gap: var(--bl-space-3);
+    align-items: baseline;
+}
+
+.spd-lines__head {
+    padding-bottom: var(--bl-space-1);
+    color: var(--bl-ink-3);
+    font-size: 11px;
+    letter-spacing: .02em;
+}
+
+.spd-lines__head span:nth-child(n + 2) { text-align: right; }
+
+.spd-lines__row {
+    padding: var(--bl-space-2) 0;
+    border-top: 1px solid var(--bl-rule);
+}
+
+.spd-lines__name { font-size: 13px; color: var(--bl-ink); overflow-wrap: anywhere; }
+
+.spd-lines__num {
+    text-align: right;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    color: var(--bl-ink);
+}
+
+.spd-raw {
+    max-height: 420px;
+    margin: var(--bl-space-3) 0 0;
+    padding: var(--bl-space-3);
+    overflow: auto;
+    background: var(--bl-chrome);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--bl-ink-2);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.spd-copyable {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    column-gap: var(--bl-space-2);
+}
+
+.spd-copyable .od-fact__k { grid-column: 1 / -1; }
+
+.spd-copy {
+    padding: 10px;
+    margin: -10px;
+    background: none;
+    border: 0;
+    color: var(--bl-brand-deep);
+    font-family: var(--font-sans);
+    font-size: 11px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--bl-motion-fast), color var(--bl-motion-fast);
+}
+
+.spd-copyable:hover .spd-copy,
+.spd-copy:focus-visible { opacity: 1; }
+
+.spd-copy:hover { text-decoration: underline; }
+
+.spd-copy.is-copied { opacity: 1; color: var(--bl-ink-3); }
+
+@media (max-width: 640px) {
+    .spd-copy { opacity: 1; }
+}
+
+@media (max-width: 560px) {
+    .spd-lines__head { display: none; }
+
+    .spd-lines__row { grid-template-columns: minmax(0, 1fr) auto; }
+
+    .spd-lines__name { grid-column: 1 / -1; }
+}
+
+@media (min-width: 641px) and (max-width: 900px) {
+    .sp-col-ship { display: none; }
+    #shopee-orders-page .x-table td[data-label="Shipping"],
+    #shopee-returns-page .x-table td[data-label="Shipping"] { display: none; }
+}
