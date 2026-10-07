@@ -5,6 +5,7 @@ namespace App\Services\Catalog;
 use App\Models\Catalog\Manufacturer;
 use App\Models\Catalog\Product;
 use App\Models\Catalog\ProductToCategory;
+use App\Plans\Quota;
 use App\Services\ActivityLogger;
 use App\Services\StockHistoryLogger;
 use App\Support\Catalog\DescriptionHtml;
@@ -21,7 +22,7 @@ class ProductCreator
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $productId = DB::transaction(function () use ($data, $variations, $images, $pfx, $langId) {
+        $productId = Quota::within('products', fn () => DB::transaction(function () use ($data, $variations, $images, $pfx, $langId) {
             $p = new Product();
 
             $p->model = trim((string) ($data['model'] ?? ''));
@@ -86,7 +87,7 @@ class ProductCreator
             }
 
             return $id;
-        });
+        }));
 
         $name = (string) $data['name'];
         $sku = (string) ($data['sku'] ?? '');

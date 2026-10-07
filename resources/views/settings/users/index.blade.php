@@ -8,16 +8,28 @@
 
     $hasFilters = ($q ?? '') !== '';
     $currentUserId = auth()->id();
+    [, $maxUsers] = \App\Plans\Quota::standing('users');
+    $planFull = \App\Plans\Quota::refusal('users') !== null;
 @endphp
 
 <div class="x-list-head">
     <div>
         @include('partials.back-to-settings')
         <h1 class="x-page-title">Users</h1>
-        <p class="x-page-sub">{{ number_format($users->total()) }} {{ Str::plural('person', $users->total()) }} who can sign in</p>
+        <p class="x-page-sub">
+            @if($maxUsers !== null)
+                {{ number_format($users->total()) }} of {{ number_format($maxUsers) }} users on your plan
+            @else
+                {{ number_format($users->total()) }} {{ Str::plural('person', $users->total()) }} who can sign in
+            @endif
+        </p>
     </div>
     @if($canManageUsers)
-        <x-ui.button variant="primary" :href="route('users.create')">New user</x-ui.button>
+        @if($planFull)
+            <x-ui.button variant="primary" disabled>New user</x-ui.button>
+        @else
+            <x-ui.button variant="primary" :href="route('users.create')">New user</x-ui.button>
+        @endif
     @endif
 </div>
 

@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class TikTokSetting extends Model
 {
+    use \App\Plans\CountsAsStore;
+
     protected $table = 'tiktok_settings';
 
     protected $fillable = [

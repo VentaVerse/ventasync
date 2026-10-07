@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Admin\UserGroup;
 use App\Services\ActivityLogger;
+use App\Plans\PlanLimitReached;
+use App\Plans\Quota;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
@@ -31,6 +33,10 @@ class UserController extends Controller
 
     public function create()
     {
+        if ($full = Quota::refusal('users')) {
+            return redirect()->route('users.index')->with('error', $full);
+        }
+
         $groups = UserGroup::orderBy('name')->get();
         return view('settings.users.create', compact('groups'));
     }
@@ -45,13 +51,17 @@ class UserController extends Controller
             'user_group_id' => 'required|integer|exists:user_groups,id',
         ]);
 
-        $user = User::create([
-            'name' => $request->name,
-            'username' => $request->username,
-            'email' => $request->email,
-            'user_group_id' => (int) $request->user_group_id,
-            'password' => Hash::make($request->password),
-        ]);
+        try {
+            $user = Quota::within('users', fn () => User::create([
+                'name' => $request->name,
+                'username' => $request->username,
+                'email' => $request->email,
+                'user_group_id' => (int) $request->user_group_id,
+                'password' => Hash::make($request->password),
+            ]));
+        } catch (PlanLimitReached $e) {
+            return redirect()->route('users.index')->with('error', $e->getMessage());
+        }
 
         ActivityLogger::log('created', 'User', $user->id, $user->name . ' (' . $user->email . ')');
 

@@ -18,6 +18,10 @@ class ShopeeItemImport
 
     public function import(array $auth, int $itemId): array
     {
+        if ($refused = \App\Plans\Quota::importRefusal()) {
+            return $refused;
+        }
+
         $base = $this->fetchBase($auth, $itemId);
         if (isset($base['error'])) {
             return ['ok' => false, 'message' => $base['error']];

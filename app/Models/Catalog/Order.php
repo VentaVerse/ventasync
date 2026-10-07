@@ -4,6 +4,11 @@ namespace App\Models\Catalog;
 
 class Order extends BaseModel
 {
+    protected static function booted(): void
+    {
+        static::creating(fn () => \App\Plans\Quota::refuseOrder());
+    }
+
     protected $primaryKey = 'order_id';
 
     protected $fillable = [

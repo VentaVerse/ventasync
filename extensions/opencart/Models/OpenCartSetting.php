@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class OpenCartSetting extends Model
 {
+    use \App\Plans\CountsAsStore;
+
     protected $table = 'opencart_settings';
 
     protected $fillable = [

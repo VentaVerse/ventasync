@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class ShopeeSetting extends Model
 {
+    use \App\Plans\CountsAsStore;
+
     public const REFRESH_TOKEN_DAYS = 30;
 
     protected $table = 'shopee_settings';

@@ -20,6 +20,10 @@ class LazadaItemImport
 
     public function import(object $setting, array $creds, string $itemId): array
     {
+        if ($refused = \App\Plans\Quota::importRefusal()) {
+            return $refused;
+        }
+
         try {
             $data = $this->live->raw($setting, $creds, $itemId);
         } catch (\RuntimeException $e) {

@@ -16,7 +16,14 @@ class Kernel extends ConsoleKernel
 
         try {
             if (Schema::hasTable('scheduled_jobs')) {
+                $extensions = app(\App\Extensions\ExtensionManager::class);
+                $manifests = $extensions->getManifests();
+
                 foreach (ScheduledJob::query()->where('enabled', true)->get() as $job) {
+                    if (isset($manifests[$job->integration]) && ! $extensions->isEnabled($job->integration)) {
+                        continue;
+                    }
+
                     $command = (string) $job->command;
                     $args = $this->optionsToArgs($job->commandArguments());
 
@@ -61,6 +68,7 @@ class Kernel extends ConsoleKernel
     protected function commands(): void
     {
         $this->load(__DIR__.'/Commands');
+        $this->load(app_path('Plans'));
 
         require base_path('routes/console.php');
     }
