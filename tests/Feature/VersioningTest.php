@@ -16,7 +16,7 @@ class VersioningTest extends TestCase
     public function test_the_core_changelog_opens_with_the_current_version(): void
     {
         $this->assertMatchesRegularExpression(self::SEMVER, AppVersion::current());
-        $releases = AppVersion::changelog(base_path('CHANGELOG.md'));
+        $releases = $this->released(base_path('CHANGELOG.md'));
         $this->assertNotEmpty($releases, 'CHANGELOG.md has no release');
         $this->assertSame(AppVersion::current(), $releases[0]['version'], 'VERSION was raised without a CHANGELOG.md entry, or the other way round');
         $this->assertNotEmpty($releases[0]['lines'], 'the newest release says nothing');
@@ -30,24 +30,36 @@ class VersioningTest extends TestCase
             $version = (string) ($manifest['version'] ?? '');
             $this->assertMatchesRegularExpression(self::SEMVER, $version, basename($dir) . ' version');
 
-            $releases = AppVersion::changelog($dir . '/CHANGELOG.md');
+            $releases = $this->released($dir . '/CHANGELOG.md');
             $this->assertNotEmpty($releases, basename($dir) . ' has no CHANGELOG.md');
             $this->assertSame($version, $releases[0]['version'], basename($dir) . ' was raised without a changelog entry, or the other way round');
             $this->assertNotEmpty($releases[0]['lines'], basename($dir) . ' newest release says nothing');
         }
     }
 
-    public function test_every_signed_in_person_sees_the_version_and_its_changelog(): void
+    public function test_every_signed_in_person_sees_the_version_as_plain_text(): void
     {
         $this->actingAs(User::factory()->create());
 
         $this->get(route('dashboard'))->assertOk()
-            ->assertSee(AppVersion::label())
-            ->assertSee(route('changelog'), false);
+            ->assertSee('<p class="bl-version">' . AppVersion::label() . '</p>', false)
+            ->assertDontSee('/changelog', false);
+    }
 
-        $this->get(route('changelog'))->assertOk()
-            ->assertSee(AppVersion::label())
-            ->assertSee(AppVersion::changelog(base_path('CHANGELOG.md'))[0]['lines'][0]);
+    public function test_unreleased_lines_wait_above_the_newest_release(): void
+    {
+        $all = AppVersion::changelog(base_path('CHANGELOG.md'));
+        foreach (array_slice($all, 1) as $release) {
+            $this->assertNotSame('Unreleased', $release['version'], 'Unreleased belongs at the top only');
+        }
+        if (($all[0]['version'] ?? null) === 'Unreleased') {
+            $this->assertNotEmpty($all[0]['lines'], 'an empty Unreleased heading says nothing');
+        }
+    }
+
+    private function released(string $file): array
+    {
+        return array_values(array_filter(AppVersion::changelog($file), fn ($r) => $r['version'] !== 'Unreleased'));
     }
 
     public function test_the_edition_file_says_pro_and_its_absence_says_community(): void

@@ -1246,11 +1246,6 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "changelog",
-        "name": "changelog"
-    },
-    {
-        "method": "GET|HEAD",
         "uri": "channels",
         "name": "channels.index"
     },
