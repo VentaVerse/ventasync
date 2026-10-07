@@ -121,6 +121,13 @@ class QuotaTest extends TestCase
             $this->assertStringContainsString('Quota::', $code, $path . ' makes products without asking the plan');
         }
         $this->assertArrayHasKey(app_path('Services/Catalog/ProductCreator.php'), $makers, 'the search no longer finds the core product maker');
+        foreach (['lazada', 'opencart', 'pedallion', 'shopee', 'shopify', 'tiktok', 'ventacart', 'woocommerce'] as $channel) {
+            if (! is_dir(base_path('extensions/' . $channel))) {
+                continue;
+            }
+            $found = array_filter(array_keys($makers), fn ($path) => str_starts_with($path, base_path('extensions/' . $channel . '/')));
+            $this->assertNotEmpty($found, 'the search no longer finds the product maker in ' . $channel);
+        }
     }
 
     public function test_a_full_plan_refuses_another_user(): void
