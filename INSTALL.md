@@ -1,4 +1,4 @@
-# Installing VentaSync Community
+# Installing VentaSync
 
 This is a standard Laravel 12 install. If you've deployed any Laravel app before, the steps below will feel familiar. You need shell access to the server.
 
@@ -65,25 +65,13 @@ chmod -R 775 storage bootstrap/cache
 chown -R www-data:www-data .  # adjust user/group for your web server
 ```
 
-### 4. Run migrations + seed the admin user
+### 4. Run migrations
 
 ```bash
 php artisan migrate --force --seed
 ```
 
-You'll see the default admin credentials printed in green at the end:
-
-```
-✓ Admin user created
-
-  Default credentials (change immediately):
-
-    Username: admin
-    Email:    admin@admin.com
-    Password: admin
-
-  Security: change this password through Settings → Users on first login.
-```
+The seed switches on the starting extensions. It creates no user.
 
 ### 5. Symlink storage
 
@@ -111,7 +99,7 @@ Without it nothing on any Automations section runs, whatever it says there. How 
 
 ### 8. Visit your site
 
-Open `https://your-domain.com` → log in with `admin` / `admin` → **change the password immediately** via Settings → Users.
+Open `https://your-domain.com`. The first page asks you to create the administrator account.
 
 ---
 
@@ -193,22 +181,7 @@ php artisan route:clear
 
 ---
 
-## What's NOT included in Community
-
-Plus tier features (paid):
-- **Audit** — activity log + staff accountability
-- **Reports** — order/product profitability, marketplace fees, inventory valuation
-- **Shopify** — multi-store Shopify integration
-- **Purchasing** — vendors, purchase orders, supplier invoices, reorder suggestions
-- **OpenCart** — multi-store OpenCart connector + review sync
-
-Each Plus extension ships as a separate folder under `extensions/{id}/` — drop it in, run `php artisan migrate --force`, done.
-
-For Plus licensing, see [ventasync.com/pricing](https://ventasync.com/pricing).
-
----
-
 ## Need help?
 
 - Open an issue at https://github.com/VentaVerse/VentaSync/issues
-- For Plus / Cloud support, use [ventasync.com/contact](https://ventasync.com/contact)
+- Or reach us at [ventasync.com/contact](https://ventasync.com/contact)
