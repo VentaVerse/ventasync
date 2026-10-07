@@ -22,14 +22,12 @@ final class AppDoor
 
     private static bool $mountingFormer = false;
 
-    public const APP_OFF = 'The mobile app is not turned on for this business.';
-
     public const SIGN_IN_REFUSED = 'The app is turned off for this account.';
 
     public static function refusal(User $user): ?string
     {
         if (! Gate::has(self::SIGN_IN)) {
-            return self::APP_OFF;
+            return null;
         }
 
         return Gate::forUser($user)->allows(self::SIGN_IN) ? null : self::SIGN_IN_REFUSED;
