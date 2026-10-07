@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.30.1 (2026-10-07)
+
+- Settings, Error log no longer fills with notices that Laravel and Symfony silence on purpose; real warnings and errors still show.
+
 ## 0.30.0 (2026-10-07)
 
 - First numbered release, opening the closed beta.
