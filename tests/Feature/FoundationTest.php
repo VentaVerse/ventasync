@@ -276,6 +276,12 @@ class FoundationTest extends TestCase
             }
         }
 
+        foreach (['Fulfilment' => 'shopify'] as $label => $channel) {
+            if (! is_dir(base_path("extensions/{$channel}"))) {
+                $emitted[$label] = true;
+            }
+        }
+
         $stale = array_values(array_diff($targeted, array_keys($emitted)));
 
         $this->assertSame([], $stale, sprintf(

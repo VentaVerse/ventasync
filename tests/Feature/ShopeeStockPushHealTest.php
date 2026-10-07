@@ -405,6 +405,9 @@ class ShopeeStockPushHealTest extends TestCase
             'woocommerce/Commands/WoocommercePushStock', 'woocommerce/Commands/WoocommercePushPrice',
             'opencart/Commands/OpenCartPushQty', 'opencart/Commands/OpenCartPushPrice',
         ] as $file) {
+            if (! is_dir(base_path('extensions/' . strtok($file, '/')))) {
+                continue;
+            }
             $this->assertStringContainsString('SteppableAutomation', (string) file_get_contents(base_path("extensions/{$file}.php")), $file);
         }
         $tab = (string) file_get_contents(base_path('resources/views/partials/_automations_tab.blade.php'));
