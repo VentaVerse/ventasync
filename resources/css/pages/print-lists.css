@@ -1,0 +1,118 @@
+.pl-doc {
+    background: #e9edf3;
+    color: #0f172a;
+    font-family: var(--font-sans, ui-sans-serif), sans-serif;
+    margin: 0;
+}
+
+.pl-page {
+    width: 8.5in;
+    min-height: 11in;
+    box-sizing: border-box;
+    margin: 16px auto;
+    padding: 0.5in;
+    background: #fff;
+    box-shadow: 0 4px 18px rgba(15, 23, 42, .12);
+}
+
+.pl-masthead {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #0f172a;
+}
+
+.pl-masthead__title { font-size: 20px; font-weight: 700; margin: 0 0 2px; }
+.pl-masthead__sub { font-size: 12px; color: #475569; margin: 0; }
+.pl-masthead__meta { font-size: 12px; color: #475569; text-align: right; }
+
+.pl-mono {
+    font-family: var(--font-mono, ui-monospace), monospace;
+    font-variant-numeric: tabular-nums;
+}
+
+.pl-table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+
+.pl-table th,
+.pl-table td {
+    border: 1px solid #cbd5e1;
+    padding: 7px 8px;
+    font-size: 12px;
+    text-align: left;
+    vertical-align: top;
+}
+
+.pl-table th {
+    background: #f1f5f9;
+    font-size: 11px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.pl-table td.pl-num { text-align: right; }
+
+.pl-qty { font-size: 15px; font-weight: 700; }
+
+.pl-check {
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid #0f172a;
+    border-radius: 3px;
+    display: inline-block;
+}
+
+.pl-orders { margin-top: 14px; font-size: 12px; color: #475569; }
+.pl-orders__list { margin: 4px 0 0; padding-left: 18px; }
+
+.pl-foot {
+    margin-top: 18px;
+    padding-top: 8px;
+    border-top: 1px solid #cbd5e1;
+    font-size: 11px;
+    color: #64748b;
+    display: flex;
+    justify-content: space-between;
+}
+
+.pl-actions {
+    display: flex;
+    gap: 8px;
+    width: 8.5in;
+    margin: 16px auto 0;
+}
+
+.pl-btn {
+    font: inherit;
+    font-size: 12px;
+    padding: 8px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #fff;
+    color: #0f172a;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.pl-btn--primary { background: #0f172a; border-color: #0f172a; color: #fff; }
+
+@media print {
+    .pl-doc { background: #fff; }
+
+    .pl-page {
+        margin: 0;
+        padding: 0.4in;
+        box-shadow: none;
+        min-height: 0;
+        width: auto;
+    }
+
+    .pl-page + .pl-page { page-break-before: always; }
+
+    .pl-table tr { page-break-inside: avoid; }
+
+    thead { display: table-header-group; }
+
+    .pl-actions { display: none; }
+}

@@ -1,0 +1,45 @@
+.x-desk-toggle {
+    display: none;
+}
+
+.is-desk-folded [data-desk-tool] {
+    display: none;
+}
+
+@media (max-width: 699px) {
+    .x-desk-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--bl-space-2);
+        width: 100%;
+        min-height: 44px;
+        margin-bottom: var(--bl-space-3);
+        padding: 0 14px;
+        background: var(--bl-chrome);
+        border: 1px solid var(--bl-rule);
+        border-radius: var(--bl-r-ctrl);
+        color: var(--bl-ink-2);
+        font: inherit;
+        font-size: 13px;
+        font-weight: 500;
+        text-align: left;
+        cursor: pointer;
+    }
+
+    .x-desk-toggle:hover { color: var(--bl-ink); }
+
+    .x-desk-toggle__mark {
+        flex: none;
+        font-size: 11px;
+        transition: transform var(--bl-motion-fast);
+    }
+
+    .x-desk-toggle[aria-expanded='true'] .x-desk-toggle__mark {
+        transform: rotate(180deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .x-desk-toggle__mark { transition: none; }
+}

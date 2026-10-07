@@ -1,0 +1,25 @@
+{
+    "id": "tiktok",
+    "name": "TikTok Shop",
+    "version": "0.30.0",
+    "description": "TikTok Shop integration: OAuth, product sync, API explorer",
+    "logs": {
+        "tiktok_api_logs": {
+            "label": "API calls"
+        }
+    },
+    "author": "VentaSync",
+    "tier": "community",
+    "license_required": false,
+    "tables": [
+        "tiktok_settings",
+        "tiktok_api_logs",
+        "tiktok_categories",
+        "tiktok_product_groups",
+        "tiktok_product_group_products",
+        "tiktok_orders",
+        "tiktok_order_products",
+        "tiktok_order_status_map"
+    ],
+    "nav": []
+}

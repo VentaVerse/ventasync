@@ -1,0 +1,34 @@
+.ar-modal { padding: 28px 28px 24px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+
+.ar-modal__mark { position: relative; width: 56px; height: 56px; margin-bottom: 10px; display: grid; place-items: center; }
+.ar-modal__ring { position: absolute; inset: 0; border-radius: 50%; border: 3px solid var(--bl-chrome-2); border-top-color: var(--bl-brand); animation: ar-spin .9s linear infinite; }
+.ar-modal__ring[hidden] { display: none; }
+.ar-modal__glyph { width: 26px; height: 26px; }
+.ar-modal__glyph[hidden] { display: none; }
+.ar-modal[data-state="done"] .ar-modal__mark::before,
+.ar-modal[data-state="failed"] .ar-modal__mark::before,
+.ar-modal[data-state="stopped"] .ar-modal__mark::before { content: ""; position: absolute; inset: 0; border-radius: 50%; animation: ar-pop .45s cubic-bezier(.2, 1.1, .3, 1) both; }
+.ar-modal[data-state="done"] .ar-modal__mark::before { background: var(--bl-good-wash); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bl-good) 35%, transparent); }
+.ar-modal[data-state="failed"] .ar-modal__mark::before { background: var(--bl-bad-wash); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bl-bad) 35%, transparent); }
+.ar-modal[data-state="stopped"] .ar-modal__mark::before { background: var(--bl-chrome); box-shadow: inset 0 0 0 1px var(--bl-rule); }
+.ar-modal__glyph--done { color: var(--bl-good); }
+.ar-modal__glyph--failed { color: var(--bl-bad); }
+.ar-modal[data-state="stopped"] .ar-modal__glyph--failed { color: var(--bl-ink-3); }
+.ar-modal__glyph { position: relative; animation: ar-pop .45s cubic-bezier(.2, 1.1, .3, 1) .08s both; }
+@keyframes ar-spin { to { transform: rotate(360deg); } }
+@keyframes ar-pop { from { transform: scale(.55); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+.ar-modal__title { font-size: 18px; font-weight: 600; letter-spacing: -.01em; color: var(--bl-ink); text-wrap: balance; }
+.ar-modal[data-state="done"] .ar-modal__title { color: var(--bl-good); }
+.ar-modal[data-state="failed"] .ar-modal__title { color: var(--bl-bad); }
+
+.ar-modal__text { margin-top: 6px; max-width: 34ch; font-size: 14px; line-height: 1.5; color: var(--bl-ink-2); overflow-wrap: anywhere; }
+.ar-modal__text:empty { display: none; }
+
+.ar-modal__foot { display: flex; justify-content: center; gap: 8px; margin-top: 18px; width: 100%; }
+.ar-modal__foot .x-btn { justify-content: center; padding-left: 28px; padding-right: 28px; }
+
+@media (prefers-reduced-motion: reduce) {
+    .ar-modal__ring { animation: none; border-top-color: var(--bl-brand); }
+    .ar-modal__glyph, .ar-modal__mark::before { animation: none; }
+}

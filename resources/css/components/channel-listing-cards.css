@@ -1,0 +1,177 @@
+.lc-images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: var(--bl-space-3) 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.lc-images__item {
+    width: 64px;
+    height: 64px;
+    border: 1px solid var(--bl-rule-2);
+    border-radius: var(--bl-r-ctrl);
+    overflow: hidden;
+    background: var(--bl-chrome);
+}
+
+.lc-images__item--held {
+    opacity: .38;
+    border-style: dashed;
+}
+
+.lc-images__item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.lc-images--arrange .lc-images__item {
+    position: relative;
+    width: 84px;
+    height: 84px;
+    cursor: grab;
+    touch-action: none;
+    transition: transform .19s cubic-bezier(.2, .8, .2, 1), opacity .12s ease-out, border-color .12s ease-out;
+}
+
+.lc-images--arrange .lc-images__item.is-dragging {
+    transition: box-shadow .16s ease-out;
+    cursor: grabbing;
+    z-index: 5;
+    box-shadow: 0 14px 28px color-mix(in srgb, var(--bl-ink) 28%, transparent);
+    border-color: var(--bl-brand-deep);
+}
+
+.lc-images--arrange.is-arranging .lc-images__item {
+    pointer-events: none;
+}
+
+.lc-images--arrange.is-arranging {
+    cursor: grabbing;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .lc-images--arrange .lc-images__item {
+        transition: none;
+    }
+}
+
+.lc-images--arrange .lc-images__item:focus-visible {
+    outline: 2px solid var(--bl-brand-deep);
+    outline-offset: 2px;
+}
+
+.lc-images--arrange .lc-images__item.is-grabbed {
+    border-color: var(--bl-brand-deep);
+    box-shadow: 0 0 0 2px var(--bl-brand-deep) inset;
+    transform: scale(.96);
+}
+
+.lc-images__rank {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    min-width: 17px;
+    padding: 0 4px;
+    border-radius: var(--bl-r-ctrl);
+    background: color-mix(in srgb, var(--bl-ink) 78%, transparent);
+    color: var(--bl-sheet);
+    font-size: 11px;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    line-height: 17px;
+}
+
+.lc-images__held {
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    padding: 1px 5px;
+    border-radius: var(--bl-r-ctrl);
+    background: color-mix(in srgb, var(--bl-ink) 80%, transparent);
+    color: var(--bl-sheet);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.4;
+    display: none;
+}
+
+.lc-images__item--held .lc-images__held { display: block; }
+
+.lc-images__verbs {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    display: flex;
+    gap: 3px;
+    opacity: 0;
+    transition: opacity .12s ease-out;
+}
+
+.lc-images__item:hover .lc-images__verbs,
+.lc-images__item:focus-within .lc-images__verbs,
+.lc-images__item:focus-visible .lc-images__verbs {
+    opacity: 1;
+}
+
+@media (hover: none) {
+    .lc-images--arrange .lc-images__verbs { opacity: 1; }
+}
+
+.lc-images__verb {
+    position: relative;
+    display: grid;
+    place-items: center;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 5px;
+    border: 0;
+    border-radius: var(--bl-r-ctrl);
+    background: color-mix(in srgb, var(--bl-ink) 80%, transparent);
+    color: var(--bl-sheet);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.lc-images__verb::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+}
+
+.lc-images__verb:hover { background: var(--bl-ink); }
+.lc-images__verb--drop:hover { background: var(--bl-bad); }
+
+.lc-images__verb:focus-visible {
+    outline: 2px solid var(--bl-sheet);
+    outline-offset: -2px;
+}
+
+.lc-images__verb[hidden] { display: none; }
+
+.lc-images__item--held img { opacity: .45; }
+.lc-images--arrange .lc-images__item--held { opacity: 1; }
+
+.lc-images--arrange .lc-images__item[data-off] img {
+    opacity: .32;
+    filter: grayscale(1);
+}
+
+.lc-images__verb--off {
+    color: var(--bl-ink-3);
+}
+
+.lc-images__item[data-off] .lc-images__verb--off {
+    color: var(--bl-ink);
+    background: var(--bl-sheet);
+}

@@ -1,0 +1,24 @@
+.oc-col-products { width: 40%; }
+.oc-col-qty      { width: 5%; }
+.oc-col-price    { width: 11%; }
+.oc-col-total    { width: 13%; }
+.oc-col-status   { width: 15%; }
+.oc-col-date     { width: 12%; }
+.oc-col-act      { width: 4%; }
+
+.oc-ext {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--bl-ink-2);
+    overflow-wrap: anywhere;
+}
+
+@media (min-width: 641px) and (max-width: 820px) {
+    .oc-col-price { display: none; }
+    #opencart-orders-page .x-table td[data-label="Price"] { display: none; }
+}
+
+@media (max-width: 700px) {
+    #opencart-orders-page .x-table tbody td.x-td-num { text-align: left; }
+}

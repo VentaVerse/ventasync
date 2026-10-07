@@ -1,0 +1,110 @@
+.btn-invoice-req {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid #fcd34d;
+    background: #fffbeb;
+    color: #92400e;
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    transition: background-color .15s ease, transform .15s ease;
+}
+.btn-invoice-req:hover {
+    background: #fef3c7;
+    transform: translateY(-1px);
+}
+.btn-invoice-req:active {
+    transform: translateY(0);
+}
+.btn-invoice-req__icon {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+}
+
+.inv-modal-body {
+    display: grid;
+    gap: 12px;
+}
+.inv-row {
+    display: grid;
+    grid-template-columns: 110px 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--bl-rule);
+}
+.inv-row:last-child { border-bottom: none; }
+.inv-row__label {
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--bl-ink-3, #64748b);
+    font-weight: 600;
+}
+.inv-row__value {
+    font-size: 14px;
+    color: var(--bl-ink);
+    word-break: break-word;
+}
+.inv-row__value--mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-weight: 600;
+    letter-spacing: .02em;
+}
+.inv-row__value--muted {
+    color: var(--bl-ink-3, #64748b);
+}
+.inv-copy-btn {
+    background: none;
+    border: 1px solid var(--bl-rule, #cbd5e1);
+    color: var(--bl-ink-2, #475569);
+    padding: 3px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 500;
+    transition: background-color .15s ease, color .15s ease;
+    white-space: nowrap;
+}
+.inv-copy-btn:hover {
+    background: var(--bl-chrome);
+    color: var(--bl-ink);
+}
+.inv-copy-btn.is-copied {
+    background: #dcfce7;
+    border-color: #86efac;
+    color: #166534;
+}
+
+.inv-card {
+    border-left: 3px solid #d97706;
+    padding-left: 14px;
+}
+.inv-card__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.inv-card__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: #fef3c7;
+    color: #92400e;
+    font-size: 11px;
+    font-weight: 600;
+}
+.inv-card--empty {
+    border-left-color: var(--bl-rule, #cbd5e1);
+    color: var(--bl-ink-3, #64748b);
+    font-style: italic;
+    font-size: 13.5px;
+}

@@ -1,0 +1,200 @@
+.lic-page { display: flex; flex-direction: column; gap: 18px; }
+
+.lic-banner {
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-size: 13px;
+    line-height: 1.5;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+.lic-banner.warn {
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    color: #b45309;
+}
+.lic-banner.warn a { color: #92400e; text-decoration: underline; }
+
+.lic-banner-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    color: currentColor;
+}
+
+.lic-section-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--bl-ink-2, #64748b);
+    margin: 4px 0 2px;
+}
+
+.lic-list { display: flex; flex-direction: column; gap: 12px; }
+
+.lic-row {
+    background: var(--bl-sheet, #ffffff);
+    border: 1px solid var(--bl-rule, #e2e8f0);
+    border-radius: 14px;
+    padding: 18px 20px;
+    box-shadow: none;
+}
+.lic-row-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+.lic-row-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--bl-ink, #0f172a);
+    margin: 0 0 3px;
+}
+.lic-row-sub {
+    font-size: 12px;
+    color: var(--bl-ink-2, #64748b);
+    margin: 0;
+}
+
+.lic-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.lic-pill.licensed {
+    background: rgba(16, 185, 129, 0.12);
+    color: #047857;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.lic-pill.trial {
+    background: rgba(59, 130, 246, 0.1);
+    color: #1d4ed8;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+.lic-pill.unactivated {
+    background: rgba(148, 163, 184, 0.14);
+    color: #475569;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+}
+.lic-pill.revoked, .lic-pill.expired {
+    background: rgba(239, 68, 68, 0.1);
+    color: #b91c1c;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+.lic-pill.maintenance-expired {
+    background: rgba(245, 158, 11, 0.1);
+    color: #b45309;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+.lic-pill-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.lic-kv {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px 24px;
+    margin-top: 8px;
+    margin-bottom: 14px;
+}
+.lic-kv-key {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--bl-ink-2, #64748b);
+    margin-bottom: 2px;
+}
+.lic-kv-val {
+    font-size: 13px;
+    color: var(--bl-ink, #0f172a);
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    word-break: break-all;
+}
+.lic-kv-val.soft {
+    font-family: inherit;
+    color: var(--bl-ink-2, #64748b);
+}
+
+.lic-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.lic-form {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.lic-form input[type="text"] {
+    flex: 1;
+    min-width: 260px;
+    padding: 8px 12px;
+    border: 1px solid var(--bl-rule, #e2e8f0);
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    font-size: 13px;
+    background: var(--bl-sheet, #ffffff);
+    color: var(--bl-ink, #0f172a);
+}
+
+.lic-empty {
+    text-align: center;
+    padding: 32px 16px;
+    color: var(--bl-ink-2, #64748b);
+    font-size: 13px;
+}
+
+.lic-extension-note {
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--bl-ink-2, #64748b);
+    padding-top: 12px;
+    border-top: 1px dashed var(--bl-rule, #e2e8f0);
+}
+
+.ext-list { display: flex; flex-direction: column; gap: 12px; }
+
+.ext-version {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--bl-ink-2, #64748b);
+    background: rgba(148, 163, 184, 0.12);
+    padding: 2px 7px;
+    border-radius: 999px;
+    margin-left: 4px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    vertical-align: middle;
+}
+
+.ext-controls {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--bl-rule, #e2e8f0);
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+.ext-controls .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

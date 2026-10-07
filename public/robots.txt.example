@@ -1,0 +1,6 @@
+# Recommended robots.txt for VentaSync internal deployments.
+# VentaSync is a private ERP — search engines should not index it.
+# To activate, copy this file to public/robots.txt on the deployed instance.
+
+User-agent: *
+Disallow: /

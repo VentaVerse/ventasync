@@ -1,0 +1,42 @@
+.wc-status-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--bl-space-2);
+}
+
+.wc-status-form .x-select-wrap { flex: 0 0 auto; }
+.wc-status-form .x-select-wrap .x-input { min-width: 11.5em; }
+.wc-status-form > .x-input { flex: 1 1 8em; min-width: 8em; max-width: 12em; }
+
+.x-selectbar__select { flex: 0 0 auto; }
+.x-selectbar__select .x-input { min-width: 11.5em; }
+
+@media (max-width: 720px) {
+    .wc-status-form { width: 100%; }
+    .wc-status-form .x-select-wrap,
+    .wc-status-form > .x-input { flex: 1 1 100%; max-width: none; }
+    .wc-status-form .x-btn { width: 100%; }
+    .x-selectbar__select { flex: 1 1 100%; }
+}
+
+#woocommerce-orders-page .vt-col-products { width: 25%; }
+#woocommerce-orders-page .vt-col-qty      { width: 4%; }
+#woocommerce-orders-page .vt-col-price    { width: 7%; }
+#woocommerce-orders-page .vt-col-total    { width: 8%; }
+#woocommerce-orders-page .vt-col-pay      { width: 9%; }
+#woocommerce-orders-page .vt-col-track    { width: 9%; }
+#woocommerce-orders-page .vt-col-status   { width: 10%; }
+#woocommerce-orders-page .vt-col-date     { width: 11%; }
+#woocommerce-orders-page .vt-col-act      { width: 17%; }
+
+#woocommerce-orders-page .x-selectbar { flex-wrap: wrap; }
+#woocommerce-orders-page .x-selectbar__actions { flex-wrap: wrap; }
+
+@media (min-width: 901px) and (max-width: 1100px) {
+    #woocommerce-orders-page .x-table td[data-label="Payment"] { display: none; }
+}
+@media (min-width: 641px) and (max-width: 900px) {
+    #woocommerce-orders-page .x-table td[data-label="Payment"],
+    #woocommerce-orders-page .x-table td[data-label="Tracking"] { display: none; }
+}

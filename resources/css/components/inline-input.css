@@ -1,0 +1,37 @@
+.x-inline-input {
+    width: 100%;
+    height: var(--bl-control-h-sm);
+    padding: 0 var(--bl-space-2);
+    font: inherit;
+    font-size: 13px;
+    color: var(--bl-ink);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--bl-r-dot);
+    transition: border-color var(--bl-motion-fast), background var(--bl-motion-fast);
+}
+
+.x-inline-input:hover { border-color: var(--bl-rule); }
+
+.x-inline-input:focus {
+    outline: none;
+    background: var(--bl-sheet);
+    border-color: var(--bl-brand-deep);
+    box-shadow: 0 0 0 3px var(--bl-brand-wash);
+}
+
+.x-inline-input--num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.x-inline-input.is-invalid {
+    border-color: var(--bl-bad);
+    background: color-mix(in srgb, var(--bl-bad) 8%, transparent);
+}
+
+.x-inline-input.is-invalid:focus {
+    border-color: var(--bl-bad);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--bl-bad) 20%, transparent);
+}

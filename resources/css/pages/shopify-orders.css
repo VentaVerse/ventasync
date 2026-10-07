@@ -1,0 +1,22 @@
+.sf-col-products { width: 34%; }
+.sf-col-qty      { width: 5%; }
+.sf-col-price    { width: 9%; }
+.sf-col-total    { width: 10%; }
+.sf-col-pay      { width: 12%; }
+.sf-col-status   { width: 12%; }
+.sf-col-date     { width: 13%; }
+.sf-col-act      { width: 5%; }
+
+@media (min-width: 641px) and (max-width: 1000px) {
+    .sf-col-pay { display: none; }
+    #shopify-orders-page .x-table td[data-label="Payment"] { display: none; }
+}
+
+@media (max-width: 640px) {
+    #shopify-orders-page .x-table tbody td.x-td-num { text-align: left; }
+}
+
+#sfPayloadModal .cs-pre {
+    max-height: 60vh;
+    overflow: auto;
+}

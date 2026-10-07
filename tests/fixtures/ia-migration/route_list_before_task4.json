@@ -1,0 +1,5817 @@
+[
+    {
+        "method": "GET|HEAD",
+        "uri": ".well-known/oauth-authorization-server",
+        "name": "mcp.oauth.authorization-server"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": ".well-known/oauth-authorization-server/{path}",
+        "name": "mcp.oauth.authorization-server.nested"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": ".well-known/oauth-protected-resource",
+        "name": "mcp.oauth.protected-resource"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": ".well-known/oauth-protected-resource/{path}",
+        "name": "mcp.oauth.protected-resource.nested"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "/",
+        "name": "root"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "activity-log",
+        "name": "ext.audit.activity-log.index"
+    },
+    {
+        "method": "POST",
+        "uri": "activity-log/clear",
+        "name": "ext.audit.activity-log.clear"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "ai-tools",
+        "name": "ext.assistant.index"
+    },
+    {
+        "method": "POST",
+        "uri": "ai-tools",
+        "name": "ext.assistant.store"
+    },
+    {
+        "method": "POST",
+        "uri": "ai-tools/sign-in",
+        "name": "ext.assistant.sign_in"
+    },
+    {
+        "method": "PUT",
+        "uri": "ai-tools/sign-in-setting",
+        "name": "ext.assistant.sign_in_setting"
+    },
+    {
+        "method": "DELETE",
+        "uri": "ai-tools/{apiClient}",
+        "name": "ext.assistant.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "ai-tools/{apiClient}",
+        "name": "ext.assistant.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/customers",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/customers/history",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/dashboard",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/dashboard/chart-data",
+        "name": null
+    },
+    {
+        "method": "DELETE",
+        "uri": "api/app/v1/device-token",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/device-token",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/fulfilment/packing-check/{channel}/{order}",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/fulfilment/packing-check/{channel}/{order}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/inventory",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/inventory/adjust",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/login",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/logout",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/marketplace-config",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/marketplace/{platform}/orders",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/marketplace/{platform}/orders/{id}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/marketplace/{platform}/orders/{id}/awb",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/marketplace/{platform}/orders/{id}/pack",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/marketplace/{platform}/orders/{id}/repack",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/marketplace/{platform}/orders/{id}/rts",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/marketplace/{platform}/orders/{id}/ship",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/marketplace/{platform}/orders/{id}/shipping-options",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/marketplace/{platform}/orders/{id}/tracking",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/order-statuses",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/orders",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/orders/pending-count",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/orders/{id}",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/orders/{id}/ship",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/orders/{id}/status",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/products",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/products/{id}/quantity",
+        "name": null
+    },
+    {
+        "method": "PUT",
+        "uri": "api/app/v1/products/{id}/quantity",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/purchasing/payables",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/purchasing/purchase-orders",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/purchasing/purchase-orders",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/purchasing/purchase-orders/{ref}",
+        "name": null
+    },
+    {
+        "method": "PUT",
+        "uri": "api/app/v1/purchasing/purchase-orders/{ref}",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/purchasing/purchase-orders/{ref}/payments",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/purchasing/purchase-orders/{ref}/receive",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/purchasing/sell-through",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/purchasing/vendor-terms",
+        "name": null
+    },
+    {
+        "method": "PUT",
+        "uri": "api/app/v1/purchasing/vendor-terms",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/purchasing/vendors",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/receivables",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/receivables/payments",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/reports/categories",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/reports/fees",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/reports/inventory",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/reports/orders",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/reports/payouts",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/reports/products",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/user",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/user/permissions",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/ventacart-stores",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/ventacart/{store}/orders",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/ventacart/{store}/orders/{id}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/ventacart/{store}/orders/{id}/awb",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/ventacart/{store}/orders/{id}/book",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/ventacart/{store}/orders/{id}/book-manual",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/ventacart/{store}/orders/{id}/estimate",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/ventacart/{store}/orders/{id}/pickup-slots",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/ventacart/{store}/orders/{id}/serviceability",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/ventacart/{store}/orders/{id}/tracking",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/ventacart/{store}/pickup-addresses",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/ventacart/{store}/shipping-couriers",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/warehousing/stock",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/warehousing/transfers",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/catalog/categories",
+        "name": "api.catalog.categories"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/catalog/manufacturers",
+        "name": "api.catalog.manufacturers"
+    },
+    {
+        "method": "POST",
+        "uri": "api/catalog/manufacturers",
+        "name": "api.catalog.manufacturers.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/catalog/options",
+        "name": "api.catalog.options"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/catalog/options/{optionId}/values",
+        "name": "api.catalog.option_values"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/currencies",
+        "name": "api.currencies"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/customers",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/customers/history",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/dashboard",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/dashboard/chart-data",
+        "name": null
+    },
+    {
+        "method": "DELETE",
+        "uri": "api/device-token",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/device-token",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/fulfilment/packing-check/{channel}/{order}",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/fulfilment/packing-check/{channel}/{order}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/inventory",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/inventory/adjust",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/login",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/logout",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/marketplace-config",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/marketplace/{platform}/orders",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/marketplace/{platform}/orders/{id}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/marketplace/{platform}/orders/{id}/awb",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/marketplace/{platform}/orders/{id}/pack",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/marketplace/{platform}/orders/{id}/repack",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/marketplace/{platform}/orders/{id}/rts",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/marketplace/{platform}/orders/{id}/ship",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/marketplace/{platform}/orders/{id}/shipping-options",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/marketplace/{platform}/orders/{id}/tracking",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/order-statuses",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/orders",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/orders/pending-count",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/orders/{id}",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/orders/{id}/ship",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/orders/{id}/status",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/products",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/products/{id}/quantity",
+        "name": null
+    },
+    {
+        "method": "PUT",
+        "uri": "api/products/{id}/quantity",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/purchase-orders/products",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/purchasing/payables",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/purchasing/purchase-orders",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/purchasing/purchase-orders",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/purchasing/purchase-orders/{ref}",
+        "name": null
+    },
+    {
+        "method": "PUT",
+        "uri": "api/purchasing/purchase-orders/{ref}",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/purchasing/purchase-orders/{ref}/payments",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/purchasing/purchase-orders/{ref}/receive",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/purchasing/sell-through",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/purchasing/vendor-terms",
+        "name": null
+    },
+    {
+        "method": "PUT",
+        "uri": "api/purchasing/vendor-terms",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/purchasing/vendors",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/receivables",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/receivables/payments",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/reports/categories",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/reports/fees",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/reports/inventory",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/reports/orders",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/reports/payouts",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/reports/products",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/user",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/user/permissions",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/customers",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/customers/history",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/inventory",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/v1/inventory/adjust",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/orders",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/orders/{id}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/products",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/v1/products",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/products/{id}",
+        "name": null
+    },
+    {
+        "method": "PATCH",
+        "uri": "api/v1/products/{id}",
+        "name": null
+    },
+    {
+        "method": "PUT",
+        "uri": "api/v1/products/{id}/price",
+        "name": null
+    },
+    {
+        "method": "PATCH",
+        "uri": "api/v1/products/{id}/variations",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/purchasing/payables",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/purchasing/purchase-orders",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/v1/purchasing/purchase-orders",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/purchasing/purchase-orders/{ref}",
+        "name": null
+    },
+    {
+        "method": "PUT",
+        "uri": "api/v1/purchasing/purchase-orders/{ref}",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/v1/purchasing/purchase-orders/{ref}/payments",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/v1/purchasing/purchase-orders/{ref}/receive",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/purchasing/sell-through",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/purchasing/vendor-terms",
+        "name": null
+    },
+    {
+        "method": "PUT",
+        "uri": "api/v1/purchasing/vendor-terms",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/purchasing/vendors",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/receivables",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/v1/receivables/payments",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/reports/categories",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/reports/fees",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/reports/inventory",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/reports/orders",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/reports/payouts",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/reports/products",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/warehousing/stock",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/warehousing/transfers",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/vendors",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/venta-stores",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/venta/{store}/orders",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/venta/{store}/orders/{id}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/venta/{store}/orders/{id}/awb",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/venta/{store}/orders/{id}/book",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/venta/{store}/orders/{id}/book-manual",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/venta/{store}/orders/{id}/estimate",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/venta/{store}/orders/{id}/pickup-slots",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/venta/{store}/orders/{id}/serviceability",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/venta/{store}/orders/{id}/tracking",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/venta/{store}/pickup-addresses",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/venta/{store}/shipping-couriers",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/ventacart-stores",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/ventacart/{store}/orders",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/ventacart/{store}/orders/{id}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/ventacart/{store}/orders/{id}/awb",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/ventacart/{store}/orders/{id}/book",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/ventacart/{store}/orders/{id}/book-manual",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/ventacart/{store}/orders/{id}/estimate",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/ventacart/{store}/orders/{id}/pickup-slots",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/ventacart/{store}/orders/{id}/serviceability",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/ventacart/{store}/orders/{id}/tracking",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/ventacart/{store}/pickup-addresses",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/ventacart/{store}/shipping-couriers",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/warehousing/products",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/warehousing/stock",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/warehousing/transfers",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "automations/batch",
+        "name": "automations.batch_update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "automations/runs/{run}",
+        "name": "automations.run_state"
+    },
+    {
+        "method": "POST",
+        "uri": "automations/runs/{run}/step",
+        "name": "automations.run_step"
+    },
+    {
+        "method": "POST",
+        "uri": "automations/runs/{run}/stop",
+        "name": "automations.run_stop"
+    },
+    {
+        "method": "POST",
+        "uri": "automations/{id}",
+        "name": "automations.update"
+    },
+    {
+        "method": "POST",
+        "uri": "automations/{id}/run",
+        "name": "automations.run"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "catalog/categories",
+        "name": "categories.index"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/categories",
+        "name": "categories.store"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/categories/bulk",
+        "name": "categories.bulk"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "catalog/categories/create",
+        "name": "categories.create"
+    },
+    {
+        "method": "DELETE",
+        "uri": "catalog/categories/{id}",
+        "name": "categories.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "catalog/categories/{id}",
+        "name": "categories.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "catalog/categories/{id}/edit",
+        "name": "categories.edit"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "catalog/manufacturers",
+        "name": "manufacturers.index"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/manufacturers",
+        "name": "manufacturers.store"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/manufacturers/bulk-delete",
+        "name": "manufacturers.bulk_delete"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "catalog/manufacturers/create",
+        "name": "manufacturers.create"
+    },
+    {
+        "method": "DELETE",
+        "uri": "catalog/manufacturers/{id}",
+        "name": "manufacturers.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "catalog/manufacturers/{id}",
+        "name": "manufacturers.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "catalog/manufacturers/{id}/edit",
+        "name": "manufacturers.edit"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "catalog/products",
+        "name": "products.index"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/products",
+        "name": "products.store"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/products/bulk",
+        "name": "products.bulk"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/products/check-skus",
+        "name": "products.check_skus"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "catalog/products/create",
+        "name": "products.create"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "catalog/products/images/browse",
+        "name": "products.images.browse"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/products/images/delete",
+        "name": "products.images.delete"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/products/images/folder",
+        "name": "products.images.create_folder"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/products/images/import-url",
+        "name": "products.images.import_url"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/products/images/import-url-to-catalog",
+        "name": "products.images.import_url_to_catalog"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "catalog/products/images/thumb",
+        "name": "products.images.thumb"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/products/images/upload",
+        "name": "products.images.upload"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/products/images/upload-to-catalog",
+        "name": "products.images.upload_to_catalog"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/products/video/delete",
+        "name": "products.video.delete"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/products/video/upload",
+        "name": "products.video.upload"
+    },
+    {
+        "method": "DELETE",
+        "uri": "catalog/products/{id}",
+        "name": "products.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "catalog/products/{id}",
+        "name": "products.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "catalog/products/{id}/edit",
+        "name": "products.edit"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "catalog/products/{id}/options",
+        "name": "products.options.edit"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/products/{id}/options",
+        "name": "products.options.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "catalog/products/{id}/sales",
+        "name": "products.sales"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "catalog/products/{id}/stock-history",
+        "name": "products.stock_history"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "catalog/reviews",
+        "name": "ext.opencart.reviews.index"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/reviews/bulk-push",
+        "name": "ext.opencart.reviews.bulk_push"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/reviews/delete-all",
+        "name": "ext.opencart.reviews.delete_all"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/reviews/fetch",
+        "name": "ext.opencart.reviews.fetch"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/reviews/push-all",
+        "name": "ext.opencart.reviews.push_all"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "catalog/reviews/{id}",
+        "name": "ext.opencart.reviews.show"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/reviews/{id}/push",
+        "name": "ext.opencart.reviews.push"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/reviews/{id}/skip",
+        "name": "ext.opencart.reviews.skip"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "changelog",
+        "name": "changelog"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels",
+        "name": "channels.index"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/fulfilment",
+        "name": "channels.fulfilment"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/fulfilment/packing-check/{channel}/{order}",
+        "name": "fulfilment.packing_check.show"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/fulfilment/packing-check/{channel}/{order}",
+        "name": "fulfilment.packing_check.verify"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/fulfilment/print/{channel}/packing",
+        "name": "fulfilment.print.packing"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/fulfilment/print/{channel}/pick",
+        "name": "fulfilment.print.pick"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/stores",
+        "name": "ext.lazada.stores.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{legacyPath}",
+        "name": "ext.lazada.legacy_storeless"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store?}",
+        "name": "ext.lazada.dashboard"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/api-log-mode",
+        "name": "ext.lazada.api_log_mode"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/lazada/{store}/api-logs",
+        "name": "ext.lazada.clear_api_logs"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/brands",
+        "name": "ext.lazada.brands.index"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/brands/autocomplete",
+        "name": "ext.lazada.brands.autocomplete"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/brands/fetch",
+        "name": "ext.lazada.brands.fetch"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/brands/sync",
+        "name": "ext.lazada.brands_sync"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/call",
+        "name": "ext.lazada.call_api"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/categories",
+        "name": "ext.lazada.categories.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/categories/fetch",
+        "name": "ext.lazada.categories.fetch"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/categories/{category_id}/attributes",
+        "name": "ext.lazada.categories.attributes.show"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/categories/{category_id}/attributes/fetch",
+        "name": "ext.lazada.categories.attributes.fetch"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/category/attributes",
+        "name": "ext.lazada.category_attributes"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/category/brands",
+        "name": "ext.lazada.brands_query"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/category/tree",
+        "name": "ext.lazada.category_tree"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/delete",
+        "name": "ext.lazada.stores.destroy"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/description-templates",
+        "name": "ext.lazada.description-templates.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/description-templates",
+        "name": "ext.lazada.description-templates.store"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/lazada/{store}/description-templates/{template}",
+        "name": "ext.lazada.description-templates.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/lazada/{store}/description-templates/{template}",
+        "name": "ext.lazada.description-templates.update"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/explorer/run",
+        "name": "ext.lazada.explorer_run"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/listings/{productId}/toggle",
+        "name": "ext.lazada.listings.toggle"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/order-status-map",
+        "name": "ext.lazada.order_status_map"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/order/awb/pdf",
+        "name": "ext.lazada.awb_pdf_get"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/order/items/get",
+        "name": "ext.lazada.order_items_get"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/orders",
+        "name": "ext.lazada.orders.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/orders/bulk-awb",
+        "name": "ext.lazada.orders.bulk_awb"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/orders/bulk-pack-print",
+        "name": "ext.lazada.orders.bulk_pack_print"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/orders/fetch",
+        "name": "ext.lazada.orders.fetch"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/orders/fetch-runs",
+        "name": "ext.lazada.orders.fetch_run_begin"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/orders/fetch-runs/{run}",
+        "name": "ext.lazada.orders.fetch_run_state"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/orders/fetch-runs/{run}/step",
+        "name": "ext.lazada.orders.fetch_run_step"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/orders/fetch-runs/{run}/stop",
+        "name": "ext.lazada.orders.fetch_run_stop"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/orders/get",
+        "name": "ext.lazada.orders_get"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/orders/reset",
+        "name": "ext.lazada.orders.reset"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/orders/returns",
+        "name": "ext.lazada.orders.returns"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/orders/returns/fetch",
+        "name": "ext.lazada.orders.fetch_returns"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/orders/update-statuses",
+        "name": "ext.lazada.orders.update_statuses"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/orders/{orderId}",
+        "name": "ext.lazada.orders.show"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/orders/{orderId}/awb",
+        "name": "ext.lazada.orders.awb"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/orders/{orderId}/cancel",
+        "name": "ext.lazada.orders.cancel"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/orders/{orderId}/cancel-reasons",
+        "name": "ext.lazada.orders.cancel_reasons"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/orders/{orderId}/logistics-trace",
+        "name": "ext.lazada.orders.logistics_trace"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/orders/{orderId}/pack",
+        "name": "ext.lazada.orders.pack"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/orders/{orderId}/pack-print",
+        "name": "ext.lazada.orders.pack_print"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/orders/{orderId}/packing-list",
+        "name": "ext.lazada.orders.packing_list"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/orders/{orderId}/pick-list",
+        "name": "ext.lazada.orders.pick_list"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/orders/{orderId}/recreate-package",
+        "name": "ext.lazada.orders.recreate_package"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/orders/{orderId}/rts",
+        "name": "ext.lazada.orders.rts"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/orders/{orderId}/ship-print",
+        "name": "ext.lazada.orders.ship_print_post"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/packs/run",
+        "name": "ext.lazada.packs_run"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/product-groups",
+        "name": "ext.lazada.product-groups.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/product-groups",
+        "name": "ext.lazada.product-groups.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/product-groups/create",
+        "name": "ext.lazada.product-groups.create"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/product-groups/fetch-attributes",
+        "name": "ext.lazada.product-groups.fetchAttributes"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/product-groups/move",
+        "name": "ext.lazada.product-groups.move"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/product-groups/refresh-categories",
+        "name": "ext.lazada.product-groups.refreshCategories"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/lazada/{store}/product-groups/{id}",
+        "name": "ext.lazada.product-groups.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/lazada/{store}/product-groups/{id}",
+        "name": "ext.lazada.product-groups.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/product-groups/{id}/edit",
+        "name": "ext.lazada.product-groups.edit"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/product-groups/{id}/orphans",
+        "name": "ext.lazada.product-groups.orphans"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/product-groups/{id}/products",
+        "name": "ext.lazada.product-groups.products"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/product-groups/{id}/products/check",
+        "name": "ext.lazada.product-groups.check"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/product-groups/{id}/products/delete-from-lazada",
+        "name": "ext.lazada.product-groups.deleteFromLazada"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/product-groups/{id}/products/mass-remove",
+        "name": "ext.lazada.product-groups.massRemove"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/product-groups/{id}/products/push",
+        "name": "ext.lazada.product-groups.push"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/product-groups/{id}/products/push-prices",
+        "name": "ext.lazada.product-groups.pushPrices"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/product-groups/{id}/products/push-stock",
+        "name": "ext.lazada.product-groups.pushStock"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/product-groups/{id}/products/search",
+        "name": "ext.lazada.product-groups.productSearch"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/product-groups/{id}/products/update-product",
+        "name": "ext.lazada.product-groups.updateProduct"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/lazada/{store}/product-groups/{id}/products/{productId}",
+        "name": "ext.lazada.product-groups.removeProduct"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/product-groups/{id}/products/{productId}/add",
+        "name": "ext.lazada.product-groups.addProduct"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/product-groups/{id}/products/{productId}/link",
+        "name": "ext.lazada.product-groups.linkProduct"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/product-groups/{id}/products/{productId}/sync-id",
+        "name": "ext.lazada.product-groups.syncId"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/product-groups/{id}/products/{productId}/unlink",
+        "name": "ext.lazada.product-groups.unlinkProduct"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/product-groups/{id}/send-runs",
+        "name": "ext.lazada.product-groups.send_run_begin"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/product-groups/{id}/send-runs/{run}/step",
+        "name": "ext.lazada.product-groups.send_run_step"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/product-groups/{id}/send-runs/{run}/stop",
+        "name": "ext.lazada.product-groups.send_run_stop"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/product-groups/{id}/template/sync",
+        "name": "ext.lazada.product-groups.template_sync"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/product/create",
+        "name": "ext.lazada.product_create"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/product/payload-preview",
+        "name": "ext.lazada.product_payload_preview"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/products",
+        "name": "ext.lazada.products.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/add-to-store",
+        "name": "ext.lazada.products.add_to_store_bulk"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/bulk/delete",
+        "name": "ext.lazada.products.bulk_delete"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/bulk/push",
+        "name": "ext.lazada.products.bulk_push"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/bulk/remove-from-store",
+        "name": "ext.lazada.products.bulk_remove_from_store"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/bulk/sync/lazada-id",
+        "name": "ext.lazada.products.bulk_sync_lazada_id"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/bulk/sync/price",
+        "name": "ext.lazada.products.bulk_sync_price"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/bulk/sync/quantity",
+        "name": "ext.lazada.products.bulk_sync_quantity"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/bulk/toggle",
+        "name": "ext.lazada.products.bulk_toggle"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/products/catalogue-search",
+        "name": "ext.lazada.products.catalogue_search"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/products/categories/children",
+        "name": "ext.lazada.products.category_children"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/products/categories/path",
+        "name": "ext.lazada.products.category_path"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/products/categories/search",
+        "name": "ext.lazada.products.category_search"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/check",
+        "name": "ext.lazada.products.check"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/get",
+        "name": "ext.lazada.products_get"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/products/import",
+        "name": "ext.lazada.products.import"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/import-one",
+        "name": "ext.lazada.products.import_one"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/import-selected",
+        "name": "ext.lazada.products.import_selected"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/link-item",
+        "name": "ext.lazada.products.link_item"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/refresh-status",
+        "name": "ext.lazada.products.refresh_status"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/products/search-catalog",
+        "name": "ext.lazada.products.search_catalog"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/lazada/{store}/products/{productId}",
+        "name": "ext.lazada.products.update"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/{productId}/add-to-store",
+        "name": "ext.lazada.products.add_to_store"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/{productId}/attributes/fetch",
+        "name": "ext.lazada.products.attributes_fetch"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/{productId}/brands/sync",
+        "name": "ext.lazada.products.brands_sync"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/{productId}/catalog-change",
+        "name": "ext.lazada.products.catalog_change_save"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/{productId}/catalog-change/ignore",
+        "name": "ext.lazada.products.catalog_change_ignore"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/{productId}/delete/lazada",
+        "name": "ext.lazada.products.delete_lazada"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/products/{productId}/edit",
+        "name": "ext.lazada.products.edit"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/{productId}/remove-from-store",
+        "name": "ext.lazada.products.remove_from_store"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/{productId}/sync/lazada-id",
+        "name": "ext.lazada.products.sync_lazada_id"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/{productId}/sync/price",
+        "name": "ext.lazada.products.sync_price"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/{productId}/sync/quantity",
+        "name": "ext.lazada.products.sync_quantity"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/{productId}/unlink",
+        "name": "ext.lazada.products.unlink"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/{productId}/upload",
+        "name": "ext.lazada.products.upload"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/{productId}/variants",
+        "name": "ext.lazada.products.variants_save"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/purge-raw",
+        "name": "ext.lazada.purge_raw"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/reverse-status-map",
+        "name": "ext.lazada.reverse_status_map"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/sandbox-token/save",
+        "name": "ext.lazada.sandbox_token_save"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/save",
+        "name": "ext.lazada.save"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/settings",
+        "name": "ext.lazada.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/setup/{step}",
+        "name": "ext.lazada.setup_step"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/toggle-mode",
+        "name": "ext.lazada.toggle_mode"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/token/create",
+        "name": "ext.lazada.token_create"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/token/refresh",
+        "name": "ext.lazada.token_refresh"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/vouchers",
+        "name": "ext.lazada.vouchers.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/vouchers",
+        "name": "ext.lazada.vouchers.store"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/vouchers/{voucherId}/deactivate",
+        "name": "ext.lazada.vouchers.deactivate"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/watermarks",
+        "name": "ext.lazada.watermarks.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/watermarks",
+        "name": "ext.lazada.watermarks.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/watermarks/create",
+        "name": "ext.lazada.watermarks.create"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/watermarks/preview",
+        "name": "ext.lazada.watermarks.preview"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/lazada/{store}/watermarks/{template}",
+        "name": "ext.lazada.watermarks.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/lazada/{store}/watermarks/{template}",
+        "name": "ext.lazada.watermarks.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/watermarks/{template}/edit",
+        "name": "ext.lazada.watermarks.edit"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/module/{module}",
+        "name": "channels.module"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/opencart/fetch-oc-statuses",
+        "name": "ext.opencart.fetch_oc_statuses"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/opencart/push",
+        "name": "ext.opencart.push"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/opencart/push-qty",
+        "name": "ext.opencart.push_qty"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/opencart/save",
+        "name": "ext.opencart.save"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/opencart/save-review-settings",
+        "name": "ext.opencart.save_review_settings"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/opencart/save-status-map",
+        "name": "ext.opencart.save_status_map"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/opencart/settings",
+        "name": "ext.opencart.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/opencart/stores",
+        "name": "ext.opencart.stores.store"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/opencart/sync",
+        "name": "ext.opencart.sync"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/opencart/sync-date",
+        "name": "ext.opencart.sync_date"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/opencart/test",
+        "name": "ext.opencart.test"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/opencart/verify-password",
+        "name": "ext.opencart.verify_password"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/opencart/{id}",
+        "name": "ext.opencart.destroy"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/opencart/{store?}",
+        "name": "ext.opencart.dashboard"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/opencart/{store}/delete",
+        "name": "ext.opencart.stores.destroy"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/opencart/{store}/orders",
+        "name": "ext.opencart.orders.index"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/opencart/{store}/product-groups",
+        "name": "ext.opencart.product-groups.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/opencart/{store}/product-groups",
+        "name": "ext.opencart.product-groups.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/opencart/{store}/product-groups/create",
+        "name": "ext.opencart.product-groups.create"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/opencart/{store}/product-groups/search-products",
+        "name": "ext.opencart.product-groups.searchProducts"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/opencart/{store}/product-groups/{group}",
+        "name": "ext.opencart.product-groups.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/opencart/{store}/product-groups/{group}",
+        "name": "ext.opencart.product-groups.update"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/opencart/{store}/product-groups/{group}/add-products",
+        "name": "ext.opencart.product-groups.addProducts"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/opencart/{store}/product-groups/{group}/edit",
+        "name": "ext.opencart.product-groups.edit"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/opencart/{store}/product-groups/{group}/products",
+        "name": "ext.opencart.product-groups.products"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/opencart/{store}/product-groups/{group}/products/{product}",
+        "name": "ext.opencart.product-groups.removeProduct"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/opencart/{store}/product-groups/{group}/push",
+        "name": "ext.opencart.product-groups.push"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/opencart/{store}/products/import",
+        "name": "ext.opencart.products.import"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/opencart/{store}/products/import-one",
+        "name": "ext.opencart.products.import_one"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/opencart/{store}/products/import-selected",
+        "name": "ext.opencart.products.import_selected"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/opencart/{store}/products/link-item",
+        "name": "ext.opencart.products.link_item"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/opencart/{store}/products/search-catalog",
+        "name": "ext.opencart.products.search_catalog"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/opencart/{store}/products/{product}/push",
+        "name": "ext.opencart.products.push"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/opencart/{store}/settings",
+        "name": "ext.opencart.settings.show"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/pedallion",
+        "name": "ext.pedallion.dashboard"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/pedallion/categories",
+        "name": "ext.pedallion.categories.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/categories/fetch",
+        "name": "ext.pedallion.categories.fetch"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/categories/fetch-order-statuses",
+        "name": "ext.pedallion.fetch_order_statuses"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/categories/manufacturers/fetch",
+        "name": "ext.pedallion.manufacturers.fetch"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/categories/order-status-map",
+        "name": "ext.pedallion.order_status_map"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/pedallion/orders",
+        "name": "ext.pedallion.orders.index"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/pedallion/orders/{id}",
+        "name": "ext.pedallion.orders.show"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/pedallion/product-groups",
+        "name": "ext.pedallion.product-groups.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/product-groups",
+        "name": "ext.pedallion.product-groups.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/pedallion/product-groups/create",
+        "name": "ext.pedallion.product-groups.create"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/pedallion/product-groups/{id}",
+        "name": "ext.pedallion.product-groups.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/pedallion/product-groups/{id}",
+        "name": "ext.pedallion.product-groups.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/pedallion/product-groups/{id}/edit",
+        "name": "ext.pedallion.product-groups.edit"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/pedallion/product-groups/{id}/products",
+        "name": "ext.pedallion.product-groups.products"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/pedallion/products",
+        "name": "ext.pedallion.products.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/products/bulk-delete",
+        "name": "ext.pedallion.products.bulk_delete"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/products/bulk-sync",
+        "name": "ext.pedallion.products.bulk_sync"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/products/bulk-sync-price",
+        "name": "ext.pedallion.products.bulk_sync_price"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/products/bulk-sync-qty",
+        "name": "ext.pedallion.products.bulk_sync_qty"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/products/bulk-unlink",
+        "name": "ext.pedallion.products.bulk_unlink"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/pedallion/products/import",
+        "name": "ext.pedallion.products.import"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/products/import-one",
+        "name": "ext.pedallion.products.import_one"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/products/import-selected",
+        "name": "ext.pedallion.products.import_selected"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/products/link",
+        "name": "ext.pedallion.products.link"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/products/link-item",
+        "name": "ext.pedallion.products.link_item"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/products/push-qty",
+        "name": "ext.pedallion.products.push_qty"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/pedallion/products/search-catalog",
+        "name": "ext.pedallion.products.search_catalog"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/pedallion/products/{id}/unlink",
+        "name": "ext.pedallion.products.unlink"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/products/{productId}/delete",
+        "name": "ext.pedallion.products.delete"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/products/{productId}/push",
+        "name": "ext.pedallion.products.push"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/products/{productId}/sync",
+        "name": "ext.pedallion.products.sync"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/products/{productId}/sync-price",
+        "name": "ext.pedallion.products.sync_price"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/products/{productId}/sync-qty",
+        "name": "ext.pedallion.products.sync_qty"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/pedallion/settings",
+        "name": "ext.pedallion.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/settings/api-log-mode",
+        "name": "ext.pedallion.api_log_mode"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/pedallion/settings/api-logs",
+        "name": "ext.pedallion.clear_api_logs"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/settings/explorer/run",
+        "name": "ext.pedallion.explorer_run"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/settings/save",
+        "name": "ext.pedallion.save"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/settings/sync-days",
+        "name": "ext.pedallion.sync_days"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/settings/test",
+        "name": "ext.pedallion.test"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/stores",
+        "name": "ext.shopee.stores.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{legacyPath}",
+        "name": "ext.shopee.legacy_storeless"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store?}",
+        "name": "ext.shopee.dashboard"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/api-log-mode",
+        "name": "ext.shopee.api_log_mode"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/shopee/{store}/api-logs",
+        "name": "ext.shopee.clear_api_logs"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/auth-url",
+        "name": "ext.shopee.auth_url"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/call",
+        "name": "ext.shopee.call_api"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/categories",
+        "name": "ext.shopee.categories.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/categories/fetch",
+        "name": "ext.shopee.categories.fetch"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/categories/{id}/attributes",
+        "name": "ext.shopee.categories.attributes.show"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/categories/{id}/attributes/fetch",
+        "name": "ext.shopee.categories.attributes.fetch"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/delete",
+        "name": "ext.shopee.stores.destroy"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/description-templates",
+        "name": "ext.shopee.description-templates.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/description-templates",
+        "name": "ext.shopee.description-templates.store"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/shopee/{store}/description-templates/{template}",
+        "name": "ext.shopee.description-templates.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/shopee/{store}/description-templates/{template}",
+        "name": "ext.shopee.description-templates.update"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/explorer/run",
+        "name": "ext.shopee.explorer_run"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/listings/{productId}",
+        "name": "ext.shopee.listings.edit"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/listings/{productId}",
+        "name": "ext.shopee.listings.update"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/listings/{productId}/catalog-change",
+        "name": "ext.shopee.listings.catalog_change_save"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/listings/{productId}/catalog-change/ignore",
+        "name": "ext.shopee.listings.catalog_change_ignore"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/listings/{productId}/push-missing-variations",
+        "name": "ext.shopee.listings.push_missing_variations"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/listings/{productId}/push-update",
+        "name": "ext.shopee.listings.push_update"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/listings/{productId}/reread-variations",
+        "name": "ext.shopee.listings.reread_variations"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/listings/{productId}/toggle",
+        "name": "ext.shopee.listings.toggle"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/logistics",
+        "name": "ext.shopee.logistics.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/logistics/fetch",
+        "name": "ext.shopee.logistics.fetch"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/order-status-map",
+        "name": "ext.shopee.order_status_map"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/orders",
+        "name": "ext.shopee.orders.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/orders/fetch",
+        "name": "ext.shopee.orders.fetch"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/orders/fetch-returns",
+        "name": "ext.shopee.orders.fetch_returns"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/orders/fetch-runs",
+        "name": "ext.shopee.orders.fetch_run_begin"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/orders/fetch-runs/{run}",
+        "name": "ext.shopee.orders.fetch_run_state"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/orders/fetch-runs/{run}/step",
+        "name": "ext.shopee.orders.fetch_run_step"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/orders/fetch-runs/{run}/stop",
+        "name": "ext.shopee.orders.fetch_run_stop"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/orders/reset",
+        "name": "ext.shopee.orders.reset"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/orders/returns",
+        "name": "ext.shopee.orders.returns"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/orders/returns/{returnSn}",
+        "name": "ext.shopee.orders.return_detail"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/orders/returns/{returnSn}/solutions",
+        "name": "ext.shopee.orders.return_solutions"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/orders/update-statuses",
+        "name": "ext.shopee.orders.update_statuses"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/orders/{orderSn}",
+        "name": "ext.shopee.orders.show"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/orders/{orderSn}/awb",
+        "name": "ext.shopee.orders.awb"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/orders/{orderSn}/ship",
+        "name": "ext.shopee.orders.ship"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/orders/{orderSn}/shipping-addresses",
+        "name": "ext.shopee.orders.shipping_addresses"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/orders/{orderSn}/tracking",
+        "name": "ext.shopee.orders.tracking"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/orders/{orderSn}/tracking-info",
+        "name": "ext.shopee.orders.tracking_info"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/packs/run",
+        "name": "ext.shopee.packs_run"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/product-groups",
+        "name": "ext.shopee.product-groups.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups",
+        "name": "ext.shopee.product-groups.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/product-groups/brands",
+        "name": "ext.shopee.product-groups.brandsForCategory"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/product-groups/categories/lookup",
+        "name": "ext.shopee.product-groups.categoryLookup"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/product-groups/categories/search",
+        "name": "ext.shopee.product-groups.searchCategories"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/product-groups/create",
+        "name": "ext.shopee.product-groups.create"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/fetch-attributes",
+        "name": "ext.shopee.product-groups.fetchAttributes"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/move",
+        "name": "ext.shopee.product-groups.move"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/refresh-categories",
+        "name": "ext.shopee.product-groups.refreshCategories"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/shopee/{store}/product-groups/{id}",
+        "name": "ext.shopee.product-groups.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/shopee/{store}/product-groups/{id}",
+        "name": "ext.shopee.product-groups.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/product-groups/{id}/edit",
+        "name": "ext.shopee.product-groups.edit"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/product-groups/{id}/orphans",
+        "name": "ext.shopee.product-groups.orphans"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products",
+        "name": "ext.shopee.product-groups.products"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products/check",
+        "name": "ext.shopee.product-groups.check"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products/delete-from-shopee",
+        "name": "ext.shopee.product-groups.deleteFromShopee"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products/mass-remove",
+        "name": "ext.shopee.product-groups.massRemove"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products/push",
+        "name": "ext.shopee.product-groups.push"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products/push-prices",
+        "name": "ext.shopee.product-groups.pushPrices"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products/push-stock",
+        "name": "ext.shopee.product-groups.pushStock"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products/search",
+        "name": "ext.shopee.product-groups.productSearch"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products/send",
+        "name": "ext.shopee.product-groups.send"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products/update-product",
+        "name": "ext.shopee.product-groups.updateProduct"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products/{productId}",
+        "name": "ext.shopee.product-groups.removeProduct"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products/{productId}/add",
+        "name": "ext.shopee.product-groups.addProduct"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products/{productId}/link",
+        "name": "ext.shopee.product-groups.linkProduct"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products/{productId}/sync-id",
+        "name": "ext.shopee.product-groups.syncId"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products/{productId}/unlink",
+        "name": "ext.shopee.product-groups.unlinkProduct"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/send-runs",
+        "name": "ext.shopee.product-groups.send_run_begin"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/send-runs/{run}/step",
+        "name": "ext.shopee.product-groups.send_run_step"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/send-runs/{run}/stop",
+        "name": "ext.shopee.product-groups.send_run_stop"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/template/sync",
+        "name": "ext.shopee.product-groups.template_sync"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/products",
+        "name": "ext.shopee.products.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/add-to-store",
+        "name": "ext.shopee.products.add_to_store_bulk"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/products/brands",
+        "name": "ext.shopee.products.brandsForCategory"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/bulk/delete",
+        "name": "ext.shopee.products.bulk_delete"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/bulk/push",
+        "name": "ext.shopee.products.bulk_push"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/bulk/remove-from-store",
+        "name": "ext.shopee.products.bulk_remove_from_store"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/bulk/sync/price",
+        "name": "ext.shopee.products.bulk_sync_price"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/bulk/sync/quantity",
+        "name": "ext.shopee.products.bulk_sync_quantity"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/bulk/toggle",
+        "name": "ext.shopee.products.bulk_toggle"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/products/catalogue-search",
+        "name": "ext.shopee.products.catalogue_search"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/products/categories/children",
+        "name": "ext.shopee.products.category_children"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/products/categories/lookup",
+        "name": "ext.shopee.products.categoryLookup"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/products/categories/path",
+        "name": "ext.shopee.products.category_path"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/products/categories/search",
+        "name": "ext.shopee.products.searchCategories"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/check",
+        "name": "ext.shopee.products.check"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/fetch-attributes",
+        "name": "ext.shopee.products.fetchAttributes"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/products/import",
+        "name": "ext.shopee.products.import"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/import-one",
+        "name": "ext.shopee.products.import_one"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/import-selected",
+        "name": "ext.shopee.products.import_selected"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/link-item",
+        "name": "ext.shopee.products.link_item"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/rebuild-cache",
+        "name": "ext.shopee.products.rebuild_cache"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/refresh-status",
+        "name": "ext.shopee.products.refresh_status"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/products/search-catalog",
+        "name": "ext.shopee.products.search_catalog"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/{productId}/add-to-store",
+        "name": "ext.shopee.products.add_to_store"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/{productId}/delete",
+        "name": "ext.shopee.products.delete"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/{productId}/push-direct",
+        "name": "ext.shopee.products.push_direct"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/products/{productId}/push-review",
+        "name": "ext.shopee.products.push_review"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/{productId}/remove-from-store",
+        "name": "ext.shopee.products.remove_from_store"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/{productId}/sync/price",
+        "name": "ext.shopee.products.sync_price"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/{productId}/sync/quantity",
+        "name": "ext.shopee.products.sync_quantity"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/{productId}/sync/shopee-id",
+        "name": "ext.shopee.products.sync_shopee_id"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/{productId}/unlink",
+        "name": "ext.shopee.products.unlink"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/purge-raw",
+        "name": "ext.shopee.purge_raw"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/return-status-map",
+        "name": "ext.shopee.return_status_map"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/save",
+        "name": "ext.shopee.save"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/settings",
+        "name": "ext.shopee.settings.show"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/setup/{step}",
+        "name": "ext.shopee.setup_step"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/toggle-mode",
+        "name": "ext.shopee.toggle_mode"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/token/get",
+        "name": "ext.shopee.token_get"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/token/refresh",
+        "name": "ext.shopee.token_refresh"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/vouchers",
+        "name": "ext.shopee.vouchers.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/vouchers",
+        "name": "ext.shopee.vouchers.store"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/vouchers/{voucherId}/delete",
+        "name": "ext.shopee.vouchers.delete"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/vouchers/{voucherId}/end",
+        "name": "ext.shopee.vouchers.end"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/watermarks",
+        "name": "ext.shopee.watermarks.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/watermarks",
+        "name": "ext.shopee.watermarks.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/watermarks/create",
+        "name": "ext.shopee.watermarks.create"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/watermarks/preview",
+        "name": "ext.shopee.watermarks.preview"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/shopee/{store}/watermarks/{template}",
+        "name": "ext.shopee.watermarks.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/shopee/{store}/watermarks/{template}",
+        "name": "ext.shopee.watermarks.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/watermarks/{template}/edit",
+        "name": "ext.shopee.watermarks.edit"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopify/save",
+        "name": "ext.shopify.save"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopify/settings",
+        "name": "ext.shopify.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopify/stores",
+        "name": "ext.shopify.stores.store"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopify/test",
+        "name": "ext.shopify.test"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/shopify/{id}",
+        "name": "ext.shopify.destroy"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopify/{id}/api-log-mode",
+        "name": "ext.shopify.api_log_mode"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/shopify/{id}/api-logs",
+        "name": "ext.shopify.clear_api_logs"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopify/{store?}",
+        "name": "ext.shopify.dashboard"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopify/{store}/delete",
+        "name": "ext.shopify.stores.destroy"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopify/{store}/orders",
+        "name": "ext.shopify.orders.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopify/{store}/orders/fetch",
+        "name": "ext.shopify.orders.fetch"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/shopify/{store}/orders/{order}",
+        "name": "ext.shopify.orders.destroy"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopify/{store}/products/import",
+        "name": "ext.shopify.products.import"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopify/{store}/products/import-one",
+        "name": "ext.shopify.products.import_one"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopify/{store}/products/import-selected",
+        "name": "ext.shopify.products.import_selected"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopify/{store}/products/link-item",
+        "name": "ext.shopify.products.link_item"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopify/{store}/products/search-catalog",
+        "name": "ext.shopify.products.search_catalog"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopify/{store}/settings",
+        "name": "ext.shopify.settings.show"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/stores",
+        "name": "ext.tiktok.stores.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{legacyPath}",
+        "name": "ext.tiktok.legacy_storeless"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store?}",
+        "name": "ext.tiktok.dashboard"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/api-log-mode",
+        "name": "ext.tiktok.api_log_mode"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/tiktok/{store}/api-logs",
+        "name": "ext.tiktok.clear_api_logs"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/categories",
+        "name": "ext.tiktok.categories.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/categories/sync",
+        "name": "ext.tiktok.categories.sync"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/coupons",
+        "name": "ext.tiktok.coupons.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/coupons",
+        "name": "ext.tiktok.coupons.store"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/coupons/{couponId}/deactivate",
+        "name": "ext.tiktok.coupons.deactivate"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/delete",
+        "name": "ext.tiktok.stores.destroy"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/description-templates",
+        "name": "ext.tiktok.description-templates.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/description-templates",
+        "name": "ext.tiktok.description-templates.store"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/tiktok/{store}/description-templates/{template}",
+        "name": "ext.tiktok.description-templates.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/tiktok/{store}/description-templates/{template}",
+        "name": "ext.tiktok.description-templates.update"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/explorer/run",
+        "name": "ext.tiktok.explorer_run"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/listings/{productId}",
+        "name": "ext.tiktok.listings.edit"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/tiktok/{store}/listings/{productId}",
+        "name": "ext.tiktok.listings.update"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/listings/{productId}/catalog-change",
+        "name": "ext.tiktok.listings.catalog_change_save"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/listings/{productId}/catalog-change/ignore",
+        "name": "ext.tiktok.listings.catalog_change_ignore"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/listings/{productId}/push-update",
+        "name": "ext.tiktok.listings.push_update"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/listings/{productId}/toggle",
+        "name": "ext.tiktok.listings.toggle"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/order-status-map",
+        "name": "ext.tiktok.order_status_map"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/orders",
+        "name": "ext.tiktok.orders.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/orders/fetch",
+        "name": "ext.tiktok.orders.fetch"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/orders/fetch-runs",
+        "name": "ext.tiktok.orders.fetch_run_begin"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/orders/fetch-runs/{run}",
+        "name": "ext.tiktok.orders.fetch_run_state"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/orders/fetch-runs/{run}/step",
+        "name": "ext.tiktok.orders.fetch_run_step"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/orders/fetch-runs/{run}/stop",
+        "name": "ext.tiktok.orders.fetch_run_stop"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/orders/returns",
+        "name": "ext.tiktok.orders.returns"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/orders/returns/fetch",
+        "name": "ext.tiktok.orders.fetch_returns"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/orders/update-statuses",
+        "name": "ext.tiktok.orders.updateStatuses"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/orders/{id}/awb",
+        "name": "ext.tiktok.orders.awb"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/orders/{id}/ship",
+        "name": "ext.tiktok.orders.ship"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/orders/{id}/show",
+        "name": "ext.tiktok.orders.show"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/orders/{id}/tracking",
+        "name": "ext.tiktok.orders.tracking"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/packs/run",
+        "name": "ext.tiktok.packs_run"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/product-groups",
+        "name": "ext.tiktok.product-groups.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/product-groups",
+        "name": "ext.tiktok.product-groups.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/product-groups/create",
+        "name": "ext.tiktok.product-groups.create"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/product-groups/fetch-attributes",
+        "name": "ext.tiktok.product-groups.fetchAttributes"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/product-groups/move",
+        "name": "ext.tiktok.product-groups.move"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/tiktok/{store}/product-groups/{id}",
+        "name": "ext.tiktok.product-groups.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/tiktok/{store}/product-groups/{id}",
+        "name": "ext.tiktok.product-groups.update"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/delete-from-tiktok",
+        "name": "ext.tiktok.product-groups.deleteFromTikTok"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/edit",
+        "name": "ext.tiktok.product-groups.edit"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/mass-remove",
+        "name": "ext.tiktok.product-groups.massRemove"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/orphans",
+        "name": "ext.tiktok.product-groups.orphans"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/products",
+        "name": "ext.tiktok.product-groups.products"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/products/check",
+        "name": "ext.tiktok.product-groups.check"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/products/search",
+        "name": "ext.tiktok.product-groups.productSearch"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/products/{productId}/add",
+        "name": "ext.tiktok.product-groups.addProduct"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/products/{product}",
+        "name": "ext.tiktok.product-groups.removeProduct"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/products/{product}/link",
+        "name": "ext.tiktok.product-groups.linkProduct"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/products/{product}/sync-id",
+        "name": "ext.tiktok.product-groups.syncId"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/products/{product}/unlink",
+        "name": "ext.tiktok.product-groups.unlinkProduct"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/push",
+        "name": "ext.tiktok.product-groups.push"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/push-prices",
+        "name": "ext.tiktok.product-groups.pushPrices"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/push-stock",
+        "name": "ext.tiktok.product-groups.pushStock"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/send-runs",
+        "name": "ext.tiktok.product-groups.send_run_begin"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/send-runs/{run}/step",
+        "name": "ext.tiktok.product-groups.send_run_step"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/send-runs/{run}/stop",
+        "name": "ext.tiktok.product-groups.send_run_stop"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/update-product",
+        "name": "ext.tiktok.product-groups.updateProduct"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/products",
+        "name": "ext.tiktok.products.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/products/add-to-store",
+        "name": "ext.tiktok.products.add_to_store_bulk"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/products/brands",
+        "name": "ext.tiktok.products.brandsSearch"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/products/bulk/delete",
+        "name": "ext.tiktok.products.bulk_delete"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/products/bulk/push",
+        "name": "ext.tiktok.products.bulk_push"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/products/bulk/push-price",
+        "name": "ext.tiktok.products.bulk_push_price"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/products/bulk/push-stock",
+        "name": "ext.tiktok.products.bulk_push_stock"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/products/bulk/remove-from-store",
+        "name": "ext.tiktok.products.bulk_remove_from_store"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/products/bulk/toggle",
+        "name": "ext.tiktok.products.bulk_toggle"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/products/catalogue-search",
+        "name": "ext.tiktok.products.catalogue_search"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/products/categories/children",
+        "name": "ext.tiktok.products.category_children"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/products/categories/lookup",
+        "name": "ext.tiktok.products.categoryLookup"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/products/categories/path",
+        "name": "ext.tiktok.products.category_path"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/products/categories/search",
+        "name": "ext.tiktok.products.searchCategories"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/products/check",
+        "name": "ext.tiktok.products.check"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/products/fetch-attributes",
+        "name": "ext.tiktok.products.fetchAttributes"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/products/import",
+        "name": "ext.tiktok.products.import"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/products/import-one",
+        "name": "ext.tiktok.products.import_one"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/products/import-selected",
+        "name": "ext.tiktok.products.import_selected"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/products/link-item",
+        "name": "ext.tiktok.products.link_item"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/products/refresh-status",
+        "name": "ext.tiktok.products.refresh_status"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/products/search-catalog",
+        "name": "ext.tiktok.products.search_catalog"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/products/thumb/{ref}",
+        "name": "ext.tiktok.products.thumb"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/products/{productId}/add-to-store",
+        "name": "ext.tiktok.products.add_to_store"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/products/{productId}/delete",
+        "name": "ext.tiktok.products.delete"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/products/{productId}/push",
+        "name": "ext.tiktok.products.push_direct"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/products/{productId}/push-price",
+        "name": "ext.tiktok.products.push_price"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/products/{productId}/push-stock",
+        "name": "ext.tiktok.products.push_stock"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/products/{productId}/remove-from-store",
+        "name": "ext.tiktok.products.remove_from_store"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/products/{productId}/unlink",
+        "name": "ext.tiktok.products.unlink"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/purge-raw",
+        "name": "ext.tiktok.purge_raw"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/return-status-map",
+        "name": "ext.tiktok.return_status_map"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/save",
+        "name": "ext.tiktok.save"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/settings",
+        "name": "ext.tiktok.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/setup/{step}",
+        "name": "ext.tiktok.setup_step"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/shops",
+        "name": "ext.tiktok.shops"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/toggle-mode",
+        "name": "ext.tiktok.toggle_mode"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/token/get",
+        "name": "ext.tiktok.token_get"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/token/refresh",
+        "name": "ext.tiktok.token_refresh"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/watermarks",
+        "name": "ext.tiktok.watermarks.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/watermarks",
+        "name": "ext.tiktok.watermarks.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/watermarks/create",
+        "name": "ext.tiktok.watermarks.create"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/watermarks/preview",
+        "name": "ext.tiktok.watermarks.preview"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/tiktok/{store}/watermarks/{template}",
+        "name": "ext.tiktok.watermarks.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/tiktok/{store}/watermarks/{template}",
+        "name": "ext.tiktok.watermarks.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/watermarks/{template}/edit",
+        "name": "ext.tiktok.watermarks.edit"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/venta/{any?}",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/fetch-brands",
+        "name": "ext.ventacart.fetch_brands"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/fetch-categories",
+        "name": "ext.ventacart.fetch_categories"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/fetch-statuses",
+        "name": "ext.ventacart.fetch_statuses"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/reviews/push-all",
+        "name": "ext.ventacart.reviews.push_all"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/reviews/{id}/push",
+        "name": "ext.ventacart.reviews.push"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/save",
+        "name": "ext.ventacart.save"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/save-status-map",
+        "name": "ext.ventacart.save_status_map"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/settings",
+        "name": "ext.ventacart.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/stores",
+        "name": "ext.ventacart.stores.store"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/test",
+        "name": "ext.ventacart.test"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/ventacart/{id}",
+        "name": "ext.ventacart.destroy"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{id}/api-log-mode",
+        "name": "ext.ventacart.api_log_mode"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/ventacart/{id}/api-logs",
+        "name": "ext.ventacart.clear_api_logs"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{id}/sync-log-level",
+        "name": "ext.ventacart.set_sync_log_level"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/ventacart/{id}/sync-logs",
+        "name": "ext.ventacart.clear_sync_logs"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/{store?}",
+        "name": "ext.ventacart.dashboard"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/delete",
+        "name": "ext.ventacart.stores.destroy"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/{store}/description-templates",
+        "name": "ext.ventacart.description-templates.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/description-templates",
+        "name": "ext.ventacart.description-templates.store"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/ventacart/{store}/description-templates/{template}",
+        "name": "ext.ventacart.description-templates.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/ventacart/{store}/description-templates/{template}",
+        "name": "ext.ventacart.description-templates.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/{store}/listings",
+        "name": "ext.ventacart.listings.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/listings/bulk-toggle",
+        "name": "ext.ventacart.listings.bulk_toggle"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/listings/bulk/push",
+        "name": "ext.ventacart.listings.bulk_push"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/listings/bulk/push-prices",
+        "name": "ext.ventacart.listings.bulk_push_prices"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/listings/bulk/push-stock",
+        "name": "ext.ventacart.listings.bulk_push_stock"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/{store}/listings/categories/children",
+        "name": "ext.ventacart.listings.category_children"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/{store}/listings/categories/path",
+        "name": "ext.ventacart.listings.category_path"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/{store}/listings/categories/search",
+        "name": "ext.ventacart.listings.category_search"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/listings/check",
+        "name": "ext.ventacart.listings.check"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/listings/refresh-status",
+        "name": "ext.ventacart.listings.refresh_status"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/{store}/listings/{productId}",
+        "name": "ext.ventacart.listings.edit"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/ventacart/{store}/listings/{productId}",
+        "name": "ext.ventacart.listings.update"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/listings/{productId}/catalog-change",
+        "name": "ext.ventacart.listings.catalog_change_save"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/listings/{productId}/catalog-change/ignore",
+        "name": "ext.ventacart.listings.catalog_change_ignore"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/listings/{productId}/push",
+        "name": "ext.ventacart.listings.push"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/listings/{productId}/push-price",
+        "name": "ext.ventacart.listings.push_price"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/listings/{productId}/push-stock",
+        "name": "ext.ventacart.listings.push_stock"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/listings/{productId}/toggle",
+        "name": "ext.ventacart.listings.toggle"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/{store}/orders",
+        "name": "ext.ventacart.orders.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/orders/bulk-delete",
+        "name": "ext.ventacart.orders.bulk_delete"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/orders/fetch",
+        "name": "ext.ventacart.orders.fetch"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/orders/fetch-runs",
+        "name": "ext.ventacart.orders.fetch_run_begin"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/{store}/orders/fetch-runs/{run}",
+        "name": "ext.ventacart.orders.fetch_run_state"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/orders/fetch-runs/{run}/step",
+        "name": "ext.ventacart.orders.fetch_run_step"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/orders/fetch-runs/{run}/stop",
+        "name": "ext.ventacart.orders.fetch_run_stop"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/{store}/orders/pickup-addresses",
+        "name": "ext.ventacart.orders.pickup_addresses"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/{store}/orders/shipping-couriers",
+        "name": "ext.ventacart.orders.shipping_couriers"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/ventacart/{store}/orders/{order}",
+        "name": "ext.ventacart.orders.destroy"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/{store}/orders/{order}/awb",
+        "name": "ext.ventacart.orders.awb"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/orders/{order}/book",
+        "name": "ext.ventacart.orders.book"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/orders/{order}/book-manual",
+        "name": "ext.ventacart.orders.book_manual"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/orders/{order}/cancel-booking",
+        "name": "ext.ventacart.orders.cancel_booking"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/orders/{order}/clear-manual",
+        "name": "ext.ventacart.orders.clear_manual"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/orders/{order}/estimate",
+        "name": "ext.ventacart.orders.estimate"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/{store}/orders/{order}/pickup-slots",
+        "name": "ext.ventacart.orders.pickup_slots"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/{store}/orders/{order}/serviceability",
+        "name": "ext.ventacart.orders.serviceability"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/{store}/orders/{order}/tracking",
+        "name": "ext.ventacart.orders.tracking"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/{store}/product-groups",
+        "name": "ext.ventacart.product-groups.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/product-groups",
+        "name": "ext.ventacart.product-groups.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/{store}/product-groups/create",
+        "name": "ext.ventacart.product-groups.create"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/product-groups/move",
+        "name": "ext.ventacart.product-groups.move"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/{store}/product-groups/search-products",
+        "name": "ext.ventacart.product-groups.searchProducts"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/ventacart/{store}/product-groups/{group}",
+        "name": "ext.ventacart.product-groups.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/ventacart/{store}/product-groups/{group}",
+        "name": "ext.ventacart.product-groups.update"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/product-groups/{group}/add-products",
+        "name": "ext.ventacart.product-groups.addProducts"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/product-groups/{group}/check",
+        "name": "ext.ventacart.product-groups.check"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/product-groups/{group}/delete-from-ventacart",
+        "name": "ext.ventacart.product-groups.bulk-delete-from-ventacart"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/{store}/product-groups/{group}/edit",
+        "name": "ext.ventacart.product-groups.edit"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/product-groups/{group}/mass-remove",
+        "name": "ext.ventacart.product-groups.mass-remove"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/{store}/product-groups/{group}/orphans",
+        "name": "ext.ventacart.product-groups.orphans"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/{store}/product-groups/{group}/products",
+        "name": "ext.ventacart.product-groups.products"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/ventacart/{store}/product-groups/{group}/products/{product}",
+        "name": "ext.ventacart.product-groups.removeProduct"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/product-groups/{group}/products/{product}/delete-from-ventacart",
+        "name": "ext.ventacart.product-groups.deleteFromVenta"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/product-groups/{group}/products/{product}/link",
+        "name": "ext.ventacart.product-groups.link"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/product-groups/{group}/products/{product}/sync-id",
+        "name": "ext.ventacart.product-groups.sync-id"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/product-groups/{group}/products/{product}/unlink",
+        "name": "ext.ventacart.product-groups.unlink"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/product-groups/{group}/push",
+        "name": "ext.ventacart.product-groups.push"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/product-groups/{group}/push-prices",
+        "name": "ext.ventacart.product-groups.push-prices"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/product-groups/{group}/push-stock",
+        "name": "ext.ventacart.product-groups.push-stock"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/product-groups/{group}/send-runs",
+        "name": "ext.ventacart.product-groups.send_run_begin"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/product-groups/{group}/send-runs/{run}/step",
+        "name": "ext.ventacart.product-groups.send_run_step"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/product-groups/{group}/send-runs/{run}/stop",
+        "name": "ext.ventacart.product-groups.send_run_stop"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/products/add-to-store",
+        "name": "ext.ventacart.products.add_to_store_bulk"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/products/add-to-store/{productId}",
+        "name": "ext.ventacart.products.add_to_store"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/products/bulk/delete",
+        "name": "ext.ventacart.products.bulk_delete"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/products/bulk/remove-from-store",
+        "name": "ext.ventacart.products.bulk_remove_from_store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/{store}/products/catalogue-search",
+        "name": "ext.ventacart.products.catalogue_search"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/{store}/products/import",
+        "name": "ext.ventacart.products.import"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/products/import-one",
+        "name": "ext.ventacart.products.import_one"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/products/import-selected",
+        "name": "ext.ventacart.products.import_selected"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/products/link-item",
+        "name": "ext.ventacart.products.link_item"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/products/remove-from-store/{productId}",
+        "name": "ext.ventacart.products.remove_from_store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/{store}/products/search-catalog",
+        "name": "ext.ventacart.products.search_catalog"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/products/{productId}/delete",
+        "name": "ext.ventacart.products.delete"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/products/{productId}/unlink",
+        "name": "ext.ventacart.products.unlink"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/{store}/settings",
+        "name": "ext.ventacart.settings.show"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/setup/{step}",
+        "name": "ext.ventacart.setup_step"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/{store}/watermarks",
+        "name": "ext.ventacart.watermarks.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/{store}/watermarks",
+        "name": "ext.ventacart.watermarks.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/{store}/watermarks/create",
+        "name": "ext.ventacart.watermarks.create"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/{store}/watermarks/preview",
+        "name": "ext.ventacart.watermarks.preview"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/ventacart/{store}/watermarks/{template}",
+        "name": "ext.ventacart.watermarks.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/ventacart/{store}/watermarks/{template}",
+        "name": "ext.ventacart.watermarks.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/ventacart/{store}/watermarks/{template}/edit",
+        "name": "ext.ventacart.watermarks.edit"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/reviews/{id}/push",
+        "name": "ext.woocommerce.reviews.push"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/settings",
+        "name": "ext.woocommerce.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/stores",
+        "name": "ext.woocommerce.stores.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store?}",
+        "name": "ext.woocommerce.dashboard"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/delete",
+        "name": "ext.woocommerce.stores.destroy"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/description-templates",
+        "name": "ext.woocommerce.description-templates.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/description-templates",
+        "name": "ext.woocommerce.description-templates.store"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/woocommerce/{store}/description-templates/{template}",
+        "name": "ext.woocommerce.description-templates.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/woocommerce/{store}/description-templates/{template}",
+        "name": "ext.woocommerce.description-templates.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/listings",
+        "name": "ext.woocommerce.listings.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/listings/bulk-toggle",
+        "name": "ext.woocommerce.listings.bulk_toggle"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/listings/bulk/push",
+        "name": "ext.woocommerce.listings.bulk_push"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/listings/bulk/push-prices",
+        "name": "ext.woocommerce.listings.bulk_push_prices"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/listings/bulk/push-stock",
+        "name": "ext.woocommerce.listings.bulk_push_stock"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/listings/categories/children",
+        "name": "ext.woocommerce.listings.category_children"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/listings/categories/path",
+        "name": "ext.woocommerce.listings.category_path"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/listings/categories/search",
+        "name": "ext.woocommerce.listings.category_search"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/listings/check",
+        "name": "ext.woocommerce.listings.check"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/listings/refresh-status",
+        "name": "ext.woocommerce.listings.refresh_status"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/listings/{productId}",
+        "name": "ext.woocommerce.listings.edit"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/woocommerce/{store}/listings/{productId}",
+        "name": "ext.woocommerce.listings.update"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/listings/{productId}/catalog-change",
+        "name": "ext.woocommerce.listings.catalog_change_save"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/listings/{productId}/catalog-change/ignore",
+        "name": "ext.woocommerce.listings.catalog_change_ignore"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/listings/{productId}/push",
+        "name": "ext.woocommerce.listings.push"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/listings/{productId}/push-price",
+        "name": "ext.woocommerce.listings.push_price"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/listings/{productId}/push-stock",
+        "name": "ext.woocommerce.listings.push_stock"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/listings/{productId}/toggle",
+        "name": "ext.woocommerce.listings.toggle"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/orders",
+        "name": "ext.woocommerce.orders.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/orders/bulk-delete",
+        "name": "ext.woocommerce.orders.bulk_delete"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/orders/bulk-status",
+        "name": "ext.woocommerce.orders.bulk_status"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/orders/fetch",
+        "name": "ext.woocommerce.orders.fetch"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/orders/fetch-runs",
+        "name": "ext.woocommerce.orders.fetch_run_begin"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/orders/fetch-runs/{run}",
+        "name": "ext.woocommerce.orders.fetch_run_state"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/orders/fetch-runs/{run}/step",
+        "name": "ext.woocommerce.orders.fetch_run_step"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/orders/fetch-runs/{run}/stop",
+        "name": "ext.woocommerce.orders.fetch_run_stop"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/woocommerce/{store}/orders/{order}",
+        "name": "ext.woocommerce.orders.destroy"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/orders/{order}/status",
+        "name": "ext.woocommerce.orders.status"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/product-groups",
+        "name": "ext.woocommerce.product-groups.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/product-groups",
+        "name": "ext.woocommerce.product-groups.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/product-groups/create",
+        "name": "ext.woocommerce.product-groups.create"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/product-groups/move",
+        "name": "ext.woocommerce.product-groups.move"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/product-groups/search-products",
+        "name": "ext.woocommerce.product-groups.searchProducts"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}",
+        "name": "ext.woocommerce.product-groups.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}",
+        "name": "ext.woocommerce.product-groups.update"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/add-products",
+        "name": "ext.woocommerce.product-groups.addProducts"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/check",
+        "name": "ext.woocommerce.product-groups.check"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/delete-from-store",
+        "name": "ext.woocommerce.product-groups.bulk-delete-from-store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/edit",
+        "name": "ext.woocommerce.product-groups.edit"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/mass-remove",
+        "name": "ext.woocommerce.product-groups.mass-remove"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/products",
+        "name": "ext.woocommerce.product-groups.products"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/products/{product}/delete-from-store",
+        "name": "ext.woocommerce.product-groups.deleteFromStore"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/products/{product}/remove",
+        "name": "ext.woocommerce.product-groups.removeProduct"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/products/{product}/unlink",
+        "name": "ext.woocommerce.product-groups.unlink"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/push",
+        "name": "ext.woocommerce.product-groups.push"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/push-prices",
+        "name": "ext.woocommerce.product-groups.push-prices"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/push-stock",
+        "name": "ext.woocommerce.product-groups.push-stock"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/send-runs",
+        "name": "ext.woocommerce.product-groups.send_run_begin"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/send-runs/{run}/step",
+        "name": "ext.woocommerce.product-groups.send_run_step"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/send-runs/{run}/stop",
+        "name": "ext.woocommerce.product-groups.send_run_stop"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/products/add-to-store",
+        "name": "ext.woocommerce.products.add_to_store_bulk"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/products/add-to-store/{productId}",
+        "name": "ext.woocommerce.products.add_to_store"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/products/bulk/delete",
+        "name": "ext.woocommerce.products.bulk_delete"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/products/bulk/remove-from-store",
+        "name": "ext.woocommerce.products.bulk_remove_from_store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/products/catalogue-search",
+        "name": "ext.woocommerce.products.catalogue_search"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/products/import",
+        "name": "ext.woocommerce.products.import"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/products/import-one",
+        "name": "ext.woocommerce.products.import_one"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/products/import-selected",
+        "name": "ext.woocommerce.products.import_selected"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/products/link-item",
+        "name": "ext.woocommerce.products.link_item"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/products/remove-from-store/{productId}",
+        "name": "ext.woocommerce.products.remove_from_store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/products/search-catalog",
+        "name": "ext.woocommerce.products.search_catalog"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/products/{productId}/delete",
+        "name": "ext.woocommerce.products.delete"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/products/{productId}/unlink",
+        "name": "ext.woocommerce.products.unlink"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/settings",
+        "name": "ext.woocommerce.settings.show"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/settings",
+        "name": "ext.woocommerce.save"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/settings/api-log-mode",
+        "name": "ext.woocommerce.api_log_mode"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/settings/clear-api-logs",
+        "name": "ext.woocommerce.clear_api_logs"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/settings/clear-sync-logs",
+        "name": "ext.woocommerce.clear_sync_logs"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/settings/disconnect",
+        "name": "ext.woocommerce.disconnect"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/settings/fetch-categories",
+        "name": "ext.woocommerce.fetch_categories"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/settings/status-map",
+        "name": "ext.woocommerce.save_status_map"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/settings/sync-log-level",
+        "name": "ext.woocommerce.sync_log_level"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/settings/test",
+        "name": "ext.woocommerce.test"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/settings/webhooks",
+        "name": "ext.woocommerce.register_webhooks"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/setup/{step}",
+        "name": "ext.woocommerce.setup_step"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/watermarks",
+        "name": "ext.woocommerce.watermarks.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/watermarks",
+        "name": "ext.woocommerce.watermarks.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/watermarks/create",
+        "name": "ext.woocommerce.watermarks.create"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/watermarks/preview",
+        "name": "ext.woocommerce.watermarks.preview"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/woocommerce/{store}/watermarks/{template}",
+        "name": "ext.woocommerce.watermarks.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/woocommerce/{store}/watermarks/{template}",
+        "name": "ext.woocommerce.watermarks.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/watermarks/{template}/edit",
+        "name": "ext.woocommerce.watermarks.edit"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/{channel}/settings/credential/reveal",
+        "name": "channels.credential.reveal"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/{key}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "confirm-password",
+        "name": "password.confirm"
+    },
+    {
+        "method": "POST",
+        "uri": "confirm-password",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "dashboard",
+        "name": "dashboard"
+    },
+    {
+        "method": "POST",
+        "uri": "email/verification-notification",
+        "name": "verification.send"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "forgot-password",
+        "name": "password.request"
+    },
+    {
+        "method": "POST",
+        "uri": "forgot-password",
+        "name": "password.email"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "integrations/{key}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "integrations/{path?}",
+        "name": "channels.legacy"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "lazada",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "lazada/authorize",
+        "name": "ext.lazada.authorize"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "lazada/brands/{any?}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "lazada/callback",
+        "name": "lazada.callback"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "lazada/categories/{any?}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "lazada/orders/{any?}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "lazada/product-groups/{any?}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "lazada/products/{any?}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "login",
+        "name": "login"
+    },
+    {
+        "method": "POST",
+        "uri": "login",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "logout",
+        "name": "logout"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "lookup/categories",
+        "name": "categories.lookup"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "lookup/manufacturers",
+        "name": "manufacturers.lookup"
+    },
+    {
+        "method": "DELETE",
+        "uri": "mcp",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "mcp",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "mcp",
+        "name": "mcp"
+    },
+    {
+        "method": "DELETE",
+        "uri": "oauth/authorize",
+        "name": "passport.authorizations.deny"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "oauth/authorize",
+        "name": "passport.authorizations.authorize"
+    },
+    {
+        "method": "POST",
+        "uri": "oauth/authorize",
+        "name": "passport.authorizations.approve"
+    },
+    {
+        "method": "POST",
+        "uri": "oauth/register",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "oauth/token",
+        "name": "passport.token"
+    },
+    {
+        "method": "POST",
+        "uri": "oauth/token/refresh",
+        "name": "passport.token.refresh"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "opencart",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "opencart/settings/{store}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "opencart/{store}/{any}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "palette/search",
+        "name": "palette.search"
+    },
+    {
+        "method": "PUT",
+        "uri": "password",
+        "name": "password.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "pedallion",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "pedallion/categories/{any?}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "pedallion/orders/{any?}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "pedallion/product-groups/{any?}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "pedallion/products/{any?}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "petty-cash",
+        "name": "ext.pettycash.index"
+    },
+    {
+        "method": "POST",
+        "uri": "petty-cash",
+        "name": "ext.pettycash.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "petty-cash/settings",
+        "name": "ext.pettycash.settings"
+    },
+    {
+        "method": "POST",
+        "uri": "petty-cash/settings/categories",
+        "name": "ext.pettycash.settings.categories.store"
+    },
+    {
+        "method": "DELETE",
+        "uri": "petty-cash/settings/categories/{id}",
+        "name": "ext.pettycash.settings.categories.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "petty-cash/settings/categories/{id}",
+        "name": "ext.pettycash.settings.categories.update"
+    },
+    {
+        "method": "POST",
+        "uri": "petty-cash/settings/roles",
+        "name": "ext.pettycash.settings.roles"
+    },
+    {
+        "method": "DELETE",
+        "uri": "petty-cash/{id}",
+        "name": "ext.pettycash.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "petty-cash/{id}",
+        "name": "ext.pettycash.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "products/{id}/vendors",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "purchase-orders/{any?}",
+        "name": null
+    },
+    {
+        "method": "DELETE",
+        "uri": "purchasing/api/products/{id}/vendors",
+        "name": "ext.purchasing.products.vendors.destroy_bulk"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "purchasing/api/products/{id}/vendors",
+        "name": "ext.purchasing.products.vendors.index"
+    },
+    {
+        "method": "POST",
+        "uri": "purchasing/api/products/{id}/vendors",
+        "name": "ext.purchasing.products.vendors.store"
+    },
+    {
+        "method": "POST",
+        "uri": "purchasing/api/products/{id}/vendors/bulk",
+        "name": "ext.purchasing.products.vendors.store_bulk"
+    },
+    {
+        "method": "DELETE",
+        "uri": "purchasing/api/products/{productId}/vendors/{id}",
+        "name": "ext.purchasing.products.vendors.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "purchasing/api/products/{productId}/vendors/{id}",
+        "name": "ext.purchasing.products.vendors.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "purchasing/api/purchase-orders/products",
+        "name": "ext.purchasing.api.purchase_orders.products"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "purchasing/api/vendors",
+        "name": "ext.purchasing.api.vendors"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "purchasing/products/{id}/vendors",
+        "name": "ext.purchasing.products.vendors.manage"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "purchasing/purchase-orders",
+        "name": "ext.purchasing.purchase_orders.index"
+    },
+    {
+        "method": "POST",
+        "uri": "purchasing/purchase-orders",
+        "name": "ext.purchasing.purchase_orders.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "purchasing/purchase-orders/create",
+        "name": "ext.purchasing.purchase_orders.create"
+    },
+    {
+        "method": "DELETE",
+        "uri": "purchasing/purchase-orders/{id}",
+        "name": "ext.purchasing.purchase_orders.destroy"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "purchasing/purchase-orders/{id}",
+        "name": "ext.purchasing.purchase_orders.show"
+    },
+    {
+        "method": "PUT",
+        "uri": "purchasing/purchase-orders/{id}",
+        "name": "ext.purchasing.purchase_orders.update"
+    },
+    {
+        "method": "POST",
+        "uri": "purchasing/purchase-orders/{id}/attachments",
+        "name": "ext.purchasing.purchase_orders.upload_attachment"
+    },
+    {
+        "method": "DELETE",
+        "uri": "purchasing/purchase-orders/{id}/attachments/{attachmentId}",
+        "name": "ext.purchasing.purchase_orders.delete_attachment"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "purchasing/purchase-orders/{id}/attachments/{attachmentId}/download",
+        "name": "ext.purchasing.purchase_orders.download_attachment"
+    },
+    {
+        "method": "POST",
+        "uri": "purchasing/purchase-orders/{id}/duplicate",
+        "name": "ext.purchasing.purchase_orders.duplicate"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "purchasing/purchase-orders/{id}/edit",
+        "name": "ext.purchasing.purchase_orders.edit"
+    },
+    {
+        "method": "POST",
+        "uri": "purchasing/purchase-orders/{id}/email-test",
+        "name": "ext.purchasing.purchase_orders.email_test"
+    },
+    {
+        "method": "POST",
+        "uri": "purchasing/purchase-orders/{id}/email-vendor",
+        "name": "ext.purchasing.purchase_orders.email_vendor"
+    },
+    {
+        "method": "POST",
+        "uri": "purchasing/purchase-orders/{id}/payment",
+        "name": "ext.purchasing.purchase_orders.record_payment"
+    },
+    {
+        "method": "DELETE",
+        "uri": "purchasing/purchase-orders/{id}/payment/{paymentId}",
+        "name": "ext.purchasing.purchase_orders.delete_payment"
+    },
+    {
+        "method": "PUT",
+        "uri": "purchasing/purchase-orders/{id}/payment/{paymentId}",
+        "name": "ext.purchasing.purchase_orders.update_payment"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "purchasing/purchase-orders/{id}/pdf",
+        "name": "ext.purchasing.purchase_orders.pdf"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "purchasing/purchase-orders/{id}/receive",
+        "name": "ext.purchasing.purchase_orders.receive"
+    },
+    {
+        "method": "POST",
+        "uri": "purchasing/purchase-orders/{id}/receive",
+        "name": "ext.purchasing.purchase_orders.process_receive"
+    },
+    {
+        "method": "POST",
+        "uri": "purchasing/purchase-orders/{id}/status",
+        "name": "ext.purchasing.purchase_orders.update_status"
+    },
+    {
+        "method": "POST",
+        "uri": "purchasing/purchase-orders/{id}/void",
+        "name": "ext.purchasing.purchase_orders.void"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "purchasing/reorder-suggestions",
+        "name": "ext.purchasing.reorder.index"
+    },
+    {
+        "method": "POST",
+        "uri": "purchasing/reorder-suggestions/create-pos",
+        "name": "ext.purchasing.reorder.create_pos"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "purchasing/vendors",
+        "name": "ext.purchasing.vendors.index"
+    },
+    {
+        "method": "POST",
+        "uri": "purchasing/vendors",
+        "name": "ext.purchasing.vendors.store"
+    },
+    {
+        "method": "POST",
+        "uri": "purchasing/vendors/bulk-delete",
+        "name": "ext.purchasing.vendors.bulk_delete"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "purchasing/vendors/create",
+        "name": "ext.purchasing.vendors.create"
+    },
+    {
+        "method": "DELETE",
+        "uri": "purchasing/vendors/{id}",
+        "name": "ext.purchasing.vendors.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "purchasing/vendors/{id}",
+        "name": "ext.purchasing.vendors.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "purchasing/vendors/{id}/edit",
+        "name": "ext.purchasing.vendors.edit"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "reorder-suggestions/{any?}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "reports/categories",
+        "name": "ext.reports.categories"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "reports/categories/export",
+        "name": "ext.reports.categories.export"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "reports/fees",
+        "name": "ext.reports.fees"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "reports/fees/export",
+        "name": "ext.reports.fees.export"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "reports/inventory",
+        "name": "ext.reports.inventory"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "reports/inventory/export",
+        "name": "ext.reports.inventory.export"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "reports/orders",
+        "name": "ext.reports.orders"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "reports/orders/export",
+        "name": "ext.reports.orders.export"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "reports/payouts",
+        "name": "ext.reports.payouts"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "reports/payouts/export",
+        "name": "ext.reports.payouts.export"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "reports/products",
+        "name": "ext.reports.products"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "reports/products/export",
+        "name": "ext.reports.products.export"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "reports/products/{product}/detail",
+        "name": "ext.reports.products.detail"
+    },
+    {
+        "method": "POST",
+        "uri": "reset-password",
+        "name": "password.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "reset-password/{token}",
+        "name": "password.reset"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "reviews/{any?}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "sales/order-payments",
+        "name": "orders.payments_report"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "sales/order-statuses/{any?}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "sales/orders",
+        "name": "orders.index"
+    },
+    {
+        "method": "POST",
+        "uri": "sales/orders",
+        "name": "orders.store"
+    },
+    {
+        "method": "POST",
+        "uri": "sales/orders/bulk",
+        "name": "orders.bulk"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "sales/orders/create",
+        "name": "orders.create"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "sales/orders/search-products",
+        "name": "orders.search_products"
+    },
+    {
+        "method": "DELETE",
+        "uri": "sales/orders/{id}",
+        "name": "orders.destroy"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "sales/orders/{id}",
+        "name": "orders.show"
+    },
+    {
+        "method": "PUT",
+        "uri": "sales/orders/{id}",
+        "name": "orders.update"
+    },
+    {
+        "method": "POST",
+        "uri": "sales/orders/{id}/backfill-costs",
+        "name": "orders.backfill_costs"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "sales/orders/{id}/edit",
+        "name": "orders.edit"
+    },
+    {
+        "method": "POST",
+        "uri": "sales/orders/{id}/fees",
+        "name": "orders.store_fee"
+    },
+    {
+        "method": "DELETE",
+        "uri": "sales/orders/{id}/fees/{feeId}",
+        "name": "orders.destroy_fee"
+    },
+    {
+        "method": "PUT",
+        "uri": "sales/orders/{id}/fees/{feeId}",
+        "name": "orders.update_fee"
+    },
+    {
+        "method": "POST",
+        "uri": "sales/orders/{id}/payments",
+        "name": "orders.store_payment"
+    },
+    {
+        "method": "DELETE",
+        "uri": "sales/orders/{id}/payments/{paymentId}",
+        "name": "orders.destroy_payment"
+    },
+    {
+        "method": "POST",
+        "uri": "sales/orders/{id}/status",
+        "name": "orders.update_status"
+    },
+    {
+        "method": "POST",
+        "uri": "sales/orders/{id}/toggle-override",
+        "name": "orders.toggle_override"
+    },
+    {
+        "method": "POST",
+        "uri": "sales/orders/{id}/toggle-payments",
+        "name": "orders.toggle_payments"
+    },
+    {
+        "method": "POST",
+        "uri": "sales/orders/{id}/update-product-cost",
+        "name": "orders.update_product_cost"
+    },
+    {
+        "method": "POST",
+        "uri": "sales/orders/{id}/update-shipping-cost",
+        "name": "orders.update_shipping_cost"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "sanctum/csrf-cookie",
+        "name": "sanctum.csrf-cookie"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "search",
+        "name": "search"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings",
+        "name": "settings.hub"
+    },
+    {
+        "method": "POST",
+        "uri": "settings",
+        "name": "settings.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings/api",
+        "name": "api_clients.index"
+    },
+    {
+        "method": "POST",
+        "uri": "settings/api",
+        "name": "api_clients.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings/api/create",
+        "name": "api_clients.create"
+    },
+    {
+        "method": "DELETE",
+        "uri": "settings/api/{apiClient}",
+        "name": "api_clients.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "settings/api/{apiClient}",
+        "name": "api_clients.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings/api/{apiClient}/edit",
+        "name": "api_clients.edit"
+    },
+    {
+        "method": "POST",
+        "uri": "settings/api/{apiClient}/rotate",
+        "name": "api_clients.rotate"
+    },
+    {
+        "method": "POST",
+        "uri": "settings/api/{apiClient}/token",
+        "name": "api_clients.token"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings/currencies",
+        "name": "currencies.index"
+    },
+    {
+        "method": "POST",
+        "uri": "settings/currencies",
+        "name": "currencies.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings/currencies/create",
+        "name": "currencies.create"
+    },
+    {
+        "method": "POST",
+        "uri": "settings/currencies/update-rates",
+        "name": "currencies.update_rates"
+    },
+    {
+        "method": "DELETE",
+        "uri": "settings/currencies/{id}",
+        "name": "currencies.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "settings/currencies/{id}",
+        "name": "currencies.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings/currencies/{id}/edit",
+        "name": "currencies.edit"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings/edit",
+        "name": "settings.edit"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings/error-log",
+        "name": "error_log.index"
+    },
+    {
+        "method": "POST",
+        "uri": "settings/error-log/clear",
+        "name": "error_log.clear"
+    },
+    {
+        "method": "POST",
+        "uri": "settings/error-log/test",
+        "name": "error_log.test"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings/extensions",
+        "name": "extensions.index"
+    },
+    {
+        "method": "POST",
+        "uri": "settings/extensions/install",
+        "name": "extensions.install"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings/extensions/mobileapp",
+        "name": "ext.mobileapp.settings.index"
+    },
+    {
+        "method": "PUT",
+        "uri": "settings/extensions/mobileapp",
+        "name": "ext.mobileapp.settings.update"
+    },
+    {
+        "method": "DELETE",
+        "uri": "settings/extensions/mobileapp/phones/{phone}",
+        "name": "ext.mobileapp.settings.revoke"
+    },
+    {
+        "method": "POST",
+        "uri": "settings/extensions/mobileapp/test",
+        "name": "ext.mobileapp.settings.test"
+    },
+    {
+        "method": "POST",
+        "uri": "settings/extensions/refresh",
+        "name": "extensions.refresh"
+    },
+    {
+        "method": "DELETE",
+        "uri": "settings/extensions/{extension}",
+        "name": "extensions.uninstall"
+    },
+    {
+        "method": "POST",
+        "uri": "settings/extensions/{extension}/reinstall",
+        "name": "extensions.reinstall"
+    },
+    {
+        "method": "POST",
+        "uri": "settings/extensions/{extension}/toggle",
+        "name": "extensions.toggle"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings/fulfilment",
+        "name": "settings.fulfilment"
+    },
+    {
+        "method": "PUT",
+        "uri": "settings/fulfilment",
+        "name": "settings.fulfilment.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings/general",
+        "name": "settings.general"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings/mail",
+        "name": "settings.mail"
+    },
+    {
+        "method": "POST",
+        "uri": "settings/mail/test",
+        "name": "settings.mail.test"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings/maintenance",
+        "name": "settings.maintenance"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings/order-statuses",
+        "name": "order_statuses.index"
+    },
+    {
+        "method": "POST",
+        "uri": "settings/order-statuses",
+        "name": "order_statuses.store"
+    },
+    {
+        "method": "POST",
+        "uri": "settings/order-statuses/bulk",
+        "name": "order_statuses.bulk"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings/order-statuses/create",
+        "name": "order_statuses.create"
+    },
+    {
+        "method": "DELETE",
+        "uri": "settings/order-statuses/{id}",
+        "name": "order_statuses.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "settings/order-statuses/{id}",
+        "name": "order_statuses.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings/order-statuses/{id}/edit",
+        "name": "order_statuses.edit"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings/user-groups",
+        "name": "user_groups.index"
+    },
+    {
+        "method": "POST",
+        "uri": "settings/user-groups",
+        "name": "user_groups.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings/user-groups/create",
+        "name": "user_groups.create"
+    },
+    {
+        "method": "DELETE",
+        "uri": "settings/user-groups/{id}",
+        "name": "user_groups.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "settings/user-groups/{id}",
+        "name": "user_groups.update"
+    },
+    {
+        "method": "POST",
+        "uri": "settings/user-groups/{id}/duplicate",
+        "name": "user_groups.duplicate"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings/user-groups/{id}/edit",
+        "name": "user_groups.edit"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings/users",
+        "name": "users.index"
+    },
+    {
+        "method": "POST",
+        "uri": "settings/users",
+        "name": "users.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings/users/create",
+        "name": "users.create"
+    },
+    {
+        "method": "DELETE",
+        "uri": "settings/users/{id}",
+        "name": "users.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "settings/users/{id}",
+        "name": "users.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings/users/{id}/edit",
+        "name": "users.edit"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings/website",
+        "name": "settings.website"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "setup",
+        "name": "first-account"
+    },
+    {
+        "method": "POST",
+        "uri": "setup",
+        "name": "first-account.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "shopee",
+        "name": "ext.shopee.index"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "shopee/authorize",
+        "name": "ext.shopee.authorize"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "shopee/categories/{any?}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "shopee/logistics/{any?}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "shopee/orders/{any?}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "shopee/product-groups/{any?}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "shopee/products/{any?}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "shopify",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "shopify/settings/{store}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "shopify/{store}/{any}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "tiktok",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "tiktok/authorize",
+        "name": "ext.tiktok.authorize"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "tiktok/callback",
+        "name": "ext.tiktok.callback"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "tiktok/categories/{any?}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "tiktok/orders/{any?}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "tiktok/product-groups/{any?}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "ui-kit-v2",
+        "name": "ui_kit_v2"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "vendors/{any?}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "ventacart",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "ventacart/settings/{store}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "ventacart/{store}/{any}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "verify-email",
+        "name": "verification.notice"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "verify-email/{id}/{hash}",
+        "name": "verification.verify"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "warehousing/adjust",
+        "name": "ext.warehousing.inventory.adjust"
+    },
+    {
+        "method": "POST",
+        "uri": "warehousing/adjust",
+        "name": "ext.warehousing.inventory.adjust.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "warehousing/api/products",
+        "name": "ext.warehousing.api.products"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "warehousing/inventory",
+        "name": "ext.warehousing.inventory.index"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "warehousing/locations",
+        "name": "ext.warehousing.locations.index"
+    },
+    {
+        "method": "POST",
+        "uri": "warehousing/locations",
+        "name": "ext.warehousing.locations.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "warehousing/locations/create",
+        "name": "ext.warehousing.locations.create"
+    },
+    {
+        "method": "DELETE",
+        "uri": "warehousing/locations/{id}",
+        "name": "ext.warehousing.locations.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "warehousing/locations/{id}",
+        "name": "ext.warehousing.locations.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "warehousing/locations/{id}/edit",
+        "name": "ext.warehousing.locations.edit"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "warehousing/transfers",
+        "name": "ext.warehousing.transfers.index"
+    },
+    {
+        "method": "POST",
+        "uri": "warehousing/transfers",
+        "name": "ext.warehousing.transfers.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "warehousing/transfers/create",
+        "name": "ext.warehousing.transfers.create"
+    },
+    {
+        "method": "DELETE",
+        "uri": "warehousing/transfers/{id}",
+        "name": "ext.warehousing.transfers.destroy"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "warehousing/transfers/{id}",
+        "name": "ext.warehousing.transfers.show"
+    },
+    {
+        "method": "PUT",
+        "uri": "warehousing/transfers/{id}",
+        "name": "ext.warehousing.transfers.update"
+    },
+    {
+        "method": "POST",
+        "uri": "warehousing/transfers/{id}/cancel",
+        "name": "ext.warehousing.transfers.cancel"
+    },
+    {
+        "method": "POST",
+        "uri": "warehousing/transfers/{id}/complete",
+        "name": "ext.warehousing.transfers.complete"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "warehousing/transfers/{id}/edit",
+        "name": "ext.warehousing.transfers.edit"
+    },
+    {
+        "method": "POST",
+        "uri": "warehousing/transfers/{id}/in-progress",
+        "name": "ext.warehousing.transfers.in_progress"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "warehousing/transfers/{id}/pdf",
+        "name": "ext.warehousing.transfers.pdf"
+    },
+    {
+        "method": "POST",
+        "uri": "warehousing/transfers/{id}/void",
+        "name": "ext.warehousing.transfers.void"
+    },
+    {
+        "method": "POST",
+        "uri": "webhooks/{channel}",
+        "name": "channels.webhooks.receive"
+    }
+]

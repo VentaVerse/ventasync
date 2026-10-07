@@ -1,0 +1,51 @@
+.money-primary {
+    display: block;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+.money-secondary {
+    display: block;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.82rem;
+    color: var(--bl-ink-2);
+}
+
+.money-pending {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--bl-attn-fill);
+}
+
+.currency-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 0.65rem 0.9rem;
+    border-left: 3px solid var(--bl-brand-deep);
+    border-radius: 0 6px 6px 0;
+    background: color-mix(in srgb, var(--bl-brand-deep) 8%, transparent);
+    font-size: 0.88rem;
+}
+
+.currency-banner--pending {
+    border-left-color: var(--bl-attn-fill);
+    background: color-mix(in srgb, var(--bl-attn-fill) 10%, transparent);
+}
+
+.currency-banner__date {
+    color: var(--bl-ink-2);
+    font-size: 0.8rem;
+}
+
+@media (max-width: 640px) {
+    .currency-banner {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+}

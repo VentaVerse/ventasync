@@ -1,0 +1,301 @@
+:root { --cl-strip-h: 63px; }
+
+.cl-strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 28px;
+    padding: 12px 18px;
+    margin-bottom: var(--bl-space-4);
+    border-radius: var(--bl-r-panel);
+    background: var(--ch-deep, var(--bl-ink));
+    color: var(--bl-paper);
+    box-shadow: var(--bl-lift);
+}
+
+@media (min-width: 1001px) {
+    .cl-strip {
+        position: sticky;
+        top: calc(var(--bl-chband-h, 43px) + 10px);
+        z-index: 3;
+    }
+}
+
+.cl-notes {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: var(--bl-space-5);
+}
+
+.cl-strip__state {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 11px 4px 9px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .17);
+    font-size: 13px;
+    font-weight: 650;
+    white-space: nowrap;
+}
+
+.cl-strip__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.cl-strip__state--warning,
+.cl-strip__state--danger,
+.cl-strip__state--success {
+    color: #16202e;
+}
+
+.cl-strip__state--success { background: #9fe6c6; }
+.cl-strip__state--warning { background: #f4cf8a; }
+.cl-strip__state--danger { background: #ffb3a8; }
+
+.cl-strip__figures {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 26px;
+    margin: 0;
+}
+
+.cl-fig {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.cl-fig dt {
+    font-size: var(--bl-lab-size);
+    font-stretch: var(--bl-lab-stretch);
+    font-weight: var(--bl-lab-weight);
+    letter-spacing: var(--bl-lab-track);
+    text-transform: var(--bl-lab-case);
+    color: var(--bl-paper);
+}
+
+.cl-fig dd {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 640;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.01em;
+}
+
+.cl-fig__from {
+    margin-left: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--bl-paper);
+}
+
+.cl-strip__verbs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.cl-strip__verbs .x-btn {
+    border-color: rgba(255, 255, 255, .38);
+    background: transparent;
+    color: var(--bl-paper);
+}
+
+.cl-strip__verbs .x-btn:hover {
+    border-color: var(--bl-paper);
+    background: rgba(255, 255, 255, .12);
+    color: var(--bl-paper);
+}
+
+.cl-strip__verbs .x-btn--oncolor {
+    border-color: transparent;
+    background: var(--bl-paper);
+    color: var(--ch-deep, var(--bl-ink));
+    font-weight: 600;
+}
+
+.cl-strip__verbs .x-btn--oncolor:hover {
+    border-color: transparent;
+    background: #fff;
+    color: var(--ch-deep, var(--bl-ink));
+}
+
+
+.cl-strip__verbs .x-btn:focus-visible {
+    outline: 2px solid var(--bl-paper);
+    outline-offset: 2px;
+}
+
+.cl-strip--quiet {
+    background: var(--bl-sheet);
+    color: var(--bl-ink);
+    border: 1px solid var(--bl-rule);
+    box-shadow: none;
+    justify-content: flex-end;
+}
+
+.cl-strip--quiet .cl-strip__verbs { margin-left: 0; }
+
+.cl-strip--quiet .cl-strip__verbs .x-btn {
+    border-color: var(--bl-rule-2);
+    background: transparent;
+    color: var(--bl-ink);
+}
+
+.cl-strip--quiet .cl-strip__verbs .x-btn:hover {
+    border-color: var(--bl-ink-3);
+    background: var(--bl-chrome);
+    color: var(--bl-ink);
+}
+
+.cl-strip--quiet .cl-strip__verbs .x-btn--oncolor,
+.cl-strip--quiet .cl-strip__verbs .x-btn--oncolor:hover {
+    border-color: transparent;
+    background: var(--ch-deep, var(--bl-ink));
+    color: var(--bl-paper);
+}
+
+.cl-strip--quiet .cl-strip__verbs .x-btn:focus-visible {
+    outline: 2px solid var(--bl-brand);
+    outline-offset: 2px;
+}
+
+.cl-strip__verbs form {
+    margin: 0;
+}
+
+.cl-main > *,
+.cl-rail > * {
+    scroll-margin-top: calc(var(--bl-chband-h) + var(--cl-strip-h) + 24px);
+}
+
+.cl-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+    align-items: start;
+}
+
+@media (min-width: 1001px) {
+    .cl-body {
+        grid-template-columns: minmax(0, 1fr) 300px;
+    }
+
+    .cl-rail {
+        position: sticky;
+        top: calc(var(--bl-chband-h, 43px) + var(--cl-strip-h, 0px) + 16px);
+        max-height: calc(100vh - var(--bl-chband-h, 43px) - var(--cl-strip-h, 0px) - 32px);
+        overflow-y: auto;
+        scrollbar-width: thin;
+    }
+}
+
+.cl-main {
+    display: flex;
+    flex-direction: column;
+    gap: 26px;
+    min-width: 0;
+    padding: 22px 24px 26px;
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-panel);
+    background: var(--bl-sheet);
+    box-shadow: var(--bl-lift);
+}
+
+.cl-main > .fm-section,
+.cl-main > .fm-card,
+.cl-rail > .fm-section,
+.cl-rail > .fm-card {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    overflow: visible;
+}
+
+.cl-main > * + * {
+    padding-top: 26px;
+    border-top: 1px solid var(--bl-rule);
+}
+
+.cl-main > [hidden] {
+    display: none !important;
+}
+
+.cl-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    min-width: 0;
+    padding: 20px 20px 22px;
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-panel);
+    background: var(--bl-sheet);
+    box-shadow: var(--bl-lift);
+}
+
+.cl-rail > * + * {
+    padding-top: 22px;
+    border-top: 1px solid var(--bl-rule-2);
+}
+
+.cl-rail .fm-section__head {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+.cl-rail .fm-section__title,
+.cl-rail .fm-card__title {
+    font-size: var(--bl-lab-size);
+    font-stretch: var(--bl-lab-stretch);
+    font-weight: var(--bl-lab-weight);
+    letter-spacing: var(--bl-lab-track);
+    text-transform: var(--bl-lab-case);
+    color: var(--bl-ink-3);
+}
+
+@media (min-width: 1001px) {
+    .cl-rail .fm-fields--2,
+    .cl-rail .fm-fields--3 {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.cl-rail .fm-stats {
+    padding: 0;
+    border: 0;
+    background: none;
+}
+
+@media (min-width: 901px) {
+    .cl-rail .bl-hint__bubble {
+        right: 0;
+        left: auto;
+    }
+}
+
+@media (max-width: 1000px) {
+    .cl-strip__verbs {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .cl-rail {
+        order: -1;
+    }
+
+    .cl-main,
+    .cl-rail {
+        padding: 18px 16px 20px;
+    }
+}

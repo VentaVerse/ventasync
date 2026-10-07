@@ -1,0 +1,40 @@
+.lg-band__open {
+    font-size: 12px;
+    color: var(--bl-ink-2);
+    text-decoration: underline;
+    text-decoration-color: var(--bl-rule-2);
+    text-underline-offset: 3px;
+    white-space: nowrap;
+}
+
+.lg-band__open:hover {
+    color: var(--bl-ink);
+    text-decoration-color: currentColor;
+}
+
+.lg-band__open:focus-visible {
+    outline: 2px solid var(--bl-ink-2);
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+.lg-band__diff {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+}
+
+.lg-band__diff[hidden],
+.lg-band__open[hidden] {
+    display: none;
+}
+
+.lg-band__diff .fm-section__note {
+    margin: 0;
+}
+
+.lg-band__count {
+    font-weight: 650;
+    color: var(--bl-attn);
+}

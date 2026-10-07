@@ -1,0 +1,32 @@
+{
+    "id": "ventacart",
+    "name": "VentaCart",
+    "version": "0.30.0",
+    "description": "VentaCart ecommerce integration: multi-store order sync, inventory push, product groups, categories",
+    "logs": {
+        "ventacart_sync_logs": {
+            "label": "Sync runs",
+            "kind": "sync"
+        },
+        "ventacart_api_logs": {
+            "label": "API calls"
+        }
+    },
+    "author": "VentaSync",
+    "tier": "community",
+    "license_required": false,
+    "tables": [
+        "ventacart_settings",
+        "ventacart_product_groups",
+        "ventacart_product_group_products",
+        "ventacart_product_links",
+        "ventacart_orders",
+        "ventacart_order_products",
+        "ventacart_order_status_map",
+        "ventacart_sync_logs",
+        "ventacart_api_logs",
+        "ventacart_categories",
+        "ventacart_brands"
+    ],
+    "nav": []
+}
