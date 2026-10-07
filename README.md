@@ -1,12 +1,20 @@
 # VentaSync
 
-**One ERP for sellers on Shopee, Lazada, TikTok Shop, Shopify, WooCommerce, OpenCart and VentaCart.**
+**One ERP for sellers on Shopee, Lazada, TikTok Shop, OpenCart and VentaCart.**
 
-One catalog pushed to every store, every order in one list with its profit, stock deducted as orders come in, and purchasing, warehousing and reports on the same data. Open source, self-hosted, your data on your server.
+One catalog pushed to every store, every order in one list with its profit, and stock deducted as orders come in. Run as many shops per marketplace as you need. Open source, self-hosted, your data on your server.
 
 ![VentaSync dashboard](.github/images/dashboard.png)
 
 Website: [ventasync.com](https://ventasync.com)
+
+## What is included
+
+- Master Catalog with variations, pictures and per-store listings
+- Shopee, Lazada and TikTok Shop, several shops each: listings, orders, returns, reviews, fulfilment and payouts
+- OpenCart and VentaCart storefronts
+- Users, user groups and permissions
+- A REST API for your own tools and a sign-in API for your own mobile app
 
 ## Server requirements
 
@@ -20,7 +28,7 @@ Website: [ventasync.com](https://ventasync.com)
 ## Install
 
 ```bash
-git clone https://github.com/VentaVerse/VentaSync.git ventasync
+git clone https://github.com/VentaVerse/ventasync.git
 cd ventasync
 composer install --no-dev --optimize-autoloader
 
@@ -40,6 +48,10 @@ Add the scheduler to cron. Order syncs, stock and price pushes and token refresh
 Open your domain. The first page asks you to create the administrator account. Stores are connected from inside the app.
 
 Web server examples, upgrades and troubleshooting are in [INSTALL.md](INSTALL.md).
+
+## VentaSync Pro
+
+WooCommerce, Shopify, purchasing, warehouses, reports, petty cash, the mobile app and the AI assistant come with VentaSync Pro. See [ventasync.com](https://ventasync.com).
 
 ## License
 

@@ -4,9 +4,9 @@ This is a standard Laravel 12 install. If you've deployed any Laravel app before
 
 ## Requirements
 
-- **PHP** 8.2 or 8.3 (8.3 recommended) with extensions: `bcmath`, `ctype`, `curl`, `dom`, `fileinfo`, `gd`, `intl`, `json`, `mbstring`, `openssl`, `pcre`, `pdo_mysql`, `tokenizer`, `xml`, `zip`
+- **PHP** 8.2 or newer with extensions: `bcmath`, `ctype`, `curl`, `dom`, `fileinfo`, `gd`, `intl`, `json`, `mbstring`, `openssl`, `pcre`, `pdo_mysql`, `tokenizer`, `xml`, `zip`
 - **MySQL** 8.0+ (or MariaDB 10.6+)
-- **Composer** 2.x (skip if you downloaded a release zip — `vendor/` is already bundled)
+- **Composer** 2.x
 - A web server (Apache or nginx) pointing its document root at `public/`
 
 ---
@@ -15,20 +15,20 @@ This is a standard Laravel 12 install. If you've deployed any Laravel app before
 
 ### 1. Get the code
 
-**Option A — release zip:**
+**Option A: download the zip**
 
 ```bash
 cd /var/www
-wget https://github.com/VentaVerse/VentaSync/archive/refs/heads/main.zip
-unzip main.zip && mv VentaSync-main ventasync
+wget https://github.com/VentaVerse/ventasync/archive/refs/heads/main.zip
+unzip main.zip && mv ventasync-main ventasync
 cd ventasync
 composer install --no-dev --optimize-autoloader
 ```
 
-**Option B — git clone (for development / contributing):**
+**Option B: git clone (for development or contributing)**
 
 ```bash
-git clone https://github.com/VentaVerse/VentaSync.git
+git clone https://github.com/VentaVerse/ventasync.git
 cd ventasync
 composer install --no-dev --optimize-autoloader
 ```
@@ -143,9 +143,9 @@ mysqldump -u ventasync_user -p ventasync > backup-$(date +%Y%m%d).sql
 # 2. Replace files (preserving .env and storage/)
 mv .env /tmp/ventasync.env.backup
 rm -rf app bootstrap config database extensions public/build resources routes vendor
-wget -O /tmp/ventasync.zip https://github.com/VentaVerse/VentaSync/archive/refs/heads/main.zip
+wget -O /tmp/ventasync.zip https://github.com/VentaVerse/ventasync/archive/refs/heads/main.zip
 unzip /tmp/ventasync.zip -d /tmp/
-cp -r /tmp/VentaSync-main/* .
+cp -r /tmp/ventasync-main/* .
 mv /tmp/ventasync.env.backup .env
 
 # 3. Run new migrations + clear caches
@@ -183,5 +183,5 @@ php artisan route:clear
 
 ## Need help?
 
-- Open an issue at https://github.com/VentaVerse/VentaSync/issues
+- Open an issue at https://github.com/VentaVerse/ventasync/issues
 - Or reach us at [ventasync.com/contact](https://ventasync.com/contact)
