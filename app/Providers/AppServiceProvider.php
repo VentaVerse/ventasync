@@ -18,16 +18,13 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         \Laravel\Passport\Passport::$deviceCodeGrantEnabled = false;
+        \Laravel\Passport\Passport::ignoreRoutes();
         $this->app->singleton(\App\Integrations\IntegrationRegistry::class);
         $this->app->singleton(\App\Services\Payouts\PayoutRegistry::class);
     }
 
     public function boot(): void
     {
-        \Laravel\Passport\Passport::authorizationView('ai-tools.oauth-approve');
-        \Laravel\Passport\Passport::tokensExpireIn(now()->addHour());
-        \Laravel\Passport\Passport::refreshTokensExpireIn(now()->addDays(60));
-        \Illuminate\Support\Facades\Auth::viaRequest('mcp-sign-in', fn (\Illuminate\Http\Request $request) => $request->attributes->get('mcp_assistant'));
 
         // migrate:fresh and db:wipe drop every table. Allowed only on a database whose name ends in _test.
         $database = (string) config('database.connections.'.config('database.default').'.database');

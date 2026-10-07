@@ -19,12 +19,6 @@ Route::post('/webhooks/{channel}', [\App\Http\Controllers\Integrations\WebhookCo
     ->name('channels.webhooks.receive');
 
 Route::middleware(['auth'])->group(function () {
-    Route::get('/ai-tools', [\App\Http\Controllers\AiTools\AssistantController::class, 'index'])->name('ai_tools.index');
-    Route::post('/ai-tools', [\App\Http\Controllers\AiTools\AssistantController::class, 'store'])->name('ai_tools.store');
-    Route::put('/ai-tools/{apiClient}', [\App\Http\Controllers\AiTools\AssistantController::class, 'update'])->whereNumber('apiClient')->name('ai_tools.update');
-    Route::delete('/ai-tools/{apiClient}', [\App\Http\Controllers\AiTools\AssistantController::class, 'destroy'])->whereNumber('apiClient')->name('ai_tools.destroy');
-    Route::post('/ai-tools/sign-in', [\App\Http\Controllers\AiTools\AssistantController::class, 'approveSignIn'])->name('ai_tools.sign_in');
-    Route::put('/ai-tools/sign-in-setting', [\App\Http\Controllers\AiTools\AssistantController::class, 'setSignIn'])->name('ai_tools.sign_in_setting');
 
     Route::post('/automations/batch', [\App\Http\Controllers\AutomationsController::class, 'batchUpdate'])
         ->name('automations.batch_update');

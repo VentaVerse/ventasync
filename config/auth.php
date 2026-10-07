@@ -12,10 +12,6 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
-
-        'mcp' => [
-            'driver' => 'mcp-sign-in',
-        ],
     ],
 
     'providers' => [

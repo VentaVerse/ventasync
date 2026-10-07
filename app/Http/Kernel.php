@@ -7,7 +7,6 @@ use Illuminate\Foundation\Http\Kernel as HttpKernel;
 class Kernel extends HttpKernel
 {
     protected $middleware = [
-        \App\Http\Middleware\McpKeyInUrl::class,
         \App\Http\Middleware\TrustProxies::class,
         \Illuminate\Http\Middleware\HandleCors::class,
         \App\Http\Middleware\PreventRequestsDuringMaintenance::class,
@@ -57,8 +56,5 @@ class Kernel extends HttpKernel
         'scope' => \App\Http\Middleware\EnsureApiScope::class,
         'api.audit' => \App\Http\Middleware\LogApiRequest::class,
         'api.limits' => \App\Http\Middleware\EnforceApiClientLimits::class,
-        'mcp.access' => \App\Http\Middleware\EnsureMcpAccess::class,
-        'mcp.auth' => \App\Http\Middleware\AuthenticateMcpCaller::class,
-        'mcp.sign-in' => \App\Http\Middleware\EnsureAssistantSignInEnabled::class,
     ];
 }

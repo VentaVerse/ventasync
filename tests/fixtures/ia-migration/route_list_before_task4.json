@@ -37,32 +37,32 @@
     {
         "method": "GET|HEAD",
         "uri": "ai-tools",
-        "name": "ai_tools.index"
+        "name": "ext.assistant.index"
     },
     {
         "method": "POST",
         "uri": "ai-tools",
-        "name": "ai_tools.store"
+        "name": "ext.assistant.store"
     },
     {
         "method": "POST",
         "uri": "ai-tools/sign-in",
-        "name": "ai_tools.sign_in"
+        "name": "ext.assistant.sign_in"
     },
     {
         "method": "PUT",
         "uri": "ai-tools/sign-in-setting",
-        "name": "ai_tools.sign_in_setting"
+        "name": "ext.assistant.sign_in_setting"
     },
     {
         "method": "DELETE",
         "uri": "ai-tools/{apiClient}",
-        "name": "ai_tools.destroy"
+        "name": "ext.assistant.destroy"
     },
     {
         "method": "PUT",
         "uri": "ai-tools/{apiClient}",
-        "name": "ai_tools.update"
+        "name": "ext.assistant.update"
     },
     {
         "method": "GET|HEAD",
