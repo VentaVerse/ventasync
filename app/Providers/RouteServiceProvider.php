@@ -27,6 +27,8 @@ class RouteServiceProvider extends ServiceProvider
         }
 
         $this->routes(function () {
+            \App\Support\AppDoor::mount($this->app['router'], ['api'], base_path('routes/app.php'));
+
             Route::middleware('api')
                 ->prefix('api')
                 ->group(base_path('routes/api.php'));

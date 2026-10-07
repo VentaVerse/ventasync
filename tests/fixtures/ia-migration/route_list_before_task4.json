@@ -66,6 +66,336 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "api/app/v1/customers",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/customers/history",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/dashboard",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/dashboard/chart-data",
+        "name": null
+    },
+    {
+        "method": "DELETE",
+        "uri": "api/app/v1/device-token",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/device-token",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/fulfilment/packing-check/{channel}/{order}",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/fulfilment/packing-check/{channel}/{order}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/inventory",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/inventory/adjust",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/login",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/logout",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/marketplace-config",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/marketplace/{platform}/orders",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/marketplace/{platform}/orders/{id}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/marketplace/{platform}/orders/{id}/awb",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/marketplace/{platform}/orders/{id}/pack",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/marketplace/{platform}/orders/{id}/repack",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/marketplace/{platform}/orders/{id}/rts",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/marketplace/{platform}/orders/{id}/ship",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/marketplace/{platform}/orders/{id}/shipping-options",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/marketplace/{platform}/orders/{id}/tracking",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/order-statuses",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/orders",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/orders/pending-count",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/orders/{id}",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/orders/{id}/ship",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/orders/{id}/status",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/products",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/products/{id}/quantity",
+        "name": null
+    },
+    {
+        "method": "PUT",
+        "uri": "api/app/v1/products/{id}/quantity",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/purchasing/payables",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/purchasing/purchase-orders",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/purchasing/purchase-orders",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/purchasing/purchase-orders/{ref}",
+        "name": null
+    },
+    {
+        "method": "PUT",
+        "uri": "api/app/v1/purchasing/purchase-orders/{ref}",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/purchasing/purchase-orders/{ref}/payments",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/purchasing/purchase-orders/{ref}/receive",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/purchasing/sell-through",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/purchasing/vendor-terms",
+        "name": null
+    },
+    {
+        "method": "PUT",
+        "uri": "api/app/v1/purchasing/vendor-terms",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/purchasing/vendors",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/receivables",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/receivables/payments",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/reports/categories",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/reports/fees",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/reports/inventory",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/reports/orders",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/reports/payouts",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/reports/products",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/user",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/user/permissions",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/ventacart-stores",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/ventacart/{store}/orders",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/ventacart/{store}/orders/{id}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/ventacart/{store}/orders/{id}/awb",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/ventacart/{store}/orders/{id}/book",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/ventacart/{store}/orders/{id}/book-manual",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/ventacart/{store}/orders/{id}/estimate",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/ventacart/{store}/orders/{id}/pickup-slots",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/ventacart/{store}/orders/{id}/serviceability",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/ventacart/{store}/orders/{id}/tracking",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/ventacart/{store}/pickup-addresses",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/ventacart/{store}/shipping-couriers",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/warehousing/stock",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/warehousing/transfers",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "api/catalog/categories",
         "name": "api.catalog.categories"
     },

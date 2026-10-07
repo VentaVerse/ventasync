@@ -66,10 +66,7 @@ abstract class ExtensionProvider extends ServiceProvider
 
         $appRouteFile = $this->basePath . '/routes/app.php';
         if (file_exists($appRouteFile)) {
-            $this->app['router']
-                ->prefix('api')
-                ->middleware(['api', 'auth:sanctum', 'app.person', 'app.once', 'app.former-names'])
-                ->group($appRouteFile);
+            \App\Support\AppDoor::mount($this->app['router'], ['api', 'auth:sanctum', 'app.person', 'app.once'], $appRouteFile);
         }
     }
 

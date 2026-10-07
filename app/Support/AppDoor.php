@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\User;
+use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Gate;
 
 final class AppDoor
@@ -12,6 +13,14 @@ final class AppDoor
     public const VALUE = 'app';
 
     public const SIGN_IN = 'app.sign-in';
+
+    public const PREFIX = 'api/app/v1';
+
+    public const FORMER_PREFIX = 'api';
+
+    private const FORMER_CHANNEL_NAMES = ['ventacart' => 'venta'];
+
+    private static bool $mountingFormer = false;
 
     public const APP_OFF = 'The mobile app is not turned on for this business.';
 
@@ -35,7 +44,33 @@ final class AppDoor
 
     public static function pagePath(string $path): string
     {
-        return url((self::isApp() ? '/api/' : '/api/v1/') . ltrim($path, '/'));
+        $request = request();
+        $prefix = match (true) {
+            $request !== null && $request->is(self::PREFIX . '/*') => '/' . self::PREFIX . '/',
+            self::isApp() => '/' . self::FORMER_PREFIX . '/',
+            default => '/api/v1/',
+        };
+
+        return url($prefix . ltrim($path, '/'));
+    }
+
+    // The same route file serves /api/app/v1 and, for phones on older apps, /api with the former names.
+    public static function mount(Router $router, array $middleware, string $file): void
+    {
+        foreach ([false, true] as $former) {
+            self::$mountingFormer = $former;
+            $router->prefix($former ? self::FORMER_PREFIX : self::PREFIX)
+                ->middleware($former ? [...$middleware, 'app.former-names'] : $middleware)
+                ->group($file);
+        }
+        self::$mountingFormer = false;
+    }
+
+    public static function channelNames(string $channel): array
+    {
+        $former = self::FORMER_CHANNEL_NAMES[$channel] ?? null;
+
+        return self::$mountingFormer && $former !== null ? [$channel, $former] : [$channel];
     }
 
     public static function source(string $source): string
