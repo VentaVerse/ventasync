@@ -3,17 +3,8 @@
 
 @section('content')
 @php
-    // The same row every layout reads, shared with every view by
-    // AppServiceProvider. Not config('app.name'), which is still "Laravel"
-    // in this install and would be printed on paper.
     $companyName = $appSetting->company_name ?? 'VentaSync';
 @endphp
-{{-- ONE SHEET FOR THE WHOLE SELECTION, consolidated by SKU.
-     A pick list answers "what do I take off the shelves", which is a
-     question about stock rather than about orders: three orders wanting the
-     same cable is one trip for three of them, not three trips. The orders
-     each line came from are listed at the foot so a discrepancy can be
-     traced back. --}}
 <div class="pl-page">
     <div class="pl-masthead">
         <div>

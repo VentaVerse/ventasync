@@ -4,13 +4,8 @@
 
 @section('content')
 @php
-    // Reading the list needs view_website_settings|manage_website_settings;
-    // every write (create, edit, delete, refresh rates) needs
-    // manage_website_settings specifically. See routes/settings.php.
     $canManageCurrencies = auth()->user()?->hasPermission('manage_settings/currency') ?? false;
 
-    // Never hardcoded: the default currency is whatever the `currencies`
-    // table says it is, resolved once per request and cached by Money.
     $defaultCode = \App\Support\Money::defaultCode();
 
     $hasFilters = ($q ?? '') !== '';
@@ -85,8 +80,6 @@
             </td>
             <td class="st-col-symbol" data-label="Symbol">{{ $c->symbol }}</td>
             <td class="st-col-rate x-td-num" data-label="Rate">
-                {{-- The number alone is ambiguous in both directions, so the
-                     row spells out which way it reads. --}}
                 <div class="st-rate">
                     <span class="st-rate__value">{{ rtrim(rtrim(number_format((float) $c->exchange_rate, 8, '.', ''), '0'), '.') }}</span>
                     <span class="st-rate__basis">1 {{ $c->code }} = {{ rtrim(rtrim(number_format((float) $c->exchange_rate, 8, '.', ''), '0'), '.') }} {{ $defaultCode }}</span>

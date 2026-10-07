@@ -1,18 +1,3 @@
-{{--
-    WHY THIS LIST IS NARROW, in the words that sent you here (#240).
-
-    A dashboard chip says "3 listings need attention" and links straight to
-    this page filtered to those three. Arriving at a shorter table with no
-    explanation reads as a page that lost rows, so the filter says itself,
-    in the same sentence, with the way out beside it.
-
-    Rendered only while a ?state= filter is on; the rest of the time it
-    draws nothing at all.
-
-      bucket  'attention' | 'drift' | null
-      count   how many rows the filter left
-      clear   the URL for this page with the filter taken off
---}}
 @php
     $bucket = \App\Integrations\Listings\ListingTrouble::asked($bucket ?? null);
 @endphp

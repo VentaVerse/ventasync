@@ -18,12 +18,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * The store's listings index (#171): in the menu like the Big 3, the
- * status menu with the store's statuses from the mirror (#166), rows that link to
- * the singular page, the mirror filling its own blanks, a Refresh that
- * walks the store's product list, and Unlist / Relist for a selection.
- */
 class VentaListingsIndexTest extends TestCase
 {
     use RefreshDatabase;
@@ -79,7 +73,6 @@ class VentaListingsIndexTest extends TestCase
         return $pid;
     }
 
-    /** Three products in a group: one active on the store, one unlisted, one never pushed. */
     private function scope(VentaSetting $store): array
     {
         $group = VentaProductGroup::create(['venta_setting_id' => $store->id, 'name' => 'Pedals']);
@@ -118,17 +111,14 @@ class VentaListingsIndexTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        // The store's statuses are the tab row; the menu holds only VentaSync's own.
         $this->assertStringContainsString('class="x-segment-bar"', $html);
         $this->assertStringContainsString('On Gear Depot', $html);
         $this->assertMatchesRegularExpression('/<span>Active<\/span>\s*<span class="x-segment__count">1<\/span>/', $html);
         $this->assertMatchesRegularExpression('/<span>Unlisted<\/span>\s*<span class="x-segment__count">1<\/span>/', $html);
         $this->assertMatchesRegularExpression('/<span>All products<\/span>\s*<span class="x-segment__count">3<\/span>/', $html);
         $this->assertStringNotContainsString('<span class="lsm-item__label">Active</span>', $html);
-        // Where it stands is the segment above the table now, not the rail.
         $this->assertMatchesRegularExpression('/<span class="lss__label">All<\/span>\s*<span class="lss__n">3<\/span>/', $html);
         $this->assertMatchesRegularExpression('/<span class="lss__label">Live on Gear Depot<\/span>\s*<span class="lss__n">2<\/span>/', $html);
-        // The rail carries the store's groups instead.
         $this->assertMatchesRegularExpression('/<span class="lsm-item__label">All products<\/span>\s*<span class="lsm-n">3<\/span>/', $html);
         $this->assertStringContainsString('<span class="co-item__sku lsm-chanid">Venta 11</span>', $html);
         $this->assertStringContainsString('class="x-segment-group__refresh"', $html);
@@ -141,7 +131,6 @@ class VentaListingsIndexTest extends TestCase
         Http::assertNothingSent();
     }
 
-    /** The status menu: Push failed narrows Listed, and the page's older filter words still land where they did. */
     public function test_the_menu_shows_and_push_failed_combines_with_listed(): void
     {
         $store = $this->store();
@@ -161,25 +150,20 @@ class VentaListingsIndexTest extends TestCase
         $this->actingAs($user)->get(route('ext.venta.listings.index', ['store' => $store->id, 'sync_status' => 'not_listed']))->assertOk()
             ->assertSee('New pedal')->assertDontSee('Active pedal')->assertDontSee('Unlisted pedal');
 
-        // A retired eligibility rung lands on the half it belonged to.
         $this->actingAs($user)->get(route('ext.venta.listings.index', ['store' => $store->id, 'sync_status' => 'ready']))->assertOk()
             ->assertSee('New pedal')->assertDontSee('Active pedal')->assertSee('matches: Not live on Gear Depot', false);
         Http::assertNothingSent();
     }
 
-    /** A retired eligibility address lands on its half, and the store's tab and the menu still combine. */
     public function test_a_retired_eligibility_link_lands_on_its_half(): void
     {
         $store = $this->store();
         $ids = $this->scope($store);
         $pfx = (string) config('catalog.prefix');
-        // Unlisted pedal is linked but has no SKU; New pedal is not linked and has none either.
         DB::table($pfx . 'product')->whereIn('product_id', [$ids['U-1'], $ids['N-1']])->update(['sku' => '']);
         Http::fake();
         $user = $this->manager();
 
-        /* Both retired rungs belonged to Listed, so both land there: the
-           linked products, complete or not, and never the unlinked one. */
         foreach (['listed_not_ready', 'listed_ready'] as $retired) {
             $this->actingAs($user)->get(route('ext.venta.listings.index', ['store' => $store->id, 'sync_status' => $retired]))
                 ->assertOk()
@@ -190,7 +174,6 @@ class VentaListingsIndexTest extends TestCase
             ->assertOk()
             ->assertSee('class="x-segment-bar"', false)
             ->getContent();
-        // The tab row counts the rows the menu has chosen.
         $this->assertMatchesRegularExpression('/<span>All products<\/span>\s*<span class="x-segment__count">2<\/span>/', $html);
         $this->assertMatchesRegularExpression('/<span>Unlisted<\/span>\s*<span class="x-segment__count">1<\/span>/', $html);
         $this->assertMatchesRegularExpression('/<span>Active<\/span>\s*<span class="x-segment__count">1<\/span>/', $html);
@@ -231,7 +214,6 @@ class VentaListingsIndexTest extends TestCase
         $this->assertSame('active', VentaListing::where('product_id', $blank)->value('live_status'));
         Http::assertSentCount(1);
 
-        // Asked once; the next view reads the mirror.
         $this->actingAs($this->manager())->get(route('ext.venta.listings.index', $store->id))->assertOk();
         Http::assertSentCount(1);
     }
@@ -294,9 +276,6 @@ class VentaListingsIndexTest extends TestCase
     {
         $store = $this->store();
         $ids = $this->scope($store);
-        /* The cron re-reads the statuses AND checks the links since
-         * 2026-09-07, so the store is asked for each linked SKU too: A-1 is
-         * gone from the store (404, its link is dropped) and U-1 is there. */
         Http::fake([
             self::BASE . '/api/v1/products/A-1' => Http::response(['message' => 'Not found'], 404),
             self::BASE . '/api/v1/products/U-1' => Http::response(['data' => ['id' => 12, 'sku' => 'U-1', 'status' => true]]),
@@ -307,7 +286,6 @@ class VentaListingsIndexTest extends TestCase
 
         $this->assertSame('active', VentaListing::where('product_id', $ids['U-1'])->value('live_status'));
         $this->assertSame('missing', VentaListing::where('product_id', $ids['A-1'])->value('live_status'));
-        // The check dropped A-1's link, so the mirror counts one live listing.
         $this->assertSame(['active' => 1, 'unlisted' => 0, 'missing' => 0], VentaListingMirror::for($store)->counts());
         $this->assertDatabaseMissing('venta_product_links', ['venta_setting_id' => $store->id, 'product_id' => $ids['A-1']]);
     }
@@ -347,11 +325,6 @@ class VentaListingsIndexTest extends TestCase
         Http::assertNothingSent();
     }
 
-    /**
-     * "Has an error" lists exactly the rows that show an error line, on the
-     * Listings page and the group page: a missing variation counts, and a
-     * product drops out once its error clears.
-     */
     public function test_the_error_filter_lists_exactly_the_rows_with_an_error_line(): void
     {
         $store = $this->store();
@@ -377,7 +350,6 @@ class VentaListingsIndexTest extends TestCase
 
         $this->assertEqualsCanonicalizing([$tee, $errored], \Extensions\venta\Services\Venta\VentaListingStates::for($store->id)->erroredProductIds());
 
-        // The Listings page reads an old error link as Push failed switched on; the group page keeps its dropdown.
         $markers = [
             route('ext.venta.listings.index', ['store' => $store->id, 'sync_status' => 'error']) => 'lsm-item lsm-flag is-on',
             route('ext.venta.product-groups.products', ['store' => $store->id, 'group' => $group->id, 'sync_status' => 'error']) => '>Has an error</option>',
@@ -403,7 +375,6 @@ class VentaListingsIndexTest extends TestCase
             $this->assertStringNotContainsString('Errored pedal', $html, $url);
         }
     }
-    /** A row is named by this store's own title, the catalog's name when it has none, and the search finds it by that title. */
     public function test_a_row_shows_the_stores_own_title_and_the_search_finds_it(): void
     {
         $store = $this->store();
@@ -432,12 +403,6 @@ class VentaListingsIndexTest extends TestCase
         }
     }
 
-    /**
-     * From the Listings page a ticked product moves into a group, from one
-     * group to another, and out of every group, and the page it was on is
-     * where the operator lands. Moving is a group permission: a listing
-     * manager without it sees no picker and is refused.
-     */
     public function test_a_ticked_product_moves_between_groups_from_the_listings_page(): void
     {
         Http::fake();
@@ -451,7 +416,6 @@ class VentaListingsIndexTest extends TestCase
         $back = parse_url(route('ext.venta.listings.index', $store->id), PHP_URL_PATH);
         $pivot = fn () => \Illuminate\Support\Facades\DB::table('venta_product_group_products')->where('product_id', $pid)->pluck('venta_product_group_id')->map(fn ($v) => (int) $v)->all();
 
-        // Without the group permission: no picker, and the move is refused with nothing changed.
         $this->actingAs($listingOnly)->get(route('ext.venta.listings.index', $store->id))->assertOk()->assertDontSee('Move to group');
         $this->actingAs($listingOnly)->post(route('ext.venta.product-groups.move', $store->id), ['ids' => [$pid], 'group' => $groupA->id, '_return' => $back])->assertRedirect()->assertSessionHas('error');
         $this->assertSame([], $pivot());
@@ -462,12 +426,10 @@ class VentaListingsIndexTest extends TestCase
             ->assertRedirect($back)->assertSessionHas('status', '1 product moved to ' . $groupA->name . '.');
         $this->assertSame([$groupA->id], $pivot());
 
-        // A product belongs to one group, so choosing another moves it there.
         $this->actingAs($manager)->post(route('ext.venta.product-groups.move', $store->id), ['ids' => [$pid], 'group' => $groupB->id, '_return' => $back])
             ->assertRedirect($back);
         $this->assertSame([$groupB->id], $pivot());
 
-        // Inside a group the same row can be taken straight out of it.
         $this->actingAs($manager)->get(route('ext.venta.listings.index', ['store' => $store->id, 'group' => $groupB->id]))->assertOk()->assertSee('Remove from group')->assertSee('Manage group');
 
         $this->actingAs($manager)->post(route('ext.venta.product-groups.move', $store->id), ['ids' => [$pid], 'group' => 'none', '_return' => $back])
@@ -495,7 +457,6 @@ class VentaListingsIndexTest extends TestCase
         $this->actingAs($manager)->get($page)->assertOk()->assertSee('Send group')
             ->assertSee('Send all 2 products in Fuzz to Gear Depot on group settings, rather than their own?');
 
-        // A store turned off refuses before anything is sent.
         $store->update(['enabled' => false]);
         $answer = $this->actingAs($manager)->postJson(route('ext.venta.product-groups.send_run_begin', [$store->id, $group->id]))->assertOk()->json();
         $this->assertSame('failed', $answer['run']['status']);

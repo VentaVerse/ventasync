@@ -1,22 +1,3 @@
-{{-- THE VIDEO THAT GOES UP, on a listing page.
-
-     The catalog's video is the source, as the picture library is. This store
-     sends it unless it says otherwise: its own video instead, or none at all.
-
-     It exists because the channels disagree and that is not an error in the
-     video. Ninety seconds is fine on TikTok and Lazada and refused by Shopee,
-     so the seller keeps their video where it is taken and gives that one store
-     its own cut. The catalog and the other channels are untouched either way.
-
-     Expected keys:
-       storeName   the store's name, for the words
-       productId   the catalog product
-       video       ?array from ListingVideo::cardData, already measured
-       videoOff    bool  this store sends none
-       videoError  ?string (optional) what the store said about this video
-       canManage   bool
-       uploadUrl   where a replacement for this store is posted
-       anchor      string (optional) an id, for a readiness gap to link at --}}
 @php
     $cvOff = (bool) ($videoOff ?? false);
     $cvVideo = $video ?? null;
@@ -24,9 +5,6 @@
 <section class="fm-section" @isset($anchor) id="{{ $anchor }}" @endisset>
     <div class="fm-section__head">
         <h2 class="fm-section__title">Video on {{ $storeName }}</h2>
-        {{-- What the store said about this video, beside it rather than at the
-             top of the page: the store is the only one that knows what it
-             takes, and this is where the seller answers it. --}}
         @if(! empty($videoError))
             <p class="fm-section__bad">{{ $videoError }}</p>
         @endif

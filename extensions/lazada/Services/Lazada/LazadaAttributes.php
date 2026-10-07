@@ -6,29 +6,10 @@ use Extensions\lazada\Models\LazadaBrand;
 use Extensions\lazada\Models\LazadaCategoryTemplate;
 use Extensions\lazada\Models\LazadaSetting;
 
-/**
- * The attribute vocabulary, out of the god controller (Phase C, #184).
- *
- * Everything that decides what a category template MEANS lives here: which
- * rows are questions and which are wire plumbing, which the catalogue
- * answers by itself (#175), which are SKU-level, how a saved __map: value
- * resolves against the product row, and the sale-prop keys a category
- * varies on. One copy - the group controller carried its own pre-#175
- * fork of the extractor that still showed sale props as questions, and
- * the readiness service had to resolve the whole controller to reach
- * three of these methods.
- */
 class LazadaAttributes
 {
-    /**
-     * Prefix used to store "mapped to ERP field" attribute values.
-     * e.g. "__map:name" means "pull value from product_description.name".
-     */
     public const MAP_PREFIX = '__map:';
 
-    /**
-     * ERP product fields available as mapping sources (dropdown options).
-     */
     public const ERP_SOURCE_FIELDS = [
         'name'             => 'Product Name',
         'description'      => 'Product Description',
@@ -49,19 +30,6 @@ class LazadaAttributes
         'quantity'         => 'Quantity',
     ];
 
-    /**
-     * Template attributes the catalogue can answer by itself, keyed by
-     * Lazada's machine name => the ERP field that answers it (#175).
-     *
-     * Lazada's category template lists name and description in the same
-     * mandatory list as Colour Family, because its API has no top-level
-     * content fields: EVERYTHING travels inside Attributes. The old design
-     * (CedCommerce's shape) read that as "the operator must answer every
-     * row". Shopee and TikTok were rebuilt to fill the obvious fields from
-     * the catalogue and only ask the category's own questions; this set is
-     * Lazada catching up. A saved value still wins: auto-fill only steps in
-     * where the operator said nothing.
-     */
     public const AUTO_FILLED_ATTRIBUTES = [
         'name'              => 'name',
         'description'       => 'description',
@@ -74,23 +42,15 @@ class LazadaAttributes
         return array_key_exists(strtolower(trim($key)), self::AUTO_FILLED_ATTRIBUTES);
     }
 
-    /**
-     * Fill the blanks the catalogue can fill, BEFORE any mandatory gate
-     * runs. This used to exist as a fallback below the gate, where it could
-     * never fire: the gate threw "name is mandatory" first (#175).
-     */
     public function autoFillBasics(array $attrs, ?object $productRow): array
     {
         foreach (self::AUTO_FILLED_ATTRIBUTES as $key => $erpField) {
             $current = $attrs[$key] ?? null;
             if ($current !== null && trim((string) $current) !== '') {
-                continue;   // the operator's own value always wins
+                continue;
             }
             $resolved = $this->resolveMappedValue($erpField, $productRow);
             if ($resolved === null || trim($resolved) === '') {
-                // short_description falls back to the name rather than
-                // staying blank: Lazada wants highlights, and the product's
-                // name is a poor highlight but an honest one.
                 $resolved = $key === 'short_description'
                     ? $this->resolveMappedValue('name', $productRow)
                     : null;
@@ -103,25 +63,16 @@ class LazadaAttributes
         return $attrs;
     }
 
-    /**
-     * Check if a stored attribute value is a mapping reference.
-     */
     public function isMapValue(?string $value): bool
     {
         return $value !== null && str_starts_with($value, self::MAP_PREFIX);
     }
 
-    /**
-     * Extract the ERP field name from a __map: prefixed value.
-     */
     public function extractMapField(string $value): string
     {
         return substr($value, strlen(self::MAP_PREFIX));
     }
 
-    /**
-     * Resolve an ERP field identifier to the actual value from a product row.
-     */
     public function resolveMappedValue(string $erpField, ?object $productRow): ?string
     {
         if (!$productRow || $erpField === '') return null;
@@ -147,7 +98,6 @@ class LazadaAttributes
             default            => null,
         };
 
-        // HTML-entity decode for description fields (ERP may store HTML-escaped)
         if ($val !== null && in_array($erpField, ['description', 'name', 'meta_title', 'meta_description'], true)) {
             if (str_contains($val, '&lt;') || str_contains($val, '&gt;') || str_contains($val, '&amp;')) {
                 $val = html_entity_decode($val, ENT_QUOTES | ENT_HTML5, 'UTF-8');
@@ -157,10 +107,6 @@ class LazadaAttributes
         return $val;
     }
 
-    /**
-     * Resolve all __map: attribute values to actual product field values.
-     * Returns a new array with mappings replaced by resolved values.
-     */
     public function resolveMapAttributes(array $attrs, ?object $productRow): array
     {
         foreach ($attrs as $key => $value) {
@@ -173,9 +119,6 @@ class LazadaAttributes
         return $attrs;
     }
 
-    /**
-     * Check if a Lazada attribute is mapped (auto-filled from ERP via __map: prefix).
-     */
     public function isLockedProductAttributeKey(string $key, array $savedAttrs = []): bool
     {
         $k = trim($key);
@@ -188,32 +131,16 @@ class LazadaAttributes
     public function isSkuLevelRequiredKey(string $key): bool
     {
         $k = strtolower(trim($key));
-        // Lazada mixes "product"-level and "sku"-level fields.
-        // Many category templates mark packaging & promo fields as mandatory at SKU level.
-        // If we send these under Attributes, Lazada QC may still treat them as blank.
-        // Keep this whitelist strict and explicit.
         return in_array($k, [
             'sellersku', 'seller_sku',
             'price', 'quantity',
-            // Packaging (common QC requirements)
             'package_height', 'package_length', 'package_width', 'package_weight',
             'package_content',
-            // Promotions / scheduling
             'special_price', 'special_from_date', 'special_to_date',
             'coming_soon', 'delay_delivery_days',
         ], true);
     }
 
-    /**
-     * Best-effort extraction of attribute definitions from Lazada category template response.
-     * The response shapes vary; we keep this tolerant.
-     */
-    /**
-     * $questionsOnly is the listing questionnaire's view (sale props and
-     * __wire__ keys dropped, #175); false is the template inspector's view,
-     * which shows the category's whole truth. $withRaw hangs the original
-     * row on each entry for the inspector's detail panel.
-     */
     public function extractAttributes($body, bool $questionsOnly = true, bool $withRaw = false): array
     {
         if (!is_array($body)) {
@@ -225,7 +152,6 @@ class LazadaAttributes
             return $this->normalizeAttributes($data['attributes'], $questionsOnly, $withRaw);
         }
         if (is_array($data)) {
-            // Some responses return an array directly
             if (array_is_list($data)) {
                 return $this->normalizeAttributes($data, $questionsOnly, $withRaw);
             }
@@ -233,14 +159,6 @@ class LazadaAttributes
         return [];
     }
 
-    /**
-     * A resolver from Lazada's validation field ids to attribute names, for
-     * the words after a refused create: Lazada names the field "p-100005514"
-     * (a product-level attribute id) or "s-…" (SKU level); the template
-     * knows that id as an attribute with a name. Unknown ids answer null.
-     *
-     * @return callable(string): ?string
-     */
     public function fieldLabeller($templateBody): callable
     {
         $byId = [];
@@ -260,12 +178,6 @@ class LazadaAttributes
         };
     }
 
-    /**
-     * Lazada's field reference (`p-100005514`, `system_memory_new`) to the
-     * attribute KEY the sheet posts as attributes[key], so a refusal can be
-     * written under the row it is about. Null when the template does not
-     * know the field.
-     */
     public function fieldKeyMapper($templateBody): callable
     {
         $byId = [];
@@ -294,13 +206,6 @@ class LazadaAttributes
         };
     }
 
-    /**
-     * The attribute keys a refusal's sentence names when Lazada gives no
-     * field ("system_memory_new is mandatory"): every key that appears in
-     * the text as a whole word.
-     *
-     * @return string[]
-     */
     public static function keysNamedIn(string $text, array $keys): array
     {
         $found = [];
@@ -321,21 +226,10 @@ class LazadaAttributes
             if (!is_array($a)) {
                 continue;
             }
-            /* Sale props are the variation axes (Colour Family, Size): they
-             * are consumed by getLazadaSalePropKeys() and sent at SKU level,
-             * so showing them on the attribute sheet asked the operator the
-             * same question twice. Keys wrapped in underscores (__images__)
-             * are wire plumbing, not questions. TikTok's normaliser has
-             * dropped both since it was written; Lazada's kept everything
-             * (#175). */
             if ($questionsOnly && !empty($a['is_sale_prop'])) {
                 continue;
             }
             $name = (string)($a['name'] ?? $a['attribute_name'] ?? '');
-            /* Price, quantity, the parcel, SellerSku and the promotion dates
-             * are SKU-level facts the payload fills from the catalog and the
-             * listing's own rule (the owner, 2026-09-06: they kept appearing on
-             * the sheet as questions). They are not asked here. */
             if ($questionsOnly && $this->isSkuLevelRequiredKey($name)) {
                 continue;
             }
@@ -364,12 +258,6 @@ class LazadaAttributes
         return $out;
     }
 
-    /**
-     * Fetch Lazada sale-prop (variant) attribute keys for a given category.
-     * We need these keys to set SKU-level variation fields so Lazada can distinguish SKUs.
-     *
-     * Returns up to 2 attribute keys (strings). Empty array if not available.
-     */
     public function getLazadaSalePropKeys(int $primaryCategoryId, object $setting, LazadaClient $client): array
     {
         $creds = LazadaSetting::activeCredentials($setting);
@@ -412,7 +300,6 @@ class LazadaAttributes
                 if (!$isSale) {
                     continue;
                 }
-                // Lazada typically provides both 'name' and 'attribute_name'. We want the actual attribute key.
                 $k = (string)($a['name'] ?? $a['attribute_name'] ?? $a['key'] ?? '');
                 $k = trim($k);
                 if ($k === '') {
@@ -429,12 +316,6 @@ class LazadaAttributes
         }
     }
 
-    /**
-     * Read sale-prop keys for a category from the cached template (lazada_category_templates).
-     * Used as a fallback when the live API is rate-limited or unreachable. Returns the keys
-     * in the order Lazada returned them — that order is meaningful (first sale-prop is the
-     * primary variant axis, second is the secondary, etc.).
-     */
     public function cachedSalePropKeys(int $primaryCategoryId): array
     {
         if ($primaryCategoryId <= 0) {
@@ -470,10 +351,6 @@ class LazadaAttributes
         return $keys;
     }
 
-    /**
-     * Map of Lazada sale-prop key → human label (e.g. color_family → "Color Family").
-     * Used only for operator-facing error messages.
-     */
     public function cachedSalePropLabels(int $primaryCategoryId): array
     {
         if ($primaryCategoryId <= 0) {
@@ -509,12 +386,8 @@ class LazadaAttributes
         return $labels;
     }
 
-    /**
-     * Best-effort fallback for variant keys when category sale-prop keys can't be fetched.
-     */
     public function guessLazadaVariantKeysFromOptionName(string $optionName): array
     {
-        // No name, no guess: an invented key is how a wrong variation type reaches Lazada.
         $n = strtolower(trim($optionName));
         if ($n === '') {
             return [];
@@ -526,17 +399,11 @@ class LazadaAttributes
             return ['size'];
         }
         if (str_contains($n, 'length') || str_contains($n, 'cable')) {
-            // Some PH categories use 'length' or 'cable_length'; we can't know which without category lookup.
             return ['length'];
         }
-        // A name that says nothing about its type gets no key; the caller refuses rather than guess.
         return [];
     }
 
-    /**
-     * Resolve __map: attribute values to actual product field values for display/preview.
-     * Returns suggested values only for attributes that have __map: stored values.
-     */
     public function suggestForAttributes(array $attributes, ?object $productRow, array $savedAttrs = []): array
     {
         if (!$productRow) {
@@ -580,7 +447,6 @@ class LazadaAttributes
         $region = $this->region();
         $needle = $this->normalizeName($manufacturerName);
 
-        // Exact normalized match first
         $all = LazadaBrand::query()
             ->where('region', $region)
             ->select(['brand_id', 'name'])
@@ -595,7 +461,6 @@ class LazadaAttributes
             }
         }
 
-        // Loose contains match (manufacturer contains brand or vice versa)
         if (!$best) {
             foreach ($all as $b) {
                 $bn = $this->normalizeName((string)$b->name);
@@ -611,7 +476,6 @@ class LazadaAttributes
             return ['brand_id' => (int)$best->brand_id, 'brand_name' => (string)$best->name];
         }
 
-        // Common fallback: "No Brand"
         foreach ($all as $b) {
             if ($this->normalizeName((string)$b->name) === 'no brand') {
                 return ['brand_id' => (int)$b->brand_id, 'brand_name' => (string)$b->name];

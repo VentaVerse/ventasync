@@ -11,14 +11,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * Shopee's fulfilment buttons for the mobile app. Each runs the Shopee
- * orders page's own action for the order's store, so the phone makes the
- * same Shopee calls, with the same checks, as the web.
- */
 final class ShopeeAppFulfilment
 {
-    /** Each action => whether it changes the order. */
     public const ACTIONS = [
         'shipping-options' => false,
         'ship' => true,
@@ -26,7 +20,6 @@ final class ShopeeAppFulfilment
         'tracking' => false,
     ];
 
-    /** The order's step as the Shopee orders page places it, and what it allows. */
     public static function block(ShopeeOrder $order): array
     {
         [$step, $writes, $reads] = match (strtoupper((string) $order->status)) {
@@ -64,7 +57,6 @@ final class ShopeeAppFulfilment
         };
     }
 
-    /** Where the parcel can be collected, with each address's slots, and where it can be dropped off. */
     private function shippingOptions(JsonResponse $answer): JsonResponse
     {
         $data = (array) $answer->getData(true);
@@ -96,7 +88,6 @@ final class ShopeeAppFulfilment
         ]);
     }
 
-    /** Shopee makes the label after the order is arranged; until then the app is told to ask again. */
     private function waybill(Response $answer, ShopeeSetting $store, string $sn): Response
     {
         $path = Waybills::path('shopee', (int) $store->id, $sn);

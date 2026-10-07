@@ -1,18 +1,4 @@
-/* ---------------------------------------------------------------------
-   A toolbar section that folds behind its own button.
-
-   The orders page put twenty six controls between its heading and the
-   first order, in four stacked bands, so the work started 517px down a
-   900px screen. These fold the two bands nobody touches per order: the
-   marketplace pull, and the date/sort/page controls.
-
-   The trigger is a control, so its edge uses --bl-field-edge like every
-   other control rather than a container hairline.
-   --------------------------------------------------------------------- */
 @layer components {
-    /* One row after the tabs: search, filters, sync. The filter form and the
-       sync fold are siblings here because a form cannot contain a form, and
-       the sync band is one. */
     .x-toolbar {
         display: flex;
         align-items: flex-start;
@@ -59,9 +45,6 @@
         background: var(--bl-chrome);
     }
 
-    /* The state a closed panel would otherwise hide. A fold that conceals
-       an active filter is worse than no fold, because the list is then
-       narrowed by something the reader cannot see. */
     .x-fold__count {
         min-width: 18px;
         padding: 0 5px;
@@ -103,8 +86,6 @@
         color: var(--bl-ink-2);
     }
 
-    /* A folded band keeps its own layout inside the panel, but stacks:
-       there is no room for a horizontal command bar in a popover. */
     .x-fold__panel .x-cmdbar__row,
     .x-fold__panel .x-filters__group {
         display: flex;

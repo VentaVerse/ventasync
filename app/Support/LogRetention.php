@@ -7,29 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Which diagnostic log tables may be trimmed, and how far back.
- *
- * NOTHING HERE NAMES AN EXTENSION'S TABLE. Core owns api_request_logs, the
- * record of calls made INTO this ERP; every sync log and per-marketplace API
- * log belongs to the extension that writes it and is declared in that
- * extension's own manifest:
- *
- *     "logs": {
- *         "venta_sync_logs": { "label": "Sync runs", "kind": "sync" },
- *         "venta_api_logs":  { "label": "API calls", "keep_days": 14 }
- *     }
- *
- * collected here the same way ApiScopeRegistry collects api_scopes, so a
- * channel that is not installed contributes nothing and a channel added
- * tomorrow is swept without core being edited. Syncing is not a core
- * feature and core does not carry a list of who does it (the owner, 2026-09-01).
- *
- * AN EXPLICIT DECLARATION, NEVER A PATTERN. order_history, stock_history and
- * purchase_order_logs all have log-ish names and are business records that
- * must never be swept; activity_logs is a third family with its own
- * retention and its own command (activity-log:purge).
- */
 final class LogRetention
 {
     public const LEVELS = [
@@ -38,11 +15,6 @@ final class LogRetention
         'off'      => 'Nothing',
     ];
 
-    /**
-     * Every table that may be trimmed, core's and every enabled extension's.
-     *
-     * @return array<string, array{label: string, keep_days: int, owner: string}>
-     */
     public static function tables(): array
     {
         $default = (int) config('logs.default_keep_days', 30);
@@ -68,21 +40,11 @@ final class LogRetention
         return $out;
     }
 
-    /** The default for a store that has not chosen: all, failures, off. */
     public static function level(): string
     {
         return self::normalise(config('logs.sync_level', 'all'));
     }
 
-    /**
-     * The level that governs THIS run's log. A store may set its own on its
-     * own settings page, because one busy channel should not have to make
-     * every other channel quiet; a store that has not chosen follows the
-     * configured default.
-     *
-     * The row is asked, not told: any sync log model may answer
-     * syncLogLevel(), and one that cannot simply follows the default.
-     */
     public static function levelFor(Model $log): string
     {
         if (method_exists($log, 'syncLogLevel')) {
@@ -95,12 +57,6 @@ final class LogRetention
         return self::level();
     }
 
-    /**
-     * Whether this sync-run row is worth keeping now that it has finished.
-     * A run still in flight, or one that crashed without ever writing its
-     * ending, is always kept: that row IS the evidence. The age purge sweeps
-     * it later like anything else.
-     */
     public static function shouldForget(Model $log): bool
     {
         $level = self::levelFor($log);
@@ -117,26 +73,17 @@ final class LogRetention
             return true;
         }
 
-        // 'failures': a clean finish is not worth a row.
         return $status === 'completed' && (int) ($log->records_failed ?? 0) === 0;
     }
 
-    /**
-     * Trim every declared table to its retention.
-     *
-     * Deleted in batches because the first run on a live box is deleting
-     * hundreds of thousands of rows, and one unbounded DELETE holds a lock
-     * long enough for a sync cron to time out behind it.
-     *
-     * @return array<string, int> table => rows removed (only non-zero)
-     */
+    // Delete in batches: one unbounded DELETE locks long enough for sync crons to time out.
     public static function purge(?int $overrideDays = null): array
     {
         $removed = [];
 
         foreach (self::tables() as $table => $meta) {
             if (! Schema::hasTable($table)) {
-                continue;   // declared by a manifest, not migrated here
+                continue;
             }
 
             $cutoff = now()->subDays($overrideDays ?? $meta['keep_days']);

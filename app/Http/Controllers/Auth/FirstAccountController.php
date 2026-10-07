@@ -16,10 +16,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\View\View;
 
-/**
- * The install's first account, made by whoever opens a new install. It is
- * the administrator, and once it exists this page answers with sign in.
- */
 class FirstAccountController extends Controller
 {
     public function create(): View|RedirectResponse
@@ -33,8 +29,7 @@ class FirstAccountController extends Controller
 
     public function store(FirstAccountRequest $request): RedirectResponse
     {
-        // Two people sending the form at once: the lock lets one through, and
-        // the other finds the account made and is sent to sign in.
+        // Lock so two simultaneous submits cannot both create the first admin.
         $user = Cache::lock('first-account', 15)->block(10, function () use ($request) {
             if (! FirstAccount::needed()) {
                 return null;

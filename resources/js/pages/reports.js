@@ -1,25 +1,3 @@
-/**
- * Reports pages (`rp-` anatomy, Round D Task 3).
- *
- * Four behaviours, all inert on a page that does not carry the markup,
- * following the same guard convention as confirm-modal.js and
- * list-filters.js:
- *
- *   1. The date range presets, which write into the two date inputs.
- *   2. The "More filters" disclosure.
- *   3. The month/period group toggles on the orders and fees reports.
- *   4. The product drill-down on the products report.
- *
- * Nothing here uses innerHTML. Every node is built with createElement and
- * every string reaches the DOM through textContent, because a product
- * name, a customer name and a marketplace status are all values somebody
- * else typed.
- */
-
-/* ------------------------------------------------------------------
-   1. Date range presets
-   ------------------------------------------------------------------ */
-
 function pad(n) {
     return n < 10 ? '0' + n : '' + n;
 }
@@ -32,12 +10,6 @@ function lastDay(year, month) {
     return new Date(year, month + 1, 0).getDate();
 }
 
-/**
- * Resolve a preset key to a { from, to } pair of Y-m-d strings.
- * Behaviour is unchanged from the three copies of this function that used
- * to sit inline in orders.blade.php, products.blade.php and
- * payouts.blade.php, including the Monday-first week.
- */
 function presetRange(key) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -119,9 +91,6 @@ function initRange() {
         });
     }
 
-    // Whichever preset the dates on the page already match is pressed on
-    // load, so a page opened on "last month" says so; anything else is
-    // Custom, which is what it is.
     let pressed = 'custom';
     for (let i = 0; i < PRESETS.length; i += 1) {
         const range = presetRange(PRESETS[i]);
@@ -147,18 +116,9 @@ function initRange() {
         });
     });
 
-    // Typing a date by hand is a custom range by definition.
     from.addEventListener('change', function () { press('custom'); document.dispatchEvent(new CustomEvent('range:changed')); });
     to.addEventListener('change', function () { press('custom'); document.dispatchEvent(new CustomEvent('range:changed')); });
 }
-
-/* ------------------------------------------------------------------
-   Choices that follow the dates
-   ------------------------------------------------------------------
-   A deleted store, or a disabled channel's, is a store choice only while
-   the dates hold a month it sold in. The page carries those months, so the
-   list follows the dates as they change, before the report is run. A
-   ticked choice stays whatever the dates. */
 
 function initPeriodChoices() {
     const choices = Array.from(document.querySelectorAll('[data-sold-months]'));
@@ -182,8 +142,6 @@ function initPeriodChoices() {
             choice.hidden = !sold && !(box && box.checked);
         });
 
-        // A heading shows while anything under it does: a group runs to
-        // the next group, a section to the next heading of either kind.
         document.querySelectorAll('.rp-pick__list').forEach(function (list) {
             list.querySelectorAll('.rp-pick__group, .rp-pick__section').forEach(function (heading) {
                 const group = heading.classList.contains('rp-pick__group');
@@ -199,10 +157,6 @@ function initPeriodChoices() {
 
     document.addEventListener('range:changed', follow);
 }
-
-/* ------------------------------------------------------------------
-   3. Month / period groups
-   ------------------------------------------------------------------ */
 
 function initGroups() {
     const toggles = document.querySelectorAll('[data-group-toggle]');
@@ -227,21 +181,6 @@ function initGroups() {
     });
 }
 
-/* ------------------------------------------------------------------
-   4. Product drill-down
-   ------------------------------------------------------------------ */
-
-/**
- * Reproduce App\Support\Money::base() exactly: sign, then the symbol from
- * the `currencies` table (handed over in the JSON payload, never
- * hardcoded here), then the grouped two-decimal number. PHP's
- * number_format uses comma grouping and a dot decimal, which is what
- * en-US produces.
- *
- * The code this replaces called toLocaleString('en-PH') with no symbol at
- * all, so every figure in the drill-down panel was an unlabelled number
- * on a page whose whole subject is money.
- */
 function makeMoney(symbol) {
     return function (value) {
         const n = Number(value || 0);
@@ -302,7 +241,6 @@ function buildPanel(data, orderUrlTemplate) {
     const wrap = document.createElement('div');
     wrap.className = 'rp-drill';
 
-    // Who bought it, first: that is the question this panel was added for.
     wrap.appendChild(heading(
         'By customer',
         'Grouped by customer name and channel. Marketplaces mask buyer names (L***o), so two different buyers can merge and one buyer can split across channels.'

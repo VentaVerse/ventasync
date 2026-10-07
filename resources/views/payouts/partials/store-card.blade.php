@@ -1,13 +1,3 @@
-{{-- One store's money at its marketplace, as a card (the owner, 2026-10-01):
-     the dashboard rail and the Payouts report both draw it, from
-     App\Services\Payouts\PayoutOverview::cards(). The lead figure and two
-     facts, labelled exactly as the channel's own Seller Center labels them,
-     then what the store has not been paid. A figure the channel does not
-     share is named in the note, never guessed.
-     Never waits on the marketplace: it shows what was last read, with its
-     age, and says so when nothing has been read yet.
-
-     $card  one entry of PayoutOverview::cards() --}}
 @php
     $poPeso = fn (?float $v) => $v === null ? '-' : (($v < 0 ? '−₱' : '₱') . number_format(abs($v), 2));
     $poBal = $card['balance'];

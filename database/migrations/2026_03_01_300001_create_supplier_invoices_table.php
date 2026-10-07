@@ -14,13 +14,13 @@ return new class extends Migration
             $table->string('supplier_ref', 180)->nullable();
             $table->foreignId('vendor_id')->constrained('vendors');
             $table->foreignId('purchase_order_id')->nullable()->constrained('purchase_orders')->nullOnDelete();
-            $table->string('status', 24)->default('draft'); // draft, validated, paid, cancelled
+            $table->string('status', 24)->default('draft');
             $table->string('currency_code', 3);
             $table->decimal('exchange_rate', 15, 8)->default(1);
             $table->decimal('subtotal', 15, 4)->default(0);
             $table->decimal('total', 15, 4)->default(0);
             $table->decimal('amount_paid', 15, 4)->default(0);
-            $table->string('payment_status', 16)->default('unpaid'); // unpaid, partial, paid
+            $table->string('payment_status', 16)->default('unpaid');
             $table->date('invoice_date')->nullable();
             $table->date('due_date')->nullable();
             $table->text('notes')->nullable();

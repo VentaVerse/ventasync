@@ -12,14 +12,6 @@ use Extensions\tiktok\Models\TikTokSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * A NEW STORE STARTS IN THE SANDBOX.
- *
- * A store is created before anyone has typed a key into it, and the first
- * thing done with it is a trial run. Starting in production pointed those
- * first attempts at a real shop, and the switch that would have said so sat
- * in the page header, two cards away from the keys.
- */
 class NewStoreStartsInSandboxTest extends TestCase
 {
     use RefreshDatabase;

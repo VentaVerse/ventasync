@@ -30,20 +30,10 @@ class LazadaApiLog extends Model
         'response_body' => 'array',
     ];
 
-    /**
-     * Create an API log record without breaking the app if schema is out of sync.
-     *
-     * ZIP deployments can miss a migration. If `pack` doesn't exist yet, omit it.
-     * Logging must never block core flows (fetch/push/etc.).
-     */
     public static function safeCreate(array $attributes): void
     {
         try {
-            // Green or red by the marketplace's own verdict, not the HTTP
-            // status (MarketplaceVerdict, 2026-09-06): a refusal riding a
-            // 200 is a red row.
             $attributes['ok'] = \App\Support\MarketplaceVerdict::ok('lazada', (bool) ($attributes['ok'] ?? true), $attributes['response_body'] ?? null);
-            // The three-way mode (#200): off, errors only, everything.
             $setting = LazadaSetting::defaultStore();
             if (! \App\Support\ApiLogMode::shouldLog($setting?->api_log_mode, (bool) ($attributes['ok'] ?? true))) {
                 return;

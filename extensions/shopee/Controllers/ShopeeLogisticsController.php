@@ -34,7 +34,6 @@ class ShopeeLogisticsController extends Controller
                 ->with('error', "Missing Shopee {$modeLabel} settings. Configure Partner ID, Partner Key, Access Token and Shop ID first.");
         }
 
-        // One read, shared with the setup run on Settings (2026-09-05).
         $out = app(\Extensions\shopee\Services\Shopee\ShopeeStoreSetup::class)->couriers($auth);
 
         return redirect()->route('ext.shopee.logistics.index')

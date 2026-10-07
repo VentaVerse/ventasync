@@ -5,12 +5,6 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * TikTok gets the returns automation Shopee and Lazada always had
- * (Automations sweep, 2026-08-26): a look-back window column of its own,
- * a "Sync Returns" job on its own cadence, and the existing "Sync Orders"
- * job told to leave returns to it, so the two do not both fetch them.
- */
 return new class extends Migration
 {
     public function up(): void
@@ -30,7 +24,6 @@ return new class extends Migration
             ->where('command', 'tiktok:sync-orders')->where('display_name', 'Sync Orders')
             ->first();
         if (!$orders) {
-            // TikTok was not enabled when the jobs were first seeded; nothing to add to.
             return;
         }
 

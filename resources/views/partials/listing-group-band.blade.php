@@ -1,17 +1,3 @@
-{{--
-    The Product group band, first in every listing page's main column. The
-    group is the listing's template: picking one moves the product into it
-    and fills the page's fields with its values; "Use the group's values"
-    does the same for the group already picked. Both save with Save. It is
-    drawn as one of the page's own sections; it leads by position.
-
-    Expected keys:
-      groupBand  array{current: ?int, groups: list<array{id: int, name: string, url: string}>,
-                       values: array<int, array<string, mixed>>}     from the controller
-      fields     array<string, array{label: string, kind: string, ...}> the page's
-                 group-held fields; kinds are read by resources/js/pages/listing-group-band.js
-      canManage  bool
---}}
 @php
     $band = $groupBand ?? ['current' => null, 'groups' => [], 'values' => []];
     $current = $band['current'] ?? null;

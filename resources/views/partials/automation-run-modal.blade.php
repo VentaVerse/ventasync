@@ -1,7 +1,3 @@
-{{-- The modal a stepped run draws in: running, then one sentence and OK.
-     resources/js/automation-run.js drives it for every
-     form[id^="automation-run-"] on the page. $stepUrl and $stopUrl carry
-     the run id as /0/. One per page. --}}
 <div class="modal-backdrop" data-automation-run data-step-url="{{ $stepUrl }}" data-stop-url="{{ $stopUrl }}">
     <div class="modal co-modal co-modal--sm ar-modal" role="dialog" aria-modal="true" aria-live="polite" aria-labelledby="ar-modal-title" data-ar-modal data-state="running">
         <div class="ar-modal__mark" aria-hidden="true">

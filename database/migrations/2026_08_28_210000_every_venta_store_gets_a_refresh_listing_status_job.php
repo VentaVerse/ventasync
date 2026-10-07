@@ -4,14 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * The Venta listing status mirror's schedule (#171). VentaScheduledJobs
- * gained a fourth job; a store created after this gets it when its jobs
- * are ensured, and a store created before needs it seeded once. Created
- * disabled, like every per-store job, so the operator turns it on from
- * Automations. The command reads the store id from options.store, as the
- * other three do.
- */
 return new class extends Migration
 {
     public function up(): void

@@ -4,19 +4,6 @@ namespace Tests\Feature;
 
 use Tests\TestCase;
 
-/**
- * The guard on an irreversible action.
- *
- * "Delete the selected products from Shopee?" read identically for one product
- * and for forty-seven, named none of them, and opened with the cursor already
- * resting on the red button - so the same reflexive Enter that submitted the
- * form could confirm the deletion before the operator had read a word. The
- * dialog was also a bare <div>: no role, no aria-modal, and no focus trap, so
- * Tab walked out into a page the backdrop still covered.
- *
- * A confirmation that does not say what it is about to do is a speed bump, not
- * a guard. These pin the parts that make it one.
- */
 class ConfirmDialogTest extends TestCase
 {
     private function source(string $file): string
@@ -61,10 +48,6 @@ class ConfirmDialogTest extends TestCase
         }
     }
 
-    /**
-     * The count is the fact that changes the decision. The names are the
-     * difference between confirming and checking.
-     */
     public function test_a_bulk_confirmation_states_the_count_and_names_what_it_will_touch(): void
     {
         $js = $this->source('resources/js/pages/channel-listings.js');
@@ -76,11 +59,6 @@ class ConfirmDialogTest extends TestCase
         $this->assertStringContainsString('function tickedNames(', $js);
     }
 
-    /**
-     * A partial list beside a full count would misrepresent the scope of a
-     * deletion, so names are shown only when they account for the whole
-     * selection.
-     */
     public function test_names_are_shown_only_when_they_cover_the_whole_selection(): void
     {
         $this->assertStringContainsString('if (names.length === ids.length)',
@@ -88,10 +66,6 @@ class ConfirmDialogTest extends TestCase
             'A partial name list can be shown against a full count.');
     }
 
-    /**
-     * A dialog listing forty-seven names is a wall the operator scrolls past,
-     * which is the same as not reading it. Capped, and honest about the cap.
-     */
     public function test_a_long_list_is_capped_and_says_how_many_it_hid(): void
     {
         $js = $this->source('resources/js/pages/channel-listings.js');
@@ -101,11 +75,6 @@ class ConfirmDialogTest extends TestCase
             'A truncated name list does not admit it is truncated, so it reads as the whole list.');
     }
 
-    /**
-     * The message is set as textContent and carries product names, which are
-     * not ours to trust as markup. pre-line is what lets that plain text hold
-     * its lines.
-     */
     public function test_the_message_keeps_its_line_breaks_without_becoming_markup(): void
     {
         $this->assertStringContainsString('white-space: pre-line;', $this->source('resources/css/blotter.css'),

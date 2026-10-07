@@ -11,10 +11,10 @@ return new class extends Migration {
             $table->id();
             $table->string('region', 16)->nullable();
             $table->string('app_key', 64)->nullable();
-            $table->text('app_secret')->nullable(); // encrypted
+            $table->text('app_secret')->nullable();
             $table->string('redirect_uri', 255)->nullable();
-            $table->text('access_token')->nullable(); // encrypted
-            $table->text('refresh_token')->nullable(); // encrypted
+            $table->text('access_token')->nullable();
+            $table->text('refresh_token')->nullable();
             $table->timestamp('expires_at')->nullable();
             $table->timestamp('refresh_expires_at')->nullable();
             $table->string('account', 64)->nullable();

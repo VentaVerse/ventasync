@@ -17,13 +17,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * TikTok listings parity (#156): the index with TikTok's own status on
- * this load, readiness before a push, the listing page's settings, the
- * one-click push on the product's OWN settings, Send that updates in
- * place, and Activate/Deactivate. The listing record is the truth once
- * a push has written it; pivots answer for older pushes.
- */
 class TiktokListingsTest extends TestCase
 {
     use RefreshDatabase;
@@ -60,7 +53,6 @@ class TiktokListingsTest extends TestCase
         imagepng($im, $this->imageFile);
         imagedestroy($im);
 
-        // The shop as TikTok reports it: two products, one live, one deactivated.
         $this->callResponses['POST /product/202309/products/search'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success',
             'data' => ['products' => [['id' => 'tt-live', 'status' => 'ACTIVATE'], ['id' => 'tt-off', 'status' => 'SELLER_DEACTIVATED']]]]];
         $this->callResponses['GET /product/202309/products/tt-live'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success',
@@ -134,18 +126,12 @@ class TiktokListingsTest extends TestCase
             'name' => 'TikTok listing product ' . $suffix, 'description' => 'Words.',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
-        // Every product in scope sits in a group.
         $group = TikTokProductGroup::firstOrCreate(['name' => 'Scope group'], ['tiktok_category_id' => '900009']);
         TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => $productId, 'sync_status' => 'pending']);
 
         return $productId;
     }
 
-    /**
-     * Since 2026-08-28 the strip and the chips read the MIRROR on the
-     * listing rows. A page view asks TikTok for nothing; the Refresh button
-     * and the 30-minute automation walk the shop and write the mirror.
-     */
     public function test_the_index_reads_the_mirror_and_asks_tiktok_for_nothing(): void
     {
         $live = $this->seedProduct('L');
@@ -157,44 +143,31 @@ class TiktokListingsTest extends TestCase
         TikTokListing::create(['product_id' => $fresh, 'tiktok_product_id' => 'tt-new', 'tiktok_category_id' => '900009']);
         $ready = $this->seedProduct('R');
         TikTokListing::create(['product_id' => $ready, 'tiktok_category_id' => '900009']);
-        // On the store with a blank record (#201): what Add products leaves behind.
         $bare = $this->seedProduct('B');
         TikTokListing::create(['product_id' => $bare]);
 
         $r = $this->actingAs($this->manager())->get(route('ext.tiktok.products.index'));
 
         $r->assertOk();
-        // The status menu and the tab row: "All" is this store's own list in
-        // both, TikTok's statuses are the tabs with the freshness stamp, and
-        // Refresh sits in the tab row.
         $r->assertSee('lss__label">All<', false);
         $r->assertSee('class="x-segment-bar"', false);
         $r->assertSee('<span>All</span>', false);
         $r->assertDontSee('x-segment-group__k', false);
-        /* The tab row says "All", this store's own list, never "All
-           products", which framed the page as the whole catalogue. The left
-           menu's own total is allowed to say it: there it counts the store. */
         $r->assertDontSee('<span>All products</span>', false);
         $r->assertSee('as of 08:30, Aug 28');
         $r->assertSee('Refresh from TikTok Shop', false);
         $r->assertSee('Refresh from TikTok Shop');
-        $r->assertSee('Live');                        // tt-live, from the mirror
-        $r->assertSee('Not found on TikTok Shop');    // tt-gone, from the mirror
-        $r->assertSee('Not checked yet');             // tt-new, never refreshed
-        /* Eligible was a rung in the old menu, and the menu is the store's
-           product groups now. A product short of something says so on its
-           own row instead, so a page with nothing missing says nothing. */
+        $r->assertSee('Live');
+        $r->assertSee('Not found on TikTok Shop');
+        $r->assertSee('Not checked yet');
         $r->assertDontSee('a TikTok category');
-        // The bare record inherits its group's category (a group is a preset
-        // the product inherits, 2026-09-05), so nothing here lacks one.
         $r->assertDontSee('Missing: a TikTok category');
         $r->assertSee('Send to TikTok Shop');
-        $r->assertSee('Under review');                // the tab row lists the store's statuses
-        $r->assertSee('Deactivate on TikTok Shop');   // the row verb for a live row
+        $r->assertSee('Under review');
+        $r->assertSee('Deactivate on TikTok Shop');
         $this->assertCount(0, $this->callsFor('POST', '/product/202309/products/search'));
     }
 
-    /** A listing a push just gave a product id has no status; the page asks TikTok once for it, then reads the mirror. */
     public function test_a_listing_never_checked_is_filled_on_first_view_and_only_once(): void
     {
         $fresh = $this->seedProduct('F');
@@ -221,7 +194,6 @@ class TiktokListingsTest extends TestCase
         TikTokListing::create(['product_id' => $live, 'tiktok_product_id' => 'tt-live', 'tiktok_category_id' => '900009']);
         $gone = $this->seedProduct('G');
         TikTokListing::create(['product_id' => $gone, 'tiktok_product_id' => 'tt-gone', 'tiktok_category_id' => '900009']);
-        // On TikTok through a group pivot only: the refresh gives it a listing row.
         $pivotOnly = $this->seedProduct('P');
         TikTokProductGroupProduct::query()->where('product_id', $pivotOnly)->update(['tiktok_product_id' => 'tt-off', 'sync_status' => 'synced']);
 
@@ -229,9 +201,7 @@ class TiktokListingsTest extends TestCase
 
         $r->assertSessionHas('status');
         $this->assertStringContainsString('1 live', (string) session('status'));
-        // 'unlisted', the engine's word - the row badge and the tab say it too (#184 D).
         $this->assertStringContainsString('1 unlisted', (string) session('status'));
-        // Two walks: the refresh's, then the check's (one button, 2026-09-07), which drops the dead link.
         $this->assertCount(2, $this->callsFor('POST', '/product/202309/products/search'));
         $this->assertSame('ACTIVATE', TikTokListing::where('tiktok_product_id', 'tt-live')->value('live_status'));
         $this->assertNull(TikTokListing::where('product_id', $gone)->value('tiktok_product_id'), 'the dead link was dropped by the check');
@@ -308,15 +278,10 @@ class TiktokListingsTest extends TestCase
 
         $r = $this->actingAs($this->manager())->get(route('ext.tiktok.listings.edit', $productId));
         $r->assertOk();
-        /* The strip's title and its live figures went on 2026-09-09
-           (the owner: "just fields to edit. Nothing about health"). What the
-           page is for stayed: the record it edits, the store's own SKU
-           table below it, and the verbs that act on the live product. */
         $r->assertDontSee('On TikTok Shop right now', false);
         $r->assertDontSee('Live on TikTok');
         $r->assertSee('LIVE-SKU');
         $r->assertSee('Deactivate on TikTok Shop');
-        // And what it read is written to the mirror, so the lists agree at once.
         $this->assertSame('ACTIVATE', TikTokListing::query()->where('tiktok_product_id', 'tt-live')->value('live_status'));
 
         $this->actingAs($this->manager())->put(route('ext.tiktok.listings.update', $productId), [
@@ -325,9 +290,7 @@ class TiktokListingsTest extends TestCase
         ])->assertSessionHas('status');
 
         $listing = TikTokListing::where('product_id', $productId)->first();
-        // Equal to its group's category, so it is kept as following the group...
         $this->assertNull($listing->tiktok_category_id);
-        // ...and the category a push sends is still the group's.
         $inherit = app(\Extensions\tiktok\Services\TikTok\TikTokInheritedSettings::class);
         $this->assertSame('900009', (string) $inherit->fill($listing, $inherit->forProducts([$productId])[$productId] ?? null)['listing']->tiktok_category_id);
         $this->assertSame('Valeton', $listing->brand_name);
@@ -352,7 +315,7 @@ class TiktokListingsTest extends TestCase
         $this->assertSame('900009', $body['category_id']);
         $this->assertSame('b-1', $body['brand_id']);
         $this->assertSame('A title long enough for TikTok Shop', $body['title']);
-        $this->assertSame('300', $body['skus'][0]['price']['amount']);   // 200 + 50%
+        $this->assertSame('300', $body['skus'][0]['price']['amount']);
         $listing = TikTokListing::where('product_id', $productId)->first();
         $this->assertSame('tt-new', $listing->tiktok_product_id);
         $this->assertSame('listing', $listing->last_push_source);
@@ -361,9 +324,6 @@ class TiktokListingsTest extends TestCase
 
     public function test_an_unready_push_is_refused_before_any_call(): void
     {
-        // A group is a preset the product inherits, so the seeded group's
-        // category makes a rowless product pushable; a disabled catalog
-        // product is what no push accepts (the Ready column's gate, 2026-09-06).
         $productId = $this->seedProduct('U');
         DB::table((string) config('catalog.prefix') . 'product')->where('product_id', $productId)->update(['status' => 0]);
 
@@ -374,7 +334,6 @@ class TiktokListingsTest extends TestCase
         $this->assertSame([], $this->callsFor('POST', '/product/202309/products'));
     }
 
-    /** A listing's own Price is where the rule starts: 500 with ten percent added goes up at 550, on the page and on the push. */
     public function test_a_listings_own_price_is_the_starting_price_the_rule_is_added_to(): void
     {
         $productId = $this->seedProduct('OP', 300);
@@ -406,7 +365,6 @@ class TiktokListingsTest extends TestCase
         $this->assertSame('330', $this->callsFor('POST', '/product/202309/products')[0]['body']['skus'][0]['price']['amount']);
     }
 
-    /** Save and push on a live product updates it and returns to the search it came from. */
     public function test_save_and_push_updates_a_live_product_and_returns_to_the_search(): void
     {
         $productId = $this->seedProduct('SP', 300);
@@ -422,7 +380,6 @@ class TiktokListingsTest extends TestCase
         $this->assertCount(1, $this->callsFor('PUT', '/product/202309/products/tt-sp'));
     }
 
-    /** The listing page's update onto the live item starts from the same Price. */
     public function test_the_listing_page_update_starts_from_the_listings_own_price(): void
     {
         $productId = $this->seedProduct('UP', 300);
@@ -437,7 +394,6 @@ class TiktokListingsTest extends TestCase
         $this->assertSame('550', $edits[0]['body']['skus'][0]['price']['amount']);
     }
 
-    /** A product with variations prices each one from the catalog: no Price field, and a submitted one is not kept. */
     public function test_a_variation_product_has_no_price_field_and_keeps_no_price(): void
     {
         $productId = $this->seedProduct('VP', 300);
@@ -458,10 +414,9 @@ class TiktokListingsTest extends TestCase
         $this->assertNull(TikTokListing::where('product_id', $productId)->value('price'));
     }
 
-    /** The parcel sends the listing's own figures, and each blank one follows the catalog. */
     public function test_the_parcel_sends_the_listings_own_figures_and_blank_ones_follow_the_catalog(): void
     {
-        $productId = $this->seedProduct('PC', 300); // the catalog's parcel: 1 kg, 10 x 10 x 10 cm
+        $productId = $this->seedProduct('PC', 300);
 
         $this->actingAs($this->manager())->put(route('ext.tiktok.listings.update', $productId), [
             'tiktok_category_id' => '900009', 'weight' => 0, 'package_length' => 0,
@@ -499,11 +454,9 @@ class TiktokListingsTest extends TestCase
             ->assertSessionHas('status');
 
         $this->assertSame(['product_ids' => ['tt-live']], $this->callsFor('POST', '/product/202309/products/deactivate')[0]['body']);
-        // Written through to the mirror.
         $this->assertSame('SELLER_DEACTIVATED', TikTokListing::where('tiktok_product_id', 'tt-live')->value('live_status'));
     }
 
-    /** The selection bar's Deactivate / Activate (the owner, 2026-08-28): one call for the whole selection. */
     public function test_bulk_toggle_deactivates_the_selection_in_one_call_and_names_what_it_skipped(): void
     {
         $a = $this->seedProduct('A');
@@ -546,7 +499,6 @@ class TiktokListingsTest extends TestCase
         $r->assertSee('TikTok listing product V');
         $r->assertDontSee('Send to TikTok Shop');
     }
-    /** A row is named by this store's own title, the catalog's name when it has none, and the search finds it by that title. */
     public function test_a_row_shows_the_stores_own_title_and_the_search_finds_it(): void
     {
         $titled = $this->seedProduct('T');

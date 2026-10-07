@@ -3,84 +3,34 @@
 
 @section('title', 'Lazada Settings')
 
-{{-- Leaves the .x-legacy content boundary, rebuilt on the token set.
-
-     READ THIS BEFORE EDITING ANY FORM BELOW.
-
-     Lazada's OAuth surfaces are contracts registered in the Lazada Open
-     Platform console and compared byte-for-byte on every consent round trip.
-     Unlike Shopee, this page is NOT the callback landing: Lazada redirects to
-     the separate, permanently exempt `/lazada/callback` route, and
-     LazadaController::computedRedirectUri() returns exactly
-     route('lazada.callback') forced to https. That URL is what the readonly
-     Redirect URI boxes below display, and nothing in this file may change any
-     of these six surfaces:
-
-       - the redirect URI display     a readonly input with NO name attribute,
-                                      so it is shown and never submitted
-       - the authorize link, live     route('ext.lazada.authorize'), a GET in a
-                                      new tab, rel="noopener"
-       - the authorize link, sandbox  the SAME route with `?sandbox=1`
-                                      appended. LazadaController::redirectToAuth()
-                                      reads that query param to pick which app
-                                      key it sends; dropping it silently
-                                      authorises the production app instead
-       - the auth-code exchange       POST route('ext.lazada.token_create'),
-                                      one field named `code`, plus a hidden
-                                      `sandbox` = 1 on the sandbox copy
-       - the token refresh            POST route('ext.lazada.token_refresh'),
-                                      plus the same hidden `sandbox` = 1
-       - the pre-issued token save    POST route('ext.lazada.sandbox_token_save'),
-                                      `sandbox_access_token` + `expires_in_days`
-
-     The credential save (POST route('ext.lazada.save')) carries a hidden `env`
-     plus exactly the five field names LazadaController::save() validates.
-     `region` is deliberately the same name in BOTH environment forms, because
-     the controller writes one shared region column whichever env is posted.
-     Blank means "keep the stored value" for the two secrets, which is what the
-     •••••••• masks plus resources/js/credential-mask.js are for. --}}
+{{-- Lazada OAuth URLs and field names are registered with Lazada; do not rename them. --}}
+{{-- The sandbox authorize link needs ?sandbox=1 or the production app is authorised. --}}
 @section('content')
 @php
-    // Read tier is `view_lazada|manage_lazada` on this route; every write
-    // below (save, toggle mode, token create/refresh, sandbox token, explorer,
-    // status maps, logging, log delete, purge) is `manage_lazada`. Replaces a
-    // hardcoded `true`, which offered a read-only operator every one of those
-    // controls and let each of them be refused.
     $canManageLazada = auth()->user()?->hasPermission('manage_lazada/settings') ?? false;
 
     $currentMode = $setting->mode ?? 'live';
     $isSandbox = $currentMode === 'sandbox';
 
-    // Live credentials
     $__hasCredentials = ($setting->region ?? '') !== '' && ($setting->app_key ?? '') !== '' && ($setting->app_secret ?? '') !== '';
     $__hasToken = !empty($setting->access_token ?? '');
     $__tokenExpired = $__hasToken && ($setting->expires_at ?? null) && \Carbon\Carbon::parse($setting->expires_at)->lt(now());
 
-    // Sandbox credentials
     $__hasSandboxCredentials = ($setting->sandbox_app_key ?? '') !== '' && ($setting->sandbox_app_secret ?? '') !== '';
     $__hasSandboxToken = !empty($setting->sandbox_access_token ?? '');
     $__sandboxTokenExpired = $__hasSandboxToken && ($setting->sandbox_expires_at ?? null) && \Carbon\Carbon::parse($setting->sandbox_expires_at)->lt(now());
 
 
 
-    // Exactly the six LazadaController::save() validates, no more.
     $regions = [
         'ph' => 'Philippines', 'sg' => 'Singapore', 'my' => 'Malaysia',
         'id' => 'Indonesia', 'th' => 'Thailand', 'vn' => 'Vietnam',
     ];
 @endphp
 
-{{-- The section shown, from the menubar's own ?tab= links (the
-     in-page tab strip retired 2026-09-03: the channel menubar carries the
-     sections now). Unknown or unpermitted sections fall to the default,
-     so a hand-typed URL can never land on a blank page. --}}
 @php
     $csKnown = ['connection', 'status', 'logs'];
     if ($canManageLazada) { $csKnown[] = 'explorer'; $csKnown[] = 'automations'; }
-    // Every action redirects to the tab its form lives on and flashes it
-    // (ReturnsToSettingsTab, 2026-09-05); the result is drawn inside that
-    // section - the explorer's answer in the Explorer panel, a token fetch
-    // on Connection - never on a tab the operator did not press it on.
     $csSection = in_array(request('tab'), $csKnown, true) ? request('tab') : 'connection';
     $resultTab = in_array(session('settings_tab'), $csKnown, true) ? session('settings_tab') : 'connection';
 @endphp
@@ -90,9 +40,6 @@
      data-tab-storage-key="lz-active-tab"
      data-default-tab="">
 
-{{-- The head names the store and how it stands (audit, 2026-09-05, after
-     Venta's page): the environment control and the Active pill live here
-     because every card below answers to them. --}}
 <div class="x-list-head">
     <div>
         <h1 class="x-page-title">Settings</h1>
@@ -116,12 +63,6 @@
 </div>
 @endunless
 
-{{-- ================================================================
-     CONNECTION
-     ================================================================ --}}
-{{-- The result of the last Connection action (token fetch, save): drawn
-     here, above the panel it came from. An explorer answer is drawn inside
-     the Explorer panel instead (the owner, 2026-09-05). --}}
 @if($result && $resultTab !== 'explorer')
     @include('partials.channel-last-result', ['result' => $result, 'channel' => 'Lazada', 'mode' => 'note'])
 @endif
@@ -146,8 +87,6 @@
 <div id="lz-tab-connection" class="cs-panel" @if($csSection !== 'connection') hidden @endif>
 
 
-    {{-- The environment is posted by this one form; the switch that sets it
-         sits on the card whose keys it governs, in each panel. --}}
     @if($canManageLazada)
         <form method="POST" action="{{ route('ext.lazada.toggle_mode') }}" data-cs-env-form hidden>
             @csrf
@@ -155,7 +94,6 @@
         </form>
     @endif
 
-    {{-- ---- PRODUCTION ---------------------------------------------- --}}
     @php
         $csCategories = \Extensions\lazada\Models\LazadaCategory::query()->count();
         $csBrands = \Extensions\lazada\Models\LazadaBrand::query()->where('region', (string) ($setting->region ?? ''))->count();
@@ -236,9 +174,6 @@
                         :can-reveal="$canManageLazada"
                         :disabled="!$canManageLazada" />
 
-                    {{-- No name attribute, deliberately: this is shown so it
-                         can be copied into the Lazada console, and it must
-                         never be posted back as a settable field. --}}
                     <x-ui.field label="Redirect URI" for="lz-redirect" wide
                                 hint="Register this exact URL in your Lazada Open Platform production app. It is always https. To change it, edit APP_URL in the environment file.">
                         <x-ui.input id="lz-redirect" type="text" readonly value="{{ $defaultRedirect }}" data-select-on-click />
@@ -302,8 +237,6 @@
                 </div>
             </div>
 
-            {{-- The one irreversible thing on the page sits last, in its own
-                 block, behind the typed-name sheet (audit, 2026-09-05). --}}
             <div class="cs-danger">
                 <div>
                     <span class="cs-danger__title">Remove this store <x-ui.hint label="What removal does">Everything this store holds in the ERP goes with it: listings, groups, Lazada orders and returns. Sales already imported stay under its name. There is no undo.</x-ui.hint></span>
@@ -318,7 +251,6 @@
     </div>
     </div>
 
-    {{-- ---- SANDBOX ------------------------------------------------- --}}
     <div class="cs-env-panel" data-cs-env-panel="sandbox" @unless($isSandbox) hidden @endunless>
     <div class="cs-stack">
 
@@ -362,10 +294,7 @@
                         </label>
                     </x-ui.field>
 
-                    {{-- Same field name as the production form, deliberately:
-                         LazadaController::save() writes one shared region
-                         column whichever env is posted. Renaming this to
-                         sandbox_region would silently stop saving it. --}}
+                    {{-- Keep the field name region: save() writes one shared region column for both environments. --}}
                     <x-ui.field label="Region" for="lz-sb-region" name="region" wide
                                 hint="Shared with production. Choosing here also changes the live form.">
                         <div class="x-select-wrap">
@@ -394,7 +323,6 @@
                         :can-reveal="$canManageLazada"
                         :disabled="!$canManageLazada" />
 
-                    {{-- No name attribute, same as the production copy. --}}
                     <x-ui.field label="Redirect URI" for="lz-sb-redirect" wide
                                 hint="Register this exact URL in your Lazada Open Platform sandbox app. It is always https. To change it, edit APP_URL in the environment file.">
                         <x-ui.input id="lz-sb-redirect" type="text" readonly value="{{ $defaultRedirect }}" data-select-on-click />
@@ -459,8 +387,6 @@
                 </div>
             </div>
 
-            {{-- The one irreversible thing on the page sits last, in its own
-                 block, behind the typed-name sheet (audit, 2026-09-05). --}}
             <div class="cs-danger">
                 <div>
                     <span class="cs-danger__title">Remove this store <x-ui.hint label="What removal does">Everything this store holds in the ERP goes with it: listings, groups, Lazada orders and returns. Sales already imported stay under its name. There is no undo.</x-ui.hint></span>
@@ -474,9 +400,6 @@
         </section>
 
         @if($canManageLazada)
-        {{-- Full width under the two-column split, because it is a way of
-             getting a token that skips both of the columns above rather than a
-             fourth step inside either. --}}
         <section class="fm-section cs-span">
             <div class="fm-section__head">
                 <h2 class="fm-section__title">Paste a token instead</h2>
@@ -486,11 +409,6 @@
             <form method="POST" action="{{ route('ext.lazada.sandbox_token_save') }}">
                 @csrf
                 <div class="fm-fields fm-fields--2">
-                    {{-- Was blank with a placeholder, because this form only ever
-                         SET a token and never showed the one in use. An
-                         operator could not tell whether the token they pasted
-                         last week was still there, which is exactly the
-                         question this page gets opened to answer. --}}
                     <x-ui.credential
                         name="sandbox_access_token"
                         id="lz-sb-paste-token"
@@ -521,9 +439,6 @@
     </div>
 </div>
 
-{{-- ================================================================
-     STATUS MAPPING
-     ================================================================ --}}
 <div id="lz-tab-status" class="cs-panel" @if($csSection !== 'status') hidden @endif>
 
     <section class="fm-section">
@@ -612,9 +527,6 @@
     </section>
 </div>
 
-{{-- ================================================================
-     API EXPLORER
-     ================================================================ --}}
 @if($canManageLazada)
 <div id="lz-tab-explorer" class="cs-panel" @if($csSection !== 'explorer') hidden @endif>
     <section class="fm-section">
@@ -742,9 +654,6 @@
                             <div class="api-row-actions">
                                 <x-ui.button type="button" size="sm" data-lz-ex-add>Add parameter</x-ui.button>
                                 <x-ui.button type="button" size="sm" data-lz-ex-sync>Read from JSON</x-ui.button>
-                                {{-- Hidden until an endpoint that has one is
-                                     picked, the same rule the inline original
-                                     applied with a class. --}}
                                 <x-ui.button type="button" size="sm" data-lz-ex-sample hidden>Insert sample payload</x-ui.button>
                             </div>
                         </div>
@@ -754,8 +663,6 @@
                             <x-ui.textarea id="api-explorer-params" name="params_json_pretty" rows="10" class="api-code" data-lz-ex-pretty placeholder='{"limit":10,"offset":0}'>{{ old('params_json_pretty', "{\n  \"payload\": {\n    \"Request\": {}\n  }\n}") }}</x-ui.textarea>
                         </x-ui.field>
 
-                        {{-- The field the controller actually validates. Kept
-                             in step by resources/js/pages/lazada-explorer.js. --}}
                         <input type="hidden" name="params_json" data-lz-ex-hidden value="{{ old('params_json', '{"payload":"<xml_or_json_payload_here>"}') }}">
                     </div>
 
@@ -770,16 +677,10 @@
 </div>
 @endif
 
-{{-- ================================================================
-     API LOG
-     ================================================================ --}}
 <div id="lz-tab-logs" class="cs-panel" @if($csSection !== 'logs') hidden @endif>
 
 
 
-    {{-- #200: the shared API log panel - the three-way mode, All/Errors
-         and path filters that survive a refresh, pages of 50, and the
-         retention stated in words. --}}
     @include('partials.channel-api-log', [
         'logChannel' => 'Lazada',
         'canManage' => $canManageLazada,
@@ -800,8 +701,6 @@
     <section class="fm-section">
         <div class="fm-section__head">
             <h2 class="fm-section__title">Free up space</h2>
-            {{-- Explanation to a tooltip (the owner, 2026-09-04): the
-                 control is self-evident, the caveat is one tap away. --}}
             <x-ui.hint label="What clearing does">Every synced Lazada order, order line and return keeps the full API response it came from. Clearing those payloads on older rows frees database space and changes nothing about the orders themselves.</x-ui.hint>
         </div>
 
@@ -826,9 +725,6 @@
     @endif
 </div>
 
-{{-- ================================================================
-     AUTOMATIONS
-     ================================================================ --}}
 @if($canManageLazada)
 <div id="lz-tab-automations" class="cs-panel" @if($csSection !== 'automations') hidden @endif>
     <section class="fm-section">
@@ -841,5 +737,5 @@
 </div>
 @endif
 
-</div>{{-- /.cs-page --}}
+</div>
 @endsection

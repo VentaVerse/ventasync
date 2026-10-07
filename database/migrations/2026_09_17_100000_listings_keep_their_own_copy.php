@@ -7,12 +7,6 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Every store listing keeps its own copy of its catalog product. A blank
- * title, description or photo list takes the catalog's current one, and a
- * listing that then matches the catalog is marked compared. One that still
- * differs is left unmarked, so it shows a Catalog change.
- */
 return new class extends Migration
 {
     private const TABLES = [

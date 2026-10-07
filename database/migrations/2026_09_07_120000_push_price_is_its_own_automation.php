@@ -4,17 +4,8 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Push Price is its own automation (the owner, 2026-09-07). "Push Stock &
- * Price" was one row on every channel, and on five of six its cron sent
- * stock only. The row is renamed to what it does, and a "Push Price" row
- * is created beside every one of them: same integration, same store, same
- * options, disabled, every thirty minutes until the operator says
- * otherwise. Idempotent: a price row that already exists is left alone.
- */
 return new class extends Migration
 {
-    /** integration => [stock command, price command] */
     private const PAIRS = [
         'shopee' => ['shopee:push-stock', 'shopee:push-price'],
         'lazada' => ['lazada:push-stock', 'lazada:push-price'],

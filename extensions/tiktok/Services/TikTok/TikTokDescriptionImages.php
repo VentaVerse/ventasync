@@ -8,27 +8,10 @@ use Extensions\tiktok\Models\TikTokApiLog;
 use Extensions\tiktok\Models\TikTokDescriptionImage;
 use Illuminate\Support\Facades\Storage;
 
-/**
- * The pictures inside a description, moved onto TikTok Shop.
- *
- * TikTok only shows description pictures it hosts: every img must carry a
- * TikTok Shop URL with its width and height. Each of our pictures is fitted,
- * uploaded as a description image, and its src replaced with the URL TikTok
- * gives back. What TikTok already holds for a store is remembered by the
- * hash of the bytes sent, so a later push reuses it without uploading.
- *
- * A picture that cannot be moved (not one of ours, unreadable, or refused
- * by TikTok) is left out and counted, never sent with our own URL.
- */
 class TikTokDescriptionImages
 {
-    /** Hosts whose pictures TikTok already serves; those go as they are. */
     private const TIKTOK_HOSTS = ['ibyteimg.com', 'tiktokcdn.com', 'tiktokcdn-us.com', 'byteimg.com'];
 
-    /**
-     * @param  array{app_key: string, app_secret: string, token: string, shop_cipher?: string}  $c
-     * @return array{html: string, left_out: int}
-     */
     public function host(string $html, array $c, TikTokClient $client, int $storeId): array
     {
         if (stripos($html, '<img') === false) {
@@ -54,7 +37,6 @@ class TikTokDescriptionImages
         return ['html' => $out, 'left_out' => $leftOut];
     }
 
-    /** The img tag TikTok is sent for one picture, or null to leave it out. */
     private function hosted(string $tag, array $c, TikTokClient $client, int $storeId, array &$memo): ?string
     {
         $src = self::src($tag);
@@ -89,7 +71,6 @@ class TikTokDescriptionImages
         return '<img src="' . e($held['url']) . '" width="' . $held['width'] . '" height="' . $held['height'] . '">';
     }
 
-    /** @return array{url: string, width: int, height: int}|null */
     private function remembered(int $storeId, string $hash): ?array
     {
         try {
@@ -101,7 +82,6 @@ class TikTokDescriptionImages
         return $row ? ['url' => (string) $row->url, 'width' => (int) $row->width, 'height' => (int) $row->height] : null;
     }
 
-    /** @return array{url: string, width: int, height: int}|false false when TikTok did not take it */
     private function upload(string $bytes, string $path, string $hash, array $c, TikTokClient $client, int $storeId): array|false
     {
         try {
@@ -145,13 +125,11 @@ class TikTokDescriptionImages
                 'created_at' => now(), 'updated_at' => now(),
             ]], ['tiktok_setting_id', 'content_hash'], ['url', 'uri', 'width', 'height', 'updated_at']);
         } catch (\Throwable) {
-            // Not remembered: the picture still goes, and the next push uploads it again.
         }
 
         return $held;
     }
 
-    /** The src of an img tag, decoded, or null when it has none. */
     private static function src(string $tag): ?string
     {
         if (! preg_match('#\bsrc\s*=\s*(?:"([^"]*)"|\'([^\']*)\')#i', $tag, $m)) {
@@ -177,11 +155,6 @@ class TikTokDescriptionImages
         return false;
     }
 
-    /**
-     * The public-disk path of one of our own pictures, or null for anything
-     * else. Our pictures are served under /storage on this app's own host,
-     * whichever scheme the stored URL carries.
-     */
     public static function ownPath(string $src): ?string
     {
         $bare = preg_replace('#^https?:#i', '', $src);

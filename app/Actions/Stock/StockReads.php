@@ -7,10 +7,6 @@ use App\Support\Api\Input;
 use App\Support\Api\Refused;
 use App\Support\VariationRows;
 
-/**
- * Stock levels as an application reads them.
- * The partner API and the assistant tools both run this.
- */
 final class StockReads
 {
     public function index(Input $request): array
@@ -28,13 +24,11 @@ final class StockReads
 
         $query = Product::query()->with('description');
 
-        // "Low stock" = at or below the product's own reorder level.
         if ($lowStock) {
             $query->where('reorder_level', '>', 0)
                 ->whereColumn('quantity', '<=', 'reorder_level');
         }
 
-        // Absolute threshold override (e.g. everything with <= 5 on hand).
         if ($threshold !== null) {
             $query->where('quantity', '<=', $threshold);
         }
@@ -47,23 +41,17 @@ final class StockReads
             });
         }
 
-        // Lowest stock first when filtering for restock needs; else stable id order.
         $query->orderBy(($lowStock || $threshold !== null) ? 'quantity' : 'product_id',
             ($lowStock || $threshold !== null) ? 'asc' : 'asc');
 
         $items = $query->paginate($perPage)->withPath(\App\Support\AppDoor::pagePath('inventory'));
 
-        // Stock is asked about per variation ("how many Blue are left"),
-        // and quantity here is the total across them, so every row carries
-        // its variations' own quantities. One query for the page, not one
-        // per row.
         $variations = VariationRows::forProducts($items->getCollection()->pluck('product_id')->map('intval')->all());
         $items->getCollection()->transform(fn (Product $p) => $this->present($p, $variations->get((int) $p->product_id, collect())));
 
         return $this->json($items);
     }
 
-    /** @param \Illuminate\Support\Collection<int, object> $variations */
     private function present(Product $product, $variations): array
     {
         $reorder = (int) $product->reorder_level;
@@ -90,12 +78,6 @@ final class StockReads
         ];
     }
 
-    /**
-     * An answer, or a refusal when the status says the request was turned
-     * down: the message and status reach every door unchanged.
-     *
-     * @return array<string, mixed>
-     */
     private function json(mixed $data, int $status = 200): array
     {
         if ($status >= 400) {

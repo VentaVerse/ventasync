@@ -1,12 +1,5 @@
 @props([
-    // A LengthAwarePaginator, or a simple Paginator. A simple paginator knows
-    // neither its total nor its last page, so it gets the summary and the two
-    // arrows and no numbers - which is the honest rendering rather than a
-    // guessed page count.
     'paginator' => null,
-    // How many page links to show either side of the current one. Two gives a
-    // five-wide window, which is the widest that still fits beside Previous
-    // and Next on a phone.
     'side' => 2,
 ])
 
@@ -16,19 +9,6 @@
     $last = $lengthAware ? (int) $p->lastPage() : null;
     $current = $p ? (int) $p->currentPage() : 1;
 
-    /*
-     * The window, as a list of page numbers with nulls for the gaps.
-     *
-     * First and last are always present, because "jump to the end" is the
-     * second most common thing a person wants from a pager and it was
-     * previously reachable only by clicking Next eighty-three times. Between
-     * them sits the current page with $side neighbours, and a null wherever
-     * the run is broken.
-     *
-     * A gap of exactly one page prints that page instead of an ellipsis: an
-     * ellipsis standing in for a single number is wider than the number and
-     * tells you less.
-     */
     $pages = [];
 
     if ($lengthAware && $last > 1) {
@@ -59,28 +39,11 @@
             </x-ui.button>
 
             @if($pages !== [])
-                {{-- The numbers carry their own list semantics so a screen
-                     reader announces "page 4 of 84" rather than a bare "4",
-                     and the current one is aria-current the same way an active
-                     nav item is. --}}
-                {{-- Below 560px the strip scrolls rather than pushing the
-                     row past the window, and a scroll container opens at
-                     zero - so on page 40 of 42 the one number that matters
-                     would start off-screen. Centres the current page in its
-                     own scrollport, the same way the dashboard's range
-                     control does. scrollLeft rather than scrollIntoView,
-                     which walks every scrollable ancestor and would move the
-                     page too. --}}
                 <ol class="x-pager__pages" aria-label="Pages"
                     x-data
                     x-init="$nextTick(() => {
                         const on = $el.querySelector('.is-on');
                         if (! on) return;
-                        // Rect deltas, not offsetLeft. offsetLeft is measured
-                        // from the offsetParent, and the <li> between the item
-                        // and this container makes that the wrong origin - it
-                        // reported page 5 of 8 as sitting at the far right end
-                        // of the strip and scrolled there.
                         const item = on.getBoundingClientRect();
                         const box = $el.getBoundingClientRect();
                         $el.scrollLeft += (item.left - box.left) - (box.width - item.width) / 2;

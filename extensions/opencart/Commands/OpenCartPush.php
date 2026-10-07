@@ -40,7 +40,6 @@ class OpenCartPush extends Command
             }
         }
 
-        // Resolve product IDs
         $ids = $this->resolveProductIds();
         if ($ids === null) return 1;
 
@@ -56,7 +55,6 @@ class OpenCartPush extends Command
 
             $client = new OpenCartClient($setting);
 
-            // Ping test
             $ping = $client->ping();
             if (!$ping['ok']) {
                 $this->error('Cannot connect: ' . json_encode($ping['body']));

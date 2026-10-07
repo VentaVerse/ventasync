@@ -1,18 +1,3 @@
-/* The page-driven fetch of orders (the owner, 2026-09-07).
- *
- * The fetch form on every channel's orders panel used to post and wait
- * behind a spinner while one request read every page of the store; a
- * fourteen-day fetch on a busy store died at the server's limit and the
- * spinner never learned. Now the form's submit is intercepted: the page
- * begins a run (the server reads the first page inside that request),
- * then asks for one page per request until the run is done, drawing the
- * count on a strip the whole time. Every page is saved when it arrives.
- * Stop ends the run after the page in flight; a failed page offers Try
- * again; a run this store did not finish is offered on the next visit:
- * Continue, or Start over.
- *
- * Markup: resources/views/components/channel/order-fetch.blade.php.
- */
 (function () {
     function csrf() {
         var m = document.querySelector('meta[name="csrf-token"]');
@@ -47,8 +32,8 @@
         var sub = root.querySelector('[data-of-sheet-sub]');
         var titles = [root.querySelector('[data-of-title]'), root.querySelector('[data-of-sheet-title]')];
 
-        var run = null;       // the last state the server answered with
-        var driving = false;  // a step is in flight
+        var run = null;
+        var driving = false;
         var stopAsked = false;
 
         function url(pattern, id) { return pattern.replace(/\/0(\/|$)/, '/' + id + '$1'); }
@@ -60,7 +45,7 @@
             if (!run) return;
             root.hidden = false;
             strip.hidden = false;
-            var state = run.status; // running, stopped, failed, done
+            var state = run.status;
             strip.setAttribute('data-state', state);
             var tone = state === 'running' ? '' : state;
             var known = run.total !== null && run.total > 0 ? run.total : (run.pages ? null : null);
@@ -134,7 +119,6 @@
                     if (stopAsked) { stopAsked = false; post(url(stopUrl, run.id), {}).then(apply); return; }
                     window.setTimeout(function () { drive(false); }, 60);
                 } else if (run.status === 'done') {
-                    // The list behind the strip is stale by exactly what was fetched.
                     window.setTimeout(function () { if (run && run.status === 'done' && sheet.hidden) window.location.reload(); }, 1800);
                 }
             }, function () {
@@ -154,36 +138,22 @@
             }, function () { apply(null); });
         }
 
-        // The form's submit becomes a run. A confirm dialog that
-        // preventDefaulted the submit has already spoken; nothing starts.
         if (form) {
             form.addEventListener('submit', function (e) {
                 if (e.defaultPrevented) return;
-                if (!beginUrl || !stepUrl) return; // no run urls: the plain post stands
+                if (!beginUrl || !stepUrl) return;
                 var clicked = e.submitter || form.querySelector('[type="submit"]');
-                // Only the Fetch button drives a run; Update statuses and the rest keep their own way.
                 if (clicked && clicked.getAttribute('formaction') && clicked.getAttribute('formaction') !== form.getAttribute('action')) return;
                 var fields = {};
                 var fd = new FormData(form);
                 fd.forEach(function (v, k) { if (k !== '_token') fields[k] = v; });
-                if (!fields.date_from || !fields.date_to) return; // the page's own validation speaks
+                if (!fields.date_from || !fields.date_to) return;
                 e.preventDefault();
                 e.stopImmediatePropagation();
                 begin(fields);
             }, true);
         }
 
-        /* OPENING THE SHEET IS A CLASS, NOT AN ATTRIBUTE.
-         *
-         * .modal-backdrop is display:none and only .modal-backdrop.active
-         * is display:flex - the convention every other dialog in this app
-         * follows. This one toggled the `hidden` attribute alone, so the
-         * element stopped being hidden and stayed display:none: Open did
-         * nothing at all, on every channel, for as long as the sheet has
-         * existed (the owner, 2026-09-10: "I cant click Open").
-         *
-         * Both are set: the attribute keeps the element out of the
-         * accessibility tree while it is away, the class shows it. */
         function showSheet(open) {
             sheet.hidden = !open;
             sheet.classList.toggle('active', !!open);
@@ -200,12 +170,11 @@
             else if (t.hasAttribute('data-of-startover')) { showSheet(false); strip.hidden = true; root.hidden = true; run = null; if (form) { var b = form.querySelector('[type="submit"]'); if (b) b.focus(); } }
         });
 
-        // A run this store did not finish: offer it.
         var resumable = root.getAttribute('data-resumable');
         if (resumable) {
             try { run = JSON.parse(resumable); } catch (err) { run = null; }
             if (run) {
-                if (run.status === 'running') run.status = 'stopped'; // a tab that closed left it running
+                if (run.status === 'running') run.status = 'stopped';
                 draw();
                 var when = root.getAttribute('data-resumable-when');
                 each(titles, function (t) { if (t) t.textContent = 'A fetch stopped on page ' + run.page + (run.pages ? ' of ' + run.pages : ''); });

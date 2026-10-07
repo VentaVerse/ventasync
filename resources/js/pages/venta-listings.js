@@ -1,6 +1,3 @@
-/* Venta listings index (#171): the same module Shopee's, Lazada's and
-   TikTok's listings pages ride (channel-listings.js), bound to this
-   page's own overlay and words. The store's name is on the page root. */
 import { initChannelListings } from './channel-listings';
 
 document.addEventListener('DOMContentLoaded', function () {

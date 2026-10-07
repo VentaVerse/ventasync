@@ -19,10 +19,6 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
-/**
- * A booking button is answered by the ERP, without asking the marketplace,
- * when the order is already being booked or already past that step.
- */
 class BookingGuardsTest extends TestCase
 {
     use RefreshDatabase;

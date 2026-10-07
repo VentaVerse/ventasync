@@ -1,14 +1,3 @@
-{{-- The price rule card, one for every channel's listing page.
-
-     A listing's own Price, when set, is the starting price the rule is added
-     to; blank starts from the catalog price. A product with variations prices
-     each variation from the catalog, so it has no Price field here. The
-     running total is recomputed as the fields change
-     (resources/js/pages/channel-listing-form.js).
-
-     Expects: $id (the page's field prefix), $storeName, $canManage,
-     $markupPercent, $markupFixed, $price (the listing's own, or null),
-     $corePrice, $pushPrice (what the next push sends), $hasVariations. --}}
 @php
     $ownPrice = old('price', $price ?? '');
 @endphp

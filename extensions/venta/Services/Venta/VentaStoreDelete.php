@@ -8,13 +8,6 @@ use Extensions\venta\Models\VentaProductGroupProduct;
 use Extensions\venta\Models\VentaProductLink;
 use Extensions\venta\Models\VentaSetting;
 
-/**
- * Delete from {Store}: the channel's own act that removes the product AT
- * the store (a catalog delete never does, 2026-09-07). One sender for the
- * Listings page's row and bulk verbs and the group page's. On success the
- * link goes, the mirror is voided and every group place on this store
- * goes back to pending; a store that answers "not found" counts as gone.
- */
 final class VentaStoreDelete
 {
     public function __construct(private readonly VentaSetting $setting, private readonly VentaClient $client) {}
@@ -24,10 +17,6 @@ final class VentaStoreDelete
         return new self($setting, new VentaClient($setting));
     }
 
-    /**
-     * @param list<int> $productIds
-     * @return array{deleted:int, skipped:int, errors:array<int,string>}
-     */
     public function delete(array $productIds): array
     {
         $ids = array_values(array_unique(array_map('intval', $productIds)));

@@ -1,13 +1,4 @@
 @php
-    // Contract identical to ext-shopee::orders._panel and
-    // ext-lazada::orders._panel - see the Shopee file's top @php block for
-    // the full rationale. $panelBaseUrl is the caller's own route
-    // (/tiktok/orders in the seller center, /channels/fulfilment on the
-    // fulfilment hub) and $panelHiddenParams are context params the caller
-    // always wants kept (channel=tiktok on the hub). Query strings go
-    // through Arr::query() rather than http_build_query() so the encoding
-    // matches byte for byte what the hardcoded route() calls on this page
-    // produced before this panel existed (RFC 3986: spaces as %20, not +).
     $panelHiddenParams = $panelHiddenParams ?? [];
 
     $panelSelfUrl = function (array $params = [], array $except = []) use ($panelBaseUrl, $panelHiddenParams) {
@@ -22,20 +13,6 @@
         return $query === [] ? $panelBaseUrl : $panelBaseUrl . '?' . \Illuminate\Support\Arr::query($query);
     };
 
-    // Presentation shaping the panel needs in every context it renders in.
-    // It lived in orders/index.blade.php while the seller center was the
-    // only caller; the fulfilment hub is the second, and a second copy of
-    // this shaping in another view is exactly how the two surfaces would
-    // start drifting apart. Each line coalesces, so a caller that already
-    // defined the value (index.blade.php still computes
-    // $canManageTiktokOrders, $tabs, $active_tab, $pendingSub, $pendingNav
-    // and $scopeLabel itself, because it reads them before this include for
-    // its own deck and for the ltrim whitespace mirror below) keeps its own.
-    //
-    // The page is visible to view_tiktok_orders holders; Fetch, Update and
-    // Ship render only for the manage tier. The route middleware
-    // (perm:manage_tiktok_orders on every write POST) is the real gate; this
-    // flag only stops the panel offering buttons that would 403.
     $canManageTiktokOrders = $canManageTiktokOrders
         ?? (auth()->user()?->hasPermission('manage_tiktok/order') ?? false);
 
@@ -55,8 +32,6 @@
         'to_handover' => 'To Handover',
     ];
 
-    // The count in the deck is the count of what is actually listed, so it
-    // names the step being listed rather than the tab above it.
     if (!isset($scopeLabel)) {
         $scopeLabel = null;
         if ($active_tab === 'TO_SHIP') {
@@ -66,9 +41,6 @@
         }
     }
 
-    // The two sort values the panel service accepts, in the words an
-    // operator uses rather than "Newest First", which does not say newest
-    // by what.
     $ttSortLabels = $ttSortLabels ?? [
         'created_desc' => 'Order date, newest first',
         'created_asc'  => 'Order date, oldest first',
@@ -77,12 +49,6 @@
     ];
 @endphp
 @if($canManageTiktokOrders)
-{{-- One command bar, the same grammar as Shopee's and Lazada's: every child
-     of the row ends in a box exactly --control-h tall and the row is bottom
-     aligned, so the date inputs and the two buttons share a baseline and a
-     top edge. The three stacked cards this replaces each set their own
-     control heights, which is what left the buttons off the baseline of
-     their own date inputs. --}}
 @endif
 
 @if($last_result)
@@ -92,51 +58,23 @@
             <span class="co-notice__body">{{ $last_result['message'] }}</span>
         @endif
         @if(!empty($last_result['awb_url']))
-            {{-- The page module opens this waybill once on load. The link is
-                 here as well because a popup blocker, or a second look at the
-                 same notice, should not cost the operator the label they just
-                 created. --}}
             <x-ui.button size="sm" :href="$last_result['awb_url']" target="_blank" rel="noopener">Print waybill</x-ui.button>
         @endif
     </div>
 @endif
 
-{{-- Status filters as a segmented control. Seven views over one list, so
-     "pick one" is the right grammar; the old .tabs strip implied seven
-     pages. Counts ride along as muted mono numbers on every tab, not only on
-     the two the old strip decorated with a black pill: a count that appears
-     on some tabs and not others reads as an alert rather than a figure. --}}
-{{-- Phone only. The fetch bar and the filter row are a desk's tools, not
-     a bench's - measured at 443px of the 887px a packer scrolled past before
-     the first order - so below the table's restack width they start folded
-     behind this and one tap brings them back. Nothing is removed and nothing
-     moves; above that width this button does not exist. --}}
 <button type="button" class="x-desk-toggle" data-desk-toggle aria-expanded="true">
     <span data-desk-label>Find, dates and sync</span>
     <span class="x-desk-toggle__mark" aria-hidden="true">&#9662;</span>
 </button>
 
 <div class="x-segment-bar">
-    {{-- Navigation, not an ARIA tablist. Each item is a link that loads a
-     filtered page, and role="tablist" promises children with role="tab"
-     controlling panels that switch in place - so a screen reader
-     announced a tab list containing no tabs, on the control a
-     fulfilment worker uses most. A nav landmark with aria-current is
-     what a set of filter links actually is. --}}
     <nav class="x-segment" aria-label="Order status">
         @foreach($tabs as $key => $label)
             @php
                 $isActive = $active_tab === strtoupper((string) $key);
                 $count = $tab_counts[$key] ?? null;
             @endphp
-            {{-- A tab with nothing in it stays clickable.
-                 It was briefly rendered without an href, on the reasoning that
-                 spending a click to be told what the tab already told you is
-                 waste. The owner asked for it back, and the reasoning was thinner
-                 than it looked: a count is a number the last sync produced,
-                 and going to the tab is how an operator checks whether that is
-                 still true. A control that refuses the check is arguing with
-                 the person using it. --}}
             <a href="{{ $panelSelfUrl(['tab' => $key], ['page', 'pending_sub', 'courier']) }}"
                class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
                @if($isActive) aria-current="true" @endif>
@@ -154,31 +92,14 @@
 </div>
 
 @if($active_tab === 'TO_SHIP')
-    {{-- TikTok's To Ship has two working steps. The sub row drops the trough
-         so it cannot be mistaken for a peer of the row above it, and the "To
-         Ship workflow / Choose the step you are working on" card that used to
-         frame it is gone: a segmented control under a tab needs no caption
-         explaining that it filters. --}}
     <div class="x-segment x-segment--sub" aria-label="To Ship step">
         @foreach($pendingNav as $k => $lbl)
             @php
                 $isActive = ($pendingSub === $k) || ($pendingSub === '' && $k === 'to_pack');
                 $count = $tab_counts[$k] ?? null;
             @endphp
-            {{-- A sub step keeps its href at zero, unlike the top level tabs
-                 above. These split one queue between them, and the split
-                 empties one side into the other as the work gets done - To
-                 Pack drains into To Handover over a morning. A zero here is a
-                 moment in that loop rather than a settled state, so making the
-                 control inert would have it flicker in and out of being
-                 clickable while someone is working through it. --}}
             <a href="{{ $panelSelfUrl(['tab' => 'TO_SHIP', 'pending_sub' => $k], ['page', 'courier']) }}"
                class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
-               {{-- "step", not "page": both strips describe the same URL, and two
-                     aria-current="page" in one document leaves assistive tech
-                     to guess which is the location. The sub level is a step
-                     inside the tab above it, which is the value's own
-                     meaning. --}}
                 @if($isActive) aria-current="step" @endif>
                 <span>{{ $lbl }}</span>
                 @if($count !== null)
@@ -188,21 +109,12 @@
         @endforeach
     </div>
 
-    {{-- The courier split of the open To Ship step, and the filter it drives:
-         whose rider comes first is decided at To Pack as much as at To
-         Handover. See components/fulfilment/courier-strip. --}}
     @if($pendingSub !== '')
         <x-fulfilment.courier-strip :tally="$courier_tally ?? []" :self-url="$panelSelfUrl" />
     @endif
 @endif
 
-{{-- One filter row. Search, sort and per page were three separate card forms
-     doing one job, one of them a form whose only control was a select. The
-     selects auto-submit through the shared data-autosubmit handler that
-     /sales/orders already uses. --}}
 @php
-    /* What the Filters button admits to. A fold that hides an active filter
-       is worse than no fold. */
     $ttActiveFilters = 0;
     if (($placedFromFilter ?? '') !== '') { $ttActiveFilters++; }
     if (($placedToFilter ?? '') !== '') { $ttActiveFilters++; }
@@ -210,14 +122,8 @@
     if ((int) ($perPage ?? 10) !== 10) { $ttActiveFilters++; }
 @endphp
 
-{{-- One toolbar, after the tabs: choose the queue, then narrow it. --}}
 <div class="x-toolbar">
-<form method="GET" action="{{ $panelBaseUrl }}" class="x-filters" data-desk-tool id="orders-filter">{{-- The caller's context params, kept across every filter change. The loop
-     is written tight against its own lines because Blade eats the newline
-     after @endforeach: laid out conventionally, a caller passing no params
-     (the seller center) still moved the next input onto the form's own
-     line, which is a rendered difference this page's extraction proof does
-     not allow. --}}
+<form method="GET" action="{{ $panelBaseUrl }}" class="x-filters" data-desk-tool id="orders-filter">
 @foreach($panelHiddenParams as $panelHiddenKey => $panelHiddenValue)    <input type="hidden" name="{{ $panelHiddenKey }}" value="{{ $panelHiddenValue }}">
 @endforeach    <input type="hidden" name="tab" value="{{ $active_tab }}">
     @if($active_tab === 'TO_SHIP')
@@ -227,21 +133,11 @@
         @endif
     @endif
 
-    {{-- One box, matching whatever the caller just said. See the note in
-         the panel service for why this replaced an order-number field beside
-         a buyer field. --}}
     <x-ui.input type="search" name="q" class="x-filters__find"
                 value="{{ $findFilter }}"
                 placeholder="Order no, buyer, product or tracking"
                 aria-label="Find an order by order number, buyer, product or tracking" />
 
-    {{-- When the order was placed. This list has never had a date filter of
-         any kind - the only dates on the page were the command bar's, which
-         tell the marketplace what to send and do not touch the rows below
-         them. A caller with "sometime last week" and a product name could not
-         narrow this list at all. --}}
-    {{-- Folded, with the count of what is set. Same fold as Lazada and
-         Shopee, so a packer crossing channels does not relearn the toolbar. --}}
     <x-ui.foldout label="Filters" :count="$ttActiveFilters ?: null">
     <span class="x-filters__group">
             <span class="x-filters__group-label">Show orders placed</span>
@@ -278,7 +174,6 @@
 </form>
 
 @if($canManageTiktokOrders)
-    {{-- The marketplace pull, folded. --}}
     <x-ui.foldout label="Sync" class="x-toolbar__sync"
                   hint="Pulls orders from TikTok Shop for the dates below. Fetching an order that has not been seen before adjusts stock.">
         <div class="x-cmdbar x-cmdbar--folded">
@@ -318,34 +213,13 @@
         if ($hasSearch) {
             $ttEmptyDesc = 'Nothing matches that search. Clear it to see the full list.';
         } elseif ($active_tab !== 'ALL') {
-            // Keep the tab's own capitalisation: lowercasing it produced
-            // "no to ship orders", which reads broken.
             $ttEmptyDesc = 'No orders in ' . ($scopeLabel ?? $active_tab) . ' right now.';
         } else {
-            // The empty state names the way forward the reader actually has.
-            // Telling a read-only operator to use a command bar their
-            // permission tier never renders is an instruction they cannot
-            // follow.
             $ttEmptyDesc = $canManageTiktokOrders
                 ? 'Nothing has been synced yet. Pick a date range above and fetch orders from TikTok Shop.'
                 : 'Nothing has been synced yet. Someone with permission to sync orders needs to pull them from TikTok Shop first.';
         }
 
-        /* Whether the list the operator is looking at is narrowed - read off
-         * the panel's STATE, not off the URL.
-         *
-         * This used to be derived from the query string alone, which is only
-         * true for a panel whose unfiltered view is also its default. Shopee
-         * orders defaults its tab to PENDING and TikTok to TO_SHIP, so
-         * landing on either carries no query parameters at all: the check
-         * said "not filtered", the way out was suppressed, and the operator
-         * stood on "No orders in To Pack right now" with one order sitting in
-         * To Handover and nothing pointing at it. The one case where they are
-         * most stuck was the one case with no exit.
-         *
-         * page is excluded because paging is not narrowing, tab=ALL because
-         * that is the unnarrowed state, and the hidden params because they
-         * identify the panel rather than filter it. */
         $emptyFiltered = (isset($active_tab) && strtoupper((string) $active_tab) !== 'ALL')
             || collect(request()->except(array_merge(array_keys($panelHiddenParams ?? []), ['page'])))
             ->filter(fn ($v, $k) => $v !== null && $v !== '' && !($k === 'tab' && $v === 'ALL'))
@@ -360,19 +234,6 @@
     </x-ui.empty>
 @else
 
-{{-- SELECTION, and the two things a warehouse does with one.
-     The critique measured what a packer does with a To Ship queue of
-     fifty-one orders at ten to a page: open one, print, go back, open the
-     next. These two sheets replace that with one submission.
-
-     Both are reads. Neither contacts TikTok - the sync already stored these
-     orders' products - so a selection of forty costs forty rows of SQL and
-     no rate limit. That is also why the bar renders for the view tier and
-     not only for manage: printing a pick list reveals nothing the operator
-     cannot already read on the row.
-
-     data-order-selection scopes the module to this list; the two forms both
-     take the ticked boxes because a checkbox names its form by id. --}}
 <div data-order-selection>
     <x-ui.selectbar :step="$active_tab !== 'ALL' ? ($tabs[$active_tab] ?? null) : null">
         <form method="POST" action="{{ route('fulfilment.print.pick', ['channel' => 'tiktok']) }}"
@@ -387,12 +248,6 @@
 
 <x-ui.table caption="{{ 'TikTok orders' . ($active_tab !== 'ALL' && isset($tabs[$active_tab]) ? ' in ' . $tabs[$active_tab] : '') }}" class="x-table--stack">
     <x-slot:head>
-        {{-- The legacy column format, the same one Shopee and Lazada settled
-             on: one row per item so Qty and Price align in their own columns,
-             and the order-level facts (amount, shipping, status, actions)
-             rowspan beside the item rows. The buyer, order number and create
-             time ride in a band above each order, exactly where the legacy
-             page carried them. --}}
         <tr>
             <th scope="col" class="tt-col-products">Products</th>
             <th scope="col" class="tt-col-qty">Qty</th>
@@ -413,9 +268,6 @@
             $created = $o->order_created_at ? $o->order_created_at->format('Y-m-d H:i') : null;
             $buyer = (string) ($o->buyer_name ?? '');
 
-            // Consolidate duplicate line items by SKU + name + variation and
-            // sum their quantities: TikTok emits one line item per unit on
-            // some payloads, which listed the same product five times.
             $rawItems = $o->products ? $o->products->toArray() : [];
             $grouped = [];
             foreach ($rawItems as $ri) {
@@ -443,9 +295,6 @@
             }
             $groupedItems = array_values($grouped);
 
-            // Legacy shape: an order with no recorded items still renders one
-            // empty item row under its band, rather than a band with nothing
-            // attached to it.
             $displayItems = $groupedItems !== [] ? $groupedItems : [[]];
             $lineCount = count($displayItems);
             $itemCount = count($groupedItems);
@@ -453,15 +302,8 @@
             $payment = (isset($raw['payment']) && is_array($raw['payment'])) ? $raw['payment'] : [];
             $totalAmount = $payment['total_amount'] ?? $payment['product_total_amount'] ?? null;
 
-            // Currency is resolved through App\Support\Money, which reads the
-            // symbol from the currencies table, so no symbol is ever written
-            // into a view. The old page printed TikTok's currency CODE where
-            // a symbol belongs, so a peso order read "PHP1,234.00"; an order
-            // carrying a code nobody has configured locally now falls back to
-            // "CODE 1,234.00" instead.
             $currencyCode = (string) ($payment['currency'] ?? '');
 
-            // Shipping. Order-level raw first, then the first line item.
             $courier = (string) ($raw['shipping_provider'] ?? '');
             $trackingNo = (string) ($raw['tracking_number'] ?? '');
             if ($courier === '' && !empty($raw['line_items'])) {
@@ -472,10 +314,6 @@
                 }
             }
 
-            // The parcel the ship dialog shows for this row (see the
-            // template beside the Ship order button). TikTok's address is a
-            // list of levels; the city-like one names the destination, and
-            // enough of the address to tell two orders apart is all it is.
             $ttAddr = is_array($raw['recipient_address'] ?? null) ? $raw['recipient_address'] : [];
             $ttCity = null;
             foreach ((array) ($ttAddr['district_info'] ?? []) as $lvl) {
@@ -494,19 +332,13 @@
                 return $it;
             }, $groupedItems), $courier, $ttCity);
 
-            // The action matrix, one flag per branch. Ship is the only
-            // marketplace write on this page, so it is the only branch gated
-            // on the manage tier; the waybill and the tracking lookup sit in
-            // the read tier of extensions/tiktok/routes/web.php and are
-            // offered to a viewer too.
             $isToPack = ($status === 'AWAITING_SHIPMENT');
             $isToHandover = ($status === 'AWAITING_COLLECTION');
             $isShipped = in_array($status, ['IN_TRANSIT', 'DELIVERED', 'COMPLETED'], true);
             $showsWaybill = $isToHandover || $isShipped;
             $hasActions = ($isToPack && $canManageTiktokOrders) || $showsWaybill;
 
-            // tts_sla_time is TikTok's ship-by deadline, a Unix timestamp,
-            // and only means anything before the parcel leaves.
+            // tts_sla_time is a Unix timestamp and only means anything before the parcel leaves.
             $awaitingShip = $isToPack || $isToHandover;
             $shipBy = $awaitingShip ? (int) ($raw['tts_sla_time'] ?? 0) : 0;
 
@@ -517,8 +349,6 @@
             <td colspan="7">
                 <div class="co-band__row">
                     <div class="co-band__left">
-                        {{-- Selecting the order, in the order's own band rather than in a
-                             column of its own. See components/selectbar.css. --}}
                         <input type="checkbox" class="x-pick" data-selection-item
                                name="ids[]" value="{{ $o->id }}" form="tiktok-print-pick"
                                aria-label="Select order {{ $orderId }}">
@@ -580,10 +410,6 @@
 
             <td class="tt-col-price x-td-num" data-label="Price">
                 @php
-                    // Sale price is what the buyer paid, so it leads. The
-                    // fetch writes 0.0 rather than null when TikTok sends no
-                    // sale price, which made the old ?? chain never reach
-                    // item_price and printed a dash over a real figure.
                     $salePrice = $it['sale_price'] ?? null;
                     $unitPrice = (is_numeric($salePrice) && (float) $salePrice > 0)
                         ? $salePrice
@@ -635,29 +461,10 @@
 
             <td class="tt-col-act" rowspan="{{ $lineCount }}">
                 @if(!$hasActions)
-                    {{-- Unpaid and cancelled orders have nothing a seller can
-                         do to them, and an order still waiting to be packed
-                         offers a viewer nothing either, which is why the
-                         legacy page printed a dash here rather than a
-                         control. --}}
                     <span class="co-empty-mark">-</span>
                 @else
                 <div class="co-actions co-actions--wrap">
-                    {{-- Every action a row's status allows is a visible
-                         button, matching the legacy page: this is the packing
-                         desk's working surface, and an overflow menu made the
-                         column read as empty. Every one of them is a
-                         secondary button, so a screen of forty rows has no
-                         wall of colour in it; the accent that says "your
-                         move" is spent once per row, on the status badge. --}}
                     @if($isToPack && $canManageTiktokOrders)
-                        {{-- The form stays on the row (its action is this
-                             order's), but the button opens #ttShipModal
-                             rather than submitting: the dialog shows the
-                             parcel and states what TikTok is told, and its
-                             own Ship order submits this form. The busy
-                             overlay is raised by that submit through
-                             data-busy as before. --}}
                         <form method="POST" action="{{ route('ext.tiktok.orders.ship', $o->id) }}"
                               data-busy="Marking shipped on TikTok Shop">
                             @csrf
@@ -675,12 +482,6 @@
                                      target="_blank" rel="noopener">Print waybill</x-ui.button>
 
                         @if($isToHandover)
-                            {{-- The waybill is cached locally after its first
-                                 download. Handover is the step where a label
-                                 gets reprinted, so that is the one step that
-                                 offers a fresh copy from TikTok. The old page
-                                 spent a bare arrow glyph on this, which said
-                                 nothing without hovering it. --}}
                             <x-ui.button size="sm"
                                          :href="route('ext.tiktok.orders.awb', [$o->id, 'refresh' => 1])"
                                          target="_blank" rel="noopener">Refresh waybill</x-ui.button>
@@ -697,15 +498,11 @@
         @endforeach
     @endforeach
 </x-ui.table>
-</div>{{-- /selection --}}
+</div>
 
 <x-ui.pager :paginator="$orders" />
 @endif
 
-{{-- Loading overlay. Every id below is queried by
-     resources/js/pages/tiktok-orders.js and must not change. The data-busy
-     hooks are how a confirmed form submit (Ship order) raises the same
-     overlay through resources/js/busy-overlay.js. --}}
 <div id="ttLoadingOverlay" class="modal-backdrop" data-busy-overlay>
     <div class="modal co-modal co-modal--sm">
         <div class="co-progress">
@@ -718,8 +515,4 @@
     </div>
 </div>
 
-{{-- Tracking modal, filled by the page module from the tracking endpoint.
-     One copy of the markup, in orders/_modals.blade.php, included by this
-     panel and by the order detail page: the module reads every id in it, and
-     two copies of a contract read by id is how the two drift. --}}
 @include('ext-tiktok::orders._modals')

@@ -1,11 +1,3 @@
-{{-- One store's money at its marketplace, as a panel (the owner, 2026-10-01;
-     the approved original): its lead figure and every figure it gives, in
-     its own Seller Center's words, then whether every delivered order is
-     paid. Drawn side by side on Reports > Payouts and, compact, on the
-     store's own Overview, where the page already names the store.
-
-     $card     one entry of PayoutOverview::cards()
-     $compact  true on a store's Overview --}}
 @php
     $mpPeso = fn (?float $v) => $v === null ? '-' : (($v < 0 ? '−₱' : '₱') . number_format(abs($v), 2));
     $bal = $card['balance'];
@@ -55,7 +47,6 @@
     @endif
 
     @if($sum && $sum['not_paid_count'] > 0)
-        {{-- The same report, narrowed to this store's unpaid orders. --}}
         <a class="mp-store__foot mp-store__foot--attn" href="{{ $card['unpaid_url'] ?? $card['url'] }}">
             <x-ui.icon name="alert-triangle" size="15" />
             <span>{{ $sum['not_paid_count'] }} not paid</span>

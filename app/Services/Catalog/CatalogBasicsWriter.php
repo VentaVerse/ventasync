@@ -8,36 +8,13 @@ use App\Support\Catalog\DescriptionHtml;
 use App\Support\Catalog\ProductImages;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Writes some of a catalog product's own fields and leaves the rest alone:
- * name, description, photos, price, weight and size (what a store's
- * comparison panel shows), and the SKU, whether it is switched on, its brand
- * and its categories (what an assistant may edit). Only a field that actually
- * changed is written, and the product is marked modified only then, so a
- * save that changed nothing on the catalog raises no Catalog change anywhere.
- *
- * Checks that decide whether a value is allowed (a SKU nobody else holds, a
- * photo before switching on) belong to the caller, which knows what to say.
- */
 final class CatalogBasicsWriter
 {
-    /**
-     * @param  array{title?: string, description?: string, photos?: list<string>, price?: float, weight?: float, length?: float, width?: float, height?: float}  $fields
-     * @return list<string>  the fields written
-     */
     public function write(int $productId, array $fields): array
     {
         return array_keys($this->edit($productId, $fields));
     }
 
-    /**
-     * The same write, answering with each changed field's old and new value.
-     *
-     * @param  array{title?: string, description?: string, photos?: list<string>, price?: float, weight?: float, length?: float,
-     *               width?: float, height?: float, sku?: string, status?: bool, manufacturer_id?: int, category_ids?: list<int>}  $fields
-     * @param  array{actor?: string, reason?: string}  $by  who asked and why, for the activity log
-     * @return array<string, array{old: mixed, new: mixed}>
-     */
     public function edit(int $productId, array $fields, array $by = []): array
     {
         $pfx = (string) config('catalog.prefix');

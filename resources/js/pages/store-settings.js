@@ -1,67 +1,4 @@
-/*
- * Store settings: the shared behaviour the multi-store channels' settings
- * pages need (Venta, OpenCart and, from Round F, Shopify).
- *
- * Round C Task 3 rebuilt extensions/venta/views/settings/index.blade.php and
- * extensions/opencart/views/index.blade.php on the design tokens and took them
- * out of the .x-legacy boundary. Both carried a long inline <script> at the
- * bottom; this project does not put behaviour in Blade, so it lives here.
- *
- * The two pages are the same object with different labels: one store, an API
- * credential, a connection test, a status map fetched from the store itself,
- * and a set of cron commands to copy. OpenCart adds four things Venta has no
- * equivalent for (run a sync now, push stock, push everything, and a
- * password-locked first-import checklist), and each of those guards on its own
- * attribute so the module is inert on the page that does not have them.
- *
- * Everything that varies is a data- attribute on the page root, so no URL, no
- * store id and no field name is Blade-interpolated into a script literal:
- *
- *   data-store-id            the one store this page is scoped to. Every
- *                            request below sends it, which is what keeps store
- *                            1's actions off store 2's row.
- *   data-test-url            POST {store_id} -> {ok, body}
- *   data-test-include        optional, comma-separated form field names to
- *                            carry into that POST alongside store_id, for a
- *                            channel whose test endpoint accepts credentials
- *                            that have not been saved yet (Shopify's
- *                            shop_domain + access_token). Absent elsewhere.
- *   data-fetch-statuses-url  POST {store_id} -> {statuses: [...]}
- *   data-save-map-url        POST {store_id, mappings: [...]}
- *   data-map-id-field        name of the marketplace id key in a mapping row
- *                            (venta_status_id / oc_status_id)
- *   data-map-name-field      ditto for the name (venta_status_name /
- *                            oc_status_name)
- *   data-map-server-id       key the FETCH response uses for the marketplace
- *                            status id. Venta returns `id`, OpenCart returns
- *                            `order_status_id`. This is the difference that
- *                            would silently map every status to zero if it
- *                            were assumed.
- *   data-map-server-key      key the fetch response uses for the ERP status it
- *                            is already mapped to. Venta `order_status_id`,
- *                            OpenCart `erp_order_status_id`.
- *   data-map-name-match      present only on OpenCart, where the pre-redesign
- *                            script proposed an ERP status whose name matched
- *                            the OpenCart one exactly. Venta never did, so it
- *                            does not get it.
- *   data-sync-url / data-push-url / data-push-qty-url / data-verify-url
- *                            OpenCart only.
- *
- * SECURITY. Every row this module builds is createElement + textContent. The
- * two originals both did `tableWrap.innerHTML = html` with `ocName` taken
- * straight off the remote store's API response, so an OpenCart order status
- * named `<img src=x onerror=...>` executed inside the ERP with the operator's
- * session. That is the single most important difference between this file and
- * what it replaces, and it is why the mapping table is rebuilt node by node
- * rather than as a string.
- *
- * The wire is unchanged: the same routes, the same JSON bodies, the same
- * mapping payload shape, the same `store_id` on every request.
- */
-
-/* ------------------------------------------------------------------
-   Small helpers
-   ------------------------------------------------------------------ */
+// Rows are built with textContent: remote store status names are untrusted and must never run as markup.
 
 function csrfToken() {
     const meta = document.querySelector('meta[name="csrf-token"]');
@@ -80,9 +17,6 @@ function postJson(url, body) {
         body: JSON.stringify(body),
     }).then(function (response) {
         return response.json().catch(function () {
-            // A non-JSON body means the server fell over or the session
-            // expired into a login page. Say so rather than throwing a
-            // SyntaxError the operator cannot act on.
             return { error: 'The server did not answer with a result. Try again, and sign in again if this keeps happening.' };
         });
     });
@@ -96,7 +30,6 @@ function flashFail(message) {
     if (typeof window.showFlashError === 'function') window.showFlashError(message);
 }
 
-/** Disable a button and swap its label while something is in flight. */
 function busy(button, label) {
     if (!button) return function () {};
     const original = button.textContent;
@@ -119,12 +52,6 @@ function readJsonIsland(root, selector) {
     }
 }
 
-/* ------------------------------------------------------------------
-   Colour: a swatch and its hex box are two faces on one value. Only the
-   swatch carries the field name, so nothing here changes what is posted.
-   Replaces a pair of inline oninput/onchange attributes.
-   ------------------------------------------------------------------ */
-
 function initColour(root) {
     root.querySelectorAll('[data-colour-pair]').forEach(function (pair) {
         const swatch = pair.querySelector('[data-colour-input]');
@@ -137,11 +64,6 @@ function initColour(root) {
         });
     });
 }
-
-/* ------------------------------------------------------------------
-   Copy a cron command. Replaces three inline onclick attributes and two
-   near-identical copy helpers.
-   ------------------------------------------------------------------ */
 
 function initCopy(root) {
     root.querySelectorAll('[data-copy-target]').forEach(function (button) {
@@ -167,10 +89,6 @@ function initCopy(root) {
     });
 }
 
-/* ------------------------------------------------------------------
-   Connection test.
-   ------------------------------------------------------------------ */
-
 function initTest(root, config) {
     const button = root.querySelector('[data-test-connection]');
     const result = root.querySelector('[data-test-result]');
@@ -185,14 +103,6 @@ function initTest(root, config) {
 
         const payload = { store_id: config.storeId };
 
-        // Optional, and only for a channel that declares it: carry the values
-        // currently TYPED into the connection form so a store can be tested
-        // before it has ever been saved. Shopify's testConnection() has that
-        // branch and its pre-redesign page used it; Venta and OpenCart have
-        // no such branch, declare no fields, and post exactly what they
-        // always did. A field left empty is not sent, so a blank
-        // access-token box never overwrites the stored credential for the
-        // purposes of the test.
         config.testInclude.forEach(function (field) {
             const input = root.querySelector('[name="' + field + '"]');
             if (input && String(input.value || '').trim() !== '') {
@@ -205,11 +115,6 @@ function initTest(root, config) {
                 restore();
                 if (!result) return;
 
-                // Three shapes, all answering {ok, ...}. OpenCart nests the
-                // store's own name and version under body.data; Venta's ping
-                // answers with ok alone; Shopify returns a `shop` object with
-                // the store's name, plan and currency. None of the three is
-                // required for the verdict.
                 const ok = !!data.ok && (!data.body || data.body.success !== false);
                 if (ok) {
                     const info = (data.body && data.body.data) || {};
@@ -220,20 +125,11 @@ function initTest(root, config) {
                     if (shop.name) parts.push(String(shop.name));
                     if (shop.plan_name) parts.push(String(shop.plan_name));
                     if (shop.currency) parts.push(String(shop.currency));
-                    // A channel that answers in words (WooCommerce: versions
-                    // and webhook count) is quoted as is.
                     result.textContent = data.message
                         ? String(data.message)
                         : (parts.length ? 'Connected to ' + parts.join(', ') + '.' : 'Connected.');
                     result.classList.add('cs-actions__note--ok');
 
-                    /* The flow step above says whether this store has ever
-                       answered, and it is written by the server on page
-                       load. A successful check stamped connected_at and
-                       left the step reading "Not checked yet" until the
-                       next reload, which is indistinguishable from a
-                       hardcoded line (the owner, 2026-09-10). It says so now,
-                       when it happens. */
                     const step = root.querySelector('[data-flow-step="connected"]');
                     const state = root.querySelector('[data-flow-state="connected"]');
                     if (state) state.textContent = 'Reached just now';
@@ -243,8 +139,6 @@ function initTest(root, config) {
                     result.textContent = data.message ? String(data.message) : 'Could not connect: ' + reason;
                     result.classList.add('cs-actions__note--fail');
 
-                    // And a refusal is a state too: the step says it rather
-                    // than keeping whatever it said before.
                     const failedStep = root.querySelector('[data-flow-step="connected"]');
                     const failedState = root.querySelector('[data-flow-state="connected"]');
                     if (failedState) failedState.textContent = 'Refused just now';
@@ -260,13 +154,6 @@ function initTest(root, config) {
             });
     });
 }
-
-/* ------------------------------------------------------------------
-   Status mapping: fetch from the store, then save.
-
-   Every node below is built, never parsed. See the security note at the
-   top of this file for why.
-   ------------------------------------------------------------------ */
 
 function buildMapSelect(row, config, erpStatuses) {
     const wrap = document.createElement('div');
@@ -284,8 +171,6 @@ function buildMapSelect(row, config, erpStatuses) {
     none.textContent = config.unmappedLabel;
     select.appendChild(none);
 
-    // What the server says wins. Then, on OpenCart only, an exact name match
-    // is proposed for a status that has never been mapped.
     let chosen = row.mapped > 0 ? String(row.mapped) : '0';
     if (chosen === '0' && config.nameMatch) {
         const needle = row.name.toLowerCase().trim();
@@ -438,9 +323,6 @@ function initStatusMap(root, config) {
                         return;
                     }
                     flashOk(data.status || 'Mapping saved.');
-                    // The first-import checklist treats a saved mapping as the
-                    // step being done, so it hears about it here rather than
-                    // owning a second copy of this whole control.
                     root.dispatchEvent(new CustomEvent('store-settings:mapping-saved', { bubbles: true }));
                 })
                 .catch(function (error) {
@@ -450,10 +332,6 @@ function initStatusMap(root, config) {
         });
     }
 }
-
-/* ------------------------------------------------------------------
-   OpenCart only: run a sync, push stock, push everything.
-   ------------------------------------------------------------------ */
 
 function reportRun(data, fallback) {
     if (data.error) {
@@ -476,10 +354,6 @@ function initRuns(root, config) {
             const full = button.getAttribute('data-full') === '1';
             const restore = busy(button, full ? 'Importing' : 'Running');
 
-            // Byte-identical to the pre-redesign body, including the two rules
-            // that are easy to lose: a full import of orders skips stock
-            // adjustment, and the date override only applies to a non-full
-            // order pull.
             const body = {
                 store_id: config.storeId,
                 entity: entity,
@@ -529,7 +403,6 @@ function initRuns(root, config) {
                     .catch(function (error) { restore(); flashFail('That did not finish: ' + error.message); });
             };
 
-            // The shared in-app dialog, never a native confirm().
             if (message && typeof window.confirmModal === 'function') {
                 window.confirmModal(message, pushAll).then(function (ok) { if (ok) run(); });
                 return;
@@ -539,12 +412,6 @@ function initRuns(root, config) {
     }
 }
 
-/* ------------------------------------------------------------------
-   OpenCart only: the password-locked first-import checklist.
-   ------------------------------------------------------------------ */
-
-// Which steps a step waits on, by entity. Identical to the pre-redesign
-// dependency map, expressed by name rather than by index.
 const STEP_DEPENDENCIES = {
     options: ['categories', 'manufacturers'],
     products: ['options'],
@@ -645,7 +512,6 @@ function initImport(root, config) {
         }
     }
 
-    // A full sync that succeeded, and a saved status mapping, both tick a step.
     root.addEventListener('store-settings:step-done', function (e) {
         markDone(e.detail && e.detail.entity);
     });
@@ -653,15 +519,11 @@ function initImport(root, config) {
         markDone('status_map');
     });
 
-    // "Open status mapping" moves to the tab that owns that control, rather
-    // than this checklist drawing a second copy of it.
     steps.querySelectorAll('[data-goto-tab]').forEach(function (button) {
         button.addEventListener('click', function () {
             const id = button.getAttribute('data-goto-tab');
             const tab = root.querySelector('[data-cs-tab="' + id + '"]');
             if (tab) { tab.click(); return; }
-            /* The in-page strip retired (2026-09-03); sections are
-               server-rendered off ?tab=, so the jump is a navigation. */
             const prefix = root.getAttribute('data-tab-prefix') || '';
             const url = new URL(window.location.href);
             url.searchParams.set('tab', prefix && id.indexOf(prefix) === 0 ? id.slice(prefix.length) : id);
@@ -680,10 +542,6 @@ function initImport(root, config) {
     refresh();
 }
 
-/* ------------------------------------------------------------------
-   Bind
-   ------------------------------------------------------------------ */
-
 document.addEventListener('DOMContentLoaded', function () {
     const root = document.querySelector('[data-store-settings]');
     if (!root) return;
@@ -692,9 +550,6 @@ document.addEventListener('DOMContentLoaded', function () {
         storeId: root.getAttribute('data-store-id'),
         label: root.getAttribute('data-channel-label') || 'the store',
         testUrl: root.getAttribute('data-test-url') || '',
-        // Comma-separated field names to carry into the connection test, for
-        // a channel whose endpoint accepts un-saved credentials. Absent on
-        // Venta and OpenCart, so their payload is unchanged.
         testInclude: (root.getAttribute('data-test-include') || '')
             .split(',')
             .map(function (name) { return name.trim(); })

@@ -4,35 +4,8 @@ namespace App\Integrations;
 
 use Closure;
 
-/**
- * One fulfillable surface for a marketplace integration. Single-store
- * marketplaces register one tab; multi-store marketplaces (Venta, OpenCart)
- * register one tab per store, scoping every counter to that store.
- *
- * The tab carries all the data the Orders summary page and the tab strip
- * need — unprocessed-order count, today's order count, today's revenue,
- * top products today, and the recent activity feed — as nullable closures.
- * Marketplaces that haven't implemented a particular metric simply leave
- * the closure null; the UI renders zeros / empty states accordingly.
- */
 class OrderTab
 {
-    /**
-     * @param Closure():int|null $unprocessedCounter
-     * @param Closure():int|null $dailyOrdersCounter
-     * @param Closure():float|null $dailyRevenueCounter
-     * @param Closure(int):array|null $topProductsCallback Returns Dto\TopProduct[]
-     * @param Closure(int):array|null $recentOrdersCallback Returns Dto\RecentOrder[]
-     * @param array<int, array{key: string, label: string, counter: Closure():int}>|null $stages
-     *        The steps a parcel goes through while the seller still holds
-     *        it, in order, each with its own count: to pack first, then to
-     *        handover (Lazada has to arrange shipment between). Together they
-     *        partition $unprocessedCounter. The fulfilment cards lead with
-     *        the first and print the rest beside it, so the staff can count
-     *        the parcels waiting for the courier against the shelf. Null on a
-     *        channel that does not tell its steps apart; the card then shows
-     *        the one waiting figure.
-     */
     public function __construct(
         public string $id,
         public string $label,
@@ -65,7 +38,6 @@ class OrderTab
         return $this->safeCall($this->dailyRevenueCounter, fn ($v) => (float) $v) ?? 0.0;
     }
 
-    /** @return \App\Integrations\Dto\TopProduct[] */
     public function topProductsToday(int $limit = 5): array
     {
         if ($this->topProductsCallback === null) {
@@ -79,7 +51,6 @@ class OrderTab
         }
     }
 
-    /** @return \App\Integrations\Dto\RecentOrder[] */
     public function recentOrders(int $limit = 5): array
     {
         if ($this->recentOrdersCallback === null) {
@@ -105,12 +76,6 @@ class OrderTab
         }
     }
 
-    /**
-     * The stage counts, resolved: [['key' => 'to_pack', 'label' => 'to pack', 'count' => 3], ...],
-     * or null when the channel does not tell its steps apart.
-     *
-     * @return array<int, array{key: string, label: string, count: int}>|null
-     */
     public function stageCounts(): ?array
     {
         if ($this->stages === null) {

@@ -9,12 +9,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * The New product page saves its variations through the shared
- * VariationWriter. These pin exactly what a create through the form
- * writes, for one variation type and for two, so the service stays the
- * form's behaviour and not an approximation of it.
- */
 class ProductFormVariationsCreateTest extends TestCase
 {
     use RefreshDatabase;
@@ -32,7 +26,6 @@ class ProductFormVariationsCreateTest extends TestCase
     {
         return array_merge([
             'name' => 'Form Tee', 'sku' => 'FORM-TEE', 'price' => '500', 'status' => '1',
-            // Ignored: a product with variations holds the sum of theirs.
             'quantity' => '999',
             'weight' => '0.5', 'length' => '10', 'width' => '5', 'height' => '3',
             'cost_amount' => '100', 'cost_percentage' => '10', 'cost_additional' => '5',
@@ -47,7 +40,6 @@ class ProductFormVariationsCreateTest extends TestCase
         return (int) DB::table((string) config('catalog.prefix') . 'product')->where('sku', $sku)->value('product_id');
     }
 
-    /** A product can be made without a photo, for a purchase order or a deal not closed yet; a store push still asks for one. */
     public function test_the_form_saves_a_product_without_a_photo(): void
     {
         $this->actingAs($this->manager())->post(route('products.store'), $this->payload([
@@ -80,7 +72,6 @@ class ProductFormVariationsCreateTest extends TestCase
         $this->assertCount(2, $povs);
         $this->assertSame(4, (int) $povs['FORM-TEE-S']->quantity);
         $this->assertEqualsWithDelta(600, (float) $povs['FORM-TEE-L']->absolute_price, 0.0001);
-        // Amount + the parent's 10% of this row's own price + the parent's additional.
         $this->assertEqualsWithDelta(255, (float) $povs['FORM-TEE-S']->absolute_cost, 0.0001);
         $this->assertEqualsWithDelta(315, (float) $povs['FORM-TEE-L']->absolute_cost, 0.0001);
         $this->assertEqualsWithDelta(10, (float) $povs['FORM-TEE-L']->cost_percentage, 0.0001);
@@ -131,7 +122,6 @@ class ProductFormVariationsCreateTest extends TestCase
             $this->assertSame(2, DB::table('product_option_combination_values')->where('combination_id', $combo->id)->count());
         }
 
-        // The value rows are structural: no SKU, no stock.
         $povs = DB::table($p . 'product_option_value')->where('product_id', $id)->get();
         $this->assertCount(4, $povs);
         $this->assertSame([''], $povs->pluck('sku')->unique()->values()->all());

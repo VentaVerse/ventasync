@@ -7,24 +7,12 @@ use Extensions\shopee\Models\ShopeeApiLog;
 use Extensions\shopee\Models\ShopeeLogistic;
 use Illuminate\Support\Facades\DB;
 
-/**
- * The two reads a store needs before anything can be pushed: Shopee's
- * category tree and the couriers switched on for the shop. One place for
- * both (the owner, 2026-09-05: fetch them at the initial connection, behind a
- * progress popup), so the Settings setup run, the Categories page and the
- * Logistics page all do exactly the same thing and say it the same way.
- *
- * Each method answers {ok, count, message}: the message is the plain
- * sentence an operator reads, never a payload - the payload is on the API
- * log, written here.
- */
 class ShopeeStoreSetup
 {
     public function __construct(private ShopeeClient $client)
     {
     }
 
-    /** @param array $auth ShopeeSetting::activeAuth() for the store */
     public function categories(array $auth): array
     {
         $path = '/api/v2/product/get_category';
@@ -75,7 +63,6 @@ class ShopeeStoreSetup
         return ['ok' => true, 'count' => count($rows), 'message' => number_format(count($rows)) . ' categories fetched.'];
     }
 
-    /** @param array $auth ShopeeSetting::activeAuth() for the store */
     public function couriers(array $auth): array
     {
         $path = '/api/v2/logistics/get_channel_list';

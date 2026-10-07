@@ -1,16 +1,3 @@
-{{-- The scope strip (the owner, 2026-08-28), shared since cleanup point 4
-     (2026-09-04) by the workbench and every group page - "the product group
-     IS the same as the store's list, only filtered by group", so both read
-     the same strip over the same mirror. Callers pass $stripRoute (+
-     $stripParams) so each tab links back to its own page, and member-scoped
-     $catalogueTotal / $liveCounts / $liveCheckedAt.
-
-     One group since #201 (2026-09-05): the "Your catalogue / All products"
-     framing went with the catalogue-as-table. "All" is this store's own list,
-     the stored view, pushed or not; the rest narrow to what Shopee holds
-     right now. The bucket counts and every row's chip come from the mirror
-     on the link rows, refreshed every 30 minutes, on demand here, and by
-     every push, delist and publish. The strip says when. --}}
 @if(($liveCounts ?? null) !== null)
     @php
         $liveTabDefs = [
@@ -49,8 +36,6 @@
                     @endif
                 </span>
                 @if($canManageShopee)
-                    {{-- The one button (the owner, 2026-09-07): Refresh checks every link against
-                         the store and re-reads every status, the old Repair links folded in. --}}
                     <form method="POST" action="{{ route('ext.shopee.products.refresh_status') }}" class="x-segment-group__refresh" data-slow-action>
                         @csrf
                         <x-ui.button type="submit"><x-ui.icon name="refresh-cw" size="14" /> Refresh from Shopee</x-ui.button>

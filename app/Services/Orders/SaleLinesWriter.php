@@ -6,22 +6,12 @@ use App\Integrations\IntegrationRegistry;
 use App\Services\OrderCurrencyService;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Rewrites an order's Sale lines from what its channel already stores.
- *
- * Only the Sale rows in order_total change. The order's product lines and
- * their cost, its stock, its status, order.total and the normalized fee rows
- * are left exactly as they are, which is why this exists rather than a re-sync:
- * a re-sync rebuilds the product lines and re-reads their cost from today's
- * catalogue.
- */
 final class SaleLinesWriter
 {
     public function __construct(private readonly IntegrationRegistry $registry)
     {
     }
 
-    /** True when a channel answered for the order and its Sale lines were rewritten. */
     public function forOrder(int $coreOrderId): bool
     {
         $pfx = (string) config('catalog.prefix');

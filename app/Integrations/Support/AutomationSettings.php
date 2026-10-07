@@ -5,13 +5,8 @@ namespace App\Integrations\Support;
 use App\Models\ScheduledJob;
 use Illuminate\Support\Collection;
 
-/**
- * Writes the Automations rows a form submitted: switch, cadence and the
- * per-job look-back options. Callers decide which jobs the person may change.
- */
 final class AutomationSettings
 {
-    /** Rules for the `jobs` field of a form that carries Automations rows. */
     public static function rules(): array
     {
         return [
@@ -24,11 +19,6 @@ final class AutomationSettings
         ];
     }
 
-    /**
-     * @param Collection<int, ScheduledJob> $jobs keyed by id
-     * @param array<int|string, array<string, mixed>> $payloads keyed by job id
-     * @return int how many were saved
-     */
     public static function apply(Collection $jobs, array $payloads): int
     {
         $saved = 0;

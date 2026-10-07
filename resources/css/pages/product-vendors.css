@@ -1,25 +1,4 @@
-/* ============================================================
-   PRODUCT VENDOR MATRIX (`po-mx-`)
-
-   One product, every vendor who sells it, at what price, optionally per
-   variation. The page is entirely AJAX: nothing here posts a form, every
-   control talks to the /purchasing/api/products/{id}/vendors family and
-   updates the DOM in place (resources/js/pages/product-vendors.js).
-
-   Grouping is the whole point of the layout. A product bought from three
-   vendors in four variations each is twelve rows, and twelve flat rows with
-   the vendor name repeated twelve times is unreadable. So rows are grouped
-   under a vendor header that can be collapsed, and the vendor name is said
-   once per group rather than once per row.
-
-   Prefix is `po-mx-` rather than `po-`: these rules are for this page only
-   and the shared purchasing anatomy in pages/purchasing.css has no business
-   growing them.
-   ============================================================ */
-
 .po-mx { display: grid; gap: var(--bl-space-3); }
-
-/* ── A vendor group ───────────────────────────────────────── */
 
 .po-mx-group {
     border: 1px solid var(--bl-rule);
@@ -37,8 +16,6 @@
     border-bottom: 1px solid var(--bl-rule);
 }
 
-/* The whole label is the collapse control, so the hit area is the width of
-   the header rather than a 16px chevron. */
 .po-mx-group__toggle {
     display: flex;
     align-items: center;
@@ -70,8 +47,6 @@
 .po-mx-group__body { display: none; }
 .po-mx-group.is-open .po-mx-group__body { display: block; }
 
-/* ── A price row ──────────────────────────────────────────── */
-
 .po-mx-head,
 .po-mx-row {
     display: grid;
@@ -81,7 +56,7 @@
         72px            /* min qty */
         88px            /* currency */
         118px           /* unit price */
-        76px;           /* actions */
+        76px;
     gap: var(--bl-space-2);
     align-items: center;
     padding: var(--bl-space-2) var(--bl-space-3);
@@ -100,27 +75,16 @@
 .po-mx-row__name { font-size: 13px; color: var(--bl-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .po-mx-row__sku { font-family: var(--font-mono); font-size: 11px; color: var(--bl-ink-3); }
 
-/* Save appears only once a field in the row has actually changed, so a
-   screen of rows is not a screen of Save buttons. */
 .po-mx-row__act { display: flex; gap: var(--bl-space-1); align-items: center; justify-content: flex-end; }
 .po-mx-row__save[hidden] { display: none; }
 
-/* .x-menu__trigger only reveals itself inside `.x-table tbody tr:hover`
-   (ui-table.css), so an anatomy that is not a table has to opt in or its
-   overflow menu can never be opened. The row reveals on hover; the group
-   header's stays visible, because a collapsed group would otherwise show no
-   affordance at all. */
 .po-mx-row:hover .x-menu__trigger,
 .po-mx-row:focus-within .x-menu__trigger { opacity: 1; }
 .po-mx-group__head .x-menu__trigger { opacity: 1; }
 
 .po-mx-row.is-saving { opacity: .6; pointer-events: none; }
 
-/* A row that just saved gets a brief accent hairline down its leading edge,
-   which is the only place on this page the accent appears. */
 .po-mx-row.is-saved { box-shadow: inset 2px 0 0 var(--bl-brand-deep); }
-
-/* ── Add form ─────────────────────────────────────────────── */
 
 .po-mx-add {
     border: 1px solid var(--bl-rule);
@@ -129,7 +93,6 @@
     padding: var(--bl-space-3);
 }
 
-/* Simple mode: one product, one vendor, one price. */
 .po-mx-simple {
     display: flex;
     gap: var(--bl-space-3);
@@ -150,7 +113,6 @@
     color: var(--bl-ink-2);
 }
 
-/* Option mode: a row per variation. */
 .po-mx-opt-head,
 .po-mx-opt-row {
     display: grid;
@@ -160,7 +122,7 @@
         88px            /* currency */
         72px            /* min qty */
         130px           /* vendor sku */
-        118px;          /* unit price */
+        118px;
     gap: var(--bl-space-2);
     align-items: center;
     padding: var(--bl-space-2) 0;
@@ -175,8 +137,6 @@
 
 .po-mx-opt-row + .po-mx-opt-row { border-top: 1px solid var(--bl-rule); }
 
-/* A run of rows sharing a vendor reads as one block; the first row of each
-   new vendor gets a rule above it rather than a repeated header. */
 .po-mx-opt-row.is-vendor-break { border-top: 1px solid var(--bl-rule-2); }
 
 .po-mx-opt-row__what { min-width: 0; }
@@ -194,17 +154,8 @@
 .po-mx-add__status { font-size: 12px; color: var(--bl-ink-2); }
 .po-mx-add__status[hidden] { display: none; }
 
-/* ── Page-level messages ──────────────────────────────────── */
-
-/* The API answers with real errors (a duplicate vendor link is a 422 with a
-   sentence in it). Those belong on the page, not in a browser dialog, and
-   layouts.shell has no #js-flash-container for window.showFlashError to
-   write into, so this page renders its own region and the module fills it
-   with textContent. */
 .po-mx-flash { display: grid; gap: var(--bl-space-2); }
 .po-mx-flash:not(:empty) { margin-bottom: var(--bl-space-4); }
-
-/* ── Responsive ───────────────────────────────────────────── */
 
 @media (max-width: 900px) {
     .po-mx-head,

@@ -4,14 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/*
- * Cross-cutting migration — touches shopee_settings (Community),
- * lazada_settings (Community), and opencart_settings (Plus).
- * Each ALTER is guarded with Schema::hasTable() so the migration
- * works regardless of which extensions are installed. A Community-
- * only install (without opencart) skips the third block silently;
- * a full Plus install runs all three.
- */
 return new class extends Migration
 {
     public function up(): void

@@ -5,11 +5,6 @@ namespace App\Models;
 use App\Services\Media\ProductVideoFile;
 use Illuminate\Database\Eloquent\Model;
 
-/**
- * The one video a catalog product carries. Its file lives under video/ on
- * the public disk; this row is what the product form and every store push
- * read.
- */
 class ProductVideo extends Model
 {
     protected $guarded = [];
@@ -20,7 +15,6 @@ class ProductVideo extends Model
         'ai_generated' => 'boolean',
     ];
 
-    /** What the card shows: the file, how long it runs, how heavy it is. */
     public function summary(): array
     {
         return [

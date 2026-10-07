@@ -5,24 +5,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Keep the administrators ahead of the catalog as it grows.
- *
- * The catalog is derived, so it changes whenever controllers do - and it
- * just did: the mobile and partner API was excluded on the reasoning that
- * those routes belong to a token's scope rather than a person's group, which
- * was wrong. They carry auth:sanctum, which resolves the token's OWNING USER,
- * and check that user's group.
- *
- * The cost of that mistake was quiet. Nine old keys stayed the only gate on
- * those routes while the editor stopped offering any of them, so a group
- * created in between could not be granted mobile access at all. Existing
- * groups kept theirs and nothing said a word.
- *
- * Idempotent and safe to re-run: it grants the group that is meant to reach
- * everything whatever the catalog currently derives, which is the same rule
- * ExtensionManager::syncPermissions already applies to a new extension.
- */
 return new class extends Migration
 {
     public function up(): void
@@ -66,11 +48,6 @@ return new class extends Migration
         }
     }
 
-    /**
-     * Nothing. This only ever grants the administrators what they are meant
-     * to have, and taking it back on a rollback would lock them out of
-     * whatever the catalog had grown to cover.
-     */
     public function down(): void
     {
     }

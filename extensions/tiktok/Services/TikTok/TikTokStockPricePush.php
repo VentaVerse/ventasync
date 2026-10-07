@@ -7,27 +7,6 @@ use Extensions\tiktok\Models\TikTokApiLog;
 use Extensions\tiktok\Models\TikTokProductGroup;
 use Extensions\tiktok\Models\TikTokProductGroupProduct;
 
-/**
- * The one sender for TikTok Shop stock and price updates (Phase F, #184)
- * - Shopee's ShopeeStockPricePush, ported. Three near-identical payload
- * loops (row menu, group page, cron) shared four lies:
- *
- *  - an ERP variation whose SKU was not in the tiktok_sku_id map was
- *    never enumerated at all - the purest deleted-1pc silence;
- *  - a map key the catalogue no longer had was pushed qty 0 (stock) or
- *    the base price (price), silently;
- *  - the __single__ degradation pushed a whole variation product's
- *    aggregate figures onto one SKU;
- *  - TikTok's per-SKU data.errors[] was never parsed, so a partially
- *    refused call counted as a full success and could flash
- *    "0 ok, 40 failed" in green.
- *
- * Now: the plan is diffed against the catalogue both ways and every gap
- * is named; a wrong-shaped map heals itself with ONE product read
- * (TikTokSkuMapRepair) before the call, and once more with a retry on a
- * refusal; per-SKU refusals produce per-product verdicts; and the flash
- * carries the shared ledger clause in the shared tone.
- */
 class TikTokStockPricePush
 {
     public function __construct(
@@ -39,18 +18,6 @@ class TikTokStockPricePush
 
     private const SKU_ERROR = '/sku|inventory.*not.*found|product.*not.*(?:found|exist)/i';
 
-    /**
-     * @param 'stock'|'price' $kind
-     * @param iterable $pivots rows exposing product_id, tiktok_product_id, tiktok_sku_id
-     * @param ?callable $priceFor fn(float $base, object $pivot): float
-     * @return array{
-     *   ok: int, err: int, skipped: int, last_error: string,
-     *   outcomes: array<int, array{ok: bool, error: ?string}>,
-     *   mismatched: list<array{product_id: int, sku: string, reason: string}>,
-     *   skipped_variations: list<array{product_id: int, sku: string, reason: string}>,
-     *   healed_products: list<string>,
-     * }
-     */
     public function push(string $kind, array $c, $pivots, string $pfx, ?callable $priceFor = null): array
     {
         $pivots = collect($pivots)->values();
@@ -68,10 +35,6 @@ class TikTokStockPricePush
         $hidden = \App\Integrations\Listings\ListingVariations::hidden('tiktok', $storeId, $productIds);
         $soldSkus = \App\Integrations\Listings\ListingVariations::sold('tiktok', $storeId, $productIds, $pfx);
 
-        /* Pre-call heal: a map that is empty, single-keyed on a product
-         * that sells in variations, or missing a SKU this store sells will
-         * push the wrong figures. One product read fixes it - the old
-         * code's skus[0].id hack, done properly. */
         foreach ($pivots as $pivot) {
             $pid = (int) $pivot->product_id;
             $map = TikTokVariationPush::existingIds($pivot->tiktok_sku_id ?? null);
@@ -108,10 +71,6 @@ class TikTokStockPricePush
             return;
         }
 
-        /* Only what this store sells is sent: a SKU the catalogue does not
-         * have and a variation switched off are left alone, and a catalogue
-         * variation the shop does not carry is simply not asked of it.
-         * None of these is an error. */
         $sentSkus = [];
         $payload = [];
         foreach ($row['skus'] as $sku) {
@@ -164,8 +123,6 @@ class TikTokStockPricePush
         $callOk = ($result['ok'] ?? false) && (int) ($body['code'] ?? -1) === 0;
         $message = (string) ($body['message'] ?? 'Unknown error');
 
-        /* Per-SKU refusals inside an accepted call (data.errors[]): the
-         * detail TikTok has been sending all along, read at last. */
         $skuFailures = [];
         foreach ((array) data_get($body, 'data.errors', []) as $e) {
             $skuId = (string) (data_get($e, 'detail.sku_id') ?? data_get($e, 'detail.skus.0.id') ?? '');
@@ -209,13 +166,6 @@ class TikTokStockPricePush
         }
     }
 
-    /**
-     * Each product's verdict onto the store's group pivots and its listing
-     * error line. A success clears the line, a failure writes it. The store
-     * is the one the push went to; without one named, the store in hand.
-     *
-     * @param array<int, array{ok: bool, error: ?string}> $outcomes
-     */
     public static function recordOutcomes(string $kind, array $outcomes, \Extensions\tiktok\Models\TikTokSetting|int|null $store = null): void
     {
         $store ??= \Extensions\tiktok\Models\TikTokSetting::defaultStore();
@@ -236,7 +186,6 @@ class TikTokStockPricePush
         }
     }
 
-    /** The shared flash suffix, in TikTok Shop's name. */
     public static function ledgerClause(array $results): string
     {
         return PushLedger::clause($results, 'TikTok Shop');

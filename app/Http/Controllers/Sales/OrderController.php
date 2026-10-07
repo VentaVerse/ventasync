@@ -48,7 +48,6 @@ class OrderController extends Controller
                         ->orWhere('lastname', 'like', '%' . $q . '%')
                         ->orWhere('email', 'like', '%' . $q . '%')
                         ->orWhere('marketplace_order_id', 'like', '%' . $q . '%')
-                        // Product and tracking, the same four every channel panel searches (2026-09-06).
                         ->orWhere('tracking_number', 'like', '%' . $q . '%')
                         ->orWhere('tracking', 'like', '%' . $q . '%')
                         ->orWhereHas('products', function ($p) use ($q) {
@@ -71,16 +70,11 @@ class OrderController extends Controller
             ->paginate(50)
             ->withQueryString();
 
-        // Resolve catalog product images (handles product_id=0 via Lazada variant chain)
         $productImages = self::resolveOrderProductImages($orders->getCollection());
         $lazadaImages = self::resolveLazadaImages($orders->getCollection());
 
         $statuses = OrderStatus::orderBy('order_status_id')->get();
 
-        // Source options (filter dropdown) and value→option map (source column
-        // badge lookup) come from the integration registry - every installed
-        // marketplace extension contributes via MarketplaceSourceOptionsProvider.
-        // Core has no knowledge of which marketplaces exist.
         $sourceOptions = app(\App\Integrations\IntegrationRegistry::class)
             ->availableMarketplaceSourceOptions();
         $sourceLabelsMap = [];
@@ -123,18 +117,10 @@ class OrderController extends Controller
             $request->filled('currency_rate') ? (float) $request->currency_rate : null
         );
         $rate = $currency['rate'];
-        // Currency IDENTITY decides the dual-storage branch, not whether the
-        // resolved rate happens to equal 1 (an operator can legitimately type
-        // "1" as the rate for a genuinely foreign currency - see resolve()).
         $isDefault = $currency['is_default'];
 
-        // Provisional total from the raw request field, converted like any
-        // other order-currency amount. Overwritten below once line items are
-        // known - this only matters when the order carries no products.
         $rawTotal = (float) ($request->total ?? 0);
 
-        // One save, so the order never stands without its lines and its
-        // notification is written once both are in.
         DB::transaction(function () use ($request, $now, $rawTotal, $rate, $isDefault, $currency) {
             $order = Order::create([
                 'invoice_no'           => 0,
@@ -206,7 +192,6 @@ class OrderController extends Controller
                 'oe_import'            => 0,
             ]);
 
-            // Add initial history entry
             OrderHistory::create(array_merge($this->currentUser(), [
                 'order_id'        => $order->order_id,
                 'order_status_id' => $request->order_status_id,
@@ -217,7 +202,6 @@ class OrderController extends Controller
 
             ActivityLogger::log('created', 'Order', (int) $order->order_id, '#' . $order->order_id . ' ' . trim($request->firstname . ' ' . $request->lastname));
 
-            // Create order products
             $products = $request->input('products', []);
             if (!empty($products)) {
                 $pfx = (string) config('catalog.prefix');
@@ -232,14 +216,6 @@ class OrderController extends Controller
 
                     $price = OrderCurrencyService::toBase($foreignPrice, $rate);
                     $lineTotal = OrderCurrencyService::toBase($foreignTotal, $rate);
-                    // Cost arrives in order currency too (the create/edit forms
-                    // convert it client-side alongside price) - it must go
-                    // through the same conversion, or a foreign order ends up
-                    // with a PHP price/total but a foreign-currency cost, which
-                    // corrupts COGS/profitability reporting. There is no
-                    // foreign_cost column by design: cost is internal-only and
-                    // never shown on a customer document, so the foreign figure
-                    // is derivable on demand as cost ÷ currency_value.
                     $cost = OrderCurrencyService::toBase($foreignCost, $rate);
 
                     $orderTotal += $lineTotal;
@@ -260,7 +236,6 @@ class OrderController extends Controller
                         'cost'          => $cost,
                     ]);
 
-                    // Save option value if selected
                     $povId = (int) ($p['option_value_id'] ?? 0);
                     if ($povId > 0 && $orderProductId) {
                         $pov = DB::table($pfx . 'product_option_value')
@@ -279,13 +254,11 @@ class OrderController extends Controller
                     }
                 }
 
-                // Update order total from line items
                 $order->update([
                     'total'         => $orderTotal,
                     'foreign_total' => $isDefault ? null : round($orderForeignTotal, 4),
                 ]);
 
-                // Create order totals
                 DB::table($pfx . 'order_total')->insert([
                     'order_id'   => $order->order_id,
                     'code'       => 'sub_total',
@@ -302,7 +275,6 @@ class OrderController extends Controller
                 ]);
             }
 
-            // Adjust stock based on new status (after products are inserted)
             $order->load('products');
             OrderStockService::adjustStock($order, 0, (int) $request->order_status_id);
         });
@@ -335,15 +307,11 @@ class OrderController extends Controller
             ->limit(30)
             ->get();
 
-        // Attach variations for each product
-        // Priority: product_option_combinations (multi-option combos with real prices)
-        // Fallback: product_option_value (single options)
         $productIds = $rows->pluck('product_id')->toArray();
         $combinationsByProduct = [];
         $optionsByProduct = [];
 
         if (!empty($productIds)) {
-            // Check for combinations first (these have the real prices/quantities)
             $combos = DB::table('product_option_combinations as poc')
                 ->whereIn('poc.product_id', $productIds)
                 ->select('poc.id', 'poc.product_id', 'poc.sku', 'poc.quantity', 'poc.absolute_price', 'poc.absolute_cost', 'poc.cost_amount')
@@ -363,7 +331,6 @@ class OrderController extends Controller
                     ->get()
                     ->groupBy('combination_id');
 
-                // Also get POV IDs for each combination
                 $comboPovMap = DB::table('product_option_combination_values')
                     ->whereIn('combination_id', $comboIds)
                     ->get(['combination_id', 'product_option_value_id'])
@@ -379,8 +346,6 @@ class OrderController extends Controller
                         'option_sku'              => $c->sku,
                         'option_qty'              => (int) $c->quantity,
                         'absolute_price'          => (float) $c->absolute_price,
-                        // Only a cost of the variation's own reaches the form; with
-                        // none the picker falls back to the parent's (LineCost).
                         'absolute_cost'           => LineCost::ownCombinationCost($c) ?? 0.0,
                         'option_price'            => 0,
                         'price_prefix'            => '+',
@@ -393,7 +358,6 @@ class OrderController extends Controller
                 }
             }
 
-            // Also get single option values for products without combinations
             $optRows = DB::table($pfx . 'product_option_value as pov')
                 ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
                     $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
@@ -425,7 +389,6 @@ class OrderController extends Controller
         }
 
         $items = $rows->map(function ($p) use ($combinationsByProduct, $optionsByProduct) {
-            // Use combinations if available, otherwise fall back to raw option values
             $p->options = $combinationsByProduct[$p->product_id]
                 ?? $optionsByProduct[$p->product_id]
                 ?? [];
@@ -445,7 +408,6 @@ class OrderController extends Controller
         $products = $order->products()->with('options')->get();
         $orderTotals = $order->totals()->orderBy('sort_order')->get();
 
-        // Resolve catalog products (handles product_id=0 via Lazada variant chain)
         $catalogProducts = self::resolveOrderCatalogProducts($products);
         $orderLineImages = self::resolveLazadaImages(collect([$order]));
 
@@ -454,9 +416,6 @@ class OrderController extends Controller
         $payments = OrderPayment::where('order_id', (int) $id)->orderBy('paid_at')->get();
         $totalPaid = $payments->sum('amount');
 
-        // Every money figure on this page renders through App\Support\Money
-        // / <x-money>, which needs the default currency's symbol resolved
-        // from the `currencies` table rather than hardcoded.
         $defaultCurrency = \App\Models\Currency::where('is_default', 1)->first();
 
         return view('sales.orders.show', compact('order', 'statuses', 'history', 'products', 'orderTotals', 'catalogProducts', 'orderLineImages', 'orderProfit', 'payments', 'totalPaid', 'defaultCurrency'));
@@ -500,18 +459,9 @@ class OrderController extends Controller
             ['status' => [(string) $oldStatusName, (string) $newStatusName]]
         );
 
-        // The status move is announced by App\Observers\OrderObserver.
-        // on $order->update() above.
-
         return redirect()->route('orders.show', $id)->with('status', 'Order status updated.');
     }
 
-    /**
-     * Toggle the per-order sync Override. When ON, marketplace syncs will not
-     * change this order's status or move its stock - the operator controls it
-     * manually (e.g. after verifying a return). Direct assignment (not mass
-     * assignment) so it works regardless of the model's fillable list.
-     */
     public function toggleOverride($id)
     {
         $order = Order::where('order_id', (int) $id)->firstOrFail();
@@ -546,18 +496,7 @@ class OrderController extends Controller
         $products = $order->products()->with('options')->get();
         $orderTotals = $order->totals()->orderBy('sort_order')->get();
 
-        // `price`/`cost` are stored in the default (PHP) currency (see the
-        // storage rule in OrderCurrencyService) and are handed to the view
-        // AS-IS - no pre-conversion. The edit page's own convertPrice() JS
-        // divides by whatever rate is currently in the rate field (seeded
-        // with the order's stored rate on load), which reproduces the
-        // order-currency figure on load and the CORRECT figure after the
-        // operator switches currency, since the PHP source value never
-        // changes. Pre-converting here (the previous approach) froze the
-        // displayed figure to the rate at load time, so switching currency
-        // without touching line items silently multiplied/divided the order
-        // by the new rate on save - see the currency-switch regression test
-        // in OrderControllerCurrencyTest.
+        // Pass price and cost as stored (default currency); the page converts them, pre-converting breaks currency switching.
 
         return view('sales.orders.edit', compact('order', 'statuses', 'currencies', 'history', 'products', 'orderTotals'));
     }
@@ -588,16 +527,8 @@ class OrderController extends Controller
             $request->filled('currency_rate') ? (float) $request->currency_rate : null
         );
         $rate = $currency['rate'];
-        // Currency IDENTITY decides the dual-storage branch, not whether the
-        // resolved rate happens to equal 1 (see the matching comment in
-        // store() and resolve()'s own docblock).
         $isDefault = $currency['is_default'];
 
-        // Provisional total from the raw request field, converted like any
-        // other order-currency amount. Overwritten below once line items are
-        // known - this only matters when the order carries no products, and
-        // keeps the order-level total/foreign_total from ever going stale
-        // relative to the just-resolved currency/rate.
         $rawTotal = (float) ($request->total ?? 0);
 
         $order->update([
@@ -636,26 +567,10 @@ class OrderController extends Controller
             'date_modified'      => now(),
         ]);
 
-        // Rebuild order products from submitted data - but only when line
-        // items were actually resubmitted. Guard on the `products` KEY being
-        // present (Request::has), not on the array being non-empty
-        // (Request::filled / !empty): the edit form always renders one
-        // hidden products[idx][...] block per line item currently on the
-        // order, so an absent key unambiguously means "the operator didn't
-        // touch line items" (e.g. only status/customer/shipping fields were
-        // changed) and the existing order_product/order_option rows must
-        // survive untouched. Deleting unconditionally here previously wiped
-        // every line item on any update that omitted `products` - a
-        // pre-existing bug that round-1's own new test made trivially
-        // reachable (an update payload with no products key is now a
-        // deliberately-tested, blessed shape). An explicitly submitted empty
-        // array is treated as "remove every line" and still clears them,
-        // as before.
         if ($request->has('products')) {
             $products = $request->input('products', []);
             $pfx = (string) config('catalog.prefix');
 
-            // Delete existing order products and their options
             $existingProductIds = DB::table($pfx . 'order_product')
                 ->where('order_id', $order->order_id)
                 ->pluck('order_product_id')
@@ -670,7 +585,6 @@ class OrderController extends Controller
                 ->where('order_id', $order->order_id)
                 ->delete();
 
-            // Recreate from submitted data
             $orderTotal = 0;
             $orderForeignTotal = 0;
             if (!empty($products)) {
@@ -682,10 +596,6 @@ class OrderController extends Controller
 
                     $price = OrderCurrencyService::toBase($foreignPrice, $rate);
                     $lineTotal = OrderCurrencyService::toBase($foreignTotal, $rate);
-                    // See the matching comment in store(): cost arrives in order
-                    // currency from the edit form's client-side conversion and
-                    // must be converted here too, or a foreign order ends up
-                    // with mixed-currency price/cost on the same row.
                     $cost = OrderCurrencyService::toBase($foreignCost, $rate);
 
                     $orderTotal += $lineTotal;
@@ -706,7 +616,6 @@ class OrderController extends Controller
                         'cost'          => $cost,
                     ]);
 
-                    // Create order option if present
                     if (!empty($p['option_value_id'])) {
                         DB::table($pfx . 'order_option')->insert([
                             'order_id'                  => $order->order_id,
@@ -720,7 +629,6 @@ class OrderController extends Controller
                     }
                 }
 
-                // Update order total and totals table
                 $order->update([
                     'total'         => $orderTotal,
                     'foreign_total' => $isDefault ? null : round($orderForeignTotal, 4),
@@ -744,7 +652,6 @@ class OrderController extends Controller
             }
         }
 
-        // Always log history entry on update
         OrderHistory::create(array_merge($this->currentUser(), [
             'order_id'        => $order->order_id,
             'order_status_id' => (int) $request->order_status_id,
@@ -753,9 +660,7 @@ class OrderController extends Controller
             'date_added'      => now(),
         ]));
 
-        // Adjust stock if status changed
         if ((int) $oldStatusId !== (int) $request->order_status_id) {
-            // Adjust stock based on status transition
             OrderStockService::adjustStock($order, (int) $oldStatusId, (int) $request->order_status_id);
         }
 
@@ -768,9 +673,6 @@ class OrderController extends Controller
         return redirect()->route('orders.edit', $id)->with('status', 'Order updated.');
     }
 
-    /**
-     * Update a single order product's cost via AJAX.
-     */
     public function updateProductCost(Request $request, $id)
     {
         $request->validate([
@@ -788,9 +690,6 @@ class OrderController extends Controller
         return response()->json(['ok' => $updated > 0]);
     }
 
-    /**
-     * Update an order's shipping cost via AJAX.
-     */
     public function updateShippingCost(Request $request, $id)
     {
         $request->validate([
@@ -803,9 +702,6 @@ class OrderController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    /**
-     * Add a fee to an order.
-     */
     public function storeFee(Request $request, $id)
     {
         $request->validate([
@@ -826,9 +722,6 @@ class OrderController extends Controller
         return redirect()->route('orders.show', $id)->with('status', 'Fee added.');
     }
 
-    /**
-     * Update a fee amount via AJAX.
-     */
     public function updateFee(Request $request, $id, $feeId)
     {
         $request->validate([
@@ -852,9 +745,6 @@ class OrderController extends Controller
         return redirect()->route('orders.show', $id)->with('status', 'Fee updated.');
     }
 
-    /**
-     * Delete a fee.
-     */
     public function destroyFee(Request $request, $id, $feeId)
     {
         DB::table('order_fees')
@@ -869,10 +759,6 @@ class OrderController extends Controller
         return redirect()->route('orders.show', $id)->with('status', 'Fee removed.');
     }
 
-    /**
-     * Backfill missing costs for an order's products from current catalog data.
-     * Only updates products where cost is null or zero.
-     */
     public function backfillCosts($id)
     {
         $pfx = (string) config('catalog.prefix');
@@ -888,8 +774,6 @@ class OrderController extends Controller
         $updated = 0;
 
         foreach ($products as $op) {
-            // The variation sold, when one was; then the one rule every
-            // channel sync writes lines by (App\Support\LineCost).
             $optionValueId = (int) (DB::table($pfx . 'order_option')
                 ->where('order_product_id', $op->order_product_id)
                 ->where('product_option_value_id', '>', 0)
@@ -915,7 +799,6 @@ class OrderController extends Controller
         $order = Order::with('products.options')->where('order_id', $orderId)->first();
 
         if ($order) {
-            // Restore stock if order was in a subtract status
             $currentStatusId = (int) $order->order_status_id;
             if ($currentStatusId > 0) {
                 OrderStockService::adjustStock($order, $currentStatusId, 0);
@@ -943,7 +826,6 @@ class OrderController extends Controller
             return redirect()->route('orders.index')->with('status', 'No items selected.');
         }
 
-        // Restore stock for each order before deleting
         $orders = Order::with('products.options')->whereIn('order_id', $ids)->get();
         foreach ($orders as $order) {
             $currentStatusId = (int) $order->order_status_id;
@@ -962,10 +844,6 @@ class OrderController extends Controller
         return redirect()->route('orders.index')->with('status', 'Deleted selected orders. Stock restored.');
     }
 
-    /**
-     * Resolve catalog product_id for order products (handles Lazada product_id=0 via variant chain).
-     * Returns [ order_product_id => product_id ]
-     */
     private static function resolveProductIdMap($orderProducts): array
     {
         $map = [];
@@ -983,8 +861,6 @@ class OrderController extends Controller
         }
 
         if ($skusToResolve) {
-            // Iterate the SKU resolvers from each marketplace extension
-            // (Lazada implements one; others can opt in). First match wins.
             $resolvers = app(IntegrationRegistry::class)->skuResolvers();
             foreach ($skusToResolve as $opId => $sku) {
                 foreach ($resolvers as $resolver) {
@@ -1000,15 +876,6 @@ class OrderController extends Controller
         return $map;
     }
 
-    /**
-     * Build order_product_id → image path map for a collection of orders.
-     *
-     * Public so marketplace extensions (e.g. OpenCart's per-store order list
-     * view) can reuse the same image-resolution pipeline as the unified
-     * Orders index. TODO: extract this and resolveLazadaImages into a
-     * dedicated OrderViewSupport service so extensions don't reach back
-     * into a core controller's static API.
-     */
     public static function resolveOrderProductImages($orders): array
     {
         $allProducts = $orders->flatMap(fn ($o) => $o->products);
@@ -1019,14 +886,8 @@ class OrderController extends Controller
             ? Product::whereIn('product_id', $productIds)->pluck('image', 'product_id')->toArray()
             : [];
 
-        /* The VARIATION's own picture first (#138, on the order page too,
-         * 2026-08-27): the line's model is the variation's SKU, and
-         * CatalogImages resolves it through the combinations, falling back
-         * to the parent. This read the product's picture by id alone, so a
-         * red pedal's order showed the black one. */
         $bySku = \App\Support\CatalogImages::forSkus($allProducts->pluck('model')->map(fn ($m) => trim((string) $m))->filter()->all());
 
-        // Re-key by order_product_id so views can look up directly
         $result = [];
         foreach ($allProducts as $op) {
             $sku = trim((string) $op->model);
@@ -1043,9 +904,6 @@ class OrderController extends Controller
         return $result;
     }
 
-    /**
-     * Build catalog product_id → Product map for an order's products (show page).
-     */
     private static function resolveOrderCatalogProducts($orderProducts): array
     {
         $idMap = self::resolveProductIdMap($orderProducts);
@@ -1055,7 +913,6 @@ class OrderController extends Controller
             ? Product::whereIn('product_id', $productIds)->get()->keyBy('product_id')->toArray()
             : [];
 
-        // Re-key by order_product_id so views can look up by order product
         $result = [];
         foreach ($idMap as $opId => $pid) {
             if (isset($catalogProducts[$pid])) {
@@ -1066,15 +923,6 @@ class OrderController extends Controller
         return $result;
     }
 
-    /**
-     * Build order_product_id → marketplace image URL map by asking every
-     * registered OrderImagesContributor for its contribution. Lazada is the
-     * canonical contributor (its catalog orders typically have product_id=0
-     * with the Lazada SKU as the model, so the catalog image lookup misses).
-     *
-     * Public so marketplace extensions can reuse the same image-resolution
-     * pipeline (see resolveOrderProductImages docblock).
-     */
     public static function resolveLazadaImages($orders): array
     {
         $catalogOrderIds = [];
@@ -1091,8 +939,6 @@ class OrderController extends Controller
         }
         return $merged;
     }
-
-    // ── Order Payments ──────────────────────────────────────
 
     public function storePayment(Request $request, $id)
     {
@@ -1142,7 +988,6 @@ class OrderController extends Controller
         $order = Order::where('order_id', (int) $id)->firstOrFail();
         $newState = !$order->track_payments;
 
-        // If disabling and payments exist, prevent it
         if (!$newState && $order->payments()->count() > 0) {
             return redirect()->route('orders.show', $order->order_id)
                 ->with('error', "Delete this order's payments before removing it from receivables.");
@@ -1174,7 +1019,6 @@ class OrderController extends Controller
 
         $orders = $query->orderByDesc('date_added')->get();
 
-        // Eager load payments and compute balances
         $orderIds = $orders->pluck('order_id');
         $paymentsByOrder = OrderPayment::whereIn('order_id', $orderIds)
             ->get()
@@ -1196,10 +1040,6 @@ class OrderController extends Controller
             ];
         });
 
-        // Counted before the filter, so each tab states the size of its own
-        // set rather than the size of whatever is currently on screen. The
-        // rows are already in memory and balance is already computed, so this
-        // is three passes over a collection, not three more queries.
         $counts = [
             'all' => $rows->count(),
             'unpaid' => $rows->filter(fn ($r) => !$r->is_paid)->count(),

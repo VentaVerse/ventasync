@@ -25,13 +25,6 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
 
     protected $description = 'Sync orders from TikTok Shop (create new + update existing + returns)';
 
-    /**
-     * The same shape as shopee:sync-orders and lazada:sync-orders: one
-     * command, two jobs on the Automations tab ("Sync Orders" runs it
-     * with --no-returns, "Sync Returns" with --returns), each on its own
-     * cadence. Added for TikTok in the Automations sweep of 2026-08-26;
-     * before it, TikTok returns were only ever fetched by hand.
-     */
     public function handle(): int
     {
         $stores = \Extensions\tiktok\Models\TikTokSetting::enabledStores();
@@ -40,7 +33,7 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
         foreach ($stores as $store) {
             $label = $store->store_name ?: ('#' . $store->id);
             $this->info("=== TikTok store: {$label} ===");
-            app()->instance('tiktok.route-store', $store); // bind: the model trait now scopes every query + stamps writes to THIS store
+            app()->instance('tiktok.route-store', $store);
             try {
                 $worst = max($worst, $this->handleStore($store));
             } catch (\Throwable $e) {
@@ -76,7 +69,6 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
         return 0;
     }
 
-    /** Returns and refunds, over their own look-back window. */
     private function syncReturns(TikTokSetting $raw): void
     {
         $creds = TikTokReturnSync::credsFrom($raw);
@@ -179,7 +171,6 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
 
         if (empty($allOrders)) {
             $this->info('No orders found.');
-            // Orders still missing fees are filled in on a quiet day too.
             $this->info('--- Backfilling missing TikTok fees ---');
             $this->backfillMissingFees($client, [
                 'app_key'     => $appKey,
@@ -226,7 +217,6 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
                 $saved++;
             }
 
-            // Sync line items
             $lineItems = $o['line_items'] ?? [];
             $existingItemIds = $dbOrder->products()->pluck('order_line_item_id')->toArray();
 
@@ -255,7 +245,6 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
                 }
             }
 
-            // Sync to core ERP catalog order
             try {
                 $dbOrder->refresh();
                 $catalogSync->sync($dbOrder);
@@ -263,7 +252,6 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
                 Log::warning('TikTok catalog sync failed for order ' . $orderId . ': ' . $e->getMessage());
             }
 
-            // Fetch fees/commissions for this order
             $this->fetchFeesIfReady($client, [
                 'app_key'     => $appKey,
                 'app_secret'  => $appSecret,
@@ -272,7 +260,6 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
             ], $dbOrder);
         }
 
-        // Backfill fees for older orders that were synced before fee-fetching existed
         $this->info('--- Backfilling missing TikTok fees ---');
         $this->backfillMissingFees($client, [
             'app_key'     => $appKey,
@@ -287,21 +274,15 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
         return 0;
     }
 
-    /**
-     * Fetch statement transaction fees for a single TikTok order.
-     * Best-effort: failures are logged but never break the sync.
-     */
     private function fetchFeesIfReady(TikTokClient $client, array $creds, TikTokOrder $order): void
     {
         try {
             $status = strtoupper(trim((string) $order->status));
 
-            // Skip statuses where fees won't exist
             if (in_array($status, ['CANCELLED', 'UNPAID'])) {
                 return;
             }
 
-            // Skip if fees are already populated (commission key present)
             $existingFees = $order->fees;
             if (is_array($existingFees) && isset($existingFees['commission'])) {
                 return;
@@ -324,7 +305,6 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
                 'auth_required'   => true,
                 'request_params'  => ['order_id' => $order->order_id],
                 'response_status' => $result['status'] ?? 0,
-                // Green is TikTok's own verdict in the body, never HTTP 200 alone.
                 'ok'              => ($result['ok'] ?? false) && $apiCode === 0,
                 'response_body'   => $result['body'] ?? [],
                 'user_id'         => null,
@@ -334,9 +314,6 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
                 return;
             }
 
-            /* Get Transactions by Order 202501: one object per order, its
-               figures per SKU line. An order TikTok has not settled yet has
-               no lines and is asked again on a later run. */
             $data = $result['body']['data'] ?? [];
             $lines = is_array($data) ? ($data['sku_transactions'] ?? []) : [];
             if (!is_array($lines) || empty($lines)) {
@@ -368,14 +345,10 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
             $order->fees = $fees;
             $order->save();
         } catch (\Throwable $e) {
-            // Best-effort — don't break the sync
             Log::warning('TikTok fee fetch failed for order ' . $order->order_id . ': ' . $e->getMessage());
         }
     }
 
-    /**
-     * Backfill fees for older TikTok orders that don't have fee data yet.
-     */
     private function backfillMissingFees(TikTokClient $client, array $creds): void
     {
         $orders = TikTokOrder::query()
@@ -400,18 +373,12 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
                 $filled++;
             }
 
-            usleep(300000); // 300ms rate limit between API calls
+            usleep(300000);
         }
 
         $this->info("  Backfilled fees for {$filled}/{$orders->count()} orders.");
     }
 
-    /**
-     * Run now walks this sync one phase per request (SteppableAutomation,
-     * 2026-09-07): the bar moves per phase and store, and the page never
-     * shows the console. The job's own options (returns only, no returns)
-     * choose the phases, exactly as the scheduler would.
-     */
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
         $args = $job->commandArguments();

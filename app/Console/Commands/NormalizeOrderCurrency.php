@@ -28,30 +28,16 @@ class NormalizeOrderCurrency extends Command
         $defaultCode = $currencies->defaultCode();
         $this->info("Default currency: {$defaultCode}");
 
-        // Idempotence guard: classify() only sees (currency_code, currency_value) and
-        // cannot tell an already-normalized rate (now > 1) apart from a still-legacy
-        // one (a fraction) - both are simply "not 1.0". A row this command has already
-        // written foreign_total for must never be fed back into classify(), or a second
-        // run would re-invert an already-correct currency_value. This is I/O-layer
-        // state, not classification logic, so the guard lives here, not in the pure
-        // classifier.
+        // Skip rows that already have foreign_total, or a second run inverts an already-correct rate.
         $orders = DB::table($pfx.'order')
             ->select('order_id', 'currency_code', 'currency_value', 'total')
             ->whereNull('foreign_total')
             ->orderBy('order_id')
             ->get();
 
-        // Each entry: ['order' => $o, 'plan' => the pre-validated conversion
-        // plan]. Computed once here and reused by both the report table
-        // below and the transaction, instead of recomputing (and
-        // re-validating) it twice.
         $legacy = [];
         $lostRate = [];
         $defaults = 0;
-        // Rows that classify() puts in the LEGACY bucket (not the default
-        // currency, and currency_value isn't ~1) but whose currency_value is
-        // otherwise unusable (<= 0 - a corrupt row, not a real rate). These
-        // must be skipped and reported, not allowed to abort the entire run.
         $badRows = [];
 
         foreach ($orders as $o) {
@@ -179,7 +165,6 @@ class NormalizeOrderCurrency extends Command
                         ]);
                 }
 
-                // Safety assertion: no legacy order's authoritative total may move.
                 foreach ($before as $orderId => $originalTotal) {
                     $after = (string) DB::table($pfx.'order')->where('order_id', $orderId)->value('total');
 
@@ -191,13 +176,6 @@ class NormalizeOrderCurrency extends Command
                 }
             });
         } catch (\Throwable $e) {
-            // Catch Throwable, not just RuntimeException: a corrupt row that
-            // slips past the report-block filtering above (or any other
-            // unexpected failure inside the transaction) must still roll
-            // back cleanly and report a clean message, not surface a raw
-            // stack trace while leaving the operator unsure whether anything
-            // was written (DB::transaction already rolled back before this
-            // catch runs).
             $this->error($e->getMessage());
             $this->error('Transaction rolled back. No changes were applied.');
             return self::FAILURE;

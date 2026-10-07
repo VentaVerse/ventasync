@@ -8,32 +8,6 @@ use Extensions\shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
-/**
- * READ ONLY. What is actually in the Shopee shop, and where it disagrees
- * with what this ERP believes.
- *
- * Written for the owner's 2026-09-09 report: the same product had been pushed
- * to Shopee over and over, and nothing caught it. The ERP's only guard
- * against a second create is its own link row, and its only way back from
- * a lost link is a SKU match - so a product with no parent SKU whose item
- * lost its link can be created again, and again, and Shopee does not
- * enforce unique SKUs either.
- *
- * This command answers, for each enabled store, the four questions that
- * tell the whole story:
- *
- *   1. which SKUs sit on more than one item        (duplicates, findable)
- *   2. which item NAMES sit on more than one item  (duplicates with no SKU
- *                                                   to find them by - the
- *                                                   ones that stay hidden)
- *   3. which items this ERP holds no link for      (created, then orphaned)
- *   4. which of this store's products have no SKU  (the unadoptable set)
- *
- * It writes nothing, calls no write endpoint, and can be run on a live
- * shop. Paging is bounded exactly the way ShopeeLinkCheck::skuIndex bounds
- * it, and a shop it could not read all the way through says so rather than
- * reporting a short answer as a complete one.
- */
 class ShopeeFindDuplicates extends Command
 {
     protected $signature = 'shopee:find-duplicates {--store= : one store id, default every enabled store}';
@@ -83,11 +57,6 @@ class ShopeeFindDuplicates extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * Every item in the shop, with the SKUs it carries.
-     *
-     * @return array{items: array<int, array{id: int, name: string, status: string, skus: list<string>}>, complete: bool}
-     */
     private function readShop(ShopeeClient $client, array $auth): array
     {
         $items = [];
@@ -134,10 +103,6 @@ class ShopeeFindDuplicates extends Command
                     if ($itemSku !== '') {
                         $skus[] = $itemSku;
                     }
-                    /* Models are their own call: get_item_base_info carries
-                       has_model, never the models themselves. Reading them
-                       off the base info is what made every variation
-                       product here report "no SKU". */
                     if (! empty($item['has_model'])) {
                         $models = $this->get($client, $auth, '/api/v2/product/get_model_list', ['item_id' => $id]);
                         if ($models === null) {
@@ -172,7 +137,6 @@ class ShopeeFindDuplicates extends Command
         return ['items' => $items, 'complete' => $complete];
     }
 
-    /** One GET, or null when Shopee did not answer with a body. */
     private function get(ShopeeClient $client, array $auth, string $path, array $query): ?array
     {
         try {
@@ -197,7 +161,6 @@ class ShopeeFindDuplicates extends Command
         return $body;
     }
 
-    /** Any key that more than one item carries. */
     private function reportRepeats(array $items, string $what, callable $keysOf): void
     {
         $byKey = [];
@@ -224,7 +187,6 @@ class ShopeeFindDuplicates extends Command
         }
     }
 
-    /** Items in the shop this ERP holds no link for. */
     private function reportOrphans(array $items, int $storeId): void
     {
         $linked = ShopeeProductLink::query()
@@ -250,12 +212,6 @@ class ShopeeFindDuplicates extends Command
         }
     }
 
-    /**
-     * What the ERP itself holds. An item can read as an orphan for two very
-     * different reasons - no link row was ever written, or one was written
-     * and stamped to another store, where the read fence hides it from the
-     * push guard - and only this tells them apart.
-     */
     private function reportLinks(int $storeId): void
     {
         $rows = ShopeeProductLink::query()
@@ -285,12 +241,6 @@ class ShopeeFindDuplicates extends Command
         }
     }
 
-    /**
-     * What the pushes actually did, from the API log: every create, every
-     * variation init, and every undo delete. This is where a create that
-     * Shopee accepted without returning an item id shows up, and where an
-     * undo that answered ok while the item stayed up shows up too.
-     */
     private function reportPushLog(int $storeId): void
     {
         $packs = [
@@ -334,7 +284,6 @@ class ShopeeFindDuplicates extends Command
         }
     }
 
-    /** This store's products that carry no SKU and no model: unadoptable. */
     private function reportSkuless(int $storeId): void
     {
         $pfx = (string) config('catalog.prefix');
@@ -365,7 +314,6 @@ class ShopeeFindDuplicates extends Command
         }
     }
 
-    /** Multi-store links carry the store; older shops did not. */
     private function linksAreScoped(): bool
     {
         return \Illuminate\Support\Facades\Schema::hasColumn(

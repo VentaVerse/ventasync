@@ -1,24 +1,3 @@
-/* Pick and packing lists.
-   -------------------------------------------------------------------
-   The documents a warehouse actually holds. Printed on paper, carried to a
-   shelf, marked with a pen.
-
-   These pages exist because the fulfilment critique measured what a packer
-   does with fifty-one orders in a To Ship queue at ten to a page: opens one,
-   prints, goes back, opens the next. The bulk lists replace that with one
-   sheet per selection.
-
-   WHY THIS FILE EXISTS AT ALL. The single-order versions carry ~60 lines of
-   CSS inside their own Blade files, against this repo's rule that CSS never
-   lives in a template - defensible when they were the only two, less so as a
-   pattern. The style lives here now and reaches the page through Vite like
-   every other sheet.
-
-   The page is sized in inches because its output is paper, not a viewport,
-   and it does not follow the app's theme: a dark-mode pick list is a sheet
-   of black toner. Colour is ink on white throughout.
-   ------------------------------------------------------------------- */
-
 .pl-doc {
     background: #e9edf3;
     color: #0f172a;
@@ -26,8 +5,6 @@
     margin: 0;
 }
 
-/* One sheet of US Letter. Repeated per order on a packing list, once for the
-   whole selection on a pick list. */
 .pl-page {
     width: 8.5in;
     min-height: 11in;
@@ -38,13 +15,6 @@
     box-shadow: 0 4px 18px rgba(15, 23, 42, .12);
 }
 
-/* The letterhead of a printed sheet, deliberately NOT called a head.
-   FoundationTest reserves .{prefix}-head for the foundation's own page head
-   and its allowlist is documented as one that may shrink and never grow -
-   correctly, because a page inventing its own head is how six rounds of
-   vocabulary drift started. This is not that: it is the top of a piece of
-   paper, on a document that does not use the app's shell, its theme or its
-   surfaces, and it has no business borrowing .bl-head's name. */
 .pl-masthead {
     display: flex;
     justify-content: space-between;
@@ -58,8 +28,6 @@
 .pl-masthead__sub { font-size: 12px; color: #475569; margin: 0; }
 .pl-masthead__meta { font-size: 12px; color: #475569; text-align: right; }
 
-/* Tabular figures and a mono face for anything compared character by
-   character against another system - order numbers, SKUs, quantities. */
 .pl-mono {
     font-family: var(--font-mono, ui-monospace), monospace;
     font-variant-numeric: tabular-nums;
@@ -85,11 +53,8 @@
 
 .pl-table td.pl-num { text-align: right; }
 
-/* The quantity is the number the picker acts on, so it is the largest thing
-   in the row rather than one figure among several. */
 .pl-qty { font-size: 15px; font-weight: 700; }
 
-/* A box to tick as each line is picked. Printed, not interactive. */
 .pl-check {
     width: 16px;
     height: 16px;
@@ -132,10 +97,6 @@
 
 .pl-btn--primary { background: #0f172a; border-color: #0f172a; color: #fff; }
 
-/* ------------------------------------------------------------------
-   On paper
-   ------------------------------------------------------------------ */
-
 @media print {
     .pl-doc { background: #fff; }
 
@@ -147,11 +108,8 @@
         width: auto;
     }
 
-    /* One order per sheet on a packing list: the sheet goes in the box with
-       that order and cannot carry another order's lines. */
     .pl-page + .pl-page { page-break-before: always; }
 
-    /* A row split across two sheets is a row a picker can miss. */
     .pl-table tr { page-break-inside: avoid; }
 
     thead { display: table-header-group; }

@@ -7,31 +7,8 @@ use App\Support\Fulfilment\OrderPrintLists;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
-/**
- * Pick and packing lists for a selection of orders.
- *
- * One controller for every channel, because the documents are the same
- * documents - see App\Support\Fulfilment\OrderPrintLists for why the
- * per-channel part is a map rather than a class each.
- *
- * POST rather than GET despite being a read. A selection is a list of ids
- * that routinely runs past what belongs in a URL, and the operator arrives
- * here by submitting the checkboxes they ticked. Nothing is written.
- *
- * Gated on the VIEW tier, not manage. These sheets are rendered from order
- * products the sync already stored, so printing one reveals nothing a
- * read-only operator cannot see on the list itself - the same reasoning the
- * Shopee routes file records for tracking and waybill downloads. Being
- * read-only is also why no marketplace is contacted: forty orders cost forty
- * rows of SQL rather than forty calls against a rate limit.
- */
 class OrderPrintController extends Controller
 {
-    /**
-     * The permission pair each channel's lists sit behind, view tier first.
-     *
-     * @var array<string, string>
-     */
     private const PERMISSIONS = [
         'shopee' => 'shopee',
         'lazada' => 'lazada',
@@ -63,9 +40,6 @@ class OrderPrintController extends Controller
         ]);
     }
 
-    /**
-     * @return array{0: \Illuminate\Database\Eloquent\Collection, 1: array<int, string>}
-     */
     private function resolve(Request $request, string $channel): array
     {
         abort_unless(OrderPrintLists::supports($channel), 404);
@@ -73,14 +47,6 @@ class OrderPrintController extends Controller
         $slug = self::PERMISSIONS[$channel];
         $user = $request->user();
 
-        /* THE SAME KEY THE CHANNEL'S OWN ORDERS SCREEN DERIVES.
-         *
-         * This asked the legacy view_{slug}_orders while the channel screen's
-         * door asked view_{slug}/order, so the same orders gave two answers:
-         * a group granted Lazada orders in the editor could read them in the
-         * seller center and be refused their pick list here. One key, both
-         * surfaces. View tier suffices - these lists are reads - and manage
-         * implies view, so an operator with the write tier prints too. */
         abort_unless(
             $user?->hasPermission('view_'.$slug.'/order'),
             403
@@ -93,10 +59,6 @@ class OrderPrintController extends Controller
 
         $orders = OrderPrintLists::orders($channel, $data['ids']);
 
-        // A selection that resolves to nothing is a stale page - the rows
-        // were deleted or belong to another store - and printing an empty
-        // sheet would say the orders had no items rather than that they are
-        // gone.
         if ($orders->isEmpty()) {
             throw ValidationException::withMessages([
                 'ids' => 'None of those orders are still here. Reload the list and pick again.',

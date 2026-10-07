@@ -7,9 +7,6 @@ use App\Support\Actor;
 
 class StockHistoryLogger
 {
-    /**
-     * Log a stock quantity change.
-     */
     public static function log(
         int $productId,
         ?int $optionValueId,
@@ -29,7 +26,6 @@ class StockHistoryLogger
             $userName = $userName ?? $actor->name;
         }
 
-        // A person's change through the mobile app says so.
         $source = \App\Support\AppDoor::source($source);
 
         DB::table('stock_history')->insert([
@@ -49,9 +45,6 @@ class StockHistoryLogger
         ]);
     }
 
-    /**
-     * Determine source string from an order's marketplace_source.
-     */
     public static function sourceFromOrder(string $marketplaceSource): string
     {
         if ($marketplaceSource === 'lazada') return 'lazada_sync';

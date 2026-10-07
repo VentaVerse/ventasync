@@ -4,11 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * An assistant that signs in through OAuth (Claude, ChatGPT) is tied to the
- * OAuth client that signed in, so its sign-in resolves to it and deleting
- * it ends the sign-in.
- */
 return new class extends Migration
 {
     public function up(): void

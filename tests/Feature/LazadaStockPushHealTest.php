@@ -14,20 +14,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * Phase F parity (#184): Lazada's stock and price pushes get the same
- * guarantees Shopee's and TikTok's have - skips named never counted
- * anonymously, orphan variants never zeroed, stale sku_ids healed with
- * one item read, honest listing verdicts instead of the synthetic
- * PARTIAL_FAILURE sentence, and a failed batch never flashing green.
- */
 class LazadaStockPushHealTest extends TestCase
 {
     use RefreshDatabase;
 
     public array $getResponses = [];
 
-    /** @var array<int, array{path: string, params: array}> */
     public array $sentPosts = [];
 
     public array $postResponses = [];
@@ -116,7 +108,6 @@ class LazadaStockPushHealTest extends TestCase
         return $pid;
     }
 
-    /** The item/get answer, so the staleness heal has something to read. */
     private function fakeItem(array $skuIds): void
     {
         $this->getResponses['/product/item/get'] = ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => [
@@ -152,7 +143,6 @@ class LazadaStockPushHealTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    /** The /products/get answer the link check reads: item => its seller SKUs. */
     private function fakeShop(array $itemSkus): void
     {
         $products = [];
@@ -169,12 +159,10 @@ class LazadaStockPushHealTest extends TestCase
         LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
         $this->fakeItem(['LZ-1' => 11]);
 
-        // An update the gate refuses: the listing has no category.
         $this->actingAs($this->manager())->post(route('ext.lazada.products.upload', $pid))->assertRedirect();
         $this->assertNotNull($this->line($pid));
         $this->assertSame([$pid], $this->states()->erroredProductIds());
 
-        // A stock push is a different path; its success is the latest outcome.
         $this->actingAs($this->manager())->post(route('ext.lazada.products.sync_quantity', $pid))->assertRedirect();
         $this->assertNull($this->line($pid));
         $this->assertSame([], $this->states()->erroredProductIds());
@@ -221,7 +209,6 @@ class LazadaStockPushHealTest extends TestCase
         $user = $this->groupManager();
 
         $this->assertSame([$missing, $refused], $this->states()->erroredProductIds());
-        // The Listings page says it through the status menu's Push failed switch; the group page keeps its filter option.
         foreach ([
             route('ext.lazada.products.index', ['sync_status' => 'error']) => 'lsm-flag is-on',
             route('ext.lazada.product-groups.products', [$group->id, 'sync_status' => 'error']) => '>Has an error</option>',
@@ -247,19 +234,16 @@ class LazadaStockPushHealTest extends TestCase
         LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
         $this->states()->recordOutcome($pid, 'Price push: LZ-1: Price is too low');
 
-        // The link check finds the item where the listing says it is.
         $this->fakeShop(['900' => ['LZ-1']]);
         $this->actingAs($this->manager())->post(route('ext.lazada.products.check'), ['product_ids' => [$pid]])->assertRedirect();
         $this->assertStringContainsString('1 confirmed on Lazada', (string) session('status'));
         $this->assertStringContainsString('Price is too low', (string) $this->line($pid));
 
-        // A read of the item answers too; a read never clears.
         $this->fakeItem(['LZ-1' => 11]);
         app(\Extensions\lazada\Services\Lazada\LazadaItemCache::class)
             ->refreshListing($listing->fresh(), LazadaSetting::defaultStore(), app(LazadaClient::class));
         $this->assertStringContainsString('Price is too low', (string) $this->line($pid));
 
-        // A write that succeeds does.
         $this->actingAs($this->manager())->post(route('ext.lazada.products.sync_quantity', $pid))->assertRedirect();
         $this->assertNull($this->line($pid));
     }
@@ -310,14 +294,11 @@ class LazadaStockPushHealTest extends TestCase
         return array_values(array_filter($this->sentPosts, fn ($c) => $c['path'] === '/product/price_quantity/update'));
     }
 
-    /** A variation Lazada does not carry is not an error: the variants Lazada has go up. */
     public function test_a_variation_missing_from_lazada_is_left_alone_and_the_rest_go_up(): void
     {
         $pid = $this->comboProduct(['LZ-1' => 5, 'LZ-2' => 8]);
         $listing = LazadaProduct::create(['product_id' => $pid, 'lazada_item_id' => '900']);
         LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
-        // The staleness heal asks Lazada; it answers with the same single
-        // SKU, so LZ-2 genuinely is not on Lazada.
         $this->fakeItem(['LZ-1' => 11]);
 
         $this->actingAs($this->manager())
@@ -329,7 +310,6 @@ class LazadaStockPushHealTest extends TestCase
         $this->assertNull($listing->fresh()->last_sync_error_code);
     }
 
-    /** An orphan variant (on Lazada, gone from the catalogue) is left alone: never a zero, never an error. */
     public function test_an_orphan_variant_is_left_alone(): void
     {
         $pid = $this->comboProduct(['LZ-1' => 5]);
@@ -345,7 +325,6 @@ class LazadaStockPushHealTest extends TestCase
         $this->assertCount(1, $this->updateCalls(), 'only the twin the catalogue has');
     }
 
-    /** A variation switched off for this store is not synced, and its absence is no error. */
     public function test_a_variation_switched_off_for_the_store_is_not_synced(): void
     {
         $pid = $this->comboProduct(['LZ-1' => 5, 'LZ-2' => 8]);
@@ -362,13 +341,12 @@ class LazadaStockPushHealTest extends TestCase
         $this->assertCount(1, $this->updateCalls(), 'LZ-2 is off for this store');
     }
 
-    /** A refusal naming the sku heals once and retries once. */
     public function test_a_sku_refusal_heals_and_retries_once(): void
     {
         $pid = $this->comboProduct(['LZ-1' => 5]);
         $listing = LazadaProduct::create(['product_id' => $pid, 'lazada_item_id' => '900']);
         LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
-        $this->fakeItem(['LZ-1' => 77]); // Lazada's real id differs from the stale cache
+        $this->fakeItem(['LZ-1' => 77]);
 
         $attempt = 0;
         $this->postResponses['/product/price_quantity/update'] = function () use (&$attempt) {
@@ -392,7 +370,6 @@ class LazadaStockPushHealTest extends TestCase
         $this->assertSame(77, (int) LazadaProductVariant::query()->where('lazada_product_id', $listing->id)->value('sku_id'));
     }
 
-    /** A failed push cannot flash green, and the listing wears the real reason. */
     public function test_a_failure_is_honest_in_tone_and_in_the_columns(): void
     {
         $pid = $this->comboProduct(['LZ-1' => 5]);
@@ -414,7 +391,6 @@ class LazadaStockPushHealTest extends TestCase
             'the verdict names the SKU and the reason - not PARTIAL_FAILURE with a count');
     }
 
-    /** The listing page says how much of the catalogue stands on Lazada, and names the verb. */
     public function test_the_listing_page_carries_coverage_and_points_at_update(): void
     {
         $pid = $this->comboProduct(['LZ-1' => 5, 'LZ-2' => 8]);
@@ -425,23 +401,14 @@ class LazadaStockPushHealTest extends TestCase
         $page = $this->actingAs($this->manager())
             ->get(route('ext.lazada.products.edit', $listing->product_id))->assertOk();
 
-        /* The coverage figure and the sentence about it were both reports
-           on the live item, and both left the listing page with the rest
-           of the health surface on 2026-09-09 (the owner: "Nothing about
-           health"). The push behaviour they described is unchanged - an
-           update still carries every catalogue variation - and the heal
-           tests below are where that is actually proven. */
         $page->assertDontSee('1 of 2 variations');
         $page->assertDontSee('carries every catalogue variation, missing ones included');
     }
 
-    /** A combination added in the catalogue triggers the staleness refetch at last. */
     public function test_a_new_combination_makes_the_cache_refetch(): void
     {
         $pid = $this->comboProduct(['LZ-1' => 5, 'LZ-NEW' => 3]);
         $listing = LazadaProduct::create(['product_id' => $pid, 'lazada_item_id' => '900']);
-        // The cache knows only LZ-1; the diff used to read POV alone, so a
-        // combination-only product never refetched.
         LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
         $this->fakeItem(['LZ-1' => 11, 'LZ-NEW' => 12]);
 
@@ -455,7 +422,6 @@ class LazadaStockPushHealTest extends TestCase
         $this->assertStringContainsString('<SkuId>12</SkuId>', $payloads);
     }
 
-    /** Push Price is its own automation (2026-09-07): the listing's rule, else the group's, else the catalog price. */
     public function test_the_price_cron_prices_by_the_listing_rule_then_the_group_then_the_catalog(): void
     {
         $a = $this->comboProduct(['LA-1' => 5]);
@@ -477,7 +443,6 @@ class LazadaStockPushHealTest extends TestCase
         $calls = $this->updateCalls();
         $this->assertCount(3, $calls);
         $payloads = implode(' ', array_map(fn ($c) => (string) $c['params']['payload'], $calls));
-        // The combination's own price (100 + 5) is the base each rule works on.
         $this->assertMatchesRegularExpression('~<SkuId>11</SkuId>.*?115\.50~s', $payloads, 'the listing\'s 10%');
         $this->assertMatchesRegularExpression('~<SkuId>12</SkuId>.*?126\.00~s', $payloads, 'the group\'s 20%');
         $this->assertMatchesRegularExpression('~<SkuId>13</SkuId>.*?105\.00~s', $payloads, 'the catalog price as it is');

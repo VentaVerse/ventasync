@@ -1,8 +1,3 @@
-{{-- The + on a listing page opens this, posts over fetch, and the new
-     template joins both dropdowns without a page load (the owner, 2026-09-07).
-     One per page; the two pickers share it.
-
-     Expected: $storeUrl, the channel's description-templates.store route. --}}
 <div class="modal-backdrop" data-dtp-modal data-dtp-url="{{ $storeUrl }}">
     <div class="modal modal--sm">
         <div class="modal-header">
@@ -15,7 +10,6 @@
                     <x-ui.input id="dtp-name" data-dtp-name maxlength="128" />
                 </x-ui.field>
                 <x-ui.field label="Description" for="dtp-body" name="dtp_body" wide>
-                    {{-- Becomes a rich editor on pages that load the wysiwyg partial. --}}
                     <x-ui.textarea id="dtp-body" data-dtp-body rows="8" maxlength="20000" class="wysiwyg"></x-ui.textarea>
                 </x-ui.field>
             </div>

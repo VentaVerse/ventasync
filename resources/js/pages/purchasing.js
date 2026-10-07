@@ -1,36 +1,3 @@
-/*
- * Purchasing pages (layouts.shell).
- *
- * Covers the purchase-order create/edit header typeahead, the line-item
- * editor on the edit page, the receive page's fill helpers, and the reorder
- * suggestions selection counter. The product-vendor matrix has its own
- * module (product-vendors.js) because it talks to a different set of
- * endpoints and shares nothing but the typeahead shape.
- *
- * Two things this module exists to replace:
- *
- *   1. window.setupTypeahead. That function was defined by an inline script
- *      inside layouts/app.blade.php (a protected file at the time, deleted
- *      in Round F Task 4). Nothing defines it on layouts.shell, so the vendor
- *      pickers on these pages would silently do nothing after the move, and
- *      nothing defines it anywhere now. The implementation below is
- *      the same contract (debounced fetch, hidden id input, mousedown
- *      selection) rendered into the `po-ta` markup this design system uses.
- *
- *   2. The inline <script> blocks the old views carried. Endpoints now come
- *      off data- attributes written by route() in Blade, so no URL is
- *      hardcoded in JS and a routing change cannot silently break a page.
- *
- * Everything builds DOM with createElement/textContent. No innerHTML is
- * used anywhere in this file, so a product or vendor name containing markup
- * is shown as text and cannot inject anything.
- */
-
-/* ------------------------------------------------------------------
-   Shared helpers
-   ------------------------------------------------------------------ */
-
-/** Format a number the way every money figure on these pages reads. */
 function fmt(n) {
     return (Number.isFinite(n) ? n : 0).toLocaleString(undefined, {
         minimumFractionDigits: 2,
@@ -38,13 +5,6 @@ function fmt(n) {
     });
 }
 
-/**
- * Vendor typeahead.
- *
- * `input` is what the user types in, `hidden` carries the chosen id (the
- * field the controller validates), `list` is the popup. Typing clears the
- * hidden id, so a half-typed name can never submit a stale selection.
- */
 function vendorTypeahead(input, hidden, list, url, onPick) {
     if (!input || !hidden || !list) return;
 
@@ -72,11 +32,7 @@ function vendorTypeahead(input, hidden, list, url, onPick) {
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'po-ta__item';
-            // display_name is what VendorController::lookup() builds
-            // ("Name | Nickname"); fall back to the plain name.
             btn.textContent = v.display_name || v.name || '';
-            // mousedown, not click: the input's blur would close the list
-            // before a click could land on it.
             btn.addEventListener('mousedown', function (e) {
                 e.preventDefault();
                 input.value = v.name + (v.nickname ? ' (' + v.nickname + ')' : '');
@@ -108,7 +64,6 @@ function vendorTypeahead(input, hidden, list, url, onPick) {
         timer = setTimeout(function () { search(q); }, 200);
     });
 
-    // Focus shows the full list, matching the old showAllOnFocus option.
     input.addEventListener('focus', function () {
         lastQuery = null;
         search(input.value.trim());
@@ -119,10 +74,6 @@ function vendorTypeahead(input, hidden, list, url, onPick) {
     });
 }
 
-/* ------------------------------------------------------------------
-   Purchase order form: header (create and edit)
-   ------------------------------------------------------------------ */
-
 function initPoHeader(form) {
     const vendorInput = form.querySelector('[data-po-vendor-input]');
     const vendorHidden = form.querySelector('[data-po-vendor-id]');
@@ -131,8 +82,6 @@ function initPoHeader(form) {
     const rate = form.querySelector('[data-po-rate]');
 
     vendorTypeahead(vendorInput, vendorHidden, vendorList, form.dataset.vendorLookupUrl, function (v) {
-        // Picking a vendor moves the order onto that vendor's currency, and
-        // the currency's own change handler then fills the rate.
         if (v.currency_code && currency) {
             currency.value = v.currency_code;
             currency.dispatchEvent(new Event('change', { bubbles: true }));
@@ -146,10 +95,6 @@ function initPoHeader(form) {
         });
     }
 }
-
-/* ------------------------------------------------------------------
-   Purchase order form: line items (edit only)
-   ------------------------------------------------------------------ */
 
 function initPoLines(form) {
     const body = form.querySelector('[data-po-lines-body]');
@@ -167,8 +112,6 @@ function initPoLines(form) {
 
     let nextIndex = parseInt(form.dataset.nextIndex || '0', 10) || 0;
 
-    /* ---- totals ---- */
-
     function recalc() {
         let subtotal = 0;
         let discount = 0;
@@ -181,8 +124,6 @@ function initPoLines(form) {
             const discType = discTypeEl ? discTypeEl.value : 'percent';
 
             const gross = qty * price;
-            // Same arithmetic PurchaseOrderController::update() applies
-            // server-side, so the figure on screen is the figure stored.
             const lineDisc = discType === 'fixed' ? disc : gross * (disc / 100);
 
             line.querySelector('[data-po-line-total]').textContent = fmt(gross - lineDisc);
@@ -208,11 +149,6 @@ function initPoLines(form) {
             emptyMsg.hidden = body.querySelectorAll('[data-po-line]').length > 0;
         }
     }
-
-    /* ---- building a line ----
-       This mirrors extensions/purchasing/views/purchase_orders/_line.blade.php
-       field for field. Both sides share the `po-line` grid and the same
-       data-label values, so a change to one has to be made in the other. */
 
     function field(tag, className, attrs) {
         const el = document.createElement(tag);
@@ -254,7 +190,6 @@ function initPoLines(form) {
         }
         line.appendChild(thumb);
 
-        // Description cell also carries the two hidden identity fields.
         const desc = cell('Description', null);
         desc.appendChild(field('input', '', {
             type: 'hidden', name: 'items[' + i + '][product_id]', value: p.product_id || '',
@@ -339,8 +274,6 @@ function initPoLines(form) {
         recalc();
     }
 
-    /* ---- product search ---- */
-
     const search = form.querySelector('[data-po-product-search]');
     const results = form.querySelector('[data-po-product-list]');
     const searchUrl = form.dataset.productSearchUrl;
@@ -390,10 +323,6 @@ function initPoLines(form) {
                             return;
                         }
 
-                        // A product with variations arrives as one row per
-                        // option value. The first row of each group gets an
-                        // "add all" line above it, and its siblings are
-                        // indented under it.
                         const seen = {};
                         data.forEach(function (p) {
                             if (p.has_options && p.option_group && !seen[p.option_group]) {
@@ -443,8 +372,6 @@ function initPoLines(form) {
         freetext.addEventListener('click', function () { buildLine(null); });
     }
 
-    /* ---- edit and remove ---- */
-
     body.addEventListener('input', recalc);
     body.addEventListener('change', recalc);
 
@@ -458,11 +385,6 @@ function initPoLines(form) {
     if (currency) currency.addEventListener('change', recalc);
     if (rate) rate.addEventListener('input', recalc);
 
-    /* ---- drag to reorder ----
-       The handle arms the row for dragging on pointerdown and disarms it
-       afterwards, so the rest of the row (every one of which is a text
-       input) stays selectable with the mouse. */
-
     let dragging = null;
 
     body.addEventListener('pointerdown', function (e) {
@@ -475,8 +397,6 @@ function initPoLines(form) {
     });
 
     document.addEventListener('pointerup', function () {
-        // A click on the handle that never became a drag has to give the
-        // draggable flag back, or the row stays draggable from anywhere.
         if (dragging && !dragging.classList.contains('is-dragging')) {
             dragging.draggable = false;
             dragging = null;
@@ -512,8 +432,6 @@ function initPoLines(form) {
         reindex();
     });
 
-    /* The array index in every field name has to match the row's position
-       after a move, or PHP would collapse two rows onto one key. */
     function reindex() {
         const lines = body.querySelectorAll('[data-po-line]');
         lines.forEach(function (line, i) {
@@ -527,12 +445,7 @@ function initPoLines(form) {
     recalc();
 }
 
-/* ------------------------------------------------------------------
-   Receive page
-   ------------------------------------------------------------------ */
-
 function initReceive(root) {
-    // "All" on a line fills that line's remaining quantity.
     root.addEventListener('click', function (e) {
         const fill = e.target.closest('[data-po-fill]');
         if (fill) {
@@ -544,10 +457,6 @@ function initReceive(root) {
             return;
         }
 
-        // "Fill every line" only fills; it does not submit. The old page
-        // filled and submitted in one click, which put a stock-and-cost
-        // write one button press away with nothing shown in between. The
-        // operator now sees the quantities it filled before confirming.
         const fillAll = e.target.closest('[data-po-fill-all]');
         if (fillAll) {
             root.querySelectorAll('[data-po-fill]').forEach(function (btn) {
@@ -558,8 +467,6 @@ function initReceive(root) {
         }
     });
 
-    // Running total of what is about to be received, so the confirm dialog
-    // is not the first time the operator sees a number.
     const tally = root.querySelector('[data-po-rcv-tally]');
     if (!tally) return;
 
@@ -574,10 +481,6 @@ function initReceive(root) {
     root.addEventListener('input', retally);
     retally();
 }
-
-/* ------------------------------------------------------------------
-   Reorder suggestions
-   ------------------------------------------------------------------ */
 
 function initReorder(root) {
     const all = root.querySelector('[data-po-sug-all]');
@@ -613,10 +516,6 @@ function initReorder(root) {
 
     update();
 }
-
-/* ------------------------------------------------------------------
-   Boot
-   ------------------------------------------------------------------ */
 
 document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('[data-po-form]').forEach(function (form) {

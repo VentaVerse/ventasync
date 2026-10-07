@@ -1,60 +1,10 @@
-/* Pedallion Orders.
-   -------------------------------------------------------------------
-   The shared anatomy this page is drawn on lives in the co- vocabulary in
-   blotter-components.css: the order band, the item rows, the money and
-   status cells and the mobile restack are the same picture every other
-   channel draws, so they are the same rules rather than a copy of them.
-
-   What is here is Pedallion's own, and takes a `pd-` prefix so it can never
-   collide with another channel's page file: this channel's column widths,
-   and nothing else.
-
-   The date range that used to live here is gone, not lost. It was a bordered
-   box holding both ends and the word "to" between them, built because two
-   bare date inputs side by side both read mm/dd/yyyy and neither says which
-   end it is. The returns lists needed the same control and got .x-filters__date
-   in the shared vocabulary, which answers the same question by pairing the
-   two boxes tightly and naming each one on its label and title. One control
-   for one job across the whole fulfilment family beats a channel-private
-   version of it, so this channel uses that.
-
-   Nothing here carries a colour of its own, and nothing on this page carries
-   the accent: Pedallion declares no order write route, so there is no action
-   on this surface for the accent to mark. See the pedallion.orders map in
-   App\Support\ChannelStatusTone.
-
-   RESTORED - see the note in pages/opencart-orders.css for what happened to
-   both files and to the guard that was meant to notice.
-   ------------------------------------------------------------------- */
-
-/* Products | Qty | Price | Amount | Status | Date, with the order facts
-   banded above each order's item rows.
-
-   Percentages summing to 100, so the table's spare width spreads across
-   every column proportionally instead of pooling in one of them.
-
-   Six columns rather than the eight or nine the marketplace channels carry,
-   because this channel genuinely has less to say per row: no tracking, no
-   payment method, and no actions column (the order number in the band is the
-   link to the record). Products takes what the missing columns would have
-   had, which is right for a distributor feed where the product name is the
-   longest value on the row. */
 .pd-col-products { width: 44%; }
 .pd-col-qty      { width: 5%; }
 .pd-col-price    { width: 10%; }
 .pd-col-total    { width: 11%; }
 .pd-col-status   { width: 15%; }
-/* "2026-08-06 19:00" is sixteen mono characters and must not wrap: a
-   timestamp broken across two lines stops being one value and starts looking
-   like two. */
 .pd-col-date     { width: 15%; }
 
-/* ------------------------------------------------------------------
-   Responsive
-   ------------------------------------------------------------------ */
-
-/* Once the row restacks there are no columns left to align on, so a
-   right-aligned figure just floats away from its own label. */
 @media (max-width: 700px) {
     #pedallion-orders-page .x-table tbody td.x-td-num { text-align: left; }
 }

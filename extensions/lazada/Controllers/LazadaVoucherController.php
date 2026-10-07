@@ -8,27 +8,12 @@ use Extensions\lazada\Models\LazadaSetting;
 use Extensions\lazada\Services\Lazada\LazadaClient;
 use Illuminate\Http\Request;
 
-/**
- * Seller vouchers (#153, quest 4, Lazada half). Same shape as the
- * Shopee and TikTok halves: nothing stored locally, a live read of the
- * voucher API on every load (absent, never stale), create and
- * deactivate as pass-throughs, the lifecycle deciding the row's verb.
- *
- * VERIFIED ONLY IN LIVE. The Lazada sandbox has no permission for the
- * voucher API group (the probe answered InsufficientPermission), so the
- * endpoint paths and field names below follow the Open Platform docs
- * and are confirmed against a live shop, not here. Every Lazada-facing
- * name lives in ONE place each (the constants and createParams()) so a
- * correction after live testing is a one-line edit with the tests
- * updated consciously.
- */
 class LazadaVoucherController extends Controller
 {
     private const LIST_PATH = '/promotion/vouchers/get';
     private const CREATE_PATH = '/promotion/voucher/create';
     private const DEACTIVATE_PATH = '/promotion/voucher/deactivate';
 
-    /** Lazada's status words (lowercased) -> the page's, with the badge tone. */
     public const STATUS_MAP = [
         'not_start' => ['Upcoming', 'info'],
         'upcoming' => ['Upcoming', 'info'],
@@ -127,12 +112,6 @@ class LazadaVoucherController extends Controller
             ->with('status', 'Voucher deactivated. Buyers can no longer collect or use it, and it cannot restart.');
     }
 
-    // ── Helpers ──────────────────────────────────────────────────
-
-    /**
-     * The validated form -> Lazada's create parameters. The ONE place
-     * Lazada's field names live; live testing corrects it here.
-     */
     private function createParams(array $data): array
     {
         $fixed = ($data['money_off'] ?? null) !== null;
@@ -163,7 +142,6 @@ class LazadaVoucherController extends Controller
         return $params;
     }
 
-    /** @return array{0: ?object, 1: array} the decrypted setting row and its active credentials */
     private function creds(): array
     {
         $setting = LazadaSetting::defaultStore();
@@ -176,7 +154,6 @@ class LazadaVoucherController extends Controller
         return [$setting, $creds];
     }
 
-    /** One signed voucher call, logged. */
     private function call(LazadaClient $client, object $setting, array $creds, string $method, string $apiPath, array $extra): array
     {
         $params = array_merge([
@@ -218,7 +195,6 @@ class LazadaVoucherController extends Controller
 
     private function callMessage(array $result): string
     {
-        // The one reader that knows where every channel hides its reason.
         return \App\Support\MarketplaceAnswer::errorText('Lazada', $result);
     }
 }

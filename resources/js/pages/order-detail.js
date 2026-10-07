@@ -1,42 +1,3 @@
-/**
- * Order detail page behaviour.
- *
- * Bundled into the shared app.js (both layouts load it) and guarded on the
- * presence of [data-order-detail], which only exists on the order detail
- * pages, so this module is inert everywhere else - the same guard
- * convention confirm-modal.js and orders-filter.js already use.
- *
- * What it owns:
- *   1. The four click-to-edit money figures (unit cost, shipping cost, fee
- *      amount, fee label). These POST/PUT to the same endpoints the page
- *      always used and reload afterwards so the profit arithmetic
- *      recomputes server-side rather than being duplicated here.
- *   2. The page's own flash region, because layouts.shell renders none.
- *   3. Hiding a thumbnail whose image file is missing, which used to be an
- *      inline onerror="" attribute on the <img>.
- *
- * Two rules this file is written against, both from earlier rounds:
- *
- *   - No innerHTML anywhere. Every node is createElement/textContent, so a
- *     fee label or an error message containing markup is shown as text and
- *     cannot inject anything.
- *
- *   - Every failure path re-enables its controls (the C1 lesson: a Confirm
- *     Ship button that stayed disabled forever after a failed request). The
- *     editor below disables only its own input while a request is in
- *     flight, and every terminal branch - ok, not-ok, HTTP error, network
- *     error, malformed JSON, cancel - runs through finish(), which removes
- *     the input, restores the control and returns focus to it.
- *
- * The editor is deliberately NOT optimistic. The previous version wrote the
- * new figure into the page before the request resolved, so a rejected save
- * left a number on screen that did not exist in the database - the exact
- * class of "a figure that says something the data does not" this page
- * cannot afford. The stored value stays on screen until the server
- * confirms, and a confirmed numeric change reloads the page rather than
- * being patched in.
- */
-
 document.addEventListener('DOMContentLoaded', function () {
     var page = document.querySelector('[data-order-detail]');
     if (!page) return;
@@ -49,11 +10,6 @@ document.addEventListener('DOMContentLoaded', function () {
         var meta = document.querySelector('meta[name="csrf-token"]');
         return meta ? meta.content : '';
     }
-
-    /* ------------------------------------------------------------------
-       Flash region. layouts.shell renders none of its own, and without
-       one an inline save would succeed or fail in silence.
-       ------------------------------------------------------------------ */
 
     function flash(message, kind) {
         if (!flashHost) return;
@@ -78,10 +34,6 @@ document.addEventListener('DOMContentLoaded', function () {
         note.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
-    /* ------------------------------------------------------------------
-       Click-to-edit.
-       ------------------------------------------------------------------ */
-
     function send(url, method, payload) {
         return fetch(url, {
             method: method,
@@ -100,23 +52,10 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Reload rather than patch the DOM: unit cost and shipping cost both
-    // feed COGS, net profit, margin and markup, and re-deriving those in
-    // JavaScript would be a second implementation of the arithmetic this
-    // page exists to show correctly.
     function reloadSoon() {
         window.setTimeout(function () { window.location.reload(); }, 400);
     }
 
-    /**
-     * @param {HTMLElement} button  the .od-edit control that was activated
-     * @param {Object} config
-     *        type       'number' | 'text'
-     *        value      the stored value the editor opens on
-     *        inputClass optional extra class for the input
-     *        save(v)    -> Promise resolving the JSON envelope
-     *        applied(v, button, finish) -> void, on a confirmed save
-     */
     function openEditor(button, config) {
         if (button.dataset.editing === '1') return;
         button.dataset.editing = '1';
@@ -137,9 +76,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
         var settled = false;
 
-        // The single exit. Whatever happened - saved, rejected, cancelled,
-        // network down - the input goes away and the control comes back
-        // usable and focused. Nothing here can end up permanently disabled.
         function finish() {
             if (input.parentNode) input.parentNode.removeChild(input);
             button.hidden = false;
@@ -165,8 +101,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
-            // An empty label is a mis-click, not a change. Leave the stored
-            // value alone rather than writing a blank one.
             if (config.type === 'text' && raw === '') {
                 finish();
                 return;
@@ -261,17 +195,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 inputClass: 'od-edit__input--text',
                 value: button.dataset.label || '',
                 save: function (value) {
-                    // updateFee validates `amount` as required even when
-                    // only the label is changing, so the row's current
-                    // amount rides along unchanged.
                     return send(baseUrl + '/' + orderId + '/fees/' + button.dataset.feeId, 'PUT', {
                         label: value,
                         amount: parseFloat(button.dataset.amount) || 0
                     });
                 },
                 applied: function (value, control, finish) {
-                    // A label does not feed the arithmetic, so this one
-                    // updates in place instead of costing a page load.
                     finish();
                     control.dataset.label = value;
                     control.textContent = value;
@@ -281,11 +210,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    /* ------------------------------------------------------------------
-       A thumbnail whose image file is missing. Capture phase, because
-       `error` does not bubble.
-       ------------------------------------------------------------------ */
-
     page.addEventListener('error', function (event) {
         var img = event.target;
         if (!img || img.tagName !== 'IMG' || !img.classList.contains('order-img')) return;
@@ -294,22 +218,6 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 
-/* ------------------------------------------------------------------
-   The status control (critique, 2026-08-27).
-
-   1. The note under the select says what THIS move does, in units, the
-      moment a status is picked: "Moving to Shipped deducts 3 units",
-      "Moving to Canceled restores 3 units", or the generic sentence when
-      stock does not move. Each option carries data-subtract; the select
-      carries the current status's flag and the order's unit count.
-   2. A move across the stock boundary asks first: the form gets its
-      data-confirm only then, so an ordinary move (Pending to Processing)
-      goes straight through and a stock-moving one is confirmed with the
-      same sentence.
-   3. The panel's Close button and the phone sheet's scrim close the
-      <details>, which had no way out on a phone but the badge that
-      opened it, scrolled away.
-   ------------------------------------------------------------------ */
 (function () {
     const select = document.querySelector('.od-status [data-status-select]');
     const form = document.querySelector('.od-status [data-status-form]');

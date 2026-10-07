@@ -2,15 +2,8 @@
 
 namespace App\Services\Payouts;
 
-/**
- * The marketplaces that pay out per order, as their extensions registered
- * them (PayoutChannel). An extension that is off registers nothing, a store
- * that is off is not listed, and a new store is listed the moment it is
- * switched on: every payout surface reads this, so all of them agree.
- */
 class PayoutRegistry
 {
-    /** @var array<string, PayoutChannel> */
     private array $channels = [];
 
     public function register(PayoutChannel $channel): void
@@ -23,13 +16,6 @@ class PayoutRegistry
         return $this->channels[$id] ?? null;
     }
 
-    /**
-     * Every switched-on store of every channel this person may see the
-     * payouts of, in channel order (Shopee, Lazada, TikTok Shop).
-     *
-     * @param  array<string, list<int|null>>|null  $only  channel => store ids (null id = every store of it); null = all
-     * @return list<array{channel: PayoutChannel, store: object}>
-     */
     public function storesFor(?object $user, ?array $only = null): array
     {
         $order = ['shopee' => 0, 'lazada' => 1, 'tiktok' => 2];
@@ -49,7 +35,7 @@ class PayoutRegistry
             } catch (\Throwable $e) {
                 report($e);
 
-                continue;   // one channel's broken table never hides the others
+                continue;
             }
             $ids = $only[$channel->id] ?? [null];
             foreach ($stores as $store) {

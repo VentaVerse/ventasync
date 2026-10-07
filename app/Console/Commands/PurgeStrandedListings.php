@@ -6,13 +6,6 @@ use App\Integrations\IntegrationRegistry;
 use App\Services\Catalog\ProductDeleter;
 use Illuminate\Console\Command;
 
-/**
- * The one-time sweep behind the catalog delete reaching the channels
- * (the owner, 2026-09-05). Products deleted before that rule left listing
- * rows behind on every channel, some still live at the marketplace.
- * This names them, and with --apply forgets them the way a delete does
- * now (2026-09-07): local rows only; the marketplace items stay.
- */
 class PurgeStrandedListings extends Command
 {
     protected $signature = 'catalog:purge-stranded-listings {--apply : Remove them; without this the command only lists}';

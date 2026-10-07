@@ -4,13 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-/**
- * One row per (command, integration[, store_id]) tuple. The
- * Console\Kernel iterates enabled rows on every boot of the artisan
- * scheduler and registers each against Laravel's scheduler with the
- * stored cron expression. The Automations tab on each integration
- * page edits these rows.
- */
 class ScheduledJob extends Model
 {
     protected $table = 'scheduled_jobs';
@@ -24,11 +17,6 @@ class ScheduledJob extends Model
         'last_run_ok'    => 'boolean',
     ];
 
-    /**
-     * Convert "every N {unit}" → standard cron expression. Mirrors the
-     * helper in the seed migration so both code paths produce identical
-     * strings.
-     */
     public static function expressionFor(int $value, string $unit): string
     {
         $value = max(1, $value);
@@ -44,10 +32,6 @@ class ScheduledJob extends Model
         }
     }
 
-    /**
-     * Apply current cadence_value / cadence_unit to cron_expression.
-     * Called on save so the field never drifts from the input pair.
-     */
     public function syncCronExpression(): void
     {
         $this->cron_expression = static::expressionFor(
@@ -56,11 +40,6 @@ class ScheduledJob extends Model
         );
     }
 
-    /**
-     * The job's options as artisan arguments, one shape for the scheduler
-     * (App\Console\Kernel) and for a run by hand (AutomationsController::run).
-     * A true value is a bare flag; anything else is --key=value.
-     */
     public function commandArguments(): array
     {
         $args = [];

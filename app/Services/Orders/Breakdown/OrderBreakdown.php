@@ -2,23 +2,12 @@
 
 namespace App\Services\Orders\Breakdown;
 
-/**
- * An order's money as its store shows it, line by line, in the store's own
- * words, ending with the store's own bottom line.
- *
- * Amounts are in the order's currency, signed as they affect the bottom line.
- * The lines are checked against that bottom line: whatever the store did not
- * itemise is listed as its own line, so the total is never wrong and a figure
- * the store starts sending later is visible the day it arrives.
- */
 final class OrderBreakdown
 {
     public const UNITEMISED = 'Not itemised';
 
-    /** @var list<array{label: string, amount: float, children: list<array{label: string, amount: float}>}> */
     private array $entries = [];
 
-    /** @var array{label: string, amount: float}|null */
     private ?array $total = null;
 
     public function __construct(public readonly string $title)
@@ -32,11 +21,6 @@ final class OrderBreakdown
         return $this;
     }
 
-    /**
-     * A heading whose figure is the sum of the lines under it.
-     *
-     * @param  list<array{0: string, 1: float}>  $children
-     */
     public function group(string $label, array $children): self
     {
         $rows = array_map(fn (array $child) => ['label' => (string) $child[0], 'amount' => round((float) $child[1], 2)], $children);
@@ -52,7 +36,6 @@ final class OrderBreakdown
         return $this;
     }
 
-    /** What the store's bottom line holds beyond the lines it itemised. */
     public function unitemised(): float
     {
         if ($this->total === null) {
@@ -63,7 +46,6 @@ final class OrderBreakdown
         return abs($gap) < 0.01 ? 0.0 : $gap;
     }
 
-    /** @return list<array{label: string, amount: float, level: int, kind: string}> */
     public function rows(): array
     {
         $rows = [];
@@ -83,11 +65,6 @@ final class OrderBreakdown
         return $rows;
     }
 
-    /**
-     * A breakdown from sale lines whose last line is the total.
-     *
-     * @param  list<array{code: string, title: string, value: float}>  $lines
-     */
     public static function fromSaleLines(string $title, array $lines): ?self
     {
         $total = array_pop($lines);

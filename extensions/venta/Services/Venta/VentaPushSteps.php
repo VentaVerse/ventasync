@@ -6,14 +6,8 @@ use App\Models\ScheduledJob;
 use Extensions\venta\Models\VentaProductLink;
 use Extensions\venta\Models\VentaSetting;
 
-/**
- * Push Stock and Push Price as steps for Run now (SteppableAutomation,
- * 2026-09-07): a unit is "storeId:productId". The job's store (its
- * options) is the only store; a job without one walks every enabled store.
- */
 final class VentaPushSteps
 {
-    /** @return list<string> */
     public static function units(ScheduledJob $job): array
     {
         $stores = VentaSetting::query()->where('enabled', true);
@@ -32,7 +26,6 @@ final class VentaPushSteps
         return $units;
     }
 
-    /** @param 'stock'|'price' $kind @param list<string> $units */
     public static function step(string $kind, array $units): array
     {
         $byStore = [];

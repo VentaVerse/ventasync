@@ -7,21 +7,13 @@ use App\Support\Actor;
 use App\Support\Api\Refused;
 use Illuminate\Support\Facades\Validator;
 
-/**
- * Set or change a product's or a variation's quantity, with a reason on
- * the record. The partner API and the assistant's stock_adjust both run
- * this.
- */
 final class AdjustStock
 {
-    /** @return array<string, mixed> */
     public function handle(array $input): array
     {
         $data = Validator::make($input, [
             'product_id' => 'required|integer|min:1',
             'variation_sku' => 'nullable|string|max:64',
-            // Exactly one of the two. A caller that knows the count says
-            // it; a caller recording an arrival says how many arrived.
             'new_quantity' => 'required_without:change_by|prohibits:change_by|nullable|integer|min:0|max:99999999',
             'change_by' => 'required_without:new_quantity|nullable|integer|min:-99999999|max:99999999',
             'reason' => 'required|string|min:3|max:500',

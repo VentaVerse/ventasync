@@ -4,24 +4,8 @@ namespace App\Support;
 
 use Illuminate\Support\Facades\DB;
 
-/**
- * The catalog search behind every channel's Link picker (the "Catalog
- * product" column on an Import page, the product pickers on the add
- * pages). One query and one JSON shape for all channels (2026-09-07:
- * TikTok's returned a raw image path, Venta's and WooCommerce's a shape
- * the shared picker could not read at all, so their pickers showed no
- * picture or nothing).
- *
- * A result the store already holds is marked `linked` with the item it
- * is linked to, so the picker greys it out: a link is one catalog product
- * to one marketplace item per store, both ways.
- */
 final class CatalogPickerSearch
 {
-    /**
-     * @param callable(list<int>): array<int, string> $linkedLabelFor  product ids => "Shopee item 123" for the ones already linked on this store
-     * @return list<array{product_id:int, name:string, model:string, sku:string, image:?string, options:list<array{sku:string, name:string, qty:int}>, skus:list<string>, linked:?string}>
-     */
     public static function items(string $q, callable $linkedLabelFor, int $limit = 20): array
     {
         $q = trim($q);

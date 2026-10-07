@@ -25,7 +25,7 @@ class TikTokPushStock extends Command implements \App\Integrations\Contracts\Ste
         foreach ($stores as $store) {
             $label = $store->store_name ?: ('#' . $store->id);
             $this->info("=== TikTok store: {$label} ===");
-            app()->instance('tiktok.route-store', $store); // bind: the model trait now scopes every query + stamps writes to THIS store
+            app()->instance('tiktok.route-store', $store);
             try {
                 $worst = max($worst, $this->handleStore($store));
             } catch (\Throwable $e) {
@@ -65,8 +65,6 @@ class TikTokPushStock extends Command implements \App\Integrations\Contracts\Ste
         $pfx = (string) config('catalog.prefix');
         $client = app(TikTokClient::class);
 
-        // Get all pivot rows that have been pushed to TikTok
-        // This store's pivots: the group carries the store, the pivot does not.
         $pivotRows = TikTokProductGroupProduct::query()
             ->whereIn('tiktok_product_group_id', \Extensions\tiktok\Models\TikTokProductGroup::query()->select('id'))
             ->whereNotNull('tiktok_product_id')
@@ -81,9 +79,6 @@ class TikTokPushStock extends Command implements \App\Integrations\Contracts\Ste
 
         $this->info("Pushing stock for {$pivotRows->count()} product(s)...");
 
-        /* The shared sender (Phase F, #184): the same path the buttons
-         * walk - skip ledger, per-SKU verdicts, the one-shot map repair -
-         * so the cron can no longer drift from the UI. */
         $c = [
             'app_key' => $appKey, 'app_secret' => $appSecret, 'token' => $token,
             'shop_cipher' => $shopCipher, 'warehouse_id' => $warehouseId,
@@ -107,7 +102,6 @@ class TikTokPushStock extends Command implements \App\Integrations\Contracts\Ste
     }
 
 
-    /** Run now walks this push ten products per request (SteppableAutomation, 2026-09-07). */
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
         return ['label' => 'products', 'units' => \Extensions\tiktok\Services\TikTok\TikTokPushSteps::units()];

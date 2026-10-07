@@ -8,49 +8,12 @@ use Extensions\shopee\Models\ShopeeProductLink;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-/**
- * Ask Shopee about these products and make the ERP agree (Phase F,
- * #184). Extracted whole from the group page - the SKU index, the
- * existence memo, the reconcile and the batch sweep - so the workbench
- * runs the same check without owning a copy. Memos live for the life of
- * the instance, which is one request: the group page's send and orphan
- * views share them by sharing the instance.
- *
- * Reads only. It confirms, adopts, repoints or drops LINKS; it writes
- * nothing to Shopee.
- */
 class ShopeeLinkCheck
 {
-    /** Memoised shop-wide SKU index; see skuIndex(). */
-    /* MEMOISED PER SHOP, never per process.
-     *
-     * One instance serves a whole batch so the shop is paged once instead
-     * of once per product - and on 2026-09-09 that instance became scoped
-     * to the request, which made it serve SEVERAL SHOPS. The scheduled
-     * refresh walks every enabled store in one process, so store two was
-     * searched against store one's index, found nothing, judged the shop
-     * completely read, and DROPPED EVERY GOOD LINK IT HAD. The owner watched
-     * two links vanish with nothing touched.
-     *
-     * Keyed by shop id, both of them, so no answer about one shop can ever
-     * be read as an answer about another. */
     private array $shopeeSkuIndex = [];
 
-    /** item_id => 'yes'|'no', filled by the batch prefill and single checks. */
-    /** @var array<int, array<int, string>> shop id => item id => yes|no */
     private array $shopeeItemExistence = [];
 
-    /**
-     * The next page of this store's links, checked (the owner, 2026-09-07).
-     * Both the Refresh button and the scheduled refresh call this, which is
-     * what stops them from drifting apart: the cron used to re-read statuses
-     * and never re-run the check, so a failed check could not clear itself
-     * and a row kept a six-month-old refusal until somebody pressed the
-     * button. The cursor caps a run at two hundred and continues where the
-     * last one stopped.
-     *
-     * @return ?array the check's own result, or null when nothing is linked
-     */
     public function runNext(ShopeeClient $client, array $auth, int $storeId): ?array
     {
         return ($ids = $this->storeProductIds($storeId)) !== []
@@ -58,21 +21,6 @@ class ShopeeLinkCheck
             : null;
     }
 
-    /**
-     * EVERY product this store carries, not only the ones already linked.
-     *
-     * The sweep walked the linked rows alone, which meant it could confirm
-     * a link and could never find one. An item created on Shopee whose
-     * link was then lost - a store deleted here, a database restored, a
-     * delete that answered ok while the item stayed up - was invisible to
-     * every automatic path, and the untargeted Check answered "Nothing is
-     * linked to Shopee yet, so there is nothing to check" over a shop
-     * holding thirty-two items (the owner's QA, 2026-09-09). The product is
-     * the unit of the question, so the product list is what it walks; a
-     * product genuinely not on Shopee reads 'new' and nothing is written.
-     *
-     * @return list<int>
-     */
     public function storeProductIds(int $storeId): array
     {
         $listings = \Extensions\shopee\Models\ShopeeListing::query()
@@ -86,21 +34,8 @@ class ShopeeLinkCheck
             ->map(fn ($v) => (int) $v)->filter()->unique()->sort()->values()->all();
     }
 
-    /**
-     * THE STORE THIS WALK IS FOR.
-     *
-     * The read fence in BelongsToShopeeStore is up inside a store request
-     * and deliberately DOWN in the console, where the scheduled check
-     * runs - so every read and write in this service has to name its store
-     * itself. It did not, and the consequences were not theoretical
-     * (the owner's QA, 2026-09-09): with the same product in two stores' lists
-     * and one link between them, the SECOND store's check picked up the
-     * FIRST store's link id, asked its own shop about it, was told no, and
-     * dropped a link belonging to a shop it had never asked.
-     */
     private int $actingStore = 0;
 
-    /** Fence a query to the store this walk is for, request or console alike. */
     private function ofThisStore(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
         return $this->actingStore > 0
@@ -108,7 +43,6 @@ class ShopeeLinkCheck
             : $query;
     }
 
-    /** This store's groups, for a pivot write that must not reach another shop's. */
     private function myGroupIds(): ?array
     {
         return $this->actingStore > 0
@@ -117,27 +51,15 @@ class ShopeeLinkCheck
             : null;
     }
 
-    /** @return array{tone: 'status'|'warning'|'error', summary: string} */
     public function run(ShopeeClient $client, array $auth, array $productIds): array
     {
         $this->actingStore = (int) ($auth['store_id'] ?? 0);
 
-        // A ceiling, reported rather than applied quietly: a check that looked
-        // at the first 200 of 500 and said nothing would leave the other 300
-        // appearing confirmed.
         $limit = 200;
         $skippedForSize = max(0, count($productIds) - $limit);
         $productIds = array_slice($productIds, 0, $limit);
 
-        /* THE BATCH PREFILL (2026-08-24). This used to ask Shopee about one
-         * item per call, sequentially - checking a full group meant up to
-         * two hundred API round-trips inside one web request, which
-         * php-fpm's execution limit kills long before the answer, leaving
-         * the operator's overlay spinning forever ("Check against Shopee
-         * hangs", the owner, QAS). get_item_base_info answers fifty at a time:
-         * ask once per fifty, remember, and the per-item check below
-         * becomes a memo read. Logged per chunk, so the check finally
-         * leaves a trace in the API logs. */
+        // get_item_base_info answers 50 at a time; one call per item overruns the web request time limit.
         $knownItemIds = $this->ofThisStore(ShopeeProductLink::query())
             ->whereIn('product_id', $productIds)
             ->whereNotNull('shopee_item_id')
@@ -153,7 +75,7 @@ class ShopeeLinkCheck
                     ['item_id_list' => implode(',', $chunk)]
                 );
             } catch (\Throwable $e) {
-                continue; // these ids fall back to the per-item check
+                continue;
             }
 
             ShopeeApiLog::safeCreate([
@@ -179,8 +101,6 @@ class ShopeeLinkCheck
                     $answered[$iid] = true;
                 }
             }
-            // Absent from a successful answer = the shop holds no such item,
-            // exactly as the single-item check reads it.
             foreach ($chunk as $iid) {
                 if (!isset($answered[(int) $iid])) {
                     $this->shopeeItemExistence[(int) $auth['shop_id']][(int) $iid] = 'no';
@@ -198,19 +118,10 @@ class ShopeeLinkCheck
             $verdicts[$state] = ($verdicts[$state] ?? 0) + 1;
 
             if ($state === 'unreachable') {
-                // Nothing was learned, so nothing is written. The row keeps
-                // what it said before, which is honest: it was a belief then
-                // and it is still a belief now.
                 $problems[] = "#{$productId}: {$verdict['message']}";
                 continue;
             }
 
-            /* Shopee answered about this PRODUCT, so the checked-at stamp is
-             * the product's (stage 2 of the one-truth repointing,
-             * 2026-08-25): it lives on the listing record and shows on
-             * every page - a check run from one group used to stamp only
-             * that group's pivot, so the same product read "checked" here
-             * and "not checked since the push" one group over. */
             ShopeeListing::query()->updateOrCreate(
                 $this->actingStore > 0
                     ? ['product_id' => (int) $productId, 'shopee_setting_id' => $this->actingStore]
@@ -228,8 +139,6 @@ class ShopeeLinkCheck
             }
 
             if ($state === 'lost' || $state === 'new') {
-                // reconcileShopeeLink has already dropped a dead link and reset
-                // the row; this only stamps the time it was established.
                 $this->writeProductStatus((int) $productId, [
                     'sync_status' => 'pending',
                     'push_error' => null,
@@ -246,8 +155,6 @@ class ShopeeLinkCheck
 
         $checked = count($productIds) - ($verdicts['unreachable'] ?? 0);
 
-        // Findings, not outcomes. Nothing here wrote to Shopee, so nothing may
-        // suggest anything was fixed there.
         $parts = [];
         if (! empty($verdicts['confirmed'])) {
             $parts[] = $verdicts['confirmed'].' still on Shopee';
@@ -294,13 +201,6 @@ class ShopeeLinkCheck
         return ['tone' => $tone, 'summary' => $summary];
     }
 
-    /**
-     * The SKUs this product could be known by on Shopee, lowercased.
-     *
-     * Includes variation SKUs, because Shopee stores a SKU on the item AND on
-     * every model under it, and a product is just as findable by one of its
-     * variations as by its own code.
-     */
     private function shopeeCandidateSkus(int $productId, string $pfx): array
     {
         $product = DB::table($pfx.'product')->where('product_id', $productId)->first(['sku', 'model']);
@@ -317,23 +217,6 @@ class ShopeeLinkCheck
             }
         }
 
-        /* THE VARIATION SKUs ARE CANDIDATES TOO, from BOTH tables.
-         *
-         * This read combinations' older sibling only, so a product whose
-         * variations live in product_option_combinations - which is what
-         * every push here builds its models from - offered nothing to
-         * search by unless the parent carried a SKU of its own. Shopee
-         * needs no parent SKU, so a product could be pushed, lose its
-         * link, and then be unfindable forever: the check answered "this
-         * product has no SKU" and the next push made a second item beside
-         * the first (the owner, 2026-09-09: "Ive been pushing the same product
-         * to shopee without issue because it has no parent").
-         *
-         * Lazada's and TikTok's link checks already read both tables.
-         * Shopee's was the one that did not, and Shopee is the channel
-         * whose recovery depends on it. The marketplace half was always
-         * ready: skuIndex() maps every model_sku in the shop to its item.
-         */
         $optSkus = DB::table($pfx.'product_option_value')
             ->where('product_id', $productId)
             ->whereNotNull('sku')->where('sku', '!=', '')
@@ -347,15 +230,8 @@ class ShopeeLinkCheck
         return array_values(array_unique(array_filter(array_merge($skus, $optSkus, $comboSkus))));
     }
 
-    /**
-     * Does Shopee still have this item?
-     *
-     * @return string 'yes' | 'no' | 'unknown'
-     */
     private function shopeeItemStillExists(ShopeeClient $client, array $auth, int $itemId): string
     {
-        // Answered already by the batch prefill: fifty items a call instead
-        // of one. Only definitive answers are cached - 'unknown' is retried.
         $shopId = (int) ($auth['shop_id'] ?? 0);
         if (isset($this->shopeeItemExistence[$shopId][$itemId])) {
             return $this->shopeeItemExistence[$shopId][$itemId];
@@ -369,8 +245,6 @@ class ShopeeLinkCheck
                 ['item_id_list' => (string) $itemId]
             );
         } catch (\Throwable $e) {
-            // The client retries twice and then throws. A throw is the network
-            // failing, never Shopee answering, so it can prove nothing.
             return 'unknown';
         }
 
@@ -378,9 +252,7 @@ class ShopeeLinkCheck
         $err = strtolower((string) ($body['error'] ?? ''));
 
         if ($err !== '') {
-            // Shopee replies 200 with an error field, so the HTTP status says
-            // nothing. Only an error that NAMES the item as missing counts as
-            // an answer; auth failures, rate limits and the rest are silence.
+            // Shopee replies 200 with an error field; only an error naming the item as missing counts as 'no'.
             return str_contains($err, 'not_found') || str_contains($err, 'not_exist') ? 'no' : 'unknown';
         }
 
@@ -395,9 +267,6 @@ class ShopeeLinkCheck
                 continue;
             }
 
-            // DELETED is the only status that means gone. UNLIST and BANNED
-            // items are still there - treating them as missing would delete a
-            // good link and then create a duplicate beside the original.
             return $this->shopeeItemExistence[$shopId][$itemId]
                 = strtoupper((string) ($item['item_status'] ?? '')) === 'DELETED' ? 'no' : 'yes';
         }
@@ -405,18 +274,6 @@ class ShopeeLinkCheck
         return $this->shopeeItemExistence[$shopId][$itemId] = 'no';
     }
 
-    /**
-     * Every SKU in the shop, mapped to the item that carries it.
-     *
-     * Built ONCE per request and reused. Shopee has no "get item by SKU"
-     * endpoint, so finding a product by its code means paging the whole shop
-     * and fetching details in batches of fifty - about forty calls. Per
-     * product that would be ruinous on a group of any size; shared across the
-     * batch it is a fixed cost paid only when something actually needs
-     * looking up.
-     *
-     * @return array{skus: array<string,int>, complete: bool}
-     */
     public function skuIndex(ShopeeClient $client, array $auth): array
     {
         $shopId = (int) ($auth['shop_id'] ?? 0);
@@ -427,9 +284,6 @@ class ShopeeLinkCheck
         $map = [];
         $complete = true;
 
-        // UNLIST and BANNED included deliberately. An item hidden from the
-        // storefront still occupies its SKU, and a search that ignored them
-        // would report "not on Shopee" and create a second listing.
         foreach (['NORMAL', 'UNLIST', 'BANNED'] as $status) {
             $offset = 0;
 
@@ -446,15 +300,7 @@ class ShopeeLinkCheck
                     break;
                 }
 
-                /* A REFUSAL IS NOT AN EMPTY SHOP.
-                 *
-                 * Only the item list was read here, so a call that failed -
-                 * an expired token, a rate limit, a 500 - produced no items
-                 * and was indistinguishable from a shop holding none. The
-                 * index then called itself complete, the caller concluded
-                 * "not on Shopee", and a push created a listing beside the
-                 * one already there. The owner's QA log is full of
-                 * invalid_acceess_token on exactly these days. */
+                // A failed call is not an empty shop; treating it as one makes a push create a duplicate listing.
                 if (! ($res['ok'] ?? false) || (string) ($res['body']['error'] ?? '') !== '') {
                     $complete = false;
                     break;
@@ -498,21 +344,6 @@ class ShopeeLinkCheck
                         $map[$itemSku] = $itemId;
                     }
 
-                    /* A MODEL'S SKU IS ITS OWN CALL.
-                     *
-                     * This used to read a model list off the base info, a
-                     * field Shopee does not put there: models come
-                     * from get_model_list, one item at a time, which is how
-                     * every other model read in this application already
-                     * does it. So the index has never held a single model
-                     * SKU - and a product with NO parent SKU contributes
-                     * nothing to it at all, which is exactly the product
-                     * that cannot be found any other way. The owner pushed one
-                     * on 2026-09-09, unlinked it, pushed again, and got a
-                     * duplicate with the guard in place.
-                     *
-                     * Paid only for an item that HAS models, which the base
-                     * info does tell us. */
                     if (! empty($item['has_model'])) {
                         foreach ($this->modelSkus($client, $auth, $itemId, $complete) as $modelSku) {
                             if (! isset($map[$modelSku])) {
@@ -529,8 +360,6 @@ class ShopeeLinkCheck
                 $offset += 50;
 
                 if ($page === 19) {
-                    // Reported, never swallowed: a shop bigger than the ceiling
-                    // would otherwise have its tail read as "not on Shopee".
                     $complete = false;
                 }
             }
@@ -539,16 +368,7 @@ class ShopeeLinkCheck
         return $this->shopeeSkuIndex[$shopId] = ['skus' => $map, 'complete' => $complete];
     }
 
-    /**
-     * One item's model SKUs, lowercased.
-     *
-     * A read that fails marks the whole index incomplete: an item whose
-     * models could not be read is an item whose SKUs are missing from the
-     * map, and concluding "not on Shopee" from a map with holes in it is
-     * how a duplicate gets created.
-     *
-     * @return list<string>
-     */
+    // A failed model read marks the index incomplete; never conclude 'not on Shopee' from a map with holes.
     private function modelSkus(ShopeeClient $client, array $auth, int $itemId, bool &$complete): array
     {
         try {
@@ -582,31 +402,10 @@ class ShopeeLinkCheck
         return $out;
     }
 
-    /**
-     * Ask Shopee what is actually true, and make the local link agree.
-     *
-     * The same reconcile Venta got, for the same reason: every action on a row
-     * decided what to do from a link row, which is the ERP's own memory and
-     * can be wrong in both directions. Delete an item in Seller Centre and the
-     * ERP went on believing it was live, offering Update - which can only
-     * answer item_not_found - while Push was skipped because a link existed.
-     *
-     * The order here is chosen around what each question costs. Confirming an
-     * item we already know the id of is one call. Searching by SKU means
-     * paging the shop, so it only happens when the cheap question came back
-     * negative or there was no id to ask about.
-     *
-     * Returns confirmed, adopted, repointed, lost, new, taken or unreachable.
-     *
-     * @return array{state: string, item_id: int|null, message: string|null}
-     */
     public function reconcile(ShopeeClient $client, array $auth, int $productId, string $pfx): array
     {
         $this->actingStore = (int) ($auth['store_id'] ?? 0);
 
-        /* THIS store's link, never whichever row sorts first. Unscoped,
-           this read handed one shop's item id to another shop's check,
-           which then dropped a link it had no business judging. */
         $link = $this->ofThisStore(ShopeeProductLink::query())
             ->where('product_id', $productId)
             ->whereNotNull('shopee_item_id')
@@ -633,8 +432,6 @@ class ShopeeLinkCheck
         $skus = $this->shopeeCandidateSkus($productId, $pfx);
 
         if (empty($skus)) {
-            // Nothing to search by. Say so rather than concluding absence: a
-            // product with no SKU is unfindable, not missing.
             return [
                 'state' => 'unreachable',
                 'item_id' => null,
@@ -662,38 +459,14 @@ class ShopeeLinkCheck
             }
 
             if ($knownId > 0) {
-                /* DROPPING A LINK IS DESTRUCTIVE, so it happens only on an
-                 * answer about THIS shop. The index and the existence memo
-                 * are keyed by shop id for the same reason: on 2026-09-09
-                 * one shared instance served every store in the scheduled
-                 * refresh, so the second store was judged against the
-                 * first's shop and had every good link dropped. */
-                // Gone from Shopee. Dropping the link is what lets Send create
-                // instead of sending an update that can only answer
-                // item_not_found. This also clears the item cache, which is
-                // the other half of the same memory: a cached SKU to item_id
-                // row would otherwise hand the dead id straight back.
-                /* AND IT IS WRITTEN DOWN. Dropping a link is destructive
-                 * and left no trace at all, so an operator watching links
-                 * vanish had nothing to look at and no way to tell a
-                 * correct drop from a wrong one (the owner, 2026-09-09: "i
-                 * didnt do anything for a few mins... and the products are
-                 * unlinked"). Every fact the decision rested on goes in the
-                 * activity log: which item, which SHOP was asked, what it
-                 * was searched by, and that the shop was read to the end. */
+                // Dropping a link is destructive: do it only on an answer about this shop, keyed by shop id.
                 \App\Integrations\Listings\DroppedLink::write(
                     'Shopee', 'Shopee Product', $productId, $knownId,
                     (int) ($auth['shop_id'] ?? 0), $skus, count($index['skus'])
                 );
 
-                /* The store that was actually asked, never "every store":
-                   this runs in the console, where the read fence is down. */
                 ShopeeProductLink::unlinkProduct($productId, (int) ($auth['store_id'] ?? 0));
 
-                // unlinkProduct leaves the row saying 'unlinked', which is the
-                // word for a deliberate act by the operator. Nobody unlinked
-                // this - Shopee lost it - and the row needs to read as not
-                // pushed so that Send offers to create it again.
                 $this->writeProductStatus($productId, [
                     'sync_status' => 'pending',
                     'push_error' => null,
@@ -714,8 +487,6 @@ class ShopeeLinkCheck
             ->value('product_id');
 
         if ($otherHolder) {
-            // Not taken over. That link may be perfectly good, and stealing it
-            // would leave the other product pointing at nothing.
             $held = "Shopee item {$found} is already linked to catalog product #{$otherHolder}. "
                 .'Unlink that product first, then send this one again.';
             $this->recordFailure($productId, $held);
@@ -739,11 +510,6 @@ class ShopeeLinkCheck
         ];
     }
 
-    /**
-     * A read can find a failure but never clears one: an item gone or held
-     * by another product sets the listing's error line on this store, and
-     * an item found still there leaves the line as the last write left it.
-     */
     private function recordFailure(int $productId, string $message): void
     {
         app(ShopeeListingStates::class)->forStore($this->actingStore)->recordOutcome($productId, $message);
@@ -751,10 +517,6 @@ class ShopeeLinkCheck
 
     private function writeProductStatus(int $productId, array $attributes): void
     {
-        /* This store's groups. ChannelProductStatus says it in its own
-           docblock: "A multi-store channel MUST pass its store's groups: a
-           failure against one shop says nothing about another." This
-           passed null, which means every group of the channel. */
         \App\Support\ChannelProductStatus::write(
             'shopee_product_group_products',
             'shopee_product_group_id',

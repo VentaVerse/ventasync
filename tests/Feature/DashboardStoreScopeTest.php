@@ -11,10 +11,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\MakesCoreOrders;
 use Tests\TestCase;
 
-/**
- * Per-store reports (the owner, 2026-09-05): one store control scopes the
- * whole dashboard, and the ranking names stores rather than channels.
- */
 class DashboardStoreScopeTest extends TestCase
 {
     use RefreshDatabase;

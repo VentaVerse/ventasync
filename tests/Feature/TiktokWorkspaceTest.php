@@ -15,29 +15,12 @@ use Extensions\tiktok\TiktokExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * Round 2, Task 1: TikTok gets what Shopee and Lazada already have. Modeled
- * directly on LazadaWorkspaceTest, own idempotent extension setup and own
- * uniquely-named user groups so this suite never collides with Shopee's or
- * Lazada's when all three run in the same process.
- *
- * TikTok has no returns page, no listings page and no brands page, so its
- * workspace is four destinations rather than Lazada's seven: Orders (Sell),
- * Product Groups and Categories (Catalog), Settings (Channel).
- */
 class TiktokWorkspaceTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** The store every store-scoped TikTok URL in this file names. */
     private TikTokSetting $tiktokStore;
 
-    /**
-     * Holds both real TikTok read permissions and nothing else: a genuine
-     * read-only operator, not an admin stand-in. view_tiktok is the card
-     * gate; view_tiktok_orders is what the orders route demands
-     * (perm:view_tiktok_orders|manage_tiktok_orders).
-     */
     private function tiktokOperator(): User
     {
         $group = UserGroup::create(['name' => 'TikTok Workspace Operators']);
@@ -51,14 +34,6 @@ class TiktokWorkspaceTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    /**
-     * Narrower operator: view_tiktok_orders and nothing else. NOT the
-     * card-level view_tiktok that IntegrationRegistry::visibleCards() wants,
-     * so this user cannot open /channels/tiktok at all, only the orders
-     * route the perm: middleware on that route itself allows. Parent/child
-     * permission cascades are removed from this app, so holding the orders
-     * permission grants nothing about the channel card.
-     */
     private function tiktokOrdersOnlyOperator(): User
     {
         $group = UserGroup::create(['name' => 'TikTok Workspace Order Desk']);
@@ -72,25 +47,6 @@ class TiktokWorkspaceTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    /**
-     * Same idempotent pattern LazadaWorkspaceTest::setUp() uses: install+
-     * enable the extension row (Extension::updateOrCreate, so this is a
-     * no-op if it already exists), then register the provider directly
-     * because ExtensionServiceProvider::boot() has already run by the time
-     * this method executes and only registers providers for rows that were
-     * already enabled at that moment. $this->app->register() is idempotent
-     * too (the container returns the already-registered instance rather than
-     * double-booting), so this is safe whether TikTok was already live or
-     * not.
-     *
-     * refreshNameLookups() is load-bearing: registering the provider here
-     * loads all of TikTok's routes into the RouteCollection, but the
-     * separate name-lookup table Route::has()/getByName() read is only
-     * rebuilt on demand. Without this call every route added after it was
-     * last built is invisible to ChannelWorkspace::allows(), which calls
-     * Route::has() as its first gate, so every positive test would fail and
-     * every negative test would pass for the wrong reason.
-     */
     protected function setUp(): void
     {
         parent::setUp();
@@ -103,9 +59,6 @@ class TiktokWorkspaceTest extends TestCase
 
         $this->app['router']->getRoutes()->refreshNameLookups();
 
-        // Multi-store (the owner 2026-09-05): every TikTok page is store-scoped.
-        // An ENABLED store lets URL::defaults fill {store} on every route()
-        // call, and its id names the store-scoped literal paths below.
         $this->tiktokStore = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
@@ -124,13 +77,6 @@ class TiktokWorkspaceTest extends TestCase
         $this->fail('TikTok did not register an IntegrationCard.');
     }
 
-    /**
-     * The workspace menu now lives on the per-store StoreLink, not the card
-     * (multi-store, the owner 2026-09-05: the card menu is empty and every
-     * destination carries a {store}). setUp seeds one store, so its menu is
-     * what these assertions read - the same shape ChannelWorkspace::menuFor
-     * resolves for a store-keyed channel.
-     */
     private function tiktokMenu(): array
     {
         $stores = $this->tiktokCard()->stores;
@@ -148,12 +94,12 @@ class TiktokWorkspaceTest extends TestCase
 
         $this->assertEqualsCanonicalizing([
             'ext.tiktok.orders.index',
-            'ext.tiktok.orders.returns',  // joined 2026-08-26 (#156, parity)
-            'ext.tiktok.coupons.index',   // joined 2026-08-26 (#153, quest 4)
-            'ext.tiktok.products.index',  // joined 2026-08-26 (#156, parity)
-            'ext.tiktok.products.import', // joined 2026-09-03 (cleanup point 10)
+            'ext.tiktok.orders.returns',
+            'ext.tiktok.coupons.index',
+            'ext.tiktok.products.index',
+            'ext.tiktok.products.import',
             'ext.tiktok.product-groups.index',
-            'ext.tiktok.description-templates.index', // joined 2026-09-07
+            'ext.tiktok.description-templates.index',
             'ext.tiktok.watermarks.index',
             'ext.tiktok.categories.index',
             'ext.tiktok.index',
@@ -180,7 +126,6 @@ class TiktokWorkspaceTest extends TestCase
             ['Sell', 'Catalog', 'Channel'],
             array_column($groups, 'label')
         );
-        // Returns joined Sell with the parity work (#156, 2026-08-26).
         $this->assertSame(
             ['Orders', 'Returns'],
             array_column($groups[0]['items'], 'label')
@@ -204,18 +149,13 @@ class TiktokWorkspaceTest extends TestCase
 
         foreach ($groups as $group) {
             foreach ($group['items'] as $item) {
-                // route() throwing here is the actual failure this guards.
                 $this->assertIsString($item['url']);
                 $this->assertStringStartsWith('http', $item['url']);
                 $urls[] = $item['url'];
             }
         }
 
-        // Without this the whole test passes vacuously when groups() returns
-        // nothing. Five is every TikTok destination this operator holds
-        // (Returns joined 2026-08-26), so this also proves the operator
-        // permissions above are sufficient to see all of them.
-        $this->assertCount(5, $urls); // Import (view_tiktok/product) is rightly filtered for this operator
+        $this->assertCount(5, $urls);
     }
 
     public function test_workspace_renders_for_a_permitted_user(): void
@@ -239,12 +179,6 @@ class TiktokWorkspaceTest extends TestCase
         $response->assertSee('x-chnav', false);
     }
 
-    /**
-     * The narrow user gets a correspondingly narrow sidebar: Sell survives
-     * (its one item declares view_tiktok_orders), Catalog and Channel do
-     * not (every item in them declares view_tiktok, which this operator
-     * does not hold).
-     */
     public function test_an_orders_only_operator_sees_only_the_sell_group(): void
     {
         $user = $this->tiktokOrdersOnlyOperator();
@@ -265,10 +199,6 @@ class TiktokWorkspaceTest extends TestCase
 
     public static function tiktokPageProvider(): array
     {
-        // Multi-store (the owner 2026-09-05): each row is the page suffix AFTER
-        // /channels/tiktok/{store}. The store segment is prepended by the
-        // consumer, which can read $this->tiktokStore - a static provider
-        // cannot. Every page is still covered.
         return [
             'orders' => ['orders'],
             'product groups' => ['product-groups'],
@@ -282,10 +212,6 @@ class TiktokWorkspaceTest extends TestCase
     {
         $path = '/channels/tiktok/'.$this->tiktokStore->id.'/'.$suffix;
 
-        // tiktokOperator() holds exactly view_tiktok and view_tiktok_orders,
-        // which is every permission any of these four routes' perm:
-        // middleware demands, so a real read-only operator proves all four
-        // render inside the workspace.
         $user = $this->tiktokOperator();
 
         $response = $this->actingAs($user)->get($path);
@@ -293,20 +219,9 @@ class TiktokWorkspaceTest extends TestCase
         $response->assertOk();
         $response->assertSee('x-chnav', false);
         $response->assertSee('All channels');
-        // Reversed 2026-09-03 (the teleportation fix): the global sidebar
-        // now STAYS on every channel page - data-nav present is the proof -
-        // and the channel's own menu rides as the x-chnav menubar instead
-        // of a swapped sidebar.
         $response->assertSee('data-nav', false);
     }
 
-    /**
-     * The layout owns the "Integrations / TikTok Shop" trail, so each view
-     * supplies only its leaf. Before this task the views carried the full
-     * trail themselves, which would have read "Integrations / TikTok Shop /
-     * Integrations / TikTok Shop / Orders" on every one of the four pages,
-     * the exact bug Shopee's own conversion hit and fixed.
-     */
     #[\PHPUnit\Framework\Attributes\DataProvider('tiktokPageProvider')]
     public function test_the_breadcrumb_trail_is_not_duplicated(string $suffix): void
     {
@@ -330,17 +245,6 @@ class TiktokWorkspaceTest extends TestCase
         );
     }
 
-    /**
-     * The cross-marketplace tab strip belongs to the unified Orders page.
-     * Inside a seller center you see only that marketplace.
-     *
-     * Checked on Product Groups, Categories and Settings here, and on Orders
-     * in its own test below. Task 1 left Orders carrying the strip because
-     * removing it was a content edit beyond breadcrumb/extends; Task 2
-     * rebuilt the page on the shared anatomy and dropped it, which is what
-     * the Orders test now asserts instead of the temporary exception it
-     * asserted before.
-     */
     public function test_the_seller_center_shows_no_other_marketplace(): void
     {
         $response = $this->actingAs($this->tiktokOperator())->get('/channels/tiktok/'.$this->tiktokStore->id.'/categories');
@@ -350,11 +254,6 @@ class TiktokWorkspaceTest extends TestCase
         $response->assertDontSee('ord-tab-head', false);
     }
 
-    /**
-     * Orders was the last TikTok page carrying the cross-marketplace strip.
-     * Task 2's rebuild dropped it, so the rule now holds on all four
-     * destinations rather than three.
-     */
     public function test_the_orders_page_shows_no_other_marketplace(): void
     {
         $response = $this->actingAs($this->tiktokOperator())->get('/channels/tiktok/'.$this->tiktokStore->id.'/orders');
@@ -362,9 +261,6 @@ class TiktokWorkspaceTest extends TestCase
         $response->assertOk();
         $response->assertDontSee('All marketplaces');
         $response->assertDontSee('ord-tab-head', false);
-        // The page it was replaced by, positively identified: without this
-        // the two assertions above would also pass on a page that failed to
-        // render its list at all.
         $response->assertSee('id="tiktok-orders-page"', false);
     }
 
@@ -396,24 +292,9 @@ class TiktokWorkspaceTest extends TestCase
         $this->actingAs($user)
             ->get('/channels')
             ->assertOk()
-            // Quoted href, not a bare URL: /channels/tiktok is a prefix
-            // of every page beneath it since the IA migration's Task 2, so a
-            // substring test would pass on any of them.
             ->assertSee('href="'.e(ChannelWorkspace::overviewUrl('tiktok')).'"', false);
     }
 
-    // ------------------------------------------------------------------
-    // Task 2: the orders page rebuilt on the shared `co-` anatomy. The
-    // fixtures below seed one order per branch of the action matrix, so a
-    // test that asserts a control renders is asserting it against a row
-    // whose status actually reaches that branch.
-    // ------------------------------------------------------------------
-
-    /**
-     * Manage tier for TikTok orders. manage_tiktok_orders implies
-     * view_tiktok_orders through User::hasPermission()'s manage-implies-view
-     * cascade, so this user reaches the page AND its write controls.
-     */
     private function tiktokManager(): User
     {
         $group = UserGroup::create(['name' => 'TikTok Workspace Managers']);
@@ -427,13 +308,6 @@ class TiktokWorkspaceTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    /**
-     * One order per status the controller groups into a tab, each with a
-     * single line item, so every branch of the action matrix is on screen at
-     * once when the ALL tab renders. Returns the order ids keyed by status.
-     *
-     * @return array<string, int>
-     */
     private function seedOrderPerStatus(): array
     {
         $ids = [];
@@ -490,11 +364,6 @@ class TiktokWorkspaceTest extends TestCase
         $response->assertSee('id="btnFetchOrders"', false);
         $response->assertSee('id="btnUpdateOrders"', false);
 
-        // Ship posts to the write route for the one order that is awaiting
-        // shipment. Since 2026-08-29 the button opens the ship dialog
-        // rather than a bare confirm: the dialog shows the parcel from the
-        // row's own template and states the consequence (a push TikTok
-        // cannot take back), and its own Ship order submits the row's form.
         $response->assertSee(
             'action="' . e(route('ext.tiktok.orders.ship', $ids['AWAITING_SHIPMENT'])) . '"',
             false
@@ -506,12 +375,6 @@ class TiktokWorkspaceTest extends TestCase
         $response->assertDontSee('data-confirm="Ship this order?"', false);
     }
 
-    /**
-     * The mutation this guards: dropping the $canManageTiktokOrders check (or
-     * hardcoding it back to true, which is exactly what the pre-Task-2 page
-     * did) hands a read-only operator a command bar and a Ship button that
-     * both 403 on submit.
-     */
     public function test_a_viewer_sees_neither_the_command_bar_nor_the_ship_control(): void
     {
         $ids = $this->seedOrderPerStatus();
@@ -519,8 +382,6 @@ class TiktokWorkspaceTest extends TestCase
         $response = $this->actingAs($this->tiktokOrdersOnlyOperator())->get('/channels/tiktok/'.$this->tiktokStore->id.'/orders?tab=ALL');
 
         $response->assertOk();
-        // Guards the premise: the awaiting-shipment row IS on this page, so
-        // the absence below is the permission gate and not an empty list.
         $response->assertSee('To pack');
 
         $response->assertDontSee('id="btnFetchOrders"', false);
@@ -529,19 +390,10 @@ class TiktokWorkspaceTest extends TestCase
             'action="' . e(route('ext.tiktok.orders.ship', $ids['AWAITING_SHIPMENT'])) . '"',
             false
         );
-        // The row's button and its parcel template, not the dialog's own
-        // ids (btnCloseTtShip, btnTtShipConfirm), which every reader gets.
         $response->assertDontSee('data-order-no=', false);
         $response->assertDontSee('data-parcel-for=', false);
     }
 
-    /**
-     * The read tier of extensions/tiktok/routes/web.php covers the waybill
-     * and the tracking lookup, so a viewer keeps both on the statuses that
-     * offer them. A page that hid every action from a viewer would be
-     * consistent but wrong: it would take away two controls the routes
-     * themselves allow.
-     */
     public function test_a_viewer_keeps_the_waybill_and_tracking_controls(): void
     {
         $ids = $this->seedOrderPerStatus();
@@ -551,15 +403,10 @@ class TiktokWorkspaceTest extends TestCase
         $response->assertOk();
         $response->assertSee(e(route('ext.tiktok.orders.awb', $ids['AWAITING_COLLECTION'])), false);
         $response->assertSee(e(route('ext.tiktok.orders.tracking', $ids['IN_TRANSIT'])), false);
-        // Refresh is offered on handover only, where a label gets reprinted.
         $response->assertSee(e(route('ext.tiktok.orders.awb', [$ids['AWAITING_COLLECTION'], 'refresh' => 1])), false);
         $response->assertDontSee(e(route('ext.tiktok.orders.awb', [$ids['IN_TRANSIT'], 'refresh' => 1])), false);
     }
 
-    /**
-     * Unpaid and cancelled orders have nothing a seller can act on, so their
-     * actions cell carries no control at all rather than a disabled one.
-     */
     public function test_unpaid_and_cancelled_orders_offer_no_actions(): void
     {
         $ids = $this->seedOrderPerStatus();
@@ -574,19 +421,6 @@ class TiktokWorkspaceTest extends TestCase
         }
     }
 
-    /**
-     * Every status the panel's own tab map groups on has a tone and a label
-     * in App\Support\ChannelStatusTone.
-     *
-     * REVISED 2026-08-19 with the tone philosophy itself. The mark that says
-     * "a person has to do something" is the warning tone, not success, and
-     * it is spent on exactly one status here: the only one with a
-     * marketplace write behind it. Success now means settled and settled
-     * well, so the two terminal states carry it instead of receding into
-     * neutral. See the class docblock on ChannelStatusTone for why four maps
-     * moved: DESIGN.md defines --bl-good as settled and --bl-attn as needs a
-     * person, and this map used to say the opposite of both.
-     */
     public function test_every_real_status_pairs_a_tone_with_a_plain_label(): void
     {
         $expected = [
@@ -610,22 +444,9 @@ class TiktokWorkspaceTest extends TestCase
                 \App\Support\ChannelStatusTone::labelFor('tiktok.orders', $status),
                 'Wrong label for ' . $status
             );
-            // No marketplace constant reaches a screen raw.
             $this->assertNotSame($status, \App\Support\ChannelStatusTone::labelFor('tiktok.orders', $status));
         }
 
-        // Read back off the class itself, not off $expected: the loop above
-        // already proved the two agree, so this is the statement about how
-        // the tones partition this channel's statuses.
-        //
-        // REVISED 2026-08-19. This used to assert the success tone was spent
-        // exactly once, on AWAITING_SHIPMENT, because success was being used
-        // as an "act now" accent. That was the inversion this revision
-        // removed: DESIGN.md gives four state colours and none of them means
-        // "the operator's move" separately from "needs a person", so unpaid
-        // and to-pack legitimately share one mark and the label tells them
-        // apart. What is worth pinning is that the two groups never overlap:
-        // nothing that still needs a person may read as settled.
         $needsAPerson = [];
         $settled = [];
         foreach (array_keys($expected) as $status) {
@@ -642,12 +463,6 @@ class TiktokWorkspaceTest extends TestCase
         $this->assertSame(['DELIVERED', 'COMPLETED'], $settled);
     }
 
-    /**
-     * The rendered page shows those labels, not the raw constants. Asserting
-     * this on the page as well as on the map is what proves the view is
-     * actually going through ChannelStatusTone rather than printing
-     * str_replace('_', ' ', $status) the way the old page did.
-     */
     public function test_the_status_column_shows_plain_labels(): void
     {
         $this->seedOrderPerStatus();
@@ -662,18 +477,10 @@ class TiktokWorkspaceTest extends TestCase
         $response->assertDontSee('AWAITING_COLLECTION');
     }
 
-    /**
-     * The To Ship sub-steps filter the list to one status each, which is what
-     * makes the sub-segment worth having: standing on To Pack must not also
-     * list the parcels already waiting for a courier.
-     */
     public function test_the_to_ship_sub_steps_filter_to_one_status_each(): void
     {
         $this->seedOrderPerStatus();
 
-        // Order numbers rather than buyer names: the seeded buyers are
-        // deliberately anonymous so no fixture string can accidentally
-        // satisfy an assertion about a raw status constant elsewhere.
         $packNumber = '576000000000001';
         $handoverNumber = '576000000000002';
 
@@ -690,14 +497,6 @@ class TiktokWorkspaceTest extends TestCase
         $toHandover->assertDontSee($packNumber);
     }
 
-    /**
-     * The order number opens the detail page in place. It used to open a new
-     * tab as a reviewed stopgap, because the detail page was still legacy
-     * chrome and a new tab was the only way to keep the seller center on
-     * screen. That detail page now renders inside this same workspace (board
-     * card #5, Task 3), so the stopgap is retired and the link navigates
-     * here: the channel sidebar and the filtered list both survive.
-     */
     public function test_the_order_number_opens_the_detail_page_in_place(): void
     {
         $ids = $this->seedOrderPerStatus();

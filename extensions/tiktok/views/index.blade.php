@@ -3,92 +3,33 @@
 
 @section('title', 'TikTok Shop Settings')
 
-{{-- Leaves the .x-legacy content boundary, rebuilt on the token set.
-
-     READ THIS BEFORE EDITING ANY FORM BELOW.
-
-     TikTok Shop's OAuth surfaces are contracts registered in the TikTok Shop
-     Partner Center and compared byte-for-byte on every consent round trip.
-     This page is NOT the callback landing: TikTok redirects to the separate,
-     permanently exempt `/tiktok/callback` route, and
-     TikTokController::computedRedirectUri() returns exactly
-     route('ext.tiktok.callback') forced to https. That URL is what the
-     readonly Redirect URI boxes below display, and nothing in this file may
-     change any of these surfaces:
-
-       - the redirect URI display     a readonly input with NO name attribute,
-                                      so it is shown and never submitted
-       - the authorize link           route('ext.tiktok.authorize'), a GET in a
-                                      new tab, rel="noopener". Production and
-                                      sandbox use the SAME URL with NO query
-                                      parameter, unlike Lazada: TikTokController
-                                      ::redirectToAuth() reads the stored `mode`
-                                      column to pick which app key it sends, so
-                                      adding a ?sandbox flag here would be
-                                      inventing a parameter nothing reads
-       - the auth-code exchange       POST route('ext.tiktok.token_get'), one
-                                      field named `code`, on both environments,
-                                      with no hidden environment flag for the
-                                      same reason
-       - the token refresh            POST route('ext.tiktok.token_refresh'),
-                                      no fields
-       - the shop lookup              POST route('ext.tiktok.shops'), no fields.
-                                      This is what writes shop_cipher, which
-                                      most TikTok API calls need
-
-     The credential save (POST route('ext.tiktok.save')) carries a hidden `env`
-     plus exactly the field names TikTokController::save() reads for that
-     environment. Blank means "keep the stored value" for the two secrets,
-     which is what the •••••••• masks plus resources/js/credential-mask.js are
-     for.
-
-     This form has never carried a region field - `region` is written by
-     getShops() instead. save() now leaves it untouched when the form does
-     not carry it, the same way it already leaves app_key/app_secret
-     untouched on the environment it is not saving. --}}
 @section('content')
 @php
-    // Read tier on this route is `view_tiktok|manage_tiktok`; every write below
-    // (save, toggle mode, token get/refresh, shops, explorer, packs, status
-    // map, logging, log delete, purge) is `manage_tiktok`. Replaces a hardcoded
-    // `true`, which offered a read-only operator every one of those controls
-    // and let each of them be refused.
     $canManageTiktok = auth()->user()?->hasPermission('manage_tiktok/settings') ?? false;
 
     $currentMode = $setting->mode ?? 'live';
     $isSandbox = $currentMode === 'sandbox';
 
-    // Live credentials
     $hasCredentials = ($setting->app_key ?? '') !== '' && ($setting->app_secret ?? '') !== '';
     $hasToken = !empty($setting->access_token ?? '');
     $tokenExpired = $hasToken && ($setting->expires_at ?? null) && \Carbon\Carbon::parse($setting->expires_at)->lt(now());
     $hasShop = !empty($setting->shop_cipher ?? '');
 
-    // Sandbox credentials
     $hasSandboxCredentials = ($setting->sandbox_app_key ?? '') !== '' && ($setting->sandbox_app_secret ?? '') !== '';
     $hasSandboxToken = !empty($setting->sandbox_access_token ?? '');
     $sandboxTokenExpired = $hasSandboxToken && ($setting->sandbox_expires_at ?? null) && \Carbon\Carbon::parse($setting->sandbox_expires_at)->lt(now());
 
 
 
-    // Exactly the six TikTokController::packsRun() validates, no more.
     $packs = [
         'shops' => 'Shops', 'products' => 'Products', 'orders' => 'Orders',
         'logistics' => 'Logistics', 'finance' => 'Finance', 'full' => 'Everything',
     ];
 @endphp
 
-{{-- The section shown, from the menubar's own ?tab= links (the
-     in-page tab strip retired 2026-09-03: the channel menubar carries the
-     sections now). Unknown or unpermitted sections fall to the default,
-     so a hand-typed URL can never land on a blank page. --}}
 @php
     $csKnown = ['connection', 'status', 'logs'];
     if ($canManageTiktok) { $csKnown[] = 'explorer'; $csKnown[] = 'automations'; }
-    // Every action redirects to the tab its form lives on and flashes it
-    // (ReturnsToSettingsTab, 2026-09-05); the result is drawn inside that
-    // section - the explorer's answer in the Explorer panel, a token fetch
-    // on Connection - never on a tab the operator did not press it on.
     $csSection = in_array(request('tab'), $csKnown, true) ? request('tab') : 'connection';
     $resultTab = in_array(session('settings_tab'), $csKnown, true) ? session('settings_tab') : 'connection';
 @endphp
@@ -98,9 +39,6 @@
      data-tab-storage-key="tt-active-tab"
      data-default-tab="">
 
-{{-- The head names the store and how it stands (audit, 2026-09-05, after
-     Venta's page): the environment control and the Active pill live here
-     because every card below answers to them. --}}
 <div class="x-list-head">
     <div>
         <h1 class="x-page-title">Settings</h1>
@@ -124,12 +62,6 @@
 </div>
 @endunless
 
-{{-- ================================================================
-     CONNECTION
-     ================================================================ --}}
-{{-- The result of the last Connection action (token fetch, save): drawn
-     here, above the panel it came from. An explorer answer is drawn inside
-     the Explorer panel instead (the owner, 2026-09-05). --}}
 @if($result && $resultTab !== 'explorer')
     @include('partials.channel-last-result', ['result' => $result, 'channel' => 'TikTok Shop', 'mode' => 'note'])
 @endif
@@ -154,8 +86,6 @@
 <div id="tt-tab-connection" class="cs-panel" @if($csSection !== 'connection') hidden @endif>
 
 
-    {{-- The environment is posted by this one form; the switch that sets it
-         sits on the card whose keys it governs, in each panel. --}}
     @if($canManageTiktok)
         <form method="POST" action="{{ route('ext.tiktok.toggle_mode') }}" data-cs-env-form hidden>
             @csrf
@@ -163,13 +93,8 @@
         </form>
     @endif
 
-    {{-- ---- PRODUCTION ---------------------------------------------- --}}
     @php
         $csCategories = \Extensions\tiktok\Models\TikTokCategory::query()->count();
-        // The shop of the ACTIVE mode: a sandbox store's setup writes the
-        // sandbox_* columns (TikTokStoreSetup::shop), so reading the live
-        // shop_cipher here said "No shop yet" right after a successful
-        // setup (the owner, 2026-09-06).
         $csHasShop = $isSandbox ? !empty($setting->sandbox_shop_cipher ?? '') : $hasShop;
         $csShopName = $isSandbox
             ? (string) (($setting->sandbox_shop_name ?? '') ?: ($setting->sandbox_shop_id ?? ''))
@@ -237,9 +162,6 @@
                         :can-reveal="$canManageTiktok"
                         :disabled="!$canManageTiktok" />
 
-                    {{-- No name attribute, deliberately: this is shown so it can
-                         be copied into the TikTok Shop Partner Center, and it
-                         must never be posted back as a settable field. --}}
                     <x-ui.field label="Redirect URI" for="tt-redirect" wide
                                 hint="Register this exact URL in your TikTok Shop app. It is always https. To change it, edit APP_URL in the environment file.">
                         <x-ui.input id="tt-redirect" type="text" readonly value="{{ $defaultRedirect }}" data-select-on-click />
@@ -319,8 +241,6 @@
                 </div>
             </div>
 
-            {{-- The one irreversible thing on the page sits last, in its own
-                 block, behind the typed-name sheet (audit, 2026-09-05). --}}
             <div class="cs-danger">
                 <div>
                     <span class="cs-danger__title">Remove this store <x-ui.hint label="What removal does">Everything this store holds in the ERP goes with it: listings, groups, TikTok orders and returns. Sales already imported stay under its name. There is no undo.</x-ui.hint></span>
@@ -335,7 +255,6 @@
     </div>
     </div>
 
-    {{-- ---- SANDBOX ------------------------------------------------- --}}
     <div class="cs-env-panel" data-cs-env-panel="sandbox" @unless($isSandbox) hidden @endunless>
     <div class="cs-stack">
 
@@ -394,7 +313,6 @@
                         :can-reveal="$canManageTiktok"
                         :disabled="!$canManageTiktok" />
 
-                    {{-- No name attribute, same as the production copy. --}}
                     <x-ui.field label="Redirect URI" for="tt-sb-redirect" wide
                                 hint="Register this exact URL in your TikTok Shop sandbox app. It is always https. To change it, edit APP_URL in the environment file.">
                         <x-ui.input id="tt-sb-redirect" type="text" readonly value="{{ $defaultRedirect }}" data-select-on-click />
@@ -458,8 +376,6 @@
                 </div>
             </div>
 
-            {{-- The one irreversible thing on the page sits last, in its own
-                 block, behind the typed-name sheet (audit, 2026-09-05). --}}
             <div class="cs-danger">
                 <div>
                     <span class="cs-danger__title">Remove this store <x-ui.hint label="What removal does">Everything this store holds in the ERP goes with it: listings, groups, TikTok orders and returns. Sales already imported stay under its name. There is no undo.</x-ui.hint></span>
@@ -474,13 +390,6 @@
     </div>
     </div>
 
-    {{-- Full width under the split: this is orientation for a first setup, not
-         a control, so it sits underneath both columns rather than competing
-         with them. The old page printed the redirect URL a second time here,
-         computed a different way (url('/tiktok/callback'), which keeps the
-         request's own scheme) than the field above (https, forced). Two URLs
-         on one page that must byte-match a console entry is a trap, so the
-         step points at the field instead of restating it. --}}
     <section class="fm-section cs-span">
         <details class="cs-guide-wrap">
             <summary class="fm-section__title">First time here?</summary>
@@ -495,9 +404,6 @@
     </section>
 </div>
 
-{{-- ================================================================
-     STATUS MAPPING
-     ================================================================ --}}
 <div id="tt-tab-status" class="cs-panel" @if($csSection !== 'status') hidden @endif>
 
     <section class="fm-section">
@@ -586,9 +492,6 @@
     </section>
 </div>
 
-{{-- ================================================================
-     API EXPLORER
-     ================================================================ --}}
 @if($canManageTiktok)
 <div id="tt-tab-explorer" class="cs-panel" @if($csSection !== 'explorer') hidden @endif>
     <section class="fm-section">
@@ -708,11 +611,6 @@
                             <x-ui.textarea id="api-explorer-params" name="params_json_pretty" rows="8" class="api-code" data-cs-ex-params placeholder='{"page_size": 10}'>{{ old('params_json_pretty', '{}') }}</x-ui.textarea>
                         </x-ui.field>
 
-                        {{-- The field TikTokController::explorerRun() actually
-                             validates. The readable copy above is the one the
-                             operator edits; this one is kept in step by
-                             resources/js/pages/channel-settings.js on submit,
-                             which is the pre-redesign wire unchanged. --}}
                         <input type="hidden" name="params_json" data-cs-ex-hidden value="{{ old('params_json', '{}') }}">
                     </div>
 
@@ -744,16 +642,10 @@
 </div>
 @endif
 
-{{-- ================================================================
-     API LOG
-     ================================================================ --}}
 <div id="tt-tab-logs" class="cs-panel" @if($csSection !== 'logs') hidden @endif>
 
 
 
-    {{-- #200: the shared API log panel - the three-way mode, All/Errors
-         and path filters that survive a refresh, pages of 50, and the
-         retention stated in words. --}}
     @include('partials.channel-api-log', [
         'logChannel' => 'TikTok',
         'canManage' => $canManageTiktok,
@@ -774,8 +666,6 @@
     <section class="fm-section">
         <div class="fm-section__head">
             <h2 class="fm-section__title">Free up space</h2>
-            {{-- Explanation to a tooltip (the owner, 2026-09-04): the
-                 control is self-evident, the caveat is one tap away. --}}
             <x-ui.hint label="What clearing does">Every synced TikTok order and order line keeps the full API response it came from. Clearing those payloads on older rows frees database space and changes nothing about the orders themselves.</x-ui.hint>
         </div>
 
@@ -800,9 +690,6 @@
     @endif
 </div>
 
-{{-- ================================================================
-     AUTOMATIONS
-     ================================================================ --}}
 @if($canManageTiktok)
 <div id="tt-tab-automations" class="cs-panel" @if($csSection !== 'automations') hidden @endif>
     <section class="fm-section">
@@ -815,5 +702,5 @@
 </div>
 @endif
 
-</div>{{-- /.cs-page --}}
+</div>
 @endsection

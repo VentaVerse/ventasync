@@ -17,18 +17,10 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * Phase C of the channels rebuild (#184): Lazada answers "where does this
- * product stand?" through the same ListingState vocabulary Shopee earned
- * in Phase B - one engine, rendered everywhere, never guessed. And the
- * paths that change the marketplace link (delete, unlink) stop leaving a
- * stale mirror behind.
- */
 class LazadaListingStateTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** What the fake marketplace answers, keyed by api path. Closures get the params. */
     public array $getResponses = [];
 
     protected function setUp(): void
@@ -112,7 +104,6 @@ class LazadaListingStateTest extends TestCase
         return $this->app->make(LazadaListingStates::class);
     }
 
-    /** Lazada's raw words map onto the one vocabulary, with Lazada's own attention labels. */
     public function test_the_truth_table_from_raw_status_to_state(): void
     {
         $expected = [
@@ -123,7 +114,7 @@ class LazadaListingStateTest extends TestCase
             'sold-out' => [ListingState::ATTENTION, 'Sold out'],
             'deleted' => [ListingState::ATTENTION, 'Deleted'],
             'missing' => [ListingState::ATTENTION, 'Not found on Lazada'],
-            '' => [ListingState::UNKNOWN, 'Not checked yet'], // never checked: live_status null
+            '' => [ListingState::UNKNOWN, 'Not checked yet'],
         ];
 
         $ids = [];
@@ -147,7 +138,6 @@ class LazadaListingStateTest extends TestCase
         }
     }
 
-    /** A product with no lazada row at all is not_listed, with coded gaps from the catalogue. */
     public function test_a_product_with_no_row_is_not_listed_with_catalogue_gaps(): void
     {
         $productId = $this->seedProduct('Rowless', 'RL-1', image: '');
@@ -162,7 +152,6 @@ class LazadaListingStateTest extends TestCase
         $this->assertNotContains(ListingState::GAP_SKU, $codes, 'the product has a SKU');
     }
 
-    /** A row never uploaded answers readiness from its own settings, not the bare catalogue. */
     public function test_a_row_without_an_item_id_answers_from_its_own_settings(): void
     {
         $productId = $this->seedProduct('Configured', 'CF-1');
@@ -176,8 +165,6 @@ class LazadaListingStateTest extends TestCase
         $this->assertContains(ListingState::GAP_SHEET, $codes, 'its template has never been read');
     }
 
-    /** Drift is a trichotomy: in sync, behind the catalogue, or honestly unknowable. */
-    /** A Catalog change: the catalog moved since the listing was compared, and the two differ. */
     public function test_drift_true_false_and_null(): void
     {
         $pfx = (string) config('catalog.prefix');
@@ -217,7 +204,6 @@ class LazadaListingStateTest extends TestCase
         $this->assertNull($states[$noListing]->inSync ?? null, 'no listing: nothing to compare');
     }
 
-    /** Deleting from Lazada must void the mirror, not leave it wearing the old status. */
     public function test_delete_from_lazada_voids_the_mirror(): void
     {
         $productId = $this->seedProduct('Doomed', 'DE-1');
@@ -225,7 +211,6 @@ class LazadaListingStateTest extends TestCase
             'product_id' => $productId, 'lazada_item_id' => '701',
             'live_status' => 'active', 'live_checked_at' => now(),
         ]);
-        // Lazada names the item's SKUs by id; removal sends sku_id_list only.
         $this->getResponses['/product/item/get'] = ['ok' => true, 'status' => 200,
             'body' => ['code' => '0', 'data' => ['item_id' => 701, 'skus' => [['SkuId' => 9001, 'SellerSku' => 'DE-1']]]]];
 
@@ -239,7 +224,6 @@ class LazadaListingStateTest extends TestCase
         $this->assertNull($listing->live_checked_at);
     }
 
-    /** Unlinking cuts the link, so the mirror that described it goes too. */
     public function test_unlink_voids_the_mirror(): void
     {
         $productId = $this->seedProduct('Cut loose', 'UN-1');
@@ -259,7 +243,6 @@ class LazadaListingStateTest extends TestCase
         $this->assertSame(ListingState::NOT_LISTED, $this->engine()->forProducts([$productId])[$productId]->state);
     }
 
-    /** The dashboard summary counts by aggregate, and ignores rows no longer linked. */
     public function test_summary_counts_attention_and_drift(): void
     {
         $pfx = (string) config('catalog.prefix');
@@ -275,7 +258,6 @@ class LazadaListingStateTest extends TestCase
         DB::table($pfx . 'product_description')->where('product_id', $behind)->update(['name' => 'Behind, renamed']);
         DB::table($pfx . 'product')->where('product_id', $behind)->update(['date_modified' => now()->addMinute()]);
 
-        // Unlinked leftovers must not count: the trouble left with the link.
         $unlinked = $this->seedProduct('Unlinked leftover', 'SM-4');
         LazadaProduct::create(['product_id' => $unlinked, 'lazada_item_id' => '604', 'live_status' => 'rejected', 'live_checked_at' => now(), 'unlinked_at' => now()]);
 
@@ -284,7 +266,6 @@ class LazadaListingStateTest extends TestCase
         $this->assertSame(1, $sum['drift']);
     }
 
-    /** The listing troubles ride the dashboard chip, same phrasing as Shopee's. */
     public function test_the_dashboard_chip_carries_the_listing_flags(): void
     {
         $rejected = $this->seedProduct('Rejected', 'DB-1');
@@ -297,32 +278,21 @@ class LazadaListingStateTest extends TestCase
         $this->assertCount(1, $flags);
         $this->assertSame('1 listing needs attention', $flags[0]['text']);
         $this->assertSame(1, $data['lazadaSyncStatus']->listing_attention);
-        // The figure leads to the rows it counted (#240).
         $this->assertStringContainsString('state=attention', (string) $flags[0]['href']);
     }
 
-    /**
-     * Per-store split (#201, the owner 2026-09-05): a product with no listing on
-     * this store is NOT on This store - it lives on Add products, the main
-     * catalogue, where it is added to the store's list. This retires the
-     * catalogue-first index, where a rowless product showed on the one table.
-     */
     public function test_a_product_with_no_listing_lives_on_add_products_not_this_store(): void
     {
         $this->seedProduct('My very first product', 'FIRST-1');
 
-        // This store is the store's own list; a rowless product is not on it.
         $this->actingAs($this->manager())->get(route('ext.lazada.products.index'))
             ->assertOk()->assertDontSee('My very first product');
 
-        // Add products is the Master Catalog - the product is here, ready to
-        // be added to this store.
         $this->actingAs($this->manager())
             ->get(route('ext.lazada.products.index', ['list' => 'add']))
             ->assertOk()->assertSee('My very first product')->assertSee('Add to store');
     }
 
-    /** The group page offers the toggle the listings page offers (#188, the owner 2026-09-02). */
     public function test_the_group_page_offers_the_toggle_the_listing_page_offers(): void
     {
         $pid = $this->seedProduct('Togglable in group', 'TGL-1');
@@ -345,15 +315,12 @@ class LazadaListingStateTest extends TestCase
         $user = \App\Models\User::factory()->create(['user_group_id' => $ug->id]);
 
         $page = $this->actingAs($user)->get(route('ext.lazada.product-groups.products', $grp->id))->assertOk();
-        // The row offers the one verb this inactive listing can take; the
-        // bulk bar carries both (hidden until ticked rows say which applies).
         $page->assertSee('Activate on Lazada');
         $page->assertSee('data-bulk-verb="deactivate"', false);
         $page->assertSee('data-bulk-verb="activate"', false);
         $page->assertSee('data-bulk-field="product_ids[]"', false);
     }
 
-    /** Core reaches Lazada's states through the same contract Shopee registered in Phase B. */
     public function test_the_engine_is_reachable_through_the_listing_state_contract(): void
     {
         $productId = $this->seedProduct('Contracted', 'CT-1');
@@ -366,11 +333,6 @@ class LazadaListingStateTest extends TestCase
         $this->assertSame(ListingState::LIVE, $lazada->listingStates([$productId])[$productId]->state);
     }
 
-    /**
-     * One latest push error per product (the owner, 2026-09-05): a refusal from
-     * any push lands on the listing row and every surface tells it, until a
-     * push succeeds; the error line is the same answer everywhere.
-     */
     public function test_the_last_push_refusal_and_the_error_line_are_one_answer(): void
     {
         $pid = $this->seedProduct('Refused one', 'RF-1');
@@ -442,7 +404,6 @@ class LazadaListingStateTest extends TestCase
         $cache->fetchAndCacheVariants($listing->fresh(), $setting, app(LazadaClient::class));
         $this->assertSame([], \App\Integrations\Listings\ListingVariations::missing('lazada', $storeId, [$pid]));
 
-        // An answer Lazada refused changes nothing.
         $this->getResponses['/product/item/get'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 'E0001', 'message' => 'refused']];
         $cache->fetchAndCacheVariants($listing->fresh(), $setting, app(LazadaClient::class));
         $this->assertSame([], \App\Integrations\Listings\ListingVariations::missing('lazada', $storeId, [$pid]));
@@ -450,9 +411,6 @@ class LazadaListingStateTest extends TestCase
 
     public function test_a_group_is_a_preset_the_product_inherits(): void
     {
-        // A group is a preset the product inherits (the owner, 2026-09-05): a
-        // listing with no category of its own is judged, and pushed, with
-        // its group's category and brand. Nothing is written to the row.
         $pid = $this->seedProduct('Inherits one', 'IN-1');
         $listing = \Extensions\lazada\Models\LazadaProduct::query()->create(['product_id' => $pid]);
         $grp = \Extensions\lazada\Models\LazadaProductGroup::create(['name' => 'Preset group', 'lazada_category_id' => 4321, 'brand_name_override' => 'Acme']);
@@ -472,11 +430,9 @@ class LazadaListingStateTest extends TestCase
         $this->assertNotContains(\App\Integrations\Listings\ListingState::GAP_CATEGORY, $codes);
         $this->assertContains(\App\Integrations\Listings\ListingState::GAP_SHEET, $codes, 'the inherited category is judged like its own: its sheet is still unread');
 
-        // The row keeps its blanks: the group is a preset, not a write.
         $this->assertNull(\Extensions\lazada\Models\LazadaProduct::query()->find($listing->id)->primary_category_id);
         $this->assertNull($listing->primary_category_id);
 
-        // A listing with its own category keeps it over the group's.
         $own = $this->seedProduct('Own one', 'OW-1');
         $ownListing = \Extensions\lazada\Models\LazadaProduct::query()->create(['product_id' => $own, 'primary_category_id' => 99]);
         \Extensions\lazada\Models\LazadaProductGroupProduct::create([
@@ -487,7 +443,6 @@ class LazadaListingStateTest extends TestCase
         $this->assertSame(99, (int) $filled['listing']->primary_category_id);
         $this->assertSame(['brand' => 'Preset group'], $filled['inherited']);
     }
-    /** A row is named by this store's own title, the catalog's name when it has none, and the search finds it by that title. */
     public function test_a_row_shows_the_stores_own_title_and_the_search_finds_it(): void
     {
         $titled = $this->seedProduct('Catalog pedal name', 'TTL-1');

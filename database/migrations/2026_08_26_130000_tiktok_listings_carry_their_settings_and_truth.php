@@ -4,21 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * TikTok listings parity (#156, 2026-08-26). tiktok_listings was born
- * holding only the discount rule; it becomes the product's TikTok
- * record the way shopee_listings is Shopee's: the settings an
- * individual push uses (category, brand, attribute answers, markups,
- * content overrides), the truth (the TikTok product id and its SKU
- * map, written by every push whether from a group or from the listing
- * page), and provenance. Group pivots keep their per-group attempt
- * history and stay a fallback source of truth for products pushed
- * before this record existed.
- *
- * tiktok_category_templates caches a category's attribute sheet as
- * TikTok returns it; tiktok_product_group_attributes holds a group's
- * answers, the listing's own answers live in attribute_values.
- */
 return new class extends Migration
 {
     public function up(): void

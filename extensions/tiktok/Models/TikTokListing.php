@@ -5,15 +5,6 @@ namespace Extensions\tiktok\Models;
 use Illuminate\Database\Eloquent\Model;
 use Extensions\tiktok\Models\Concerns\BelongsToTikTokStore;
 
-/**
- * The product's TikTok record (#146, then parity #156): the settings an
- * individual push uses (category, brand, attribute answers, markups,
- * content overrides), the truth once pushed (tiktok_product_id and the
- * SKU map, written by every push whether from a group or from here),
- * the discount rule, and provenance. Group pivots keep per-group
- * attempt history and remain the fallback truth for products pushed
- * before this record carried it.
- */
 class TikTokListing extends Model
 {
     use BelongsToTikTokStore, \App\Integrations\Listings\KeepsItsOwnCopy;
@@ -55,14 +46,6 @@ class TikTokListing extends Model
         'catalog_seen_at' => 'datetime',
     ];
 
-    /**
-     * The mirrored bucket counts, keyed the way the listings strip names
-     * them (TikTokLiveListing::TABS, minus all). Products on TikTok only:
-     * the tab table shows nothing else.
-     *
-     * @param  array<string, array{0: string, 1: ?string}>  $tabs
-     * @return array<string, int>
-     */
     public static function mirrorCounts(array $tabs): array
     {
         $byStatus = static::query()
@@ -82,7 +65,6 @@ class TikTokListing extends Model
         return $out;
     }
 
-    /** The listing's own price rule over the catalog price. */
     public function priceFor(float $corePrice): float
     {
         return round(
@@ -91,22 +73,11 @@ class TikTokListing extends Model
         );
     }
 
-    /**
-     * The price the rule is added to: the listing's own Price when it has
-     * one and the product has no variations, the catalog price otherwise.
-     */
     public function startingPrice(float $corePrice, bool $hasVariations): float
     {
         return (! $hasVariations && (float) ($this->price ?? 0) > 0) ? (float) $this->price : $corePrice;
     }
 
-    /**
-     * The listings' own Price, by product, for those that have one. Only a
-     * product without variations starts from it; the caller decides that.
-     *
-     * @param  list<int>  $productIds
-     * @return array<int, float>
-     */
     public static function ownPrices(array $productIds): array
     {
         $productIds = array_values(array_unique(array_map('intval', $productIds)));
@@ -120,13 +91,6 @@ class TikTokListing extends Model
             ->all();
     }
 
-    /**
-     * Write the truth a push produced. One product is one TikTok product,
-     * so whichever surface pushed it (a group, the listing page) lands
-     * the same fact here; the pivots keep their own attempt history.
-     *
-     * @param bool $answered false when $skuIds is the map already held, not one TikTok Shop answered with
-     */
     public static function recordPush(int $productId, string $tiktokProductId, ?string $skuIds, string $source, bool $answered = true): void
     {
         $row = static::query()->updateOrCreate(
@@ -136,13 +100,11 @@ class TikTokListing extends Model
                 'tiktok_sku_id' => $skuIds,
                 'last_pushed_at' => now(),
                 'last_push_source' => $source,
-                // One latest error per product (the owner, 2026-09-05): a success clears it.
                 'last_push_error' => null,
                 'last_push_failed_at' => null,
             ]
         );
 
-        // The map TikTok Shop just answered with is what the item holds.
         if ($answered && $skuIds !== null && $skuIds !== '') {
             \Extensions\tiktok\Services\TikTok\TikTokListingStates::rememberHeld(
                 (int) ($row->tiktok_setting_id ?? 0),
@@ -152,11 +114,6 @@ class TikTokListing extends Model
         }
     }
 
-    /**
-     * This listing's own words (App\Integrations\Listings\ListingContent).
-     *
-     * @return array{title: ?string, description: ?string}
-     */
     public function contentOverrides(): array
     {
         return ['title' => $this->title, 'description' => $this->description];

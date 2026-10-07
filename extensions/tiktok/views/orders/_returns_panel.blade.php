@@ -1,7 +1,3 @@
-{{-- The TikTok Shop returns list, as a panel (#156). Same contract as
-     ext-lazada::orders._returns_panel: renders in the channel workspace and
-     in place on the fulfilment hub, so every tab, filter and pager is built
-     from the caller's own base URL. --}}
 @php
     $panelBaseUrl = $panelBaseUrl ?? route('ext.tiktok.orders.returns');
     $panelHiddenParams = $panelHiddenParams ?? [];

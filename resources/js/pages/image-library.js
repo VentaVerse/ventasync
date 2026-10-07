@@ -1,25 +1,3 @@
-/* THE IMAGE LIBRARY PICKER, for every page that needs one.
- *
- * The modal markup is partials/image-library-pick; this drives it. It was
- * written inside the listing page's Images card and stayed there, so the
- * watermark form - which needs the same browse, the same folders, the same
- * search, and one picture out of it - would have meant a second copy of a
- * hundred and fifty lines. There is one.
- *
- * SECURITY. Every option is createElement + textContent: a folder or file
- * named `<img src=x onerror=...>` is text here, not markup.
- *
- *   ImageLibrary.open(onPick, {single: true})
- *   ImageLibrary.open(null, {selected: [paths], onToggle: fn(file, inLineup)})
- *
- * onPick receives the chosen files as [{path, url, name}]. `single` moves
- * the tick instead of collecting a second, for the callers that want one
- * picture rather than a set.
- *
- * With onToggle the picker edits a lineup in place: the pictures already in
- * it open highlighted, a click adds or removes one at once and says which,
- * and the button closes the picker, since every change is already made.
- */
 (function () {
     var picker = null;
 
@@ -78,9 +56,6 @@ function build() {
         fetch(url + '?' + q.toString(), { headers: { Accept: 'application/json' } })
             .then(function (r) {
                 var type = r.headers.get('content-type') || '';
-                // A session that has expired answers with a login page,
-                // not with a refusal: an answer that is not JSON is one
-                // this picker cannot read, whatever its status says.
                 if (!r.ok || type.indexOf('json') === -1) {
                     return Promise.reject(new Error('The library did not answer. Reload the page and try again.'));
                 }
@@ -146,7 +121,6 @@ function build() {
             b.appendChild(label);
             b.addEventListener('click', function () {
                 if (onToggle) {
-                    // The lineup itself: highlighted is in it, a click takes it in or out.
                     var on = !picked[f.path];
                     if (on) { picked[f.path] = f; } else { delete picked[f.path]; }
                     mark(b, on);
@@ -155,8 +129,6 @@ function build() {
                     return;
                 }
                 if (single && !picked[f.path]) {
-                    // One at a time: a mark is one picture, so ticking a
-                    // second must move the tick rather than collect two.
                     picked = {};
                     filesEl.querySelectorAll('.is-picked').forEach(function (el) { mark(el, false); });
                 }
@@ -197,8 +169,6 @@ function build() {
         if (e.key === 'Escape' && modal.classList.contains('active')) close();
     });
 
-    /* Focus goes back to whatever opened the picker, so a picker opened
-       from inside another dialog returns the person to where they were. */
     var returnTo = null;
 
     function close() {
@@ -234,9 +204,6 @@ function build() {
     window.ImageLibrary = {
         open: function (onPick, options) {
             options = options || {};
-            /* Built on first use rather than on load: most pages carry no
-               modal at all, and one that does may render it after this
-               script has run. */
             if (!picker) {
                 picker = build();
                 if (!picker) return;

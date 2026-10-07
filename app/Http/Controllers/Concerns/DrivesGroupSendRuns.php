@@ -7,39 +7,16 @@ use App\Services\AutomationRunner;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-/**
- * Sending a whole product group from the Listings page, walked ten products
- * per request so a large group never outlasts one request. The page drives
- * it through the same modal as Run now (resources/js/automation-run.js).
- *
- * Every channel's ProductGroupController uses this trait, so the routes
- * carry the group's own permission (manage_{channel}/product_group).
- */
 trait DrivesGroupSendRuns
 {
-    /** The channel's id in automation_runs. */
     abstract protected function groupSendIntegration(): string;
 
-    /** The store the page stands in. */
     abstract protected function groupSendStoreId(Request $request): int;
 
-    /**
-     * The group's products on this store's list, in order: what the Listings
-     * page shows inside the group. A group that is not this store's is not found.
-     *
-     * @return list<int>
-     */
     abstract protected function groupSendMembers(int $groupId): array;
 
-    /**
-     * Send these products on the group's settings. The answer is the
-     * channel's sendProducts(): tone, summary, failed, stop.
-     *
-     * @param list<int> $productIds
-     */
     abstract protected function groupSendChunk(int $groupId, array $productIds): array;
 
-    /** How many products Send group would send: the group's products on this store's list. */
     public function groupSendSize(int $groupId): int
     {
         try {
@@ -49,7 +26,6 @@ trait DrivesGroupSendRuns
         }
     }
 
-    /** Begin a send of the whole group and walk its first step inside the request. */
     public function sendRunBegin(Request $request): JsonResponse
     {
         $groupId = $this->groupSendGroupId($request);
@@ -80,7 +56,6 @@ trait DrivesGroupSendRuns
     {
         return app(AutomationRunner::class)->stepWith($run, function (array $units) use ($groupId) {
             $members = array_flip($this->groupSendMembers($groupId));
-            // A product moved out of the group since the run began is left alone.
             $ids = array_values(array_filter(array_map('intval', $units), fn (int $id) => isset($members[$id])));
             if ($ids === []) {
                 return ['ok' => count($units), 'failed' => 0];
@@ -95,13 +70,11 @@ trait DrivesGroupSendRuns
         });
     }
 
-    /** The group id from the route, by either name the channels use. */
     private function groupSendGroupId(Request $request): int
     {
         return (int) ($request->route('group') ?? $request->route('id'));
     }
 
-    /** A run belongs to this channel, this store and this group, or it is not found. */
     private function sendRunFor(Request $request): AutomationRun
     {
         return AutomationRun::query()

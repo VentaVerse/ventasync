@@ -13,13 +13,6 @@ use Extensions\tiktok\Models\TikTokSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * Every action on a channel's Settings page lands back on the tab its form
- * lives on (the owner, 2026-09-05): the API log controls on Logs, the status
- * maps on Status, the explorer on Explorer with its answer drawn INSIDE the
- * Explorer panel. On the store the operator was standing in - past and
- * future stores alike - and a purge touches that store's rows only.
- */
 class SettingsTabReturnTest extends TestCase
 {
     use RefreshDatabase;
@@ -58,8 +51,6 @@ class SettingsTabReturnTest extends TestCase
         ]);
     }
 
-    // ── Shopee, two stores ───────────────────────────────────────────
-
     public function test_shopee_log_controls_land_on_the_logs_tab_of_the_store_they_were_pressed_on(): void
     {
         $a = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main', 'api_log_mode' => 'all']);
@@ -67,15 +58,12 @@ class SettingsTabReturnTest extends TestCase
         $user = $this->manager('shopee');
         $logsTab = route('ext.shopee.settings.show', ['store' => $b->id, 'tab' => 'logs']);
 
-        // The mode: the second store's, and back to its Logs tab - not the
-        // storeless landing that bounced onto the first store's Connection.
         $this->actingAs($user)
             ->post('/channels/shopee/' . $b->id . '/api-log-mode', ['mode' => 'errors'])
             ->assertRedirect($logsTab);
         $this->assertSame('errors', $b->fresh()->api_log_mode);
         $this->assertSame('all', $a->fresh()->api_log_mode, 'the first store is not the one the operator was standing in');
 
-        // The purge: this store's rows only.
         ShopeeApiLog::create(['shopee_setting_id' => $a->id, 'method' => 'GET', 'api_path' => '/a1', 'ok' => true, 'response_status' => 200]);
         ShopeeApiLog::create(['shopee_setting_id' => $a->id, 'method' => 'GET', 'api_path' => '/a2', 'ok' => true, 'response_status' => 200]);
         ShopeeApiLog::create(['shopee_setting_id' => $b->id, 'method' => 'GET', 'api_path' => '/b1', 'ok' => true, 'response_status' => 200]);
@@ -99,8 +87,6 @@ class SettingsTabReturnTest extends TestCase
             ->post('/channels/shopee/' . $store->id . '/order-status-map', ['map' => 'not-an-array'])
             ->assertRedirect(route('ext.shopee.settings.show', ['store' => $store->id, 'tab' => 'status']));
 
-        // No credentials: the explorer answers with a result, and that result
-        // is drawn inside the Explorer panel, not on Connection.
         $r = $this->actingAs($user)
             ->post('/channels/shopee/' . $store->id . '/explorer/run', ['method' => 'GET', 'api_path' => '/api/v2/shop/get_shop_info', 'params_json' => '{}']);
         $r->assertRedirect(route('ext.shopee.settings.show', ['store' => $store->id, 'tab' => 'explorer']));
@@ -119,8 +105,6 @@ class SettingsTabReturnTest extends TestCase
         $this->assertSame(1, substr_count($html, 'Last result'), 'and only there');
     }
 
-    // ── Lazada and TikTok ────────────────────────────────────────────
-
     public function test_lazada_actions_land_on_their_tabs_and_the_store_has_a_name_and_a_switch(): void
     {
         $store = LazadaSetting::create(['mode' => 'live', 'store_name' => 'Gearshipper']);
@@ -137,15 +121,10 @@ class SettingsTabReturnTest extends TestCase
             ->assertRedirect(route('ext.lazada.index', ['store' => $store->id, 'tab' => 'explorer']))
             ->assertSessionHas('lazada_result');
 
-        // The settings page now carries the store's name and switch, and the
-        // save keeps them (the columns arrived with multi-store; the controls
-        // had not).
         $html = $this->actingAs($user)->get(route('ext.lazada.index', ['store' => $store->id]))->assertOk()->getContent();
         $this->assertStringContainsString('Store name', $html);
         $this->assertStringContainsString('cs-store-switch', $html, 'the Active switch is the system switch');
 
-        // One Save for the store and its credentials (the owner, 2026-09-05): the
-        // store fields ride the environment's credential form.
         $this->actingAs($user)->post($base . '/save', ['env' => 'live', 'region' => 'ph', 'store_name' => 'Gearshipper PH', 'enabled' => 0])->assertRedirect();
         $store->refresh();
         $this->assertSame('Gearshipper PH', $store->store_name);
@@ -178,7 +157,6 @@ class SettingsTabReturnTest extends TestCase
         $this->assertFalse((bool) $store->enabled);
     }
 
-    /** The bug the owner hit: the pre-multistore Shopee store runs in sandbox, and the controls lived inside the production panel. */
     public function test_a_store_standing_in_sandbox_still_sees_its_name_and_switch(): void
     {
         $store = ShopeeSetting::create(['mode' => 'sandbox', 'store_name' => 'Main store']);
@@ -186,8 +164,6 @@ class SettingsTabReturnTest extends TestCase
 
         $html = $this->actingAs($user)->get(route('ext.shopee.settings.show', ['store' => $store->id]))->assertOk()->getContent();
 
-        // One form, one Save (audit, 2026-09-05): the store's name and switch
-        // sit inside the sandbox form, the one whose Save is on screen.
         $this->assertMatchesRegularExpression('/id="sp-save-sandbox"[\s\S]*?id="sp-sb-store-name" name="store_name"[\s\S]*?Save connection/', $html);
         $this->assertStringContainsString('cs-store-switch', $html);
         $this->assertStringContainsString('on Shopee, sandbox.', $html, 'the head names the store and its environment');
@@ -197,8 +173,6 @@ class SettingsTabReturnTest extends TestCase
         $this->assertSame('sandbox', $store->fresh()->mode, 'still in sandbox');
     }
 
-    // ── The tooltip rule ─────────────────────────────────────────────
-
     public function test_a_fields_description_is_a_tooltip_on_its_label_row_not_a_paragraph(): void
     {
         $store = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main']);
@@ -207,13 +181,10 @@ class SettingsTabReturnTest extends TestCase
             ->get(route('ext.shopee.settings.show', ['store' => $store->id]))
             ->assertOk()->getContent();
 
-        // The description still reaches the reader (and the screen reader,
-        // through the bubble the control points at) - as a ? beside the label.
         $this->assertStringContainsString('How this store is named across the ERP', $html);
         $this->assertStringContainsString('id="sp-store-name-hint"', $html);
         $this->assertStringContainsString('class="bl-hint fm-label__hint"', $html);
         $this->assertStringNotContainsString('class="fm-hint"', $html, 'no description paragraph under a control on this page');
-        // The environment note rides the same button.
         $this->assertStringContainsString('Each environment keeps its own keys and its own token', $html);
         $this->assertStringNotContainsString('cs-env__note', $html);
     }

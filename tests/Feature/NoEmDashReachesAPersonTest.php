@@ -6,18 +6,6 @@ use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
-/**
- * No em dash reaches a person.
- *
- * VentaSync's own words never use one: not on a page, in a message, a flash,
- * a log line, a command's output or a value shown when there is none. A
- * missing value is a plain "-"; a pause in a sentence is a comma, a colon or
- * a full stop.
- *
- * Only what is shown is checked. PHP and Blade are read as PHP tokens, so a
- * comment is skipped and a string or a page's markup is not; JavaScript and
- * CSS have their comments stripped first.
- */
 class NoEmDashReachesAPersonTest extends TestCase
 {
     private const DASH = "\u{2014}";
@@ -65,7 +53,6 @@ class NoEmDashReachesAPersonTest extends TestCase
         );
     }
 
-    /** A Blade view, compiled, so its comments vanish and its markup and echoes stay. */
     private function compiled(string $text, string $path): string
     {
         try {
@@ -75,7 +62,6 @@ class NoEmDashReachesAPersonTest extends TestCase
         }
     }
 
-    /** Lines of PHP whose strings or markup carry the dash; comments are not read. */
     private function phpLines(string $code): array
     {
         $lines = [];

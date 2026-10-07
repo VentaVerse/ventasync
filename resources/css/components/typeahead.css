@@ -1,6 +1,3 @@
-/* ============================================================
-   TYPEAHEAD / AUTOCOMPLETE
-   ============================================================ */
 .typeahead { position: relative; }
 .typeahead-list {
     position: absolute;
@@ -8,7 +5,7 @@
     background: var(--bl-sheet);
     border: 1px solid var(--bl-rule);
     border-radius: var(--bl-r-ctrl);
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--bl-lift);
     max-height: 240px;
     overflow: auto;
     z-index: 50;
@@ -28,7 +25,6 @@
 }
 .typeahead-list button:hover { background: var(--bl-chrome-2); }
 
-/* Multi-select tag chips */
 .tag-container {
     display: flex; flex-wrap: wrap; gap: 6px;
     margin-bottom: 6px; min-height: 0;

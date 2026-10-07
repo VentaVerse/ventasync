@@ -5,9 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/**
- * One row per external API request. Written by the ApiAudit middleware.
- */
 class ApiRequestLog extends Model
 {
     public $timestamps = false;

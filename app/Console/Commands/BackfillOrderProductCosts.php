@@ -6,21 +6,6 @@ use App\Support\LineCost;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Re-read order line costs from the catalogue, by the same rule the syncs
- * use when they write a line (App\Support\LineCost): the variation's own
- * cost when it has an amount, else the parent's.
- *
- * Two jobs. Lines that never got a cost (product matched later, cost typed
- * later) get one; that is the default run. And after a rule change every
- * line since a date can be re-read, which is --force with --from: the
- * 2026-08-22 variation formula rewrote resynced lines with an overhead-only
- * figure, and --force --from=2026-08-22 puts them right.
- *
- * Dry by default so the per-product table can be read before anything is
- * written. Nothing here touches a line whose resolved cost is zero when it
- * already has one: the catalogue not knowing is no reason to forget.
- */
 class BackfillOrderProductCosts extends Command
 {
     protected $signature = 'orders:backfill-costs
@@ -58,8 +43,6 @@ class BackfillOrderProductCosts extends Command
             $query->where('o.date_added', '>=', $from . ' 00:00:00');
         }
 
-        // The variation sold, when one was. A line has at most one option
-        // value that maps to a product_option_value; the first is it.
         $variationByLine = DB::table($pfx . 'order_option as oo')
             ->join($pfx . 'order_product as op', 'op.order_product_id', '=', 'oo.order_product_id')
             ->where('oo.product_option_value_id', '>', 0)
@@ -72,7 +55,7 @@ class BackfillOrderProductCosts extends Command
             ->pluck('name', 'product_id')
             ->all();
 
-        $changes = [];   // product_id => ['lines' => n, 'from' => sum, 'to' => sum]
+        $changes = [];
         $examined = 0;
         $changed = 0;
         $unresolved = 0;
@@ -84,8 +67,6 @@ class BackfillOrderProductCosts extends Command
             $old = (float) $line->cost;
 
             if ($new <= 0) {
-                // The catalogue has nothing for this line. Leave whatever it
-                // carries; zero over a number is never an improvement.
                 if ($old <= 0) {
                     $unresolved++;
                 }

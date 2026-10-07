@@ -1,31 +1,3 @@
-/* Shopee Orders and Shopee Returns.
-   The first two marketplace pages rebuilt outside the .x-legacy boundary,
-   so both inherit the token set directly and own no colour of their own.
-
-   Most of what this file used to hold is now components/channel-orders.css:
-   the command bar, the order band, the item rows, the qty/price/total/status
-   columns, the actions cell, the modal shell and the mobile restack are the
-   same picture on every channel, so they live under the shared `co-` prefix
-   and Lazada draws from the same rules rather than from a copy named after
-   Shopee. Both pages put `co-page` on their root element beside their own
-   id, which is what lets rules that used to be scoped to
-   `#shopee-orders-page` match every channel's page at once.
-
-   What is left here is genuinely Shopee's: this page's column widths, the
-   ship-method modal's address and branch cards, the tracking timeline, and
-   the invoice-request marker's reskin. */
-
-/* The legacy column format, per the owner: Products | Qty | Price | Amount |
-   Shipping | Status | Actions, with the order facts in a band above each
-   order's item rows.
-
-   Widths are percentages summing to 100 so the table's spare width spreads
-   across every column proportionally instead of pooling anywhere. Two
-   earlier cuts each left one hole: Products absorbing the slack pushed Qty
-   half a screen from short names, and Actions absorbing it opened a dead
-   zone between Status and the buttons. Shared, the slack reads as
-   breathing room. At the 1400px content cap Products lands near 430px, so
-   Qty still hugs the product text. */
 .sp-col-products { width: 31%; }
 .sp-col-qty    { width: 5%; }
 .sp-col-price  { width: 9%; }
@@ -34,15 +6,6 @@
 .sp-col-status { width: 13%; }
 .sp-col-act    { width: 20%; }
 
-/* The Returns page's own column classes (.sp-col-order, .sp-col-buyer) and
-   its .sp-buyer / .sp-item__qty spans carry no rules and never have: they
-   are hooks the markup places for a width or a treatment nobody has needed
-   yet. They are named here rather than styled, so a later change does not
-   read their absence as an oversight. */
-
-/* The invoice marker takes the exact geometry of a small secondary button
-   so the actions cell has one control grammar and one control height,
-   rather than an amber pill of its own size sitting beside a button. */
 #shopee-orders-page .btn-invoice-req {
     height: var(--bl-control-h-sm);
     padding: 0 var(--bl-space-2);
@@ -62,25 +25,7 @@
     transform: none;
 }
 
-/* ------------------------------------------------------------------
-   Ship method modal. The DOM structure and every id stay exactly as
-   resources/js/pages/shopee-orders.js expects them. Step visibility is a
-   single mechanism: the .sp-hidden class, toggled by the module for every
-   step transition and for the initial state in the Blade markup, rather
-   than three transitions using inline styles and the initial state using a
-   fourth. Only Shopee has this flow, so it stays out of the shared file.
-   ------------------------------------------------------------------ */
-
 .sp-hidden { display: none; }
-
-/* Ship step two content: the pickup address card and the drop-off branch
-   list, both built by resources/js/pages/shopee-orders.js from the
-   response of GET /shopee/orders/{sn}/shipping-addresses. Replaces markup
-   the old inline script assembled as an HTML string and injected with
-   innerHTML, including three raw hex colours baked straight into that
-   string. The module now builds every node with createElement/textContent
-   and reaches for these classes instead, so the colour comes from the
-   token set and can no longer carry anything the API response contains. */
 
 .sp-ship-addr-label {
     margin-bottom: var(--bl-space-2);
@@ -89,9 +34,6 @@
     color: var(--bl-ink);
 }
 
-/* The pickup address is auto-selected on the buyer's behalf, so its card
-   takes the accent tone the rest of the page reserves for the one thing an
-   operator has to act on: this is that thing, just already decided. */
 .sp-ship-addr {
     padding: var(--bl-space-3) var(--bl-space-4);
     border: 2px solid var(--bl-brand-deep);
@@ -113,10 +55,6 @@
     font-size: 11px;
 }
 
-/* Tone follows Shopee's own address_flag values: pickup_address is the one
-   driving this card (accent), return_address is informational (info), and
-   anything else Shopee ever adds recedes to muted rather than defaulting to
-   an undefined colour. */
 .sp-ship-flag--pickup { background: color-mix(in srgb, var(--bl-brand-deep) 15%, transparent); color: var(--bl-brand-deep); }
 .sp-ship-flag--return { background: color-mix(in srgb, var(--bl-cool) 15%, transparent); color: var(--bl-cool); }
 .sp-ship-flag--other  { background: color-mix(in srgb, var(--bl-ink-3) 15%, transparent); color: var(--bl-ink-3); }
@@ -136,30 +74,12 @@
 .sp-ship-branch__radio { margin-top: 3px; accent-color: var(--bl-brand-deep); }
 .sp-ship-branch__text { flex: 1; min-width: 0; }
 
-/* One tracking event in the tracking modal's timeline. */
 .sp-track-event {
     margin-bottom: var(--bl-space-3);
     padding-left: var(--bl-space-3);
     border-left: 2px solid var(--bl-brand-deep);
 }
 
-/* ==================================================================
-   Shopee order detail (`spd-`)
-   ------------------------------------------------------------------
-   The page is the shared `od-` detail anatomy poured into the seller
-   center; everything here is genuinely Shopee's and nothing else. Five
-   things this channel has that the anatomy does not: an item line with no
-   line total, an escrow block dense enough to need its own row rhythm, a
-   return with its own items and negotiation history, the raw API payload,
-   and the buyer's invoice request.
-   ================================================================== */
-
-/* Shopee stores a unit price per item and no line total, so this page's
-   item grid is four columns where the core Sales show has five. Stated as
-   an override of the anatomy's own grid rather than a second item
-   component, and restated inside the same container query the anatomy
-   uses, so the narrow-column collapse still wins on a phone or beside a
-   340px side column. */
 .spd-items .od-items__head,
 .spd-items .od-item {
     grid-template-columns: 96px minmax(0, 1fr) 4rem 8rem;
@@ -172,19 +92,12 @@
     }
 }
 
-/* Waybill and tracking sit in the shipping card's foot. Two controls of
-   the same weight: neither is more the operator's move than the other,
-   and a solid button here would compete with the one in the page head. */
 .spd-parcel {
     display: flex;
     flex-wrap: wrap;
     gap: var(--bl-space-2);
 }
 
-/* The buyer's invoice request. Six short facts, so they read as a row of
-   labelled values across the main column rather than a tall stack in a
-   340px card. The address takes the full width because it is the one
-   field that is a sentence. */
 .spd-invoice {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -193,12 +106,6 @@
 }
 
 .spd-invoice__wide { grid-column: 1 / -1; }
-
-/* ------------------------------------------------------------------
-   Returns and refunds. A return is a second subject with its own items
-   and its own negotiation history, so it is a bordered block in the main
-   column rather than a fact in the side one.
-   ------------------------------------------------------------------ */
 
 .spd-return {
     display: flex;
@@ -229,9 +136,6 @@
 
 .spd-return__nego { margin-top: var(--bl-space-1); }
 
-/* A return's item lines. Horizontal hairlines only, mono figures right
-   aligned: the same reading rules as every other list of numbers here,
-   at the smaller scale a nested block deserves. */
 .spd-lines { display: flex; flex-direction: column; }
 
 .spd-lines__head,
@@ -266,12 +170,6 @@
     color: var(--bl-ink);
 }
 
-/* ------------------------------------------------------------------
-   Raw payload. Kept from the previous version of this page: when Shopee's
-   response and this page disagree, this is what settles it. It scrolls in
-   its own box so a 400-line payload cannot push the page sideways.
-   ------------------------------------------------------------------ */
-
 .spd-raw {
     max-height: 420px;
     margin: var(--bl-space-3) 0 0;
@@ -288,11 +186,6 @@
     overflow-wrap: anywhere;
 }
 
-/* ------------------------------------------------------------------
-   Invoice request fields with a copy control. The label spans the row,
-   the value and the button share the line beneath it.
-   ------------------------------------------------------------------ */
-
 .spd-copyable {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -302,13 +195,7 @@
 
 .spd-copyable .od-fact__k { grid-column: 1 / -1; }
 
-/* Revealed on hover of the row it belongs to, the same discipline the
-   detail anatomy applies to its own secondary controls: six fields should
-   not rest as six standing buttons. Scoped to the row rather than to a
-   container, so it behaves the same whether the invoice block is a section
-   in the main column or a card in the side one. */
 .spd-copy {
-    /* The mark is small; the target is not. */
     padding: 10px;
     margin: -10px;
     background: none;
@@ -328,13 +215,6 @@
 
 .spd-copy.is-copied { opacity: 1; color: var(--bl-ink-3); }
 
-/* ------------------------------------------------------------------
-   Responsive
-   ------------------------------------------------------------------ */
-
-/* No hover on a touch screen, so the copy controls become permanent
-   rather than tappable-but-invisible. Same handling the detail anatomy
-   gives its own hover-revealed controls at the same breakpoint. */
 @media (max-width: 640px) {
     .spd-copy { opacity: 1; }
 }
@@ -347,12 +227,6 @@
     .spd-lines__name { grid-column: 1 / -1; }
 }
 
-/* Between the mobile restack and a comfortable desktop width the fixed
-   columns leave almost nothing for Products, the one column carrying
-   genuinely variable-length text. Shipping is the field this range can
-   afford to drop: courier and tracking repeat on the order detail, and the
-   Tracking action stays. Below the restack breakpoint the row is a single
-   stacked column with room for everything, so Shipping comes back. */
 @media (min-width: 641px) and (max-width: 900px) {
     .sp-col-ship { display: none; }
     #shopee-orders-page .x-table td[data-label="Shipping"],

@@ -5,15 +5,6 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Multi-store TikTok, step 1 (the owner, 2026-09-05): a settings row becomes a
- * STORE. Two columns the Integrations board needs - a human name the operator
- * and the MCP recognise the store by, and an enabled flag so a store can be
- * created disabled and switched on once configured. The one existing row keeps
- * working: it is named and enabled by the backfill. Mirrors the Lazada step
- * (add_multistore_columns_to_lazada_settings). See memory
- * lazada-tables-lacked-store-key.
- */
 return new class extends Migration {
     public function up(): void
     {
@@ -30,8 +21,6 @@ return new class extends Migration {
             }
         });
 
-        // Name and enable the existing row so the store list never shows an
-        // anonymous, silently-off entry.
         DB::table('tiktok_settings')->get()->each(function ($row) {
             $name = trim((string) ($row->store_name ?? '')) !== ''
                 ? $row->store_name

@@ -3,39 +3,10 @@
 
 @section('title', 'OpenCart Settings')
 
-{{-- Leaves the .x-legacy content boundary, rebuilt on the token set.
-
-     OpenCart is multi-store and this page is store-scoped:
-     OpenCartController::showSettings() findOrFail()s the {store} segment and
-     hands the view a one-element $stores collection with $singleStore = true.
-     Every form and every AJAX call on this page therefore carries that one
-     store's id, either as the hidden `store_id` a save reads or as a route
-     parameter.
-
-     OpenCart has NO OAuth surface. It authenticates with a shared API key
-     configured in the store's own ERP Sync module, so nothing here is a
-     registered redirect and nothing is exempt from the /channels prefix.
-
-     The API key field below is always sent blank, both tiers:
-     OpenCartController::save() now keeps the stored key when the field posts
-     empty, the same blank-keeps-stored branch Shopee's and TikTok's save()
-     already carry, so the view no longer needs to echo the secret to mask
-     it in the DOM. --}}
 @section('content')
 @php
-    // Read tier on this route is `view_opencart|manage_opencart`; every write
-    // below (save, delete, test, sync, push, push qty, sync window, review
-    // settings, password unlock, fetch statuses, save mapping) is
-    // `manage_opencart`. Replaces a hardcoded `true`.
     $canManageOpencart = auth()->user()?->hasPermission('manage_opencart/settings') ?? false;
 
-    // showSettings() always hands over exactly one store and $singleStore =
-    // true, so three pieces of the pre-redesign page were unreachable markup on
-    // this route and are gone rather than redrawn: the store-selector rail, the
-    // "Add New Store" panel (a store is created from the modal on the workspace
-    // overview, which posts to ext.opencart.stores.store), and the
-    // "Cronjob, All Stores" block, whose @if asked for more than one enabled
-    // store in a collection that never holds more than one.
     $store = $stores->first();
 
     $storeName = $store->store_name ?: 'Unnamed store';
@@ -44,9 +15,6 @@
     $statusMap = $orderStatusMaps->get($store->id, collect());
     $storeSyncLogs = $recentLogs->where('opencart_setting_id', $store->id);
 
-    // The ordered checklist for a first import. Steps 1 and 2 have nothing in
-    // front of them; the rest wait on what they genuinely depend on, which is
-    // the same dependency map the pre-redesign stepper carried.
     $importSteps = [
         ['entity' => 'categories',    'label' => 'Categories',    'note' => 'Products need somewhere to land.'],
         ['entity' => 'manufacturers', 'label' => 'Manufacturers', 'note' => 'Pulled alongside categories.'],
@@ -60,10 +28,6 @@
     $erpStatusOptions = $erpOrderStatuses->map(fn ($s) => ['id' => (int) $s->order_status_id, 'name' => (string) $s->name])->values();
 @endphp
 
-{{-- The section shown, from the menubar's own ?tab= links (the
-     in-page tab strip retired 2026-09-03: the channel menubar carries the
-     sections now). Unknown or unpermitted sections fall to the default,
-     so a hand-typed URL can never land on a blank page. --}}
 @php
     $csKnown = ['connection', 'orders', 'status', 'automations', 'sync'];
     if ($canManageOpencart) { $csKnown[] = 'import'; }
@@ -80,16 +44,8 @@
      data-save-map-url="{{ $canManageOpencart ? route('ext.opencart.save_status_map') : '' }}"
      data-map-id-field="oc_status_id"
      data-map-name-field="oc_status_name"
-     {{-- fetchOcStatuses() answers with `order_status_id` for the OpenCart id
-          and `erp_order_status_id` for what it is already mapped to. Venta's
-          fetch uses `id` and `order_status_id` for the same two things, which
-          is exactly the difference that would map every status to zero if the
-          module assumed one shape. --}}
      data-map-server-id="order_status_id"
      data-map-server-key="erp_order_status_id"
-     {{-- OpenCart's pre-redesign script proposed an ERP status whose name
-          matched the OpenCart one exactly, for a status never mapped before.
-          Venta's never did, so only this page opts in. --}}
      data-map-name-match
      data-sync-url="{{ $canManageOpencart ? route('ext.opencart.sync') : '' }}"
      data-push-url="{{ $canManageOpencart ? route('ext.opencart.push') : '' }}"
@@ -120,9 +76,6 @@
 </div>
 @endunless
 
-{{-- ================================================================
-     CONNECTION
-     ================================================================ --}}
 <div id="oc-tab-connection" class="cs-panel" @if($csSection !== 'connection') hidden @endif>
 
 
@@ -134,11 +87,6 @@
 
             <form method="POST" action="{{ route('ext.opencart.save') }}">
                 @csrf
-                {{-- The store this page is scoped to. OpenCartController::
-                     save() branches on its presence: with it the row is
-                     updated, without it a new store is created. It is always
-                     present here, which is what makes store 1's save unable to
-                     touch store 2's row. --}}
                 <input type="hidden" name="store_id" value="{{ $store->id }}">
 
                 <div class="fm-fields">
@@ -168,9 +116,6 @@
                     <x-ui.field label="Colour" for="oc-brand-color" name="brand_color"
                                 hint="Used wherever this store appears in a chart or a report.">
                         <div class="cs-colour" data-colour-pair>
-                            {{-- Only the colour input carries the name: the hex
-                                 box beside it is a second face on the same
-                                 value, exactly as before. --}}
                             <input type="color" id="oc-brand-color" name="brand_color" class="cs-colour__swatch"
                                    value="{{ $store->brand_color ?: '#16a34a' }}" data-colour-input
                                    @disabled(!$canManageOpencart) aria-label="Store colour">
@@ -181,10 +126,6 @@
                     </x-ui.field>
 
                     <div class="fm-field fm-field--wide">
-                        {{-- No hidden companion field, deliberately: save()
-                             reads $request->has('enabled'), so a hidden 0 in
-                             front of this box would make the store permanently
-                             enabled. --}}
                         <label class="fm-switch">
                             <input type="checkbox" class="fm-switch__input" name="enabled" value="1"
                                    @checked($store->enabled) @disabled(!$canManageOpencart)>
@@ -220,8 +161,6 @@
             </dl>
 
             @if($canManageOpencart)
-            {{-- The one irreversible thing on the page sits last, in its own
-                 block, behind the typed-name sheet (the Shopee shape, #204). --}}
             <div class="cs-danger">
                 <div>
                     <span class="cs-danger__title">Remove this store <x-ui.hint label="What removal does">Everything this store holds in the ERP goes with it: product links, product groups, the status map and the sync log. Sales already imported stay under its name. Nothing on the OpenCart store is touched. There is no undo.</x-ui.hint></span>
@@ -242,9 +181,6 @@
     @endif
 </div>
 
-{{-- ================================================================
-     ORDER SYNC
-     ================================================================ --}}
 <div id="oc-tab-orders" class="cs-panel" @if($csSection !== 'orders') hidden @endif>
 
     <section class="fm-section">
@@ -326,9 +262,6 @@
             <input type="hidden" name="store_id" value="{{ $store->id }}">
 
             <div class="fm-field">
-                {{-- Same reasoning as the enabled switch: saveReviewSettings()
-                     reads $request->has('review_auto_approve'), so no hidden
-                     companion field. --}}
                 <label class="fm-switch">
                     <input type="checkbox" class="fm-switch__input" name="review_auto_approve" value="1"
                            @checked($store->review_auto_approve) @disabled(!$canManageOpencart)>
@@ -349,9 +282,6 @@
     </section>
 </div>
 
-{{-- ================================================================
-     STATUS MAPPING
-     ================================================================ --}}
 <div id="oc-tab-status" class="cs-panel" @if($csSection !== 'status') hidden @endif>
     <section class="fm-section">
         <div class="fm-section__head">
@@ -414,9 +344,6 @@
     </section>
 </div>
 
-{{-- ================================================================
-     SCHEDULING
-     ================================================================ --}}
 @if($canManageOpencart)
 <div id="oc-tab-automations" class="cs-panel" @if($csSection !== 'automations') hidden @endif>
     <section class="fm-section">
@@ -425,16 +352,6 @@
             <x-ui.hint label="About the scheduled jobs">How often each OpenCart sync runs for {{ $store->store_name ?: $store->base_url }}. Changes take effect the next time the scheduler wakes up.</x-ui.hint>
         </div>
 
-        {{-- The same control every other channel uses.
-
-             This tab printed three artisan commands to copy into the hosting
-             panel by hand, so OpenCart's jobs ran only if the operator had
-             pasted each one and the ERP knew nothing about whether they
-             existed, when they last ran, or whether they had failed. The
-             command list and cadences are unchanged; only who runs them is.
-
-             storeId is passed because OpenCart is multi-store: each store has
-             its own three jobs, carrying --store on the command line. --}}
         @include('partials._automations_tab', ['integration' => 'opencart', 'storeId' => $store->id])
     </section>
 </div>
@@ -446,9 +363,6 @@
         </div>
         <p class="fm-section__note">A full import ignores the date window and pulls the store's whole history. It is for a new connection only. On an ERP that already holds this store's data it will overwrite what is here, so it stays locked until you confirm it is you.</p>
 
-        {{-- The unlock. verifyPassword() checks the signed-in user's own
-             password and returns {ok:true|false}; nothing about the store is
-             sent. Same route, same single `password` field. --}}
         <div class="cs-lock" data-import-lock>
             <div class="cs-lock__row">
                 <x-ui.field label="Your account password" for="oc-import-pw" name="password">
@@ -469,14 +383,6 @@
                         <p class="cs-step__note">{{ $step['note'] }}</p>
                         <div class="cs-step__row">
                             @if($step['entity'] === 'status_map')
-                                {{-- Not a sync: this step is a prerequisite that
-                                     the Status mapping tab already owns in full.
-                                     The pre-redesign page drew a second, inline
-                                     copy of that whole mapping table here, which
-                                     was two controls for one job. This sends the
-                                     operator to the one that exists, and the step
-                                     marks itself done when a mapping is saved
-                                     there. --}}
                                 <x-ui.button type="button" size="sm" data-goto-tab="oc-tab-status">Open status mapping</x-ui.button>
                             @else
                                 <x-ui.button type="button" size="sm" data-sync-run data-entity="{{ $step['entity'] }}" data-full="1">Import {{ strtolower($step['label']) }}</x-ui.button>
@@ -508,9 +414,6 @@
 </div>
 @endif
 
-{{-- ================================================================
-     RUN LOG
-     ================================================================ --}}
 <div id="oc-tab-sync" class="cs-panel" @if($csSection !== 'sync') hidden @endif>
     <section class="fm-section">
         <div class="fm-section__head">
@@ -575,5 +478,5 @@
     </section>
 </div>
 
-</div>{{-- /.cs-page --}}
+</div>
 @endsection

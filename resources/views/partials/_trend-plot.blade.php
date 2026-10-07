@@ -1,20 +1,3 @@
-{{-- A dual-series revenue/orders plot over a labelled period.
-
-     Extracted so the channel Overview and the dashboard draw the same chart
-     from the same geometry rather than from two copies that drift. The
-     dashboard still carries its own inline copy today; migrating it is a
-     follow-up, and until then this file is the definition to change.
-
-     Expects: $labels (string[]), $revenue (float[]), $orders (int[]).
-     Renders nothing when there is not enough to draw.
-
-     The honest cost, same as on the dashboard: revenue runs to hundreds of
-     thousands and orders to a couple of dozen, so the two cannot share one
-     y-scale. Each is drawn against its OWN peak, which means the lines
-     crossing says nothing about the business - it is decided by the scaling.
-     The shapes are comparable; the crossings are not. Each series prints its
-     own peak in the key so a reader sees the two scales rather than infers
-     one. --}}
 @php
     use App\Support\Money;
     use Illuminate\Support\Str;
@@ -47,17 +30,10 @@
     for ($t = 0; $t < $n; $t += $tickStep) { $ticks[] = $t; }
     if ($ticks !== [] && end($ticks) !== $n - 1) { $ticks[] = $n - 1; }
 
-    // Every gradient on the page needs its own id, or a second plot reuses
-    // the first one's fill. Derived from the data so it is stable across
-    // renders rather than random.
     $gradId = 'plot-rev-' . substr(md5(implode(',', $labels ?? [])), 0, 8);
 @endphp
 
 @if($hasPlot)
-    {{-- The series ride on the element as pre-formatted strings. Currency
-         formatting belongs to App\Support\Money, not to a reimplementation of
-         it in JavaScript that would drift the first time a second currency
-         appeared. --}}
     <div class="bl-plotcard"
          data-plot="{{ json_encode([
              'labels' => array_map(fn ($i) => $labels[$i] ?? '', range(0, $n - 1)),
@@ -84,9 +60,6 @@
             </span>
         </div>
 
-        {{-- The reading is drawn by plot-readout.js rather than left to the
-             SVG's native <title>, which the browser holds for about a second
-             before showing. The titles stay for assistive technology. --}}
         <div class="bl-plotwrap">
             <svg class="bl-plot bl-plot--dual" viewBox="0 0 {{ $pw }} {{ $ph }}"
                  preserveAspectRatio="none" role="img"

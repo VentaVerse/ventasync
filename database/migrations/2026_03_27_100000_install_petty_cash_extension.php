@@ -5,18 +5,10 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Petty Cash Extension — single installation migration.
- *
- * Creates all tables, seeds default categories, registers the extension,
- * creates permissions, and grants them to the Administrator group.
- */
 return new class extends Migration
 {
     public function up(): void
     {
-        // ── 1. Tables ───────────────────────────────────────────
-
         if (!Schema::hasTable('petty_cash_categories')) {
             Schema::create('petty_cash_categories', function (Blueprint $table) {
                 $table->id();
@@ -54,8 +46,6 @@ return new class extends Migration
             });
         }
 
-        // ── 2. Seed default categories ──────────────────────────
-
         if (DB::table('petty_cash_categories')->count() === 0) {
             $now = now();
             DB::table('petty_cash_categories')->insert([
@@ -68,8 +58,6 @@ return new class extends Migration
                 ['name' => 'Miscellaneous',    'sort_order' => 7, 'status' => true, 'created_at' => $now, 'updated_at' => $now],
             ]);
         }
-
-        // ── 3. Register extension ───────────────────────────────
 
         if (Schema::hasTable('extensions') && !DB::table('extensions')->where('id', 'pettycash')->exists()) {
             DB::table('extensions')->insert([
@@ -84,8 +72,6 @@ return new class extends Migration
             ]);
         }
 
-        // ── 4. Permissions ──────────────────────────────────────
-
         $permissions = [
             ['key' => 'view_petty_cash',              'label' => 'Petty Cash',              'description' => 'See the Petty Cash nav group'],
             ['key' => 'view_petty_cash_transactions',  'label' => 'Petty Cash Transactions',  'description' => 'View and manage petty cash transactions'],
@@ -97,8 +83,6 @@ return new class extends Migration
                 DB::table('permissions')->insert($p);
             }
         }
-
-        // ── 5. Grant to Administrator group ─────────────────────
 
         $adminGroupId = DB::table('user_groups')->where('name', 'Administrator')->value('id');
 
@@ -113,8 +97,6 @@ return new class extends Migration
             }
         }
 
-        // ── 6. Clean up old permission keys (from dev iterations) ─
-
         $oldKeys = ['manage_petty_cash', 'view_own_petty_cash', 'pettycash_add_credits', 'pettycash_view_all_staff', 'pettycash_manage_all'];
         $oldIds = DB::table('permissions')->whereIn('key', $oldKeys)->pluck('id')->toArray();
         if (!empty($oldIds)) {
@@ -125,7 +107,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        // Remove permissions
         $keys = ['view_petty_cash', 'view_petty_cash_transactions', 'manage_petty_cash_settings'];
         $ids = DB::table('permissions')->whereIn('key', $keys)->pluck('id')->toArray();
         if (!empty($ids)) {
@@ -133,10 +114,8 @@ return new class extends Migration
             DB::table('permissions')->whereIn('id', $ids)->delete();
         }
 
-        // Remove extension
         DB::table('extensions')->where('id', 'pettycash')->delete();
 
-        // Drop tables
         Schema::dropIfExists('petty_cash_user_roles');
         Schema::dropIfExists('petty_cash_transactions');
         Schema::dropIfExists('petty_cash_categories');

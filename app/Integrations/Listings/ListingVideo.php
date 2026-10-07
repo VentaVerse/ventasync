@@ -6,29 +6,8 @@ use App\Models\ProductVideo;
 use App\Services\Media\ImageCache;
 use App\Services\Media\ProductVideoFile;
 
-/**
- * THE VIDEO A LISTING SENDS.
- *
- * The catalog's video is the source, as the picture library is. A listing
- * sends it unless it says otherwise: its own video instead, or none at all.
- *
- * NOTHING HERE KNOWS WHAT A CHANNEL WILL TAKE. A marketplace changes its
- * limits without telling anyone, so a limit written down here would one day
- * refuse a video the store would have accepted, and the seller could not tell
- * our guess from the store's answer. The video is sent and the store answers;
- * its refusal reaches the seller the way every other push failure does.
- *
- * What this class is for is the other half: the channels disagree, so a store
- * that will not take the catalog's video is given its own cut, and the catalog
- * and the other channels are left alone.
- */
 final class ListingVideo
 {
-    /**
-     * The video this listing sends: its own, else the catalog's, else none.
-     *
-     * @return ?array{path: string, name: string, bytes: int, duration_ms: ?int, own: bool}
-     */
     public static function forListing(int $productId, ?object $listing): ?array
     {
         if ((bool) ($listing->video_off ?? false)) {
@@ -51,7 +30,6 @@ final class ListingVideo
         ];
     }
 
-    /** A file on the disk, measured now, for a video a listing carries itself. */
     private static function describe(string $path, bool $own): ?array
     {
         $disk = \Illuminate\Support\Facades\Storage::disk('public');
@@ -68,7 +46,6 @@ final class ListingVideo
         ];
     }
 
-    /** What the card needs, ready to spread into a view's data. */
     public static function cardData(int $productId, ?object $listing): array
     {
         $video = self::forListing($productId, $listing);
@@ -85,14 +62,6 @@ final class ListingVideo
         ];
     }
 
-    /**
-     * A listing's video choice as submitted, ready to store.
-     *
-     * A path is kept only when the file is really there and really a video:
-     * a hidden input is client input, and this one is read at push time.
-     *
-     * @return array{video_path: ?string, video_off: bool}
-     */
     public static function submitted(\Illuminate\Http\Request $request): array
     {
         $path = trim((string) $request->input('video_path', ''));

@@ -1,7 +1,3 @@
-/*
- * Copy-to-clipboard for invoice-request fields.
- * Targets any [data-copy] button — gives a 1.5s confirmation flash.
- */
 function flashCopied(btn) {
     const original = btn.textContent;
     btn.classList.add('is-copied');

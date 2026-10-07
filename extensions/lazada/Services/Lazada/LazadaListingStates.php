@@ -13,31 +13,6 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-/**
- * The Lazada engine behind ListingState (Phase C, #184): one computation,
- * batch-shaped, that every Lazada surface renders from. It reads only the
- * ERP's own records - the lazada_products row (which carries the mirror
- * AND the settings, one row per listing), the catalogue row, the readiness
- * service - and never calls Lazada: freshness is the mirror's job (the
- * 30-minute automation, the Refresh button, and write-through on pushes).
- *
- * Lazada is structurally simpler than Shopee here: one row per listing,
- * status at item level, so there is no per-variation severity fold. The
- * raw vocabulary is Lazada's own lowercased words plus the ERP's honest
- * "missing" (uploaded once, no longer returned by the shop walk):
- *
- *   active → live · inactive → inactive · pending → reviewing
- *   rejected / sold-out / deleted / missing → attention
- *   null (never checked) → unknown
- *
- * sold-out is attention, not live: every offer at zero stock means buyers
- * cannot see the listing, and the fix (push stock) is the seller's move.
- *
- * Drift (#100): the catalogue moved after the last push from here, judged
- * on product.date_modified vs last_pushed_at for live and inactive rows.
- * A listing never pushed from the ERP has nothing to compare - inSync
- * stays null rather than pretending.
- */
 class LazadaListingStates
 {
     public function __construct(private readonly LazadaListingReadiness $readiness)
@@ -46,14 +21,8 @@ class LazadaListingStates
 
     private const ATTENTION_RAW = ['rejected', 'sold-out', 'deleted', 'missing'];
 
-    /** The store the error line reads and writes; null means the store the request stands in. */
     private ?int $storeId = null;
 
-    /**
-     * The same engine, fixed to one store. A loop over stores, a command
-     * or a store delete names the store it is about, so a write never
-     * lands on whichever store happens to be bound.
-     */
     public function forStore(object|int $store): self
     {
         $copy = clone $this;
@@ -63,7 +32,6 @@ class LazadaListingStates
         return $copy;
     }
 
-    /** Shorthand for app(self::class)->forStore($store). */
     public static function on(object|int $store): self
     {
         return app(self::class)->forStore($store);
@@ -74,24 +42,17 @@ class LazadaListingStates
         return $this->storeId ?? (int) (LazadaSetting::defaultStore()?->id ?? 0);
     }
 
-    /** This store's listing rows, named rather than left to the bound store. */
     private function storeRows(): \Illuminate\Database\Eloquent\Builder
     {
         return LazadaProduct::query()->withoutGlobalScope('lazadaStore')
             ->where('lazada_products.lazada_setting_id', $this->storeId());
     }
 
-    /** A product's row on the store: the linked one, else the newest. */
     private static function currentRow(Collection $rows): ?LazadaProduct
     {
         return $rows->first(fn ($l) => ! empty($l->lazada_item_id) && ! $l->unlinked_at) ?? $rows->last();
     }
 
-    /**
-     * What the last thing done with this product on this store came to.
-     * Null is a success and clears every error slot; a message is a
-     * failure and becomes the line.
-     */
     public function recordOutcome(int $productId, ?string $failure): void
     {
         if ($productId <= 0) {
@@ -119,12 +80,6 @@ class LazadaListingStates
         (new LazadaProduct())->forceFill(['product_id' => $productId, 'lazada_setting_id' => $storeId] + $values)->save();
     }
 
-    /**
-     * Clear every slot errors() reads for these products on this store,
-     * and the group pivot's error. A pivot marked unlinked is left alone.
-     *
-     * @param list<int> $productIds
-     */
     public function clearErrors(array $productIds): void
     {
         $productIds = array_values(array_unique(array_filter(array_map('intval', $productIds), fn ($v) => $v > 0)));
@@ -164,12 +119,6 @@ class LazadaListingStates
         }
     }
 
-    /**
-     * The products that draw an error line on this store, by the same
-     * errors() the line is drawn from, so the filter and the lines agree.
-     *
-     * @return list<int>
-     */
     public function erroredProductIds(): array
     {
         $storeId = $this->storeId();
@@ -201,13 +150,6 @@ class LazadaListingStates
         return $out;
     }
 
-    /**
-     * The shop's listing troubles in two numbers, for the dashboard chip.
-     * Aggregate SQL, not the per-product path: the dashboard must not walk
-     * two thousand rows.
-     *
-     * @return array{attention: int, drift: int}
-     */
     public function summary(): array
     {
         return [
@@ -216,12 +158,6 @@ class LazadaListingStates
         ];
     }
 
-    /**
-     * The listings showing a Catalog change: their catalog product moved
-     * since they were last compared, and the two differ.
-     *
-     * @return array<int, list<string>>  product id => the fields that differ
-     */
     private function catalogChanges(): array
     {
         return \App\Integrations\Listings\CatalogCopy::pending(
@@ -229,13 +165,6 @@ class LazadaListingStates
         );
     }
 
-    /**
-     * The rows behind a figure, by the SAME query that counted them
-     * (#240): the Listings page filters on this, so a dashboard number and
-     * the rows it leads to can never disagree.
-     *
-     * @return list<int>
-     */
     public function productIdsIn(string $bucket): array
     {
         if ($bucket === 'drift') {
@@ -247,7 +176,6 @@ class LazadaListingStates
             ->map(fn ($v) => (int) $v)->unique()->values()->all();
     }
 
-    /** One definition of each bucket, counted and listed from here. */
     private function bucket(string $bucket): \Illuminate\Database\Eloquent\Builder
     {
         $pfx = (string) config('catalog.prefix');
@@ -267,10 +195,6 @@ class LazadaListingStates
         return $linked->whereIn('live_status', self::ATTENTION_RAW);
     }
 
-    /**
-     * @param list<int> $productIds
-     * @return array<int, ListingState> keyed by product id
-     */
     public function forProducts(array $productIds): array
     {
         $productIds = array_values(array_unique(array_map('intval', $productIds)));
@@ -290,9 +214,6 @@ class LazadaListingStates
             ->whereIn('product_id', $productIds)
             ->pluck('date_modified', 'product_id');
 
-        // A product's row: prefer the one actually linked to Lazada; among
-        // the rest, the newest. (More than one row per product is rare but
-        // nothing forbids it.)
         $chosen = [];
         $notListedRows = collect();
         foreach ($productIds as $productId) {
@@ -308,10 +229,6 @@ class LazadaListingStates
             }
         }
 
-        // Readiness for every row, on Lazada or not (the owner, 2026-09-06, the
-        // Ready column): a listed row answers the update's checklist, which
-        // on Lazada is the create's; products with no row at all answer
-        // from the catalogue.
         $rowReadiness = $this->readiness->forListings(collect(array_values($chosen)));
         $catalogChanges = \App\Integrations\Listings\CatalogCopy::pending(array_values($chosen), 'lazada_products', LazadaProduct::copyColumns());
         $rowless = array_values(array_filter($productIds, fn ($id) => !isset($chosen[$id])));
@@ -322,8 +239,6 @@ class LazadaListingStates
             $listing = $chosen[$productId] ?? null;
             $pushedAt = $listing?->last_pushed_at ? Carbon::parse($listing->last_pushed_at) : null;
 
-            // One latest error per product (the owner, 2026-09-05): the last
-            // refusal, from whichever surface pushed, told on every surface.
             $failure = [];
             if ($listing && trim((string) ($listing->last_push_error ?? '')) !== '') {
                 $failedAt = $listing->last_push_failed_at ? Carbon::parse($listing->last_push_failed_at) : null;
@@ -383,15 +298,6 @@ class LazadaListingStates
         return $out;
     }
 
-    /**
-     * The error line: the message a Lazada listing on this store is
-     * carrying right now, or null when nothing is wrong. It is the outcome
-     * of the last thing done with the product here: recordOutcome writes a
-     * failure, any success clears every slot read below.
-     *
-     * @param list<int> $productIds
-     * @return array<int, ?string>
-     */
     public function errors(array $productIds): array
     {
         $productIds = array_values(array_unique(array_map('intval', $productIds)));
@@ -410,7 +316,6 @@ class LazadaListingStates
             if ($listing && trim((string) ($listing->last_push_error ?? '')) !== '') {
                 $found[] = [$listing->last_push_failed_at ? Carbon::parse($listing->last_push_failed_at) : Carbon::createFromTimestamp(0), trim((string) $listing->last_push_error)];
             }
-            // A failure with no saved message still says it failed.
             $failedSync = $rows->filter(fn ($r) => $r->last_sync_ok !== null && ! $r->last_sync_ok)
                 ->sortByDesc('last_synced_at')->first();
             if ($failedSync) {
@@ -418,7 +323,6 @@ class LazadaListingStates
                     trim((string) $failedSync->last_sync_error_message) ?: \App\Integrations\Push\PushLedger::NO_REASON];
             }
             usort($found, fn ($a, $b) => $b[0] <=> $a[0]);
-            // A sold variation the linked item does not hold rides beside it.
             $linked = $listing && !empty($listing->lazada_item_id) && !$listing->unlinked_at;
             $out[$pid] = ListingVariations::withMissing(
                 $found === [] ? null : $found[0][1],
@@ -429,13 +333,6 @@ class LazadaListingStates
         return $out;
     }
 
-    /**
-     * Remember the variation SKUs a store's item holds, as just read from
-     * Lazada. The parent's own SKU and model are not variations, and a
-     * product without variations has nothing to remember.
-     *
-     * @param iterable<string|null> $skus
-     */
     public static function rememberHeld(int $storeId, int $productId, iterable $skus): void
     {
         if ($storeId <= 0 || $productId <= 0) {

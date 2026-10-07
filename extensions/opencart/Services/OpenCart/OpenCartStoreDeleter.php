@@ -6,12 +6,6 @@ use Extensions\opencart\Models\OpenCartSetting;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Hard delete of an OpenCart store (the Shopee shape, #204, ported
- * 2026-09-06): one transaction takes everything the store owns in the
- * ERP. Core orders already imported stay, under the store's name.
- * Nothing on the OpenCart store itself is touched.
- */
 final class OpenCartStoreDeleter
 {
     private const TABLES = [
@@ -21,7 +15,6 @@ final class OpenCartStoreDeleter
         'opencart_product_groups',
     ];
 
-    /** @return array<string,int> rows removed per table */
     public function delete(OpenCartSetting $store): array
     {
         return DB::transaction(function () use ($store) {

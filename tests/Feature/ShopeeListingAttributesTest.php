@@ -15,18 +15,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * The mirrored attribute form (#98), Shopee, listing half: the category's
- * published attribute sheet renders on the listing page, the operator's
- * answers live on the listing, and every push resolves them against the
- * cached template into the attribute_list add_item / update_item expect -
- * enum answers by value_id, free text by original_value_name.
- */
 class ShopeeListingAttributesTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @var array<int, array{path: string, body: array}> */
     private array $sentPayloads = [];
 
     protected function setUp(): void
@@ -56,11 +48,6 @@ class ShopeeListingAttributesTest extends TestCase
             }
             public function shopGet(string $mode, int $partnerId, string $partnerKey, string $accessToken, int $shopId, string $path, array $extraQuery = []): array
             {
-                /* An EMPTY shop that answered, not a shop that refused. The
-                 * one-click push reconciles against the marketplace before
-                 * it creates (#244), and a refusal is deliberately read as
-                 * "we do not know what is up there", which blocks the push.
-                 * This fixture is a fresh shop, so it says so. */
                 if ($path === '/api/v2/product/get_item_list') {
                     return ['ok' => true, 'status' => 200, 'body' => ['error' => '', 'response' => ['item' => [], 'has_next_page' => false]]];
                 }
@@ -87,7 +74,6 @@ class ShopeeListingAttributesTest extends TestCase
         @mkdir(public_path('image/catalog'), 0775, true);
         file_put_contents(public_path('image/catalog/__attr-test.png'), 'png');
 
-        // The category's published sheet: one mandatory enum, one free text.
         ShopeeCategoryTemplate::query()->create([
             'category_id' => 106755,
             'region' => 'ph',
@@ -166,10 +152,6 @@ class ShopeeListingAttributesTest extends TestCase
         $r->assertSee('Category attributes');
         $r->assertSee('Brand Origin');
         $r->assertSee('Warranty Type');
-        /* Readiness used to name them in the note above. Health came off
-           this page on 2026-09-09 (the owner: "Nothing about health"), so what
-           is pinned is the sheet itself - the rows the operator answers -
-           and each required row still marks itself. */
         $r->assertDontSee('2 required attributes');
     }
 
@@ -199,8 +181,6 @@ class ShopeeListingAttributesTest extends TestCase
 
     public function test_the_listing_editor_renders_the_sheet_for_the_saved_category(): void
     {
-        /* The push form died in the one-editor merge (2026-09-03); the
-           listing editor is where the sheet is answered now. */
         $productId = $this->seedProduct();
         ShopeeListing::query()->create([
             'product_id' => $productId,
@@ -217,8 +197,6 @@ class ShopeeListingAttributesTest extends TestCase
 
     public function test_a_save_and_push_sends_the_answers_and_births_them_onto_the_listing(): void
     {
-        /* The one trip that replaced the form push: the answers are saved
-           onto the listing and ride its own push in the same submit. */
         $productId = $this->seedProduct();
 
         $this->actingAs($this->manager())->post(route('ext.shopee.listings.update', $productId), [

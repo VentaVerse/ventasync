@@ -4,10 +4,6 @@
 
 @section('content')
 @php
-    // UserGroupController@destroy refuses the Administrator group outright, and
-    // @update force-adds manage_settings / manage_user_groups / manage_users
-    // back onto it whatever the form posted. Both facts are said out loud
-    // rather than left for the operator to discover from a bounced flash.
     $isAdminGroup = strtolower($group->name) === 'administrator';
 @endphp
 
@@ -64,9 +60,6 @@
         @unless($isAdminGroup)
         <div class="fm-head__actions">
             <x-ui.menu label="{{ $group->name }} actions">
-                {{-- Destroy sits behind the overflow menu and the shared confirm
-                     dialog, driving a form outside this one. It is refused
-                     server-side while any user is still assigned to the group. --}}
                 <button type="button" class="x-menu__item x-menu__item--danger"
                         data-confirm="Delete {{ $group->name }}? Everyone still in this group has to be moved out first. This cannot be undone."
                         data-confirm-submit="st-group-delete-form">Delete group</button>
@@ -75,8 +68,6 @@
         @endunless
     </div>
 
-    {{-- One column, not the usual main plus side split: the permission editor
-         is the page, and a 320px side rail would squeeze every pill row. --}}
     <div class="fm-body">
         <div class="fm-col">
 

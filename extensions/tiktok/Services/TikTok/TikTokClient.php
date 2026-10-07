@@ -14,8 +14,6 @@ class TikTokClient
         return self::BASE_URL;
     }
 
-    // -- Auth URL ---------------------------------------------------------
-
     public function authUrl(string $appKey, ?string $state = null): string
     {
         $state = $state ?: (string) random_int(100000, 999999);
@@ -25,8 +23,6 @@ class TikTokClient
             'state' => $state,
         ]);
     }
-
-    // -- Token Exchange ---------------------------------------------------
 
     public function getToken(string $appKey, string $appSecret, string $authCode): array
     {
@@ -46,8 +42,6 @@ class TikTokClient
         ];
     }
 
-    // -- Token Refresh ----------------------------------------------------
-
     public function refreshToken(string $appKey, string $appSecret, string $refreshToken): array
     {
         $url = self::AUTH_HOST . '/api/v2/token/refresh';
@@ -66,17 +60,12 @@ class TikTokClient
         ];
     }
 
-    // -- Signature Generation ---------------------------------------------
-
     public function generateSign(string $path, array $params, ?string $body, string $appSecret): string
     {
-        // Remove excluded keys
         unset($params['sign'], $params['access_token']);
 
-        // Sort remaining params alphabetically by key
         ksort($params);
 
-        // Build sign string: app_secret + path + key1value1key2value2... + body + app_secret
         $signString = $appSecret . $path;
         foreach ($params as $k => $v) {
             if ($v === null) continue;
@@ -89,8 +78,6 @@ class TikTokClient
 
         return hash_hmac('sha256', $signString, $appSecret);
     }
-
-    // -- Signed GET -------------------------------------------------------
 
     public function get(string $appKey, string $appSecret, string $accessToken, string $path, array $extraParams = [], ?string $shopCipher = null): array
     {
@@ -116,8 +103,6 @@ class TikTokClient
             'body' => $response->json() ?? $response->body(),
         ];
     }
-
-    // -- Signed POST ------------------------------------------------------
 
     public function post(string $appKey, string $appSecret, string $accessToken, string $path, array $queryParams = [], array $body = [], ?string $shopCipher = null): array
     {
@@ -149,8 +134,6 @@ class TikTokClient
         ];
     }
 
-    // -- Signed PUT -------------------------------------------------------
-
     public function put(string $appKey, string $appSecret, string $accessToken, string $path, array $queryParams = [], array $body = [], ?string $shopCipher = null): array
     {
         $params = array_merge($queryParams, [
@@ -181,8 +164,6 @@ class TikTokClient
         ];
     }
 
-    // -- Categories -------------------------------------------------------
-
     public function getCategories(string $appKey, string $appSecret, string $accessToken, ?string $shopCipher = null): array
     {
         return $this->get($appKey, $appSecret, $accessToken, '/product/202309/categories', ['category_version' => 'v2'], $shopCipher);
@@ -201,8 +182,6 @@ class TikTokClient
         }
         return $this->post($appKey, $appSecret, $accessToken, '/product/202309/categories/recommend', [], $body, $shopCipher);
     }
-
-    // -- Products ---------------------------------------------------------
 
     public function searchProducts(string $appKey, string $appSecret, string $accessToken, int $pageSize = 20, ?string $pageToken = null, ?string $shopCipher = null): array
     {
@@ -225,8 +204,6 @@ class TikTokClient
     {
         return $this->put($appKey, $appSecret, $accessToken, '/product/202309/products/' . $productId, [], $data, $shopCipher);
     }
-
-    // -- Signed DELETE ----------------------------------------------------
 
     public function delete(string $appKey, string $appSecret, string $accessToken, string $path, array $queryParams = [], array $body = [], ?string $shopCipher = null): array
     {
@@ -263,8 +240,6 @@ class TikTokClient
         return $this->delete($appKey, $appSecret, $accessToken, '/product/202309/products', [], ['product_ids' => $productIds], $shopCipher);
     }
 
-    // -- Price & Stock ----------------------------------------------------
-
     public function updatePrice(string $appKey, string $appSecret, string $accessToken, string $productId, array $skus, ?string $shopCipher = null): array
     {
         return $this->post($appKey, $appSecret, $accessToken, '/product/202309/products/' . $productId . '/prices/update', [], ['skus' => $skus], $shopCipher);
@@ -275,15 +250,12 @@ class TikTokClient
         return $this->post($appKey, $appSecret, $accessToken, '/product/202309/products/' . $productId . '/inventory/update', [], ['skus' => $skus], $shopCipher);
     }
 
-    // -- Orders -----------------------------------------------------------
-
     public function searchOrders(string $appKey, string $appSecret, string $accessToken, int $pageSize, array $body = [], ?string $shopCipher = null): array
     {
-        // page_size is a query param; dates (create_time_ge, create_time_lt, next_page_token) are POST body
         return $this->post($appKey, $appSecret, $accessToken, '/order/202309/orders/search', ['page_size' => $pageSize], $body, $shopCipher);
     }
 
-    /** Get Order Detail: a GET with the order ids in the query, at most 50. */
+    // Get Order Detail is a GET with the order ids in the query, at most 50.
     public function getOrderDetail(string $appKey, string $appSecret, string $accessToken, array $orderIds, ?string $shopCipher = null): array
     {
         return $this->get($appKey, $appSecret, $accessToken, '/order/202507/orders', [
@@ -291,15 +263,10 @@ class TikTokClient
         ], $shopCipher);
     }
 
-    // -- Finance ----------------------------------------------------------
-
     public function getOrderStatementTransactions(string $appKey, string $appSecret, string $accessToken, string $orderId, ?string $shopCipher = null): array
     {
-        // Get Transactions by Order, 202501: the 202309 version was shut off on 2025-12-31.
         return $this->get($appKey, $appSecret, $accessToken, '/finance/202501/orders/' . $orderId . '/statement_transactions', [], $shopCipher);
     }
-
-    // -- Fulfillment ------------------------------------------------------
 
     public function shipPackage(string $appKey, string $appSecret, string $accessToken, string $orderId, array $packageData, ?string $shopCipher = null): array
     {
@@ -320,17 +287,11 @@ class TikTokClient
         return $this->get($appKey, $appSecret, $accessToken, '/fulfillment/202309/orders/' . $orderId . '/tracking', [], $shopCipher);
     }
 
-    // -- Images -----------------------------------------------------------
-
     public function uploadImage(string $appKey, string $appSecret, string $accessToken, string $imageData, ?string $shopCipher = null): array
     {
         return $this->sendImage($appKey, $appSecret, $accessToken, $imageData, $shopCipher, null);
     }
 
-    /**
-     * A picture for use inside a product description. TikTok answers with
-     * a url for the img tag, and the width and height it stored.
-     */
     public function uploadDescriptionImage(string $appKey, string $appSecret, string $accessToken, string $imageData, ?string $shopCipher = null): array
     {
         return $this->sendImage($appKey, $appSecret, $accessToken, $imageData, $shopCipher, 'DESCRIPTION_IMAGE');
@@ -346,7 +307,6 @@ class TikTokClient
             $params['shop_cipher'] = $shopCipher;
         }
 
-        // Image upload uses multipart — sign without body
         $params['sign'] = $this->generateSign('/product/202309/images/upload', $params, null, $appSecret);
 
         $url = self::BASE_URL . '/product/202309/images/upload?' . http_build_query($params);

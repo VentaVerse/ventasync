@@ -41,13 +41,9 @@ class VentaPushStock extends Command implements \App\Integrations\Contracts\Step
                 continue;
             }
 
-            /* The one sender every Venta stock and price path uses: only the
-             * variations this store sells go up, and one the store's item
-             * lacks is named on its listing rather than failing the product. */
             $r = VentaStockPricePush::for($setting)->push($pids, true, false);
             VentaStockPricePush::recordOutcomes((int) $setting->id, $r['outcomes']);
 
-            // Stamped even when some rows failed: it answers when this last ran.
             $setting->update(['last_stock_push_at' => now()]);
 
             $this->info("  Done. OK: {$r['ok']}, Failed: {$r['failed']}, Skipped: {$r['skipped']}");
@@ -56,7 +52,6 @@ class VentaPushStock extends Command implements \App\Integrations\Contracts\Step
         return 0;
     }
 
-    /** Run now walks this push ten products per request (SteppableAutomation, 2026-09-07). */
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
         return ['label' => 'products', 'units' => \Extensions\venta\Services\Venta\VentaPushSteps::units($job)];

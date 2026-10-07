@@ -3,15 +3,8 @@
 
 @section('content')
 @php
-    // The same row every layout reads, shared with every view by
-    // AppServiceProvider. Not config('app.name'), which is still "Laravel"
-    // in this install and would be printed on paper.
     $companyName = $appSetting->company_name ?? 'VentaSync';
 @endphp
-{{-- ONE SHEET PER ORDER, unlike the pick list.
-     A packing list goes in the box, so it can only ever describe the order
-     it travels with. The print stylesheet forces a page break between
-     sheets for exactly that reason. --}}
 @foreach($orders as $o)
     <div class="pl-page">
         <div class="pl-masthead">

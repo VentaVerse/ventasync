@@ -3,8 +3,6 @@
 
 @section('content')
 @php
-    // Real, distinct route-middleware tiers here (routes/catalog.php), same
-    // as Categories - unlike the documented view_products gap.
     $canManageManufacturers = auth()->user()?->hasPermission('manage_catalog/manufacturer') ?? false;
 
     $hasFilters = $q !== '';
@@ -30,9 +28,6 @@
     }">
 
 @if($canManageManufacturers)
-    {{-- ManufacturerController@bulkDestroy is the only bulk endpoint (ids[]
-         only, no action field) - there is no bulk enable/disable, since
-         manufacturers carry no status column. --}}
     <form id="manufacturer-bulk-form" method="POST" action="{{ route('manufacturers.bulk_delete') }}" x-ref="bulkForm">
         @csrf
     </form>

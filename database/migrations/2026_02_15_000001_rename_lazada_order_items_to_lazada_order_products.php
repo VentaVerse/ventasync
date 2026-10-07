@@ -8,7 +8,6 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Rename table to align terminology with the ERP domain ("products").
         if (Schema::hasTable('lazada_order_items') && !Schema::hasTable('lazada_order_products')) {
             Schema::rename('lazada_order_items', 'lazada_order_products');
         }

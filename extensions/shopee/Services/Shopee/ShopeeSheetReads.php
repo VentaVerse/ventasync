@@ -8,10 +8,8 @@ use Extensions\shopee\Models\ShopeeCategoryTemplate;
 use Extensions\shopee\Models\ShopeeListing;
 use Extensions\shopee\Models\ShopeeProductGroup;
 
-/** The attribute sheets this store's listings and groups use and have never read. */
 class ShopeeSheetReads
 {
-    /** @return array{read: int, failed: int, left: int, summary: string} */
     public function readMissing(array $auth, ShopeeClient $client, int $limit = SheetReads::PER_RUN): array
     {
         $wanted = ShopeeListing::query()->whereNotNull('shopee_category_id')->distinct()->pluck('shopee_category_id')

@@ -5,22 +5,6 @@ namespace Extensions\shopee\Services\Shopee;
 use Carbon\Carbon;
 use Extensions\shopee\Models\ShopeeSetting;
 
-/**
- * The money at Shopee for one store, in Shopee Seller Center's own words
- * (the owner, 2026-10-01: accuracy, not normalisation). Every figure matched his
- * Seller Center screenshots on 1 Oct 2026 to the centavo:
- *
- *   Seller Balance          (Balance Overview) current_balance on the newest
- *                           wallet transaction
- *   Pending · Total         (Income Overview) get_income_overview pending_amount
- *   Released · This Week    escrow credited since Monday, net of the escrow
- *                           deductions (ESCROW_VERIFIED_MINUS) Shopee takes
- *   Released · This Month   the same since the 1st
- *   Released · Total        get_income_overview released_amount
- *
- * Read live, never stored: a page that cannot reach Shopee says so instead
- * of showing an old balance. PayoutBalances keeps the last good read.
- */
 class ShopeeBalance
 {
     private const WALLET = '/api/v2/payment/get_wallet_transaction_list';
@@ -31,7 +15,6 @@ class ShopeeBalance
 
     private const MAX_PAGES = 30;
 
-    /** How far back to look for the newest wallet line when the month is quiet. */
     private const QUIET_WINDOWS = 8;
 
     private const RELEASE_TYPES = ['ESCROW_VERIFIED_ADD', 'ESCROW_VERIFIED_MINUS'];
@@ -40,9 +23,6 @@ class ShopeeBalance
     {
     }
 
-    /**
-     * @return array{ok: bool, error?: string, lead?: array, facts?: list<array>}
-     */
     public function read(ShopeeSetting $store): array
     {
         $auth = ShopeeSetting::activeAuth($store->decrypted());
@@ -65,7 +45,6 @@ class ShopeeBalance
         }
 
         $newest = $this->newest($lines);
-        // A month with no wallet line yet: step back until the last one.
         for ($i = 0, $to = $from->getTimestamp() - 1; $newest === null && $i < self::QUIET_WINDOWS; $i++, $to -= self::WINDOW_SECONDS) {
             $read = $this->wallet($auth, $to - self::WINDOW_SECONDS + 1, $to, 1);
             if (is_string($read)) {
@@ -107,12 +86,6 @@ class ShopeeBalance
         ];
     }
 
-    /**
-     * Every wallet line in one window (newest first, as Shopee lists them),
-     * or why Shopee refused.
-     *
-     * @return list<array<string, mixed>>|string
-     */
     private function wallet(array $auth, int $from, int $to, int $maxPages): array|string
     {
         $lines = [];

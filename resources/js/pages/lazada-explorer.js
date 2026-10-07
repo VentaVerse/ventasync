@@ -1,36 +1,3 @@
-/*
- * Lazada API explorer (the "API explorer" section of the Lazada settings page).
- *
- * Ported, unchanged in behaviour, from the inline <script> that used to sit at
- * the bottom of extensions/lazada/views/index.blade.php. That view has been
- * rebuilt on the design tokens and left the .x-legacy boundary, and this
- * project does not put behaviour in Blade.
- *
- * Why this is its own file rather than a branch inside channel-settings.js.
- * The tabs, the environment switch, the API-logging toggle and the
- * select-on-click redirect field are the same object on every channel, so they
- * stay shared. The explorer is not: Lazada's differs from Shopee's in ways
- * that are the wire, not the styling.
- *
- *   1. Lazada posts ONE auth flag, `auth_required`, and defaults it off.
- *      Shopee posts two, `use_access_token` and `use_shop_id`, both on.
- *   2. Lazada submits TWO JSON fields. `params_json_pretty` is the textarea a
- *      person edits, where a `payload` value is shown as a real nested object
- *      so it can be read. `params_json` is the hidden field the controller
- *      actually validates, where `payload` is re-flattened to the single
- *      string Lazada's API requires. Collapsing those two into one would
- *      change what LazadaController::explorerRun() receives.
- *   3. A parameter named `payload` gets a textarea instead of a text input,
- *      because it holds a whole JSON or XML document.
- *   4. Some endpoints offer a sample payload; the button that inserts it is
- *      hidden for the ones that do not.
- *
- * The wire is unchanged: same method / api_path / auth_required /
- * params_json_pretty / params_json field names, same payload normalisation,
- * same "rebuild from JSON if the JSON box was the last thing edited" rule on
- * submit.
- */
-
 function safeJsonParse(text) {
     try { return JSON.parse(text); } catch (e) { return null; }
 }
@@ -39,11 +6,7 @@ function isObject(value) {
     return value !== null && typeof value === 'object';
 }
 
-/*
- * A `payload` that arrived as an escaped string. Lazada's own console hands
- * these out with literal \n and \" sequences in them, and an operator pasting
- * one should see the document, not the escaping.
- */
+// Lazada's console hands out payloads with literal \n and \" escapes; unescape before showing.
 function tryParsePayloadString(value) {
     if (typeof value !== 'string') return null;
 
@@ -70,10 +33,6 @@ function tryParsePayloadString(value) {
     return null;
 }
 
-/*
- * The two views of one parameter set: `pretty` for the person, `hidden` for
- * the controller. They differ only in how `payload` is carried.
- */
 function buildPrettyAndHidden(source) {
     const pretty = JSON.parse(JSON.stringify(source || {}));
     const hidden = JSON.parse(JSON.stringify(source || {}));
@@ -155,8 +114,6 @@ export function initLazadaExplorer(root) {
 
     if (!kvBody || !prettyBox) return;
 
-    // Which of the two editors the operator touched last. On submit, a JSON
-    // box that was edited by hand wins over a stale table.
     let lastEdited = 'table';
 
     function clearRows() {
@@ -173,8 +130,6 @@ export function initLazadaExplorer(root) {
 
             const raw = valEl ? valEl.value : '';
             if (key.toLowerCase() === 'payload') {
-                // Never re-parsed here: a payload is carried as the operator
-                // typed it and normalised once, in buildPrettyAndHidden.
                 out[key] = raw;
                 return;
             }
@@ -210,8 +165,6 @@ export function initLazadaExplorer(root) {
         const tdVal = document.createElement('td');
         let valInput;
         if (String(key || '').toLowerCase() === 'payload') {
-            // A payload is a whole JSON or XML document, so it gets a box it
-            // can be read in rather than a one-line field.
             valInput = document.createElement('textarea');
             valInput.className = 'x-input api-code';
             valInput.rows = 6;
@@ -254,8 +207,6 @@ export function initLazadaExplorer(root) {
 
     function select(ep, trigger) {
         if (methodSel) methodSel.value = (ep.method || 'GET').toUpperCase();
-        // Lazada defaults auth OFF: several of its catalog endpoints are
-        // public and signing them with a token fails.
         if (authBox) authBox.checked = !!ep.auth;
         if (pathInput) pathInput.value = ep.path || '';
         if (nameEl) nameEl.textContent = ep.name || 'Selected';
@@ -343,8 +294,6 @@ export function initLazadaExplorer(root) {
         });
     }
 
-    // First paint: normalise whatever the server rendered into the two boxes
-    // and seed the table from it, exactly as the inline original did.
     const seeded = safeJsonParse(prettyBox.value || '');
     if (seeded && typeof seeded === 'object') {
         rebuildFromJson();

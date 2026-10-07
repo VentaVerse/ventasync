@@ -13,13 +13,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * Every listing action preflights its prerequisites (#191). The owner's own
- * failure, verbatim: relisting hit "parcel size is required" as an API
- * error AFTER the press, then each fix surfaced the next error. What is
- * knowable in advance is refused in advance, by name, with the fix
- * named too - and the marketplace is never asked.
- */
 class ShopeePreflightTest extends TestCase
 {
     use RefreshDatabase;
@@ -87,7 +80,7 @@ class ShopeePreflightTest extends TestCase
 
     public function test_a_relist_that_shopee_would_refuse_is_refused_here_first(): void
     {
-        $pid = $this->seedProduct('PF-1', 0, 0); // no parcel at all
+        $pid = $this->seedProduct('PF-1', 0, 0);
         ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 700, 'live_status' => 'UNLIST']);
 
         $r = $this->actingAs($this->manager())

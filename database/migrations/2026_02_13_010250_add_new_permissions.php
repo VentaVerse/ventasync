@@ -14,7 +14,6 @@ return new class extends Migration
             ['key' => 'manage_lazada', 'label' => 'Manage Lazada'],
             ['key' => 'manage_users', 'label' => 'Manage Users'],
             ['key' => 'manage_user_groups', 'label' => 'Manage User Groups'],
-            // Backwards compatible umbrella
             ['key' => 'manage_users_groups', 'label' => 'Manage Users & Groups'],
         ];
 
@@ -25,6 +24,5 @@ return new class extends Migration
 
     public function down(): void
     {
-        // no-op
     }
 };

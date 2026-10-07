@@ -6,31 +6,8 @@ use Extensions\venta\Models\VentaProductGroup;
 use Extensions\venta\Models\VentaSetting;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Ask a Venta store about these products and make the ERP agree - the
- * group page's check, extracted whole so the Listings workbench runs
- * the same sweep (the one-workbench rule the Big 3 already follow,
- * #184/#194). The reconcile itself has always lived on
- * VentaProductPush; this owns the loop, the verdict filing and the
- * honest summary.
- *
- * Reads only, toward Venta: it confirms, adopts, repoints or drops
- * LINKS and refreshes the pivot mirrors; it writes nothing to the
- * storefront.
- */
 class VentaLinkCheck
 {
-    /**
-     * The next page of this store's links, checked (the owner, 2026-09-07).
-     * Both the Refresh button and the scheduled refresh call this, which is
-     * what stops them from drifting apart: the cron used to re-read statuses
-     * and never re-run the check, so a failed check could not clear itself
-     * and a row kept a six-month-old refusal until somebody pressed the
-     * button. The cursor caps a run at two hundred and continues where the
-     * last one stopped.
-     *
-     * @return ?array the check's own result, or null when nothing is linked
-     */
     public function runNext(VentaSetting $setting): ?array
     {
         $linked = \Extensions\venta\Models\VentaProductLink::query()->where('venta_setting_id', $setting->id)
@@ -40,7 +17,6 @@ class VentaLinkCheck
         return $linked !== [] ? $this->run($setting, $linked) : null;
     }
 
-    /** @return array{tone: 'status'|'warning'|'error', summary: string} */
     public function run(VentaSetting $setting, array $ids): array
     {
         $settingId = (int) $setting->id;
@@ -51,10 +27,6 @@ class VentaLinkCheck
         $verdicts = [];
         $clashes = [];
 
-        // A ceiling, because this runs in a web request and each product costs
-        // a round trip. It is reported rather than applied quietly: a check
-        // that silently examined the first 200 of 500 would leave the operator
-        // believing the other 300 had been confirmed.
         $limit = 200;
         $skippedForSize = max(0, count($ids) - $limit);
         $ids = array_slice($ids, 0, $limit);
@@ -73,9 +45,6 @@ class VentaLinkCheck
             $verdicts[$state] = ($verdicts[$state] ?? 0) + 1;
 
             if ($state === 'unreachable') {
-                // Venta never answered, so nothing is known and nothing is
-                // written. The row keeps whatever it said before, which is
-                // honest: it was always a belief and it still is.
                 continue;
             }
 
@@ -91,8 +60,6 @@ class VentaLinkCheck
             }
 
             if ($state === 'lost') {
-                // reconcileLink has already dropped the dead link. The row goes
-                // back to not-pushed, which is what it truthfully is.
                 $this->writeProductStatus($settingId, $pid, [
                     'sync_status' => 'pending',
                     'push_error' => null,
@@ -113,8 +80,6 @@ class VentaLinkCheck
                 continue;
             }
 
-            // confirmed, adopted, repointed: Venta has it and the link is right.
-            // A read never clears the listing's error; only a write to the store does.
             $this->writeProductStatus($settingId, $pid, [
                 'sync_status' => 'pushed',
                 'venta_sku' => $verdict['sku'],
@@ -125,8 +90,6 @@ class VentaLinkCheck
 
         $checked = count($ids) - ($verdicts['unreachable'] ?? 0);
 
-        // The message reports FINDINGS. Nothing here pushed anything, so it
-        // must not imply that anything was fixed on Venta's side.
         $parts = [];
         if (! empty($verdicts['confirmed'])) {
             $parts[] = $verdicts['confirmed'] . ' still on ' . $storeName;
@@ -170,7 +133,6 @@ class VentaLinkCheck
         return ['tone' => $tone, 'summary' => $msg];
     }
 
-    /** The store-wide pivot write the group page has always done. */
     private function writeProductStatus(int $settingId, int $productId, array $attributes): void
     {
         \App\Support\ChannelProductStatus::write(

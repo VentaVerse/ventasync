@@ -7,11 +7,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
-/**
- * A description picture a store would refuse goes up as a fitted copy; one
- * it accepts goes up untouched; the original is never changed. Product
- * pictures go as square push copies (ImageCacheTest).
- */
 class StoreReadyImagesTest extends TestCase
 {
     use RefreshDatabase;
@@ -22,7 +17,6 @@ class StoreReadyImagesTest extends TestCase
         Storage::fake('public');
     }
 
-    /** A noisy photo, which JPEG cannot compress well: over 1 MB at full quality. */
     private function heavyPhoto(string $path, int $side = 1400): void
     {
         $image = imagecreatetruecolor($side, $side);

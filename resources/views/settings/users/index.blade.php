@@ -4,11 +4,6 @@
 
 @section('content')
 @php
-    // routes/settings.php gates the list on view_users|manage_users and every
-    // write on manage_users specifically, so the manage tier is a real,
-    // reachable state here. The pre-redesign view hardcoded
-    // $canManageUsers = true, which offered Edit and Delete to a read-tier
-    // operator and let the route bounce them afterwards.
     $canManageUsers = auth()->user()?->hasPermission('manage_settings/user') ?? false;
 
     $hasFilters = ($q ?? '') !== '';
@@ -60,8 +55,6 @@
 
     @foreach($users as $u)
         @php
-            // UserController@destroy refuses both of these, so the menu never
-            // offers a delete the server would bounce back with a flash.
             $isAdminAccount = ($u->userGroup->name ?? '') === 'Administrator';
             $isSelf = $currentUserId !== null && (int) $currentUserId === (int) $u->id;
             $canDelete = $canManageUsers && !$isAdminAccount && !$isSelf;
@@ -110,9 +103,6 @@
     @endforeach
 </x-ui.table>
 
-{{-- Delete forms live outside the table. A <form> inside a <td> inside the
-     menu panel is legal, but hoisting them keeps every row's markup the same
-     shape whether or not that row may be deleted. --}}
 @if($canManageUsers)
     @foreach($users as $u)
         @if(($u->userGroup->name ?? '') !== 'Administrator' && (int) auth()->id() !== (int) $u->id)

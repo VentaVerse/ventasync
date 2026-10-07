@@ -5,22 +5,11 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * The Lazada listing status MIRROR (the owner, 2026-08-28), the same shape as
- * Shopee's: the marketplace's own status kept on the listing row,
- * refreshed every 30 minutes by the "Refresh Listing Status" automation
- * seeded below, on demand from the page, and written through by every
- * activate and deactivate the ERP makes. A page view asks Lazada for
- * nothing.
- */
 return new class extends Migration
 {
     public function up(): void
     {
         Schema::table('lazada_products', function (Blueprint $table) {
-            // Lazada's own status word: active, inactive, pending, rejected,
-            // sold-out, deleted, or missing when the shop no longer returns
-            // the item. Null until the first refresh.
             $table->string('live_status', 24)->nullable()->after('lazada_item_id');
             $table->timestamp('live_checked_at')->nullable()->after('live_status');
             $table->index('live_status');

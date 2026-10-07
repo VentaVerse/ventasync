@@ -15,15 +15,12 @@ class TikTokController extends Controller
 {
     use \App\Http\Controllers\Concerns\ReturnsToSettingsTab;
 
-    /** The settings page of the store this request stands in, for ReturnsToSettingsTab. */
     protected function settingsTabRoute(): array
     {
         $store = TikTokSetting::defaultStore();
 
         return ['ext.tiktok.index', $store ? ['store' => $store->id] : []];
     }
-
-    // -- Token save helper ------------------------------------------------
 
     private function saveTokenData(TikTokSetting $raw, bool $sandbox, array $tokenData): void
     {
@@ -43,8 +40,7 @@ class TikTokController extends Controller
         if ($refresh) {
             $raw->$refreshCol = encrypt((string) $refresh);
         }
-        // TikTok returns Unix timestamps, not seconds-from-now
-        // Cap at 2037-12-31 to avoid MySQL TIMESTAMP overflow (max 2038-01-19)
+        // TikTok returns Unix timestamps, not seconds from now; cap at 2037-12-31 to avoid MySQL TIMESTAMP overflow.
         $maxTs = \Carbon\Carbon::create(2037, 12, 31, 23, 59, 59);
 
         if (is_numeric($expiresIn)) {
@@ -63,18 +59,14 @@ class TikTokController extends Controller
         $raw->save();
     }
 
-    // -- Settings page (3-tab view) ---------------------------------------
-
     public function index()
     {
         $setting = TikTokSetting::defaultStore();
 
-        // #200: the shared log panel - errors-only and path filters, paged.
         $logs = \App\Support\ApiLogPanel::paginate(
             TikTokApiLog::query(), 'api_path', fn ($q) => $q->where('ok', 0)
         );
 
-        // Order status mapping data
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
@@ -97,8 +89,6 @@ class TikTokController extends Controller
             'CANCELLED'           => 'Cancelled',
         ];
 
-        // The return status map (#156): when a synced return holds one of
-        // these statuses, its sales order takes the status chosen here.
         $tikTokReturnStatuses = [];
         foreach (\Extensions\tiktok\Services\TikTokReturnsPanel::STATUS_MAP as $key => [$label, $tone]) {
             $tikTokReturnStatuses[$key] = $label;
@@ -119,18 +109,11 @@ class TikTokController extends Controller
         ]);
     }
 
-    /**
-     * Canonical TikTok OAuth redirect URI for this install. Force HTTPS — TikTok
-     * Shop requires it, and the URL must byte-match what is registered in the
-     * TikTok Shop developer console. Derive from route() rather than letting the
-     * user type it: typos silently break OAuth.
-     */
+    // Must be HTTPS and byte-match the URI registered in the TikTok Shop console; derive it, never let a user type it.
     private function computedRedirectUri(): string
     {
         return preg_replace('/^http:/i', 'https:', route('ext.tiktok.callback'));
     }
-
-    // -- Save credentials -------------------------------------------------
 
     public function save(Request $request)
     {
@@ -146,8 +129,6 @@ class TikTokController extends Controller
         ]);
 
         $setting = TikTokSetting::defaultStore() ?? new TikTokSetting();
-        // The store's own name and switch (multi-store), saved with the
-        // production credentials form that carries them.
         if (array_key_exists('store_name', $data) && $data['store_name'] !== null) {
             $setting->store_name = $data['store_name'];
         }
@@ -158,16 +139,9 @@ class TikTokController extends Controller
         $env = $data['env'] ?? 'live';
         $setting->mode = $env;
 
-        // Credential fields are masked in the form (value="" + placeholder).
-        // A blank submission means "keep existing" — never wipe stored creds
-        // just because the user re-saved the form without typing them in.
         if ($env === 'live') {
             if (!empty($data['app_key']))    $setting->app_key = $data['app_key'];
             if (!empty($data['app_secret'])) $setting->app_secret = encrypt(trim($data['app_secret']));
-            // The form has never carried a region field (getShops() writes
-            // it instead), so an absent key here means "no opinion", not
-            // "clear it" - matching how app_key/app_secret above are left
-            // untouched when the form does not carry them.
             if (!empty($data['region']))     $setting->region = $data['region'];
         } else {
             if (!empty($data['sandbox_app_key']))    $setting->sandbox_app_key = $data['sandbox_app_key'];
@@ -178,13 +152,8 @@ class TikTokController extends Controller
 
         $label = $env === 'sandbox' ? 'Sandbox' : 'Production';
 
-        // Back to THIS store's page (the owner, live 2026-09-07): a bare index
-        // route filled its {store} from URL::defaults, which the save itself
-        // had just re-pointed at the first store.
         return $this->redirectToSettings()->with('status', "{$label} settings saved.");
     }
-
-    // -- Toggle mode ------------------------------------------------------
 
     public function toggleMode(Request $request)
     {
@@ -198,15 +167,8 @@ class TikTokController extends Controller
         return $this->redirectToSettings()->with('status', "Switched to {$label} mode.");
     }
 
-    // -- Redirect to TikTok auth ------------------------------------------
-
     public function redirectToAuth(Request $request, TikTokClient $client)
     {
-        /* Which store is consenting (multi-store, the owner 2026-09-05): named by
-         * ?store= from that store's own settings page, else the default. Bound
-         * for the request, and carried through OAuth in the `state` parameter,
-         * because TikTok's callback URL is one fixed URL for the whole install
-         * and the grant comes back with no other context. Mirrors Lazada. */
         $raw = $request->query('store')
             ? TikTokSetting::query()->find((int) $request->query('store'))
             : TikTokSetting::defaultStore();
@@ -226,8 +188,6 @@ class TikTokController extends Controller
             ]);
         }
 
-        // state = "{storeId}.{sandbox}.{nonce}.{hmac}", signed so the callback
-        // can trust the store it names without leaning on the session.
         $state = self::oauthStateToken((int) $raw->id, $sandbox);
         session(['tiktok_oauth_sandbox' => $sandbox]);
 
@@ -236,11 +196,6 @@ class TikTokController extends Controller
         return redirect()->away($url);
     }
 
-    /**
-     * Where a settings write lands (multi-store, the owner 2026-09-05): the
-     * settings page of the store it acted on. Falls back to the module page
-     * when no store exists to name.
-     */
     private function redirectToSettings()
     {
         $store = TikTokSetting::defaultStore();
@@ -250,12 +205,6 @@ class TikTokController extends Controller
             : redirect()->route('channels.module', ['module' => 'tiktok']);
     }
 
-    /**
-     * Build the signed OAuth state that carries the consenting store through
-     * TikTok's fixed callback URL: "{storeId}.{sandbox}.{nonce}.{hmac}", the
-     * hmac keyed on the app key over the first three parts. See
-     * LazadaController::oauthStateToken - the same design.
-     */
     public static function oauthStateToken(int $storeId, bool $isSandbox): string
     {
         $payload = $storeId . '.' . ($isSandbox ? '1' : '0') . '.' . Str::random(24);
@@ -263,11 +212,6 @@ class TikTokController extends Controller
         return $payload . '.' . hash_hmac('sha256', $payload, (string) config('app.key'));
     }
 
-    /**
-     * Verify and decode a signed OAuth state. Returns ['store_id', 'sandbox']
-     * only when the signature checks out; null for anything forged, tampered,
-     * malformed, or absent.
-     */
     private function parseOAuthState(string $state): ?array
     {
         if (! preg_match('/^(\d+)\.([01])\.([A-Za-z0-9]+)\.([0-9a-f]{64})$/', $state, $m)) {
@@ -282,12 +226,6 @@ class TikTokController extends Controller
         return ['store_id' => (int) $m[1], 'sandbox' => $m[2] === '1'];
     }
 
-    /**
-     * Recover the consenting store from a VERIFIED state and bind it for the
-     * request, so every defaultStore() read and route() link lands on it. An
-     * absent state falls back to the default store; a PRESENT but invalid state
-     * never reaches here (callback refuses it first).
-     */
     private function bindStoreFromState(string $state): array
     {
         $parsed = $this->parseOAuthState($state);
@@ -304,12 +242,6 @@ class TikTokController extends Controller
         return [TikTokSetting::defaultStore()?->id, (bool) session('tiktok_oauth_sandbox', false)];
     }
 
-    /**
-     * Add a TikTok store from the Integrations board's Add store modal
-     * (multi-store, the owner 2026-09-05). The fewest questions: a name only. The
-     * row is born disabled - app key/secret, region and the OAuth grant are
-     * filled on its settings page - so it never joins a sync half-built.
-     */
     public function createStore(Request $request)
     {
         $data = $request->validate([
@@ -319,7 +251,6 @@ class TikTokController extends Controller
         $setting = TikTokSetting::create([
             'store_name' => $data['store_name'],
             'enabled'    => false,
-            // A new store starts in the sandbox: nothing it does reaches a real shop until it is switched over.
             'mode'       => 'sandbox',
         ]);
 
@@ -330,8 +261,6 @@ class TikTokController extends Controller
             ->with('status', 'Store created. Add the app credentials and region, then authorize it to start syncing.');
     }
 
-    // -- OAuth callback ---------------------------------------------------
-
     public function callback(Request $request, TikTokClient $client)
     {
         $code = (string) $request->query('code', '');
@@ -340,12 +269,7 @@ class TikTokController extends Controller
         $saved = false;
         $saveError = null;
 
-        /* THE STATE GATE (multi-store, the owner 2026-09-05). A real OAuth return
-         * carries the signed state minted in redirectToAuth. A code arriving
-         * with a forged, tampered, or absent state is a CSRF or cross-site
-         * callback - refuse it before a store is bound or a token written, or
-         * an attacker could name a store in the state and have this shop's
-         * grant land there. The signature, not the session, is the authority. */
+        // Refuse a code with a forged, tampered or absent state before binding a store or writing a token.
         $stateOk = $this->parseOAuthState($state) !== null;
         if ($code !== '' && ! $stateOk) {
             return $this->redirectToSettings()->with('tiktok_result', [
@@ -355,10 +279,8 @@ class TikTokController extends Controller
             ]);
         }
 
-        // Recover the consenting store + sandbox flag from the verified state.
         [$storeId, $sandbox] = $this->bindStoreFromState($state);
 
-        // Auto token exchange when settings are present
         $tokenResult = null;
         $raw = TikTokSetting::defaultStore();
         $setting = $raw?->decrypted();
@@ -386,7 +308,6 @@ class TikTokController extends Controller
             }
         }
 
-        // Log the token exchange
         if ($tokenResult !== null) {
             TikTokApiLog::safeCreate([
                 'pack' => 'tiktok.token.get',
@@ -415,9 +336,6 @@ class TikTokController extends Controller
             $message = 'Auth code received but token exchange may have failed.';
         }
 
-        // Explicit store, never the global URL default: on this storeless
-        // callback that default belongs to whichever channel booted last
-        // (the owner, 2026-09-06: the return landed on a Shopee store).
         return $this->redirectToSettings()->with('settings_setup', $saved)->with('tiktok_result', [
             'ok' => $saved,
             'title' => 'OAuth Callback',
@@ -429,8 +347,6 @@ class TikTokController extends Controller
             ],
         ]);
     }
-
-    // -- Token get (manual exchange) --------------------------------------
 
     public function tokenGet(Request $request, TikTokClient $client)
     {
@@ -452,7 +368,6 @@ class TikTokController extends Controller
 
         $result = $client->getToken($activeKey, $activeSecret, (string) $request->input('code'));
 
-        // Persist tokens if present
         $body = $result['body'] ?? null;
         $tokenData = is_array($body) ? ($body['data'] ?? $body) : null;
 
@@ -478,8 +393,6 @@ class TikTokController extends Controller
             'data' => $result,
         ]);
     }
-
-    // -- Token refresh ----------------------------------------------------
 
     public function tokenRefresh(TikTokClient $client)
     {
@@ -526,8 +439,6 @@ class TikTokController extends Controller
         ]);
     }
 
-    // -- Get authorized shops ---------------------------------------------
-
     public function getShops(TikTokClient $client)
     {
         $raw = TikTokSetting::defaultStore();
@@ -548,12 +459,11 @@ class TikTokController extends Controller
         $path = '/authorization/202309/shops';
         $result = $client->get($activeKey, $activeSecret, $activeToken, $path);
 
-        // Persist shop info if present
         $body = $result['body'] ?? null;
         $shops = is_array($body) ? ($body['data']['shops'] ?? []) : [];
 
         if ($result['ok'] && !empty($shops)) {
-            $shop = $shops[0]; // Use first shop
+            $shop = $shops[0];
             $shopIdCol = $sandbox ? 'sandbox_shop_id' : 'shop_id';
             $cipherCol = $sandbox ? 'sandbox_shop_cipher' : 'shop_cipher';
             $nameCol = $sandbox ? 'sandbox_shop_name' : 'shop_name';
@@ -566,7 +476,6 @@ class TikTokController extends Controller
             $raw->$nameCol = $shop['name'] ?? null;
             $raw->region = $shop['region'] ?? $raw->region;
 
-            // Fetch warehouse ID (always needs shop_cipher)
             $whResult = $client->get($activeKey, $activeSecret, $activeToken, '/logistics/202309/warehouses', [], $shop['cipher'] ?? null);
             TikTokApiLog::safeCreate([
                 'pack' => 'tiktok.warehouses',
@@ -581,7 +490,6 @@ class TikTokController extends Controller
             ]);
             $warehouses = ($whResult['ok'] ?? false) ? ($whResult['body']['data']['warehouses'] ?? []) : [];
             if (!empty($warehouses)) {
-                // Prefer SALES_WAREHOUSE over RETURN_WAREHOUSE
                 $salesWh = collect($warehouses)->firstWhere('type', 'SALES_WAREHOUSE');
                 $whId = ($salesWh['id'] ?? null) ?: ($warehouses[0]['id'] ?? null);
                 $whCol = $sandbox ? 'sandbox_warehouse_id' : 'warehouse_id';
@@ -610,10 +518,6 @@ class TikTokController extends Controller
         ]);
     }
 
-    /**
-     * One step of "Set up the store" (the Shopee shape, 2026-09-06): the
-     * setup popup runs the shop then the categories and reads a sentence back.
-     */
     public function setupStep(string $step, \Extensions\tiktok\Services\TikTok\TikTokStoreSetup $setup)
     {
         $raw = TikTokSetting::defaultStore();
@@ -630,8 +534,6 @@ class TikTokController extends Controller
 
         return response()->json($out);
     }
-
-    // -- API Explorer -----------------------------------------------------
 
     public function explorerRun(Request $request, TikTokClient $client)
     {
@@ -682,15 +584,12 @@ class TikTokController extends Controller
             }
         }
 
-        // Separate body params from query params for POST
         $queryParams = [];
         $bodyParams = [];
 
         if ($data['method'] === 'POST') {
-            // For POST, all custom params go into body by default
             $bodyParams = $customParams;
         } else {
-            // For GET, all custom params go into query
             $queryParams = $customParams;
         }
 
@@ -742,8 +641,6 @@ class TikTokController extends Controller
             'data' => $result,
         ]);
     }
-
-    // -- Preset packs -----------------------------------------------------
 
     public function packsRun(Request $request, TikTokClient $client)
     {
@@ -847,9 +744,6 @@ class TikTokController extends Controller
         ]);
     }
 
-    // -- Toggle logging ---------------------------------------------------
-
-    /** The three-way log mode (#200): everything / errors only / off. */
     public function setApiLogMode(Request $request)
     {
         $data = $request->validate(['mode' => 'required|in:' . implode(',', \App\Support\ApiLogMode::MODES)]);
@@ -864,8 +758,6 @@ class TikTokController extends Controller
             ->with('status', 'TikTok API log now records: ' . \App\Support\ApiLogMode::labels()[$data['mode']] . '.');
     }
 
-    // -- Clear API logs ---------------------------------------------------
-
     public function clearApiLogs()
     {
         $count = TikTokApiLog::count();
@@ -874,19 +766,6 @@ class TikTokController extends Controller
         return $this->toSettingsTab('logs')->with('status', "Deleted {$count} TikTok API log entries.");
     }
 
-    /**
-     * Null the `raw` API-response payload on TikTok order tables for rows
-     * older than N days. The synced order data itself is left intact —
-     * only the verbose raw blob is cleared, freeing DB space.
-     *
-     * TikTok has no returns table (returns ride a different path), so
-     * only orders + order_products carry a raw column.
-     */
-    /**
-     * Hard delete of a store (the owner, 2026-09-05). The store name typed
-     * exactly confirms; one transaction removes everything the store owns;
-     * core orders are untouched and keep the store's name.
-     */
     public function destroyStore(Request $request, \Extensions\tiktok\Services\TikTok\TikTokStoreDeleter $deleter)
     {
         abort_unless($request->user()?->hasPermission('manage_tiktok/settings'), 403);
@@ -912,7 +791,6 @@ class TikTokController extends Controller
 
     public function purgeRaw(Request $request)
     {
-        // This store's rows only, on every table that carries the store (2026-09-05).
         $storeId = app()->bound('tiktok.route-store') ? (int) app('tiktok.route-store')->id : null;
         $request->validate([
             'days' => ['required', 'integer', 'min:1', 'max:3650'],
@@ -937,8 +815,6 @@ class TikTokController extends Controller
 
         return $this->toSettingsTab('logs')->with('status', "Purged raw payloads from {$total} TikTok row" . ($total === 1 ? '' : 's') . " older than {$request->days} days.");
     }
-
-    // -- Save order tab mapping -------------------------------------------
 
     public function saveOrderStatusMap(Request $request)
     {

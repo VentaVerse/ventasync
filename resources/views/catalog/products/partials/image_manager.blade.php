@@ -1,9 +1,4 @@
 @php
-  /* A refused save must hand back the images the operator staged
-     (2026-09-04, when at least one image became required): old() wins
-     over the controller's list, and the old pim_token rides along so
-     the temp files the staged paths point at are still the ones
-     finalized. */
   $pimOld = json_decode((string) old('images_json', ''), true);
   $pimInitial = is_array($pimOld) && $pimOld !== []
       ? array_values(array_filter(array_map(fn ($i) => is_array($i) ? (string) ($i['path'] ?? '') : (string) $i, $pimOld)))
@@ -11,34 +6,6 @@
   $pimToken = (string) old('pim_token', $pimToken ?? '');
   $pimProductId = (int) ($pimProductId ?? 0);
 @endphp
-
-{{--
-  Product images.
-
-  The wire is unchanged. Two hidden inputs travel with the product form:
-
-    pim_token    an upload token, so images attached before the product row
-                 exists can be finalised into its folder by store()
-    images_json  a JSON array of storage paths, IN ORDER. The first path is
-                 the product's main image. update()/store() read it through
-                 imagesFromRequest().
-
-  Everything else is fetch against ProductImageController:
-
-    products.images.browse                 GET  folders + files in a folder
-    products.images.upload_to_catalog      POST a file into the open folder
-    products.images.import_url_to_catalog  POST a remote URL into it
-    products.images.delete                 POST remove a file from the server
-
-  (products.images.upload and products.images.import_url are the older
-  product-scoped pair; nothing calls them from here, and that was already the
-  case before this redesign.)
-
-  The picker dialog and the script are pushed to the layout's scripts stack
-  rather than rendered inline, so they land outside the product <form>.
-  Nested inside it, the dialog's search box would submit the whole product on
-  a stray Enter.
---}}
 
 <section class="fm-section" aria-labelledby="sec-images">
     <div class="fm-section__head">
@@ -74,17 +41,12 @@
     </div>
 
     <div class="fm-pick__body" id="pimModalBody">
-      {{-- Where you are and what you can do to it, on one line. These were
-           two stacked rows - Up and the path, then the tools - which spent a
-           second row of a dialog that is already scrolling its grid. --}}
       <div class="fm-pick__tools">
         <x-ui.button type="button" size="sm" id="pimServerUpBtn" disabled>
           <x-ui.icon name="corner-up-left" size="14" /> Up
         </x-ui.button>
         <span class="fm-pick__path" id="pimServerPath">/</span>
         <span class="fm-pick__gap"></span>
-        {{-- Visually hidden, but still reachable: x-sr keeps it in the tab
-             order, so it needs a name like any other control. --}}
         <input type="file" id="pimServerUploadInput" class="x-sr"
                aria-label="Choose image files to upload"
                accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" multiple>
@@ -108,9 +70,6 @@
         </div>
       </div>
 
-      {{-- Naming a folder, inline. Not a prompt(): this project does not use
-           native dialogs, and a prompt cannot show the error the server sends
-           back when a name collides or carries an illegal character. --}}
       <div class="fm-pick__tools d-none" id="pimFolderRow">
         <input type="text" id="pimFolderName" class="x-input fm-pick__search"
                aria-label="New folder name" placeholder="Folder name" autocomplete="off" maxlength="64">
@@ -118,8 +77,6 @@
         <x-ui.button type="button" size="sm" id="pimFolderCancel">Cancel</x-ui.button>
       </div>
 
-      {{-- Paste an image address here instead of a browser prompt(). Same
-           endpoint, same payload; this project does not use native dialogs. --}}
       <div class="fm-pick__tools d-none" id="pimUrlRow">
         <input type="url" id="pimUrlInput" class="x-input fm-pick__search"
                aria-label="Image address to add" placeholder="https://example.com/photo.jpg">
@@ -139,16 +96,12 @@
   </div>
 </div>
 
-{{-- Cloned per folder tile. A <template> rather than an innerHTML string:
-     this project builds DOM, it does not paste markup. --}}
 <template id="pimFolderIcon">
   <span class="fm-pick__ico">
     <x-ui.icon name="folder" size="28" />
   </span>
 </template>
 
-{{-- Pinned with subresource integrity, which the pre-redesign copy of this
-     tag did not carry. --}}
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"
         integrity="sha384-BSxuMLxX+FCbTdYec3TbXlnMGEEM2QXTFdtDaveen71o+jswm2J36+xFqp8k4VHM"
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -159,18 +112,6 @@
   const PIM_PRODUCT_ID = @json($pimProductId);
   const PIM_TOKEN = @json($pimToken);
 
-  /* SINGLE-PICK MODE, for callers that want one image rather than another
-     entry in the product gallery.
-     ------------------------------------------------------------------
-     The variations grid needs a picture per variation, and it needs the
-     library that already exists: the same folders, the same upload, the same
-     manufacturer scoping. What it does not want is the tile click appending
-     to the product's own image list.
-
-     So the modal grows one extra state. When pickOne is set, choosing a file
-     hands it to that callback and closes instead of adding. It is cleared on
-     every exit, including the ones the operator takes by pressing Escape or
-     clicking the backdrop, so the mode can never leak into the next open. */
   let pickOne = null;
 
   window.pimPickOne = function (onPicked) {
@@ -240,11 +181,6 @@
     grid.textContent = '';
     empty.classList.toggle('d-none', items.length > 0);
 
-    /* What a variation with no image of its own inherits.
-       Position 1 IS the main image on this form, so this is republished on
-       every render rather than read once: dragging a different photo to the
-       front changes what every inheriting variation shows, and the grid
-       downstream should follow that without being told. */
     window.pimPrimaryImage = items.length ? items[0].url : '';
     document.dispatchEvent(new CustomEvent('pim:primary-changed'));
 
@@ -263,9 +199,6 @@
       wrap.appendChild(img);
       div.appendChild(wrap);
 
-      // Main is a badge ON the picture, not a caption under it. Which image
-      // the catalog and every marketplace show is the one state that
-      // matters in this grid, and a word in a footer is read, not seen.
       if (idx === 0) {
         const main = document.createElement('span');
         main.className = 'fm-img__main';
@@ -276,10 +209,6 @@
       const bar = document.createElement('div');
       bar.className = 'fm-img__bar';
 
-      // The grip is the reorder affordance. It replaces the sentence that
-      // used to say "drag to reorder": an instruction you have to read is
-      // worse than a handle you can see, and the sentence has moved into
-      // the heading's hint for anyone who wants it spelled out.
       const grip = document.createElement('span');
       grip.className = 'fm-img__grip';
       grip.setAttribute('aria-hidden', 'true');
@@ -298,8 +227,6 @@
       remove.type = 'button';
       remove.className = 'fm-img__x';
       remove.setAttribute('aria-label', 'Remove image ' + (idx + 1));
-      // Drawn, not a multiplication sign. The craft floor bans a glyph
-      // standing in for an icon, and this one sat at 18px besides.
       remove.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
         + ' stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
       remove.addEventListener('click', (e) => {
@@ -316,8 +243,6 @@
     syncHidden();
   }
 
-  /* One drawn cross, for both grids. The product grid built its own inline
-     and the picker was still typing a multiplication sign. */
   function closeIcon() {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('width', '13');
@@ -337,14 +262,6 @@
   }
 
   function buildFileCard(f) {
-    /* A CELL WRAPPING TWO SIBLING BUTTONS, not a button inside a button.
-       ------------------------------------------------------------------
-       The delete control used to be a child of the tile, which is invalid -
-       a button permits no interactive descendant - and Chrome's own
-       accessibility tree showed what it costs: the SELECT action's name
-       absorbed the delete label, so the filename was announced twice and the
-       word "Delete" was read as part of the name of the control that picks
-       the image. Two actions, two siblings, two names. */
     const cell = document.createElement('div');
     cell.className = 'fm-pick__cell';
 
@@ -364,10 +281,6 @@
     label.title = f.name || '';
     card.appendChild(label);
 
-    /* Where it came from. A result list spanning 240 folders is unreadable
-       without it - two files can carry the same name and mean different
-       pictures, and picking the wrong one is silent. Only in search: inside
-       a folder listing every row would repeat the same line. */
     if (searchMode && f.folder) {
       const where = document.createElement('span');
       where.className = 'fm-pick__where';
@@ -376,8 +289,6 @@
       card.appendChild(where);
     }
 
-    /* Highlighted is in the product's pictures, not highlighted is not: a
-       click takes it in or out, so a second click can never add it twice. */
     const inLineup = () => items.some(x => x.path === f.path);
     const mark = () => {
       const on = !pickOne && inLineup();
@@ -387,7 +298,6 @@
     mark();
 
     card.addEventListener('click', () => {
-      // Single-pick: hand the file back and get out of the way.
       if (pickOne) {
         const done = pickOne;
         pickOne = null;
@@ -412,8 +322,6 @@
     const del = document.createElement('button');
     del.type = 'button';
     del.className = 'fm-pick__del';
-    // Drawn, not typed. The craft floor bans a glyph standing in for an icon,
-    // and the product grid 200 lines up was already fixed; this was missed.
     del.appendChild(closeIcon());
     del.setAttribute('aria-label', 'Delete ' + (f.name || 'image') + ' from the server');
     del.addEventListener('click', (e) => {
@@ -466,11 +374,6 @@
 
     const sort = serverSort.value || 'newest';
 
-    /* No client-side filtering any more. In a folder listing there is nothing
-       to filter - the server sent exactly this folder - and in search mode
-       the server has already decided what matches, including files that match
-       by their FOLDER's name and would be thrown away by a filter on the
-       filename. */
     let filtered = cachedServerFiles;
 
     filtered = [...filtered];
@@ -481,9 +384,6 @@
 
     filtered.forEach(f => serverGrid.appendChild(buildFileCard(f)));
 
-    /* "Images" over an empty grid is a label for nothing, and this dialog
-       showed both of its headings unconditionally - so an empty folder read
-       as two broken regions rather than as an empty folder. */
     if (serverFilesTitle) serverFilesTitle.classList.toggle('d-none', filtered.length === 0);
 
     if (!cachedServerFolders.length && !filtered.length) {
@@ -509,10 +409,6 @@
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
       data = await resp.json();
     } catch (e) {
-      /* A REQUEST THAT FAILED IS NOT AN EMPTY FOLDER. Both of these used to
-         swallow the error and render "Nothing in this folder", which is a
-         false statement made with total confidence - and it looks exactly
-         like a folder you have already emptied. */
       serverEmpty.textContent = 'The library could not be reached. Check your connection and try again.';
       serverEmpty.classList.remove('d-none');
       return;
@@ -539,48 +435,25 @@
     renderServerFiles();
   }
 
-  /* Extracted so a search can redraw the folder half too. It used to be
-     inline in loadServerDir, which meant only a directory listing could
-     produce folders - and a search that matches folder names has to be able
-     to show them. */
   function renderServerFolders() {
     serverFolders.textContent = '';
     cachedServerFolders.forEach(d => serverFolders.appendChild(buildFolderCard(d)));
 
     if (serverFoldersTitle) {
       serverFoldersTitle.classList.toggle('d-none', cachedServerFolders.length === 0);
-      // In a result list the heading has to say what it is a list OF.
       serverFoldersTitle.textContent = searchMode ? 'Matching folders' : 'Folders';
     }
   }
 
   async function openServerModal(){
-    /* NO MANUFACTURER GATE. It used to refuse to open at all until a
-       manufacturer was chosen, because uploads were filed under one - and
-       that has not been true for a while: the modal's upload already posts
-       to whatever folder you are browsing. The gate was left guarding a rule
-       it had stopped enforcing, and it blocked the library on a product that
-       simply had not been categorised yet.
-
-       Where a file goes is now the operator's decision, made by standing in
-       a folder, which is what a file browser is for. */
-    // Remember who opened it, so closing hands focus back rather than
-    // stranding it on a button that is no longer on screen.
     pickReturnFocus = document.activeElement;
     modal.classList.add('active');
 
-    /* Lock the page behind the dim. Wheeling over the backdrop scrolled the
-       form underneath - measured, 924 to 981 - so the thing you came back to
-       was not the thing you left. The scrollbar's width is replaced as
-       padding so the page does not jump sideways as it locks. */
     const barWidth = window.innerWidth - document.documentElement.clientWidth;
     document.body.dataset.pimPadding = document.body.style.paddingRight || '';
     document.body.style.overflow = 'hidden';
     if (barWidth > 0) document.body.style.paddingRight = barWidth + 'px';
 
-    // Into the dialog, on the first thing in it. Not the Close button: that
-    // is the way out, and opening a file browser with the exit selected reads
-    // as "are you sure", which is not the question being asked.
     const panel = modal.querySelector('.fm-pick');
     const target = panel.querySelector('#pimServerUpBtn:not([disabled])')
         || panel.querySelector('#pimServerSearch')
@@ -589,13 +462,6 @@
         if (target === panel) panel.setAttribute('tabindex', '-1');
         target.focus();
     }
-    /* ALWAYS THE ROOT.
-       The old behaviour jumped to the manufacturer's folder, which was handy
-       right up to the moment a product's pictures were not all in it - and
-       then it was a guess dressed as a shortcut, with no way to tell which
-       you were getting. One predictable starting point removes every "what
-       if" that surrounded it, and search now reaches the whole library
-       anyway, so nothing was actually being saved by the jump. */
     await loadServerDir('');
   }
 
@@ -648,7 +514,6 @@
     showToast('Imported and added');
   }
 
-  // Buttons
   document.getElementById('pimOpenManagerBtn').addEventListener('click', openServerModal);
 
   serverUpBtn.addEventListener('click', async () => {
@@ -692,7 +557,6 @@
     });
   }
 
-  // Drag and drop into the dialog body uploads into the open folder
   let dragDepth = 0;
   function hasFiles(e){
     const dt = e.dataTransfer;
@@ -731,22 +595,6 @@
     await loadServerDir(currentServerPath || '');
   });
 
-  /* SEARCH REACHES THE WHOLE LIBRARY, not the folder you happen to be in.
-     ------------------------------------------------------------------
-     It used to filter cachedServerFiles, which only ever holds the current
-     directory - so the box labelled "search" answered a question about where
-     you were standing rather than about the library, and finding a picture
-     still meant knowing which of 240 folders it was in.
-
-     The server does the walk now and returns three things at once: folders
-     whose name matches, images whose name matches wherever they live, and
-     every image inside a matching folder. Asking for "Bigsby" gets the
-     Bigsby folder AND the Bigsby pictures, which are different answers to
-     the same question and both worth having.
-
-     Debounced, because each keystroke is a real request. 250ms is long
-     enough that typing a word costs one search and short enough that it
-     still feels like it is keeping up. */
   let searchTimer = null;
 
   async function runLibrarySearch(query) {
@@ -766,7 +614,6 @@
       return;
     }
 
-    // A slower earlier request must not overwrite a newer answer.
     if ((serverSearch.value || '').trim() !== query) return;
 
     searchMode = true;
@@ -790,8 +637,6 @@
     const query = (serverSearch.value || '').trim();
 
     searchTimer = setTimeout(() => {
-      // Clearing the box returns you to the folder you were browsing, rather
-      // than leaving you in a result list with no way back.
       if (query === '') {
         loadServerDir(currentServerPath);
         return;
@@ -802,7 +647,6 @@
 
   serverSort.addEventListener('change', () => renderServerFiles());
 
-  // Drag to reorder. First tile is the main image, so order is the wire.
   if (window.Sortable) {
     new Sortable(grid, {
       animation: 150,
@@ -819,18 +663,6 @@
     });
   }
 
-  /* FOCUS BEHAVIOUR, because this now says aria-modal="true".
-     ------------------------------------------------------------------
-     It said it was a modal dialog and behaved like a floating div: opening it
-     left focus wherever it was, so the next Tab walked into the sidebar
-     BEHIND the dim, operating a page the operator could not see. Claiming
-     modal semantics and not keeping focus is worse than claiming nothing,
-     because a screen reader tells the user they are in a dialog and then the
-     keyboard disagrees.
-
-     Same three obligations the confirm dialog in confirm-modal.js already
-     meets: take focus on open, keep it inside while open, hand it back to
-     whatever opened you. */
   let pickReturnFocus = null;
 
   function focusablesIn(el) {
@@ -864,7 +696,6 @@
     const first = items[0];
     const last = items[items.length - 1];
 
-    // Wrap at both ends, and pull focus back in if it has escaped.
     if (!panel.contains(document.activeElement)) {
       e.preventDefault();
       first.focus();
@@ -877,11 +708,6 @@
     }
   });
 
-  /* Making a folder.
-     ------------------------------------------------------------------
-     It lands in whatever folder you are currently looking at, which is the
-     only place it could mean anything, and the library reloads there so the
-     new folder is visible rather than merely reported. */
   const newFolderBtn = document.getElementById('pimNewFolderBtn');
   const folderRow = document.getElementById('pimFolderRow');
   const folderName = document.getElementById('pimFolderName');
@@ -917,8 +743,6 @@
       const data = await resp.json().catch(() => ({}));
 
       if (!resp.ok || !data.ok) {
-        // The server's own words: it knows whether the name collided, held a
-        // slash, or was refused for a character this library cannot address.
         showToast(data.message || 'The folder could not be created.', 'error');
         folderName.focus();
         folderName.select();
@@ -946,11 +770,9 @@
 
   folderName.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); createFolder(); }
-    // Escape closes the row, not the whole dialog behind it.
     if (e.key === 'Escape') { e.stopPropagation(); closeFolderRow(); }
   });
 
-  // Dialog close
   modal.addEventListener('click', (e) => {
     const t = e.target;
     if (t === modal || (t && t.closest && t.closest('[data-close="1"]'))) {

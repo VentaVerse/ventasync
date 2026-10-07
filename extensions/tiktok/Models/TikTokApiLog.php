@@ -33,11 +33,7 @@ class TikTokApiLog extends Model
     public static function safeCreate(array $attributes): void
     {
         try {
-            // Green or red by the marketplace's own verdict, not the HTTP
-            // status (MarketplaceVerdict, 2026-09-06): a refusal riding a
-            // 200 is a red row.
             $attributes['ok'] = \App\Support\MarketplaceVerdict::ok('tiktok', (bool) ($attributes['ok'] ?? true), $attributes['response_body'] ?? null);
-            // The three-way mode (#200): off, errors only, everything.
             $setting = TikTokSetting::defaultStore();
             if (! \App\Support\ApiLogMode::shouldLog($setting?->api_log_mode, (bool) ($attributes['ok'] ?? true))) {
                 return;

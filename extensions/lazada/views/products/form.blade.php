@@ -1,51 +1,13 @@
 @extends('layouts.channel')
 @section('title', ($mode === 'create' ? 'Add' : 'Edit') . ' Lazada Listing')
 
-{{-- This page shows its own validation summary (the fm-note below) and marks
-     the offending fields inline, so partials/legacy-page-contract skips its
-     bullet list of every message rather than stacking a second red box on
-     top of this one. --}}
 @section('own-errors', true)
 @section('breadcrumb', $mode === 'create'
     ? 'New Listing'
     : (($productRow->name ?? null) ? html_entity_decode((string) $productRow->name, ENT_QUOTES | ENT_HTML5, 'UTF-8') : 'Listing ' . $listing->id))
 
-{{-- Round F Task 1. The last and largest of the channel deep pages, rebuilt on
-     the shared fm- form anatomy (components/form-page.css) plus the gf-
-     attribute rows (pages/group-form.css), the fm-vars variant table and the
-     cl- pieces in pages/channel-listing.css. All three of its inline <script>
-     blocks are gone; the behaviour is in
-     resources/js/pages/channel-listing-form.js and
-     resources/js/pages/group-form.js.
-
-     A real defect fixed on the way past. The catalog search on the create
-     step built its results with `resultsDiv.innerHTML = items.map(...)` over a
-     product name straight off the endpoint, and the chosen-product card did
-     the same. A catalog product named `<img src=x onerror=...>` executed
-     here. Both are the shared picker now, createElement and textContent
-     throughout.
-
-     Two forms live on this page since 2026-09-06 (the owner: "Everything should
-     be in Save and Push"), each a separate operation with its own route. The
-     wire of each is checked against LazadaProductController:
-
-       store/update   product_id (create only), primary_category_id, brand_id,
-                      no_brand, price, markup_fixed, markup_percent, weight,
-                      package_length, package_width, package_height,
-                      attributes[<key>] with the __map:<field> prefix
-                      intact, and push=1 when the press is Save and push
-       variants       variants[<id>][price]
-
-     Picking a category asks products.attributes_fetch for that category's
-     sheet and injects it into the listing form, so the answers submit with
-     Save listing and Save and push alike. The two buttons sit in the page's
-     one sticky bar and reach the form through the HTML5 `form` attribute. --}}
 @section('content')
 @php
-    // Every route on this page, including both GET renders, is registered
-    // inside perm:manage_lazada (extensions/lazada/routes/web.php), unlike the
-    // product-group pages where the edit GET is read-tier. There is no read
-    // branch here because there is no read tier to reach it.
     $groupMarkup = $listing->groups->first();
 
     $effectiveFixed = old('markup_fixed', $listing->markup_fixed ?? ($groupMarkup->markup_fixed ?? null));
@@ -67,7 +29,6 @@
         : '';
     $basePrice = isset($productRow->price) ? (float) $productRow->price : null;
 
-    // What the next push sends for this listing, before the fields change.
     $hasVariations = ($variants ?? collect())->count() > 0;
     $pushPrice = \Extensions\lazada\Services\Lazada\LazadaPushPayload::computeFinalPrice(
         $hasVariations
@@ -77,14 +38,8 @@
         is_numeric($effectivePercent) ? (float) $effectivePercent : null
     );
 
-    // The catalog's own description, as the Content card's placeholder: the
-    // greyed value an empty field follows.
     $coreDescription = (string) ($productRow->description ?? '');
 
-    // The values a mapped attribute can read off the catalog product. Data
-    // only, no behaviour: the preview lives in
-    // resources/js/pages/group-form.js. JSON_HEX_TAG encodes < and >, so a
-    // description containing "</script>" cannot close this element.
     $jsonFlags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
     $erpFieldValues = $productRow ? [
         'name'             => (string) ($productRow->name ?? ''),
@@ -145,8 +100,6 @@
     </div>
 
     @if($mode === 'edit' && !empty($productRow))
-        {{-- Which catalog product this listing is for. Not a field: the
-             answer to "what am I editing". --}}
         <div class="cl-summary">
             @if(!empty($productImageUrl))
                 <img class="cl-summary__thumb" src="{{ $productImageUrl }}" alt="" loading="lazy" decoding="async">
@@ -166,21 +119,12 @@
         </div>
     @endif
 
-    {{-- ── The strip: what Lazada says right now ──────────────────
-         The template every channel's listing page uses (the owner, 2026-09-08,
-         draft C): the live state, this channel's own figures, the last push
-         and the verbs that act on the live item. What only Lazada has - the
-         SKU table it holds, the variation overrides - stays in Lazada's own
-         sections below. --}}
     @php
         $lzLinked = $mode === 'edit' && !empty($listing->lazada_item_id);
         $lzSkus = $live['skus'] ?? [];
 
         $stripFigures = [];
         if ($lzLinked && ($live ?? null) !== null) {
-            /* One SKU: its price and stock are the item's, so they go on the
-               strip the way Shopee's do. Several, and the SKU table below is
-               the honest answer; the strip says how many. */
             if (count($lzSkus) === 1) {
                 $one = $lzSkus[0];
                 $stripFigures[] = ['k' => 'Price on Lazada', 'v' => ($one['price'] ?? null) !== null
@@ -196,8 +140,6 @@
             if (($coverage['total'] ?? 0) > 0) {
                 $stripFigures[] = ['k' => 'On Lazada', 'v' => $coverage['linked'] . ' of ' . $coverage['total'] . ' variations'];
             }
-            // Only when it differs; clipped, so one long title cannot
-            // stretch the bar.
             if (($live['item_name'] ?? '') !== '' && $live['item_name'] !== $productName) {
                 $stripFigures[] = ['k' => 'Title on Lazada', 'v' => \Illuminate\Support\Str::limit($live['item_name'], 40)];
             }
@@ -223,19 +165,6 @@
     @endphp
 
     @if($mode === 'edit')
-        {{-- HEALTH OFF (the owner, 2026-09-09): "What I want to see right
-         now are just fields to edit. Nothing about health." The state
-         word, the live figures, Last push and the accent are gone, and the
-         bar keeps only the verbs - what you can DO here, which is not a
-         report about the item. The notes went with them.
-
-         What survives is the required-field handling: the validation
-         summary above, the browser's own bubble on the required fields,
-         and the inline field errors.
-
-         Nothing was deleted from the system: the engine still computes
-         every one of these facts and the Listings index still shows them.
-         This page takes them back by passing health again. --}}
     <x-channel.listing-strip channel="Lazada" :health="false" :linked="$lzLinked">
             @if($lzLinked && ($live ?? null) !== null)
                 <x-slot:verbs>
@@ -260,23 +189,13 @@
         </x-channel.listing-strip>
     @endif
 
-    {{-- ============================================================
-         1. The listing itself.
-         ============================================================ --}}
     <form id="lazada-listing" method="POST"
           action="{{ route('ext.lazada.products.update', $listing->product_id) }}"
           data-slow-action="push" data-guard-unsaved>
         @csrf
         @method('PUT')
-        {{-- Where the operator came from (the Listings page with its search),
-             for Save and push and Cancel to return to. --}}
         <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
 
-        {{-- The one template every channel's listing page uses (the owner,
-             2026-09-08, draft C): main is what the listing SAYS - Content,
-             Category and brand, Category attributes, Images, then what only
-             Lazada has - and rail is what it COSTS. The variation overrides
-             ride this form too, so one Save keeps the whole page. --}}
         <x-channel.listing-body>
             <x-slot:main>
                 @if($mode === 'edit')
@@ -369,11 +288,6 @@
                             'requiredWord' => 'Pick a Lazada category from the list.',
                         ])
                             @if($mode === 'edit')
-                                {{-- The template read lives beside the category it
-                                     belongs to (the owner, 2026-09-06: it had drifted to
-                                     the bottom of the page in the rebuild). Picking a
-                                     category reads its template by itself; this button
-                                     is for a category Lazada has since changed. --}}
                                 <div class="fm-hint">
                                     <span data-template-read-at>@if($template && $template->fetched_at) Attributes read from Lazada {{ $template->fetched_at->format('Y-m-d H:i') }}. @elseif($listing->primary_category_id) Attributes not read from Lazada yet. @else Attributes appear once a category is picked. @endif</span>
                                     <x-ui.button type="button" size="sm" data-attributes-reread :disabled="empty($listing->primary_category_id)">Re-read the template</x-ui.button>
@@ -382,8 +296,6 @@
 
                         <x-ui.field label="Brand" for="lz-brand" name="brand_id" :required="true" wide
                                     hint="Start typing and pick a match, or say there is no brand. Lazada rejects a name it does not know.">
-                            {{-- Required, but satisfied two ways: a matched
-                                 brand id, or No brand pressed. --}}
                             <div data-brand-picker data-brand-url="{{ route('ext.lazada.brands.autocomplete') }}"
                                  data-must-pick="Pick a brand from the list, or press No brand."
                                  data-must-pick-value="[data-brand-id]"
@@ -418,13 +330,6 @@
                 </section>
 
                 @if($mode === 'edit')
-                    {{-- The category attributes, INSIDE the listing form since
-                         2026-09-06: one Save and push carries the category, the
-                         brand, the price rule and every answer below. Picking a
-                         category replaces this sheet through
-                         LazadaProductController::fetchAttributesAjax(), which
-                         answers with products/_attributes, the same partial the
-                         page renders here. --}}
                     <section class="fm-section"
                              id="lz-attributes"
                              data-attributes-fetch
@@ -457,8 +362,6 @@
                         </div>
                     </section>
 
-                    {{-- Data only, no behaviour. Read by the mapped-attribute
-                         preview in resources/js/pages/group-form.js. --}}
                     <script type="application/json" data-erp-fields>{!! json_encode($erpFieldValues, $jsonFlags) !!}</script>
                 @endif
 
@@ -484,10 +387,6 @@
                         'id' => 'lz', 'canManage' => true, 'listing' => $listing, 'catalog' => $productRow,
                     ])
 
-                    {{-- What only Lazada has, in one place at the end of the
-                         main column: the per-variation overrides. They ride
-                         this form since 2026-09-07, so Save keeps them with
-                         everything else rather than needing a second press. --}}
                     <section class="fm-section" id="lz-only">
                         <div class="fm-section__head">
                             <h2 class="fm-section__title">Only on Lazada</h2>
@@ -553,8 +452,6 @@
 
 
     @if($mode === 'edit')
-        {{-- A push is a multi-second round trip, so the page says so rather
-             than letting the operator click again. --}}
         <div id="lazada-group-progress" class="modal-backdrop" role="dialog" aria-modal="true" aria-live="polite">
             <div class="modal co-modal co-modal--sm">
                 <div class="cc-progress">
@@ -568,18 +465,10 @@
         </div>
     @endif
 
-    {{-- The page's actions, both on the listing form through the HTML5
-         `form` attribute. Save listing keeps everything on the page. Save and
-         push keeps it and sends the listing to Lazada in the same press, as a
-         create or, once the listing is linked, as an update that carries the
-         content, the price rule, the attribute answers and every variation. --}}
     <x-ui.form-bar :cancel="\App\Support\BackTo::safe(request('back'), route('ext.lazada.products.index'))">
         <x-slot:note>{{ $mode === 'create'
             ? 'Nothing reaches Lazada until you push from the edit screen.'
             : 'Save listing keeps everything on this page. Save and push keeps it and sends the listing to Lazada.' }}</x-slot:note>
-        {{-- Required means required on both presses: neither button carries
-             formnovalidate, so a field the page marks with an asterisk is
-             never saved empty. --}}
         @if($mode === 'edit')
             <x-ui.button type="submit" form="lazada-listing" name="push" value="1">{{ empty($listing->lazada_item_id) ? 'Save and push to Lazada' : 'Save and push the update' }}</x-ui.button>
         @endif

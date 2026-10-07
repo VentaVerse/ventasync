@@ -7,13 +7,6 @@ use Extensions\tiktok\Services\TikTok\TikTokPayoutSync;
 use Extensions\tiktok\Services\TikTok\TikTokReturnSync;
 use Illuminate\Console\Command;
 
-/**
- * Fills in the payout of every delivered or completed TikTok Shop order
- * that is not marked paid yet, however old, from TikTok Shop's statements.
- * The scheduled order sync keeps it current afterwards; run this once where
- * orders were synced before TikTok payouts were read at all. Safe to run
- * again: a paid order is never read twice.
- */
 class TikTokBackfillPayouts extends Command
 {
     protected $signature = 'tiktok:backfill-payouts

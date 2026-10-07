@@ -1,59 +1,8 @@
-/* Channel settings: the shared `cs-` grammar.
-   -------------------------------------------------------------------
-   The settings page every marketplace channel carries. Shopee is the
-   first onto this file; Lazada and TikTok have the same five-tab
-   shape (credentials, status mapping, API explorer, API logs,
-   automations) and follow into the same pieces, which is why the
-   prefix names the surface rather than the channel.
-
-   This page is a form page that happens to hold five of them, so it
-   is built on the `fm-` anatomy (components/form-page.css) rather
-   than inventing a second way to draw a labelled control:
-
-     - a section is a heading on a hairline with fields on the canvas
-       (.fm-section), not a stack of identical boxed cards;
-     - fields are .fm-fields / <x-ui.field> / <x-ui.input>;
-     - a switch is .fm-switch;
-     - colour has one job, the primary action, plus --bl-bad for a
-       failure and nothing else.
-
-   What this file adds is only what a settings page has and a record
-   form does not:
-
-     1. a tab strip, which is the existing .x-segment control (this
-        page has five views of one subject, which is exactly what that
-        control is for) with the page's own JS switching panels;
-     2. a two-column split for credentials beside authentication;
-     3. a per-section action row, because five forms on one page
-        cannot each have the sticky .fm-bar that a single-form page
-        uses;
-     4. a numbered sequence for the three OAuth steps, which genuinely
-        are ordered and where a plain list would lose that;
-     5. token-built re-faces of two legacy sheets this page embeds
-        (pages/api-explorer.css and pages/automations.css), scoped
-        under .cs-page rather than edited in place. Same technique
-        components/form-page.css uses to put Summernote in the design
-        system's clothes without forking the vendor sheet.
-   ------------------------------------------------------------------- */
-
 .cs-page {
     display: flex;
     flex-direction: column;
     gap: var(--bl-space-5);
 }
-
-/* ------------------------------------------------------------------
-   Read-only notice. An operator holding only view_shopee can browse
-   this page; every control that writes is absent for them, so the page
-   says why once at the top rather than leaving them to wonder where
-   the Save button went.
-
-   Drawn as the .fm-note idiom draws every notice: tinted ground inside
-   a tinted hairline, never a coloured left bar (blotter-components.css
-   states that rule where the idiom lives). Cool, not amber: nothing
-   here needs a person - it is a statement of fact about permissions,
-   and attn is reserved for things waiting on one.
-   ------------------------------------------------------------------ */
 
 .cs-readonly {
     display: flex;
@@ -67,29 +16,10 @@
     color: var(--bl-ink);
 }
 
-/* ------------------------------------------------------------------
-   Tab panels. Hidden with the attribute, not a utility class: `hidden`
-   is what a panel that is not the current one actually is, and it takes
-   the accessibility tree with it.
-   ------------------------------------------------------------------ */
-
 .cs-panel { display: flex; flex-direction: column; gap: var(--bl-space-6); }
 
-/* `hidden` is a UA-stylesheet `display: none`, which ANY explicit display
-   declaration outranks - and both the panels and the environment blocks
-   below set one (flex and grid respectively). Without this the attribute
-   silently does nothing and every hidden panel renders. Caught in the
-   browser: the sandbox credentials block was on screen underneath the
-   production one. Declared once for the whole page so a future block that
-   sets a display value cannot reintroduce the same bug. */
 .cs-page [hidden] { display: none; }
 
-/* components/segment.css was written for a row of links (a status filter is
-   navigation). Here the same control switches panels and posts a mode, so
-   its items are <button>s, and a button brings its own background, border,
-   font and cursor that the link never had. Restated here rather than in the
-   shared sheet so the orders pages stay untouched. The active rule is
-   repeated at a higher specificity so the reset above cannot swallow it. */
 .cs-page button.x-segment__item {
     background: transparent;
     border: 0;
@@ -107,18 +37,6 @@
     box-shadow: 0 0 0 2px var(--bl-brand-wash), 0 0 0 1px var(--bl-brand-deep);
 }
 
-/* ------------------------------------------------------------------
-   Environment switch. Production and Sandbox are two named
-   environments, not an on/off state, so this is a two-option segmented
-   control rather than a toggle whose "off" position would have to be
-   read as one of them.
-
-   No colour: the old control painted the track green for production
-   and grey for sandbox, which spent the page's one accent on a fact
-   the label already states, and left a red-green pair as the only
-   signal on a screen that also has a Save button.
-   ------------------------------------------------------------------ */
-
 .cs-env {
     display: flex;
     flex-wrap: wrap;
@@ -129,15 +47,6 @@
 .cs-env__label { font-size: 13px; font-weight: 500; color: var(--bl-ink); }
 
 .cs-env__note { font-size: 12px; color: var(--bl-ink-3); max-width: 52ch; }
-
-/* ------------------------------------------------------------------
-   A checkbox that is a control, so it sits in a control-height box
-   beside its neighbours rather than on its own text baseline.
-   components/forms.css carries a bare `label` element selector with a
-   6px bottom margin that every page in this bundle inherits, and a
-   <label> is still a <label> whatever class it wears, so the margin is
-   restated here rather than by editing that file.
-   ------------------------------------------------------------------ */
 
 .cs-check {
     display: inline-flex;
@@ -161,13 +70,6 @@
 
 .cs-check:hover { color: var(--bl-ink); }
 
-/* ------------------------------------------------------------------
-   Two-column split: what identifies the connection on the left, what
-   authorises it on the right. Stacks at the same 1000px .fm-body does,
-   so a phone reads credentials then authentication in the order the
-   operator fills them.
-   ------------------------------------------------------------------ */
-
 .cs-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -179,18 +81,7 @@
     .cs-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
-/* A section inside that split which belongs to neither column. Lazada's
-   sandbox tab has one: pasting a pre-issued access token is an alternative
-   to the whole three-step OAuth sequence beside it, not a fourth step
-   inside either column, so it runs the full width underneath both. Below
-   1001px the grid is one column and this is already what it does. */
 .cs-span { grid-column: 1 / -1; }
-
-/* ------------------------------------------------------------------
-   Per-section action row. One solid primary, aligned to the start of
-   the section it saves so it is unmistakably that form's button and not
-   the page's. Never a second button of a different weight beside it.
-   ------------------------------------------------------------------ */
 
 .cs-actions {
     display: flex;
@@ -198,21 +89,10 @@
     align-items: center;
     justify-content: flex-end;
     gap: var(--bl-space-3);
-    /* Air above the Save row, so it reads as the form's foot and not as
-       the last field's neighbour (the owner, 2026-09-05). */
     margin-top: var(--bl-space-5);
 }
 
-/* The note stays on the left; the section's Save sits at its lower right. */
 .cs-actions__note { order: -1; margin-right: auto; font-size: 12px; color: var(--bl-ink-3); }
-
-/* ------------------------------------------------------------------
-   OAuth steps. Three genuinely ordered actions, so they are numbered.
-   The numeral is a quiet mono figure on a sunken disc rather than a
-   filled accent circle: the steps are the subject here, and three
-   accent discs on a page whose only accent is meant to be the Save
-   button would be three false primaries.
-   ------------------------------------------------------------------ */
 
 .cs-steps { display: flex; flex-direction: column; gap: var(--bl-space-5); }
 
@@ -241,7 +121,6 @@
 
 .cs-step__note { font-size: 12px; color: var(--bl-ink-3); max-width: 56ch; }
 
-/* The auth-code exchange: a field and its button on one baseline. */
 .cs-exchange {
     display: flex;
     align-items: flex-end;
@@ -251,13 +130,6 @@
 
 .cs-exchange .fm-field { flex: 1 1 200px; min-width: 0; }
 
-/* ------------------------------------------------------------------
-   Token state. A badge and the expiry beside it, on one line.
-   ------------------------------------------------------------------ */
-
-/* One card carries the whole connection: the environment switch in its head,
-   the keys in its body, and what to do with them along its foot. The split
-   grid stays for the pages that still have two columns of their own. */
 .cs-stack {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -286,7 +158,6 @@
     margin-left: auto;
 }
 
-/* The routes round the automatic one: closed until the automatic one fails. */
 .cs-hand {
     border-top: 1px solid var(--bl-rule-2);
     margin-top: var(--bl-space-5);
@@ -330,8 +201,6 @@
     .cs-hand > summary::before { transition: none; }
 }
 
-/* What Set up store has on file: the categories, couriers or shop a push
-   needs. It reads after the token's own state, quieter than it. */
 .cs-state__fact { font-size: 12px; color: var(--bl-ink-3); }
 
 .cs-state {
@@ -350,11 +219,6 @@
     color: var(--bl-ink-3);
 }
 
-/* ------------------------------------------------------------------
-   Status mapping. Two columns: the marketplace's own status code and
-   the ERP status it becomes. The code is an identifier, so it is mono.
-   ------------------------------------------------------------------ */
-
 .cs-col-src { width: 45%; }
 
 .cs-code {
@@ -365,9 +229,6 @@
 
 .cs-map-label { margin-left: var(--bl-space-2); font-size: 12px; color: var(--bl-ink-3); }
 
-/* A storefront names its statuses and numbers them; the name is the half a
-   seller recognises, so on those channels it stands alone and reads as the
-   row's own text rather than as an aside. */
 .cs-map-name { font-size: 13px; color: var(--bl-ink); }
 
 .cs-page .x-table tbody td { white-space: normal; }
@@ -376,15 +237,7 @@
 
 .cs-page .x-table tbody td { padding-top: var(--bl-space-2); padding-bottom: var(--bl-space-2); }
 
-/* The select inside a mapping row should not stretch to the column. */
 .cs-map-select { max-width: 260px; width: 100%; }
-
-/* ------------------------------------------------------------------
-   Payload viewer. A raw JSON response is code, so it is set as code:
-   sunken surface, mono, its own scroll box, and it never widens the
-   page. The old page painted these panes a fixed near-black with light
-   text in both themes, which is a dark widget parked on a light page.
-   ------------------------------------------------------------------ */
 
 .cs-pre {
     margin: 0;
@@ -416,9 +269,6 @@
 
 .cs-disclosure > summary::-webkit-details-marker { display: none; }
 
-/* A caret that turns, so the row reads as something you can open. The
-   native marker is dropped because it inherits the browser's own triangle
-   at the browser's own size and colour. */
 .cs-disclosure > summary::before {
     content: '';
     width: 0;
@@ -445,7 +295,6 @@
 
 .cs-disclosure__label { font-size: 11px; color: var(--bl-ink-3); }
 
-/* Log-table column widths. */
 .cs-col-when   { width: 150px; }
 .cs-col-method { width: 84px; }
 .cs-col-auth   { width: 84px; }
@@ -457,18 +306,6 @@
     font-variant-numeric: tabular-nums;
 }
 
-/* ------------------------------------------------------------------
-   The API log panel (#200). The mode buttons sit together as one
-   control; the toolbar above Recent calls holds the All/Errors
-   segment, the path filter, the refresh and Delete all, wrapping on
-   narrow screens without ever leaving the section head.
-   ------------------------------------------------------------------ */
-
-/* The recording-mode control is the x-segment track - the same control
-   as the All/Errors filter in the same panel, and the same button-item
-   reset the tab strip above already carries (see `.cs-page
-   button.x-segment__item`). This only gives it room as its own row
-   under the heading rather than crowding the section head. */
 .cs-modeseg {
     width: max-content;
     max-width: 100%;
@@ -490,12 +327,6 @@
 
 .cs-logsearch__q { width: 180px; }
 
-/* ------------------------------------------------------------------
-   Data maintenance. A number of days and a destructive button. The
-   button keeps the transparent .x-btn--danger treatment; nothing on
-   this page is a solid red fill.
-   ------------------------------------------------------------------ */
-
 .cs-inline {
     display: flex;
     flex-wrap: wrap;
@@ -505,25 +336,8 @@
 
 .cs-inline__unit { color: var(--bl-ink-2); font-size: 13px; }
 
-/* components/form-page.css sets `.fm-field .x-input { width: 100% }`, which
-   outranks a bare class. Inside a two- or three-column .fm-fields grid that
-   made the day box fill its cell and pushed the "days" unit onto its own line,
-   which reads as a stray word under a number. Restated at the same specificity
-   so the pair stays on one baseline wherever it is used. Measured in the
-   browser on Venta's Connection tab. */
 .cs-days,
 .fm-field .cs-days { width: 110px; flex: none; }
-
-/* ------------------------------------------------------------------
-   API explorer, re-faced. pages/api-explorer.css is shared with the
-   Lazada and TikTok settings pages, so it is re-faced here rather
-   than edited in place. Everything below only applies under .cs-page.
-
-   What needed changing: three raw light-mode hex values (a near-black
-   category heading, and blue/green method chips) that are invisible or
-   off-palette in dark theme, the vendor mono stack, and the uppercase
-   micro-label convention this design system does not use.
-   ------------------------------------------------------------------ */
 
 .cs-page .api-explorer { gap: var(--bl-space-4); margin-top: 0; }
 
@@ -564,10 +378,6 @@
 
 .cs-page .api-endpoint.is-selected { background: var(--bl-chrome-2); border-color: var(--bl-brand-deep); }
 
-/* GET and POST are the two shapes of request, not two statuses. Neutral
-   for the read, accent for the one that changes something at the
-   marketplace - the same rule the rest of this system follows, where
-   colour marks what you have to think about. */
 .cs-page .api-badge {
     padding: 1px var(--bl-space-2);
     background: var(--bl-chrome);
@@ -611,12 +421,6 @@
 
 .cs-page .api-kv .x-input { height: var(--bl-control-h-sm); font-size: 12px; }
 
-/* One parameter is not a value but a whole document: Lazada's `payload`,
-   which carries a JSON or XML request body. The explorer builds a textarea
-   for it instead of a text input, so the height rule above (a 28px control)
-   has to be undone for that one control or the document is unreadable in a
-   single line. Restated at a higher specificity rather than by narrowing the
-   rule above, which the Shopee explorer also depends on. */
 .cs-page .api-kv textarea.x-input {
     height: auto;
     min-height: 108px;
@@ -625,8 +429,6 @@
     resize: vertical;
 }
 
-/* Parameter-table column widths. Declared here rather than as inline
-   width attributes in the Blade, which is where they used to live. */
 .cs-page .api-kv { table-layout: fixed; }
 .cs-kv-name { width: 34%; }
 .cs-kv-act  { width: 88px; }
@@ -634,14 +436,6 @@
 .cs-page .api-row-actions { gap: var(--bl-space-2); }
 
 .cs-page .api-split { gap: var(--bl-space-4); }
-
-/* ------------------------------------------------------------------
-   Automations tab, re-faced. Same reasoning as the explorer above:
-   pages/automations.css is shared with the other settings pages, so
-   it is re-faced here rather than edited in place. Only the
-   declarations that carry raw light-mode colour or the old control
-   metrics are restated here.
-   ------------------------------------------------------------------ */
 
 .cs-page .automations-tab { display: flex; flex-direction: column; gap: var(--bl-space-4); }
 
@@ -668,10 +462,6 @@
 .cs-page .automation-lastrun-prefix {
     color: var(--bl-ink-2);
     font-size: 12px;
-    /* The shared sheet sets these micro-labels in uppercase with tracking.
-       Nothing else in this design system shouts, so they are returned to
-       sentence case here without touching the sheet the legacy settings
-       pages still render against. */
     text-transform: none;
     letter-spacing: normal;
     font-weight: 400;
@@ -710,8 +500,6 @@
 .cs-page .automation-toggle-thumb { background: var(--bl-ink-3); }
 .cs-page .automation-toggle input:checked + .automation-toggle-track .automation-toggle-thumb { background: #fff; }
 
-/* The partial marks last-run outcome with the legacy badge classes,
-   whose light-only greens and reds do not survive the dark theme. */
 .cs-page .automation-lastrun .badge {
     padding: 0;
     background: none;
@@ -723,27 +511,6 @@
 
 .cs-page .automation-lastrun .badge-green { color: var(--bl-brand-deep); }
 .cs-page .automation-lastrun .badge-red   { color: var(--bl-bad); }
-
-/* ==================================================================
-   Round C Task 3. TikTok joined this file with the same five-tab shape
-   Shopee and Lazada already had; the two MULTI-STORE channels (Venta
-   and OpenCart) joined it too, and they carry six things a
-   single-shop OAuth settings page has no equivalent for. Those six are
-   below.
-
-   They live here rather than in a seventh stylesheet because they are
-   the same object this file already is - a settings page - and a
-   channel-scoped file for them would have to be imported twice and
-   remembered twice. Nothing below is channel-specific; both multi-store
-   pages use every rule.
-   ================================================================== */
-
-/* ------------------------------------------------------------------
-   1. Last-run figures. Not cards: a card stack of five identically
-   padded boxes is exactly the thing this project does not draw. A row
-   of label-over-value pairs on hairlines, which is the same
-   construction .fm-stamps uses in the form header.
-   ------------------------------------------------------------------ */
 
 .cs-stats {
     display: grid;
@@ -759,12 +526,6 @@
 .cs-stat__k { font-size: 11px; color: var(--bl-ink-3); }
 
 .cs-stat__v { font-size: 13px; color: var(--bl-ink); }
-
-/* ------------------------------------------------------------------
-   2. A read-only fact list: what this connection actually is. A <dl>,
-   because that is what a key and its value are, drawn as hairline rows
-   so it reads as a record rather than as a form you can edit.
-   ------------------------------------------------------------------ */
 
 .cs-facts { display: flex; flex-direction: column; margin: 0; }
 
@@ -791,20 +552,11 @@
     overflow-wrap: anywhere;
 }
 
-/* Identifiers, hosts and ciphers are strings you compare character by
-   character, so they get the mono face and tabular figures. */
 .cs-fact__mono {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 12px;
 }
-
-/* ------------------------------------------------------------------
-   3. A numbered set of instructions. The numerals are the list's own,
-   in mono so they line up, and the marker is not restyled into a
-   coloured disc - these are steps to read, not actions to take, and the
-   accent on this page belongs to the primary button.
-   ------------------------------------------------------------------ */
 
 .cs-guide {
     display: flex;
@@ -826,19 +578,7 @@
     color: var(--bl-ink-3);
 }
 
-/* ------------------------------------------------------------------
-   4. A row of equal-weight buttons, each its own form. Used by TikTok's
-   preset runs. Every one is a secondary: none of the six is the primary
-   action of the page, and six solid fills would say all of them are.
-   ------------------------------------------------------------------ */
-
 .cs-packs { display: flex; flex-wrap: wrap; gap: var(--bl-space-2); }
-
-/* ------------------------------------------------------------------
-   5. The store colour: a swatch and its hex value, one control in two
-   faces. Only the swatch is posted; the text box beside it exists
-   because a hex value is a thing people paste.
-   ------------------------------------------------------------------ */
 
 .cs-colour { display: flex; align-items: center; gap: var(--bl-space-2); }
 
@@ -855,26 +595,12 @@
 
 .cs-colour__swatch:disabled { cursor: not-allowed; opacity: .6; }
 
-/* The native swatch draws its own inner well, which browsers pad
-   differently. Zeroing it makes the colour fill the control instead of
-   floating in the middle of it. */
 .cs-colour__swatch::-webkit-color-swatch-wrapper { padding: 0; }
 .cs-colour__swatch::-webkit-color-swatch { border: 0; border-radius: 2px; }
 .cs-colour__swatch::-moz-color-swatch { border: 0; border-radius: 2px; }
 
-/* Same specificity note as .cs-days below: `.fm-field .x-input` sets
-   width:100%, which without this made the hex box span the whole column and
-   left the swatch marooned at its left edge. Measured in the browser on
-   OpenCart's Connection tab. */
 .cs-colour__hex,
 .fm-field .cs-colour__hex { width: 104px; flex: none; }
-
-/* ------------------------------------------------------------------
-   6. Cron commands. A command is code, so it is set as code, and it has
-   to be copyable in one gesture: the string scrolls inside its own box
-   rather than wrapping, because a wrapped shell command invites being
-   pasted with a line break in it.
-   ------------------------------------------------------------------ */
 
 .cs-crons { display: flex; flex-direction: column; gap: var(--bl-space-4); }
 
@@ -908,14 +634,6 @@
     white-space: nowrap;
 }
 
-/* ------------------------------------------------------------------
-   The one irreversible control on a settings page. It gets its own
-   hairline block at the bottom of a section with a sentence saying what
-   it really deletes, and the button keeps the transparent
-   .x-btn--danger treatment. Never a solid red fill, and never beside
-   Save.
-   ------------------------------------------------------------------ */
-
 .cs-danger {
     display: flex;
     flex-wrap: wrap;
@@ -936,11 +654,6 @@
     color: var(--bl-ink-3);
 }
 
-/* ------------------------------------------------------------------
-   The first-import lock. A password field and its button on one
-   baseline, with the failure message underneath.
-   ------------------------------------------------------------------ */
-
 .cs-lock { display: flex; flex-direction: column; gap: var(--bl-space-2); }
 
 .cs-lock__row {
@@ -951,13 +664,6 @@
 }
 
 .cs-lock__row .fm-field { flex: 1 1 240px; min-width: 0; }
-
-/* ------------------------------------------------------------------
-   Steps that can be locked. .cs-steps already draws the numbered
-   sequence; a locked step is one whose turn has not come, so it recedes
-   rather than being hidden - the operator needs to see the whole
-   sequence to know what is ahead of them.
-   ------------------------------------------------------------------ */
 
 .cs-step__row {
     display: flex;
@@ -971,11 +677,6 @@
 .cs-steps--locked .cs-step[data-step-locked] .cs-step__n,
 .cs-steps--locked .cs-step[data-step-locked] .cs-step__title { color: var(--bl-ink-3); }
 
-/* ------------------------------------------------------------------
-   Run-log columns. Widths measured against the headers, which are the
-   widest strings in four of the five.
-   ------------------------------------------------------------------ */
-
 .cs-col-ms     { width: 88px; }
 .cs-col-entity { width: 130px; }
 .cs-col-dir    { width: 108px; }
@@ -987,25 +688,10 @@
     font-variant-numeric: tabular-nums;
 }
 
-/* A non-zero failure count is the one figure on these two log tables
-   that an operator has to act on, so it is the one that gets --bl-bad.
-   Zero stays neutral: a column of red zeroes would mean nothing. */
 .cs-fail { color: var(--bl-bad); font-weight: 500; }
-
-/* ------------------------------------------------------------------
-   The connection-test verdict, written into .cs-actions__note. Neutral
-   while it is in flight, then the same two colours the rest of this
-   system uses for a success and a failure.
-   ------------------------------------------------------------------ */
 
 .cs-actions__note--ok   { color: var(--bl-brand-deep); }
 .cs-actions__note--fail { color: var(--bl-bad); }
-
-/* ------------------------------------------------------------------
-   Phones. The credential/authentication split has already merged by
-   1000px; what is left is to stop the explorer's two panels and the
-   inline day field from squeezing.
-   ------------------------------------------------------------------ */
 
 @media (max-width: 640px) {
     .cs-page .api-explorer { grid-template-columns: minmax(0, 1fr); }
@@ -1014,16 +700,11 @@
     .cs-days { flex: 1 1 100px; width: auto; }
     .cs-exchange .fm-field { flex: 1 1 100%; }
 
-    /* One figure per line rather than two cramped columns. */
     .cs-stats { grid-template-columns: minmax(0, 1fr); gap: var(--bl-space-3); }
 
-    /* A key and its value stop fighting for one line: the value moves
-       under its label and stays left-aligned with everything else. */
     .cs-fact { flex-direction: column; gap: 2px; }
     .cs-fact dd { text-align: left; }
 
-    /* The command box already scrolls; the Copy button goes underneath
-       it so the box keeps the full width. */
     .cs-cron__row { flex-wrap: wrap; }
     .cs-cron__cmd { flex: 1 1 100%; }
 
@@ -1033,48 +714,11 @@
 
     .cs-colour__hex { flex: 1 1 auto; width: auto; }
 
-    /* Right-aligned numerals read as a column; stranded alone above a
-       left-aligned stacked label they just look misaligned. Same call
-       channel-catalog.css makes for its own numeric columns. */
     .cs-page .x-table td.cs-col-count,
     .cs-page .x-table td.cs-col-ms,
     .cs-page .x-table td.cs-col-status { text-align: left; }
 }
 
-/* ============================================================
-   WHICH ENVIRONMENT AM I IN
-
-   Production and Sandbox were the same ink pill, so the one control on
-   this page that decides whether an action touches real orders and real
-   money looked exactly like a view filter.
-
-   BOTH states are coloured, not just one. An earlier attempt painted
-   only Sandbox, which left the state most sellers are actually in -
-   live - looking exactly as it always had; "put colour here" is not
-   answered by colouring the case you are usually not in.
-
-   Production is green: connected, live, working. Sandbox is amber, the
-   same token that means "needs a person" everywhere else, because
-   nothing done there is real and that is worth noticing. The segment
-   takes a wash of whichever is active, so the answer reads from across
-   the room before either word does.
-
-   Green means LIVE here rather than "good", and the two words carry the
-   meaning on their own - so the distinction survives for anyone who
-   cannot separate amber from green.
-
-   These rules live in this file deliberately. It is a page vocabulary
-   imported unlayered from blotter.css, which beats @layer components
-   regardless of specificity. Written in the layered file they did
-   nothing at all.
-
-   The pill fills are DEEPENED from the tokens rather than used raw. The
-   raw amber carries white at 3.38:1 and the dark theme's green at 2.2:1,
-   both under the 4.5 floor for a 12.5px label. Mixing toward black keeps
-   the hue tied to the token - repalette the accent and this follows - and
-   buys the contrast the raw value does not have. The mix is stronger in
-   dark because both tokens lighten there.
-   ============================================================ */
 .cs-env .x-segment__item[data-cs-env-option="live"].is-active {
     background: color-mix(in srgb, var(--bl-good) 92%, #000);
     color: #fff;
@@ -1103,17 +747,6 @@
     background: color-mix(in srgb, var(--bl-attn-fill) 78%, #000);
 }
 
-/* A status dot per option was tried and removed: the ::before never took
-   its width, so it shipped as a rule that did nothing. Not chased, because
-   it was only there for redundancy and the words Production and Sandbox
-   already provide it - colour is not the sole signal either way. */
-
-/* ------------------------------------------------------------------
-   The Add-store modal on the Integrations board (the owner, 2026-09-04).
-   Pick a channel, answer the fewest questions. Rides the shared
-   .modal-backdrop / .modal shell; these are only its own internals.
-   ------------------------------------------------------------------ */
-
 .cs-addmodal {
     max-width: 520px;
     padding: 0;
@@ -1139,7 +772,6 @@
     color: var(--bl-ink-2);
 }
 
-/* The channel picker: a tile per channel, logo over name. */
 .cs-chgrid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
@@ -1174,9 +806,6 @@
 
 .cs-chtile__name { font-size: 13px; font-weight: 550; }
 
-/* The channel logo: an uploaded PNG over a lettered fallback, so a
-   channel with no logo yet still reads (channel-add.js hides a broken
-   image). */
 .ch-logo {
     position: relative;
     display: inline-flex;
@@ -1208,7 +837,6 @@
     background: var(--bl-paper);
 }
 
-/* Step 2: the short form. */
 .cs-addmodal__back {
     display: inline-flex;
     align-items: center;
@@ -1242,20 +870,12 @@
     margin-top: var(--bl-space-5);
 }
 
-/* This store: the Active switch stands in for an input, so it takes an
-   input's vertical room; without it the Save row crowds the track. */
 .cs-store-switch { padding: 8px 0 6px; }
 
-/* ── Setting up the store (2026-09-05) ─────────────────────────────────
-   The progress popup that follows an authorisation: a bar, one row per
-   read, a plain sentence per row. Rides .modal-backdrop's scrim and
-   .co-modal's sheet; only the bar and the rows are its own. */
 .cs-setup__sheet { display: flex; flex-direction: column; gap: 12px; }
 .cs-setup__title { margin: 0; font-size: 16px; font-weight: 600; color: var(--bl-ink); }
 .cs-setup__sub { margin: 0; font-size: 12px; color: var(--bl-ink-3); }
 .cs-setup__bar { height: 6px; border-radius: 3px; background: var(--bl-chrome); overflow: hidden; }
-/* The fill is a full-width strip scaled from the left, so progress is a
-   transform (no layout on each step); the script sets --cs-setup-p. */
 .cs-setup__fill { --cs-setup-p: 0; height: 100%; width: 100%; background: var(--bl-brand); transform-origin: left center; transform: scaleX(var(--cs-setup-p)); transition: transform 320ms cubic-bezier(.2, .8, .2, 1); }
 .cs-setup__steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .cs-setup__step { display: grid; grid-template-columns: 1fr auto; column-gap: 12px; font-size: 13px; color: var(--bl-ink); }
@@ -1269,28 +889,14 @@
 .cs-setup__foot { display: flex; justify-content: flex-end; }
 @media (prefers-reduced-motion: reduce) { .cs-setup__fill { transition: none; } }
 
-/* The connection note: one line, succeeded or a sentence, and a way to
-   the API log for the rest. */
 .cs-result-note .cs-result-note__log { margin-left: 6px; }
 
-/* ── Deleting a store (2026-09-05) ─────────────────────────────────────
-   The confirmation sheet behind "Delete this store": what goes, what
-   stays, the name typed to confirm. The submit stays off until the
-   typed name matches, so the danger colour is only ever on a live
-   button. Rides .modal-backdrop and .co-modal like the setup popup. */
 .cs-delete__sheet { display: flex; flex-direction: column; gap: 12px; }
 .cs-delete__title { margin: 0; font-size: 16px; font-weight: 600; color: var(--bl-ink); }
 .cs-delete__list { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.5; color: var(--bl-ink-2); }
 .cs-delete__foot { display: flex; justify-content: flex-end; gap: 8px; }
-/* The opener sits in the section head beside Set up store, in the danger
-   ink and nothing else: a quiet word, not a red button, on a page whose
-   everyday job is saving keys. */
 .cs-delete__open { color: var(--bl-bad); }
 
-/* ── The head's state cluster (audit, 2026-09-05) ─────────────────────
-   The environment control and the Active pill sit in the page head,
-   beside the title, because every card below answers to them. One row
-   at desktop; wraps under the title on a phone. */
 .cs-head-state {
     display: flex;
     flex-wrap: wrap;
@@ -1300,28 +906,18 @@
 
 .cs-head-state__env { margin: 0; }
 
-/* A step's explanation is a tooltip on its title, not a paragraph under
-   its control (the rule of 2026-09-05). */
 .cs-step__title .bl-hint,
 .cs-danger__title .bl-hint { margin-left: 4px; vertical-align: middle; }
 
-/* ── Connecting this store (draft C, the owner 2026-09-05) ─────────────────
-   The three steps in a strip above the keys and the by-hand tools: the
-   number, the title, the button where one exists, the state in one
-   line. Three across on a desk; one under another on a phone. A done
-   step's state reads in the good ink, a lapsed token in the bad. */
 .cs-flow {
     list-style: none;
     margin: 0;
     padding: 0;
     display: grid;
-    /* Three steps on Shopee and Lazada, four on TikTok (the shop cipher):
-       the columns follow the count. */
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: var(--bl-space-4);
 }
 
-/* The first-time guide, folded: a disclosure the operator opens once. */
 .cs-guide-wrap > summary { cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: var(--bl-space-2); }
 .cs-guide-wrap > summary::-webkit-details-marker { display: none; }
 .cs-guide-wrap > summary::after { content: ""; width: 8px; height: 8px; border-right: 1.5px solid var(--bl-ink-3); border-bottom: 1.5px solid var(--bl-ink-3); transform: rotate(-45deg); transition: transform 160ms ease; }
@@ -1341,5 +937,4 @@
     .cs-flow { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* The by-hand tools carry no numbers: they are alternatives, not a sequence. */
 .cs-env-panel { display: flex; flex-direction: column; gap: var(--bl-space-6); }

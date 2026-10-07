@@ -4,19 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Core settings let go of the sync and API log retentions added this morning.
- *
- * Syncing is not a core feature: every sync log and per-marketplace API log
- * belongs to an extension, so a core settings page holding their retention,
- * and a core Purge now button deleting from their tables, was core reaching
- * into modules (the owner, 2026-09-01). Each extension declares its own log
- * tables in extension.json now, and App\Support\LogRetention collects them
- * the way ApiScopeRegistry collects api_scopes. The numbers that are left
- * are housekeeping defaults and live in config/logs.php.
- *
- * activity_log_retention_days stays: the activity log is core's own.
- */
 return new class extends Migration
 {
     public function up(): void

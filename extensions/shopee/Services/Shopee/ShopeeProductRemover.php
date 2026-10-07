@@ -9,17 +9,10 @@ use Extensions\shopee\Models\ShopeeProductLink;
 use Extensions\shopee\Models\ShopeeSetting;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Shopee's half of the catalog delete (ProductRemover, 2026-09-07): every
- * local row for the product goes; the item on Shopee stays. Nothing is
- * sent and nothing can refuse.
- */
 final class ShopeeProductRemover
 {
-    /** Mirror statuses that mean the item is already gone: no call needed. */
     private const GONE = ['BANNED', 'SELLER_DELETE', 'SHOPEE_DELETE', 'MISSING'];
 
-    /** @see \App\Integrations\Contracts\ProductRemover::productPresence */
     public function presence(array $productIds): array
     {
         $links = ShopeeProductLink::query()->whereIn('product_id', $productIds)->whereNotNull('shopee_item_id')->get();
@@ -48,7 +41,6 @@ final class ShopeeProductRemover
         return $out;
     }
 
-    /** @see \App\Integrations\Contracts\ProductRemover::removeProduct */
     public function remove(int $productId): array
     {
         $links = ShopeeProductLink::query()->where('product_id', $productId)->get();
@@ -75,7 +67,6 @@ final class ShopeeProductRemover
         return array_keys($stays);
     }
 
-    /** @see \App\Integrations\Contracts\ProductRemover::strandedProductIds */
     public function stranded(): array
     {
         $pfx = (string) config('catalog.prefix');
@@ -90,7 +81,6 @@ final class ShopeeProductRemover
         return array_values(array_unique($ids));
     }
 
-    /** @return array<int, string> */
     private function stores($ids): array
     {
         return ShopeeSetting::query()->whereIn('id', collect($ids)->filter()->unique()->all())

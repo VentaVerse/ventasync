@@ -16,29 +16,12 @@ use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 use ZipArchive;
 
-/**
- * Dedicated hardening commit for the three pre-existing vulnerabilities the
- * automated review surfaced during the IA migration (2026-08-08,
- * SECURITY REVIEW in progress.md): SSRF in ProductImageController::importUrl,
- * zip slip / path traversal in ExtensionController::install, and an open
- * redirect via `_return` in ProductController::update. This range is
- * deliberate behaviour change, so it carries its own tests rather than
- * riding the migration's behaviour-freeze coverage.
- *
- * Fix 4 (added 2026-08-08, catalog redesign final review, finding I1) is a
- * separate pre-existing vulnerability found later by the same review
- * process: stored XSS through the Summernote description editor on both
- * product and category edit pages. See App\Support\HtmlSanitizer's docblock
- * for the full allowlist and where it was derived from.
- */
 class SecurityHardeningTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** extensions/{id} directories this test wrote to the real repo tree. */
     private array $extensionDirsToClean = [];
 
-    /** tmp/product-images/{token} directories written to the public disk. */
     private array $tmpImageDirsToClean = [];
 
     protected function tearDown(): void
@@ -74,10 +57,6 @@ class SecurityHardeningTest extends TestCase
 
         return $bytes;
     }
-
-    // -----------------------------------------------------------------
-    // Fix 1: SSRF in Catalog\ProductImageController::importUrl
-    // -----------------------------------------------------------------
 
     public function test_import_url_rejects_loopback_address_without_making_a_request(): void
     {
@@ -119,9 +98,6 @@ class SecurityHardeningTest extends TestCase
         $token = 'sec-test-public-' . uniqid();
         $this->tmpImageDirsToClean[] = 'tmp/product-images/' . preg_replace('/[^A-Za-z0-9_-]/', '', $token);
 
-        // A bare public IP literal, so the test needs no real DNS resolution
-        // and stays deterministic: it is not in any blocked range, and the
-        // actual HTTP call is intercepted by Http::fake above.
         $response = $this->actingAs($user)->postJson(route('products.images.import_url'), [
             'url' => 'http://8.8.8.8/image.jpg',
             'token' => $token,
@@ -132,10 +108,6 @@ class SecurityHardeningTest extends TestCase
             return $request->url() === 'http://8.8.8.8/image.jpg';
         });
     }
-
-    // -----------------------------------------------------------------
-    // Fix 2: zip slip / path traversal in Settings\ExtensionController::install
-    // -----------------------------------------------------------------
 
     private function buildZip(array $entries): string
     {
@@ -227,15 +199,6 @@ class SecurityHardeningTest extends TestCase
                 'file' => $this->uploadedZip($zipPath, 'clean.zip'),
             ]);
 
-            // Not asserting an Extension DB row here: ExtensionManager is a
-            // process-lifetime singleton whose manifest cache is warmed at
-            // boot, before this test ever creates the fixture's directory,
-            // so install()'s own getManifest() lookup misses and it returns
-            // false without writing a row - a pre-existing quirk of that
-            // cache, orthogonal to path safety, and out of this commit's
-            // scope. What this fix actually guarantees - the archive is
-            // accepted and its files land intact at the real destination -
-            // is what these two assertions check.
             $response->assertRedirect();
             $response->assertSessionHas('success');
             $this->assertFileExists(base_path("extensions/{$id}/extension.json"));
@@ -243,10 +206,6 @@ class SecurityHardeningTest extends TestCase
             @unlink($zipPath);
         }
     }
-
-    // -----------------------------------------------------------------
-    // Fix 3: open redirect via `_return` in Catalog\ProductController::update
-    // -----------------------------------------------------------------
 
     private function testProduct(): Product
     {
@@ -314,22 +273,6 @@ class SecurityHardeningTest extends TestCase
         $response->assertRedirect('/catalog/products?page=2');
     }
 
-    // -----------------------------------------------------------------
-    // Fix 4: stored XSS through the Summernote description editor
-    // (Catalog\ProductController + Catalog\CategoryController) -
-    // catalog redesign final-review.md finding I1.
-    // -----------------------------------------------------------------
-
-    /**
-     * A single payload exercising both halves of the same assertion: real
-     * formatting a legitimate user would produce with the toolbar
-     * (paragraph, bold, a list, a plain https link) immediately followed by
-     * the reviewer's exact reproduction payload - an inline <script>, an
-     * <img onerror=...>, and a javascript: href. One string, so a passing
-     * test proves the sanitiser is selective (strips the hostile half,
-     * keeps the legitimate half) rather than just blunt (empties
-     * everything).
-     */
     private function xssAndLegitPayload(): string
     {
         return '<p>Legit paragraph with enough honest words about the product to clear the eighty character description floor.</p><b>Bold text</b><ul><li>One</li><li>Two</li></ul>'
@@ -339,21 +282,12 @@ class SecurityHardeningTest extends TestCase
             . '<a href="javascript:alert(5)">bad link</a>';
     }
 
-    /**
-     * What App\Support\HtmlSanitizer::sanitize() produces from the payload
-     * above - computed once by hand (not by calling the sanitiser from the
-     * test, which would make the assertion circular) and hard-coded here.
-     * The <script> is removed outright; the <img> keeps its tag but loses
-     * both attributes (neither survives allowlist-checking); the second
-     * <a> keeps its tag and text but loses its javascript: href.
-     */
     private function expectedSanitizedPayload(): string
     {
         return '<p>Legit paragraph with enough honest words about the product to clear the eighty character description floor.</p><b>Bold text</b><ul><li>One</li><li>Two</li></ul>'
             . '<a href="https://example.com/page">Good link</a><img><a>bad link</a>';
     }
 
-    /** Purely legitimate markup, no hostile content at all. */
     private function legitOnlyPayload(): string
     {
         return '<p>Legit paragraph with enough honest words about the product to clear the eighty character description floor.</p><b>Bold text</b><ul><li>One</li><li>Two</li></ul>'
@@ -427,13 +361,6 @@ class SecurityHardeningTest extends TestCase
         $this->assertSame($this->expectedSanitizedPayload(), $stored);
     }
 
-    /**
-     * Legitimate formatting must survive untouched - a sanitiser that
-     * quietly mangles whitespace, attribute quoting, or tag casing on
-     * ordinary content would be its own regression even though it is
-     * "safe". Posted with no hostile markup at all, through the real
-     * update route.
-     */
     public function test_product_update_preserves_legitimate_formatting_byte_for_byte(): void
     {
         $user = $this->userWithPermission('manage_catalog/product');
@@ -505,12 +432,6 @@ class SecurityHardeningTest extends TestCase
         $this->assertSame($this->expectedSanitizedPayload(), $stored);
     }
 
-    /**
-     * Render-boundary guard: a row planted directly in the database
-     * (simulating data saved before this sanitiser existed) must still come
-     * out clean when the edit page renders it into the Summernote textarea,
-     * without the database row itself being rewritten.
-     */
     public function test_product_edit_page_neutralises_a_hostile_description_planted_directly_in_the_database(): void
     {
         $user = $this->userWithPermission('manage_catalog/product');
@@ -532,8 +453,6 @@ class SecurityHardeningTest extends TestCase
         $this->assertStringNotContainsString('onerror', $html);
         $this->assertStringNotContainsString('javascript:alert', $html);
 
-        // The row itself is untouched - this is a render-time guard, not a
-        // data migration.
         $rawStored = DB::table($pfx.'product_description')
             ->where('product_id', $product->product_id)->where('language_id', $langId)
             ->value('description');
@@ -557,20 +476,12 @@ class SecurityHardeningTest extends TestCase
         $this->assertStringNotContainsString('onerror', $html);
         $this->assertStringNotContainsString('javascript:alert', $html);
 
-        // The row itself is untouched - this is a render-time guard, not a
-        // data migration.
         $rawStored = DB::table($pfx.'category_description')
             ->where('category_id', $categoryId)->where('language_id', $langId)
             ->value('description');
         $this->assertSame($this->xssAndLegitPayload(), $rawStored);
     }
 
-    /**
-     * Found 2026-09-07: text with no tag around it came out empty, so every
-     * imported plain-text description was lost. The sanitiser keeps
-     * top-level text, still drops what it always dropped, and keeps text
-     * after the last element.
-     */
     public function test_the_sanitiser_keeps_plain_text_and_text_after_the_last_element(): void
     {
         $this->assertSame("A warm overdrive.\nTwo lines", \App\Support\HtmlSanitizer::sanitize("A warm overdrive.\nTwo lines"));

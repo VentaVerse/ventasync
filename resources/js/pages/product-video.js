@@ -1,14 +1,3 @@
-/* ============================================================
- * The product's one video, on the product form.
- *
- * The file goes up on its own, before the product is saved, so a long
- * upload never rides on the save. What the form then carries is the
- * stored path, the name, and the AI answer. Remove clears all three and
- * takes the file off the server.
- *
- * Everything is written with textContent and element properties, never
- * innerHTML, so a filename can never be markup.
- * ============================================================ */
 (function () {
     'use strict';
 
@@ -117,7 +106,7 @@
                 method: 'POST',
                 headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest' },
                 body: body,
-            }).catch(function () { /* the form still saves without it */ });
+            }).catch(function () { });
 
             clear();
             say('');

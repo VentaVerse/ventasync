@@ -13,7 +13,6 @@ return new class extends Migration {
             $table->unsignedBigInteger('primary_category_id')->nullable();
             $table->unsignedBigInteger('brand_id')->nullable();
 
-            // Remote identifiers (filled in Phase 3)
             $table->string('lazada_item_id')->nullable();
             $table->string('status')->nullable();
             $table->timestamp('last_synced_at')->nullable();

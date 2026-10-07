@@ -1,18 +1,3 @@
-{{-- What a group may do, one row per area of the application.
-
-     REBUILT ON THE ROUTE TABLE. The version this replaces walked a
-     hand-kept parent/child tree out of config/permissions.php, which is why
-     it needed twin collapsing, orphan carry-over and a parent-surfacing pass
-     to show what the database held - and still missed thirteen keys, every
-     domain-wide Manage among them. There is no tree now: an area is a folder
-     of controllers, a row is one controller, and both come from the routes.
-     See App\Services\PermissionCatalogue.
-
-     The control is unchanged, deliberately. Off / View / Manage in one pill
-     is the right primitive for a schema whose tiers are view_ and manage_,
-     and it is already accessible - roving tabindex, arrow keys, a named
-     radiogroup per row. Only what feeds it has changed. --}}
-
 @php
     $canManage = $canManage ?? true;
 
@@ -26,12 +11,6 @@
         }
     }
 
-    /* The rows a bulk grant should make you pause over, NAMED in the
-       confirmation - "and 10 more rows" is a number, "including User
-       Groups" is a consequence. Worst first, not alphabetical: listing
-       whatever sorts earliest names the credential screens and leaves out
-       the one that matters most, the row that lets a group re-grant
-       itself. */
     $warnRank = ['settings/user_group', 'settings/user', 'settings/api_client', 'settings/extension'];
 
     $warnedAll = collect($permissionGroups)
@@ -66,8 +45,6 @@
                 {{ $grantedRows }} / {{ $totalRows }}
             </span>
 
-            {{-- The figure, said aloud. The visible one reads "51 / 51",
-                 which is right for the eye and useless in the ear. --}}
             <span class="x-sr" role="status" data-permv2="counter-say">
                 {{ $grantedRows }} of {{ $totalRows }} areas granted
             </span>
@@ -80,15 +57,6 @@
                     title="Set every area to Off">
                 <span class="permv2-dot"></span> Off all
             </button>
-            {{-- WIDENING IS GUARDED TOO.
-                 Off all was confirmed and these two were not, which had the
-                 asymmetry backwards: switching everything off is loud and
-                 self-correcting, and somebody rings you within the hour.
-                 Granting all {{ $totalRows }} areas is silent forever, and one
-                 of the areas it grants is the power to grant anything else.
-                 permission-pill.js fills in :n (what this click covers,
-                 which the filter narrows), :c (how many would change) and
-                 :e (the consequential rows it hands over, when any). --}}
             <button type="button" class="permv2-cascade" data-cascade="view"
                     data-confirm-tone="primary"
                     data-confirm-count="Give this group View on :n? :c would change."
@@ -102,10 +70,6 @@
                 <span class="permv2-dot"></span> Manage all
             </button>
 
-            {{-- Not role="menu": that promises menuitem children and arrow-key
-                 navigation this does not provide. A group of buttons named by
-                 its trigger is what it actually is - the same call
-                 components/ui/menu.blade.php documents. --}}
             <div class="permv2-preset" data-permv2="preset" data-open="0">
                 <button type="button"
                         id="permv2-preset-trigger"
@@ -132,9 +96,6 @@
                     <button type="button" data-preset="administrator"
                             data-confirm-tone="primary"
                             data-confirm-count="Apply the Administrator preset? :c would change. It grants Manage on all {{ $totalRows }} areas, filtered or not.:e">
-                        {{-- True now. It used to claim parity with the built-in
-                             Administrator group while granting 37 of its 79,
-                             because the domain-wide Manage keys had no control. --}}
                         <span class="permv2-preset-name">Administrator</span>
                         <span class="permv2-preset-hint">Manage every area, settings included.</span>
                     </button>
@@ -152,23 +113,10 @@
     </div>
 
 
-    {{-- A DEAD END TOLD THE TRUTH AND EXPLAINED NOTHING.
-         Typing "fulfilment" or "channel" - two top-level sections of the
-         sidebar - returns no rows, and an administrator told "give Sam the
-         fulfilment hub" concluded the permission did not exist. It does not,
-         deliberately: those screens gate themselves per card, more finely
-         than one key could, so they are in PermissionCatalogue::NEVER_GATED.
-         Saying so is the difference between a wrong answer and an answer. --}}
-    {{-- Shown whenever the search names a screen that gates itself, whether
-         or not anything matched. "channel" returns one unrelated mobile-API
-         row, which is worse than nothing: it answers a question the operator
-         did not ask and hides the one they did. --}}
     <p class="permv2-note" data-permv2="why" role="status" hidden></p>
 
     <div class="permv2-empty" data-permv2="empty" role="status">Nothing matches that filter.</div>
 
-    {{-- One line, only while the group holds nothing: the fastest start is
-         not 72 individual switches. Hidden by JS on the first grant. --}}
     @if($canManage)
         <p class="permv2-note" data-permv2="zerohint" @if($grantedRows !== 0) hidden @endif>
             Nothing granted yet. The Preset menu is the fastest start; the filter finds any single area.
@@ -181,12 +129,7 @@
             $viewCount   = collect($group['rows'])->where('state', 'view')->count();
         @endphp
 
-        {{-- A named region, so the grouping is not sighted-only: a bare
-             <section> has no accessible name and produces no landmark. --}}
         @php
-            // Machine areas open closed. They are last on the page and answer
-            // to a token rather than to a person, so they should cost a click
-            // to read rather than a scroll to pass.
             $collapsed = ! empty($group['machine']);
         @endphp
 
@@ -195,11 +138,6 @@
                  data-collapsed="{{ $collapsed ? '1' : '0' }}"
                  @if(! empty($group['machine'])) data-machine="1" @endif
                  aria-labelledby="permv2-title-{{ $group['area'] }}">
-            {{-- A <div> holding TWO controls, not one big <button>: the
-                 collapse toggle, and the area's own set-all cluster. Buttons
-                 cannot nest, and "everything Shopee at Manage" was seven
-                 clicks with scrolling between them - the single most-asked
-                 shortcut in every critique of this page. --}}
             <div class="permv2-group-head">
                 <button type="button"
                         class="permv2-group-toggle"
@@ -228,17 +166,11 @@
 
                 @if($canManage)
                     @php
-                        /* A widening set-all over rows that reach past their
-                           own screen still asks first - statically worded,
-                           because the scope is one area the operator is
-                           looking at. */
                         $groupWarned = collect($group['rows'])
                             ->filter(fn ($r) => $r['warning'] !== '')
                             ->map(fn ($r) => $r['label'])->implode(', ');
                     @endphp
                     <span class="permv2-group-set" role="group" aria-label="Set every {{ $group['label'] }} row">
-                        {{-- Off asks, like every bulk revoke on the page: it
-                             was the one unguarded multi-row click left. --}}
                         <button type="button" data-groupset="off" title="Every {{ $group['label'] }} row to Off"
                                 data-confirm="Switch every {{ $group['label'] }} row off for this group?">Off</button>
                         <button type="button" data-groupset="view" title="Every {{ $group['label'] }} row to View"
@@ -258,29 +190,13 @@
                         $haystack = strtolower($group['label'] . ' ' . $row['label'] . ' ' . $key);
                     @endphp
 
-                    {{-- NO WARNING VOCABULARY OF ANY KIND - no tag, no bold,
-                         no "elevated". The owner's ruling, and the logic held at
-                         every step: a permission does what its name says, the
-                         admin owns the decision, and a description states
-                         facts the same way "8 actions" does. The sentence for
-                         the consequential rows survives only AS a
-                         description; the bulk-action confirmations (his
-                         earlier, explicit choice) still name those rows
-                         before a 72-row grant. --}}
                     <div class="permv2-row" data-hidden="0" data-search="{{ $haystack }}"
                          @if($row['warning'] !== '') data-warn="1" @endif>
                         <div class="permv2-row-info">
                             <div class="permv2-row-label">
                                 <span>{{ $row['label'] }}</span>
-                                {{-- The key, always shown. It is what the ledger
-                                     records and what a support question quotes,
-                                     and it is the one label that cannot go stale. --}}
                                 <span class="permv2-row-base" title="permission key">{{ $key }}</span>
                             </div>
-                            {{-- No action counts: The owner's call, and right -
-                                 route arithmetic is trivia to an operator. A row
-                                 is its title; only the handful that reach past
-                                 their own screen carry one factual sentence. --}}
                             @if($row['warning'] !== '')
                                 <div class="permv2-row-desc" id="{{ $pillId }}-desc">{{ $row['warning'] }}</div>
                             @endif
@@ -289,10 +205,6 @@
                         <div class="permv2-pill"
                              id="{{ $pillId }}"
                              role="radiogroup"
-                             {{-- Eight rows were called "Order permission level"
-                                  and nothing told them apart by ear. The area goes
-                                  in front; the action count and the warning
-                                  follow via aria-describedby. --}}
                              aria-label="{{ $group['label'] }}: {{ $row['label'] }} permission level"
                              @if($row['warning'] !== '') aria-describedby="{{ $pillId }}-desc" @endif
                              data-segments="{{ $row['segments'] }}"
@@ -329,9 +241,6 @@
                                 </button>
                             @endif
 
-                            {{-- The active tier's input submits its id; the other is
-                                 disabled and skipped. Off disables both, so the row
-                                 contributes nothing to permissions[]. --}}
                             @if($row['view'])
                                 <input type="hidden" name="permissions[]" value="{{ $row['view']->id }}"
                                        data-tier="view" data-perm-key="{{ $row['view']->key }}"

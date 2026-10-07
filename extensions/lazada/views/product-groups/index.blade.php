@@ -3,11 +3,8 @@
 
 @section('title', 'Lazada Product Groups')
 
-{{-- Leaves the .x-legacy content boundary, rebuilt on the token set. --}}
 @section('content')
 @php
-    // Read tier is `view_lazada|manage_lazada`; create, edit and destroy are
-    // all `manage_lazada`. Replaces a hardcoded `true`.
     $canManageLazada = auth()->user()?->hasPermission('manage_lazada/product_group') ?? false;
 @endphp
 
@@ -52,10 +49,6 @@
             $pCount = $productCounts->get($g->id, 0);
             $productsUrl = route('ext.lazada.product-groups.products', $g->id);
 
-            // The same two figures the old view printed, kept as separate
-            // lines rather than joined with an ampersand: they are a fixed
-            // amount and a percentage of the selling price, which are
-            // different units and do not belong on one line reading as a sum.
             $markupFixed = !empty($g->markup_fixed) ? (float) $g->markup_fixed : null;
             $markupPercent = !empty($g->markup_percent) ? (float) $g->markup_percent : null;
         @endphp
@@ -86,22 +79,11 @@
                 @endif
             </td>
             <td class="x-td-actions">
-                {{-- The old row carried three standing buttons, one of them a
-                     solid red Delete, on every line. The row itself is the
-                     link to its products now, and the two remaining actions
-                     sit in the overflow. --}}
                 <x-ui.menu label="Product group {{ $g->name }} actions">
                     <a class="x-menu__item" href="{{ $productsUrl }}">Products in this product group</a>
                     @if($canManageLazada)
                         <a class="x-menu__item" href="{{ route('ext.lazada.product-groups.edit', $g->id) }}">Edit product group</a>
                         <div class="x-menu__sep"></div>
-                        {{-- Destroy is never a standing control: it sits in the
-                             overflow behind the shared confirm dialog and drives
-                             a form outside this table, because a form cannot be
-                             nested inside a row that is itself a stretched
-                             link. The wording states what the controller really
-                             does: it deletes local listing rows that belong to
-                             no other product group and were never uploaded. --}}
                         <button type="button" class="x-menu__item x-menu__item--danger"
                                 data-confirm="Delete the product group {{ $g->name }}? Listings in no other product group that were never uploaded to Lazada are removed from this list with it. Nothing changes in the catalog, and nothing already live on Lazada is touched."
                                 data-confirm-submit="lpg-del-{{ $g->id }}">Delete product group</button>
@@ -122,5 +104,5 @@
     @endforeach
 @endif
 
-</div>{{-- /.cc-page --}}
+</div>
 @endsection

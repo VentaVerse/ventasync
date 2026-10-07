@@ -4,44 +4,22 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Universal admin-editable scheduler. One OS cron entry runs
- * `php artisan schedule:run` every minute; Console\Kernel reads rows
- * from this table and registers each enabled job with Laravel's
- * scheduler at boot, so operators can change cadence in the UI without
- * touching code or the OS crontab.
- *
- * Seeds default jobs for every enabled marketplace extension on first
- * apply, copying `sync_last_days` / `sync_last_days_returns` from each
- * extension's settings table into the matching job's options JSON so
- * the value has a single home going forward.
- */
 return new class extends Migration
 {
     public function up(): void
     {
         Schema::create('scheduled_jobs', function (Blueprint $table) {
             $table->id();
-            // The artisan signature, e.g. "shopee:sync-orders".
             $table->string('command', 128);
-            // Human-readable label rendered in the Automations tab.
             $table->string('display_name', 128);
-            // Logical grouping for the UI ("shopee", "lazada", "opencart"...).
-            // Multi-store integrations also stamp store_id for per-store scoping.
             $table->string('integration', 64);
             $table->unsignedBigInteger('store_id')->nullable();
 
-            // Simple cadence model (the UI inputs "every N {minutes|hours|days}").
             $table->unsignedSmallInteger('cadence_value')->default(15);
             $table->enum('cadence_unit', ['minute', 'hour', 'day'])->default('minute');
-            // Derived cron expression (e.g. "*/15 * * * *"). We persist this so
-            // schedule registration is a constant-time read instead of recomputing
-            // every minute.
             $table->string('cron_expression', 64)->default('*/15 * * * *');
 
             $table->boolean('enabled')->default(true);
-            // Free-form per-job arguments — sync-orders uses {"days": 7},
-            // sync-reviews uses {"days_returns": 30}, refresh-token has none.
             $table->json('options')->nullable();
 
             $table->timestamp('last_run_at')->nullable();
@@ -54,25 +32,12 @@ return new class extends Migration
             $table->index('enabled');
         });
 
-        // Seed default jobs for every enabled marketplace extension.
-        // We only seed for extensions that are currently enabled so a fresh
-        // install with everything disabled doesn't get a wall of inert rows.
         $enabledExtensions = Schema::hasTable('extensions')
             ? \DB::table('extensions')->where('enabled', true)->pluck('id')->toArray()
             : [];
 
         $now = now();
 
-        // Sync Orders and Sync Returns share one artisan command but are
-        // exposed as TWO jobs (each with its own cadence) — operators
-        // typically want orders pulled more aggressively than returns. The
-        // lookback windows (`--days`, `--days-returns`) are NOT seeded into
-        // job options because they live globally on the integration's
-        // settings table (the sync command falls back to those when no CLI
-        // override is passed); the Automations tab exposes them as a
-        // dedicated "Sync windows" block at the top of the page.
-
-        // Shopee (single-store).
         if (in_array('shopee', $enabledExtensions, true)) {
             $this->seedJobs('shopee', null, [
                 ['shopee:sync-orders',   'Sync Orders',          15, 'minute', ['no_returns' => true]],
@@ -83,7 +48,6 @@ return new class extends Migration
             ], $now);
         }
 
-        // Lazada (single-store).
         if (in_array('lazada', $enabledExtensions, true)) {
             $this->seedJobs('lazada', null, [
                 ['lazada:sync-orders',   'Sync Orders',          15, 'minute', ['no_returns' => true]],
@@ -94,7 +58,6 @@ return new class extends Migration
             ], $now);
         }
 
-        // TikTok (single-store).
         if (in_array('tiktok', $enabledExtensions, true)) {
             $this->seedJobs('tiktok', null, [
                 ['tiktok:sync-orders',   'Sync Orders',          15, 'minute', null],
@@ -104,13 +67,6 @@ return new class extends Migration
         }
     }
 
-    /**
-     * Inserts a batch of jobs for one integration/store, skipping any that
-     * already exist (so re-running the migration on a partial DB is safe)
-     * and any whose underlying artisan command isn't registered (so
-     * extensions that haven't shipped a given command don't get phantom
-     * rows).
-     */
     protected function seedJobs(string $integration, ?int $storeId, array $rows, $now): void
     {
         $registered = array_keys(\Illuminate\Support\Facades\Artisan::all());
@@ -118,9 +74,6 @@ return new class extends Migration
             if (!in_array($cmd, $registered, true)) {
                 continue;
             }
-            // Dedupe by (command, integration, store_id, display_name) so the
-            // same artisan command can produce two distinct rows (e.g.,
-            // "Sync Orders" + "Sync Returns" both invoke `*:sync-orders`).
             $exists = \DB::table('scheduled_jobs')
                 ->where('command', $cmd)
                 ->where('integration', $integration)

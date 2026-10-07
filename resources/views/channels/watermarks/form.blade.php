@@ -2,7 +2,6 @@
 @section('title', ($mode === 'create' ? 'New' : 'Edit') . ' watermark template')
 @section('breadcrumb', $mode === 'create' ? 'New template' : $template->name)
 
-{{-- The page shows its own summary and marks the offending fields inline. --}}
 @section('own-errors', true)
 
 @section('content')
@@ -46,9 +45,6 @@
                                         :value="old('name', $template->name)" placeholder="Shop logo, bottom right" />
                         </x-ui.field>
 
-                        {{-- Picked from the library, never uploaded here (the owner,
-                             2026-09-10): one logo, uploaded once, pointed at by
-                             every template that wants it. --}}
                         <x-ui.field label="Picture" name="image_path" :required="true" wide
                                     hint="A PNG with a transparent background. Where it is clear, the photograph shows through.">
                             <div class="wm-pick" data-wm-pick data-browse-url="{{ $browseUrl }}">
@@ -82,12 +78,6 @@
                             </div>
                         </x-ui.field>
 
-                        {{-- Sliders, not number boxes (the owner, 2026-09-11). A box
-                             took any number anyone typed, and 2 in the old
-                             strength box blanked the preview; a slider cannot
-                             hold a value the stamper does not accept, and it
-                             is the right control for "a bit more, a bit less"
-                             while watching the preview move. --}}
                         <x-ui.field label="Size" for="wm-size" name="size_percent" :required="true" wide
                                     hint="How wide the mark is, as a share of the picture's shorter edge, so it looks the same on a square photo and a tall one. 100 fills the frame, which is how a border is made.">
                             <div class="wm-slider">
@@ -98,11 +88,6 @@
                             </div>
                         </x-ui.field>
 
-                        {{-- Two offsets, each centred on zero and signed, in the
-                             picture's own directions (the owner: "make offset both
-                             X and Y axis. Separated slider", "default is 0 and
-                             can go to negative and positive"). Zero is flush
-                             against the position above. --}}
                         <x-ui.field label="Offset across" for="wm-offset-x" name="offset_x_percent" :required="true" wide
                                     hint="Moves the mark left or right from its position, as a share of the shorter edge. Zero sits it flush against the position you picked.">
                             <div class="wm-slider wm-slider--signed">
@@ -125,10 +110,6 @@
                             </div>
                         </x-ui.field>
 
-                        {{-- Transparency, because that is what the old "strength"
-                             was. Stored as opacity, which is what the stamper
-                             multiplies by; capped short of invisible, since a
-                             template that stamps nothing is a mistake. --}}
                         <x-ui.field label="Transparency" for="wm-transparency" name="transparency" :required="true" wide
                                     hint="0 is the mark exactly as drawn. Higher lets more of the photograph show through it, without editing the file.">
                             <div class="wm-slider">

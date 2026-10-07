@@ -8,12 +8,6 @@ use Extensions\shopee\Services\Shopee\ShopeePayoutSync;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 
-/**
- * The Sync Payouts automation for Shopee (the owner, 2026-10-01): which completed
- * orders Shopee has released to the wallet. Its own job, hourly, so the
- * every-minute order sync no longer re-reads the wallet. --days is the job's
- * look-back; see ShopeePayoutSync.
- */
 class ShopeeSyncPayouts extends Command
 {
     protected $signature = 'shopee:sync-payouts
@@ -49,8 +43,6 @@ class ShopeeSyncPayouts extends Command
                 $exit = self::FAILURE;
             }
 
-            // Keep the store's balance fresh too, so the dashboard and the
-            // Payouts report never meet an empty one (PayoutBalances).
             if ($channel = app(\App\Services\Payouts\PayoutRegistry::class)->channel('shopee')) {
                 $balance = app(\App\Services\Payouts\PayoutBalances::class)->refresh($channel, $store);
                 if (! ($balance['ok'] ?? false)) {

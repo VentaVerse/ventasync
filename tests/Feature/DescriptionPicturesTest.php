@@ -8,21 +8,10 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
-/**
- * PICTURES INSIDE A DESCRIPTION SURVIVE THE TRIP TO A STORE (VENT2-129).
- *
- * Two faults, one symptom. A picture pasted into the editor was stored as
- * base64 text, which no marketplace can read; and TikTok's push ran
- * strip_tags() over the description, deleting every image, list and
- * heading before it was sent to a marketplace that documents thirty
- * pictures. Between them, an operator laid out a description and the store
- * showed a wall of text.
- */
 class DescriptionPicturesTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** A 1x1 PNG, the smallest thing that is really an image. */
     private const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
     public function test_a_pasted_picture_becomes_a_real_file_and_the_description_points_at_it(): void
@@ -41,7 +30,6 @@ class DescriptionPicturesTest extends TestCase
         $this->assertStringContainsString(basename($files[0]), $html, 'And the description points at it.');
     }
 
-    /** The same screenshot in ten products is one file, not ten. */
     public function test_the_same_picture_pasted_twice_is_stored_once(): void
     {
         Storage::fake('public');
@@ -52,11 +40,6 @@ class DescriptionPicturesTest extends TestCase
         $this->assertCount(1, Storage::disk('public')->allFiles('catalog/_pasted'));
     }
 
-    /**
-     * A src that says image and is not one never reaches the library: the
-     * type comes from a string the browser wrote, and this folder is read
-     * by every push.
-     */
     public function test_something_that_is_not_an_image_is_left_where_it_was(): void
     {
         Storage::fake('public');
@@ -64,7 +47,6 @@ class DescriptionPicturesTest extends TestCase
         $html = DescriptionHtml::store('<img src="data:image/png;base64,' . base64_encode('<?php echo 1;') . '">');
 
         $this->assertSame([], Storage::disk('public')->allFiles('catalog/_pasted'));
-        // Left alone rather than thrown away: a save must not lose the paste.
         $this->assertStringContainsString('data:image/png;base64,', $html);
     }
 
@@ -82,7 +64,6 @@ class DescriptionPicturesTest extends TestCase
             'TikTok documents up to thirty pictures in a description; the push used to delete every one.');
         $this->assertStringNotContainsString('<script', $out);
         $this->assertStringNotContainsString('<table', $out);
-        // What the forbidden tags SAID is kept; only the tags go.
         $this->assertStringContainsString('no', $out);
     }
 
@@ -95,11 +76,6 @@ class DescriptionPicturesTest extends TestCase
         $this->assertStringContainsString('<p>Hi</p>', $out);
     }
 
-    /**
-     * AND THE PUSH ACTUALLY USES IT. The shaping being right is half the
-     * fix; the other half is the push calling it, which is the wire that
-     * was strip_tags() for as long as this bug existed.
-     */
     public function test_the_tiktok_push_sends_the_shaped_description_and_no_longer_strips_it(): void
     {
         $src = (string) file_get_contents(base_path('extensions/tiktok/Services/TikTok/TikTokProductPush.php'));

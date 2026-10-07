@@ -1,17 +1,10 @@
 @extends('layouts.blotter')
 @section('title', 'Accounts receivable')
-{{-- No @section('breadcrumb'): the nav entry gives the breadcrumb its leaf. --}}
 
 @section('content')
 @php
     use App\Support\Money;
 
-    // Every figure on this page is in the default currency. `order.total` is
-    // stored converted (OrderCurrencyService's storage rule) and
-    // order_payments.amount is recorded in the same currency the order detail
-    // page prints it in, so the subtraction that produces a balance is
-    // currency-coherent. A foreign order also carries the as-transacted
-    // figure, which the order column shows underneath through <x-money>.
     $defaultCode = Money::defaultCode();
 
     $count = $rows->count();
@@ -26,9 +19,6 @@
         'paid'   => 'Paid in Full',
     ];
 
-    // Counts come from the controller, taken before it applies the filter.
-    // Taken here they would describe the filtered set on every tab and read
-    // as though the other two were empty.
     $hasSearch = $search !== '';
 @endphp
 
@@ -79,10 +69,6 @@
     <div class="rp-band op-band">
         <div class="rp-lead">
             <span class="rp-lead__k">Still owed</span>
-            {{-- Not the accent. On the payouts report the lead figure is money
-                 arriving, so green is right there; here it is money owed, and
-                 the balance column already uses the warning token for exactly
-                 that. Zero owed drops the colour entirely. --}}
             <span class="rp-lead__v {{ $totalBalance > 0 ? 'op-owing' : 'op-clear' }}">{{ Money::base($totalBalance) }}</span>
             <span class="rp-lead__sub">
                 <span>{{ number_format($outstanding) }} of {{ number_format($count) }} {{ Str::plural('order', $count) }}</span>

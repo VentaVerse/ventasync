@@ -1,7 +1,3 @@
-{{-- General: who this business is.
-     Every field here is validated by SettingController::update(); nothing is
-     rendered that the controller does not read, and nothing it reads from
-     this group is missing. company_name is the only required one. --}}
 <div class="fm-body st-body--one">
     <div class="fm-col fm-col--main">
 

@@ -25,7 +25,6 @@ class Product extends BaseModel
         return $this->hasMany(ProductDescription::class, 'product_id', 'product_id');
     }
 
-    /** Description row in the store's default language. */
     public function description()
     {
         return $this->hasOne(ProductDescription::class, 'product_id', 'product_id')
@@ -35,16 +34,13 @@ class Product extends BaseModel
     protected static function booted()
     {
         static::creating(function ($model) {
-            // OpenCart schema requires these (no DB default)
             if (empty($model->date_added)) {
                 $model->date_added = now();
             }
-            // Always set date_modified on create
             $model->date_modified = now();
         });
 
         static::updating(function ($model) {
-            // Always bump date_modified on update
             $model->date_modified = now();
         });
     }

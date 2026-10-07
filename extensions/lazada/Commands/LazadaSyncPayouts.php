@@ -8,12 +8,6 @@ use Extensions\lazada\Services\Lazada\LazadaPayoutSync;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 
-/**
- * The Sync Payouts automation for Lazada (the owner, 2026-10-01): which
- * delivered orders Lazada has credited. Its own job, hourly, out of the
- * every-minute order sync. --days is the job's look-back; see
- * LazadaPayoutSync.
- */
 class LazadaSyncPayouts extends Command
 {
     protected $signature = 'lazada:sync-payouts
@@ -57,8 +51,6 @@ class LazadaSyncPayouts extends Command
                 $exit = self::FAILURE;
             }
 
-            // Keep the store's balance fresh too, so the dashboard and the
-            // Payouts report never meet an empty one (PayoutBalances).
             if ($channel = app(\App\Services\Payouts\PayoutRegistry::class)->channel('lazada')) {
                 $balance = app(\App\Services\Payouts\PayoutBalances::class)->refresh($channel, $store);
                 if (! ($balance['ok'] ?? false)) {

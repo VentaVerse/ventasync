@@ -4,30 +4,14 @@ namespace App\Support;
 
 use Illuminate\Support\Facades\Route;
 
-/**
- * Single source of truth for the global navigation.
- *
- * Permissions are NOT hand-maintained here. They are read from each route's
- * own `perm:` middleware at runtime, so this file cannot drift out of step
- * with routes/web.php. A previous hand-maintained list in SettingsHubController
- * had to carry a comment warning about exactly that drift.
- */
 class Navigation
 {
-    /**
-     * The raw tree, before route-existence and permission filtering.
-     * Extension routes (`ext.` prefix) exist only while the extension is
-     * enabled, which is a real state, not a hypothetical.
-     */
     public static function definition(): array
     {
         return [
             ['label' => 'Dashboard', 'icon' => 'monitor', 'route' => 'dashboard',
              'keywords' => ['home', 'overview', 'summary']],
 
-            // Order Statuses is configuration, not a daily operation, so it
-            // lives as a card in the Settings hub (SettingsHubController)
-            // rather than here. Per the owner: the nav shows operations.
             ['label' => 'Sales', 'icon' => 'receipt', 'items' => [
                 ['label' => 'Orders', 'route' => 'orders.index',
                  'keywords' => ['sale', 'customer', 'invoice', 'marketplace']],
@@ -35,12 +19,6 @@ class Navigation
                  'keywords' => ['payments', 'receivable', 'balance', 'owed', 'paid', 'settlement', 'remittance']],
             ]],
 
-            // Top level, not inside Sales or Channels, because it is neither:
-            // Sales/Orders is the consolidated ERP record (an information
-            // page) and Channels leads into one marketplace at a time. This
-            // is the daily working surface across all of them, so it sits
-            // between the two at the same level. Named Fulfilment because
-            // "Orders" already means the information page one group above.
             ['label' => 'Fulfilment', 'icon' => 'globe', 'route' => 'channels.fulfilment',
              'keywords' => ['fulfilment', 'fulfillment', 'ship', 'pack', 'marketplace orders']],
 
@@ -91,17 +69,8 @@ class Navigation
             ['label' => 'Petty Cash', 'icon' => 'wallet', 'route' => 'ext.pettycash.index',
              'keywords' => ['expense', 'cash', 'reimbursement', 'float']],
 
-            // One entry per extension-declared nav group (extension.json's
-            // "nav" key), e.g. the audit extension's "Audit & Monitoring".
-            // Placed here, ahead of Settings, because that is what an
-            // accountability/tracking feature sits beside; an extension
-            // whose manifest names no group at all falls back to a Settings
-            // hub card instead (SettingsHubController), never here.
             ...self::extensionEntries(),
 
-            // AI Tools sits with the operations, not under Settings: it is
-            // the operator's door to an assistant, and the developer's door
-            // (Settings, API) is a different audience (the owner, 2026-08-31).
             ['label' => 'AI Tools', 'icon' => 'sparkles', 'route' => 'ai_tools.index',
              'keywords' => ['ai', 'assistant', 'mcp', 'claude', 'cursor', 'chatgpt']],
 
@@ -110,29 +79,6 @@ class Navigation
         ];
     }
 
-    /**
-     * One nav group per enabled extension manifest that declares a "nav"
-     * key (ExtensionManager::getNavItems()), reshaped into the same
-     * {label, icon, items: [{label, route, params, permission}]} the rest of
-     * definition() uses.
-     *
-     * Two gates apply to every item, exactly as MenuItem's does for the
-     * channel workspace sidebar (ChannelWorkspace::allows()): the route's own
-     * `perm:` middleware (through allows(), the same authority every other
-     * entry in this tree answers to) AND the manifest's own declared
-     * `permission` field, checked in groups() via itemPermissionAllows().
-     * Neither gate can grant what the other refuses. The manifest's
-     * GROUP-level `permission` (e.g. "manage_audit") is metadata for the
-     * permission editor's grouping, not a nav gate: the item's own
-     * `permission` plus its route's real middleware are what decide
-     * visibility, so a link is never hidden from someone the route would
-     * actually let through.
-     *
-     * A manifest with no "nav" key, no items, or only items pointing at
-     * dead or disabled-extension routes contributes nothing: an empty
-     * group is dropped by groups() the same way an empty Channels or
-     * Catalog group would be.
-     */
     protected static function extensionEntries(): array
     {
         $entries = [];
@@ -176,35 +122,11 @@ class Navigation
                 ];
             }
         } catch (\Throwable) {
-            // A failed manager (manifest JSON error, extensions table
-            // missing mid-migration) must not take down every page that
-            // renders the nav. It degrades to no extension groups at all.
         }
 
         return $entries;
     }
 
-    /**
-     * The Channels group: one entry per marketplace the current user can see,
-     * derived from the IntegrationRegistry so this list and the /integrations
-     * board can never disagree about what exists.
-     *
-     * A converted channel (one whose card declares grouped menu items, see
-     * ChannelWorkspace::hasWorkspace()) links to its seller center Overview.
-     * An unconverted one links straight to its orders page, the old nav
-     * behaviour, and upgrades automatically when its menu gets grouped.
-     * Multi-store channels get one entry per store because their routes are
-     * store-scoped; there is no storeless page to land on.
-     *
-     * visibleCards() has already applied the card permission, and allows()
-     * still checks each destination route's own perm: middleware, so both
-     * gates hold here exactly as they do in the workspace sidebar.
-     */
-    /**
-     * Whether the viewer may add a store on any channel: the same test the
-     * Channels board runs for its Add store button, so the sidebar's plus
-     * beside "All channels" (the owner, 2026-09-06) and the board never disagree.
-     */
     public static function canAddStore(): bool
     {
         try {
@@ -216,7 +138,6 @@ class Navigation
                 }
             }
         } catch (\Throwable) {
-            // A failed registry must not take the sidebar down.
         }
 
         return false;
@@ -227,9 +148,6 @@ class Navigation
         $items = [
             ['label' => 'All channels', 'route' => 'channels.index',
              'keywords' => ['integrations', 'status', 'connection', 'sync', 'marketplace', 'board']],
-            // "All listings" (the Phase D cross-channel grid) retired
-            // 2026-09-05 (#201): with every live channel multi-store, each
-            // store's own Listings answers "ready to push" in context.
         ];
 
         try {
@@ -238,26 +156,11 @@ class Navigation
             $user = auth()->user();
 
             foreach ($registry->visibleCards($user) as $card) {
-                // A channel that adds stores is listed through its stores
-                // only (the owner, 2026-09-06): enabled but with none yet, it has
-                // no page to send anyone to.
                 if ($card->addStore !== null && $card->stores === []) {
                     continue;
                 }
                 if ($workspace->hasWorkspace($card)) {
-                    // A converted multi-store channel has no storeless page,
-                    // so it offers one seller center per store, keyed the way
-                    // StoreLink ids already are. The card name stays in the
-                    // label because store names repeat across channels: a
-                    // seller running "Shop A" on both Venta and
-                    // OpenCart would otherwise get two identical entries.
                     if ($card->stores !== []) {
-                        // TRIAL (the owner, 2026-09-06): three layers. The channel
-                        // is a sub-group under Channels and its stores are the
-                        // third layer, named by the store alone since the
-                        // channel is the line above. $store->id is the colon
-                        // key (`venta:2`); the dashboard route wants the bare
-                        // store number.
                         $children = [];
                         foreach ($card->stores as $store) {
                             $storeId = explode(':', $store->id, 2)[1] ?? null;
@@ -304,40 +207,11 @@ class Navigation
                 }
             }
         } catch (\Throwable) {
-            // A failed registry (missing table mid-migration, disabled
-            // extension throwing in boot) must not take down every page that
-            // renders the nav. The group degrades to "All channels" alone.
         }
 
         return $items;
     }
 
-    /**
-     * Active state by LONGEST URL PREFIX (IA migration spec decision 7).
-     *
-     * An entry is active when the current URL sits at or below the entry's own
-     * URL, and no other entry reaches further down the same path. Two things
-     * made this replace the old routeIs() check:
-     *
-     *  1. routeIs() is exact, so it went dark one level deep. Tasks 1-4 made
-     *     /catalog/products/9/edit express its own ancestry; the sidebar
-     *     should read it rather than lose the operator's place on every edit
-     *     screen.
-     *  2. Route NAMES are frozen and deliberately incoherent with the URLs
-     *     (spec decision 1), so a name is no longer evidence of where a page
-     *     sits. /settings/order-statuses is the case that proves it: the name
-     *     is order_statuses.index and the legacy sidebar therefore opened
-     *     SALES on it, while the URL - and the owner's ruling - say Settings.
-     *
-     * Prefix matching is segment-aware, never a bare str_starts_with: without
-     * that, /channels/shopee would claim /channels/shopee-legacy, and
-     * /sales/order would claim /sales/order-statuses.
-     *
-     * The parameter comparison the old implementation needed is gone because
-     * the entry's params are already baked into the URL this compares:
-     * every Venta seller center is ext.venta.dashboard, but one is
-     * /channels/venta/2 and another /channels/venta/3.
-     */
     public static function isActive(array $item): bool
     {
         $path = self::pathFor($item);
@@ -351,26 +225,6 @@ class Navigation
         return $match !== null && $match['path'] === $path;
     }
 
-    /**
-     * The nav entry whose URL is the longest prefix of $path, with the group
-     * it belongs to (null for a top-level entry that is itself a page).
-     *
-     * Ties are impossible by construction: two entry paths that both cover the
-     * same path and have the same length are the same string, so first-wins
-     * only ever applies to duplicate entries.
-     *
-     * Walks definition() rather than groups() so the answer does not change
-     * with the viewer. A page the current user cannot reach cannot be the page
-     * they are on, and making "which section is this URL in" depend on
-     * permissions would give two operators different trails for the same URL.
-     *
-     * Memoised on the request: the sidebar asks this once per item for the
-     * link and again for its group's open state, and the breadcrumb asks again
-     * on the same render. Request attributes rather than a static, so nothing
-     * leaks between tests sharing a process.
-     *
-     * @return array{group: array|null, item: array, path: string}|null
-     */
     public static function matchPath(string $path): ?array
     {
         $path = self::normalisePath($path);
@@ -391,7 +245,6 @@ class Navigation
 
             foreach ($entry['items'] ?? [] as $item) {
                 $best = self::better($best, $entry, $item, $path);
-                // The third layer (trial, 2026-09-06): a store under its channel.
                 foreach ($item['children'] ?? [] as $child) {
                     $best = self::better($best, $entry, $child, $path);
                 }
@@ -403,12 +256,6 @@ class Navigation
         return $best;
     }
 
-    /**
-     * $candidate wins over $best when it covers $path and reaches deeper.
-     *
-     * @param array{group: array|null, item: array, path: string}|null $best
-     * @return array{group: array|null, item: array, path: string}|null
-     */
     private static function better(?array $best, ?array $group, array $candidate, string $path): ?array
     {
         $candidatePath = self::pathFor($candidate);
@@ -424,12 +271,6 @@ class Navigation
         return ['group' => $group, 'item' => $candidate, 'path' => $candidatePath];
     }
 
-    /**
-     * True when $path is $entryPath or lives beneath it, comparing whole
-     * segments. The root entry (Dashboard, at '/') covers only itself: a
-     * str_starts_with on '/' would otherwise make it the ancestor of the
-     * entire application and win every page that matched nothing else.
-     */
     public static function covers(string $entryPath, string $path): bool
     {
         if ($entryPath === $path) {
@@ -439,15 +280,6 @@ class Navigation
         return $entryPath !== '/' && str_starts_with($path, $entryPath.'/');
     }
 
-    /**
-     * The URL a nav entry points at, or null when it points nowhere this
-     * install can generate: a group heading (no route), a route belonging to a
-     * disabled extension, or a route whose required parameters the entry does
-     * not supply (allows() rejects that class of entry too - see its comment).
-     *
-     * Absolute, exactly as route() renders it, because this is what ends up in
-     * an href and every other link in the app is generated the same way.
-     */
     public static function urlFor(array $item): ?string
     {
         if (!isset($item['route']) || !Route::has($item['route'])) {
@@ -461,11 +293,6 @@ class Navigation
         }
     }
 
-    /**
-     * The same destination as a URL PATH, which is what prefix matching
-     * compares: scheme, host and port say nothing about where a page sits in
-     * the information architecture.
-     */
     public static function pathFor(array $item): ?string
     {
         $url = self::urlFor($item);
@@ -473,20 +300,6 @@ class Navigation
         return $url === null ? null : self::normalisePath($url);
     }
 
-    /**
-     * The group whose items all live under a first URL segment, e.g. 'catalog'
-     * -> the Catalog group. Used for a page one level deeper than anything
-     * the nav lists, so its trail still names the section it stands in.
-     *
-     * Returns null when the group's items disagree about their first segment,
-     * because then the segment is not that group's section at all.
-     *
-     * Only reached when matchPath() found nothing, which is why Channels never
-     * arrives here in practice even though its entries do share /integrations:
-     * its "All channels" entry sits at /integrations itself and therefore
-     * covers every path beneath it, so matchPath always answers first. Channel
-     * pages take a different road again (Breadcrumbs::channelTrail).
-     */
     public static function groupForSection(string $segment): ?array
     {
         foreach (self::definition() as $entry) {
@@ -530,17 +343,11 @@ class Navigation
         return null;
     }
 
-    /** The path of the request being served, in the same shape pathFor returns. */
     public static function currentPath(): string
     {
         return self::normalisePath(request()->path());
     }
 
-    /**
-     * One canonical shape for every path this class compares: a single leading
-     * slash, no trailing slash, and '/' for the root. Accepts a full URL too,
-     * so a caller holding a generated href does not have to parse it first.
-     */
     public static function normalisePath(string $path): string
     {
         if (str_contains($path, '://')) {
@@ -551,22 +358,12 @@ class Navigation
     }
 
 
-    /**
-     * Same any-match parsing EnsurePermission uses. Never can(): this app
-     * registers no Gates or Policies, so can() is always false.
-     */
     public static function allows(string $routeName, array $params = []): bool
     {
         if (!Route::has($routeName)) {
             return false;
         }
 
-        // Every REQUIRED URI parameter must be supplied by the entry, or
-        // route() throws UrlGenerationException at render time, taking down
-        // every page that includes the sidebar rather than just hiding one
-        // link. {store} is required; {store?} is not. Channel entries carry
-        // their params ({channel}, {store}) in the definition, so a
-        // parameterised route is fine as long as the entry covers it.
         $route = Route::getRoutes()->getByName($routeName);
         preg_match_all('/\{([^}?]+)\}/', $route->uri(), $matches);
 
@@ -582,19 +379,11 @@ class Navigation
             return false;
         }
 
-        /* THE SIDEBAR MIRRORS THE DOOR, OR IT LIES.
-         *
-         * This used to parse the route's own perm: middleware, which was the
-         * gate before EnsureControllerPermission replaced it - so the moment
-         * the perm: arguments came off the routes, every extension link
-         * vanished for everyone. The authority now is the same one the door
-         * uses: the route's controller derives a key from the catalog,
-         * and a nav link is a GET so it needs the view tier. */
         $route = Route::getRoutes()->getByName($routeName);
         $action = (string) $route->getActionName();
 
         if (! str_contains($action, '@')) {
-            return true; // closure routes carry no derivable gate
+            return true;
         }
 
         [$class] = explode('@', $action);
@@ -602,7 +391,7 @@ class Navigation
         $key = $catalog->keyForController($class);
 
         if ($key === null) {
-            return true; // never gated: dashboard, hubs that gate per item
+            return true;
         }
 
         $tier = $route->defaults['permission_tier'] ?? 'view';
@@ -610,12 +399,6 @@ class Navigation
         return $user->hasPermission($tier . '_' . $key);
     }
 
-    /**
-     * The second gate a manifest-declared item can carry alongside the
-     * route's own perm: middleware (see extensionEntries()). Core
-     * definition() entries never set this key, so this is a no-op for
-     * every one of them: absent or empty means "no extra gate".
-     */
     private static function itemPermissionAllows(array $item): bool
     {
         $permission = $item['permission'] ?? null;
@@ -639,10 +422,6 @@ class Navigation
         return false;
     }
 
-    /**
-     * The tree a view should render: existing routes only, permitted only,
-     * and groups with no surviving children removed entirely.
-     */
     public static function groups(): array
     {
         $out = [];
@@ -657,8 +436,6 @@ class Navigation
 
             $items = [];
             foreach ($entry['items'] as $i) {
-                // The third layer (trial, 2026-09-06): a parent with children
-                // has no route of its own; it stays when any child survives.
                 if (! isset($i['route']) && ! empty($i['children'])) {
                     $children = array_values(array_filter(
                         $i['children'],
@@ -682,24 +459,6 @@ class Navigation
         return self::flattenSingles(self::mergeGroupsByLabel($out));
     }
 
-    /**
-     * A group with one item is not a group, it is a link (the owner,
-     * 2026-09-08: "Activity log only has 1 sub menu on the nav. So no need
-     * to have dropdown on the Nav").
-     *
-     * The fold runs AFTER the merge, so a group two sources each
-     * contribute one item to stays a group. The link keeps the group's
-     * icon, because that is the picture the operator recognises, and takes
-     * the item's label, route and permission, because that is the thing it
-     * actually opens. An item that has children of its own is a real
-     * submenu and is left alone.
-     *
-     * Here rather than in the sidebar, so the palette and search fold it
-     * too: three consumers, one rule.
-     *
-     * @param  array<int, array<string, mixed>>  $groups
-     * @return array<int, array<string, mixed>>
-     */
     private static function flattenSingles(array $groups): array
     {
         return array_map(function (array $entry) {
@@ -712,33 +471,10 @@ class Navigation
                 return $entry;
             }
 
-            /* The ITEM, with the group's picture on it. Everything the item
-               declares travels: its badge, its `add` affordance, its params.
-               An allowlist of keys here quietly dropped the plus beside "All
-               channels" the first time this ran, because the fold decided
-               what a nav item is allowed to be. */
             return $item + ['icon' => $entry['icon'] ?? null];
         }, $groups);
     }
 
-    /**
-     * Fold groups that share a label into one.
-     *
-     * definition() carries both the core group and the one an extension
-     * contributes under the same name, so an admin with every permission saw
-     * "Purchasing", "Warehousing", "Reports" and "Petty Cash" twice each in
-     * the sidebar. Merging here rather than in definition() keeps each source
-     * free to declare its own entries without knowing what else exists, and
-     * fixes every consumer at once: the sidebar, the command palette and
-     * search all read groups().
-     *
-     * The first occurrence keeps its position and icon; later ones donate
-     * their items. Items are de-duplicated on route plus params, so a link
-     * declared by both sides appears once.
-     *
-     * @param  array<int, array<string, mixed>>  $groups
-     * @return array<int, array<string, mixed>>
-     */
     private static function mergeGroupsByLabel(array $groups): array
     {
         $merged = [];
@@ -756,10 +492,6 @@ class Navigation
             $target = $indexByLabel[$label];
             $existing = $merged[$target];
 
-            // Same label held by a bare link and by a group. The group wins the
-            // slot and the link becomes its first child, which is how "Petty
-            // Cash" the page and "Petty Cash" the section stop being two
-            // separate things in the sidebar.
             if (isset($existing['route']) && !isset($entry['route'])) {
                 $entry['items'] = self::dedupeItems(
                     array_merge([['label' => $existing['label'], 'route' => $existing['route'], 'params' => $existing['params'] ?? []]], $entry['items'])
@@ -777,25 +509,16 @@ class Navigation
                 continue;
             }
 
-            // Two groups: the first keeps its position, the second donates.
             if (!isset($existing['route']) && !isset($entry['route'])) {
                 $merged[$target]['items'] = self::dedupeItems(
                     array_merge($existing['items'], $entry['items'])
                 );
             }
-
-            // Two bare links with one label and one destination: the first wins.
         }
 
         return $merged;
     }
 
-    /**
-     * Drop items that resolve to the same destination, keeping the first.
-     *
-     * @param  array<int, array<string, mixed>>  $items
-     * @return array<int, array<string, mixed>>
-     */
     private static function dedupeItems(array $items): array
     {
         $seen = [];
@@ -812,11 +535,6 @@ class Navigation
         return $out;
     }
 
-    /**
-     * Identity for a nav item: its route and the params that resolve it.
-     *
-     * @param  array<string, mixed>  $item
-     */
     private static function itemKey(array $item): string
     {
         return ($item['route'] ?? '') . '|' . json_encode($item['params'] ?? []);

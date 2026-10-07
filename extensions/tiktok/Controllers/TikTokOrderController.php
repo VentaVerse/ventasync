@@ -56,23 +56,11 @@ class TikTokOrderController extends Controller
         ]);
     }
 
-    /**
-     * The list itself is assembled by TikTokOrdersPanel, because the
-     * fulfilment hub renders the same panel from the same array. The tab
-     * map, the counts, the sort persistence and the courier tally moved
-     * there unchanged; nothing about the query or the wire format differs
-     * from what this method did inline.
-     */
     public function returns(Request $request, TikTokReturnsPanel $panel)
     {
         return view('ext-tiktok::orders.returns', $panel->build($request));
     }
 
-    /**
-     * The Fetch button on the returns page. The work is TikTokReturnSync,
-     * shared with the "Sync Returns" automation, so a return fetched by
-     * hand and one fetched overnight are stored the same way.
-     */
     public function fetchReturns(Request $request, TikTokReturnSync $sync)
     {
         try { @set_time_limit(0); } catch (\Throwable $e) {}
@@ -103,10 +91,6 @@ class TikTokOrderController extends Controller
         $order = TikTokOrder::with('products')->findOrFail($id);
         $apiError = false;
 
-        // Manage-tier only: a view-tier operator (view_tiktok_orders without
-        // manage_tiktok_orders) must never trigger a live API pull + write,
-        // even by adding `?refresh=1` themselves. They still get the page
-        // rendered from stored data.
         $canManage = (bool) $request->user()?->hasPermission('manage_tiktok/order');
 
         if ($request->boolean('refresh') && $canManage) {
@@ -115,7 +99,6 @@ class TikTokOrderController extends Controller
                 $client = app(TikTokClient::class);
                 $detailResult = $client->getOrderDetail($c['app_key'], $c['app_secret'], $c['token'], [(string) $order->order_id], $c['shop_cipher']);
 
-                // TikTok's verdict is the body's code, never HTTP 200 alone.
                 $body = is_array($detailResult['body'] ?? null) ? $detailResult['body'] : [];
                 $detail = $body['data']['orders'][0] ?? null;
                 if (($detailResult['ok'] ?? false) && (int) ($body['code'] ?? -1) === 0 && is_array($detail)) {
@@ -140,11 +123,6 @@ class TikTokOrderController extends Controller
         ]);
     }
 
-    /**
-     * Fetch orders for a window of dates, as a run of one-page steps
-     * (App\Services\OrderFetchRunner, 2026-09-07): the first pages ride
-     * this request, the page continues the rest one request per page.
-     */
     public function fetch(Request $request)
     {
         $data = $request->validate([
@@ -174,11 +152,6 @@ class TikTokOrderController extends Controller
         return \Extensions\tiktok\Models\TikTokSetting::defaultStore()?->id;
     }
 
-    /**
-     * One page of the orders search for the run's window (fifty orders,
-     * full detail with line items), saved as it arrives. The cursor is
-     * TikTok's next_page_token.
-     */
     public function orderFetchStep(\App\Models\OrderFetchRun $run): array
     {
         $c = $this->creds();
@@ -279,7 +252,6 @@ class TikTokOrderController extends Controller
         $c = $this->creds();
         $client = new TikTokClient();
 
-        // Re-fetch recent orders (last 30 days) to refresh statuses
         $from = now()->subDays(30)->startOfDay()->getTimestamp();
         $to = now()->endOfDay()->getTimestamp();
 
@@ -332,7 +304,6 @@ class TikTokOrderController extends Controller
                 'buyer_name'       => $buyer,
             ]);
 
-            // Update line item statuses
             foreach ($o['line_items'] ?? [] as $li) {
                 $lineItemId = (string) ($li['id'] ?? '');
                 if ($lineItemId === '') continue;
@@ -345,7 +316,6 @@ class TikTokOrderController extends Controller
                     ]);
             }
 
-            // Sync to core ERP catalog order (stock deduction + FCM + history)
             try {
                 $dbOrder->refresh();
                 $catalogSync->sync($dbOrder);
@@ -356,7 +326,6 @@ class TikTokOrderController extends Controller
             $updated++;
         }
 
-        // Update last sync timestamp
         $c['setting']->update(['last_order_sync_at' => now()]);
 
         return redirect()->route('ext.tiktok.orders.index')
@@ -370,8 +339,6 @@ class TikTokOrderController extends Controller
     {
         $order = TikTokOrder::findOrFail($id);
 
-        // An order already past this step is answered here, never sent to
-        // TikTok again: a page left open still shows the button.
         $passed = match (strtoupper((string) $order->status)) {
             'AWAITING_COLLECTION', 'IN_TRANSIT', 'DELIVERED', 'COMPLETED' => 'This order is already shipped.',
             'CANCELLED' => 'This order was cancelled.',
@@ -388,7 +355,6 @@ class TikTokOrderController extends Controller
         $c = $this->creds();
         $client = new TikTokClient();
 
-        // Build packages array from order's raw data
         $raw = $order->raw ?? [];
         $rawPackages = $raw['packages'] ?? [];
 
@@ -403,7 +369,6 @@ class TikTokOrderController extends Controller
             'packages' => array_map(fn($p) => ['id' => $p['id']], $rawPackages),
         ];
 
-        // Allow optional handover_method from the form
         if ($request->filled('handover_method')) {
             $packageData['handover_method'] = $request->input('handover_method');
         }
@@ -421,8 +386,6 @@ class TikTokOrderController extends Controller
             ]);
         }
 
-        // The order's status as TikTok now holds it, so it moves to its
-        // next step at once; the shipped status stands if the read fails.
         $order->update(['status' => 'AWAITING_COLLECTION']);
         try {
             $detail = $client->getOrderDetail($c['app_key'], $c['app_secret'], $c['token'], [(string) $order->order_id], $c['shop_cipher']);
@@ -451,19 +414,16 @@ class TikTokOrderController extends Controller
         $safeOrderId = preg_replace('/[^A-Za-z0-9_-]/', '', (string) $order->order_id);
         $awbPath = \App\Support\Fulfilment\Waybills::path('tiktok', (int) $order->tiktok_setting_id, (string) $order->order_id);
 
-        // Serve saved AWB if it exists locally (unless refresh requested)
         if (file_exists($awbPath) && !$request->boolean('refresh')) {
             return response(file_get_contents($awbPath), 200)
                 ->header('Content-Type', 'application/pdf')
                 ->header('Content-Disposition', 'inline; filename="AWB-' . $safeOrderId . '.pdf"');
         }
 
-        // Delete cached version if refreshing
         if (file_exists($awbPath) && $request->boolean('refresh')) {
             unlink($awbPath);
         }
 
-        // Try to get package_id from raw data
         $raw = $order->raw ?? [];
         $packages = $raw['packages'] ?? [];
         $packageId = $packages[0]['id'] ?? null;
@@ -500,7 +460,6 @@ class TikTokOrderController extends Controller
             ]);
         }
 
-        // Download PDF from TikTok and save locally
         try {
             $pdfContent = \Illuminate\Support\Facades\Http::timeout(15)->get($docUrl)->body();
 
@@ -514,8 +473,6 @@ class TikTokOrderController extends Controller
         } catch (\Throwable $e) {
         }
 
-        // Served by the ERP or not at all: whoever asked holds a session with
-        // the ERP only, never with the address TikTok's link points to.
         return redirect()->back()->with('tiktok_orders_last_result', [
             'ok' => false,
             'message' => 'The waybill could not be downloaded from TikTok. Try again in a moment.',
@@ -535,7 +492,6 @@ class TikTokOrderController extends Controller
         $apiCode = (int) ($body['code'] ?? -1);
         $ok = $apiCode === 0;
 
-        // Get tracking number and courier from order raw data
         $raw = is_array($order->raw) ? $order->raw : [];
         $trackingNo = (string) ($raw['tracking_number'] ?? '');
         $carrier = (string) ($raw['shipping_provider'] ?? '');

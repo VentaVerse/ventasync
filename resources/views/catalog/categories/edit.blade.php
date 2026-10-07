@@ -1,16 +1,5 @@
 @extends('layouts.blotter')
-{{--
-    Both sections below pass a value directly (the inline `@section('name',
-    $value)` form), which Laravel escapes for you -
-    ManagesLayouts::startSection() runs e($content) on anything that is not
-    a View before storing it. Wrapping the value in e() here a second time
-    was tried and reverted: confirmed via curl against a category named
-    "Tents & Awnings <b>Sale</b>" that it rendered as literal "&amp;amp;
-    Awnings &amp;lt;b&amp;gt;..." in the <title>, double-encoded. One
-    escape, from the framework, is correct and sufficient here; only
-    html_entity_decode() is applied first, since this schema's category
-    names sometimes arrive already HTML-entity-encoded from legacy imports.
---}}
+{{-- @section already escapes the value; wrapping it in e() double-encodes the title. --}}
 @section('title', 'Edit ' . html_entity_decode($category->name ?: 'category', ENT_QUOTES | ENT_HTML5, 'UTF-8'))
 @section('breadcrumb', html_entity_decode($category->name ?: ('Category ' . $category->category_id), ENT_QUOTES | ENT_HTML5, 'UTF-8'))
 
@@ -48,9 +37,6 @@
 
         <div class="fm-head__actions">
             <x-ui.menu label="Category {{ $category->category_id }} actions">
-                {{-- Destroy is never a standing control: it sits behind the
-                     overflow menu and the shared confirm dialog, and drives a
-                     form that lives outside this one (forms cannot nest). --}}
                 <button type="button" class="x-menu__item x-menu__item--danger"
                         data-confirm="Delete {{ html_entity_decode($category->name ?: 'this category', ENT_QUOTES | ENT_HTML5, 'UTF-8') }}? This cannot be undone."
                         data-confirm-submit="category-delete-form">Delete category</button>
@@ -61,9 +47,6 @@
     <div class="fm-body">
         <div class="fm-col fm-col--main">
 
-            {{-- ---------------------------------------------------------
-                 General
-                 --------------------------------------------------------- --}}
             <section class="fm-section">
                 <div class="fm-section__head">
                     <h2 class="fm-section__title">General</h2>
@@ -88,11 +71,7 @@
                     </x-ui.field>
 
                     <x-ui.field label="Description" name="description" wide>
-                        {{-- Escaped, not raw: a textarea's contents are character
-                             data, so escaping is what makes the stored HTML
-                             round-trip intact instead of letting a description
-                             containing "</textarea>" break out of the control.
-                             Same fix catalog/products carries. --}}
+                        {{-- Escaped, not raw: a description containing </textarea> would break out of the control. --}}
                         <x-ui.textarea id="f-description" name="description" class="wysiwyg">{{ old('description', $category->description) }}</x-ui.textarea>
                     </x-ui.field>
                 </div>
@@ -101,14 +80,9 @@
 
         <div class="fm-col fm-col--side">
 
-            {{-- Details --------------------------------------------------- --}}
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Details</h2></div>
                 <div class="fm-card__body">
-                    {{-- CategoryController@update validates status as
-                         `required|in:0,1`. A bare checkbox submits nothing
-                         when off and would fail that rule, so the switch is
-                         backed by a hidden 0. --}}
                     @php $statusOn = old('status', (string) $category->status) === '1'; @endphp
                     <input type="hidden" name="status" value="0">
                     <label class="fm-switch">

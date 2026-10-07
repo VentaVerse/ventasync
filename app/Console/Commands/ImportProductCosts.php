@@ -30,7 +30,6 @@ class ImportProductCosts extends Command
             return 1;
         }
 
-        // Read header
         $header = fgetcsv($handle);
         if (!$header) {
             $this->error('CSV file is empty.');

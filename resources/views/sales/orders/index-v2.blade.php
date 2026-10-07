@@ -3,10 +3,6 @@
 
 @section('content')
 @php
-    // Phase 4.5 view/manage gating: read-tier operators see the list and can
-    // open detail pages; create/edit/delete are manage-tier only. Inherited
-    // from the legacy orders/index.blade.php this page replaced (deleted in
-    // Round F Task 4) - hardcoded true until that gating lands.
     $canManageOrders = true;
 @endphp
 <div class="x-list-head">
@@ -40,9 +36,6 @@
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
-    {{-- I5: without these, changing a filter drops whatever column the list
-         was sorted by - the filter form only carries q/status/source, so a
-         submit silently reset sort/dir to the controller's defaults. --}}
     <input type="hidden" name="sort" value="{{ $sort }}">
     <input type="hidden" name="dir" value="{{ $dir }}">
 </form>
@@ -52,13 +45,6 @@
                 description="Try clearing the search or choosing a different status." />
 @else
 @php
-    // I5: restores the sort links the old list had (order_id, firstname,
-    // total, date_added - the same $sortable set OrderController already
-    // validates against and the same $sort/$dir it already computes and
-    // passes here; the controller is untouched). request()->except keeps
-    // every other query param (q, status, source, page) intact so sorting
-    // never discards an active filter, carrying over the sort-link
-    // construction from the legacy orders/index.blade.php this page replaced.
     $sortUrl = fn (string $col) => route('orders.index', array_merge(
         request()->except('sort', 'dir'),
         ['sort' => $col, 'dir' => ($sort === $col && $dir === 'asc') ? 'desc' : 'asc']
@@ -103,9 +89,6 @@
             $chanKey = $src === '' ? '' : strtok($src, ':');
             $chanTone = $src === '' ? 'neutral' : $chanKey;
             $chanOpt = $src === '' ? null : ($sourceLabelsMap[$src] ?? null);
-            // "{Channel}: {store}" (the owner, 2026-09-06): the store stamped on
-            // the order, else the source option's own label (which names the
-            // store on the store-keyed channels), else the bare channel.
             $chanWord = $chanOpt['channel'] ?? ($chanOpt['label'] ?? ucfirst((string) $chanKey));
             $chanLabel = $src === '' ? 'Manual'
                 : (trim((string) ($o->store_name ?? '')) !== ''
@@ -117,19 +100,6 @@
                 <a class="x-row-link x-num" href="{{ route('orders.show', $o->order_id) }}">{{ $o->order_id }}</a>
             </td>
             <td class="x-cell-strong" data-label="Customer">{{ trim($o->firstname . ' ' . $o->lastname) ?: 'Guest' }}</td>
-            {{-- Channel and Status both used dot-plus-text, so a brand hue like
-                 venta green or shopee orange could sit one column away from
-                 the semantically identical success green or warning amber and
-                 read as the same signal. Rather than keep re-tuning hues that
-                 will collide again the next time a brand's real colour lands
-                 near a status band (shopee's orange already borders warning),
-                 Channel drops the dot and lets the brand-tinted text carry
-                 identity on its own. Status keeps the dot, since it is the
-                 field a reader scans a long list for and the dot is what
-                 makes that scan possible from a distance. Presence-of-dot is
-                 now the category signal: dot means "this is a state", no dot
-                 means "this is a place it came from" - true regardless of
-                 which two hues happen to land close together. --}}
             <td data-label="Channel"><x-ui.badge :tone="$chanTone" :dot="false">{{ $chanLabel }}</x-ui.badge></td>
             <td data-label="Status"><x-ui.badge :tone="\App\Support\OrderStatusTone::for($o->status->name ?? null)">{{ $o->status->name ?? '-' }}</x-ui.badge></td>
             <td class="x-td-num x-col-total" data-label="Total">

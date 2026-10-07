@@ -4,11 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * A variation switched off on one store's listing. Every variation is on
- * unless a row here says otherwise, so the table only ever holds the
- * exceptions. Variations are known by SKU, as they are on every store.
- */
 return new class extends Migration
 {
     public function up(): void

@@ -11,16 +11,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Settings → API. Manages API Applications (external 3rd-party clients) and
- * their scoped Sanctum tokens: create with a Read/Write scope matrix and
- * optional expiry, rotate, view, and revoke. The plaintext token opens in a
- * dialog right after create/rotate, and can be viewed again later from an
- * encrypted copy kept on the application.
- *
- * Read gated by view_api_clients|manage_api_clients; writes by
- * manage_api_clients (enforced at the route level).
- */
 class ApiClientController extends Controller
 {
     public function __construct(private readonly ApiScopeRegistry $scopeRegistry)
@@ -29,7 +19,6 @@ class ApiClientController extends Controller
 
     public function index(Request $request)
     {
-        // AI assistants are connected and managed on AI Tools only.
         $clients = ApiClient::query()
             ->where('mcp_enabled', false)
             ->with(['tokens' => fn ($q) => $q->latest()])
@@ -51,9 +40,6 @@ class ApiClientController extends Controller
         ]);
     }
 
-    /**
-     * Dedicated "Add Application" page: name + scope matrix + expiry.
-     */
     public function create(Request $request)
     {
         return view('settings.api.create', [
@@ -93,11 +79,6 @@ class ApiClientController extends Controller
             ->with('new_token_client', $client->name);
     }
 
-    /**
-     * Edit page: adjust name/description, scopes, and expiry of an existing
-     * application. Editing scopes updates the current token's abilities in
-     * place — the token value does not change.
-     */
     public function edit(Request $request, ApiClient $apiClient)
     {
         $this->notAnAssistant($apiClient);
@@ -128,8 +109,6 @@ class ApiClientController extends Controller
 
         $expiresAt = $this->resolveExpiry($request);
 
-        // Update the existing token's scopes + expiry in place (token value
-        // unchanged). If somehow there is no token, issue one and reveal it.
         $plain = DB::transaction(function () use ($apiClient, $data, $request, $abilities, $expiresAt) {
             $apiClient->update(['name' => $data['name']] + ['mcp_enabled' => false] + \App\Support\Api\ClientLimits::fields($request));
 
@@ -172,9 +151,6 @@ class ApiClientController extends Controller
 
         $expiresAt = $current->expires_at;
 
-        // Revoke every existing token, then issue a fresh one with the same
-        // scopes + expiry policy. Old token immediately becomes invalid. One
-        // transaction, so a failure keeps the old token working.
         $plain = DB::transaction(function () use ($apiClient, $abilities, $expiresAt) {
             $apiClient->tokens()->delete();
 
@@ -187,10 +163,6 @@ class ApiClientController extends Controller
             ->with('new_token_client', $apiClient->name);
     }
 
-    /**
-     * The current token, for the View token dialog. POST, so the value never
-     * lands in a URL or a browser history entry, and every view is logged.
-     */
     public function token(Request $request, ApiClient $apiClient): JsonResponse
     {
         $this->notAnAssistant($apiClient);
@@ -217,12 +189,6 @@ class ApiClientController extends Controller
         return redirect()->route('api_clients.index')->with('status', 'API application revoked.');
     }
 
-    /**
-     * Turn the posted scope matrix into a flat list of "resource:action"
-     * abilities, validated against the catalog. A resource posts a level
-     * (scopes[resource]=none|read|write, where write includes read) or the
-     * older per-action shape (scopes[resource][action]=1).
-     */
     private function resolveScopes(Request $request): array
     {
         $catalog = $this->scopeRegistry->all();
@@ -253,7 +219,6 @@ class ApiClientController extends Controller
         return array_values(array_unique($abilities));
     }
 
-    /** An assistant is AI Tools' to edit, rotate or delete; here it does not exist. */
     private function notAnAssistant(ApiClient $apiClient): void
     {
         abort_if((bool) $apiClient->mcp_enabled, 404);

@@ -1,11 +1,3 @@
-/**
- * The navigation progress line.
- *
- * Shown the moment a same-site link is followed or a form submitted, so a
- * page that waits on a marketplace before it can paint still answers the
- * click at once. Hidden again on pageshow, which also covers the back
- * button restoring a page from the cache with the line still on.
- */
 (function () {
     var bar = document.getElementById('x-progress');
     if (!bar) return;
@@ -29,8 +21,6 @@
         on();
     });
 
-    // A cancelled navigation (a confirm dialog answered No, a download)
-    // never fires pageshow, so the line would stay. Give up after a while.
     var timer = null;
     document.addEventListener('click', function () {
         if (timer) clearTimeout(timer);

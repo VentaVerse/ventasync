@@ -1,22 +1,3 @@
-/* The Product group band on a listing page.
-
-   Picking a group fills the page's group-held fields with that group's
-   values at once; "Use the group's values" does the same for the group
-   already picked. The line under the dropdown names the fields that differ
-   from the group, and updates as the page is edited. Everything saves with
-   the page's one Save.
-
-   Each page lists its fields in the band's JSON, by kind:
-     input       a plain input or select                     { el }
-     combo       a searchable picker: hidden value + text     { value, text, reloads? }
-     checks      a checkbox list                              { name }
-     follow      a select whose blank option follows the group { el }
-     lzbrand     Lazada's brand picker                        { id, none, text, readout }
-     attributes  the category's attribute answers, by name attributes[<key>]
-   A combo marked `reloads` is the category: changing it reloads the
-   attribute section, so the answers are filled after it reports
-   attributes:loaded. */
-
 function norm(v) {
     if (v === null || v === undefined) return '';
     const s = String(v).trim();
@@ -63,8 +44,6 @@ function initBand(band) {
         return label ? label.textContent.trim() : String(key);
     }
 
-    /* Which fields differ from the group's values, as names to show. A
-       field the group gives nothing for cannot differ. */
     function differing(groupValues) {
         const names = [];
         Object.keys(fields).forEach(function (key) {
@@ -162,10 +141,6 @@ function initBand(band) {
         return false;
     }
 
-    /* Only what the group gives is filled: a field it has nothing for keeps
-       the listing's own value. The watermark always returns to following.
-       The category goes first: changing it reloads the attribute section
-       and clears the brand, so the brand and the answers are filled after. */
     function fill(groupId) {
         const gv = values[groupId];
         if (!gv) return;

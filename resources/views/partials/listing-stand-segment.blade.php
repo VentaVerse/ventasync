@@ -1,14 +1,3 @@
-{{-- Where the chosen group's products stand with the store, above the table
-     it narrows (App\Integrations\Listings\StatusMenu builds $menu). It sits
-     here and not in the rail because it is a second cut through the same
-     rows: the rail says which products, this says which of those are up.
-
-     With a group chosen, the same line carries what acts on the group
-     itself ($group: manage, send, send_all). Its Send uses the group's
-     settings, which is why it lives here and not in the selection bar, where
-     Send uses each listing's own. With nothing ticked it sends the whole
-     group as a run of short steps (send_all: begin, step, stop, confirm,
-     name, count). --}}
 <div class="lss-row">
     <div class="lss" role="group" aria-label="Where it stands">
         @foreach($menu['stand'] as $place)

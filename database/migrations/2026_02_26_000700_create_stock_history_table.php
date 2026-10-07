@@ -13,11 +13,11 @@ return new class extends Migration
             $table->unsignedInteger('product_id')->index();
             $table->unsignedInteger('product_option_value_id')->nullable()->index();
             $table->unsignedInteger('order_id')->nullable()->index();
-            $table->string('type', 20);           // set, deduct, restore
+            $table->string('type', 20);
             $table->integer('quantity_before');
             $table->integer('quantity_after');
-            $table->integer('quantity_change');     // positive = added, negative = deducted
-            $table->string('source', 30);           // manual, order, lazada_sync, shopee_sync, opencart_sync
+            $table->integer('quantity_change');
+            $table->string('source', 30);
             $table->string('note', 255)->nullable();
             $table->unsignedInteger('user_id')->nullable();
             $table->string('user_name', 100)->nullable();

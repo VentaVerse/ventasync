@@ -7,10 +7,6 @@ use App\Models\Catalog\Product;
 use App\Support\Api\Input;
 use App\Support\Api\Refused;
 
-/**
- * Products as an application reads them: the search and one product in full.
- * The partner API and the assistant tools both run these.
- */
 final class ProductReads
 {
     public function index(Input $request): array
@@ -46,12 +42,6 @@ final class ProductReads
         return $this->json($payload);
     }
 
-    /**
-     * An answer, or a refusal when the status says the request was turned
-     * down: the message and status reach every door unchanged.
-     *
-     * @return array<string, mixed>
-     */
     private function json(mixed $data, int $status = 200): array
     {
         if ($status >= 400) {

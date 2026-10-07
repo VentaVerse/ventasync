@@ -2,27 +2,12 @@
 
 namespace App\Integrations\Listings;
 
-/**
- * Reads the attribute sheets a store's listings need and has never read.
- * Readiness cannot judge a listing whose category's sheet is unread, so
- * Refresh and the scheduled refresh read them here: a bounded number per
- * run, in shuffled order, so a category the marketplace keeps refusing
- * never holds up the rest.
- */
 final class SheetReads
 {
-    /** The scheduled refresh. */
     public const PER_RUN = 40;
 
-    /** The Refresh button, which already walks the shop in the same request. */
     public const PER_PRESS = 10;
 
-    /**
-     * @param  array<int|string>  $wanted  every category the store's listings and groups use
-     * @param  array<int|string>  $cached  the ones already read
-     * @param  callable(string): bool  $read  reads one sheet; true when it was stored
-     * @return array{read: int, failed: int, left: int, summary: string}
-     */
     public static function run(array $wanted, array $cached, callable $read, int $limit = self::PER_RUN): array
     {
         $ids = fn (array $list) => array_values(array_unique(array_filter(

@@ -14,27 +14,10 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * The TikTok order detail page, rebuilt on the shared `od-` detail anatomy
- * inside the seller center (Task 3 of the order-detail redesign).
- *
- * Fixture discipline is ShopeeOrderDetailTest's, which is ChannelWorkspace
- * Test's: this file builds its own permission groups and its own orders
- * rather than leaning on whatever the test schema happens to hold, and the
- * setUp below is that file's, for the same reasons its docblocks give (the
- * extension must be installed, enabled and REGISTERED, and the router's name
- * lookups rebuilt, before any TikTok route resolves by name).
- *
- * TikTokOrderController@show only calls the API when `?refresh=1` is asked
- * for, and no test here asks, so every figure asserted below comes from the
- * stored payload. That is deliberate - a test that could reach the network
- * proves nothing repeatable about a view.
- */
 class TiktokOrderDetailTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** The store every store-scoped TikTok URL in this file names. */
     private TikTokSetting $tiktokStore;
 
     protected function setUp(): void
@@ -47,19 +30,11 @@ class TiktokOrderDetailTest extends TestCase
 
         $this->app->register(TiktokExtension::class);
 
-        // Routes registered after the RouteCollection last built its name
-        // lookup table are invisible to Route::has(), which ChannelWorkspace
-        // calls for every sidebar destination. See ChannelWorkspaceTest.
         $this->app['router']->getRoutes()->refreshNameLookups();
 
-        // Multi-store (the owner 2026-09-05): every TikTok page is store-scoped.
-        // An ENABLED store lets URL::defaults fill {store} on every
-        // route('ext.tiktok.orders.show', ...) call, and its id names the
-        // store-scoped literal paths below - exactly like Lazada.
         $this->tiktokStore = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
-    /** Read tier: can open the page, holds nothing that writes. */
     private function viewer(): User
     {
         $group = UserGroup::create(['name' => 'TikTok Detail Viewers']);
@@ -70,7 +45,6 @@ class TiktokOrderDetailTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    /** Manage tier: the refresh pull and the ship POST are gated on this. */
     private function manager(): User
     {
         $group = UserGroup::create(['name' => 'TikTok Detail Managers']);
@@ -81,11 +55,6 @@ class TiktokOrderDetailTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    /**
-     * An order in the shape TikTokOrderController@show reads it. Two product
-     * rows, the second carrying the variation string "blank" that this
-     * channel treats as no variation at all.
-     */
     private function order(string $status = 'AWAITING_COLLECTION', array $overrides = []): TikTokOrder
     {
         $orderId = $overrides['order_id'] ?? 'TT7788990011223';
@@ -158,10 +127,6 @@ class TiktokOrderDetailTest extends TestCase
         return $order->fresh('products');
     }
 
-    // ------------------------------------------------------------------
-    // The page renders inside the seller center
-    // ------------------------------------------------------------------
-
     public function test_the_detail_page_renders_inside_the_workspace_for_the_read_tier(): void
     {
         $order = $this->order();
@@ -170,19 +135,14 @@ class TiktokOrderDetailTest extends TestCase
 
         $response->assertOk();
 
-        // Channel menubar present, global sidebar PRESENT (reversed
-        // 2026-09-03, the teleportation fix: one shell, the channel menu
-        // rides inside the page), no cross-marketplace strip.
         $response->assertSee('x-chnav', false);
         $response->assertSee('All channels');
         $response->assertSee('data-nav', false);
         $response->assertDontSee('All marketplaces');
 
-        // On the shared detail anatomy, outside the .x-legacy boundary.
         $response->assertSee('class="od-page"', false);
         $response->assertDontSee('x-content x-legacy', false);
 
-        // Breadcrumb leaf is the order number.
         $response->assertSee('<span class="x-crumb__part x-crumb__part--current">'.$order->order_id.'</span>', false);
     }
 
@@ -194,13 +154,11 @@ class TiktokOrderDetailTest extends TestCase
 
         $response->assertOk();
 
-        // Identity and stamps
         $response->assertSee($order->order_id);
-        $response->assertSee('To hand over');        // ChannelStatusTone label for AWAITING_COLLECTION
+        $response->assertSee('To hand over');
         $response->assertSee('2026-08-04 08:30');
         $response->assertSee('2026-08-06 19:05');
 
-        // Item lines
         $response->assertSee('Halcyon Linen Throw Blanket');
         $response->assertSee('SKU-TT-01');
         $response->assertSee('Oatmeal / Large');
@@ -208,30 +166,22 @@ class TiktokOrderDetailTest extends TestCase
         $response->assertSee(\App\Support\Money::foreign(1299.00, 'PHP'));
         $response->assertSee(\App\Support\Money::foreign(1199.00, 'PHP'));
         $response->assertSee('Halcyon Linen Cushion Cover');
-        // "blank" is one of the strings this channel treats as no variation,
-        // so the second item gets no variation chip. Matched as an element's
-        // whole text rather than as a substring, because `target="_blank"` on
-        // the waybill link contains those five letters too.
         $response->assertDontSee('<span class="co-item__var">blank</span>', false);
 
-        // Customer and delivery address
         $response->assertSee('k***n');
         $response->assertSee('Karen Lim');
         $response->assertSee('(+63)9175559988');
         $response->assertSee('88 Katipunan Avenue, Barangay Loyola Heights');
         $response->assertSee('Quezon City Metro Manila 1108 PH');
 
-        // Shipping
         $response->assertSee('Flash Express');
         $response->assertSee('TTPH5581209934');
 
-        // Payment
         $response->assertSee('Order total');
         $response->assertSee(\App\Support\Money::foreign(1899.00, 'PHP'));
         $response->assertSee('Seller discount');
         $response->assertSee(\App\Support\Money::foreign(150.00, 'PHP'));
 
-        // Fees and settlement
         $response->assertSee('Total revenue');
         $response->assertSee('Commission');
         $response->assertSee(\App\Support\Money::foreign(94.95, 'PHP'));
@@ -243,7 +193,6 @@ class TiktokOrderDetailTest extends TestCase
         $response->assertSee('Paid');
         $response->assertSee('Paid out Aug 07, 2026');
 
-        // Raw payload disclosure
         $response->assertSee('Show the JSON TikTok returned');
     }
 
@@ -261,13 +210,8 @@ class TiktokOrderDetailTest extends TestCase
         $response->assertSee('No items synced yet.');
         $response->assertSee('No payment figures from TikTok yet.');
         $response->assertSee('TikTok has not settled this order yet.');
-        // A missing figure says so rather than printing a number nobody has.
         $response->assertSee('Not recorded');
     }
-
-    // ------------------------------------------------------------------
-    // Tier split, both directions, against the real middleware
-    // ------------------------------------------------------------------
 
     public function test_write_tier_controls_render_only_for_the_manage_tier(): void
     {
@@ -284,8 +228,6 @@ class TiktokOrderDetailTest extends TestCase
         $asViewer->assertDontSee($refreshUrl, false);
         $asViewer->assertDontSee('Refresh from TikTok');
 
-        // The read tier loses controls, not information: every figure the
-        // manager sees is still on their page.
         $asViewer->assertSee('Halcyon Linen Throw Blanket');
         $asViewer->assertSee('Settlement');
         $asViewer->assertSee('TTPH5581209934');
@@ -298,7 +240,6 @@ class TiktokOrderDetailTest extends TestCase
 
         $viewer = $this->viewer();
 
-        // Both are read-tier routes, so the read tier keeps them.
         $seen = $this->actingAs($viewer)->get('/channels/tiktok/'.$this->tiktokStore->id.'/orders/'.$withParcel->id.'/show');
         $seen->assertSee(route('ext.tiktok.orders.awb', $withParcel->id), false);
         $seen->assertSee('btnTtTracking', false);
@@ -324,16 +265,6 @@ class TiktokOrderDetailTest extends TestCase
     {
         $order = $this->order();
 
-        // The store setUp seeded is a settings row with no credentials in it:
-        // enough for the controller's own creds() precondition to pass (it
-        // 404s when the row is absent entirely), not enough for any network
-        // call to be made. A second row would only fight it for defaultStore().
-
-        // The fixture's payload carries no `packages` node, so the controller
-        // redirects back with its own "No packages found" result before it
-        // ever reaches the API client. That is the point: the response comes
-        // from the CONTROLLER, which means the gate let this user through,
-        // where the read tier above never reached it.
         $allowed = $this->actingAs($this->manager())
             ->postJson('/channels/tiktok/'.$this->tiktokStore->id.'/orders/'.$order->id.'/ship');
 
@@ -341,16 +272,8 @@ class TiktokOrderDetailTest extends TestCase
         $allowed->assertSessionHas('tiktok_orders_last_result.ok', false);
     }
 
-    // ------------------------------------------------------------------
-    // F2: the refresh pull-and-persist path is manage-tier only. The write
-    // branch in TikTokOrderController@show must never run for a view-tier
-    // operator, even with `?refresh=1` on the URL.
-    // ------------------------------------------------------------------
-
     public function test_view_tier_get_with_refresh_param_pulls_nothing_and_writes_nothing(): void
     {
-        // Dress the store setUp seeded so defaultStore() stays the credentialed
-        // one; a second row would fight it and win nothing.
         TikTokSetting::query()->orderBy('id')->firstOrFail()->fill([
             'mode' => 'live',
             'app_key' => 'test-app-key',
@@ -376,8 +299,6 @@ class TiktokOrderDetailTest extends TestCase
 
     public function test_manage_tier_get_with_refresh_param_still_pulls_and_persists(): void
     {
-        // Dress the store setUp seeded so defaultStore() stays the credentialed
-        // one; a second row would fight it and win nothing.
         TikTokSetting::query()->orderBy('id')->firstOrFail()->fill([
             'mode' => 'live',
             'app_key' => 'test-app-key',
@@ -404,7 +325,6 @@ class TiktokOrderDetailTest extends TestCase
             ->get('/channels/tiktok/'.$this->tiktokStore->id.'/orders/'.$order->id.'/show?refresh=1');
 
         $response->assertOk();
-        // Get Order Detail as TikTok documents it: a GET, the ids in the query.
         Http::assertSent(fn ($request) => $request->method() === 'GET'
             && str_contains($request->url(), '/order/202507/orders?')
             && str_contains($request->url(), 'ids=TT7788990011299'));
@@ -434,10 +354,6 @@ class TiktokOrderDetailTest extends TestCase
         $this->assertSame('AWAITING_COLLECTION', $order->fresh()->status);
     }
 
-    // ------------------------------------------------------------------
-    // Standing constraints this page must not break
-    // ------------------------------------------------------------------
-
     public function test_the_page_uses_no_native_dialogs_and_no_inline_handlers(): void
     {
         $order = $this->order('COMPLETED', ['order_id' => 'TT7788990011225']);
@@ -449,8 +365,6 @@ class TiktokOrderDetailTest extends TestCase
         $response->assertDontSee('alert(', false);
         $response->assertDontSee('onerror=', false);
         $response->assertDontSee('onclick=', false);
-        // No page-level inline script: the tracking flow is the tiktok-orders
-        // module's, bound on this page's own root id.
         $response->assertSee('id="tiktok-order-detail-page"', false);
     }
 
@@ -458,14 +372,9 @@ class TiktokOrderDetailTest extends TestCase
     {
         $order = $this->order();
 
-        // The list defaults to the To Ship tab's to_pack step, which is
-        // AWAITING_SHIPMENT only; this fixture is AWAITING_COLLECTION, so the
-        // All tab is what lists it.
         $response = $this->actingAs($this->viewer())->get('/channels/tiktok/'.$this->tiktokStore->id.'/orders?tab=ALL');
 
         $response->assertOk();
-        // The stopgap is retired: the order number opens the detail page in
-        // this same workspace, so the sidebar and the filtered list survive.
         $response->assertSee(
             '<a class="co-sn" href="'.route('ext.tiktok.orders.show', $order->id).'">'.$order->order_id.'</a>',
             false

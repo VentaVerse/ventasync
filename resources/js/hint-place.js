@@ -1,12 +1,3 @@
-/* A hint's bubble opens beside its button. Every list renders inside
- * .x-table-wrap, whose overflow clips anything absolutely positioned within
- * it, so a hint in a table was cut off at the wrapper's edge. Above the
- * phone breakpoint the bubble is taken out of flow and placed against the
- * viewport instead, the same way the row menu's panel is: below the button,
- * above it when that is where the room is, and kept on screen at both edges.
- * Below the breakpoint the stylesheet already draws it as a sheet across the
- * bottom of the screen. Without this script the bubble keeps its stylesheet
- * placement. */
 const wide = window.matchMedia('(min-width: 901px)');
 let current = null;
 
@@ -32,7 +23,6 @@ function place(btn) {
     bubble.style.left = left + 'px';
     bubble.style.right = 'auto';
 
-    // A transformed ancestor becomes a fixed element's frame; measure and correct.
     const b = bubble.getBoundingClientRect();
     if (Math.abs(b.left - left) > 1) {
         bubble.style.left = (left - (b.left - left)) + 'px';
@@ -74,7 +64,6 @@ function release() {
 
 document.addEventListener('mouseover', openFrom);
 document.addEventListener('focusin', openFrom);
-// Scroll events do not bubble; capturing at the window hears a table's own scroll too.
 window.addEventListener('scroll', follow, true);
 window.addEventListener('resize', follow);
 wide.addEventListener('change', () => {

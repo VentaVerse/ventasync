@@ -9,29 +9,6 @@ use Extensions\lazada\Services\LazadaStockPushService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-/**
- * The one sender for Lazada stock and price updates (Phase F, #184) -
- * Shopee's ShopeeStockPricePush, ported. Seven push loops across two
- * controllers shared these lies:
- *
- *  - a variation whose SKU had no Lazada sku_id was counted as an
- *    anonymous error ("Success: 2, Error: 1") with no name, and the
- *    listing wore a synthetic PARTIAL_FAILURE code with that same
- *    count sentence for a message;
- *  - the group paths never enumerated an ERP variation with no variant
- *    row at all, silently pushed qty 0 onto Lazada variants the
- *    catalogue no longer had, and defeated the resolver's own null
- *    price by substituting the base price one line later;
- *  - every flash arrived green, "0 success, 12 error" included;
- *  - stock/price failures never reached the group pivot.
- *
- * Now: the plan is diffed against the catalogue both ways and every gap
- * is named; stale sku_ids heal with ONE item read (the cache staleness
- * diff finally counts combinations); a refusal naming a sku heals once
- * and retries once; per-SKU verdicts roll up to an honest listing
- * message; and the flash carries the shared ledger clause in the shared
- * tone.
- */
 class LazadaStockPricePush
 {
     public function __construct(
@@ -44,18 +21,6 @@ class LazadaStockPricePush
 
     private const SKU_ERROR = '/E0207|sku.*(?:not|doesn\'?t).*exist|invalid.*sku|SellerSku.*not.*found/i';
 
-    /**
-     * @param 'stock'|'price' $kind
-     * @param iterable $listings LazadaProduct rows
-     * @param ?callable $priceFor fn(int $productId, float $base): float - required for price
-     * @return array{
-     *   ok: int, err: int, skipped: int, last_error: string,
-     *   outcomes: array<int, array{ok: bool, error: ?string}>,
-     *   mismatched: list<array{product_id: int, sku: string, reason: string}>,
-     *   skipped_variations: list<array{product_id: int, sku: string, reason: string}>,
-     *   healed_listings: list<int>,
-     * }
-     */
     public function push(string $kind, object $setting, array $creds, $listings, string $pfx, ?callable $priceFor = null): array
     {
         $listings = collect($listings)->values();
@@ -93,16 +58,12 @@ class LazadaStockPricePush
                 continue;
             }
 
-            /* Pre-call heal: resolveSkuIds' staleness diff (now counting
-             * combinations) refetches the variants when the catalogue
-             * grew a SKU the cache never saw. */
             $this->itemCache->resolveSkuIds($listing, $setting, $this->client, 'lazada.product.item.get.variants');
             $listing->load('variants');
 
             $this->pushListing($kind, $setting, $creds, $listing, $product, $pfx, $priceFor, $erpSkus, $out, true);
         }
 
-        // Each product's verdict becomes its error line on this store.
         $states = LazadaListingStates::on($setting);
         $label = $kind === 'price' ? 'Price push: ' : 'Stock push: ';
         foreach ($out['outcomes'] as $pid => $outcome) {
@@ -117,10 +78,6 @@ class LazadaStockPricePush
         $pid = (int) $listing->product_id;
         $rows = $this->resolver->buildPushItems($listing, $product, $pfx);
 
-        /* Only what this store sells is sent: a variant the catalogue does
-         * not have is left alone, a variation switched off never reached
-         * $rows, and a catalogue variation Lazada does not carry is simply
-         * not asked of it. None of these is an error. */
         $sendRows = !empty($erpSkus[$pid])
             ? array_values(array_filter($rows, fn ($row) => $row['matched'] ?? true))
             : $rows;
@@ -187,9 +144,6 @@ class LazadaStockPricePush
 
             $reason = (string) ($e['message'] ?? $e['code'] ?? 'refused');
 
-            /* The self-heal: a refusal naming the sku means the cached
-             * sku_id disagrees with Lazada. One item read rewires the
-             * variants; this listing's plan rebuilds; ONE retry. */
             if ($mayHeal && preg_match(self::SKU_ERROR, $reason . ' ' . (string) ($e['code'] ?? ''))) {
                 $this->itemCache->fetchAndCacheVariants($listing, $setting, $this->client, 'lazada.product.item.get.variants');
                 $listing->load('variants');
@@ -218,7 +172,6 @@ class LazadaStockPricePush
         }
     }
 
-    /** The listing wears an honest verdict - never a synthetic count code. */
     private function stamp(LazadaProduct $listing, string $kind, bool $ok, ?string $code, ?string $message): void
     {
         $listing->forceFill([
@@ -230,7 +183,6 @@ class LazadaStockPricePush
         ])->save();
     }
 
-    /** The shared flash suffix, in Lazada's name. */
     public static function ledgerClause(array $results): string
     {
         return PushLedger::clause($results, 'Lazada');

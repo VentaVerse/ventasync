@@ -6,19 +6,6 @@ use App\Models\Admin\Permission;
 use App\Services\PermissionCatalogue;
 use Illuminate\Console\Command;
 
-/**
- * Bring the permissions table in line with the routes, by hand.
- *
- * The boot sync (ExtensionServiceProvider) does the same thing on a cache
- * fingerprint of the key list; this is the explicit version for when you
- * want to see the numbers, or to converge a database the booted process
- * has not touched.
- *
- * The grant-translation machinery this command carried during the
- * changeover is gone with the retired scheme: the Phase D migration
- * translated and pruned in one transaction, and a restored old backup
- * converges the same way - by running its migrations forward.
- */
 class PermissionsSyncCatalogue extends Command
 {
     protected $signature = 'permissions:sync-catalogue
@@ -47,10 +34,6 @@ class PermissionsSyncCatalogue extends Command
             return self::SUCCESS;
         }
 
-        // A key that did not exist a moment ago is granted to the
-        // Administrator group as it is created, the rule extension keys
-        // already follow: an administrator must never lose a screen because
-        // a route grew its own key (live fix 2026-08-26, order payments).
         $adminGroupId = \Illuminate\Support\Facades\DB::table('user_groups')->where('name', 'Administrator')->value('id');
         foreach ($toAdd as $key) {
             $row = Permission::firstOrCreate(['key' => $key]);

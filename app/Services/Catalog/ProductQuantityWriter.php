@@ -7,45 +7,10 @@ use App\Services\StockHistoryLogger;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
-/**
- * SET ONE QUANTITY, AND KEEP THE PARENT HONEST (#177).
- *
- * The companion to ProductPriceWriter, and it addresses a variation the
- * same way: by its SKU, the code every channel keys on and the one
- * products_get prints. That is not a convenience. The mobile app's
- * quantity endpoint is keyed by option VALUE, which cannot name one
- * variation of a two-axis product - "Red" belongs to Red+Small and
- * Red+Large alike - so it has only ever worked for single-axis products.
- * A SKU names exactly one sellable thing on every product there is.
- *
- * THE PARENT IS NOT A NUMBER ANYONE SETS. On a product with variations,
- * `product.quantity` is the sum of them, and nothing in the database
- * enforces that: code does, here, in the same write. So a variation set
- * through this service always leaves the parent correct, and a caller
- * asking to set the parent DIRECTLY on such a product is refused rather
- * than allowed to write a figure the next variation edit overwrites.
- *
- * Stock lives in `product_option_combinations` - the sellable unit, which
- * is what App\Support\VariationRows reads and what every list in this
- * application shows. `product_option_value.quantity` is the older
- * per-axis copy; it is mirrored, but only for a combination that maps to
- * exactly ONE option value, because a Colour+Size combination owns its own
- * stock and must never be overwritten from a single choice.
- */
 final class ProductQuantityWriter
 {
-    /**
-     * @param  string|null  $variationSku  null for the product's own quantity
-     * @param  int|null  $newQuantity  the absolute figure to set
-     * @param  int|null  $changeBy  a delta to apply instead; exactly one of the two
-     * @return array{target: string, sku: string, before: int, after: int, product_before: int, product_after: int}
-     *
-     * @throws RuntimeException with a sentence fit to show the caller
-     */
-    /** Where the stock history says the movement came from. */
     private string $source = 'api';
 
-    /** The same writer, recording its movements under another source, such as purchase_order. */
     public function from(string $source): static
     {
         $writer = clone $this;
@@ -83,7 +48,6 @@ final class ProductQuantityWriter
             : $this->setVariation($product, $sku, $newQuantity, $changeBy, $reason, $actor);
     }
 
-    /** A product with no variations owns its own figure. */
     private function setProduct(Product $product, ?int $newQuantity, ?int $changeBy, string $reason, string $actor): array
     {
         $before = (int) $product->quantity;
@@ -102,11 +66,6 @@ final class ProductQuantityWriter
         ];
     }
 
-    /**
-     * One variation, then the parent recomputed from ALL of them - not by
-     * adding the delta to the old total, which would carry any drift
-     * already in the row forward forever.
-     */
     private function setVariation(Product $product, string $sku, ?int $newQuantity, ?int $changeBy, string $reason, string $actor): array
     {
         $needle = strtolower($sku);
@@ -126,9 +85,6 @@ final class ProductQuantityWriter
         $after = $this->resolve($before, $newQuantity, $changeBy);
         $parentBefore = (int) $product->quantity;
 
-        // The one option value this combination maps to, when it maps to
-        // exactly one: the older per-axis copy and the warehouse row are
-        // addressed by that, and a multi-axis combination has no single one.
         $valueIds = DB::table('product_option_combination_values')
             ->where('combination_id', $combo->id)->pluck('product_option_value_id');
         $lonePovId = $valueIds->count() === 1 ? (int) $valueIds->first() : null;
@@ -168,7 +124,6 @@ final class ProductQuantityWriter
         ];
     }
 
-    /** A figure that is never negative, whichever way it was asked for. */
     private function resolve(int $before, ?int $newQuantity, ?int $changeBy): int
     {
         $after = $newQuantity ?? ($before + (int) $changeBy);
@@ -195,14 +150,11 @@ final class ProductQuantityWriter
             type: 'set',
             qtyBefore: $before,
             qtyAfter: $after,
-            // Not 'user' and not 'mobile': the ledger names what actually
-            // did this, so a figure nobody remembers changing can be traced.
             source: $this->source,
             note: $actor . ' set ' . $what . ', qty ' . $before . ' to ' . $after . '. Reason: ' . $reason,
         );
     }
 
-    /** Keep the default warehouse's copy in step, where there is one. */
     private function warehouse(int $productId, int $povId, int $quantity): void
     {
         if (! class_exists(\Extensions\warehousing\Services\WarehouseStockService::class)) {

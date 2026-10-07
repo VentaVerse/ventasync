@@ -6,13 +6,6 @@ use Extensions\venta\Models\VentaSetting;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Hard delete of a Venta store (the Shopee shape, #204, ported 2026-09-06):
- * one transaction takes everything the store owns in the ERP. Core orders
- * already imported stay, under the store's name. Nothing on the Venta
- * store itself is touched. Before this the row alone was deleted and its
- * listings, links, groups, orders and logs were left behind as orphans.
- */
 final class VentaStoreDeleter
 {
     private const TABLES = [
@@ -28,13 +21,10 @@ final class VentaStoreDeleter
         'venta_brands',
     ];
 
-    /** @return array<string,int> rows removed per table */
     public function delete(VentaSetting $store): array
     {
         return DB::transaction(function () use ($store) {
             $removed = [];
-            // The two child tables carry no store column: clear them by
-            // their parents before the parents go.
             if (Schema::hasTable('venta_order_products')) {
                 $orderIds = DB::table('venta_orders')->where('venta_setting_id', $store->id)->pluck('id');
                 $removed['venta_order_products'] = $orderIds->isEmpty() ? 0

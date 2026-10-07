@@ -8,38 +8,12 @@ use App\Support\Catalog\ProductImages;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
-/**
- * A store listing keeps its own copy of the catalog product. The copy is
- * made when the listing is made, and a later catalog edit never changes it;
- * a Catalog change is how the store finds out the two came apart.
- *
- * Title, description and photos are copied. Price and parcel are not: a
- * blank listing price or parcel is the catalog's, so a catalog price change
- * still reaches the price push. Both are compared all the same, because a
- * listing can hold its own.
- *
- * A listing counts as compared (catalog_seen_at) when it is made, and when
- * its comparison panel is saved or ignored. It shows a Catalog change when
- * the catalog product was modified after that and the two differ.
- *
- * Channel-agnostic: a caller passes the columns its listing keeps the copy
- * in, as ['title' => ..., 'description' => ..., 'images' => ..., 'plain' => bool].
- * 'plain' is for a channel whose listing description can hold plain words:
- * the same words as the catalog's then count as the same description.
- */
 final class CatalogCopy
 {
     public const FIELDS = ['title', 'description', 'photos', 'price', 'parcel'];
 
-    /** The listing's parcel columns, against the catalog's. */
     public const PARCEL = ['weight' => 'weight', 'length' => 'package_length', 'width' => 'package_width', 'height' => 'package_height'];
 
-    /**
-     * The catalog side of the comparison.
-     *
-     * @param  list<int>  $productIds
-     * @return array<int, array{title: string, description: string, photos: list<string>, price: float, parcel: array<string, float>, modified: ?string}>
-     */
     public static function catalog(array $productIds): array
     {
         $ids = array_values(array_unique(array_filter(array_map('intval', $productIds))));
@@ -77,15 +51,6 @@ final class CatalogCopy
         return $out;
     }
 
-    /**
-     * The listing side, in the catalog's shape: its own title, description
-     * and photos, and its price and parcel as they go up.
-     *
-     * @param  object  $listing  a listing row or model, with product_id and the copy columns
-     * @param  array<string, mixed>  $cols
-     * @param  array<string, mixed>  $catalog  this product's entry from catalog()
-     * @return array{title: string, description: string, photos: list<string>, price: float, parcel: array<string, float>}
-     */
     public static function listing(object $listing, array $cols, array $catalog): array
     {
         $images = $listing->{$cols['images']} ?? null;
@@ -108,12 +73,6 @@ final class CatalogCopy
         ];
     }
 
-    /**
-     * The fields where the listing and the catalog differ, ignoring what
-     * nobody can see: spacing, line breaks, how the text was stored.
-     *
-     * @return list<string>
-     */
     public static function differences(array $listing, array $catalog, bool $plain = false): array
     {
         $out = [];
@@ -139,13 +98,6 @@ final class CatalogCopy
         return $out;
     }
 
-    /**
-     * Fills a new listing's blank copy columns from the catalog and marks it
-     * compared. Columns already given a value are left as they are.
-     *
-     * @param  \Illuminate\Database\Eloquent\Model  $listing
-     * @param  array<string, mixed>  $cols
-     */
     public static function fill(object $listing, array $cols): void
     {
         $pid = (int) ($listing->product_id ?? 0);
@@ -168,16 +120,6 @@ final class CatalogCopy
         $listing->catalog_seen_at = now();
     }
 
-    /**
-     * Which listings show a Catalog change, with the fields that differ.
-     * A listing whose catalog product was modified since it was compared,
-     * but which turns out the same, is marked compared now and is not
-     * checked again until the catalog moves.
-     *
-     * @param  iterable<object>  $listings  rows of one listing table
-     * @param  array<string, mixed>  $cols
-     * @return array<int, list<string>>  product id => the fields that differ
-     */
     public static function pending(iterable $listings, string $table, array $cols): array
     {
         $rows = [];
@@ -230,17 +172,11 @@ final class CatalogCopy
         return $out;
     }
 
-    /** Marks a listing compared with the catalog as it stands now. */
     public static function acknowledge(object $listing): void
     {
         $listing->forceFill(['catalog_seen_at' => self::seenAtFor((int) $listing->product_id)])->save();
     }
 
-    /**
-     * The moment a listing is compared as of: now, or the catalog product's
-     * own last change when that reads later, so the comparison is never
-     * older than the change it answered.
-     */
     public static function seenAtFor(int $productId): Carbon
     {
         $modified = DB::table((string) config('catalog.prefix') . 'product')->where('product_id', $productId)->value('date_modified');
@@ -259,7 +195,6 @@ final class CatalogCopy
         return $moved->gt($now) ? $moved : $now;
     }
 
-    /** A title as it reads: entities decoded, outer spaces gone. */
     public static function title(string $title): string
     {
         return trim(html_entity_decode($title, ENT_QUOTES | ENT_HTML5, 'UTF-8'));

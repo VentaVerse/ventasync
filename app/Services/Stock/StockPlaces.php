@@ -5,22 +5,8 @@ namespace App\Services\Stock;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Where stock is held, as far as a reader outside warehousing needs to
- * know. The catalog's own quantity is what the stores can sell; stock in a
- * warehouse that is not for sale (a supplier's, abroad) is owned but not in
- * that figure, and a reorder has to count it.
- */
 final class StockPlaces
 {
-    /**
-     * Units held in warehouses that are not for sale, keyed
-     * "{product_id}:{product_option_value_id}" (0 for a product without
-     * variations). Empty when there are no warehouses.
-     *
-     * @param  list<int>  $productIds
-     * @return array<string, int>
-     */
     public function notForSale(array $productIds): array
     {
         if ($productIds === [] || ! class_exists(\Extensions\warehousing\Services\WarehouseStockService::class)

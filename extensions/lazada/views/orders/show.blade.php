@@ -2,16 +2,8 @@
 @section('title', 'Order ' . $order->order_id)
 @section('breadcrumb', $order->order_id)
 
-{{-- Leaves the .x-legacy content boundary, the same exit the Orders and
-     Returns pages took: this page is built directly on the design tokens,
-     the x-ui components and the shared `od-` detail anatomy. --}}
 @section('content')
 @php
-    // Wire-format truth is LazadaOrderController@show. Every extraction below
-    // is the expression the previous version of this page used, moved
-    // unchanged: Lazada answers the list endpoint and the detail endpoint
-    // with different key spellings, and each `??` chain is a fallback someone
-    // hit in production.
     $raw = is_array($order->raw ?? null) ? $order->raw : [];
     $detail = is_array($detail ?? null) ? $detail : [];
 
@@ -49,17 +41,9 @@
 
     $items = $order->products ?? collect();
 
-    // Whether the order carries ANY fee data Lazada returned. Gates every
-    // fee-derived block on this page (the per-item price breakdown, the
-    // transaction-lines table, and the side-column ledger below), same as
-    // the previous version of this page, which nested all three under one
-    // `@if`. Scalar-only on purpose: `transaction_lines` and `other_fees`
-    // are themselves array values inside $fees, and array_filter here is
-    // asking "is there a settled ledger figure", not "is the key present".
     $fees = is_array($order->fees ?? null) ? $order->fees : [];
     $hasFees = !empty($fees) && !empty(array_filter($fees, fn($v) => !is_array($v) && $v != 0));
 
-    // Fallback: get courier and tracking from first item if order-level is empty
     if (($courier === '' || $tracking === '') && $items->count() > 0) {
         foreach ($items as $_it) {
             $_ir = is_array($_it->raw ?? null) ? $_it->raw : [];
@@ -75,26 +59,11 @@
         }
     }
 
-    // Tone and label from the same maps the fulfilment list uses, so a status
-    // means the same colour and reads the same words on both surfaces. No
-    // marketplace constant reaches the screen raw.
     $tone = \App\Support\ChannelStatusTone::toneFor('lazada.orders', $status);
     $statusLabel = \App\Support\ChannelStatusTone::labelFor('lazada.orders', $status);
 
-    // Refresh re-pulls this order from Lazada and persists what comes back
-    // (the detail node, the item rows and the fee breakdown all get written),
-    // so it is a write-tier control. The previous version of this page offered
-    // it to everyone, which is the same defect the Orders list carried before
-    // the seller-center round read the permission properly. The route
-    // middleware is the real gate; this flag only stops the page offering
-    // what the operator has no business triggering.
     $canManageLazadaOrders = auth()->user()?->hasPermission('manage_lazada/order') ?? false;
 
-    // Currency is resolved through App\Support\Money, which reads the symbol
-    // from the currencies table, so no symbol is written into this view. An
-    // order carrying a code nobody has configured locally falls back to
-    // "CODE 1,234.00" rather than a wrong glyph. Same resolution the orders
-    // list already applies to this order's own amount.
     $currencyCode = (string) ($raw['currency'] ?? ($detail['currency'] ?? ''));
     $money = fn ($amount) => $currencyCode !== ''
         ? \App\Support\Money::foreign((float) $amount, $currencyCode)
@@ -159,17 +128,8 @@
     @endif
 
     <div class="od-body">
-        {{-- ============ MAIN COLUMN ============ --}}
         <div class="od-col od-col--main">
 
-            {{-- Items. Same `co-` item grammar as the fulfilment list (96px
-                 image, two-line name, SKU and variation meta), in the `od-`
-                 item grid so the figures align down the page. Lazada returns
-                 one row per unit, so identical SKU + name + variation rows
-                 are consolidated exactly as the previous version of this page
-                 consolidated them, and the order item ids that were their own
-                 table column ride under the item as the identifiers they
-                 are. --}}
             @php
                 $consolidated = [];
                 foreach ($items as $it) {
@@ -227,10 +187,6 @@
                     @foreach($consolidated as $ci)
                         @php $ciIds = array_filter($ci['order_item_ids']); @endphp
                         <div class="od-item">
-                            {{-- The store's own picture leads, because it is what the
-                                 buyer saw. Our catalogue's stands in when the store sent
-                                 none, or when the link it sent no longer answers, the way
-                                 the fulfilment panels already do. --}}
                             @php $itImg = $ci['img'] !== '' ? $ci['img'] : (string) (\App\Support\CatalogImages::urlFor($ci['sku'] ?? '') ?? ''); @endphp
                             <div class="order-img-wrap od-item__media">
                                 @if($itImg !== '')
@@ -258,11 +214,6 @@
 
                             <div class="od-item__figs">
                                 <span class="od-fig od-fig--qty"><span class="od-fig__k">Qty</span>{{ $ci['qty'] }}</span>
-                                {{-- A figure Lazada did not send takes the same
-                                     dash the fulfilment list's own numeric
-                                     cells take: in a right-aligned money
-                                     column a sentence would break the
-                                     alignment the column exists for. --}}
                                 <span class="od-fig">
                                     <span class="od-fig__k">Unit price</span>@if($ci['unit_price'] > 0){{ $money($ci['unit_price']) }}@else<span class="co-empty-mark">&mdash;</span>@endif
                                 </span>
@@ -275,11 +226,6 @@
                 </div>
                 @endif
 
-                {{-- Per-item price composition. It sits under the items it
-                     describes rather than inside the fee block, which is
-                     where the previous version of this page carried it: this
-                     is what each line was worth before and after Lazada's
-                     vouchers, not part of the settlement. --}}
                 @php
                     $itemFees = [];
                     foreach ($items as $it) {
@@ -296,14 +242,8 @@
                         $iWallet = (float)($ir['wallet_credits'] ?? 0);
                         $iShipService = (float)($ir['shipping_service_cost'] ?? 0);
                         $iStatus = (string)($ir['status'] ?? ($it->status ?? ''));
-                        // The id is what tells two rows of the same product
-                        // apart. Lazada bills one row per unit, so without it
-                        // a two-unit line shows twice here with nothing
-                        // distinguishing the copies. Same value the item's own
-                        // id line above already prints.
                         $iOrderItemId = (string)($it->order_item_id ?? ($ir['order_item_id'] ?? ''));
 
-                        // Only include if there's meaningful data
                         $hasData = ($iItemPrice != 0 || $iPaidPrice != 0 || $iVoucherSeller != 0 || $iVoucherPlatform != 0 || $iShipService != 0);
                         if ($hasData) {
                             $itemFees[] = [
@@ -325,11 +265,6 @@
                     }
                 @endphp
                 @if(!empty($itemFees) && $hasFees)
-                {{-- Counted in order items, not in products: the list above
-                     consolidates Lazada's one-row-per-unit into one line per
-                     product, so a two-unit line is 1 item there and 2 order
-                     items here. Saying which unit each count is in is what
-                     stops the two numbers reading as a contradiction. --}}
                 <details class="od-disclose lzd-breakdown">
                     <summary>Price breakdown by order item ({{ count($itemFees) }})</summary>
                     @foreach($itemFees as $if)
@@ -360,7 +295,6 @@
                 @endif
             </section>
 
-            {{-- The store's own breakdown of what this order came to, under the items it is for. --}}
             <section class="od-section">
                 <div class="od-section__head">
                     <h2 class="od-section__title">{{ $breakdown?->title ?? 'Order income' }}</h2>
@@ -380,13 +314,6 @@
                 @endif
             </section>
 
-            {{-- ============ FEE TRANSACTIONS ============
-                 Lazada's finance ledger for this order: one row per charge it
-                 actually posted, which is a different question from the
-                 breakdown above it (that says what the order came to, this
-                 says which transactions made it up). Full width in the
-                 main column because it is a second subject with its own rows,
-                 not a reference fact about the first one. --}}
             @php
                 $trxLines = $fees['transaction_lines'] ?? [];
             @endphp
@@ -407,10 +334,6 @@
                     </div>
                     @foreach($trxLines as $tl)
                     <div class="lzd-trx__row">
-                        {{-- The code rides beside the name, but only when
-                             there IS a name: with no name the label is
-                             already "Fee type 112", and a "Type 112" chip
-                             next to it says the same thing twice. --}}
                         <span class="lzd-trx__name">
                             {{ $tl['fee_name'] ?: ('Fee type ' . $tl['fee_type']) }}
                             @if($tl['fee_type'] && $tl['fee_name'])
@@ -426,22 +349,14 @@
             </section>
             @endif
 
-            {{-- Raw payload. Kept from the previous version of this page: when
-                 Lazada's response and this page disagree, this is what settles
-                 it. It closes the main column rather than running full width
-                 under the body, for the same reason Shopee's does: the side
-                 column here is taller than the item list, and a full-width
-                 band below both is marooned under a screen of empty canvas. --}}
             <details class="od-disclose od-rawbox">
                 <summary>Show the JSON Lazada returned</summary>
                 <pre class="lzd-raw">{{ json_encode(['order' => $raw, 'detail' => $detail, 'fees' => $fees], JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) }}</pre>
             </details>
         </div>
 
-        {{-- ============ SIDE COLUMN ============ --}}
         <div class="od-col od-col--side">
 
-            {{-- Customer and delivery address --}}
             <section class="od-card">
                 <div class="od-card__head">
                     <h2 class="od-card__title">Customer</h2>
@@ -466,7 +381,6 @@
                 </div>
             </section>
 
-            {{-- Shipping --}}
             <section class="od-card">
                 <div class="od-card__head">
                     <h2 class="od-card__title">Shipping</h2>
@@ -478,8 +392,6 @@
                     </div>
                     <div class="od-fact">
                         <span class="od-fact__k">Tracking number</span>
-                        {{-- Mono is for the identifier, not for the words that
-                             stand in when there is no identifier. --}}
                         <span class="od-fact__v {{ $tracking !== '' ? 'od-fact__v--mono' : '' }}">{{ $tracking !== '' ? $tracking : 'Not recorded' }}</span>
                     </div>
                 </div>
@@ -493,7 +405,7 @@
         </div>
     </div>
 
-</div>{{-- /#lazada-order-detail-page --}}
+</div>
 
 @include('ext-lazada::orders._modals')
 @endsection

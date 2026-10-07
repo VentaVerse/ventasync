@@ -7,11 +7,6 @@ use Extensions\opencart\Services\OpenCart\OpenCartClient;
 use Extensions\opencart\Services\OpenCart\OpenCartProductSync;
 use Illuminate\Console\Command;
 
-/**
- * The "Push Price" automation (the owner, 2026-09-07). The old
- * stock-and-price row sent quantities only; price is its own row now, on
- * every channel.
- */
 class OpenCartPushPrice extends Command implements \App\Integrations\Contracts\SteppableAutomation
 {
     protected $signature = 'opencart:push-price
@@ -59,7 +54,6 @@ class OpenCartPushPrice extends Command implements \App\Integrations\Contracts\S
         return 0;
     }
 
-    /** Run now walks this push ten products per request (SteppableAutomation, 2026-09-07). */
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
         return ['label' => 'products', 'units' => \Extensions\opencart\Services\OpenCart\OpenCartPushSteps::units($job)];

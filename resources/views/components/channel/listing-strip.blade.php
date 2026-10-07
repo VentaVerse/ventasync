@@ -1,46 +1,3 @@
-{{--
-    THE LISTING STRIP: the page's spine, on every channel.
-
-    the owner picked this shape on 2026-09-08 from the surface drafts (draft C,
-    "the console"), with one amendment: Last push folds into it, so the
-    strip answers every standing question about the live item in one line -
-    what state is it in, what does it cost there, how much is left, is a
-    promotion running, when did we last send anything, and where did those
-    settings come from.
-
-    It replaced a card. A card competed with the seven cards beneath it and
-    scrolled away with them, which is the wrong behaviour for the one fact
-    an operator checks twice.
-
-    THE SHAPE IS THE TEMPLATE. A channel supplies its own figures and its
-    own verbs; it never supplies its own arrangement. Anything only one
-    channel has (Shopee's couriers, Lazada's variation overrides) lives in
-    that channel's own section further down the page, not here.
-
-      channel   'Shopee' | 'Lazada' | 'TikTok Shop' | the store's name
-      state     ['label' => string, 'tone' => 'success'|'warning'|'danger'|'neutral']
-      figures   list<['k' => string, 'v' => string]>  the channel's own facts, in its own words
-      lastPush  ?['when' => string, 'from' => ?string]  null when nothing has ever gone up
-      linked    bool  the product is on the channel at all
-      health    bool  draw the state, the figures and the last push at all
-      verbs     slot  the forms that act on the live item
-      notes     slot  refusals, gaps and staleness, drawn under the strip
-
-    HEALTH IS OFF ON EVERY CHANNEL (the owner, 2026-09-09): "What I want to see
-    right now are just fields to edit. Nothing about health... We focus on
-    the product edit." Shopee first, then "Update the template. Then push
-    to all channels."
-
-    Everything the strip knows about the live item goes quiet and the bar
-    keeps only the verbs, which are how you act rather than what you are
-    told. The accent goes with it: a bar in the channel's colour reads as a
-    status banner even when it is saying nothing.
-
-    The state, figures and lastPush props are kept rather than deleted -
-    the facts are still computed and still shown on the Listings index, and
-    a page takes them back by passing health again. It is "for now" in his
-    words, so the way back is one argument, not a rebuild.
---}}
 @props([
     'channel',
     'state' => ['label' => null, 'tone' => 'neutral'],
@@ -49,9 +6,6 @@
     'linked' => false,
     'health' => true,
 ])
-{{-- The bar and the notes are SIBLINGS, not a wrapper and its children: a
-     sticky element travels inside its own parent, so a bar nested in a
-     wrapper only stays put until the wrapper scrolls away. --}}
 <section class="cl-strip{{ $health ? '' : ' cl-strip--quiet' }}"
          aria-label="{{ $health ? 'On ' . $channel . ' right now' : 'What you can do on ' . $channel }}">
     @if($health)
@@ -68,8 +22,6 @@
             </div>
         @endforeach
 
-        {{-- Last push is a figure like any other now, not a card in the
-             rail where it sat below the fold at every scroll position. --}}
         <div class="cl-fig cl-fig--push">
             <dt>Last push</dt>
             <dd>

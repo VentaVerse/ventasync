@@ -7,19 +7,10 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * A CHANNEL'S CATEGORIES AS A TREE, ONE LEVEL AT A TIME.
- *
- * The tree is already in the database, so nothing here calls a marketplace.
- * What these pin is the part that differs per channel and is easy to get
- * wrong: what marks a root, what marks a leaf, and that depth is walked
- * rather than assumed.
- */
 class CategoryTreeTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @param array<int, array{0:int,1:?int,2:string,3:int}> $rows id, parent, name, leaf */
     private function shopee(array $rows): void
     {
         foreach ($rows as [$id, $parent, $name, $leaf]) {
@@ -58,11 +49,6 @@ class CategoryTreeTest extends TestCase
         $this->assertSame([], CategoryTree::children('shopee', 0, 111), 'a leaf opens no column');
     }
 
-    /**
-     * Shopee reaches five levels and Lazada six, and most of Lazada's
-     * pickable categories sit deeper than three, so nothing may assume a
-     * depth. The path is walked to whatever length the tree has.
-     */
     public function test_a_path_is_walked_to_whatever_depth_the_tree_has(): void
     {
         $this->shopee([
@@ -80,10 +66,6 @@ class CategoryTreeTest extends TestCase
         $this->assertTrue($path[5]['leaf'], 'the last step is the category itself');
     }
 
-    /**
-     * DEPTH IS NOT READ FROM A `level` COLUMN. Some tiers hold 0 in every
-     * row of it, so a picker trusting it would draw an entire tree as roots.
-     */
     public function test_depth_ignores_the_level_column(): void
     {
         $this->shopee([
@@ -109,7 +91,6 @@ class CategoryTreeTest extends TestCase
         $this->assertTrue(CategoryTree::knows('shopee'));
     }
 
-    /** A parent pointing back into its own chain answers with nothing rather than looping forever. */
     public function test_a_loop_does_not_hang_the_picker(): void
     {
         $this->shopee([
@@ -120,13 +101,8 @@ class CategoryTreeTest extends TestCase
         $this->assertSame([], CategoryTree::path('shopee', 0, 2));
     }
 
-    /**
-     * A channel whose categories belong to the store sees only its own, and
-     * works out its leaves by counting, because it keeps no leaf flag.
-     */
     public function test_a_stores_own_categories_are_scoped_and_their_leaves_counted(): void
     {
-        /* The table points at a real store, so two of them exist here. */
         $first = DB::table('woocommerce_settings')->insertGetId(['store_name' => 'First store', 'base_url' => 'https://one.test']);
         $second = DB::table('woocommerce_settings')->insertGetId(['store_name' => 'Second store', 'base_url' => 'https://two.test']);
 
@@ -149,7 +125,6 @@ class CategoryTreeTest extends TestCase
         $this->assertSame(['Another store only'], array_column(CategoryTree::children('woocommerce', $second), 'name'));
     }
 
-    /** TikTok marks its roots with a null parent rather than a zero. */
     public function test_a_null_parent_is_a_root_too(): void
     {
         DB::table('tiktok_categories')->insert([

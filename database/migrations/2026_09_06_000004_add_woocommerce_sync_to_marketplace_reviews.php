@@ -4,10 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/* Stage 4 of the WooCommerce channel: marketplace reviews can be pushed to
- * a WooCommerce store, the Venta shape, so the review row carries the
- * same five facts per channel. The store row gains the review push stamp
- * its model already names. Guarded per column. */
 return new class extends Migration
 {
     public function up(): void

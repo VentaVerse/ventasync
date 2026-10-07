@@ -24,14 +24,12 @@ class ShopeeProductController extends Controller
 {
     use \App\Http\Controllers\Concerns\ServesCategoryTree;
 
-    /** The channel whose category tree the picker on these pages reads. */
     protected function categoryChannel(): string
     {
         return 'shopee';
     }
     use \App\Http\Controllers\Concerns\ComparesWithTheCatalog;
 
-    /** This store's listing of the product. */
     protected function catalogChangeListing(int $productId): \Illuminate\Database\Eloquent\Model
     {
         $listing = ShopeeListing::query()->where('product_id', $productId)->first();
@@ -45,23 +43,11 @@ class ShopeeProductController extends Controller
         return route('ext.shopee.listings.edit', $productId);
     }
 
-    /**
-     * Whether each of this store's products could be pushed right now, listed
-     * or not, by the same ShopeeListingReadiness answer the row's Readiness
-     * column reads (one answer per product, linked or not), so a menu count
-     * and the rows it leads to agree. Held for a minute: the menu counts it
-     * on every page.
-     *
-     * @return array<int, bool>  product id => ready
-     */
     private function readyByProduct(): array
     {
         return array_map(fn (array $a) => (bool) $a['ready'], $this->readinessRich());
     }
 
-    /**
-     * @return array<int, list<string>>  product id => gap codes
-     */
     private function gapsByProduct(): array
     {
         return array_map(
@@ -70,17 +56,8 @@ class ShopeeProductController extends Controller
         );
     }
 
-    /** Held for the request. */
     private ?array $readinessRich = null;
 
-    /**
-     * Ready + gaps for every product on the store, from the materialised
-     * readiness cache; recomputed only for products whose inputs changed
-     * (catalogue edit, listing/link edit or push, group preset) — so a weight
-     * typed on the catalog page shows at once, without recomputing the rest.
-     *
-     * @return array<int, array{ready: bool, gaps: list<array{code: string, label: string}>}>
-     */
     private function readinessRich(): array
     {
         if ($this->readinessRich !== null) {
@@ -140,47 +117,23 @@ class ShopeeProductController extends Controller
         $langId = (int) config('catalog.default_language_id');
         $q = trim((string) $request->get('q', ''));
         $syncStatus = (string) $request->get('sync_status', 'all');
-        // The page's older words for the two halves still land there, and so
-        // do the retired eligibility rungs, each on the half it belonged to.
         $syncStatus = ['listed' => 'uploaded', 'not_listed' => 'not_uploaded'][$syncStatus] ?? $syncStatus;
         if ($syncStatus !== 'error') {
             $syncStatus = \App\Integrations\Listings\StatusMenu::stand($syncStatus);
         }
-        /* The status menu's two switches narrow whatever the tree has
-         * chosen; an old sync_status=error link is Push failed switched on. */
         $failedFlag = $request->boolean('failed') || $syncStatus === 'error';
         $changeFlag = $request->boolean('change');
         if ($syncStatus === 'error') {
             $syncStatus = 'all';
         }
         $manufacturerFilter = (string) $request->get('manufacturer', 'all');
-        /* The rail's choice: a group id, `none` for the products no group
-           claims, else the whole store. */
         $groupFilter = \App\Integrations\Listings\StatusMenu::group($request->get('group'));
         $erpStatus = (string) $request->get('erp_status', 'all');
 
-        /* ── Two surfaces on one workbench (#201, the owner 2026-09-05) ──
-         *
-         * THIS STORE is what this store carries and works day to day - its
-         * own list, with the seller-center state tabs. ADD PRODUCTS is the
-         * Master Catalog, where a product is added into the store's list;
-         * the slide-over is the way in and this full page is its overflow.
-         * Multi-store is what earned the split: a store's daily table stops
-         * mirroring the whole catalogue and shows only what it carries. The
-         * add surface has its own lean flow, so it returns before all the
-         * live-status machinery below, which it does not need. */
         if ($request->query('list') === 'add') {
             return $this->addCatalogue($request);
         }
 
-        /* ── The seller center's own tabs (quest 1 slice 2, 2026-08-24) ──
-         *
-         * Live / Unlisted / Violation / Under review, Shopee's own
-         * item_status buckets. They were answered by Shopee on every page
-         * load until 2026-08-28, when the owner reversed that: the calls had
-         * become the cost of the page. They now read the MIRROR on the
-         * link rows (see below); "All" is this store's own list (#201),
-         * pushed or not, and the strip names both. */
         $tabMap = ['live' => 'NORMAL', 'unlisted' => 'UNLIST', 'violation' => 'BANNED', 'reviewing' => 'REVIEWING'];
         $shopeeTab = (string) $request->get('shopee_tab', 'all');
         if (!array_key_exists($shopeeTab, $tabMap)) {
@@ -191,39 +144,17 @@ class ShopeeProductController extends Controller
         $auth = ShopeeSetting::activeAuth($setting);
         $liveCounts = null;
         $liveTabError = null;
-        /* Since 2026-08-28 the counts and the per-row statuses come from
-         * the MIRROR on the link rows (live_status, live_checked_at),
-         * refreshed every 30 minutes by the automation, on demand by the
-         * Refresh button, and written through by every push, unlist and
-         * relist the ERP makes. A page view asks Shopee for nothing
-         * (the owner: five calls per click had become the cost of the page).
-         * The strip says when the mirror was last refreshed. */
         $liveCheckedAt = null;
         if ($setting && $auth['complete']) {
-            // Counted below, against the rows the status menu has chosen.
             $liveCounts = [];
             $liveCheckedAt = ShopeeProductLink::query()->max('live_checked_at');
             $liveCheckedAt = $liveCheckedAt ? \Illuminate\Support\Carbon::parse($liveCheckedAt) : null;
         } else {
-            /* The page has carried this note since it was built and nothing
-               ever set it, so the one state it exists to explain - the
-               credentials being incomplete, which is what an expired token
-               looks like until the refresh cron runs - showed as every row
-               reading "not checked yet" and no reason anywhere (the owner,
-               2026-09-09: "Thats weird"). TikTok has always said it. */
             $liveTabError = 'Missing Shopee settings.';
             $shopeeTab = 'all';
         }
 
-        /* Sorting. Lazada's listings page has had six sortable headers since
-         * it was built and this one had none, on tables that look identical -
-         * so a seller who runs both learns to click a header on one channel
-         * and it silently does nothing on the other.
-         *
-         * Allow-listed and mapped to a real column here rather than
-         * interpolated, so an edited URL cannot reach anything this array
-         * does not name. Ordered in SQL because this page paginates at the
-         * database, unlike Lazada's, which sorts a collection. */
+        // Sort columns are allow-listed so an edited URL cannot reach any other column.
         $sortColumns = [
             'id' => 'p.product_id',
             'product' => 'pd.name',
@@ -238,7 +169,6 @@ class ShopeeProductController extends Controller
         }
         $dir = strtolower((string) $request->get('dir', 'asc')) === 'desc' ? 'desc' : 'asc';
 
-        // Build product group → product mapping
         $groupMapping = $this->getGroupProductMapping();
 
         $query = DB::table($pfx . 'product as p')
@@ -259,11 +189,6 @@ class ShopeeProductController extends Controller
                 'm.name as manufacturer_name'
             );
 
-        /* The rail's choice, as a closure rather than a filter written into
-           the query here: the rail counts every group under everything else
-           the page has chosen EXCEPT the group, so a number and the list it
-           opens always agree, and the other groups keep their own numbers
-           while one of them is chosen. */
         $groupedIds = $groupMapping['ids'] ?: [];
         $applyGroup = function ($query, string $choice) use ($groupedIds) {
             if ($choice === 'none') {
@@ -275,34 +200,17 @@ class ShopeeProductController extends Controller
 
             return $query->whereIn('p.product_id', $this->getProductIdsByGroup((int) $choice) ?: [0]);
         };
-        /* THIS STORE (#201, the owner 2026-09-05): the table is this store's own
-         * list, not the catalogue. A product is on the store once it has a
-         * listing record here (Add products, Import) or a link row here (a
-         * push or a match) - ShopeeStoreProducts is the one definition; the
-         * rest of the catalogue waits behind Add products. Phase C (#184)
-         * had made this the whole catalogue so a new user's first product
-         * was never invisible; multi-store is what changes the answer, and
-         * the empty state now leads to Add products instead. Filtering by
-         * a group above still narrows within the store's list. */
         $query->whereIn('p.product_id', ShopeeStoreProducts::query());
 
-        // Manufacturer filter
         if ($manufacturerFilter !== 'all') {
             $query->where('p.manufacturer_id', (int) $manufacturerFilter);
         }
 
-        // ERP Status filter
         if ($erpStatus === 'enabled') {
             $query->where('p.status', 1);
         } elseif ($erpStatus === 'disabled') {
             $query->where('p.status', 0);
         } else {
-            /* The default view (#197, the owner): a disabled product the channel
-             * does not hold is noise - the pushes skip it anyway. A disabled
-             * product still LISTED here is exactly what an operator must
-             * see: it likely needs unlisting, and it wears its Disabled
-             * badge. The catalog-status filter still offers Disabled for
-             * looking at the hidden ones on purpose. */
             $query->where(function ($sub) {
                 $sub->where('p.status', 1)
                     ->orWhereIn('p.product_id', \Extensions\shopee\Models\ShopeeProductLink::query()
@@ -310,13 +218,11 @@ class ShopeeProductController extends Controller
             });
         }
 
-        // Text search
         if ($q !== '') {
             $query->where(function ($sub) use ($q) {
                 $sub->where('pd.name', 'like', '%' . $q . '%')
                     ->orWhere('p.model', 'like', '%' . $q . '%')
                     ->orWhere('p.sku', 'like', '%' . $q . '%')
-                    // The row shows this store's own title, so the search finds it by that too.
                     ->orWhereIn('p.product_id', \Extensions\shopee\Models\ShopeeListing::query()
                         ->forStore(ShopeeSetting::defaultStore())
                         ->where('item_name', 'like', '%' . $q . '%')
@@ -324,10 +230,6 @@ class ShopeeProductController extends Controller
             });
         }
 
-        /* One definition of each place in the tree, used for the rows and
-         * for the menu's counts alike, so a number and its list agree.
-         * Listed is a row in the links table; Not listed is its exact
-         * complement; readiness splits each half. */
         $linkedIds = ShopeeProductLink::query()->pluck('product_id')
             ->map(fn ($v) => (int) $v)->unique()->values()->all();
         $listed = fn ($query) => $query->whereIn('p.product_id', $linkedIds ?: [0]);
@@ -345,13 +247,10 @@ class ShopeeProductController extends Controller
         $errored = $this->listingStates()->erroredProductIds();
         $changed = $this->listingStates()->productIdsIn('drift');
 
-        /* The status menu's choice, and the store's tab: each narrows the
-         * rows, and each one's counts are taken under the other's choice. */
         $applyMenu = function ($query) use ($applySync, $applyGroup, $syncStatus, $groupFilter, $failedFlag, $changeFlag, $errored, $changed) {
             $applyGroup($query, $groupFilter);
             $applySync($query, $syncStatus);
             if ($failedFlag) {
-                // Exactly the rows that carry an error line.
                 $query->whereIn('p.product_id', $errored ?: [0]);
             }
             if ($changeFlag) {
@@ -361,24 +260,16 @@ class ShopeeProductController extends Controller
             return $query;
         };
 
-        /* The dashboard's own figures, as a filter. A chip that says "3
-         * listings need attention" links here with ?state=attention, and the
-         * rows it narrows to are fetched by the SAME query that counted them,
-         * so the number and the list cannot disagree. */
         $troubleFilter = \App\Integrations\Listings\ListingTrouble::asked($request->query('state'));
         $troubleIds = $troubleFilter === null ? null
             : app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->productIdsIn($troubleFilter);
         $applyTrouble = fn ($query) => $troubleIds === null ? $query : $query->whereIn('p.product_id', $troubleIds ?: [0]);
 
-        // A tab narrows the table to the products whose Shopee items hold
-        // that status in the mirror. Only linked products can match: the tab
-        // is a view of the shop, and an unpushed product is not in it.
         $tabProductIds = ($shopeeTab !== 'all' && $liveCounts !== null)
             ? ShopeeProductLink::query()->where('live_status', $tabMap[$shopeeTab])
                 ->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all()
             : null;
         $applyTab = fn ($query) => $tabProductIds === null ? $query : $query->whereIn('p.product_id', $tabProductIds ?: [0]);
-        // Each tab's count: the chosen rows whose Shopee items hold that status.
         $tabCounts = function ($query) use ($tabMap): array {
             $byStatus = ShopeeProductLink::query()
                 ->whereIn('product_id', (clone $query)->select('p.product_id'))
@@ -394,10 +285,6 @@ class ShopeeProductController extends Controller
             return $out;
         };
 
-        /* The menu's base is the store's list under the tab and the two
-           switches, with NEITHER the rail's group nor the segment's half
-           applied: each of those two counts itself under the other, so a
-           number always opens the list it names. */
         $menuBase = $applyTab(clone $query);
         $withFlags = function ($sub) use ($failedFlag, $changeFlag, $errored, $changed) {
             if ($failedFlag) {
@@ -410,17 +297,11 @@ class ShopeeProductController extends Controller
             return $sub;
         };
 
-        // The segment counts inside the rail's chosen group, never inside itself.
         $standBase = $withFlags($applyGroup(clone $menuBase, $groupFilter));
         $menuCounts = ['all' => (clone $standBase)->count()];
         foreach (['not_uploaded', 'uploaded'] as $status) {
             $menuCounts[$status] = $applySync(clone $standBase, $status)->count();
         }
-        /* A filter narrows whatever the menu has already chosen: its link
-           carries the group and the half along with it, and the other filter
-           when that one is on. So each is counted inside that same choice
-           and never across the store, or the number would promise one list
-           and open a smaller one. */
         $filterBase = fn () => $applySync($applyGroup(clone $menuBase, $groupFilter), $syncStatus);
         $failedIn = $filterBase();
         if ($changeFlag) {
@@ -433,10 +314,6 @@ class ShopeeProductController extends Controller
         }
         $menuCounts['change'] = $changeIn->whereIn('p.product_id', $changed ?: [0])->count();
 
-        /* A group's number is the group's own size, and it does not move when
-           the tabs above the table change. The tabs already carry their own
-           numbers for the breakdown inside whichever group is open, so tying
-           the two together only made the menu re-sort itself under the hand. */
         $railBase = clone $menuBase;
         $menuCounts['store'] = (clone $railBase)->count();
         $groupRail = [];
@@ -454,12 +331,10 @@ class ShopeeProductController extends Controller
         ];
 
         $tabBase = $applyTrouble($applyMenu(clone $query));
-        // The tab row's All: every row the menu has chosen, before a tab narrows it.
         $catalogueTotal = (clone $tabBase)->count();
         if ($liveCounts !== null) {
             $liveCounts = $tabCounts($tabBase);
         }
-        // The header's second number: how much of this store's list is on Shopee.
         $listedTotal = (int) ShopeeProductLink::query()->distinct()->count('product_id');
 
         $applyMenu($query);
@@ -470,10 +345,7 @@ class ShopeeProductController extends Controller
         $sortMenu = \Extensions\shopee\Services\ShopeeListingSort::columns($storeId);
         $order = \App\Integrations\Listings\ListingSort::chosen($request, 'shopee.listings.' . $storeId);
         if ($request->filled('sort')) {
-            // A column heading was pressed: it orders the table instead.
             $query->orderBy($sortColumns[$sort], $dir);
-            // A stable tiebreak, or two products with the same name swap places
-            // between pages and a row appears twice while another never shows.
             if ($sortColumns[$sort] !== 'p.product_id') {
                 $query->orderBy('p.product_id', 'asc');
             }
@@ -490,15 +362,12 @@ class ShopeeProductController extends Controller
             }
         }
 
-        // Load Shopee links for products on this page
         $pageIds = $products->pluck('product_id')->map(fn($v) => (int) $v)->all();
-        // Each row is named by this store's own title, the catalog's name when it has none.
         $pageListings = $pageIds === [] ? collect() : \Extensions\shopee\Models\ShopeeListing::query()
             ->forStore(ShopeeSetting::defaultStore())
             ->whereIn('product_id', $pageIds)
             ->get();
         $rowTitles = \App\Integrations\Listings\ListingContent::rowTitles($products, $pageListings);
-        // Each row's starting price: the listing's own Price, the catalog's when it has none.
         $pageListings = $pageListings->keyBy(fn ($l) => (int) $l->product_id);
         $withVariations = ShopeeListing::withVariations($pageIds);
         $rowPrices = collect($products->items())->mapWithKeys(fn ($p) => [(int) $p->product_id => ($pageListings->get((int) $p->product_id) ?? new ShopeeListing())
@@ -511,23 +380,9 @@ class ShopeeProductController extends Controller
                 ->groupBy(fn($l) => (int) $l->product_id);
         }
 
-        // Variation rows for this page: combinations with their own image
-        // and SKU, exactly what the core product list shows, one shared
-        // query (App\Support\VariationRows).
         $optionRowsByProductId = \App\Support\VariationRows::forListing($pageIds, 'shopee', (int) (ShopeeSetting::defaultStore()?->id ?? 0));
 
-        /* The mirror fills its own blanks (the owner, 2026-08-28: a product
-         * pushed a minute ago should not read "Not checked yet"). A link
-         * created by a push or a match has no status until someone asks;
-         * the page asks once, for those rows only, then reads the mirror
-         * like every other row. A shop whose links are all checked pays
-         * nothing here. */
         if ($liveCounts !== null && $shopeeLinks->isNotEmpty()) {
-            /* A refusal here is reported, not swallowed - but NOT through
-               $liveTabError, which means "the store cannot be asked at all"
-               and correctly takes the tab bar down with it. The counts are
-               real when the fill fails, so the tabs stay and the refusal
-               rides the page's own flash instead. */
             $fillError = null;
             $filled = app(\Extensions\shopee\Services\Shopee\ShopeeLiveListing::class)
                 ->fillBlanks($auth, $shopeeLinks->flatten(), $fillError);
@@ -540,9 +395,6 @@ class ShopeeProductController extends Controller
             }
         }
 
-        /* The status chip per linked row on this page, from the mirror on
-         * the link rows. Null (Shopee did not answer for it) renders as
-         * "Not checked yet", never as a guess. */
         $liveStatuses = [];
         foreach ($shopeeLinks->flatten() as $l) {
             if ($l->live_status !== null) {
@@ -550,24 +402,16 @@ class ShopeeProductController extends Controller
             }
         }
 
-        /* ONE state per row (Phase B, #184): the engine folds the mirror,
-         * the listing record, drift and readiness into a single
-         * ListingState the blade renders verbatim. Computed after
-         * fillBlanks so it reads a filled mirror. This replaces the
-         * page's separate readiness call and its own label map. */
         $listingStates = app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)
             ->forProducts(array_map('intval', $pageIds));
 
 
-        // Manufacturer list for filter dropdown
         $allManufacturers = DB::table($pfx . 'manufacturer')
             ->orderBy('name')
             ->pluck('name', 'manufacturer_id');
 
-        // Product group list for filter dropdown
         $allGroups = ShopeeProductGroup::query()->orderBy('name')->pluck('name', 'id');
 
-        // Compute product group names for products on this page
         $groupMap = $groupMapping['map'];
         $pageGroupMap = collect();
         foreach ($products as $p) {
@@ -575,11 +419,6 @@ class ShopeeProductController extends Controller
             $pageGroupMap[$pid] = $groupMap[$pid] ?? [];
         }
 
-        /* The push preflight (2026-09-03, the one-editor merge): a row not
-         * yet on Shopee offers a DIRECT push only when its listing would
-         * certainly be accepted; otherwise the same words lead into the
-         * listing editor, which names what is still missing. Computed for
-         * the unlisted rows on this page only. */
         $unlistedIds = $products->filter(fn ($p) => !isset($shopeeLinks[(int) $p->product_id]))
             ->pluck('product_id')->map(fn ($v) => (int) $v)->values()->all();
         $pushReady = $unlistedIds !== []
@@ -591,8 +430,6 @@ class ShopeeProductController extends Controller
             'rowTitles' => $rowTitles,
             'rowPrices' => $rowPrices,
             'troubleFilter' => $troubleFilter,
-            /* The relist preflight's page-side half (#191): a row whose
-             * Relist would certainly be refused offers the fix instead. */
             'parcelGaps' => $this->parcelGapFor($products->pluck('product_id')->map(fn ($v) => (int) $v)->all()),
             'pushReady' => $pushReady,
             'q' => $q,
@@ -614,14 +451,12 @@ class ShopeeProductController extends Controller
             'liveTabError' => $liveTabError,
             'liveStatuses' => $liveStatuses,
             'listingStates' => $listingStates,
-            // The Last sync column (the owner, 2026-09-05), one answer shared with the group pages.
             'rowErrors' => app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->errors(array_map('intval', $pageIds)),
             'catalogueTotal' => $catalogueTotal,
             'listedTotal' => $listedTotal,
             'liveCheckedAt' => $liveCheckedAt,
             'failedFlag' => $failedFlag,
             'changeFlag' => $changeFlag,
-            // The whole group's size, whatever the search and tabs narrow: what Send group sends.
             'groupSize' => ctype_digit((string) $groupFilter) ? app(\Extensions\shopee\Controllers\ShopeeProductGroupController::class)->groupSendSize((int) $groupFilter) : null,
             'statusMenu' => \App\Integrations\Listings\StatusMenu::build([
                 'url' => fn (array $params) => route('ext.shopee.products.index', $params),
@@ -633,18 +468,11 @@ class ShopeeProductController extends Controller
                 'group' => $groupFilter,
                 'groups' => $groupRail,
                 'newGroup' => route('ext.shopee.product-groups.create'),
-                // Live is a fact about a marketplace: a product is live ON somewhere.
                 'store' => 'Shopee',
             ]),
         ]);
     }
 
-    /**
-     * The full-catalogue Add products page (#201): the overflow behind the
-     * slide-over, for a big first setup or a bulk pick. Your Master Catalog,
-     * each row flagged with whether this store already carries it. A lean
-     * read - no live status, no readiness, no push.
-     */
     private function addCatalogue(Request $request)
     {
         $pfx = (string) config('catalog.prefix');
@@ -653,7 +481,7 @@ class ShopeeProductController extends Controller
         $q = trim((string) $request->query('q', ''));
         $manufacturerFilter = (string) $request->query('manufacturer', 'all');
         $groupFilter = (string) $request->query('group', 'all');
-        $onStore = (string) $request->query('on_store', 'all'); // all | off (not yet) | on
+        $onStore = (string) $request->query('on_store', 'all');
 
         $sort = (string) $request->query('sort', 'id');
         $sortColumns = ['id' => 'p.product_id', 'product' => 'pd.name', 'quantity' => 'p.quantity', 'price' => 'p.price'];
@@ -726,7 +554,6 @@ class ShopeeProductController extends Controller
         ]);
     }
 
-    /** The same storage path the Listings rows draw their thumbnails from. */
     private function thumbUrl(?string $image): ?string
     {
         $image = trim((string) $image);
@@ -734,32 +561,19 @@ class ShopeeProductController extends Controller
         return $image !== '' ? \App\Services\Media\ImageCache::url($image) : null;
     }
 
-    /**
-     * Add one catalogue product to this store's list (#201): a blank listing
-     * record for this store is the membership. The listing editor fills it
-     * in, and readiness reads it as "needs a category and couriers" until
-     * then, so the row lands under This store ready to configure and push
-     * through the unchanged workflow. The BelongsToShopeeStore trait stamps
-     * the store, so firstOrCreate never crosses stores or doubles a row.
-     */
     public function addToStore(Request $request, int $productId)
     {
         $exists = DB::table((string) config('catalog.prefix') . 'product')->where('product_id', $productId)->exists();
         abort_unless($exists, 404);
 
-        // "Already on the store" includes a product carried by a link row
-        // alone; the listing record it gains here changes nothing for it.
         $wasOn = ShopeeStoreProducts::has($productId);
         ShopeeListing::firstOrCreate(['product_id' => $productId]);
 
-        // The Add products window's group choice: this store's group, or none.
         $groupId = (int) $request->input('group', 0);
         if ($groupId > 0) {
             \App\Integrations\OneGroupRule::place('shopee_product_group_products', 'shopee_product_group_id', 'shopee_product_groups', 'shopee_setting_id', \App\Integrations\Listings\ListingStore::id('shopee'), $groupId, $productId);
         }
 
-        // The Add products panel adds in place and asks for JSON (#201,
-        // Draft C); the full catalogue page still posts a form and lands back.
         if ($request->wantsJson()) {
             return response()->json(['ok' => true, 'product_id' => $productId, 'added' => ! $wasOn]);
         }
@@ -767,15 +581,6 @@ class ShopeeProductController extends Controller
         return redirect()->back()->with('status', 'Added to this store. Configure and push it from This store whenever you are ready.');
     }
 
-    /**
-     * The Add products panel's search (#201, Draft C - the owner 2026-09-05): the
-     * Master Catalog, each row flagged with whether it is already on this
-     * store. Capped, on purpose: a slide-over cannot list a whole catalogue,
-     * so the operator narrows by searching and the total says how much is
-     * still out of view; the full catalogue page is one link away for a
-     * browse. Defaults to what is NOT yet on the store, since adding is the
-     * panel's one job.
-     */
     public function catalogueSearch(Request $request)
     {
         $pfx = (string) config('catalog.prefix');
@@ -790,7 +595,6 @@ class ShopeeProductController extends Controller
             })
             ->leftJoinSub(ShopeeStoreProducts::query(), 'os', 'os.product_id', '=', 'p.product_id')
             ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.model', 'p.quantity', 'p.price', 'os.product_id as on_store_pid')
-            // A disabled catalogue product is not something to put on a store.
             ->where('p.status', 1);
 
         if ($q !== '') {
@@ -820,18 +624,6 @@ class ShopeeProductController extends Controller
         return response()->json(['total' => $total, 'shown' => $items->count(), 'limit' => $limit, 'items' => $items]);
     }
 
-    /**
-     * Remove a product from this store's list (#201) - the inverse of Add.
-     * The link rows go through the same door Unlink uses (item cache with
-     * them), this store's group memberships and the listing record follow,
-     * so the product leaves This store and STOPS SYNCING at once.
-     * Deliberately no blocker (the owner, 2026-09-05): nobody keeps a product on
-     * the marketplace while stripping it here. It never touches Shopee - a
-     * live listing stays up until it is removed there, which the confirm
-     * says plainly and Delete from Shopee already covers. Every query here
-     * is store-scoped, so a product carried only by another store answers
-     * 404 from this one.
-     */
     public function removeFromStore(int $productId)
     {
         abort_unless(ShopeeStoreProducts::has($productId), 404);
@@ -853,10 +645,6 @@ class ShopeeProductController extends Controller
         return redirect()->back()->with('status', "Removed product #{$productId} from this store." . $note);
     }
 
-    /**
-     * Add the ticked catalogue products to this store's list in one go (#201).
-     */
-    /** Remove from this channel, for the ticked rows: the single verb, repeated (parity, 2026-09-07). */
     public function bulkRemoveFromStore(Request $request)
     {
         $n = 0;
@@ -895,7 +683,6 @@ class ShopeeProductController extends Controller
             : number_format($added) . ' products added to this store.');
     }
 
-    /** The Refresh button on the listings strip: the same walk the 30-minute automation runs. */
     public function refreshStatus(Request $request, \Extensions\shopee\Services\Shopee\ShopeeLiveListing $live)
     {
         $setting = ShopeeSetting::defaultStore()?->decrypted();
@@ -908,10 +695,6 @@ class ShopeeProductController extends Controller
         if ($result['error'] !== null) {
             return redirect()->back()->with('error', 'Shopee did not answer: ' . $result['error'] . ' The statuses shown are from the last refresh.');
         }
-        /* Refresh is the one button (the owner, 2026-09-07): every status is
-         * re-read first, then the links are checked against the store, the
-         * old Repair links folded in. */
-        // The check reads two hundred per run; the list starts after the last one checked, so "run it again" continues.
         $checked = app(\Extensions\shopee\Services\Shopee\ShopeeLinkCheck::class)->runNext(app(ShopeeClient::class), $auth, (int) $setting->id);
         $sheets = app(\Extensions\shopee\Services\Shopee\ShopeeSheetReads::class)
             ->readMissing($auth, app(ShopeeClient::class), \App\Integrations\Listings\SheetReads::PER_PRESS);
@@ -928,13 +711,6 @@ class ShopeeProductController extends Controller
             . ($sheets['summary'] !== '' ? ' ' . $sheets['summary'] : ''));
     }
 
-    /**
-     * Unlist or relist several items in one call. Shopee's unlist_item
-     * takes a list, so a selection of fifty is one request, and its
-     * failure_list names each item it refused.
-     *
-     * @return array{ok: list<int>, failed: array<int, string>, error: ?string}
-     */
     private function unlistItems(ShopeeClient $client, array $auth, array $itemIds, bool $unlist): array
     {
         $ok = [];
@@ -979,8 +755,6 @@ class ShopeeProductController extends Controller
                     $done[] = $id;
                 }
             }
-            // Write through to the mirror: the ERP just changed the status,
-            // so the next page view reads it without waiting for a refresh.
             if ($done !== []) {
                 ShopeeProductLink::query()->whereIn('shopee_item_id', $done)
                     ->update(['live_status' => $unlist ? 'UNLIST' : 'NORMAL', 'live_checked_at' => now()]);
@@ -989,7 +763,6 @@ class ShopeeProductController extends Controller
         return ['ok' => $ok, 'failed' => $failed, 'error' => null];
     }
 
-    /** The selection bar's Unlist / Relist (the owner, 2026-08-28): the same call as the row's, for many rows. */
     public function bulkToggle(Request $request, ShopeeClient $client)
     {
         $request->validate([
@@ -998,7 +771,6 @@ class ShopeeProductController extends Controller
             'product_ids.*' => 'integer',
         ]);
         $unlist = $request->input('action') === 'unlist';
-        // Shopee's own words (the owner, 2026-09-06): Delist and Publish.
         $verb = $unlist ? 'Delisted' : 'Published';
 
         $setting = ShopeeSetting::defaultStore()?->decrypted();
@@ -1014,9 +786,6 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', 'None of the selected products is on Shopee, so there is nothing to ' . ($unlist ? 'unlist' : 'relist') . '.');
         }
 
-        /* THE PREFLIGHT, per row (#191): relist candidates missing their
-         * parcel are held back BY NAME, never fired at Shopee to collect
-         * the refusal one row at a time. */
         $heldBack = [];
         if (!$unlist) {
             $parcelGaps = $this->parcelGapFor($links->pluck('product_id')->map(fn ($v) => (int) $v)->all());
@@ -1084,13 +853,6 @@ class ShopeeProductController extends Controller
     }
 
 
-    /**
-     * What a push would send, as JSON for the review modal (cleanup 7+9,
-     * approved from the draft 2026-09-03): the computed price WITH its
-     * arithmetic, category and couriers by NAME, image and variation
-     * counts, and the title/description that would go - the only two
-     * fields the modal lets the operator edit on the way out.
-     */
     public function pushReview(int $productId)
     {
         $pfx = (string) config('catalog.prefix');
@@ -1116,9 +878,6 @@ class ShopeeProductController extends Controller
         $courierNames = !empty($listing?->logistic_ids)
             ? \Extensions\shopee\Models\ShopeeLogistic::query()->whereIn('logistics_channel_id', $listing->logistic_ids)->pluck('logistics_channel_name')->all()
             : [];
-        /* What THIS listing sends, not what the catalog holds: a listing
-           with its own arrangement sends its own pictures, and a review
-           that counted the catalog's would promise the wrong number. */
         $imageCount = count(\App\Support\Catalog\ProductImages::paths($productId, $listing?->image_order));
         $variationCount = DB::table('product_option_combinations')->where('product_id', $productId)->count();
 
@@ -1154,7 +913,6 @@ class ShopeeProductController extends Controller
             'images' => $imageCount,
             'images_note' => null,
             'variations' => $variationCount,
-            // The words exactly as the push will send them, templates included.
             'title' => $content['title'],
             'description' => \App\Support\Catalog\DescriptionText::of($content['description']),
             'push_url' => route('ext.shopee.products.push_direct', $productId),
@@ -1164,15 +922,6 @@ class ShopeeProductController extends Controller
 
     public function pushDirect(Request $request, int $productId, ShopeeClient $client)
     {
-        /* The review modal's two editable fields (cleanup 7+9): edits are
-         * saved as the listing's own wording FIRST, then the push runs on
-         * what was just saved - the same order Save and push uses, so a
-         * refusal never loses the typing. Absent fields change nothing.
-         *
-         * This modal shows the description as WORDS, while the listing
-         * keeps it as markup. So the words are compared as words: unchanged
-         * ones leave the stored description alone, pictures and all, and
-         * only something actually retyped here replaces it. */
         if ($request->filled('title') || $request->filled('description')) {
             $data = $request->validate([
                 'title' => 'nullable|string|max:255',
@@ -1207,22 +956,9 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', $answer['message']);
         }
 
-        // Accepted: back to the Listings page the operator came from, search and all (the owner, 2026-09-06).
         return redirect()->to(\App\Support\BackTo::safe($request->input('back'), url()->previous(route('ext.shopee.products.index'))))->with('status', $answer['message']);
     }
 
-    /**
-     * PUSH ONE PRODUCT, AND SAY WHAT HAPPENED.
-     *
-     * The whole create, refusals and all, with no opinion about where the
-     * answer is drawn. pushDirect turns it into a redirect for the one
-     * product an operator pressed; bulkPush calls it once per ticked
-     * product and reports each on its own line - which is the only honest
-     * shape for a batch, because ten creates can be refused for ten
-     * different reasons (the owner, 2026-09-09).
-     *
-     * @return array{ok: bool, message: string}
-     */
     private function pushOne(int $productId, array $auth, ShopeeClient $client): array
     {
         $pfx = (string) config('catalog.prefix');
@@ -1233,17 +969,11 @@ class ShopeeProductController extends Controller
             return ['ok' => false, 'message' => 'Push failed: Product already listed on Shopee (Item ID: ' . $existingLink->shopee_item_id . ').'];
         }
 
-        /* THE GATE (the owner, 2026-09-06): the one readiness computation the
-         * Ready column shows is the one this push refuses through, so a
-         * product that read Ready is never turned away here. Every check
-         * this path used to make by hand (disabled, name, description,
-         * price, parcel, images, settings, the variation refusals) is a
-         * gap there now. */
         $gateInherit = app(\Extensions\shopee\Services\Shopee\ShopeeInheritedSettings::class);
         $gateRow = ShopeeListing::query()->where('product_id', $productId)->first() ?? (new ShopeeListing())->forceFill(['product_id' => $productId]);
         $gateCategory = (int) ($gateInherit->fill($gateRow, $gateInherit->forProducts([$productId])[$productId] ?? null)['listing']->shopee_category_id ?? 0);
         if ($gateCategory > 0) {
-            app(ShopeeProductGroupController::class)->ensureTemplate($gateCategory, $client); // a category never opened is read now
+            app(ShopeeProductGroupController::class)->ensureTemplate($gateCategory, $client);
         }
         $readiness = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)
             ->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => []];
@@ -1251,24 +981,6 @@ class ShopeeProductController extends Controller
             return ['ok' => false, 'message' => \App\Integrations\Listings\CatalogGaps::refusal($readiness)];
         }
 
-        /* ASK SHOPEE, NOT ONLY OURSELVES (the owner, 2026-09-09).
-         *
-         * The absence of a link row was taken as proof that Shopee holds
-         * nothing, and it is not: a store deleted here takes every link
-         * with it while the shop keeps every item, and so does a database
-         * restored from before a push. Every push after that looked like a
-         * first push, and Shopee does not refuse a duplicate. His test
-         * shop ended with three copies of one product and four of another.
-         *
-         * The group push has always reconciled before deciding create or
-         * update, in these exact words: creating into that ignorance is
-         * how a duplicate listing appears next to the original. The
-         * one-click push did not, and it is the one an operator presses
-         * from a row. Same rule now, same service.
-         *
-         * Paid only when the ERP has no link, which is the only case that
-         * can create, and the shop scan inside is memoised per instance.
-         */
         $verdict = app(\Extensions\shopee\Services\Shopee\ShopeeLinkCheck::class)
             ->reconcile($client, $auth, $productId, $pfx);
 
@@ -1297,17 +1009,7 @@ class ShopeeProductController extends Controller
             return ['ok' => false, 'message' => 'Push failed: Product not found.'];
         }
 
-        /* REFUSE INSTEAD OF BORROW (#96). This used to take the FIRST
-         * product group whose filter matched; every live group's filters
-         * are empty, so primary-key order chose the markup and nothing on
-         * screen said which group priced the push. It succeeded at the
-         * wrong price, silently. Now the one-click push runs only on the
-         * product's OWN listing settings - saved on its listing page - and
-         * says exactly what to do when there are none. */
         $saved = ShopeeListing::query()->where('product_id', $productId)->first();
-        /* A group is a preset the product inherits (the owner, 2026-09-05): the
-         * record the push READS has its blanks filled from the group, in
-         * memory; the record SAVED below is the listing itself. */
         $inheritedFrom = [];
         $listing = null;
         if ($saved) {
@@ -1325,12 +1027,9 @@ class ShopeeProductController extends Controller
 
         $logisticIds = $listing->logistic_ids ?? [];
 
-        // The catalog's words; the listing's own override them in the payload.
         $itemName = html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        // Words with their line breaks kept; strip_tags alone ran the paragraphs together.
         $description = \App\Support\Catalog\DescriptionText::of((string) ($product->description ?? ''));
 
-        // Step 1: Upload images
         $create = app(\Extensions\shopee\Services\Shopee\ShopeeItemCreate::class);
         $imagePaths = $create->catalogImagePaths($product, $listing);
 
@@ -1344,17 +1043,8 @@ class ShopeeProductController extends Controller
             return ['ok' => false, 'message' => 'Push failed: No images were uploaded successfully.'];
         }
 
-        /* The listing's own price rule; price itself is never stored, so
-         * this follows the catalog price wherever it goes. Content the
-         * operator wrote on the listing overrides the catalog's; null
-         * means never set, so the catalog value goes. SKU is always the
-         * catalog's - reconcile matches by it (card #97). */
-        /* #192's variation refusals (the 5x price ratio, the 50-variation
-         * cap) are readiness gaps now, judged at the gate above. */
         $sellingPrice = $listing->itemPriceFor((float) $product->price, ShopeeListing::hasVariations($productId));
 
-        // The listing's own content/price/parcel over the catalog's, and
-        // its answers to the category's attribute sheet (#98).
         $payload = $create->payloadFromListing(
             $listing, $product, $itemName, $description, $imageIds,
             $listing->attribute_values ?? []
@@ -1367,7 +1057,6 @@ class ShopeeProductController extends Controller
 
         $itemId = $added['item_id'];
         if (!$itemId) {
-            // Accepted with no item: addItem() says what Shopee did say.
             return ['ok' => false, 'message' => (string) $added['error']];
         }
 
@@ -1378,7 +1067,6 @@ class ShopeeProductController extends Controller
             'sku' => $product->sku ?? '',
         ]);
 
-        // Provenance (#104): what went, from where, when.
         $saved->forceFill([
             'last_pushed_at' => now(),
             'last_push_source' => 'listing',
@@ -1392,17 +1080,14 @@ class ShopeeProductController extends Controller
             ],
         ])->save();
 
-        // Write-through: the mirror learns the item's real status now.
         app(\Extensions\shopee\Services\Shopee\ShopeeLiveListing::class)->confirm($auth, [(int) $itemId]);
 
-        // Variations ride the push, priced by the listing's own rule.
         $rode = $create->variationsRideOrUndo(
             $client, $auth, (int) $itemId, $productId,
             fn (float $core) => $listing->priceFor($core)
         );
 
         if (!$rode['ok']) {
-            // #192: see push() - never leave a half-listed item standing.
             return ['ok' => false, 'message' => $rode['undone']
                 ? 'Not pushed: the variations were refused - ' . $rode['message']
                     . ' The item was removed from Shopee again, so nothing half-listed stays up.'
@@ -1414,33 +1099,11 @@ class ShopeeProductController extends Controller
         if ($rode['models'] !== null) {
             $flash .= '. ' . $rode['models'] . ' variations went with it.';
         }
-        // Accepted: back to the Listings page the operator came from, search and all (the owner, 2026-09-06).
 
         return ['ok' => true, 'message' => $flash];
     }
 
 
-    // ── Bulk Push to Shopee ───────────────────────────────────────
-
-    /**
-     * PUSH THE TICKED PRODUCTS, AND REPORT EACH ONE.
-     *
-     * Multi-tick push came off the Listings page on 2026-09-06 for a
-     * reason that has since expired twice over: a batch needed a combined
-     * form for couriers, category and markup, so it belonged on a group
-     * page; and a bar reporting one outcome cannot describe ten creates
-     * refused for ten different reasons.
-     *
-     * Neither holds now. Every listing takes its own price rule, else its
-     * group's, so there is nothing shared left to ask for. And the answer
-     * below is per product, by name, with the marketplace's own words -
-     * which is what the old bar could not say (the owner, 2026-09-09).
-     *
-     * Not ready is not a failure and does not stop the batch: those
-     * products are named with what they still need, and everything ready
-     * goes up. One shop scan serves the whole batch, because the link
-     * check is one instance for the request.
-     */
     public function bulkPush(Request $request, ShopeeClient $client)
     {
         $productIds = array_values(array_unique(array_map('intval', $this->parseProductIds($request))));
@@ -1456,16 +1119,10 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', "Push failed: Missing Shopee {$modeLabel} settings.");
         }
 
-        /* The walk, the ceiling and the words are every channel's
-         * (App\Integrations\Push\BulkPushRun); only pushing one product
-         * is Shopee's. */
         $answer = \App\Integrations\Push\BulkPushRun::over(
             $productIds,
             'Shopee',
             function (int $productId) use ($auth, $client) {
-                /* Send is one verb: a product already on Shopee is updated
-                   there, the same update its row menu sends, which records
-                   its own error line. */
                 if (ShopeeProductLink::query()->where('product_id', $productId)->exists()) {
                     $r = $this->performListingUpdate($productId, $client, $auth);
 
@@ -1497,7 +1154,6 @@ class ShopeeProductController extends Controller
 
         $pfx = (string) config('catalog.prefix');
 
-        // Skip disabled products
         $erpStatus = DB::table($pfx . 'product')->where('product_id', $productId)->value('status');
         if ((int) $erpStatus === 0) {
             return redirect()->back()->with('error', 'Cannot sync quantity for a disabled product. Enable it first.');
@@ -1514,8 +1170,6 @@ class ShopeeProductController extends Controller
         return redirect()->back()->with($results['ok'] > 0 ? 'status' : 'error', $msg);
     }
 
-    // ── Sync Price (single, model-aware) ────────────────────────────
-
     public function syncPrice(int $productId, ShopeeClient $client)
     {
         $setting = ShopeeSetting::defaultStore()?->decrypted();
@@ -1531,7 +1185,6 @@ class ShopeeProductController extends Controller
         }
 
         $pfx = (string) config('catalog.prefix');
-        // The one price rule (2026-09-07): the listing's own, else its group's, else the catalog price.
         $results = app(\Extensions\shopee\Services\Shopee\ShopeeStockPricePush::class)
             ->push('price', $auth, $links, $pfx, \Extensions\shopee\Commands\ShopeePushPrice::priceRule([$productId]));
         $clause = \Extensions\shopee\Services\Shopee\ShopeeStockPricePush::ledgerClause($results);
@@ -1548,13 +1201,8 @@ class ShopeeProductController extends Controller
         return redirect()->back()->with($results['ok'] > 0 ? 'status' : 'error', $msg);
     }
 
-    // ── Unlink Product from Shopee ──────────────────────────────────
-
     public function unlink(int $productId)
     {
-        // Deleting the links and clearing their cache entries is one operation
-        // and lives in one place, so this page and the product-group page
-        // cannot drift apart again.
         $deleted = ShopeeProductLink::unlinkProduct($productId, (int) app('shopee.route-store')->id);
 
         if ($deleted === 0) {
@@ -1563,8 +1211,6 @@ class ShopeeProductController extends Controller
 
         return redirect()->back()->with('status', "Unlinked product from Shopee ($deleted link(s) removed, cache cleared). You can now re-sync.");
     }
-
-    // ── Delete Product from Shopee ────────────────────────────────
 
     public function deleteFromShopee(int $productId, ShopeeClient $client)
     {
@@ -1610,7 +1256,6 @@ class ShopeeProductController extends Controller
         $respMsg = is_array($body) ? ($body['message'] ?? '') : '';
 
         if (($result['ok'] ?? false) && $respError === '') {
-            // Remove links and cache entries for this item
             ShopeeItemCache::query()->where('shopee_item_id', $link->shopee_item_id)->delete();
             ShopeeProductLink::query()->where('product_id', $productId)->delete();
             $this->listingStates()->clearErrors([$productId]);
@@ -1690,15 +1335,13 @@ class ShopeeProductController extends Controller
                 $errCount++;
             }
 
-            usleep(200000); // 200ms rate limit
+            usleep(200000);
         }
 
         ActivityLogger::log('deleted', 'Shopee Product', null, 'Bulk deleted ' . $okCount . ' product(s) from Shopee');
 
         return redirect()->back()->with('status', "Bulk Delete: {$okCount} deleted, {$errCount} failed out of " . count($productIds) . " selected.");
     }
-
-    // ── Rebuild Shopee Item Cache ──────────────────────────────────
 
     public function rebuildCache(ShopeeClient $client)
     {
@@ -1715,7 +1358,6 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', 'No items found on Shopee.');
         }
 
-        // Clear existing cache - this store's half of it only (S4b, #194).
         DB::table('shopee_item_cache')
             ->when(app()->bound('shopee.route-store'), fn ($q) => $q->where('shopee_setting_id', app('shopee.route-store')->id))
             ->delete();
@@ -1801,19 +1443,6 @@ class ShopeeProductController extends Controller
             ->with('status', "Cache rebuilt: {$total} entries ({$cached} items + {$modelsCached} models) from " . count($allItemIds) . " Shopee products.");
     }
 
-    // ── Scan for Unmatched Shopee Items ────────────────────────────
-
-    /**
-     * The Import page (cleanup point 10, the owner 2026-09-03): its own page
-     * under the Catalog menu, not a card squatting on the workbench - the
-     * card sat permanently open saying "Nothing is waiting" to everyone
-     * except a fresh install. Scan, then Import / Link / Dismiss per row.
-     */
-    /**
-     * The Import page, stateless (the owner, 2026-09-04): nothing about the
-     * shop's items is saved - blank until Fetch reads Shopee live, rows
-     * exist only in the render, Import re-reads by item id.
-     */
     public function importPage(Request $request, ShopeeClient $client)
     {
         $fetched = null;
@@ -1828,14 +1457,6 @@ class ShopeeProductController extends Controller
         ]);
     }
 
-    /**
-     * Read the shop live and keep only items the catalog cannot place.
-     * Model-aware: an item is listed when ANY of its models is neither
-     * linked nor known by SKU - importing brings the whole item, models
-     * and all. Pure read.
-     *
-     * @return array{0: ?array{found: int, rows: list<array>}, 1: ?string}
-     */
     private function fetchUnmatched(ShopeeClient $client): array
     {
         $setting = ShopeeSetting::defaultStore()?->decrypted();
@@ -1847,13 +1468,6 @@ class ShopeeProductController extends Controller
 
         $pfx = (string) config('catalog.prefix');
 
-        /* Plain pagination, NOT fetchAllShopeeItemIds: that helper sweeps
-         * 730 days in 15-day windows x two time-fields x two statuses -
-         * ~196 calls before it has looked at a single product, whatever
-         * the shop holds (the owner's 2-product sandbox paid all 196, into a
-         * flaky sandbox host, and the page hung). A live fetch needs the
-         * CURRENT shop, and get_item_list pages it without time filters:
-         * one call per 100 items per status. */
         $allItemIds = $this->fetchLiveItemIds($client, $auth);
         if ($allItemIds === null) {
             return [null, 'Shopee did not answer the fetch. Check the connection and try again.'];
@@ -1963,14 +1577,6 @@ class ShopeeProductController extends Controller
         return [['found' => $found, 'rows' => $rows], null];
     }
 
-    // ── Bulk Sync Qty (model-aware) ─────────────────────────────────
-
-    /**
-     * Ask Shopee whether the links this page believes in are still true
-     * (Phase F, #184): the group page's check, on the workbench, via the
-     * shared ShopeeLinkCheck. With rows ticked it checks those; with
-     * none it checks every linked product, 200 at a time.
-     */
     public function checkAgainstShopee(Request $request, ShopeeClient $client, \Extensions\shopee\Services\Shopee\ShopeeLinkCheck $check)
     {
         $setting = ShopeeSetting::defaultStore()?->decrypted();
@@ -1980,11 +1586,6 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', "Missing Shopee {$modeLabel} settings.");
         }
 
-        /* Everything this store carries, not only what is already linked
-         * (the owner, 2026-09-09). Asked over a shop of thirty-two items with
-         * no link rows left, this used to answer "nothing to check" - the
-         * one moment it was most needed. A product Shopee does not hold
-         * simply reads "not pushed yet" and nothing is written. */
         $productIds = $this->parseProductIds($request);
         if (empty($productIds)) {
             $productIds = $check->storeProductIds((int) $setting->id);
@@ -2014,7 +1615,6 @@ class ShopeeProductController extends Controller
 
         $pfx = (string) config('catalog.prefix');
 
-        // Filter out disabled products
         $enabledIds = DB::table($pfx . 'product')
             ->whereIn('product_id', $ids)
             ->where('status', 1)
@@ -2040,8 +1640,6 @@ class ShopeeProductController extends Controller
         return redirect()->back()->with('status', $msg);
     }
 
-    // ── Bulk Sync Price (model-aware) ───────────────────────────────
-
     public function bulkSyncPrice(Request $request, ShopeeClient $client)
     {
         $ids = $this->parseProductIds($request);
@@ -2061,7 +1659,6 @@ class ShopeeProductController extends Controller
 
         $skip = count($ids) - $links->pluck('product_id')->unique()->count();
 
-        // The one price rule (2026-09-07): the listing's own, else its group's, else the catalog price.
         $results = app(\Extensions\shopee\Services\Shopee\ShopeeStockPricePush::class)
             ->push('price', $auth, $links, $pfx, \Extensions\shopee\Commands\ShopeePushPrice::priceRule($ids));
 
@@ -2076,8 +1673,6 @@ class ShopeeProductController extends Controller
         return redirect()->back()->with('status', $summary);
     }
 
-    // ── Sync Single Product ID ────────────────────────────────────
-
     public function syncSingleProductId(int $productId, ShopeeClient $client)
     {
         $tag = '[ShopeeSync:single:' . $productId . ']';
@@ -2089,7 +1684,6 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', "Missing Shopee {$modeLabel} settings.");
         }
 
-        // Already linked?
         $existingLink = ShopeeProductLink::query()->where('product_id', $productId)->first();
         if ($existingLink) {
             return redirect()->back()->with('status', 'Product already linked to Shopee item ' . $existingLink->shopee_item_id . ' (SKU: ' . $existingLink->sku . '). Use Unlink to re-sync.');
@@ -2097,7 +1691,6 @@ class ShopeeProductController extends Controller
 
         $pfx = (string) config('catalog.prefix');
 
-        // Collect all SKUs for this product: option value SKUs + main model + sku column
         $ovSkus = DB::table($pfx . 'product_option_value')
             ->where('product_id', $productId)
             ->whereNotNull('sku')
@@ -2124,10 +1717,8 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', 'Product has no SKU (main or option values).');
         }
 
-        // Build lowercase lookup for case-insensitive matching
         $lcSkus = array_map('strtolower', $allSkus);
 
-        // ── Try cache first ──────────────────────────────────────────
         $cacheHits = ShopeeItemCache::query()
             ->whereIn(DB::raw('LOWER(sku)'), $lcSkus)
             ->get();
@@ -2141,7 +1732,6 @@ class ShopeeProductController extends Controller
             foreach ($cacheHits as $hit) {
                 $isParent = ($hit->shopee_model_id === null);
 
-                // Skip parent-level hit when ERP product has option SKUs and Shopee item has models
                 if ($isParent && $hasOptions) {
                     $hasModelEntries = ShopeeItemCache::query()
                         ->where('shopee_item_id', $hit->shopee_item_id)
@@ -2165,7 +1755,6 @@ class ShopeeProductController extends Controller
                         ->with('status', "Linked to Shopee item {$hit->shopee_item_id} \"{$hit->item_name}\" (SKU: {$hit->sku}) [from cache].");
                 }
 
-                // Model-level match
                 $exists = ShopeeProductLink::query()
                     ->where('shopee_item_id', $hit->shopee_item_id)
                     ->where('shopee_model_id', $hit->shopee_model_id)
@@ -2192,7 +1781,6 @@ class ShopeeProductController extends Controller
 
         Log::info("$tag No cache match, falling back to full API scan");
 
-        // ── Cache miss — fallback to full API scan ──────────────────
         $allItemIds = $this->fetchAllShopeeItemIds($client, $auth, 730, 'shopee.products.sync_single');
         Log::info("$tag Total unique Shopee items: " . count($allItemIds));
 
@@ -2200,10 +1788,9 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', 'No items found on Shopee.');
         }
 
-        // Fetch base info and try to match
         $simpleCount = 0;
         $modelItemCount = 0;
-        $allShopeeSkus = []; // collect for debugging
+        $allShopeeSkus = [];
 
         foreach (array_chunk($allItemIds, 50) as $chunkIdx => $chunk) {
             $infoResult = $client->shopGet(
@@ -2238,7 +1825,6 @@ class ShopeeProductController extends Controller
                 $imageUrl = $item['image']['image_url_list'][0] ?? null;
                 if (!$itemId) continue;
 
-                // Always check item_sku first, regardless of has_model
                 if ($itemSku !== '') {
                     $simpleCount++;
                     $allShopeeSkus[] = $itemSku;
@@ -2249,8 +1835,6 @@ class ShopeeProductController extends Controller
                     );
 
                     if (in_array(strtolower($itemSku), $lcSkus)) {
-                        // If ERP product has option SKUs and Shopee item has models,
-                        // skip parent link — let model matching below handle it.
                         $erpHasOptions = $hasModel && !empty($ovSkus);
                         if (!$erpHasOptions) {
                             ShopeeProductLink::create([
@@ -2265,7 +1849,6 @@ class ShopeeProductController extends Controller
                     }
                 }
 
-                // Additionally check model SKUs if has_model
                 if ($hasModel) {
                     $modelItemCount++;
                     $modelResult = $client->shopGet(
@@ -2336,17 +1919,6 @@ class ShopeeProductController extends Controller
                 . ' (Scanned ' . count($allItemIds) . ' Shopee items: ' . $simpleCount . ' simple, ' . $modelItemCount . ' with models)');
     }
 
-    // ── Manual Link / Dismiss Unmatched ─────────────────────────────
-
-    /**
-     * Import a Shopee item into the core catalog (#196): the whole item -
-     * name, price, stock, parcel, description, images, variations - lands
-     * as a real product, Shopee-only details ride its listing record, and
-     * the link is made so it behaves as listed at once. One item id may
-     * hold many queue rows (one per variation); importing any of them
-     * imports the item and clears them all.
-     */
-    /** Import one fetched item, re-read live by its item id. */
     public function importOne(Request $request, \Extensions\shopee\Services\Shopee\ShopeeItemImport $import)
     {
         $data = $request->validate(['ref' => 'required|integer|min:1']);
@@ -2363,7 +1935,6 @@ class ShopeeProductController extends Controller
         return redirect()->back()->with($r['ok'] ? 'status' : 'error', $r['message']);
     }
 
-    /** Import selected: every ticked row, each in its own transaction. */
     public function importSelected(Request $request, \Extensions\shopee\Services\Shopee\ShopeeItemImport $import)
     {
         $data = $request->validate(['refs' => 'required|array|min:1', 'refs.*' => 'integer|min:1']);
@@ -2392,7 +1963,6 @@ class ShopeeProductController extends Controller
         return redirect()->back()->with($line['tone'], $line['message']);
     }
 
-    /** Link a fetched item to a catalog product it already is (item-level). */
     public function linkItem(Request $request)
     {
         $data = $request->validate([
@@ -2406,9 +1976,6 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', 'Catalog product not found.');
         }
 
-        /* One catalog product to one Shopee item per store, both ways
-         * (the owner, 2026-09-07). A second link is refused with what holds
-         * the first, never written over or quietly skipped. */
         $storeId = (int) (ShopeeSetting::defaultStore()?->id ?? 0);
         $scoped = fn () => ShopeeProductLink::query()->whereNull('shopee_model_id')->when($storeId > 0, fn ($q) => $q->where('shopee_setting_id', $storeId));
         $held = $scoped()->where('product_id', (int) $data['product_id'])->whereNotNull('shopee_item_id')->first();
@@ -2431,7 +1998,6 @@ class ShopeeProductController extends Controller
         return redirect()->back()->with('status', 'Linked Shopee item #' . $data['ref'] . ' to catalog product #' . $data['product_id'] . '.');
     }
 
-    /** The Link picker's catalog search: the shared shape, with the products this store already holds marked (App\Support\CatalogPickerSearch). */
     public function searchCatalogProducts(Request $request)
     {
         return response()->json(\App\Support\CatalogPickerSearch::items((string) $request->get('q', ''), function (array $ids) {
@@ -2444,19 +2010,8 @@ class ShopeeProductController extends Controller
         }));
     }
 
-    // ── Model-Aware Stock Push Helper ───────────────────────────────
 
 
-    // ── Model-Aware Price Push Helper ───────────────────────────────
-
-
-    // ── General Helpers ──────────────────────────────────────────────
-
-    /**
-     * The parcel gap per product (#191): weight and package dimensions on
-     * the catalog product, which Shopee demands for pushes AND relists.
-     * @return array<int, string> product id => gap sentence (absent = fine)
-     */
     private function parcelGapFor(array $productIds): array
     {
         $pfx = (string) config('catalog.prefix');
@@ -2475,7 +2030,6 @@ class ShopeeProductController extends Controller
         return $out;
     }
 
-    /** The listing engine for the store this request stands in. */
     private function listingStates(): \Extensions\shopee\Services\Shopee\ShopeeListingStates
     {
         return app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class);
@@ -2492,15 +2046,12 @@ class ShopeeProductController extends Controller
     {
         if ($sku === '') return 0;
 
-        // Try option value SKU
         $pov = DB::table($pfx . 'product_option_value')->where('sku', $sku)->first(['product_id']);
         if ($pov) return (int) $pov->product_id;
 
-        // Try product model (main SKU)
         $prod = DB::table($pfx . 'product')->where('model', $sku)->first(['product_id']);
         if ($prod) return (int) $prod->product_id;
 
-        // Try product sku column
         $prod = DB::table($pfx . 'product')->where('sku', $sku)->first(['product_id']);
         if ($prod) return (int) $prod->product_id;
 
@@ -2508,13 +2059,6 @@ class ShopeeProductController extends Controller
     }
 
 
-    /**
-     * Which group each product belongs to, PIVOT-ONLY since the cleanup
-     * (point 2, the owner 2026-09-03). The filter-based resolution this
-     * replaces never read the pivot at all - and a group with empty
-     * filters matched EVERY product, the catch-all trap that once priced
-     * pushes silently (#96).
-     */
     private function getGroupProductMapping(): array
     {
         if (!ShopeeProductGroup::query()->exists()) {
@@ -2555,17 +2099,6 @@ class ShopeeProductController extends Controller
             ->toArray();
     }
 
-    /**
-     * Fetch all Shopee item IDs across 15-day time windows (API limit).
-     * Scans NORMAL + UNLIST statuses, going back $days days.
-     */
-    /**
-     * Every item id currently on the shop, by plain offset pagination -
-     * the stateless fetch's read. Null when Shopee never answered (as
-     * distinct from an empty shop, which is []).
-     *
-     * @return ?list<int>
-     */
     private function fetchLiveItemIds(ShopeeClient $client, array $auth): ?array
     {
         $ids = [];
@@ -2581,9 +2114,6 @@ class ShopeeProductController extends Controller
                 );
 
                 if (!($result['ok'] ?? false)) {
-                    // A failed first read is "Shopee is not answering";
-                    // a failure mid-way still surfaces rather than
-                    // presenting half a shop as the whole of it.
                     return null;
                 }
 
@@ -2605,12 +2135,9 @@ class ShopeeProductController extends Controller
     {
         $now = time();
         $allItemIds = [];
-        $windowSize = 15 * 86400; // 15 days in seconds
+        $windowSize = 15 * 86400;
         $startFrom = $now - ($days * 86400);
 
-        // Scan by both update_time AND create_time to catch all items.
-        // Items created long ago that were never updated via API would be missed
-        // by update_time-only scanning.
         $timeFields = [
             ['update_time_from', 'update_time_to'],
             ['create_time_from', 'create_time_to'],
@@ -2664,14 +2191,6 @@ class ShopeeProductController extends Controller
         return array_values(array_unique($allItemIds));
     }
 
-    /**
-     * The category combobox's two JSON endpoints, for the push form, the
-     * add-product page and the listing page. Same answers the group form's
-     * combobox already speaks, delegated to the one implementation - but
-     * living on THIS controller so they answer to the shopee/product key
-     * these pages are gated on, not shopee/product_group (the door keys on
-     * the routed controller).
-     */
     public function searchCategories(Request $request)
     {
         return app(ShopeeProductGroupController::class)->searchCategories($request);
@@ -2691,15 +2210,6 @@ class ShopeeProductController extends Controller
     {
         return app(ShopeeProductGroupController::class)->brandsForCategory($request, $client);
     }
-
-    // ── The individual listing page (quest 1, 2026-08-24) ──────────────
-    //
-    // One product on Shopee, presented the way the seller center presents
-    // it: the LIVE state fetched from the marketplace on every load, and
-    // the listing record's own settings and content editable beneath it.
-    // Lives on this controller so it shares the Listings surface's derived
-    // permission key (shopee/product), exactly as Lazada's edit-listing
-    // form shares lazada/product.
 
     public function listing(int $productId, ShopeeLiveListing $liveListing)
     {
@@ -2728,8 +2238,6 @@ class ShopeeProductController extends Controller
         $links = ShopeeProductLink::query()->where('product_id', $productId)->get();
         $link = $links->first();
 
-        // The live half. Only a linked product HAS a live half; an unpushed
-        // one shows readiness instead.
         $live = null;
         $liveError = null;
         if ($link) {
@@ -2741,16 +2249,12 @@ class ShopeeProductController extends Controller
                 $result = $liveListing->fetch($auth, (int) $link->shopee_item_id);
                 $live = $result['live'];
                 $liveError = $result['error'];
-                // What this page just read is the freshest answer there is:
-                // write it to the mirror, so the lists agree with it at once
-                // (the owner, 2026-08-28: show the status once fetched after pushing).
                 $mirror = $live !== null ? (string) ($live['item_status'] ?? '')
                     : (str_contains((string) $liveError, 'holds no record') ? 'MISSING' : '');
                 if ($mirror !== '') {
                     ShopeeProductLink::query()->whereKey($link->id)
                         ->update(['live_status' => $mirror, 'live_checked_at' => now()]);
                 }
-                // An item with models whose model list came back empty was not read.
                 if ($live !== null && (empty($live['has_model']) || ($live['models'] ?? []) !== [])) {
                     \Extensions\shopee\Services\Shopee\ShopeeListingStates::rememberHeld(
                         (int) ($auth['store_id'] ?? 0), $productId, array_column($live['models'] ?? [], 'model_sku')
@@ -2760,12 +2264,6 @@ class ShopeeProductController extends Controller
         }
 
 
-        /* The category's attribute sheet (#98): what Shopee's own form
-         * would ask for this category, read from the marketplace once and
-         * cached. Fetched here when never read, so the section appears the
-         * first time an operator lands on a listing whose category we have
-         * not seen - the mirrored form, not a hardcoded one. */
-        // The listing with its blanks filled from its group: the values in effect.
         $inherited = app(\Extensions\shopee\Services\Shopee\ShopeeInheritedSettings::class);
         $shown = $inherited->fill(
             $listing ?? (new ShopeeListing())->forceFill(['product_id' => $productId]),
@@ -2780,26 +2278,12 @@ class ShopeeProductController extends Controller
         $sheet = $groupController->normalizedAttributesFor($categoryId);
         $savedAttributes = $shown->attribute_values ?? [];
 
-        /* Readiness through the ONE shared computation (#101), so "Ready"
-         * on this page, the listings index and the bulk push all mean the
-         * same thing. */
         $readiness = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)
             ->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => [], 'gaps' => []];
 
-        /* The engine's answer (Phase B, #184), computed AFTER the live
-         * fetch wrote the mirror, so this page and every list agree the
-         * moment this page has looked. */
         $listingState = app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)
             ->forProducts([$productId])[$productId] ?? null;
 
-        /* Variation coverage (Phase E, #184, #190): the catalogue's
-         * variations, the link rows and Shopee's models compared once, so
-         * this page can say "On Shopee: 2 of 3 variations" and name what
-         * is missing on which side - the fact the deleted-1pc incident
-         * had no surface for. */
-        // The variations this store sells, the list every push acts on, so
-        // this line and the pushes never disagree about what "3 variations"
-        // means. One switched off here or in the catalog is not counted.
         $shopeeStoreId = (int) (ShopeeSetting::defaultStore()?->id ?? 0);
         $variationSkus = collect(\App\Integrations\Listings\ListingVariations::sold('shopee', $shopeeStoreId, [$productId], $pfx)[$productId] ?? []);
         $linkedSkus = $links->pluck('sku')->map(fn ($v) => strtolower(trim((string) $v)))->filter()->flip();
@@ -2841,9 +2325,6 @@ class ShopeeProductController extends Controller
             'attrRows' => $sheet['attributes'],
             'savedAttributes' => $savedAttributes,
             'readinessMissing' => $readiness['missing'],
-            /* The gaps themselves, not only their words: the strip's notes
-               link each one at the field that fills it, and a view that had
-               only the sentences was silently linking nothing. */
             'readiness' => $readiness,
             'logistics' => $this->fetchLogistics(),
             'shown' => $shown,
@@ -2854,13 +2335,6 @@ class ShopeeProductController extends Controller
         ]);
     }
 
-    /**
-     * The Product group band's data (partials/listing-group-band): the
-     * group this product is in on this store, the store's groups, and each
-     * group's values keyed the way the page's field descriptors are.
-     *
-     * @return array{current: ?int, groups: list<array{id: int, name: string, url: string}>, values: array<int, array<string, mixed>>}
-     */
     private function groupBandFor(int $productId, int $storeId): array
     {
         $current = \App\Integrations\Listings\ListingGroup::current([
@@ -2894,7 +2368,6 @@ class ShopeeProductController extends Controller
         foreach ($groups as $g) {
             $cid = (int) ($g->shopee_category_id ?? 0);
             $bid = (int) ($g->shopee_brand_id ?? 0);
-            // The label reads the way the category picker writes it: name, then the id.
             $categoryName = $cid > 0 ? $categoryNames->get($cid) : null;
             $brandName = null;
             if ($bid > 0) {
@@ -2924,13 +2397,6 @@ class ShopeeProductController extends Controller
         ];
     }
 
-    /**
-     * Re-read this item's variations from Shopee and make the link rows
-     * match (Phase E, #184, #190): the same repair Sync ID and the push
-     * self-heal run, offered as a verb - before this, a LINKED product had
-     * no button that could re-read models, and the only way out of a stale
-     * link was Unlink and start over.
-     */
     public function rereadVariations(int $productId)
     {
         $link = ShopeeProductLink::query()->where('product_id', $productId)->first();
@@ -2973,12 +2439,6 @@ class ShopeeProductController extends Controller
         return redirect()->back()->with('status', $msg);
     }
 
-    /**
-     * Add the catalogue's missing variations to the live listing (Phase F,
-     * #184): one push where the daily loop used to be unlink, re-match,
-     * and hope. On success the link rows are re-read at once, so the
-     * coverage line and the pushes see the new models immediately.
-     */
     public function pushMissingVariations(int $productId, ShopeeClient $client)
     {
         $link = ShopeeProductLink::query()->where('product_id', $productId)->first();
@@ -3011,8 +2471,6 @@ class ShopeeProductController extends Controller
         $this->listingStates()->recordOutcome($productId, null);
 
         if ($r['added'] > 0) {
-            // The links learn the new models at once, by the same repair
-            // everything else uses.
             $pfx = (string) config('catalog.prefix');
             $skus = DB::table($pfx . 'product_option_value')
                 ->where('product_id', $productId)->whereNotNull('sku')->where('sku', '!=', '')
@@ -3061,10 +2519,6 @@ class ShopeeProductController extends Controller
             ...\App\Integrations\Listings\ListingGroup::rules(),
         ]);
 
-        /* The pictures this listing sends, in the order the card arranged
-         * them (the owner, 2026-09-08; every channel since VENT2-131). One
-         * hidden input, JSON, holding the library paths; the rules for
-         * reading it are ListingImages'. */
         $imageOrder = \App\Integrations\Listings\ListingImages::submitted($productId, $data['image_order'] ?? null);
         $imageOff = \App\Integrations\Listings\ListingImages::submittedOff($productId, $request->input('image_off'));
 
@@ -3081,31 +2535,22 @@ class ShopeeProductController extends Controller
             'logistic_ids' => array_map('intval', $data['logistic_ids'] ?? []),
             'markup_percent' => $blank($data['markup_percent'] ?? null),
             'markup_fixed' => $blank($data['markup_fixed'] ?? null),
-            // A product with variations prices each variation from the catalog, so it keeps no Price.
             'price' => ShopeeListing::hasVariations($productId) ? null : $blank($data['price'] ?? null),
             'weight' => $blank($data['weight'] ?? null),
             'package_length' => $blank($data['package_length'] ?? null),
             'package_width' => $blank($data['package_width'] ?? null),
             'package_height' => $blank($data['package_height'] ?? null),
-            // Only answered attributes are kept; an emptied field is
-            // simply no longer an answer.
             'attribute_values' => array_filter(
                 array_map(fn ($v) => trim((string) $v), $data['attributes'] ?? []),
                 fn ($v) => $v !== ''
             ) ?: null,
         ];
 
-        /* Only a save that CARRIED the arrangement may change it. The input
-         * is invisible, so a caller that does not send it must not be read
-         * as one that cleared it. */
+        // Only a save that carries image_order may change it; the input is hidden and absent means unchanged.
         if ($request->has('image_order')) {
             $fields['image_order'] = $imageOrder;
         }
 
-        /* The listing's own words, as typed. Only a save that carried a
-         * field changes it. Shopee's box holds words only, so words equal
-         * to the stored description keep it as it is, pictures included;
-         * a listing not made yet starts from the catalog's. */
         if ($request->has('item_name')) {
             $fields['item_name'] = \App\Integrations\Listings\ListingContent::own($data['item_name'] ?? null);
         }
@@ -3120,8 +2565,6 @@ class ShopeeProductController extends Controller
             );
         }
 
-        /* The group dropdown: picking a group moves the product into it,
-         * No group takes it out. */
         $picked = \App\Integrations\Listings\ListingGroup::submitted($request);
         if ($picked['present']) {
             \App\Integrations\Listings\ListingGroup::assign([
@@ -3133,7 +2576,6 @@ class ShopeeProductController extends Controller
 
         ShopeeListing::query()->updateOrCreate(['product_id' => $productId], $fields);
 
-        // A value equal to the group's follows the group from now on.
         $followed = app(\Extensions\shopee\Services\Shopee\ShopeeInheritedSettings::class)->forProducts([$productId])[$productId] ?? null;
         $savedRow = ShopeeListing::query()->where('product_id', $productId)->first();
         if ($followed && $savedRow) {
@@ -3154,15 +2596,9 @@ class ShopeeProductController extends Controller
             \App\Integrations\Listings\ListingVariations::save('shopee', (int) (ShopeeSetting::defaultStore()?->id ?? 0), $productId, $sellHere);
         }
 
-        // Every way out of a save keeps the way back to the search.
         $back = \App\Support\BackTo::safe($request->input('back'), '');
         $editRoute = $back !== '' ? [$productId, 'back' => $back] : $productId;
 
-        /* Save and push: the save half has already landed, so a refusal
-         * below never loses the typing. A product already on Shopee is
-         * updated in place; one that is not is re-checked for readiness on
-         * what was JUST saved, with every gap named, and pushed as a new
-         * item. An accepted push returns to the search it came from. */
         if ($request->boolean('push_after')) {
             if (ShopeeProductLink::query()->where('product_id', $productId)->exists()) {
                 $setting = ShopeeSetting::defaultStore()?->decrypted();
@@ -3196,17 +2632,6 @@ class ShopeeProductController extends Controller
             ->with('status', 'Listing saved.');
     }
 
-    /**
-     * Push the listing's content and settings onto the LIVE Shopee item.
-     *
-     * The missing half of the listing lifecycle: Save writes the record and
-     * the record drives the NEXT push - but an already-listed item never
-     * gets another add_item, so until this, an edited title or parcel never
-     * reached Shopee at all. update_item is a partial update: only content
-     * and settings go. Price and stock are deliberately absent - they have
-     * their own syncs and their own rules (the price rule computes, stock
-     * is live).
-     */
     public function pushListingUpdate(int $productId, ShopeeClient $client)
     {
         $setting = ShopeeSetting::defaultStore()?->decrypted();
@@ -3221,12 +2646,6 @@ class ShopeeProductController extends Controller
         return redirect()->back()->with(self::updateTone($r), $r['message']);
     }
 
-    /**
-     * The flash an update answer earns. A description picture left out is a
-     * warning: the update went, and it is never the error line.
-     *
-     * @param  array{ok: bool, message: string, failure?: ?string, warning?: string}  $r
-     */
     private static function updateTone(array $r): string
     {
         return (! $r['ok'] || ($r['failure'] ?? null) !== null)
@@ -3234,16 +2653,6 @@ class ShopeeProductController extends Controller
             : ((($r['warning'] ?? '') !== '') ? 'warning' : 'status');
     }
 
-    /**
-     * The reusable core of a content update onto the live item, shared by
-     * the listing page's Push update and the bulk Send path (which updates
-     * already-listed selections instead of silently skipping them).
-     *
-     * An update that went can still carry a failure: a variation Shopee
-     * would not remove or add. That failure is the listing's outcome.
-     *
-     * @return array{ok: bool, message: string, failure?: ?string, warning?: string}
-     */
     private function performListingUpdate(int $productId, ShopeeClient $client, array $auth): array
     {
         $answer = $this->attemptListingUpdate($productId, $client, $auth);
@@ -3255,22 +2664,6 @@ class ShopeeProductController extends Controller
         return $answer;
     }
 
-    /**
-     * The other two calls a Shopee send needs.
-     *
-     * update_item carries no price and no stock - Shopee's API has no such
-     * parameters - so a send that stopped there left the two figures an
-     * operator changes most often sitting in the ERP while the live item kept
-     * the old ones, under a green flash saying it had gone. Every other
-     * channel carries both inside its one call; here it takes three, which is
-     * the API's problem and not the seller's.
-     *
-     * Neither call can undo the content that already went, so a refusal from
-     * either is reported beside the success rather than turned into one.
-     *
-     * @param  array{ok: bool, message: string, failure?: ?string, warning?: string}  $answer
-     * @return array{ok: bool, message: string, failure?: ?string, warning?: string}
-     */
     private function sendPriceAndStock(int $productId, array $auth, array $answer): array
     {
         $links = ShopeeProductLink::query()->where('product_id', $productId)->get();
@@ -3287,8 +2680,6 @@ class ShopeeProductController extends Controller
             $left[] = 'the price (' . (($price['last_error'] ?: null) ?? 'Shopee did not say why') . ')';
         }
 
-        /* A disabled product has no stock to send: the catalog switch is the
-           refusal, and the gate above has already named it. */
         if ((int) DB::table($pfx . 'product')->where('product_id', $productId)->value('status') === 1) {
             $stock = $push->push('stock', $auth, $links, $pfx);
             if (($stock['ok'] ?? 0) < 1) {
@@ -3296,11 +2687,6 @@ class ShopeeProductController extends Controller
             }
         }
 
-        /* The sentence rides the message, not the warning flag: the content
-         * went, which is what the verb promised, and the scheduled price and
-         * stock syncs try the two figures again on their own. Flipping a
-         * green send amber for a figure that retries by itself would cry
-         * wolf on the one flash an operator reads. */
         if ($left !== []) {
             $answer['message'] = trim($answer['message'] . ' Shopee kept its own ' . implode(' and ', $left) . '.');
         }
@@ -3308,7 +2694,6 @@ class ShopeeProductController extends Controller
         return $answer;
     }
 
-    /** @return array{ok: bool, message: string, failure?: ?string, warning?: string} */
     private function attemptListingUpdate(int $productId, ShopeeClient $client, array $auth): array
     {
         $link = ShopeeProductLink::query()->where('product_id', $productId)->first();
@@ -3316,10 +2701,6 @@ class ShopeeProductController extends Controller
             return ['ok' => false, 'message' => 'This product is not on Shopee yet, so there is nothing to update. Push it first.'];
         }
 
-        /* THE GATE (#191, and the owner's Ready column, 2026-09-06): update_item
-         * carries the parcel, the name and the description, and Shopee
-         * refuses without them - knowable here, so no request is fired.
-         * The same readiness the Ready column shows for a linked product. */
         $readiness = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)
             ->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => []];
         if (!$readiness['ready']) {
@@ -3339,24 +2720,15 @@ class ShopeeProductController extends Controller
             return ['ok' => false, 'message' => 'Product not found.'];
         }
 
-        /* A field the listing leaves blank follows its group, as on every
-         * other push; the listing's own value wins. */
         $inherit = app(\Extensions\shopee\Services\Shopee\ShopeeInheritedSettings::class);
         $listing = $inherit->fill(
             ShopeeListing::query()->where('product_id', $productId)->first() ?? (new ShopeeListing())->forceFill(['product_id' => $productId]),
             $inherit->forProducts([$productId])[$productId] ?? null
         )['listing'];
 
-        // The same merge rule as every push: the listing's own value when
-        // set, the catalog's otherwise.
         $coreName = html_entity_decode((string) ($product->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $coreDescription = \App\Support\Catalog\DescriptionText::of((string) ($product->description ?? ''));
 
-        /* The one reader, the same one the first push and the group push
-         * use (the owner, 2026-09-13): the listing's own words win, and the
-         * store's prefix and suffix templates wrap whichever won. This path
-         * picked the words by hand and sent them bare, so a template chosen
-         * on the listing page reached Shopee from every door but this one. */
         $content = \App\Integrations\Listings\ListingContent::of(
             $listing, $coreName, $coreDescription, 'shopee', (int) ($listing?->shopee_setting_id ?? 0)
         );
@@ -3367,8 +2739,6 @@ class ShopeeProductController extends Controller
             'item_id' => (int) $link->shopee_item_id,
             'item_name' => mb_substr($itemName, 0, 255),
             'description' => mb_substr(\App\Support\Catalog\DescriptionText::of($description), 0, 5000),
-            /* Shopee keeps one place on a dimension and two on a weight. The
-               figure is rounded to that, never cast to a whole number. */
             'weight' => \App\Integrations\Listings\ParcelPrecision::of($listing?->weight, $product->weight, \App\Integrations\Listings\ParcelPrecision::SHOPEE['weight']),
             'dimension' => [
                 'package_length' => \App\Integrations\Listings\ParcelPrecision::of($listing?->package_length, $product->length, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
@@ -3392,39 +2762,19 @@ class ShopeeProductController extends Controller
                 $payload['attribute_list'] = $attributeList;
             }
         }
-        /* Always sent. Shopee refuses an update without a brand block
-         * ("Update failed: Brand information required", found by the owner on
-         * QAS 2026-08-24) even though add_item treats it as optional-ish;
-         * the listing's own brand goes, No Brand when it has none. */
         $payload['brand'] = app(ShopeeProductGroupController::class)
             ->buildBrandPayload((int) ($listing?->shopee_category_id ?? 0), (int) ($listing?->shopee_brand_id ?? 0));
 
-        /* The pictures, in this listing's own order (critique 2026-09-08).
-         * Until now this payload carried no image block at all, so the
-         * arrangement made on the listing page went up when a GROUP pushed
-         * the product and was silently dropped when the page's own Push
-         * update ran - under a green flash saying it had gone. The group
-         * path has always sent them; this is the same call.
-         *
-         * An upload that answers with nothing leaves the block out rather
-         * than sending an empty list: Shopee reads an empty image_id_list
-         * as "remove every picture", and a network hiccup must never strip
-         * a live listing. */
+        // Leave the image block out if uploads return nothing: an empty image_id_list removes every picture.
         $create = app(\Extensions\shopee\Services\Shopee\ShopeeItemCreate::class);
         $up = $create->uploadImages($client, $auth, $create->catalogImagePaths($product, $listing));
         if ($up['error'] !== null) {
-            /* A HALF-UPLOADED LIST IS WORSE THAN NO UPDATE. image_id_list
-               replaces what the live item holds, so sending the three that
-               got through would delete the other six from the listing. The
-               whole update stands down and says why. */
             return ['ok' => false, 'message' => 'Update failed: ' . $up['error']];
         }
         if (!empty($up['ids'])) {
             $payload['image'] = ['image_id_list' => $up['ids']];
         }
 
-        /* The description goes in the item's own shape: plain text, or an
-         * extended list of our words and pictures in our order. */
         $described = (new \Extensions\shopee\Services\Shopee\ShopeeDescription($client))->write(
             $payload, $auth, (int) $link->shopee_item_id,
             \App\Integrations\Listings\ListingContent::of(
@@ -3434,21 +2784,14 @@ class ShopeeProductController extends Controller
         $payload = $described['payload'];
         $descNote = $described['note'] === '' ? '' : ' ' . $described['note'];
 
-        /* The item's models are read once; the rename and the store's
-         * variation switches both work from that read. */
         $switches = app(\Extensions\shopee\Services\Shopee\ShopeeVariationSwitches::class);
         $read = $switches->readFor($client, $auth, (int) $link->shopee_item_id, $productId);
 
-        /* The catalog names the item's own variation types. A rename that
-         * cannot happen is skipped and said, and the rest of the update goes. */
         $rename = app(\Extensions\shopee\Services\Shopee\ShopeeVariationRename::class);
         $plan = $rename->plan($client, $auth, (int) $link->shopee_item_id, $productId, $read);
         $renamed = $rename->apply($client, $auth, $plan);
         $warning = $renamed['ok'] ? '' : ' ' . $renamed['message'];
 
-        /* A variation switched off for this store stops selling: its model
-         * is deleted. One sold here that the item lacks is added. A refusal
-         * is the listing's outcome, and the rest of the update still goes. */
         $followed = $switches->follow(
             $client, $auth, (int) $link->shopee_item_id, $productId,
             \Extensions\shopee\Services\Shopee\ShopeeVariationSwitches::renamed($read, $plan, $renamed),
@@ -3487,7 +2830,6 @@ class ShopeeProductController extends Controller
             return ['ok' => false, 'message' => 'Update failed: ' . $msg . $switchNote];
         }
 
-        // Provenance (#104): what went, from where, when.
         ShopeeListing::query()->updateOrCreate(
             ['product_id' => $productId],
             [
@@ -3502,8 +2844,6 @@ class ShopeeProductController extends Controller
             ]
         );
 
-        // A content update can send the item back under Shopee review, so
-        // the mirror is asked rather than assumed.
         app(\Extensions\shopee\Services\Shopee\ShopeeLiveListing::class)->confirm(
             $auth,
             ShopeeProductLink::query()->where('product_id', $productId)->pluck('shopee_item_id')->all()
@@ -3536,11 +2876,6 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', "Missing Shopee {$modeLabel} settings.");
         }
 
-        /* THE PREFLIGHT (#191, the owner's own failure): Shopee refuses a
-         * relist of an item without a parcel, and used to say so only
-         * AFTER the call - then the next error, then the next. What is
-         * knowable in advance is checked in advance; the flash names the
-         * fields and where they live, and no request is fired. */
         if (!$unlist && ($parcelGap = $this->parcelGapFor([$productId])[$productId] ?? null)) {
             $this->listingStates()->recordOutcome($productId, 'Not published: Shopee will refuse it without ' . $parcelGap . '.');
             return redirect()->back()->with('error',

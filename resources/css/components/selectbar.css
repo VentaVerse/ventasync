@@ -1,25 +1,3 @@
-/* Selection bar.
-   -------------------------------------------------------------------
-   One row of orders picked, and the things that can be done with them.
-
-   Generalised out of the Venta orders page, which was the only surface in
-   the product with a selection model at all - and which the fulfilment
-   critique kept catching as an inconsistency rather than as the good idea it
-   was. The marketplace lists carry real volume (Lazada's To Ship queue runs
-   to fifty-one orders at ten to a page) and had no way to act on more than
-   one order at a time.
-
-   THE BAR IS NOT A TOOLBAR AT REST. It offers the select-all box and nothing
-   else until something is picked; the actions only exist once the operator
-   has said what they would act on. That ordering matters where an action
-   prints or ships: a standing button invites a click before the sentence is
-   finished.
-
-   Its height never changes. The count is one line of text that rewrites
-   itself rather than a line that appears, and the action form is [hidden]
-   rather than absent, so nothing below the bar moves when a box is ticked.
-   ------------------------------------------------------------------- */
-
 .x-selectbar {
     display: flex;
     align-items: center;
@@ -30,22 +8,12 @@
     background: var(--bl-chrome);
     border: 1px solid var(--bl-rule);
     border-radius: var(--bl-r-ctrl);
-    /* Survives scrolling (#142, fulfilment critique P0). The Shopee orders
-       page stood 2,317px at ten a page; the bulk selection is the best
-       thing on the surface and was only operable from the top of it. The
-       window is what scrolls here, so top: 0 is the viewport's edge; the
-       bar's own chrome fill keeps rows from showing through it. */
     position: sticky;
     top: 0;
-    /* Above the row menus (z-index 20 in ui-table.css) and the row's
-       stretched-link overlays, or a scrolled row's menu opens over the bar. */
     z-index: 22;
     box-shadow: 0 1px 0 var(--bl-paper), 0 6px 14px -10px rgb(0 0 0 / .35);
 }
 
-/* The active step's name, riding the bar: "To Ship" beside the select-all
-   box, in the column-label voice, so the queue is named wherever the
-   operator is in it. */
 .x-selectbar__step {
     font-size: var(--bl-lab-size);
     font-weight: 650;
@@ -57,20 +25,11 @@
     border-right: 1px solid var(--bl-rule-2);
 }
 
-/* THE TABLE HEAD STICKS UNDER THE BAR, at desktop width, where the table
-   fits its wrap (measured 1002px of 1002px at 1280) and the wrap can stop
-   being a scroll container: sticky reaches the viewport only through
-   ancestors that do not scroll. Narrower than that the wrap still scrolls
-   sideways for wide tables and the head scrolls away with it, which is
-   the lesser loss there. The offset is the bar's height and its margin,
-   both tokens; a table with no bar above it sticks at the top edge. */
 @media (min-width: 1024px) {
     .co-page .x-table-wrap { overflow: visible; }
     .co-page .x-table-wrap > .x-table > thead > tr > th {
         position: sticky;
         top: 0;
-        /* Above the rows' positioned overlays and images (a product photo
-           painted over the head at z-index 5), below a row menu (20). */
         z-index: 12;
         background: var(--bl-sheet);
         box-shadow: 0 1px 0 var(--bl-rule-2);
@@ -91,8 +50,6 @@
 
 .x-selectbar__pick:hover { color: var(--bl-ink); }
 
-/* The bar's live region: empty at rest, "N orders selected" once anything is
-   picked, announced rather than only drawn. */
 .x-selectbar__count { font-size: 12px; color: var(--bl-ink-2); }
 
 .x-selectbar__spacer { flex: 1 1 var(--bl-space-4); min-width: 0; }
@@ -106,14 +63,6 @@
 
 .x-selectbar__actions[hidden] { display: none; }
 
-/* A gap that means "the run of productive actions ended here".
-   ------------------------------------------------------------------
-   The storefront bar carries a delete, and it used to sit in the terminal
-   slot the marketplace bars use for Pack and print. Same bar, same shape,
-   same last position, opposite consequence. This pushes the destructive
-   control away from that run so the confident click that ends a selection
-   does not land on it, and gives it a rule to read as a boundary rather
-   than as more spacing. */
 .x-selectbar__split {
     flex: 1 1 auto;
     min-width: var(--bl-space-4);
@@ -122,10 +71,6 @@
     margin-inline: var(--bl-space-1);
 }
 
-/* The per-order checkbox lives in the order's own band rather than in a
-   column of its own, because the thing being selected is the order and the
-   band is the order's row. It also spares every one of these tables a column
-   whose entire content is a small square. */
 .x-pick {
     width: 14px;
     height: 14px;
@@ -134,16 +79,6 @@
     cursor: pointer;
 }
 
-/* The hit area is not a phone concern.
-   ------------------------------------------------------------------
-   This uplift used to be gated on pointer: coarse, which left the desktop
-   box at a measured 14x14 effective target against the 24x24 floor (WCAG
-   2.5.8) - and the desk is where most orders are actually picked. A mouse
-   is precise, not infinitely precise, and this is the control that decides
-   which orders an irreversible bulk action applies to.
-   
-   The outset pseudo element does the work so the box itself stays small:
-   a 44px square inside every order band would push rows off the screen. */
 .x-pick {
     position: relative;
 }
@@ -158,8 +93,6 @@
     transform: translate(-50%, -50%);
 }
 
-/* A finger needs more than a mouse does, so the coarse case still goes
-   further - a bigger box and the full 44px. */
 @media (pointer: coarse) {
     .x-pick {
         width: 20px;

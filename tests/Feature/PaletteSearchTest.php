@@ -12,12 +12,6 @@ class PaletteSearchTest extends TestCase
 {
     use RefreshDatabase;
 
-    /**
-     * Same pattern OrderControllerCurrencyTest uses: build a user group that
-     * carries manage_orders and act as a user in it, so hasPermission()'s
-     * manage-implies-view cascade satisfies the door's sales/order view
-     * tier.
-     */
     private function actingAsOrderViewer(): User
     {
         $group = UserGroup::create(['name' => 'Order Viewers']);
@@ -30,12 +24,6 @@ class PaletteSearchTest extends TestCase
         return $user;
     }
 
-    /**
-     * The legacy OpenCart-derived `order` table has many NOT NULL columns
-     * with no default; MySQL's default STRICT_TRANS_TABLES mode rejects an
-     * insert that omits them. Column set copied from the working makeOrder()
-     * helper in NormalizeOrderCurrencyTest.
-     */
     private function seedOrder(int $orderId): void
     {
         $p = (string) config('catalog.prefix');
@@ -80,11 +68,6 @@ class PaletteSearchTest extends TestCase
             ->assertJsonCount(0, 'products');
     }
 
-    /**
-     * A user holding view_orders|manage_orders gets order results. Gated by
-     * commit d6fc085e; before that fix every authenticated user, permitted
-     * or not, got results here.
-     */
     public function test_a_user_with_view_orders_finds_an_order_by_id(): void
     {
         $this->seedOrder(990001);
@@ -95,14 +78,6 @@ class PaletteSearchTest extends TestCase
             ->assertJsonFragment(['id' => 990001]);
     }
 
-    /**
-     * The other direction of the same gate, and the one a broken "always
-     * deny" implementation would also pass if this were the only test: a
-     * user with NO order permission searching for an order that genuinely
-     * exists gets an empty result, not a 403/500 and not a silent partial
-     * list. Proves the endpoint is filtering by permission, not merely
-     * failing to find data.
-     */
     public function test_a_user_without_view_orders_finds_nothing(): void
     {
         $this->seedOrder(990002);

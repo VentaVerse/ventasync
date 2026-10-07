@@ -21,7 +21,7 @@ class LazadaRefreshToken extends Command
         foreach ($stores as $store) {
             $label = $store->store_name ?: ('#' . $store->id);
             $this->info("=== Lazada store: {$label} ===");
-            app()->instance('lazada.route-store', $store); // bind: the model trait now scopes every query + stamps writes to THIS store
+            app()->instance('lazada.route-store', $store);
             try {
                 $worst = max($worst, $this->handleStore($client, $store));
             } catch (\Throwable $e) {
@@ -46,11 +46,7 @@ class LazadaRefreshToken extends Command
             return 1;
         }
 
-        // Skip if token still has >30 minutes remaining (read mode-appropriate expiry)
         $expiresAt = $creds['expires_at'] ?? null;
-        // Window (1440 min / 24h) must exceed the refresh cron interval (12h) so
-        // a scheduled run always lands inside it before the token expires; 24h
-        // also survives one missed run. Well within Lazada's ~2-day token TTL.
         if (!empty($expiresAt) && now()->diffInMinutes($expiresAt, false) > 1440) {
             $this->info("{$modeLabel} token still valid (expires {$expiresAt}). Skipping refresh.");
             return 0;

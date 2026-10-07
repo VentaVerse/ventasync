@@ -8,13 +8,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * A NEW INSTALL HAS NO USER UNTIL SOMEONE OPENS IT.
- *
- * Nothing is seeded, so there is no admin/admin and no password to hand
- * over. The first person to open the install creates the administrator,
- * and from then on the page is gone.
- */
 class FirstAccountTest extends TestCase
 {
     use RefreshDatabase;
@@ -23,9 +16,9 @@ class FirstAccountTest extends TestCase
     {
         return array_merge([
             'company_name' => 'Reyes Music Supply',
-            'name' => 'the owner Reyes',
-            'username' => 'owner',
-            'email' => 'owner@example.com',
+            'name' => 'Maria Santos',
+            'username' => 'maria',
+            'email' => 'maria@example.com',
             'password' => 'a-long-password',
             'password_confirmation' => 'a-long-password',
         ], $override);
@@ -49,7 +42,7 @@ class FirstAccountTest extends TestCase
         $this->post(route('first-account.store'), $this->form())->assertRedirect('/dashboard');
 
         $user = User::sole();
-        $this->assertSame('owner', $user->username);
+        $this->assertSame('maria', $user->username);
         $this->assertSame(
             DB::table('user_groups')->where('name', 'Administrator')->value('id'),
             $user->user_group_id
@@ -75,7 +68,6 @@ class FirstAccountTest extends TestCase
         $this->get('/login')->assertOk()->assertSee('Sign in');
     }
 
-    /** A second form sent after the first account exists makes nothing. */
     public function test_a_second_first_account_is_refused(): void
     {
         $this->post(route('first-account.store'), $this->form())->assertRedirect('/dashboard');

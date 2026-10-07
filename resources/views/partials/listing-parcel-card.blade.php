@@ -1,10 +1,3 @@
-{{-- The parcel a store quotes shipping from, one card for every channel's
-     listing page. An empty field follows the catalog's figure, shown as its
-     placeholder.
-
-     Expects: $id (the page's field prefix), $canManage, $listing (or null),
-     $catalog (the catalog product row: weight, length, width, height), and
-     optionally $weightMin, the smallest weight the channel's save accepts. --}}
 @php
     $weightMin = (string) ($weightMin ?? '0.001');
 @endphp
@@ -19,8 +12,6 @@
                         placeholder="{{ (float) ($catalog->weight ?? 0) }}"
                         :disabled="! $canManage" />
         </x-ui.field>
-        {{-- Decimals, as the catalog has always taken: a store's columns hold
-             them now, so 10.5 cm is kept rather than refused here. --}}
         <x-ui.field label="Length in cm" for="{{ $id }}-length" name="package_length">
             <x-ui.input id="{{ $id }}-length" name="package_length" type="number" step="0.01" min="0.01"
                         :value="old('package_length', $listing->package_length ?? '')"

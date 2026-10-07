@@ -1,15 +1,3 @@
-/*
- * Setting up a store (the owner, 2026-09-05): runs the reads a store needs
- * before anything can be pushed - one POST per step, in order - behind a
- * progress popup. Starts on its own right after an authorisation (the page
- * says so with data-setup-run) and on any [data-setup-open] press.
- *
- * Bound to the partials/channel-setup root; inert on pages without it.
- * Every URL and label comes off the root's data attributes. Each answer is
- * a plain sentence from the server, drawn next to its step; nothing here
- * ever shows a payload.
- */
-
 export function initChannelSetup() {
     const root = document.querySelector('[data-channel-setup]');
     if (!root) return;
@@ -83,8 +71,6 @@ export function initChannelSetup() {
 
     function close() {
         root.classList.remove('active');
-        // The page behind was rendered before the reads; a reload shows the
-        // categories and couriers the pickers can now offer.
         if (ranOnce) window.location.reload();
     }
 
@@ -96,12 +82,6 @@ export function initChannelSetup() {
     if (root.dataset.setupRun === '1') run();
 }
 
-/*
- * Deleting a store (the owner, 2026-09-05): the sheet behind "Delete this
- * store". Hard delete, no restore, so the submit stays off until the typed
- * name matches the store's exactly. The server checks the same thing; a
- * refused attempt comes back with the sheet open and the error inside it.
- */
 export function initChannelDelete() {
     const root = document.querySelector('[data-channel-delete]');
     if (!root) return;

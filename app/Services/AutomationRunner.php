@@ -7,15 +7,8 @@ use App\Models\AutomationRun;
 use App\Models\ScheduledJob;
 use Illuminate\Support\Str;
 
-/**
- * Drives a Run now in short steps (the owner, 2026-09-07). The command names
- * its units once; each step hands it the next few, and the run keeps the
- * count, the ledger and the verdict. When the run ends, however it ends,
- * the job row is stamped the way a scheduled run stamps it.
- */
 class AutomationRunner
 {
-    /** Units per step: a product is one or two store calls, so ten keeps a step to a few seconds. */
     public const CHUNK = 10;
 
     public function begin(ScheduledJob $job, SteppableAutomation $command): AutomationRun
@@ -44,12 +37,6 @@ class AutomationRunner
         return $run;
     }
 
-    /**
-     * A run with no scheduled job behind it: the caller names the units and
-     * walks them with stepWith(). One such run per subject at a time.
-     *
-     * @param list<string|int> $units
-     */
     public function beginWork(string $integration, ?int $storeId, string $subject, array $units, string $label = 'products'): AutomationRun
     {
         AutomationRun::query()->where('integration', $integration)
@@ -88,18 +75,11 @@ class AutomationRunner
 
             return $run;
         }
-        // A command whose units are phases, not products, walks one per request.
         $chunk = $chunk ?? (method_exists($command, 'automationChunk') ? max(1, (int) $command->automationChunk()) : self::CHUNK);
 
         return $this->stepWith($run, fn (array $slice) => $command->automationStep($job, $slice), $chunk);
     }
 
-    /**
-     * One handful of units through $work, which answers like
-     * SteppableAutomation::automationStep.
-     *
-     * @param callable(list<string>): array $work
-     */
     public function stepWith(AutomationRun $run, callable $work, int $chunk = self::CHUNK): AutomationRun
     {
         if ($run->status !== AutomationRun::RUNNING) {
@@ -152,12 +132,6 @@ class AutomationRunner
         return $run;
     }
 
-    /**
-     * "200 products: 197 ok, 3 failed." A run whose units are phases or
-     * stores says nothing about them (the owner, 2026-09-07: "users won't know
-     * what the steps are"): finished is the whole sentence, and a failure
-     * says how much did not finish.
-     */
     public static function outcome(AutomationRun $run): string
     {
         if ($run->status === AutomationRun::FAILED) {

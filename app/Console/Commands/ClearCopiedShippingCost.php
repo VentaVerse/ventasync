@@ -5,13 +5,6 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Venta and WooCommerce order syncs used to store the buyer's shipping charge
- * as the order's shipping cost, which the profit figures subtract as a cost
- * the seller paid. This clears the shipping cost on those orders where it is
- * exactly the buyer's shipping charge. A value entered by hand that differs
- * from the charge is left alone, and orders from other sources are never read.
- */
 class ClearCopiedShippingCost extends Command
 {
     protected $signature = 'orders:clear-copied-shipping-cost

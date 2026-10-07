@@ -17,7 +17,6 @@ return new class extends Migration
             $t->decimal('absolute_cost', 15, 4)->nullable()->after('cost_additional');
         });
 
-        // Backfill absolute_price from base price + modifier
         DB::statement("
             UPDATE `{$table}` pov
             INNER JOIN `{$pfx}product` p ON p.product_id = pov.product_id
@@ -27,7 +26,6 @@ return new class extends Migration
             END
         ");
 
-        // Backfill absolute_cost from cost breakdown fields
         DB::statement("
             UPDATE `{$table}` pov
             INNER JOIN `{$pfx}product` p ON p.product_id = pov.product_id

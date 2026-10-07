@@ -1,12 +1,3 @@
-/* AI Tools (resources/views/ai-tools/index.blade.php).
- *
- * One job: the assistant tiles. A tile press writes its key into the
- * hidden input the form posts, marks itself pressed, and renames step
- * three to the assistant chosen, so the form reads "Paste this into
- * Cursor" before anything is created. Claude and ChatGPT sign in, so
- * their tile swaps naming and the key for the address to paste. The ticked reads are CSS (:has),
- * and the copy button is the global one from pages/settings.js.
- */
 document.addEventListener('DOMContentLoaded', function () {
     var page = document.getElementById('ai-tools-page');
     if (!page) return;
@@ -24,7 +15,6 @@ document.addEventListener('DOMContentLoaded', function () {
         input.value = tile.getAttribute('data-ai-tile');
         if (title) title.textContent = tile.getAttribute('data-ai-title') || '';
 
-        // Claude and ChatGPT sign in: their steps replace naming and the key.
         var signsIn = tile.getAttribute('data-ai-signin') === '1';
         if (keySteps) {
             keySteps.hidden = signsIn;

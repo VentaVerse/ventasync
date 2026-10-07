@@ -1,20 +1,9 @@
-/* A ticked product reads as one block on every product table (a store's
-   Listings and product group pages, the catalog list): the lines above its
-   row, the row itself and its variation rows below carry is-picked.
-
-   While any product on a table is ticked, the table is picking: a click
-   anywhere on a product's block ticks or unticks it, and the links and
-   buttons inside the block stand down until nothing on the table is ticked.
-   Alpine writes the row boxes after a select-all, so the marks follow one
-   tick later. Inert on a page with no tickable rows. */
-
 const LINE = 'cc-err-row';
 const VARIATIONS = ['cc-var-row', 'bl-varrow'];
 
 const isVariation = (el) => VARIATIONS.some((c) => el.classList.contains(c));
 const boxIn = (tr) => tr.querySelector('[data-row-check]');
 
-/** The product row a table row belongs to: itself, the row under its lines, or the row above its variations. */
 function productRowOf(tr) {
     if (boxIn(tr)) return tr;
     let el = null;
@@ -28,7 +17,6 @@ function productRowOf(tr) {
     return el && boxIn(el) ? el : null;
 }
 
-/** Every row of a product's block. */
 function blockOf(row) {
     const rows = [row];
     for (let el = row.previousElementSibling; el && el.classList.contains(LINE); el = el.previousElementSibling) rows.push(el);
@@ -69,7 +57,6 @@ function init() {
         }
     });
 
-    // While picking, a click on a product's block is a tick, never a link or a button.
     document.addEventListener('click', (e) => {
         const target = e.target instanceof Element ? e.target : null;
         const table = target ? target.closest('table.is-picking') : null;
@@ -82,7 +69,6 @@ function init() {
         boxIn(row).click();
     }, true);
 
-    // The block a click would tick, shown under the pointer while picking.
     document.addEventListener('pointerover', (e) => {
         const target = e.target instanceof Element ? e.target : null;
         const tr = target ? target.closest('table.is-picking tbody tr') : null;

@@ -15,28 +15,10 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
-/**
- * The product changes an application may make: edit a product, edit its
- * variations, set a price, create one. The partner API and the assistant's
- * tools both run these, so both doors keep one set of rules; each answers
- * with plain data, or refuses with a message and a status.
- */
 final class ProductWrites
 {
-    /** The most variations one product may have, as the product form allows. */
     public const MAX_VARIATIONS = 50;
 
-    /**
-     * PATCH /api/v1/products/{id} - some of an existing product's fields,
-     * with a stated reason.
-     *
-     * Only what is sent changes; everything else stays as it is. The same
-     * rules as the product Edit page: a SKU nobody else holds, a parcel above
-     * zero, a name that is not blank, and a photo before the product can be
-     * switched on. Cost is locked on an existing product and stock moves
-     * through a stock adjustment, so neither is taken here; the price has its
-     * own endpoint.
-     */
     public function update(array $input, int $id): array
     {
         $product = Product::with('description')->find($id);
@@ -111,15 +93,12 @@ final class ProductWrites
                 }
             }
             if ($unknown !== []) {
-                // Half a category list is a different product's list: keep the old one whole.
                 $notes[] = 'No category named "' . implode('", "', $unknown) . '" exists, so the categories were left as they were.';
             } else {
                 $fields['category_ids'] = $categoryIds;
             }
         }
 
-        // Photos: the kept list (by path, as show() gives them) in order,
-        // then any new ones, fetched or decoded before anything writes.
         $urls = array_values((array) ($data['image_urls'] ?? []));
         $files = array_values((array) ($data['image_files'] ?? []));
         $current = \App\Support\Catalog\ProductImages::paths($id);
@@ -155,7 +134,6 @@ final class ProductWrites
             $fields['photos'] = array_merge($kept, $stored);
         }
 
-        // A product needs a photo to be on sale, on the form and here.
         $photosAfter = $fields['photos'] ?? $current;
         $enabledAfter = array_key_exists('enabled', $data) ? (bool) $data['enabled'] : (bool) $product->status;
         if ($enabledAfter && $photosAfter === []) {
@@ -173,7 +151,6 @@ final class ProductWrites
             'reason' => trim((string) $data['reason']),
         ]);
 
-        // A new SKU reaches the stores' own links, as the Edit page does it.
         if (isset($changes['sku'])) {
             $synced = (new \App\Services\SkuSyncService())->syncSkuChanges($id, [
                 'product_sku' => ['old' => $changes['sku']['old'], 'new' => $changes['sku']['new']],
@@ -205,11 +182,6 @@ final class ProductWrites
         ]);
     }
 
-    /**
-     * PATCH /api/v1/products/{id}/variations - change some existing
-     * variations (SKU, switched on or off, picture) and add new ones, with a
-     * stated reason. Every variation not named stays exactly as it is.
-     */
     public function updateVariations(array $input, int $id): array
     {
         if (! Product::whereKey($id)->exists()) {
@@ -238,7 +210,6 @@ final class ProductWrites
             return $this->json(['message' => 'Name at least one variation to change or add.'], 422);
         }
 
-        // Pictures first: one that cannot be used changes nothing.
         $creator = app(ProductCreator::class);
         $importer = app(CatalogImageImporter::class);
         $folder = $creator->imageFolder((int) Product::whereKey($id)->value('manufacturer_id'));
@@ -293,12 +264,6 @@ final class ProductWrites
         return array_flip(array_values(array_intersect_key($keys, array_flip($changed))));
     }
 
-    /**
-     * What an edit needs to see first: the description, brand, categories,
-     * parcel and photos. On show() only.
-     *
-     * @return array<string, mixed>
-     */
     public function details(Product $product): array
     {
         $pfx = (string) config('catalog.prefix');
@@ -331,22 +296,11 @@ final class ProductWrites
         ];
     }
 
-    /**
-     * PUT /api/v1/products/{id}/price - one price, with a stated reason.
-     *
-     * The write half of #177. The body names the product's own price or
-     * one variation's, by the SKU the reader already saw on show(); the
-     * answer carries before and after and says plainly that nothing has
-     * reached a marketplace yet, because a channel price is this price run
-     * through the listing's rule at the next push.
-     */
     public function updatePrice(array $input, int $id): array
     {
         $data = Validator::make($input, [
             'price' => 'required|numeric|min:0|max:99999999',
             'variation_sku' => 'nullable|string|max:64',
-            // The reason is the audit trail's whole value, so it is not
-            // optional and it is not allowed to be a shrug.
             'reason' => 'required|string|min:3|max:500',
         ])->validate();
 
@@ -369,16 +323,6 @@ final class ProductWrites
         ]);
     }
 
-    /**
-     * POST /api/v1/products - one new catalog product, with a stated reason.
-     *
-     * The same product the Add product form makes: ProductCreator makes it
-     * and VariationWriter saves its variations, the code the form runs.
-     * Every field and every SKU is checked first; then the photos are
-     * fetched or decoded, and a photo that cannot be used creates nothing
-     * and names itself. A product with no photo is saved switched off,
-     * because a product needs a photo to be sold.
-     */
     public function store(array $input): array
     {
         $maxImages = ProductCreator::MAX_IMAGES;
@@ -405,7 +349,6 @@ final class ProductWrites
             'image_files' => 'nullable|array|max:' . $maxImages,
             'image_files.*' => 'array',
             'image_files.*.filename' => 'required|string|max:255',
-            // Room for line breaks and a data: prefix; the importer judges the decoded size.
             'image_files.*.data' => 'required|string|max:7700000',
             'variation_types' => 'nullable|array|max:2',
             'variation_types.*' => 'array',
@@ -445,7 +388,6 @@ final class ProductWrites
         $writer = app(VariationWriter::class);
         $notes = [];
 
-        // The variations as the form sends them, and the form's SKU checks, before anything is fetched.
         $wire = $this->variationInput($data);
         if ($wire !== null) {
             $writer->validateSkus(0, $wire);
@@ -467,7 +409,6 @@ final class ProductWrites
             }
         }
 
-        // The photos next: one that cannot be used creates nothing.
         $disk = Storage::disk('public');
         $importer = app(CatalogImageImporter::class);
         $folder = $creator->imageFolder($manufacturerId);
@@ -501,7 +442,6 @@ final class ProductWrites
             $notes[] = 'Saved switched off: a product needs at least one photo before it can be switched on and sold.';
         }
 
-        // A product with variations holds the sum of their stock, as on the form.
         $quantity = (int) ($data['quantity'] ?? 0);
         if ($wire !== null) {
             $sum = (int) $writer->totalQuantity($wire);
@@ -552,18 +492,6 @@ final class ProductWrites
         ], 201);
     }
 
-    /**
-     * The API's variations in the shape the product form posts: one type as
-     * `option_name` and `values[]`, two as `option1_name`, `option2_name`,
-     * their value lists and `combinations[]`. The API names the types once
-     * in `variation_types` and gives one row in `variations` per value, or
-     * per pair of values, so every combination must be there exactly once.
-     * Refused in the form's own words where the form has them.
-     *
-     * @return array<string, mixed>|null null when the product has no variations
-     *
-     * @throws ValidationException
-     */
     private function variationInput(array $data): ?array
     {
         $types = array_values((array) ($data['variation_types'] ?? []));
@@ -614,7 +542,6 @@ final class ProductWrites
             throw ValidationException::withMessages(['variation_types' => array_values(array_unique($errors))]);
         }
 
-        // Every value, or every pair of values: the grid the form's builder draws.
         $grid = [[]];
         foreach ($values as $list) {
             $next = [];
@@ -748,21 +675,6 @@ final class ProductWrites
         ];
     }
 
-    /**
-     * The product's variations, each with its own SKU, stock, price and
-     * cost. On show() only: the list stays one row per product, and a
-     * reader that wants the breakdown asks for the product. Until
-     * 2026-08-29 no API answer carried variations at all, while the tool
-     * description promised them, so "how many Blue are left" could not be
-     * answered.
-     *
-     * Cost is what an order line of this variation would be costed at
-     * (LineCost: the variation's own amount when one was entered, else the
-     * parent's), the same figure the profitability reports use, so the API
-     * and the reports cannot disagree about a variation's margin.
-     *
-     * @return list<array<string, mixed>>
-     */
     public function variations(Product $product): array
     {
         $rows = VariationRows::forProducts([(int) $product->product_id])->get((int) $product->product_id, collect());
@@ -782,13 +694,6 @@ final class ProductWrites
         })->values()->all();
     }
 
-    /**
-     * An answer, or a refusal when the status says the request was turned
-     * down: the message and status reach every door unchanged.
-     *
-     * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
-     */
     private function json(array $data, int $status = 200): array
     {
         if ($status >= 400) {

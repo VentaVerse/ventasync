@@ -1,15 +1,3 @@
-{{--
-    The product picker.
-
-    Pushed to the layout's script stack so it renders OUTSIDE the order form:
-    a form cannot contain another, and this panel carries its own controls.
-    Same mechanics the product image library already uses (a .modal-backdrop
-    that JS toggles with .active, holding a picker panel).
-
-    It searches through orders.search_products, the same read-tier endpoint
-    the pre-redesign modal used, and adds to the line editor in place so a
-    long order can be built without reopening it.
---}}
 @push('scripts')
 <div class="modal-backdrop" id="of-picker" role="dialog" aria-modal="true" aria-labelledby="of-pick-title">
     <div class="of-pick">

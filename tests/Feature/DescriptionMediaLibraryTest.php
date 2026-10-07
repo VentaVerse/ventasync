@@ -15,11 +15,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * Every rich description editor carries a media library button that works
- * through the page's own picker, and every editor shows the pictures a
- * description already holds.
- */
 class DescriptionMediaLibraryTest extends TestCase
 {
     use RefreshDatabase;
@@ -84,7 +79,6 @@ class DescriptionMediaLibraryTest extends TestCase
         return $pid;
     }
 
-    /** The escaped contents of one textarea, as the page sends it. */
     private function textarea(string $html, string $id): string
     {
         $this->assertSame(1, preg_match('#<textarea[^>]*\bid="' . preg_quote($id, '#') . '"[^>]*>(.*?)</textarea>#s', $html, $m), "no textarea #{$id}");
@@ -103,8 +97,6 @@ class DescriptionMediaLibraryTest extends TestCase
 
         return $this->textarea($html, 'vl-description');
     }
-
-    /* ---------- The button and its picker, page by page ---------- */
 
     public function test_the_core_create_and_edit_forms_carry_the_button_and_the_product_picker(): void
     {
@@ -151,8 +143,6 @@ class DescriptionMediaLibraryTest extends TestCase
             ->assertDontSee('data-ilp-url=', false);
     }
 
-    /* ---------- The pictures a description already holds ---------- */
-
     public function test_a_listing_editor_shows_the_catalog_descriptions_pictures_in_every_src_form(): void
     {
         $shown = $this->listingEditor(
@@ -195,8 +185,6 @@ class DescriptionMediaLibraryTest extends TestCase
         );
     }
 
-    /* ---------- Saving an inserted picture ---------- */
-
     public function test_a_listing_save_keeps_an_inserted_picture(): void
     {
         $store = $this->store();
@@ -226,8 +214,6 @@ class DescriptionMediaLibraryTest extends TestCase
 
         $this->assertStringContainsString($img, (string) DescriptionTemplate::where('name', 'Badge')->value('body'));
     }
-
-    /* ---------- The reader itself ---------- */
 
     public function test_the_reader_leaves_real_markup_and_its_words_alone(): void
     {

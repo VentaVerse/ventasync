@@ -5,28 +5,8 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Multi-store Shopee, stage S2 (#194, umbrella #180): the data carries
- * the store. Every shop-owned table gains shopee_setting_id, backfilled
- * to store #1, and the unique keys that said "one Shopee" move over:
- * (region, order_sn) becomes (setting, order_sn) - two shops in one
- * region stop being a collision - and the listing/link/cache keys gain
- * the store dimension so one catalog product can be listed differently
- * in two shops (#97's contract, per store).
- *
- * Stays global on purpose: shopee_categories and shopee_category_
- * templates (the tree and the attribute sheets vary by REGION, which
- * their keys already carry - a second shop in the same region reads
- * the same sheet, and duplicating it per store would only let the
- * copies disagree), and shopee_order_status_map (semantics, not shop
- * data).
- *
- * Deletion is restricted, not cascaded: dropping a store that still
- * owns orders must fail loudly, never silently erase history.
- */
 return new class extends Migration
 {
-    /** table => [unique name to drop, columns of the new store unique, new unique name, plain indexes to add] */
     private const TABLES = [
         'shopee_orders' => ['shopee_orders_region_order_sn_unique', ['shopee_setting_id', 'order_sn'], 'shopee_orders_store_order_unique', []],
         'shopee_returns' => ['shopee_returns_region_return_sn_unique', ['shopee_setting_id', 'return_sn'], 'shopee_returns_store_return_unique', ['return_sn']],
@@ -40,9 +20,6 @@ return new class extends Migration
 
     public function up(): void
     {
-        /* Data with no settings row still came from SOME shop: give it a
-         * store row to belong to rather than leave the backfill impossible.
-         * A fresh install (no data anywhere) creates nothing. */
         $storeId = DB::table('shopee_settings')->orderBy('id')->value('id');
         if ($storeId === null) {
             foreach (array_keys(self::TABLES) as $t) {
@@ -56,9 +33,6 @@ return new class extends Migration
             }
         }
 
-        /* Every step is guarded on what already exists, so a run that
-         * fails part-way (or a re-run after one) resumes instead of
-         * tripping over its own first half. */
         foreach (self::TABLES as $table => [$dropUnique, $uniqueCols, $uniqueName, $indexes]) {
             if (! Schema::hasColumn($table, 'shopee_setting_id')) {
                 Schema::table($table, function (Blueprint $t) {
@@ -90,7 +64,6 @@ return new class extends Migration
             }
         }
 
-        // Logs are pruned, not owned: nullable, indexed, no FK.
         if (! Schema::hasColumn('shopee_api_logs', 'shopee_setting_id')) {
             Schema::table('shopee_api_logs', function (Blueprint $t) {
                 $t->unsignedBigInteger('shopee_setting_id')->nullable()->after('id')->index();
@@ -129,7 +102,6 @@ return new class extends Migration
             });
             if ($dropUnique !== null) {
                 Schema::table($table, function (Blueprint $t) use ($dropUnique) {
-                    // Restore the pre-store unique the up() removed.
                     match ($dropUnique) {
                         'shopee_orders_region_order_sn_unique' => $t->unique(['region', 'order_sn'], $dropUnique),
                         'shopee_returns_region_return_sn_unique' => $t->unique(['region', 'return_sn'], $dropUnique),

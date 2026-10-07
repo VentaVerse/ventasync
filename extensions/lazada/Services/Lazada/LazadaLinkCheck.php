@@ -7,34 +7,12 @@ use Extensions\lazada\Models\LazadaProductGroup;
 use Extensions\lazada\Models\LazadaProductGroupProduct;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Ask Lazada about these products and make the ERP agree (Phase F,
- * #184). Extracted from the group page so the workbench can run the
- * same check: the SKU walk was never group-shaped - only its entry
- * point was. A group, when given, contributes adoption defaults
- * (category, markups) and gets its pivot kept honest; without one the
- * check still adopts, with the listing left for the workbench to dress.
- *
- * Reads only. It confirms, repoints or drops LINKS and refreshes the
- * status mirror; it writes nothing to Lazada.
- */
 class LazadaLinkCheck
 {
     public function __construct(private readonly LazadaLiveListing $live)
     {
     }
 
-    /**
-     * The next page of this store's links, checked (the owner, 2026-09-07).
-     * Both the Refresh button and the scheduled refresh call this, which is
-     * what stops them from drifting apart: the cron used to re-read statuses
-     * and never re-run the check, so a failed check could not clear itself
-     * and a row kept a six-month-old refusal until somebody pressed the
-     * button. The cursor caps a run at two hundred and continues where the
-     * last one stopped.
-     *
-     * @return ?array the check's own result, or null when nothing is linked
-     */
     public function runNext(object $setting, array $creds): ?array
     {
         $linked = \Extensions\lazada\Models\LazadaProduct::query()->whereNotNull('lazada_item_id')->whereNull('lazada_deleted_at')
@@ -44,7 +22,6 @@ class LazadaLinkCheck
         return $linked !== [] ? $this->run($setting, $creds, $linked) : null;
     }
 
-    /** @return array{tone: 'status'|'error', summary: string} */
     public function run(object $setting, array $creds, array $productIds, ?LazadaProductGroup $group = null): array
     {
         $limit = 200;
@@ -60,15 +37,10 @@ class LazadaLinkCheck
             return ['tone' => 'error', 'summary' => 'Check against Lazada: ' . $e->getMessage()];
         }
 
-        /* The pivots the verdicts write to: the containing group's when the
-         * check runs from a group page, every pivot the product has when it
-         * runs from the workbench - a stale copy anywhere is a lie somewhere. */
         $pivotQuery = LazadaProductGroupProduct::query()->whereIn('product_id', $productIds);
         if ($group !== null) {
             $pivotQuery->where('lazada_product_group_id', $group->id);
         } else {
-            // Every pivot the product has ON THIS STORE. Without the fence
-            // a console run wrote another store's pivots as well.
             $pivotQuery->whereIn('lazada_product_group_id', LazadaProductGroup::query()
                 ->withoutGlobalScope('lazadaStore')->where('lazada_setting_id', (int) $setting->id)->select('id'));
         }
@@ -86,11 +58,6 @@ class LazadaLinkCheck
                     break;
                 }
             }
-            /* THIS store's listing row, named rather than assumed. The
-               read fence in BelongsToLazadaStore is only up inside a store
-               request, and this runs in the console too, where an
-               unscoped first() hands back whichever store's row sorts
-               first - and everything below then writes to it. */
             $listing ??= LazadaProduct::query()
                 ->withoutGlobalScope('lazadaStore')->where('lazada_setting_id', (int) $setting->id)
                 ->where('product_id', $productId)->first();
@@ -104,9 +71,6 @@ class LazadaLinkCheck
                 }
             }
             $hitItemId = $hits ? (string) $hits[0] : null;
-            /* The walk answered with the item's status; writing it to the
-             * mirror here means a check leaves every row it touched fresh
-             * instead of throwing the answer away (#184 C). */
             $hitMirror = $hitItemId !== null && ($hitStatuses[$hitItemId] ?? '') !== ''
                 ? ['live_status' => $hitStatuses[$hitItemId], 'live_checked_at' => now()]
                 : [];
@@ -122,15 +86,10 @@ class LazadaLinkCheck
                     $problems[] = "#{$productId}: " . $line;
                     $verdicts['taken']++;
                 } elseif ($hitItemId !== null) {
-                    // The SKU sits on a different item now; the record follows the shop.
                     $listing->forceFill($hitMirror + ['lazada_item_id' => $hitItemId, 'lazada_deleted_at' => null] + $this->checkedStamp($listing))->save();
                     $this->markPushed($pivots);
                     $verdicts['linked']++;
                 } else {
-                    /* AND IT IS WRITTEN DOWN (parity, 2026-09-09): dropping
-                     * a link is destructive and left no trace, so an
-                     * operator watching links vanish had nothing to look at
-                     * and no way to tell a correct drop from a wrong one. */
                     \App\Integrations\Listings\DroppedLink::write(
                         'Lazada', 'Lazada Product', (int) $productId, (string) $listing->lazada_item_id,
                         (int) $setting->id, $skusByProduct[$productId] ?? [], count($found)
@@ -144,7 +103,6 @@ class LazadaLinkCheck
             }
 
             if ($hitItemId !== null && ($holder = $this->holderOf($setting, $hitItemId, (int) $productId)) !== null) {
-                // One item, one product: an item another product holds is never adopted.
                 $line = "Lazada item {$hitItemId} holds this product's SKU but is linked to catalog product #{$holder}.";
                 if ($listing) {
                     $states->recordOutcome((int) $productId, $line);
@@ -152,8 +110,6 @@ class LazadaLinkCheck
                 $problems[] = "#{$productId}: " . $line;
                 $verdicts['taken']++;
             } elseif ($hitItemId !== null) {
-                // Unlisted here, already on the shop: adopt it. The new
-                // listing starts blank; its group fills it at push time.
                 if (!$listing) {
                     $listing = LazadaProduct::create(['product_id' => $productId]);
                 }
@@ -163,7 +119,6 @@ class LazadaLinkCheck
                         $p->update(['lazada_product_id' => $listing->id] + (in_array($p->sync_status, ['error', 'failed'], true) ? [] : ['sync_status' => 'pushed']));
                     }
                 } elseif ($group !== null && \App\Integrations\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'lazada_setting_id', $group->id, [(int) $productId])['free'] !== []) {
-                    // Only a product no other group on this store holds joins this one.
                     LazadaProductGroupProduct::create(['lazada_product_group_id' => $group->id, 'product_id' => $productId, 'lazada_product_id' => $listing->id, 'sync_status' => 'pushed']);
                 }
                 $verdicts['linked']++;
@@ -185,10 +140,6 @@ class LazadaLinkCheck
         return ['tone' => ($verdicts['lost'] + $verdicts['taken']) > 0 ? 'error' : 'status', 'summary' => $summary];
     }
 
-    /**
-     * The sync stamp a check that found the item leaves: nothing on a row
-     * carrying a failure, because a read never clears an error.
-     */
     private function checkedStamp(LazadaProduct $listing): array
     {
         return $listing->last_sync_ok !== null && ! $listing->last_sync_ok
@@ -196,7 +147,6 @@ class LazadaLinkCheck
             : ['last_synced_at' => now(), 'last_sync_action' => 'check', 'last_sync_ok' => true];
     }
 
-    /** Pivots read as pushed, except one carrying a failed attempt. */
     private function markPushed($pivots): void
     {
         foreach ($pivots as $p) {
@@ -206,7 +156,6 @@ class LazadaLinkCheck
         }
     }
 
-    /** The other catalog product on this store already linked to the item, if any. */
     private function holderOf(object $setting, string $itemId, int $productId): ?int
     {
         $holder = LazadaProduct::query()->withoutGlobalScope('lazadaStore')
@@ -218,7 +167,6 @@ class LazadaLinkCheck
         return $holder !== null ? (int) $holder : null;
     }
 
-    /** Every SKU the catalogue knows for these products: parent, model, variations. */
     private function erpSkusByProduct(string $pfx, array $productIds): array
     {
         $out = [];

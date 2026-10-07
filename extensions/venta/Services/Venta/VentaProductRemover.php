@@ -8,14 +8,8 @@ use Extensions\venta\Models\VentaProductLink;
 use Extensions\venta\Models\VentaSetting;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Venta's half of the catalog delete (ProductRemover, 2026-09-07): every
- * local row for the product goes; the product on the Venta store stays.
- * Nothing is sent and nothing can refuse.
- */
 final class VentaProductRemover
 {
-    /** @see \App\Integrations\Contracts\ProductRemover::productPresence */
     public function presence(array $productIds): array
     {
         $links = VentaProductLink::query()->whereIn('product_id', $productIds)->get();
@@ -40,7 +34,6 @@ final class VentaProductRemover
         return $out;
     }
 
-    /** @see \App\Integrations\Contracts\ProductRemover::removeProduct */
     public function remove(int $productId): array
     {
         $links = VentaProductLink::query()->where('product_id', $productId)->get();
@@ -64,7 +57,6 @@ final class VentaProductRemover
         return array_keys($stays);
     }
 
-    /** @see \App\Integrations\Contracts\ProductRemover::strandedProductIds */
     public function stranded(): array
     {
         $pfx = (string) config('catalog.prefix');
@@ -78,7 +70,6 @@ final class VentaProductRemover
         return array_values(array_unique($ids));
     }
 
-    /** @return array<int, string> */
     private function stores($ids): array
     {
         return VentaSetting::query()->whereIn('id', collect($ids)->filter()->unique()->all())

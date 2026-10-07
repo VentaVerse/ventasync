@@ -66,7 +66,6 @@ return view('catalog.manufacturers.index', compact('manufacturers', 'q'));
 {
     $manufacturer = Manufacturer::where('manufacturer_id', (int) $id)->firstOrFail();
 
-    // The way back (#189): the list URL, search intact; never the edit page itself.
     $cameFrom = \App\Support\BackTo::capture();
     $returnUrl = str_contains($cameFrom, '/manufacturers') && !str_contains($cameFrom, '/manufacturers/' . $id) ? $cameFrom : null;
 

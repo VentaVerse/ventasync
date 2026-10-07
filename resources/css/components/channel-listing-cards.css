@@ -1,9 +1,3 @@
-/* The cards every channel's listing page shares since the one-shape
-   rebuild (the owner, 2026-09-07): Images that go up (partials/
-   channel-images-card) and the Product group card (partials/
-   channel-group-card). Drawn on the fm-* anatomy; this file holds only
-   the two shapes it has none for. Tokens: --bl-*. */
-
 .lc-images {
     display: flex;
     flex-wrap: wrap;
@@ -22,8 +16,6 @@
     background: var(--bl-chrome);
 }
 
-/* Past the channel's limit: still the catalog's, not going up. Said by
-   the dimming AND by the sentence above the list. */
 .lc-images__item--held {
     opacity: .38;
     border-style: dashed;
@@ -36,36 +28,15 @@
     display: block;
 }
 
-/* ------------------------------------------------------------------
-   The arrangeable list (the owner, 2026-09-08: "make this draggable to
-   arrange"). Same tiles, bigger, with the rank the push will use, a way
-   out for each picture, and the held-back state recomputed as the
-   arrangement changes rather than only at page load.
-   ------------------------------------------------------------------ */
-
 .lc-images--arrange .lc-images__item {
     position: relative;
     width: 84px;
     height: 84px;
     cursor: grab;
-    /* The gesture is the drag, so the tile owns the touch. The page still
-       scrolls everywhere around these eleven small squares, and a drag
-       begins only after a still hold, so a tap is never a move. It used to
-       leave vertical panning to the browser, which meant a cross-row drag
-       on a phone scrolled the page instead of moving the picture. */
     touch-action: none;
-    /* The scooch. Every tile that is not the one in your hand travels to
-       the slot it would occupy, and this is the travel. */
     transition: transform .19s cubic-bezier(.2, .8, .2, 1), opacity .12s ease-out, border-color .12s ease-out;
 }
 
-/* THE PICKED-UP PICTURE.
- *
- * It follows the pointer exactly, so it can carry no transition of its
- * own: a transition here would make it lag behind the cursor by the
- * duration, which reads as the page being slow rather than as easing.
- * The lift is said with a shadow and a scale instead, and the shadow is
- * the only part that animates. */
 .lc-images--arrange .lc-images__item.is-dragging {
     transition: box-shadow .16s ease-out;
     cursor: grabbing;
@@ -74,8 +45,6 @@
     border-color: var(--bl-brand-deep);
 }
 
-/* While a picture is in hand nothing else responds to the pointer: the
-   hit test that matters is the dragged tile's own box against the slots. */
 .lc-images--arrange.is-arranging .lc-images__item {
     pointer-events: none;
 }
@@ -95,8 +64,6 @@
     outline-offset: 2px;
 }
 
-/* Picked up from the keyboard: the same state a pointer drag shows,
-   said with a ring because there is no pointer to follow. */
 .lc-images--arrange .lc-images__item.is-grabbed {
     border-color: var(--bl-brand-deep);
     box-shadow: 0 0 0 2px var(--bl-brand-deep) inset;
@@ -119,12 +86,6 @@
     line-height: 17px;
 }
 
-/* Said in words on the tile as well as by the dimming: a dimmed picture
-   with no label is a picture that looks broken. Only the held ones
-   carry it. */
-/* A corner chip, not a band across the picture: the full-width strip
-   covered a third of an 84px tile and landed on the product itself. At
-   11px it also clears the type floor the detector holds. */
 .lc-images__held {
     position: absolute;
     right: 3px;
@@ -141,14 +102,6 @@
 
 .lc-images__item--held .lc-images__held { display: block; }
 
-/* The tile's own verbs. Cover is the edit this card exists for, and it is
-   the one a drag does worst on a phone: three tiles to a row means moving
-   a picture to the front is a cross-row drag, which the browser takes for
-   a scroll. One press does it instead, from a pointer or from the C key.
-
-   Both verbs are drawn on a coarse pointer and on focus, and both carry a
-   44px hit area through a ::before, so the control is 24px of paint and a
-   thumb's worth of target. */
 .lc-images__verbs {
     position: absolute;
     top: 3px;
@@ -186,7 +139,6 @@
     cursor: pointer;
 }
 
-/* The target, not the paint: 44px centred on a 24px control. */
 .lc-images__verb::before {
     content: '';
     position: absolute;
@@ -207,14 +159,9 @@
 
 .lc-images__verb[hidden] { display: none; }
 
-/* A held-back picture is dimmed, but its own controls are not: the rank,
-   the label and the way out stay readable so it can be arranged back. */
 .lc-images__item--held img { opacity: .45; }
 .lc-images--arrange .lc-images__item--held { opacity: 1; }
 
-/* Off is not gone: the picture stays in its place, greyed, and comes back
-   with one press. A store refuses a set it thinks is too long and only the
-   store knows that number, so this is how the seller answers it. */
 .lc-images--arrange .lc-images__item[data-off] img {
     opacity: .32;
     filter: grayscale(1);

@@ -1,44 +1,3 @@
-/* ============================================================================
- * Sales order form: /sales/orders/create and /sales/orders/{id}/edit.
- * ----------------------------------------------------------------------------
- * The behaviour is the one both pages already had, lifted out of two nearly
- * identical inline <script> blocks and reduced to one module. Nothing about
- * the posted shape changed: the same `products[i][...]` hidden inputs, the
- * same `currency_code` / `currency_rate` / `currency_id` / `total` fields, the
- * same "payment same as shipping" copy-on-submit.
- *
- * THE CURRENCY RULE, which everything here turns on
- * ------------------------------------------------
- * `currencies.exchange_rate` (and an order's stored `currency_value`) is
- * "units of the DEFAULT currency per 1 unit of this currency". PHP, the
- * default, is 1.0; USD is about 61.6. So:
- *
- *     order-currency figure = default-currency figure / rate
- *     default-currency figure = order-currency figure * rate
- *
- * `basePrice` / `baseCost` in the state below are ALWAYS the default-currency
- * figure, because that is what the server stores (OrderCurrencyService's
- * storage rule) and what the product catalog holds. Everything on screen and
- * everything posted is the order-currency figure derived from it, so switching
- * currency re-derives rather than re-converting, and the source number never
- * drifts.
- *
- * Two things this module deliberately does that the inline scripts did not:
- *
- *   1. The rate hint names the DEFAULT currency. The old line read
- *      `code + ' 1 = ' + selectedSymbol + ' ' + rate`, which rendered
- *      "USD 1 = $ 61.61" - a sentence that says one dollar is worth sixty-one
- *      dollars. The default currency's code and symbol are now handed in on
- *      the root element and the hint reads "1 USD = PHP 61.61".
- *   2. A foreign order shows the default-currency figure alongside the
- *      order-currency one on every line and on the total, because that pair
- *      is what actually gets stored (price/total and foreign_price/
- *      foreign_total). An operator typing $100 should be able to see the
- *      PHP number the row will carry before saving it.
- *
- * Every node is built with createElement + textContent. Nothing here writes
- * innerHTML, so a product name carrying markup is text and cannot inject.
- * ========================================================================= */
 (function () {
     'use strict';
 
@@ -52,7 +11,6 @@
     const defaultSymbol = root.dataset.defaultSymbol || '';
     const searchUrl = root.dataset.searchUrl || '';
 
-    // ---------------------------------------------------------------- helpers
     function el(tag, className, text) {
         const node = document.createElement(tag);
         if (className) node.className = className;
@@ -61,28 +19,14 @@
     }
 
     function money(symbol, amount) {
-        // The same shape the server prints: symbol, no space, thousands
-        // separated. It printed "₱ 5288.00" beside a "₱5,288.00" for years.
         return symbol + Number(amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    /**
-     * Round-half-up at 2dp, on the number BEFORE it feeds a further
-     * multiplication - not after. Multiplying a raw accumulated float
-     * (e.g. 116.74 * 3, which IEEE 754 stores as 350.21999999999997, not a
-     * clean 350.22) by a rate can land the product just under a rounding
-     * boundary and make a bare .toFixed(2) round the wrong way: qty 3 of a
-     * 6800 product at a 58.25 rate showed "PHP 20400.31" on screen while
-     * the server, working from the posted 350.22, stored 20400.3150 (which
-     * rounds to .32). Cleaning the multiplicand to cents first - the same
-     * number that actually gets posted - makes the display agree with
-     * what the server computes from that same posted figure.
-     */
+    // Round to cents before multiplying again, or the display disagrees with the server's rounding.
     function roundCents(amount) {
         return Math.round((Number(amount) || 0) * 100) / 100;
     }
 
-    // --------------------------------------------------------------- currency
     const currencySelect = document.getElementById('of-currency');
     const codeHidden = document.getElementById('of-currency-code');
     const idHidden = document.getElementById('of-currency-id');
@@ -100,24 +44,13 @@
         };
     }
 
-    /** Default-currency amount -> order-currency amount. */
     function toOrder(base) {
         const cur = selected();
         if (!cur.rate) return base;
         return base / cur.rate;
     }
 
-    /**
-     * The unit price actually posted, rounded once.
-     *
-     * The price field carries two decimals, so 6800 / 58.25 posts as 116.74,
-     * not 116.7381. Every figure derived from it has to use the SAME rounded
-     * number or the screen and the database disagree: the unrounded product
-     * showed a line total of 350.21 while the server, given 116.74, stored
-     * 350.22. Rounding once here and deriving the line total, the
-     * default-currency figure and the order total from it means what is on
-     * screen is exactly what gets written.
-     */
+    // Use the posted, 2dp unit price for every derived figure so the screen matches what is stored.
     function unitPrice(item) {
         return Math.round(toOrder(item.basePrice) * 100) / 100;
     }
@@ -129,27 +62,13 @@
         idHidden.value = cur.id;
 
         if (cur.isDefault) {
-            // OrderCurrencyService::resolve() forces rate = 1 for the default
-            // currency and discards any override, so the field reflects that
-            // instead of offering a number the server will throw away.
             rateInput.value = 1;
         } else if (!preserve) {
-            // The operator just switched currency: seed with that currency's
-            // own stored rate rather than whatever the previous one left.
             rateInput.value = parseFloat(currencySelect.options[currencySelect.selectedIndex].dataset.rate) || 1;
         }
 
         rateInput.readOnly = cur.isDefault;
 
-        // Re-read rather than reuse `cur`: the branches above can just have
-        // written a fresh value into rateInput.value (the switch-currency
-        // case), and `cur` was captured before that write, so it would name
-        // the currency this replaced with its stale rate. `effective.rate`
-        // is what the hint and every total on this page agree on: falls
-        // back to the option's own stored rate when the field is empty or
-        // unparsable mid-edit (rather than printing "1 USD = PHP 0.00" the
-        // moment the field is cleared), and reflects a currency switch
-        // immediately (rather than the rate the switch just replaced).
         const effective = selected();
 
         rateHint.textContent = effective.isDefault
@@ -167,11 +86,8 @@
         render();
     });
 
-    // Preserve whatever the page rendered into the field (the order's own
-    // stored rate on edit, the feed rate on create) instead of clobbering it.
     syncRate(true);
 
-    // ------------------------------------------------- payment same as shipping
     const sameBox = document.getElementById('of-same');
     const payBlock = document.getElementById('of-payment');
 
@@ -191,9 +107,6 @@
         });
     });
 
-    // ------------------------------------------------------------- line items
-    // <x-ui.table> owns the <tbody>, so the empty row's parent is the handle.
-    // Captured once, before the first render detaches that row.
     const emptyRow = document.getElementById('of-empty');
     const body = emptyRow.parentNode;
     const totalOut = document.getElementById('of-total');
@@ -214,11 +127,6 @@
         lines.forEach(function (item) {
             total += unitPrice(item) * item.qty;
         });
-        // Clean to cents BEFORE it feeds totalInput or the base conversion:
-        // see roundCents()'s comment. totalInput.value carries this exact
-        // rounded figure, which is what OrderController actually posts and
-        // stores foreign_total as, so the base-currency line below is
-        // computed from the same number the server will use.
         total = roundCents(total);
 
         totalOut.textContent = money(cur.symbol, total);
@@ -267,7 +175,6 @@
 
             const tr = document.createElement('tr');
 
-            // Product, and the hidden inputs that ARE the wire.
             const tdName = el('td', 'of-line__name');
             tdName.dataset.label = 'Product';
             tdName.appendChild(el('span', 'of-line__title', label));
@@ -289,11 +196,6 @@
                 tdName.appendChild(hidden(idx, 'option_name', item.option_name || ''));
                 tdName.appendChild(hidden(idx, 'option_value', item.option_value || ''));
             }
-            // Variation and SKU under the name, the way the order view's item
-            // rows carry them, rather than two columns of their own: seven
-            // columns with three inputs could not fit the 618px work column
-            // at 1280 and the product name was what gave, one word per line
-            // (critique, 2026-08-27).
             const meta = el('span', 'of-line__meta');
             if (item.option_value) {
                 meta.appendChild(el('span', 'of-line__var', item.option_name + ': ' + item.option_value));
@@ -378,8 +280,6 @@
         if (target.classList.contains('of-line__price')) {
             const idx = parseInt(target.dataset.idx, 10);
             const typed = parseFloat(target.value) || 0;
-            // The operator edited the ORDER-currency figure. Convert it back
-            // so basePrice stays the rate-independent source of truth.
             lines[idx].basePrice = typed * cur.rate;
 
             const row = target.closest('tr');
@@ -415,7 +315,6 @@
         render();
     });
 
-    // ----------------------------------------------------------- product picker
     const picker = document.getElementById('of-picker');
     const openBtn = document.getElementById('of-add');
     const searchInput = document.getElementById('of-search');
@@ -456,9 +355,6 @@
         picker.classList.remove('active');
         picked = null;
         if (timer) window.clearTimeout(timer);
-        // Focus goes back to the button that opened the picker; it used to
-        // land on the picker's own hidden search box, so the next Tab
-        // started the page over from "Skip to content".
         openBtn.focus();
     }
 
@@ -636,8 +532,6 @@
             item.option_value = option.value_name;
         }
 
-        // Same product, same SKU, same variation is the same line: add units
-        // rather than a duplicate row.
         const existing = lines.findIndex(function (line) {
             return line.product_id === item.product_id
                 && line.sku === item.sku
@@ -665,14 +559,7 @@
 })();
 
 
-/* ------------------------------------------------------------------
-   The status field says what the chosen status does to stock, in units
-   of the lines on the page, the moment it is picked (critique,
-   2026-08-27). Same sentence the order view's panel prints.
-   ------------------------------------------------------------------ */
 document.addEventListener('DOMContentLoaded', function () {
-    // Scoped to the form page: the order view carries the same attributes
-    // for its own script, and this one ran there too and overwrote its note.
     const select = document.querySelector('.of-page [data-status-select]');
     const note = document.querySelector('.of-page [data-status-note]');
     if (!select || !note) return;
@@ -693,7 +580,6 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
         const units = unitsOnPage();
-        // Nothing on the order yet: nothing to say about stock.
         if (units === 0) { note.hidden = true; note.textContent = ''; return; }
         note.hidden = false;
         note.textContent = 'Saving with ' + opt.textContent.trim() + (willSubtract ? ' deducts ' : ' restores ') + units + (units === 1 ? ' unit' : ' units') + ' of stock.';
@@ -703,9 +589,6 @@ document.addEventListener('DOMContentLoaded', function () {
     document.addEventListener('input', function (e) { if (e.target && e.target.classList.contains('of-line__qty')) describe(); });
     describe();
 
-    // A new order with nothing on it yet: the first thing to do is add a
-    // product, so the button that does it holds focus and Enter opens the
-    // picker.
     const addBtn = document.getElementById('of-add');
     const hasLines = document.querySelector('.of-line__qty');
     if (addBtn && !hasLines && !document.querySelector('.fm-note--fail')) addBtn.focus();

@@ -7,12 +7,6 @@ use Extensions\venta\Models\VentaSetting;
 use Extensions\venta\Services\Venta\VentaStockPricePush;
 use Illuminate\Console\Command;
 
-/**
- * The "Push Price" automation (the owner, 2026-09-07). The old
- * stock-and-price row sent stock only; price is its own row now, on every
- * channel. Every linked product on the store, or on every enabled store,
- * through the same sender the Push price button uses.
- */
 class VentaPushPrice extends Command implements \App\Integrations\Contracts\SteppableAutomation
 {
     protected $signature = 'venta:push-price
@@ -49,7 +43,6 @@ class VentaPushPrice extends Command implements \App\Integrations\Contracts\Step
         return 0;
     }
 
-    /** Run now walks this push ten products per request (SteppableAutomation, 2026-09-07). */
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
         return ['label' => 'products', 'units' => \Extensions\venta\Services\Venta\VentaPushSteps::units($job)];

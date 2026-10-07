@@ -5,17 +5,6 @@ namespace Tests\Feature;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * Minor fix (final whole-branch review): orders/index.blade.php and
- * dashboard/index.blade.php both render <x-money :foreign="$o->foreign_total"
- * :foreign-code="$o->currency_code" />. A foreign order whose foreign_total
- * is still NULL (not yet normalized, or synced in the gap before a rate was
- * recorded) used to render as a bare, unlabelled PHP figure - identical to a
- * genuine PHP order - unlike show.blade.php, which shows a pending notice
- * for the exact same state. The fix teaches the shared <x-money> component
- * itself to distinguish the two cases, so both list pages get the fix at
- * once.
- */
 class MoneyPendingIndicatorTest extends TestCase
 {
     use RefreshDatabase;

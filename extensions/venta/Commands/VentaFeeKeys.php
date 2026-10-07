@@ -6,28 +6,12 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * WHAT DOES THE STOREFRONT ACTUALLY CALL ITS FEES? Read only.
- *
- * The ERP maps a Venta order's payment and delivery fee onto the core
- * order so every report can read them, and it has to know the storefront's
- * own field names to do it. Rather than ask the owner to paste a payload and
- * guess from one example, this reads the payloads already stored on his
- * orders and prints every key that looks like money for a fee.
- *
- * It calls nothing and writes nothing: venta_orders.raw is the storefront's
- * own answer, kept from the last sync.
- *
- * A key printed here that is not in VentaExtension::feeBucketsForOrder is a
- * fee the reports are not counting.
- */
 class VentaFeeKeys extends Command
 {
     protected $signature = 'venta:fee-keys {--orders=25 : how many recent orders to read}';
 
     protected $description = 'Read-only: print the fee-shaped fields the Venta storefront actually sends, so the mapping can name them exactly';
 
-    /** What a fee tends to be called, in any storefront. */
     private const LOOKS_LIKE = ['fee', 'charge', 'ship', 'deliver', 'payment', 'commission', 'cost', 'discount'];
 
     public function handle(): int
@@ -47,9 +31,6 @@ class VentaFeeKeys extends Command
             return self::SUCCESS;
         }
 
-        /* Every path, with an example of what was there. A key that appears
-           on one order in twenty is still the key, so the count is printed
-           beside it rather than the rarest being dropped. */
         $found = [];
         foreach ($rows as $raw) {
             $payload = is_string($raw) ? json_decode($raw, true) : (array) $raw;
@@ -63,8 +44,6 @@ class VentaFeeKeys extends Command
                         $found[$path] ??= ['n' => 0, 'sample' => $value];
                         $found[$path]['n']++;
                         if (($found[$path]['sample'] === null || $found[$path]['sample'] === '' || (float) $found[$path]['sample'] == 0.0) && $value !== null) {
-                            // Prefer an example that is not zero: a column of
-                            // zeroes says nothing about what the field means.
                             $found[$path]['sample'] = $value;
                         }
                         break;
@@ -94,15 +73,12 @@ class VentaFeeKeys extends Command
         return self::SUCCESS;
     }
 
-    /** @return array<string, mixed> path => value, scalars only */
     private function flatten(array $data, string $prefix = ''): array
     {
         $out = [];
         foreach ($data as $key => $value) {
             $path = $prefix === '' ? (string) $key : $prefix . '.' . $key;
             if (is_array($value)) {
-                // Lists of line items would drown the answer; their shape is
-                // the same for every row, so only the first is walked.
                 $out += $this->flatten(array_is_list($value) ? (array) ($value[0] ?? []) : $value, $path);
             } else {
                 $out[$path] = $value;

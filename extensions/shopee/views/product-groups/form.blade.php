@@ -2,41 +2,10 @@
 @section('title', ($mode === 'create' ? 'Add' : 'Edit') . ' Shopee Product group')
 @section('breadcrumb', $mode === 'create' ? 'New Product group' : $group->name)
 
-{{-- This page shows its own validation summary (the fm-note below) and marks
-     the offending fields inline, so partials/legacy-page-contract skips its
-     bullet list of every message rather than stacking a second red box on
-     top of this one. --}}
 @section('own-errors', true)
 
-{{-- Round F Task 1. The last of the channel deep pages: rebuilt on the shared
-     fm- form anatomy (components/form-page.css) and the gf- product picker
-     (pages/group-form.css) that Venta's identical form already used, with the
-     behaviour moved out of an inline <script> into resources/js/pages/
-     group-form.js.
-
-     The wire, checked field by field against
-     ShopeeProductGroupController::store()/update():
-
-       name, shopee_category_id, shopee_brand_id, logistic_ids[],
-       markup_percent, markup_fixed, attributes[<key>]
-
-     and the endpoints behind the page (search-categories, category lookup,
-     refresh-categories, brands-for-category, fetch-attributes) are called
-     with the same verbs, the same parameters and the same headers.
-
-     No product list since #201 (the owner, 2026-09-05): this form is the
-     group's own settings only. Products join and leave the group on its
-     products page, through the Add products panel over THIS STORE's list;
-     the whole-catalogue dual list that used to sit below the attributes
-     went with product_ids[] and search-products. --}}
 @section('content')
 @php
-    // The CREATE render is manage-tier, but the EDIT render is registered in
-    // the read product group (extensions/shopee/routes/web.php), so a view_shopee
-    // operator can open this page on an existing product group. Every write behind it
-    // is manage-only. The route middleware is the real gate; this flag stops
-    // the page offering controls that would 403, which the previous version
-    // did not do at all: it hardcoded the manage tier on.
     $canManageShopee = auth()->user()?->hasPermission('manage_shopee/product_group') ?? false;
 
     $selectedCategoryId = (int) old('shopee_category_id', $group->shopee_category_id ?? 0);
@@ -55,8 +24,6 @@
       data-guard-unsaved>
     @csrf
     @if($mode === 'create')
-        {{-- Back to the page that sent you here: the store's list, or the
-             groups list. Only a local path is ever followed. --}}
         <input type="hidden" name="_return" value="{{ \App\Support\BackTo::capture() }}">
     @endif
     @if($mode === 'edit')
@@ -108,17 +75,6 @@
                 </div>
             </section>
 
-            {{-- ------------------------------------------------------------
-                 Shopee mapping.
-
-                 The category picker is a combobox over Shopee's own leaf
-                 categories, searched on the server because the cache holds
-                 tens of thousands of them. The hidden input beside it is what
-                 submits; the visible box is the display. Picking one fires a
-                 change on the hidden input, which is what the brand loader
-                 and the attribute fetch below listen for. That coupling is
-                 the pre-redesign behaviour, unchanged.
-                 ------------------------------------------------------------ --}}
             <section class="fm-section">
                 <div class="fm-section__head">
                     <h2 class="fm-section__title">Category and brand</h2>
@@ -148,9 +104,6 @@
                                 ? (string) (optional($initialBrands->firstWhere('brand_id', $selectedBrandId))->name ?? '')
                                 : '';
                         @endphp
-                        {{-- The same searchable combobox the category uses,
-                             dependent on it (2026-08-24; the plain select
-                             swallowed whole brand lists). --}}
                         <div class="gf-combo"
                              data-category-combo
                              data-combo-mode="remote"
@@ -170,8 +123,6 @@
                                             :disabled="!$canManageShopee" />
                                 <div class="gf-combo__results" data-combo-results role="listbox"
                                      aria-label="Shopee brands" hidden></div>
-                                {{-- A first-time brand list is read from Shopee a
-                                     page at a time; this says so while it comes in. --}}
                                 <div class="gf-combo__progress" data-combo-progress role="status" aria-live="polite" hidden>
                                     <span class="gf-combo__bar" aria-hidden="true"></span>
                                     <span data-combo-progress-text></span>
@@ -183,19 +134,6 @@
                 </div>
             </section>
 
-            {{-- ------------------------------------------------------------
-                 Category attributes.
-
-                 Rendered inline when the product group already has a category, and
-                 replaced wholesale when the category changes: the endpoint
-                 answers with the same Blade partial this @include renders, so
-                 both paths land looking identical.
-
-                 The section carries `hidden` rather than an inline
-                 display:none. resources/css/pages/group-form.css does not set
-                 a display on .fm-section, so the user agent's [hidden] rule
-                 wins here; the JS toggles the same attribute.
-                 ------------------------------------------------------------ --}}
             <section class="fm-section"
                      data-attributes-fetch
                      data-attributes-url="{{ route('ext.shopee.product-groups.fetchAttributes') }}"
@@ -217,8 +155,6 @@
                 </div>
             </section>
 
-            {{-- What only Shopee has, in one place at the end of the main
-                 column (the owner, 2026-09-07, the one group shape). --}}
             <section class="fm-section">
                 <div class="fm-section__head">
                     <h2 class="fm-section__title">Only on Shopee</h2>

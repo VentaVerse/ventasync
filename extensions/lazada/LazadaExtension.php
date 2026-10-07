@@ -56,13 +56,8 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
     {
         parent::boot();
 
-        // Multi-store (the owner 2026-09-05): let every route() call fill {store}
-        // even outside a Lazada store request (hub, fulfilment tabs, the OAuth
-        // callback view, test code). ResolveLazadaStore overrides per-request.
         LazadaSetting::syncUrlDefault();
 
-        // Registered in every runtime, not only the console: the Automations
-        // tab's Run now calls Artisan inside a web request (live, 2026-09-07).
         $this->commands([
             \Extensions\lazada\Commands\LazadaPushStock::class,
             \Extensions\lazada\Commands\LazadaPushPrice::class,
@@ -75,8 +70,6 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
 
         $this->app->make(IntegrationRegistry::class)->register($this);
 
-        // Payouts (the owner, 2026-10-01): the report, the dashboard and the
-        // store's own page all list Lazada's switched-on stores from here.
         $this->app->make(\App\Services\Payouts\PayoutRegistry::class)->register(new \App\Services\Payouts\PayoutChannel(
             id: 'lazada',
             name: 'Lazada',
@@ -88,7 +81,6 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
         ));
     }
 
-    /** A deleted catalog variation is forgotten here too (VariationForgetter, 2026-09-07). */
     public function forgetVariations(int $productId, array $skus): void
     {
         \Extensions\lazada\Services\Lazada\LazadaVariationForgetter::forget($productId, $skus);
@@ -101,11 +93,6 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
 
     public function integrationCards(): array
     {
-        /* Multi-store (the owner 2026-09-05): the converted shape Shopee, Venta,
-         * OpenCart and Shopify wear. One card for the channel; one StoreLink
-         * per settings row with the store's own menu, every item carrying its
-         * {store}. The card-level menu keeps only Settings. A store still
-         * being configured stays visible as setup_pending. */
         $stores = [];
         foreach ($this->allStores() as $store) {
             $p = ['store' => (int) $store->id];
@@ -142,18 +129,7 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
                 tagline: 'Lazada marketplace integration. Products, orders, returns.',
                 icon: 'lazada',
                 accent: '#0f146d',
-                // Card + menu use the VIEW tier so read-only operators still
-                // see Lazada in the Integrations hub and contextual sidebar.
-                // The dashboard's own derived key (lazada/dashboard): the card
-                // decides who sees this channel in the hub and the nav, and
-                // that must be the same answer the dashboard's door gives.
                 permission: 'view_lazada/dashboard',
-                // No card-level menu: unlike Shopee (whose /lazada-equivalent
-                // is a storeless OAuth landing) or OpenCart (a storeless
-                // Reviews page), Lazada has no channel-global page - every
-                // settings route now needs a {store}. The per-store StoreLinks
-                // below carry Settings, so a card-level link here would only
-                // be a link that throws the moment no store is enabled.
                 menu: [],
                 stores: $stores,
                 addStore: new \App\Integrations\AddStoreAction(
@@ -165,13 +141,6 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
         ];
     }
 
-    /**
-     * Every settings row, enabled or not - the Integrations UI keeps a
-     * freshly-created, still-disabled store visible so the operator can finish
-     * configuring it.
-     *
-     * @return iterable<\Extensions\lazada\Models\LazadaSetting>
-     */
     protected function allStores(): iterable
     {
         try {
@@ -187,11 +156,6 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
 
     public function orderTabs(): array
     {
-        /* Multi-store (Lazada #194 parity with Shopee S4): one tab per
-         * enabled store, counters scoped to the store's own rows. With a
-         * single store the tab keeps the channel's name - the store names
-         * take over the moment a second store exists and the name has to
-         * distinguish. */
         if (! Schema::hasTable('lazada_settings')) {
             return [];
         }
@@ -220,10 +184,6 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
                 icon: 'lazada',
                 accent: '#0f146d',
                 routeName: 'ext.lazada.orders.index',
-                // OrderTab visibility uses view tier so a Lazada Orders Viewer
-                // still sees the marketplace's orders tab on the unified Orders
-                // workspace. The destination route GETs are read-tier gated,
-                // and per-action write buttons are gated separately in the view.
                 permission: 'view_lazada/order',
                 routeParams: ['store' => $storeId, 'tab' => 'TO_SHIP'],
                 unprocessedCounter: function () use ($storeId) {
@@ -232,26 +192,9 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
                     }
                     return LazadaOrder::query()
                         ->where('lazada_setting_id', $storeId)
-                    /* THE SAME STATUSES THE "To Ship" TAB GROUPS.
-                     *
-                     * This counted only the first sub-step, so the head
-                     * sentence and the tab strip 40px below it disagreed on
-                     * every channel: "Nothing waiting" over "To Ship 1",
-                     * because the one order sat at the second step. An order
-                     * awaiting collection is still an order the seller is
-                     * holding - it is waiting on them, which is the only
-                     * question this figure exists to answer.
-                     *
-                     * Kept identical to the tab map in the orders panel. If
-                     * one moves the other has to, and FoundationTest asserts
-                     * they still agree. */
                         ->whereIn('status', ['pending', 'repacked', 'packed', 'ready_to_ship'])
                         ->count();
                 },
-                /* The steps while the seller holds the parcel, each counted alone:
-                 * the fulfilment card leads with To Pack and prints To Handover beside
-                 * it, which the staff count against the shelf. The statuses are the
-                 * orders panel's own sub-tab map, so the card and the tab agree. */
                 stages: [
                     ['key' => 'to_pack', 'label' => 'to pack', 'counter' => fn () => $lazadaStatusCount(['pending', 'repacked'])],
                     ['key' => 'to_arrange', 'label' => 'to arrange', 'counter' => fn () => $lazadaStatusCount(['packed'])],
@@ -335,12 +278,6 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
             );
     }
 
-    /**
-     * Translate a Lazada seller_sku into the catalog product mapping.
-     * Used by core's OrderStockService when adjusting stock for orders that
-     * reference a Lazada-specific SKU (variant maps to a catalog product +
-     * optionally an option-value row).
-     */
     public function resolveCatalogProduct(string $sku): ?array
     {
         if ($sku === '' || !Schema::hasTable('lazada_product_variants')) {
@@ -363,10 +300,6 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
         ];
     }
 
-    /**
-     * React to a SKU change on a catalog product by updating the Lazada
-     * variant table and pushing the new seller_sku to the Lazada API.
-     */
     public function pushSkuChanges(int $productId, array $skuChanges): ?string
     {
         $listing = LazadaProduct::where('product_id', $productId)->first();
@@ -425,7 +358,6 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
                 ]);
             }
         } catch (\Throwable) {
-            // Non-critical — listing sync metadata is best-effort
         }
 
         return empty($results) ? null : 'Lazada: ' . implode('; ', $results);
@@ -492,10 +424,6 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
         }
     }
 
-    /**
-     * Lazada widgets for the core dashboard: total products, pending orders,
-     * and the sync-status row pulled from the settings table.
-     */
     public function dashboardData(): array
     {
         $data = [
@@ -510,7 +438,6 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
 
         if (Schema::hasTable('lazada_orders')) {
             $data['lazadaPending'] = (int) DB::table('lazada_orders')
-                // To Ship = to pack + to handover, the same set unprocessedCount() sums.
                 ->whereIn('status', ['pending', 'repacked', 'packed', 'ready_to_ship'])
                 ->count();
         }
@@ -518,21 +445,13 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
         if (Schema::hasTable('lazada_settings')) {
             $lzSetting = LazadaSetting::defaultStore();
             if ($lzSetting) {
-                /* The listing troubles ride the chip (Phase C, #184), the
-                 * same two numbers Shopee's carries. A failure here must
-                 * not take the dashboard down. */
                 $flags = null;
                 $attention = 0;
                 try {
                     $sum = app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)->summary();
                     $attention = (int) $sum['attention'];
-                    /* Each figure carries where it goes (#240): the Listings page
-                       filtered by the same query that counted it. The words are
-                       written once, in App\Integrations\Listings\ListingTrouble,
-                       so the chip and the page it lands on say the same thing. */
                     $flags = \App\Integrations\Listings\ListingTrouble::figures($sum, fn (string $bucket) => route('ext.lazada.products.index', ['store' => $lzSetting->id, 'state' => $bucket]));
                 } catch (\Throwable) {
-                    // the chip simply carries no flags line
                 }
 
                 $data['lazadaSyncStatus'] = (object) [
@@ -547,21 +466,11 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
         }
 
 
-        // Per-store figures ride alongside the channel-level ones.
         $data += $this->perStoreDashboardFigures();
 
         return $data;
     }
 
-    /**
-     * Per-store dashboard figures (#194, 2026-09-07): with two stores of one
-     * channel the strip used to show one blended row on both, because the
-     * contribution was keyed by channel. Each store now reports its own
-     * waiting count and its own freshness under its tab id ("lazada:2"),
-     * which the dashboard prefers over the channel-level key.
-     *
-     * @return array{channelPending: array<string, int>, channelSyncStatuses: array<string, object>}
-     */
     private function perStoreDashboardFigures(): array
     {
         $pending = [];
@@ -575,12 +484,9 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
             if (Schema::hasTable('lazada_orders')) {
                 $pending[$key] = (int) DB::table('lazada_orders')
                     ->where('lazada_setting_id', $store->id)
-                    // To Ship = to pack + to handover, matching unprocessedCount().
                     ->whereIn('status', ['pending', 'repacked', 'packed', 'ready_to_ship'])
                     ->count();
             }
-            /* The listing engine scopes to the bound store, so each store's
-             * flags are its own; a failure must not take the strip down. */
             $flags = null;
             $attention = 0;
             $previous = app()->bound('lazada.route-store') ? app('lazada.route-store') : null;
@@ -588,13 +494,8 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
                 app()->instance('lazada.route-store', $store);
                 $sum = app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)->summary();
                 $attention = (int) $sum['attention'];
-                /* Each figure carries where it goes (#240): the Listings page
-                   filtered by the same query that counted it. The words are
-                   written once, in App\Integrations\Listings\ListingTrouble,
-                   so the chip and the page it lands on say the same thing. */
                 $flags = \App\Integrations\Listings\ListingTrouble::figures($sum, fn (string $bucket) => route('ext.lazada.products.index', ['store' => $store->id, 'state' => $bucket]));
             } catch (\Throwable) {
-                // this store's chip simply carries no flags line
             } finally {
                 if ($previous !== null) {
                     app()->instance('lazada.route-store', $previous);
@@ -616,11 +517,6 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
         return ['channelPending' => $pending, 'channelSyncStatuses' => $statuses];
     }
 
-    /**
-     * Lazada catalog orders' product images live in lazada_order_products.
-     * Look up the Lazada order by catalog_order_id, then map each product
-     * back to its catalog order_product_id via SKU.
-     */
     public function imagesForCatalogOrders(array $catalogOrderIds): array
     {
         if (empty($catalogOrderIds) || !Schema::hasTable('lazada_orders')) {
@@ -636,10 +532,6 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
             return [];
         }
 
-        // We need to walk catalog order_products to associate by SKU. The
-        // caller (core OrderController) loads orders eager with products,
-        // but the contract here only takes catalog_order_ids. Read the
-        // catalog order_products table directly.
         $pfx = (string) config('catalog.prefix');
         $opTable = $pfx . 'order_product';
         if (!Schema::hasTable($opTable)) {
@@ -670,18 +562,6 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
         return $result;
     }
 
-    /**
-     * Lazada fees come from the lazada_orders.fees JSON column. Returns the
-     * commission / payment fee / shipping cost / negative other_fees as a
-     * structured breakdown.
-     */
-    /**
-     * What Lazada charged for this order, in core's four buckets. Its
-     * delivery charge is shipping_service_cost, which sat in the Fees
-     * column until 2026-09-08; other_fees is a map and only its NEGATIVE
-     * entries are charges - the positives are rebates and were never
-     * counted.
-     */
     public function saleLinesForOrder(int $coreOrderId, float $itemsSubtotal, float $shipping): ?array
     {
         $order = \Extensions\lazada\Models\LazadaOrder::query()->withoutGlobalScope('lazadaStore')->where('catalog_order_id', $coreOrderId)->first();
@@ -778,8 +658,6 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
         return ['total' => round($total, 2), 'items' => $items, 'source' => 'lazada'];
     }
 
-    // ── Mobile API ─────────────────────────────────────────────
-
     public function mobilePlatformSlug(): string
     {
         return 'lazada';
@@ -794,7 +672,6 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
             $pendingSub = '';
         }
 
-        // ?store= narrows the list to one store; without it, the default store's region as before.
         $storeId = $request->integer('store') ?: null;
         if ($storeId !== null) {
             $base = LazadaOrder::query()->where('lazada_setting_id', $storeId);
@@ -935,18 +812,8 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
         return app(\Extensions\lazada\Services\LazadaAppFulfilment::class)->handle($action, $id, $request);
     }
 
-    // ── Layout banner + source label ───────────────────────────
-
     public function layoutBanners(): array
     {
-        /* Credential state is NOT answered here any more. It read
-           settings.expires_at directly - the LIVE column - while these
-           installs select their credential by `mode`, so a sandbox channel
-           with a healthy token was announced as expired from a leftover live
-           date. partials/integration-banners.blade.php asks ChannelWorkspace
-           instead, which is the same object the card, the head and the
-           channel sidebar read, so the four cannot disagree. This method
-           keeps operational notices only. */
         return [];
     }
 
@@ -955,10 +822,6 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
         return $source === 'lazada' ? 'Lazada' : null;
     }
 
-    /**
-     * Per-store reports (the owner, 2026-09-05): every store as a filter
-     * choice, paused ones included. A deleted store is simply gone.
-     */
     public function availableStoreOptions(): array
     {
         if (! \Illuminate\Support\Facades\Schema::hasTable('lazada_settings')) {
@@ -986,15 +849,6 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
         ]];
     }
 
-    // ── Credential reveal ──────────────────────────────────────
-
-    /**
-     * The two secrets an operator has a real reason to read back, and nothing
-     * else. App KEYS are not here: they are identifiers, they already render
-     * in the clear, and adding them would widen the allowlist for no gain.
-     *
-     * @return array<string, string>
-     */
     use RevealsCredentials;
 
     protected function credentialSettingsModel(): string
@@ -1017,17 +871,12 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
         return 'manage_lazada/settings';
     }
 
-    /**
-     * Phase C (#184): the one answer to "where does this product stand on
-     * Lazada?", for core surfaces that render listing state.
-     */
     public function listingStates(array $productIds): array
     {
         return app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)->forProducts($productIds);
     }
 
 
-    /** Every catalog product Lazada currently lists (#197). */
     public function listedProductIds(): array
     {
         if (! \Illuminate\Support\Facades\Schema::hasTable('lazada_products')) {
@@ -1042,24 +891,19 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
     public function listingUrls(array $productIds): array
     {
         $productIds = array_values(array_unique(array_map('intval', $productIds)));
-        // The listing page is keyed by the ROW, so resolve each product's
-        // preferred row (the linked one, else the newest) in one query.
         $rows = LazadaProduct::query()
             ->whereIn('product_id', $productIds ?: [0])
             ->orderByRaw("(lazada_item_id IS NOT NULL AND lazada_item_id <> '' AND unlinked_at IS NULL) asc")
             ->orderBy('id')
-            ->pluck('id', 'product_id'); // later rows overwrite earlier: preferred wins
+            ->pluck('id', 'product_id');
 
         $out = [];
         foreach ($productIds as $pid) {
-            // The product id is the key (2026-09-07): one page whether a row exists yet or not.
             $out[$pid] = route('ext.lazada.products.edit', $pid);
         }
 
         return $out;
     }
-
-    // ── A catalog delete forgets the product on this channel, inside VentaSync only (ProductRemover, 2026-09-07) ──
 
     public function productPresence(array $productIds): array
     {
@@ -1076,10 +920,6 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
         return app(\Extensions\lazada\Services\Lazada\LazadaProductRemover::class)->stranded();
     }
 
-    /**
-     * Lazada's automations. Its commands work across the channel's stores
-     * themselves, so there is one set for the channel.
-     */
     public function automations(): array
     {
         return [

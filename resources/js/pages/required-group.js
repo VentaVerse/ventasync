@@ -1,30 +1,3 @@
-/* "Anything that is required = null should not save as well." (the owner,
- * 2026-09-09)
- *
- * A plain <input required> covers a single box. It covers neither of the
- * other two shapes a listing page marks with an asterisk:
- *
- *   - a SET of checkboxes where at least one must be ticked (Shopee's
- *     couriers). `required` on a checkbox demands THAT box, not one of
- *     the group, so it is the wrong constraint rather than a missing one.
- *   - a picker whose answer lives in a hidden input, with an escape hatch
- *     beside it (Lazada's brand, satisfied either by a matched brand id or
- *     by pressing No brand). A hidden control cannot be validated at all -
- *     the browser refuses the submit and shows nothing.
- *
- * Both are the same problem the category combo has, so both get the same
- * answer: work out whether the requirement is MET from the real values,
- * and hang the browser's own bubble on a control that can take focus.
- *
- *   data-must-pick="the sentence"        on the wrapper; the message shown
- *   data-must-pick-value="<selector>"    optional: the input holding the answer
- *   data-must-pick-unless="<selector>"   optional: a flag that satisfies it anyway
- *
- * With no value selector the wrapper is read as a checkbox set: ticked is
- * filled. A wrapper with nothing focusable inside it is left alone - an
- * empty courier list is not something the operator can fix by being
- * refused.
- */
 (function () {
     function truthy(el) {
         if (!el) return false;
@@ -52,8 +25,6 @@
 
         box.addEventListener('change', sync);
         box.addEventListener('input', sync);
-        /* A button inside the wrapper (No brand) writes the hidden flag in
-           its own handler; this runs after it rather than racing it. */
         box.addEventListener('click', function () { window.setTimeout(sync, 0); });
 
         sync();

@@ -1,36 +1,4 @@
-/*
- * Product-group Products pages (Venta and OpenCart).
- *
- * Round C Task 3 rebuilt both on the shared cc- list anatomy and took them out
- * of the .x-legacy boundary. Their behaviour was an inline <script> in the
- * Blade; this project does not put behaviour in Blade.
- *
- * Almost none of it is new here. The bulk bar, the id injection and the
- * "talking to the marketplace" overlay are the same objects Shopee's and
- * Lazada's listings pages already have, so this file calls
- * ./channel-listings.js with these two channels' values rather than carrying a
- * third copy. The select-all box, the ticked count and the bar's visibility
- * are Alpine's job in the view, exactly as they are there.
- *
- * What is genuinely new is the "add a product by name" search, which those two
- * pages do not have: a GET to the group's own search-products endpoint, a
- * result list, and one POST carrying `ids[]` into a form that is already on
- * the page. Both channels use the same shape, so it is configured by data-
- * attribute rather than written twice.
- *
- * SECURITY. Every result row is createElement + textContent. Both originals
- * already built these rows that way, and this keeps it: the search endpoint
- * returns catalog product names, which are operator-entered strings.
- *
- * The wire is unchanged: the same `ids[]` field, the same search endpoint and
- * two-character minimum, the same add-products POST.
- */
-
 import { initChannelListings } from './channel-listings';
-
-/* ------------------------------------------------------------------
-   Add a product by name.
-   ------------------------------------------------------------------ */
 
 function initManualAdd(section) {
     const searchUrl = section.getAttribute('data-search-url');
@@ -100,8 +68,6 @@ function initManualAdd(section) {
             box.className = 'cc-check';
             box.name = 'ids[]';
             box.value = String(item.product_id);
-            // The form attribute is what lets a control outside a <form>
-            // submit with it. Same mechanism the pre-redesign page used.
             box.setAttribute('form', formId);
             box.setAttribute('data-manual-check', '');
             box.setAttribute('aria-label', 'Add ' + (item.name || 'product ' + item.product_id));
@@ -109,9 +75,6 @@ function initManualAdd(section) {
             check.appendChild(box);
             tr.appendChild(check);
 
-            /* One product, one group (cleanup point 3): a result another
-               group already owns is shown, never hidden - read-only, its
-               owner named, with Move here as the deliberate transfer. */
             const ownedElsewhere = item.group_id && Number(item.group_id) !== groupId;
             if (ownedElsewhere) {
                 box.disabled = true;
@@ -170,10 +133,6 @@ function initManualAdd(section) {
             price.className = 'cc-col-price x-td-num';
             const priceValue = document.createElement('span');
             priceValue.className = 'x-num';
-            // The endpoint returns a bare decimal. The currency symbol is
-            // never hardcoded anywhere in this project, and there is nothing
-            // here that can resolve it, so the figure is shown unlabelled
-            // rather than with a guessed symbol in front of it.
             priceValue.textContent = item.price ? Number(item.price).toFixed(2) : '0.00';
             price.appendChild(priceValue);
             tr.appendChild(price);
@@ -214,7 +173,6 @@ function initManualAdd(section) {
     if (go) go.addEventListener('click', search);
 
     input.addEventListener('keydown', function (e) {
-        // This control sits beside forms, so a bare Enter must not submit one.
         if (e.key === 'Enter') { e.preventDefault(); search(); }
     });
 
@@ -230,15 +188,7 @@ function initManualAdd(section) {
     }
 }
 
-/* ------------------------------------------------------------------
-   Bind
-   ------------------------------------------------------------------ */
-
 document.addEventListener('DOMContentLoaded', function () {
-    // Every channel posts `ids[]` and keys on the catalog product id, so
-    // the only per-channel values are the overlay element and the wording.
-    // Round F Task 1 added the last three; each is inert unless its own
-    // overlay is on the page, so this list costs nothing everywhere else.
     [
         ['#venta-group-progress', 'Venta'],
         ['#opencart-group-progress', 'OpenCart'],

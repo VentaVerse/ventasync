@@ -4,11 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Each store keeps its own categories, so a listing may pick one of its
- * store's categories the way Shopee, Lazada and TikTok listings do. Blank
- * follows the product group's category.
- */
 return new class extends Migration
 {
     public function up(): void

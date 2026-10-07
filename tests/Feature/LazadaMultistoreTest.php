@@ -7,15 +7,6 @@ use Extensions\lazada\Models\LazadaSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * Multi-store Lazada (the owner 2026-09-05): the same promotion Shopee went
- * through in #194, held to the same bar. Unlike Shopee, Lazada's data tables
- * carried no store key at all - they were unique on (region, order_id) - so
- * this pass adds lazada_setting_id to the four per-seller tables, backfills,
- * and re-aims the order unique key at (store, id). See memory
- * lazada-tables-lacked-store-key. Mirrors ShopeeMultistoreTest section for
- * section.
- */
 class LazadaMultistoreTest extends TestCase
 {
     use RefreshDatabase;
@@ -30,8 +21,6 @@ class LazadaMultistoreTest extends TestCase
         $this->app->register(\Extensions\lazada\LazadaExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
     }
-
-    // ── The ground ───────────────────────────────────────────────────
 
     public function test_default_store_is_the_first_enabled_row(): void
     {
@@ -48,11 +37,6 @@ class LazadaMultistoreTest extends TestCase
         $this->assertNull(LazadaSetting::defaultStore());
     }
 
-    /**
-     * The reason defaultStore() exists: one spelling to bind. A raw singleton
-     * read reappearing would silently pin its caller to "whatever row is
-     * first" and never answer for the store the page is standing in.
-     */
     public function test_nothing_reads_the_settings_singleton_raw(): void
     {
         $offenders = [];
@@ -79,8 +63,6 @@ class LazadaMultistoreTest extends TestCase
             . implode(', ', $offenders));
     }
 
-    // ── The data carries the store ───────────────────────────────────
-
     public function test_a_write_that_names_no_store_lands_on_the_default(): void
     {
         $store = LazadaSetting::create(['mode' => 'live', 'store_name' => 'Gearshipper']);
@@ -93,9 +75,6 @@ class LazadaMultistoreTest extends TestCase
 
     public function test_two_stores_may_hold_the_same_order_id(): void
     {
-        /* THE collision the missing key allowed: (region, order_id) was
-         * unique, so a second store could not even store an order the first
-         * already had. The key is now (lazada_setting_id, order_id). */
         $one = LazadaSetting::create(['mode' => 'live', 'store_name' => 'Gearshipper']);
         $two = LazadaSetting::create(['mode' => 'live', 'store_name' => 'Outlet']);
 
@@ -119,10 +98,6 @@ class LazadaMultistoreTest extends TestCase
         $this->assertSame(['TWO-1'], LazadaOrder::withoutGlobalScope('lazadaStore')->forStore($two->id)->pluck('order_id')->all());
     }
 
-    /**
-     * The read fence: on a store page the bound store scopes every query, so a
-     * storeless-looking read returns only that store's rows.
-     */
     public function test_the_global_scope_fences_reads_to_the_bound_store(): void
     {
         $one = LazadaSetting::create(['mode' => 'live', 'store_name' => 'Gearshipper']);
@@ -135,8 +110,6 @@ class LazadaMultistoreTest extends TestCase
             'a bound store must see only its own rows through a plain query');
         app()->forgetInstance('lazada.route-store');
     }
-
-    // ── The surfaces carry the store ─────────────────────────────────
 
     public function test_a_store_page_lives_under_its_store_and_an_unknown_store_is_404(): void
     {
@@ -190,12 +163,6 @@ class LazadaMultistoreTest extends TestCase
         $r->assertRedirect(route('ext.lazada.index', ['store' => $outlet->id]));
     }
 
-    /**
-     * The crux of the state-param OAuth: Lazada's callback URL is one fixed
-     * URL for the whole install, so the consenting store rides the `state`
-     * parameter. A callback whose state names store two must land the grant on
-     * store two and leave store one's token untouched.
-     */
     public function test_the_oauth_callback_lands_the_grant_on_the_store_named_in_state(): void
     {
         $one = $this->storeWithCreds('Gearshipper');
@@ -216,7 +183,6 @@ class LazadaMultistoreTest extends TestCase
         };
         $this->app->instance(\Extensions\lazada\Services\Lazada\LazadaClient::class, $fake);
 
-        // The signed state names store two as the consenting store.
         $state = \Extensions\lazada\Controllers\LazadaController::oauthStateToken($two->id, false);
         $this->get(route('lazada.callback', ['code' => 'the-code', 'state' => $state]));
 
@@ -226,16 +192,10 @@ class LazadaMultistoreTest extends TestCase
             "the other store's token is untouched - a second store's grant must not overwrite the first");
     }
 
-    /**
-     * The state gate: a callback carrying a code but an unsigned, forged state
-     * is refused before anything is bound or written - an attacker must not be
-     * able to name a store in the state and have a code land on it.
-     */
     public function test_a_forged_state_is_refused_and_writes_nothing(): void
     {
         $one = $this->storeWithCreds('Gearshipper');
 
-        // Right shape, no valid HMAC - exactly what an attacker can craft.
         $forged = $one->id . '.0.' . str_repeat('a', 24) . '.' . str_repeat('0', 64);
         $this->get(route('lazada.callback', ['code' => 'attacker-code', 'state' => $forged]))->assertOk();
 
@@ -258,14 +218,6 @@ class LazadaMultistoreTest extends TestCase
             'expires_at' => now()->addDay(),
         ]);
     }
-    /**
-     * the owner, live 2026-09-07: with two stores, toggling the second store's
-     * production/sandbox switch, and saving its settings, both landed on the
-     * FIRST store's page. The settings model re-points URL generation at the
-     * first enabled store on every write, and the redirect that followed
-     * filled its {store} from that. Every settings write is a write for the
-     * store in the URL, and it comes back to that store's page.
-     */
     public function test_a_settings_write_acts_for_the_store_in_the_url_and_returns_to_it(): void
     {
         $this->artisan('permissions:sync-catalogue');
@@ -291,12 +243,6 @@ class LazadaMultistoreTest extends TestCase
         $this->assertSame('Main store', $one->fresh()->store_name, "the second store's save must not touch the first store");
     }
 
-    /**
-     * One group per product PER STORE: a store never sees another store's
-     * groups, so a product sits in one group on each store, a second group
-     * on the same store is held, and leaving a group on one store leaves
-     * the other store's membership alone.
-     */
     public function test_a_product_sits_in_one_group_on_each_store(): void
     {
         $one = LazadaSetting::create(['mode' => 'live', 'store_name' => 'Main store']);

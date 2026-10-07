@@ -13,20 +13,6 @@
     $currentRate = old('currency_rate', 1);
     $currentId = $currencies->firstWhere('code', $currentCode)->id ?? ($default->id ?? 0);
 
-    /**
-     * Line items restored after a failed validation.
-     *
-     * old('products')[i]['price'] and ['cost'] are ORDER-currency figures:
-     * the hidden inputs are written from the displayed price, which is
-     * already divided by whatever rate was in the field at submit time. The
-     * JS state below must hold DEFAULT-currency figures, because that is
-     * what it divides by the current rate on every render. So they are
-     * multiplied back up by that same old rate here.
-     *
-     * Skipping this multiply is a real bug with a name: a USD line submitted
-     * at $100 comes back as 100 / rate (about $1.62) and, saved unchanged,
-     * stores PHP 100 instead of PHP 6,161.
-     */
     $oldRate = (float) old('currency_rate', 1);
     if ($oldRate <= 0) {
         $oldRate = 1;
@@ -78,9 +64,6 @@
         </div>
 
         <div class="fm-col fm-col--side">
-            {{-- The order's own facts first: status is what the
-                 operator came to set. Currency, which almost nobody
-                 touches, moved under it (critique, 2026-08-27). --}}
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Order</h2></div>
                 <div class="fm-card__body">

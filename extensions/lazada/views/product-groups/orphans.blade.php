@@ -2,11 +2,6 @@
 @section('title', 'Unlinked items on Lazada')
 @section('breadcrumb', 'Unlinked on Lazada')
 
-{{-- The mirror of the products page (parity #156, from Shopee's): that one
-     lists what the ERP holds and asks whether Lazada still has it; this
-     lists what Lazada holds and asks whether the ERP knows about it.
-     Read-only by design: every row is a judgement call, so this reports and
-     the operator decides. --}}
 @section('content')
 @php
     $groupName = $group->name ?: 'this product group';

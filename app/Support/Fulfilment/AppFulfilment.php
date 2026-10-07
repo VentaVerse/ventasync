@@ -4,27 +4,12 @@ namespace App\Support\Fulfilment;
 
 use Illuminate\Http\JsonResponse;
 
-/**
- * What the mobile app is told about an order's fulfilment, and how a
- * fulfilment action answers it.
- *
- * Each channel places its own statuses in a step and names the actions
- * that step allows; this decides what the person asking may do with them
- * and whether the packing check stands in front of a booking. The app keeps
- * no status maps of its own, so the web and the phone cannot drift.
- */
 final class AppFulfilment
 {
     public const STEPS = ['to_pack', 'to_arrange', 'to_handover', 'shipped', 'done', 'cancelled', 'other'];
 
-    /** The actions the packing check stands in front of. */
     private const COUNTED = ['pack', 'ship', 'book', 'book_manual'];
 
-    /**
-     * @param  list<string>  $writes  what the step allows a person who manages this channel's orders
-     * @param  list<string>  $reads  what anyone who may see the order can do at this step
-     * @return array{step: string, actions: list<string>, count_needed: bool, blocked_reason: ?string}
-     */
     public static function block(string $channel, int $orderId, string $step, array $writes, array $reads = [], ?string $blocked = null): array
     {
         $user = auth()->user();
@@ -44,7 +29,6 @@ final class AppFulfilment
         ];
     }
 
-    /** @param  array<string, mixed>|null  $order  the order as its show endpoint draws it, after the action */
     public static function ok(string $message, ?array $order = null, array $extra = []): JsonResponse
     {
         if (($user = auth()->user()) !== null) {
@@ -64,24 +48,12 @@ final class AppFulfilment
         return response()->json(['ok' => false, 'error' => 'refused', 'message' => $message], $status);
     }
 
-    /**
-     * Stand in the order's own store, as its web page does, so every
-     * marketplace call is made with that store's credentials and every
-     * read is fenced to it.
-     */
     public static function bindStore(string $channel, \Illuminate\Database\Eloquent\Model $store): void
     {
         app()->instance($channel . '.route-store', $store);
         \Illuminate\Support\Facades\URL::defaults(['store' => (int) $store->getKey()]);
     }
 
-    /**
-     * What a channel's web button answered, read the way its page reads it:
-     * the JSON it returned, or the result it flashed before redirecting.
-     * The phone runs the web's own action, so the two cannot drift apart.
-     *
-     * @return array{ok: bool, error: ?string, message: string}
-     */
     public static function webOutcome(\Symfony\Component\HttpFoundation\Response $response, string $flashKey): array
     {
         if ($response instanceof JsonResponse) {
@@ -101,12 +73,6 @@ final class AppFulfilment
         return ['ok' => $ok, 'error' => $flash['error'] ?? ($ok ? null : 'refused'), 'message' => $message];
     }
 
-    /**
-     * The app's answer to a web button's outcome, with the order as it
-     * stands afterwards.
-     *
-     * @param  array{ok: bool, error: ?string, message: string}  $outcome
-     */
     public static function answer(array $outcome, ?array $order, array $extra = []): JsonResponse
     {
         if ($outcome['ok']) {
@@ -122,11 +88,6 @@ final class AppFulfilment
         return self::refused($outcome['message'] !== '' ? $outcome['message'] : 'The marketplace did not accept this.');
     }
 
-    /**
-     * A waybill as the app reads it: the PDF itself, or a note that it is
-     * still being made, or why there is none. Never a link elsewhere: the
-     * app sends its sign-in to this server only.
-     */
     public static function waybill(?string $pdf, string $name, bool $building = false, string $message = ''): \Symfony\Component\HttpFoundation\Response
     {
         if ($pdf !== null && str_starts_with($pdf, '%PDF')) {

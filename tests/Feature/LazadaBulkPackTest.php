@@ -10,28 +10,10 @@ use Extensions\lazada\LazadaExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * Packing a selection is the only bulk action on this surface that WRITES to
- * a marketplace, and packing cannot be undone from here. These are the guards
- * that matter for that: who may call it, how many at once, and what happens
- * when the selection is empty or stale.
- *
- * The happy path is not covered here on purpose - it makes live Lazada calls
- * per order, and a test that mocks the whole signed-call layer would be
- * asserting the mock. What IS asserted is everything that must hold BEFORE
- * the first call goes out, which is where the damage would be done.
- */
 class LazadaBulkPackTest extends TestCase
 {
     use RefreshDatabase;
 
-    /**
-     * Same idempotent-install rationale as FulfilmentHubTest::setUp():
-     * install()/enable() alone do not re-register the provider once
-     * ExtensionServiceProvider::boot() has run, and refreshNameLookups() is
-     * needed because routes registered by a provider booted this late are
-     * invisible to route() until the name table is rebuilt.
-     */
     protected function setUp(): void
     {
         parent::setUp();
@@ -44,9 +26,6 @@ class LazadaBulkPackTest extends TestCase
 
         $this->app['router']->getRoutes()->refreshNameLookups();
 
-        // Multi-store (the owner 2026-09-05): every Lazada page is store-scoped,
-        // and an ENABLED store lets URL::defaults fill {store} on every
-        // route('ext.lazada.orders.*') call below - exactly like Shopee.
         \Extensions\lazada\Models\LazadaSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
@@ -61,17 +40,6 @@ class LazadaBulkPackTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    /**
-     * The read tier may print a waybill for orders already on file - the same
-     * call the single-order AWB already allows a viewer to make - but it may
-     * NOT pack, because packing pushes to Lazada.
-     *
-     * Denial is a redirect carrying a flashed message, not a 403: see
-     * EnsurePermission::deny(), which answers 403 only to JSON callers and
-     * bounces HTML ones back to the form with session('error') so the person
-     * sees why in context. Asserting 403 here would be asserting a contract
-     * this application does not have.
-     */
     public function test_a_read_only_operator_cannot_pack_a_selection(): void
     {
         $viewer = $this->userWith(['view_lazada/dashboard', 'view_lazada/settings', 'view_lazada/product', 'view_lazada/brand', 'view_lazada/category', 'view_lazada/category_attribute', 'view_lazada/product_group', 'view_lazada/order']);
@@ -82,12 +50,6 @@ class LazadaBulkPackTest extends TestCase
             ->assertSessionHas('error', "You don't have permission to do this action.");
     }
 
-    /**
-     * The same viewer reaches the print route. It fails afterwards on missing
-     * credentials in the test environment - 422 from awbError(), the AWB
-     * path's own error page - which is a different refusal from being denied
-     * the route, and that difference is the point of this test.
-     */
     public function test_a_read_only_operator_may_still_print_waybills(): void
     {
         $viewer = $this->userWith(['view_lazada/dashboard', 'view_lazada/settings', 'view_lazada/product', 'view_lazada/brand', 'view_lazada/category', 'view_lazada/category_attribute', 'view_lazada/product_group', 'view_lazada/order']);
@@ -115,11 +77,6 @@ class LazadaBulkPackTest extends TestCase
             ->assertSessionHas('error');
     }
 
-    /**
-     * A ceiling that is stated rather than silent. Fifty is the largest page
-     * the list offers, so a selection cannot legitimately exceed it, and a
-     * request that does is refused with a sentence that says what to do.
-     */
     public function test_more_than_fifty_orders_is_refused_with_an_instruction(): void
     {
         $manager = $this->userWith(['view_lazada/dashboard', 'view_lazada/settings', 'view_lazada/product', 'view_lazada/brand', 'view_lazada/category', 'view_lazada/category_attribute', 'view_lazada/product_group', 'manage_lazada/order']);
@@ -151,11 +108,6 @@ class LazadaBulkPackTest extends TestCase
             ->assertSessionHasErrors('ids');
     }
 
-    /**
-     * Ids arrive from a checkbox in a page the operator did not write, so
-     * they are validated as integers rather than trusted. A string id is a
-     * malformed request, not a lookup that returns nothing.
-     */
     public function test_a_non_numeric_id_is_rejected_rather_than_queried(): void
     {
         $manager = $this->userWith(['view_lazada/dashboard', 'view_lazada/settings', 'view_lazada/product', 'view_lazada/brand', 'view_lazada/category', 'view_lazada/category_attribute', 'view_lazada/product_group', 'manage_lazada/order']);
@@ -166,11 +118,6 @@ class LazadaBulkPackTest extends TestCase
             ->assertSessionHasErrors('ids.0');
     }
 
-    /**
-     * The checkbox carries the LOCAL row id, never the marketplace order
-     * number. A page that posted marketplace ids would let anyone pack any
-     * order in the account by editing the form.
-     */
     public function test_the_selection_posts_local_ids_not_marketplace_order_numbers(): void
     {
         $panel = file_get_contents(base_path('extensions/lazada/views/orders/_panel.blade.php'));

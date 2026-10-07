@@ -3,46 +3,16 @@
 
 @section('title', 'Shopee Settings')
 
-{{-- Leaves the .x-legacy content boundary, rebuilt on the token set.
-
-     READ THIS BEFORE EDITING ANY FORM BELOW.
-
-     This URL is Shopee's OAuth callback landing. `route('ext.shopee.index')`
-     is the exact string registered as the redirect URI in the Shopee Open
-     Platform console, and ShopeeController::index() reads ?code= and
-     ?shop_id= off this request and exchanges them for a token BEFORE this
-     view is ever rendered. Nothing in this file participates in that
-     exchange, and nothing in this file may change these four surfaces:
-
-       - the authorize link         route('ext.shopee.authorize'), a GET in a
-                                    new tab, rel="noopener"
-       - the auth-code exchange     POST route('ext.shopee.token_get'),
-                                    one field named `code`
-       - the token refresh          POST route('ext.shopee.token_refresh')
-       - the redirect URI display   a readonly input with NO name attribute,
-                                    so it is shown and never submitted
-
-     The credential save (POST route('ext.shopee.save')) carries a hidden
-     `env` plus exactly the ten field names ShopeeController::save()
-     validates. Blank means "keep the stored value", which is what the
-     •••••••• masks plus resources/js/credential-mask.js are for. --}}
 @section('content')
 @php
-    // Read tier is `view_shopee|manage_shopee` on this route; every write
-    // below (save, toggle mode, token get/refresh, explorer, packs, status
-    // maps, logging, log delete, purge) is `manage_shopee`. Replaces a
-    // hardcoded `true`, which offered a read-only operator every one of
-    // those controls and let each of them 403.
     $canManageShopee = auth()->user()?->hasPermission('manage_shopee/settings') ?? false;
 
     $currentMode = $setting->mode ?? 'sandbox';
     $isSandbox = $currentMode === 'sandbox';
 
-    // Live credentials
     $__hasToken = !empty($setting->access_token ?? '');
     $__tokenExpired = $__hasToken && ($setting->expires_at ?? null) && \Carbon\Carbon::parse($setting->expires_at)->lt(now());
 
-    // Sandbox credentials
     $__hasSandboxCredentials = ($setting->sandbox_partner_id ?? '') !== '' && ($setting->sandbox_partner_key ?? '') !== '';
     $__hasSandboxToken = !empty($setting->sandbox_access_token ?? '');
     $__sandboxTokenExpired = $__hasSandboxToken && ($setting->sandbox_expires_at ?? null) && \Carbon\Carbon::parse($setting->sandbox_expires_at)->lt(now());
@@ -56,17 +26,9 @@
     ];
 @endphp
 
-{{-- The section shown, from the menubar's own ?tab= links (the
-     in-page tab strip retired 2026-09-03: the channel menubar carries the
-     sections now). Unknown or unpermitted sections fall to the default,
-     so a hand-typed URL can never land on a blank page. --}}
 @php
     $csKnown = ['connection', 'status', 'logs'];
     if ($canManageShopee) { $csKnown[] = 'explorer'; $csKnown[] = 'automations'; }
-    // Every action redirects to the tab its form lives on and flashes it
-    // (ReturnsToSettingsTab, 2026-09-05); the result is drawn inside that
-    // section - the explorer's answer in the Explorer panel, a token fetch
-    // on Connection - never on a tab the operator did not press it on.
     $csSection = in_array(request('tab'), $csKnown, true) ? request('tab') : 'connection';
     $resultTab = in_array(session('settings_tab'), $csKnown, true) ? session('settings_tab') : 'connection';
 @endphp
@@ -76,9 +38,6 @@
      data-tab-storage-key="sp-active-tab"
      data-default-tab="">
 
-{{-- The head names the store and how it stands (audit, 2026-09-05, after
-     Venta's page): the environment control and the Active pill live here
-     because every card below answers to them. --}}
 <div class="x-list-head">
     <div>
         <h1 class="x-page-title">Settings</h1>
@@ -102,19 +61,10 @@
 </div>
 @endunless
 
-{{-- ================================================================
-     CONNECTION
-     ================================================================ --}}
-{{-- The result of the last Connection action (token fetch, save): drawn
-     here, above the panel it came from. An explorer answer is drawn inside
-     the Explorer panel instead (the owner, 2026-09-05). --}}
 @if($result && $resultTab !== 'explorer')
     @include('partials.channel-last-result', ['result' => $result, 'channel' => 'Shopee', 'mode' => 'note'])
 @endif
 
-{{-- Setting up the store (the owner, 2026-09-05): categories and couriers
-     fetched behind a progress popup, on its own right after an
-     authorisation and again from the Set up store button. --}}
 @if($canManageShopee)
     @include('partials.channel-setup', [
         'channelLabel' => 'Shopee',
@@ -136,8 +86,6 @@
 
 
 
-    {{-- The environment is posted by this one form; the switch that sets it
-         sits on the card whose keys it governs, in each panel. --}}
     @if($canManageShopee)
         <form method="POST" action="{{ route('ext.shopee.toggle_mode') }}" data-cs-env-form hidden>
             @csrf
@@ -145,7 +93,6 @@
         </form>
     @endif
 
-    {{-- ---- PRODUCTION ---------------------------------------------- --}}
     @php
         $csCategories = \Extensions\shopee\Models\ShopeeCategory::query()->count();
         $csCouriers = \Extensions\shopee\Models\ShopeeLogistic::query()->count();
@@ -178,8 +125,6 @@
                 @endif
             </div>
 
-            {{-- One form, one Save (audit, 2026-09-05): the store's name and
-                 switch sit with the production keys they are saved with. --}}
             <form method="POST" action="{{ route('ext.shopee.save') }}" id="sp-save-live">
                 @csrf
                 <input type="hidden" name="env" value="live">
@@ -200,7 +145,6 @@
                         </label>
                     </x-ui.field>
 
-                    {{-- Region sits with the store, above the keys (the owner, 2026-09-05), as on Lazada. --}}
                     <x-ui.field label="Region" for="sp-region" name="region" wide
                                 hint="Which Shopee country site this shop trades on.">
                         <div class="x-select-wrap">
@@ -245,9 +189,6 @@
                         :can-reveal="$canManageShopee"
                         :disabled="!$canManageShopee" />
 
-                    {{-- No name attribute, deliberately: this is shown so it
-                         can be copied into the Shopee console, and it must
-                         never be posted back as a settable field. --}}
                     <x-ui.field label="Redirect URI" for="sp-redirect" wide
                                 hint="Register this exact URL in your Shopee Open Platform production app. To change it, edit APP_URL in the environment file.">
                         <x-ui.input id="sp-redirect" type="text" readonly value="{{ $defaultRedirect }}" data-select-on-click />
@@ -333,8 +274,6 @@
                 </div>
             </div>
 
-            {{-- The one irreversible thing on the page sits last, in its own
-                 block, behind the typed-name sheet (audit, 2026-09-05). --}}
             <div class="cs-danger">
                 <div>
                     <span class="cs-danger__title">Remove this store <x-ui.hint label="What removal does">Everything this store holds in the ERP goes with it: listings, links, groups, couriers, Shopee orders and returns, and its API log. Sales already imported stay under its name. There is no undo.</x-ui.hint></span>
@@ -349,7 +288,6 @@
     </div>
     </div>
 
-    {{-- ---- SANDBOX ------------------------------------------------- --}}
     <div class="cs-env-panel" data-cs-env-panel="sandbox" @unless($isSandbox) hidden @endunless>
     <div class="cs-stack">
 
@@ -373,8 +311,6 @@
                 @endif
             </div>
 
-            {{-- One form, one Save: the store's name and switch sit with the
-                 sandbox keys they are saved with. --}}
             <form method="POST" action="{{ route('ext.shopee.save') }}" id="sp-save-sandbox">
                 @csrf
                 <input type="hidden" name="env" value="sandbox">
@@ -395,7 +331,6 @@
                         </label>
                     </x-ui.field>
 
-                    {{-- Region sits with the store, above the keys (the owner, 2026-09-05), as on Lazada. --}}
                     <x-ui.field label="Region" for="sp-sb-region" name="sandbox_region" wide
                                 hint="Which Shopee country site this sandbox shop trades on.">
                         <div class="x-select-wrap">
@@ -424,11 +359,6 @@
                         :can-reveal="$canManageShopee"
                         :disabled="!$canManageShopee" />
 
-                    {{-- Shown in full, like the production Shop ID directly
-                         above it. A shop id is an identifier, not a secret: it
-                         appears in Shopee's own console and in every API log
-                         line, and masking it only stopped the operator
-                         confirming which shop they were pointed at. --}}
                     <x-ui.field label="Sandbox Shop ID" for="sp-sb-shop-id" name="sandbox_shop_id" wide
                                 hint="The sandbox shop this connects to. Not a secret, so it is shown in full.">
                         <x-ui.input id="sp-sb-shop-id" name="sandbox_shop_id" class="fm-input--num" type="text" autocomplete="off" :disabled="!$canManageShopee"
@@ -445,7 +375,6 @@
                         :can-reveal="$canManageShopee"
                         :disabled="!$canManageShopee" />
 
-                    {{-- No name attribute, same as the production copy. --}}
                     <x-ui.field label="Redirect URI" for="sp-sb-redirect" wide
                                 hint="Register this exact URL in your Shopee Open Platform sandbox app. To change it, edit APP_URL in the environment file.">
                         <x-ui.input id="sp-sb-redirect" type="text" readonly value="{{ $defaultRedirect }}" data-select-on-click />
@@ -464,9 +393,6 @@
                         :can-reveal="$canManageShopee"
                         :disabled="!$canManageShopee" />
 
-                    {{-- The store's one switch, the same one as on the
-                         production panel, so a sandbox store can turn it on
-                         without being saved over to production. --}}
                     <x-ui.field label="Apply order pushes" for="sp-sb-apply-pushes" name="apply_order_pushes" wide
                                 hint="One switch for this store in either mode. On: a new order, a status change, a tracking number or a return reaches the ERP the moment Shopee sends its push, by the same path as the order sync, stock included. Off: pushes are only recorded and the order sync brings every change in.">
                         <input type="hidden" name="apply_order_pushes" value="0">
@@ -547,15 +473,8 @@
     </div>
     </div>
 
-    {{-- The Couriers section that stood here (Fetch couriers) is gone
-         (the owner, 2026-09-05): it read the courier list and only flashed the
-         raw answer, while Catalog > Logistics fetches the same list and
-         caches it. One door: the Logistics page. --}}
 </div>
 
-{{-- ================================================================
-     STATUS MAPPING
-     ================================================================ --}}
 <div id="sp-tab-status" class="cs-panel" @if($csSection !== 'status') hidden @endif>
 
     <section class="fm-section">
@@ -644,9 +563,6 @@
     </section>
 </div>
 
-{{-- ================================================================
-     API EXPLORER
-     ================================================================ --}}
 @if($canManageShopee)
 <div id="sp-tab-explorer" class="cs-panel" @if($csSection !== 'explorer') hidden @endif>
     @if($result && $resultTab === 'explorer')
@@ -796,16 +712,10 @@
 </div>
 @endif
 
-{{-- ================================================================
-     API LOG
-     ================================================================ --}}
 <div id="sp-tab-logs" class="cs-panel" @if($csSection !== 'logs') hidden @endif>
 
 
 
-    {{-- #200: the shared API log panel - the three-way mode, All/Errors
-         and path filters that survive a refresh, pages of 50, and the
-         retention stated in words. --}}
     @include('partials.channel-api-log', [
         'logChannel' => 'Shopee',
         'canManage' => $canManageShopee,
@@ -826,8 +736,6 @@
     <section class="fm-section">
         <div class="fm-section__head">
             <h2 class="fm-section__title">Free up space</h2>
-            {{-- Explanation to a tooltip (the owner, 2026-09-04): the
-                 control is self-evident, the caveat is one tap away. --}}
             <x-ui.hint label="What clearing does">Every synced Shopee order and return keeps the full API response it came from. Clearing those payloads on older rows frees database space and changes nothing about the orders themselves.</x-ui.hint>
         </div>
 
@@ -852,9 +760,6 @@
     @endif
 </div>
 
-{{-- ================================================================
-     AUTOMATIONS
-     ================================================================ --}}
 @if($canManageShopee)
 <div id="sp-tab-automations" class="cs-panel" @if($csSection !== 'automations') hidden @endif>
     <section class="fm-section">
@@ -867,5 +772,5 @@
 </div>
 @endif
 
-</div>{{-- /.cs-page --}}
+</div>
 @endsection

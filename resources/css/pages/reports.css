@@ -1,59 +1,5 @@
-/* ============================================================
-   REPORTS
-   ============================================================
-
-   One thing lives in this file now: `.rp-*`, the report anatomy on
-   layouts.shell (Round D, Task 3).
-
-   It used to carry a second half, the legacy `.report-stat-*` card grid,
-   kept alive by one page: extensions/shopify/views/orders/index.blade.php,
-   which was still on layouts.app. Round F Task 2 rebuilt that page on the
-   shared `co-` order anatomy, a repo-wide grep for `report-stat-` returned
-   nothing outside this file, and the dead half was deleted with it.
-
-   -----------------------------------------------------------------
-   What the `rp-` anatomy is for, and the decisions behind it
-   -----------------------------------------------------------------
-
-   A report is a dense table plus the handful of figures that answer the
-   question the table was opened to answer. The old pages gave those
-   figures eight identical bordered cards in a four-up grid, every one the
-   same size and weight, so the page said nothing about which number
-   mattered. `.rp-band` replaces that with ONE lead figure at display size
-   and a quiet strip of supporting facts beside it: the eye is told where
-   to land.
-
-   COLOUR HAS ONE JOB HERE, the same job it has on the order detail page
-   (see the tone block at the end of components/order-detail.css): it
-   marks money that needs attention. --bl-brand-deep is spent on exactly one
-   figure per page, the lead net figure. --bl-bad marks a negative result.
-   --bl-attn-fill marks a margin thin enough to look at (the 20/10 thresholds
-   the order pages already use). Revenue, COGS, shipping and fees are
-   PLAIN TEXT: they are facts, not judgements, and tinting all of them red
-   because "cost is bad" is what left the old pages with no signal at all.
-
-   NUMERALS ARE MONO AND TABULAR everywhere (`x-num`, `.rp-fig`,
-   `.rp-lead__v`), so a column of money aligns on the decimal and can be
-   read down rather than across.
-
-   `rp-neg` / `rp-warn` / `rp-pos` duplicate the three declarations of
-   `od-neg` / `od-warn` / `od-pos` rather than sharing them. That is
-   deliberate: those three utilities sit at the very END of
-   order-detail.css because they have to out-cascade the component rules
-   in that same file at equal specificity ("utilities last", stated in its
-   own comment). Graduating them into a shared file imported earlier in
-   app.css would move them ahead of the rules they exist to beat and
-   silently break the order detail page. Three one-line rules is the
-   cheaper mistake.
-   ============================================================ */
-
 .rp-page { display: block; }
 
-/* ------------------------------------------------------------------
-   The basis line. Every report states what currency its figures are in
-   before it shows any of them, and says so in plain words rather than
-   leaving it to a symbol the reader has to infer.
-   ------------------------------------------------------------------ */
 .rp-basis {
     margin: 0 0 var(--bl-space-4);
     font-size: 12px;
@@ -62,21 +8,12 @@
     max-width: 78ch;
 }
 
-/* The second sentence, rendered only when the range actually contains an
-   order in another currency. A caveat that is always on screen is noise;
-   one that appears only when it is true is information. */
 .rp-basis__caveat {
     display: block;
     margin-top: 2px;
-    /* Prose, in prose ink. This was amber, the same amber .rp-warn spends
-       on a thin margin in the table, so one colour said "mixed currency"
-       at the top and "look at this margin" further down. */
     color: var(--bl-ink-2);
 }
 
-/* ------------------------------------------------------------------
-   The figures band. One lead figure, then a hairline-separated strip.
-   ------------------------------------------------------------------ */
 .rp-band {
     display: flex;
     align-items: stretch;
@@ -120,13 +57,6 @@
     color: var(--bl-ink-3);
 }
 
-/* The supporting figures. No card chrome, no boxes: one vertical hairline
-   between each, which is all the separation a row of small figures needs. */
-/* 136px is what a seven-digit peso figure at 15px mono needs. At 112px
-   the Products band rendered "₱7,084,718…" with a literal ellipsis, which
-   on a money page reads as a bug. Six facts now wrap to two rows of three
-   on a 1366 screen rather than squeezing into one; the figures are the
-   point of the band, the row count is not. */
 .rp-facts {
     flex: 1 1 340px;
     display: grid;
@@ -156,8 +86,6 @@
     line-height: 22px;
     color: var(--bl-ink);
     white-space: nowrap;
-    /* Never ellipsised: a money figure that cannot fit overflows its cell
-       and is still readable, which is better than a figure cut short. */
     overflow: visible;
 }
 .rp-fact__note { display: block; font-size: 11px; color: var(--bl-ink-3); }
@@ -170,9 +98,6 @@
     .rp-fact:first-child { border-left: 0; padding-left: 0; }
 }
 
-/* Two columns, never three: a peso figure at 15px mono needs about 130px
-   and anything narrower ellipsises the number, which on a money page is
-   worse than showing fewer of them per row. */
 @media (max-width: 480px) {
     .rp-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .rp-fact { padding: 0 var(--bl-space-3); }
@@ -180,29 +105,9 @@
     .rp-fact:nth-child(odd) { border-left: 0; padding-left: 0; }
 }
 
-/* ------------------------------------------------------------------
-   Filters. The shared `.x-filters` row plus a disclosure for the
-   narrowing fields that are not part of the everyday question.
-
-   No `data-autosubmit` anywhere on a report filter, on purpose: these
-   queries scan the whole order book, so nothing runs until the operator
-   asks for it.
-   ------------------------------------------------------------------ */
-/* The older strip, still used by the payouts, fees and inventory pages.
-   The period block sits inside it as a full-width row. */
 .rp-filters { align-items: flex-end; }
 .rp-filters .rp-when { flex-basis: 100%; }
 
-/* ONE COMPOSED CONTROL, NOT A STRIP.
-   The filter row was six things of equal weight in a line: a search box,
-   a ten-option select, two date inputs, a solid button and two text
-   links, with nothing saying which of them the report turns on. It
-   turns on the period, so the period comes first and largest, as a row
-   of preset pills with the dates beside them; the search and the
-   narrowing fields sit under it; Run report is the one solid thing in
-   the block and the only thing that queries. The block is a sheet
-   panel, the same surface the chart and the band sit on, so the three
-   read as one family of cards rather than a form dropped on a page. */
 .rp-ask {
     display: flex;
     flex-direction: column;
@@ -214,7 +119,6 @@
     border-radius: var(--bl-r-panel);
 }
 
-/* The period: a label, the pills, the dates, on one line while it fits. */
 .rp-when {
     display: flex;
     align-items: center;
@@ -251,9 +155,6 @@
     font-weight: 500;
 }
 
-/* The dates: one bordered field holding both ends and the word between
-   them. Two bare date inputs side by side both read "mm/dd/yyyy" and
-   neither says which end it is. */
 .rp-range {
     display: inline-flex;
     align-items: center;
@@ -278,12 +179,9 @@
 }
 .rp-range input[type="date"]:focus { outline: none; }
 .rp-range:focus-within { border-color: var(--bl-brand-deep); }
-/* The native calendar glyph is near-black and vanishes on the dark
-   theme; invert it there and tone it down in both. */
 .rp-range input[type="date"]::-webkit-calendar-picker-indicator { opacity: .45; cursor: pointer; }
 :root[data-theme="dark"] .rp-range input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: .55; }
 
-/* The second line: search, and the actions pushed right. */
 .rp-ask__row {
     display: flex;
     align-items: center;
@@ -296,9 +194,6 @@
 .rp-ask__clear { font-size: 12.5px; color: var(--bl-ink-3); }
 .rp-ask__clear:hover { color: var(--bl-ink); }
 
-/* Every narrowing field, in sight (VENT2-140). They sat in a More
-   filters fold, which hid the store and the status, the first two things
-   a report is narrowed by. */
 .rp-fields {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -312,18 +207,6 @@
 .rp-field .x-input,
 .rp-field .x-select-wrap { width: 100%; }
 
-/* THE FILTER THAT DOES NOT GROW.
- *
- * Checkboxes replaced a <select multiple>, which needs a ctrl-click nobody
- * discovers and gives no hint that more than one value is allowed. Then
- * multi-store arrived and the row of checkboxes grew with the store list,
- * which is unbounded, until it pushed the other filters off the screen
- * (the owner, 2026-09-08). So the checkboxes moved into a dropdown: the same
- * control, one fixed footprint, and every filter on the row now the same
- * size and aligned with the plain text fields beside them.
- *
- * .rp-field--wide is kept for anything that still wants two columns;
- * neither of these filters needs it any more. */
 .rp-field--wide { grid-column: span 2; }
 
 .rp-pick { position: relative; }
@@ -334,9 +217,6 @@
     justify-content: space-between;
     gap: var(--bl-space-2);
     width: 100%;
-    /* The height and the edge of a text input, because it sits in a row of
-       them and a filter that is a control should look like the controls
-       beside it. */
     padding: 7px 11px;
     border: 1px solid var(--bl-field-edge);
     border-radius: var(--bl-r-ctrl);
@@ -371,8 +251,6 @@
     top: calc(100% + 5px);
     left: 0;
     min-width: 100%;
-    /* Wider than its trigger when the labels need it - "Shopee: Gearshipper"
-       does - but never wider than the filter row it opens over. */
     max-width: 320px;
     border: 1px solid var(--bl-rule-2);
     border-radius: var(--bl-r-panel);
@@ -385,14 +263,12 @@
     display: flex;
     flex-direction: column;
     gap: var(--bl-space-1);
-    /* The whole point: eleven stores or two, the control is this tall. */
     max-height: 264px;
     overflow-y: auto;
     padding: var(--bl-space-3);
     scrollbar-width: thin;
 }
 
-/* Stores grouped under their channel (per-store reports, 2026-09-05). */
 .rp-pick__group {
     margin-top: var(--bl-space-2);
     font-size: 11px;
@@ -404,7 +280,6 @@
 
 .rp-pick__group:first-child { margin-top: 0; }
 
-/* A store outside the chosen period, and a heading left with none. */
 .rp-choice[hidden],
 .rp-pick__group[hidden],
 .rp-pick__section[hidden] { display: none; }
@@ -446,7 +321,6 @@
     outline-offset: 2px;
     border-radius: var(--bl-r-ctrl);
 }
-/* The store under the channel badge on an order row. */
 .rp-store { display: block; margin-top: 2px; font-size: 11px; color: var(--bl-ink-3); }
 .rp-choice {
     display: inline-flex;
@@ -459,18 +333,6 @@
 .rp-choice:hover { color: var(--bl-ink); }
 .rp-choice input { width: 13px; height: 13px; accent-color: var(--bl-brand-deep); cursor: pointer; }
 
-/* ------------------------------------------------------------------
-   The table.
-
-   `.x-table` is table-layout: fixed and deliberately NOT horizontally
-   scroll-contained (see the comment at the top of ui-table.css). A twelve
-   column profit table is the exact case that file names as the exception:
-   "a page that genuinely needs both a contained horizontal scrollbar and
-   a sticky header should give this wrapper its own bounded max-height".
-   That is what `.rp-scroll` does. table-layout goes back to auto and the
-   table takes its natural width, so nothing clips and the scrollbar
-   belongs to the table rather than to the page.
-   ------------------------------------------------------------------ */
 .rp-scroll {
     overflow: auto;
     max-height: calc(100vh - 220px);
@@ -484,14 +346,6 @@
 }
 .rp-scroll .x-table thead th { background: var(--bl-paper); }
 
-/* THE COLUMNS THE REPORT IS NAMED FOR STAY ON SCREEN.
-   Under table-layout: auto the Product column took 584px and the Customer
-   column 200px, and pushed Net profit and Margin 443px past the right edge
-   of a 1366 screen, on the page called Product profitability. Sticky
-   columns were tried and rejected: a pinned pair over an overflowing table
-   always hides whatever sits under it at the scroll's start. The wide
-   text columns are capped instead (the full text is on the cell's title),
-   so eleven columns fit a 1366 screen and nothing has to be pinned. */
 .rp-col-name,
 .rp-scroll .x-table td[data-label="Customer"] {
     max-width: 220px;
@@ -500,17 +354,8 @@
     white-space: nowrap;
 }
 
-/* Toggling a group open/shut sets the `hidden` attribute on its rows.
-   The mobile restack further down turns every row into a grid, and
-   `display: grid` beats the user-agent's [hidden] rule, so [hidden] has
-   to be re-stated at a specificity that wins in both layouts. This is the
-   same trap the transfers list hit in Task 1. */
 .rp-page .x-table tbody tr[hidden] { display: none; }
 
-/* Figures. The app's own face (2026-10-02: one number style across every
-   report and the rest of the app), tabular, right-aligned. `.x-td-num` supplies the
-   alignment; this supplies the face, on the cell so the whole column
-   including its dash placeholder lines up. */
 .rp-scroll .x-table td.x-td-num,
 .rp-fig {
     font-family: inherit;
@@ -518,7 +363,6 @@
     font-size: 12px;
 }
 .rp-dash { color: var(--bl-ink-3); }
-/* The variation under the product name: one row is one variation. */
 .rp-var {
     display: block;
     font-size: 12px;
@@ -528,17 +372,12 @@
     overflow: hidden;
     text-overflow: ellipsis;
 }
-/* A cost: money taken away (partials/cost.blade.php prints the minus). */
 .rp-cost { color: var(--bl-bad); }
 
-/* "not yet settled": a state, not a figure, so it is not set in figures. */
 .rp-unsettled { font-size: 11.5px; font-style: italic; color: var(--bl-ink-3); white-space: nowrap; }
 
 .rp-total--note > td { font-weight: 400; font-size: 12px; color: var(--bl-ink-3); }
 
-/* A group header row (month on the orders report, period on fees). The
-   whole first cell is the button, so the hit target is the row's width
-   rather than a 10px glyph. */
 .rp-grp > td {
     background: var(--bl-chrome);
     border-bottom: 1px solid var(--bl-rule);
@@ -567,9 +406,6 @@
 .rp-grp__count { color: var(--bl-ink-3); font-weight: 400; }
 .rp-child > td:first-child { padding-left: var(--bl-space-6); }
 
-/* The group mix under a product row (#130): one step quieter than the
-   product, indented under its name, on the sunken surface so the block
-   reads as belonging to the row above it. */
 .rp-mix > td {
     padding-top: 4px;
     padding-bottom: 4px;
@@ -582,9 +418,6 @@
 .rp-mix__avg { margin-left: var(--bl-space-2); font-weight: 400; color: var(--bl-ink-3); }
 .rp-mix + tr:not(.rp-mix) > td { border-top: 1px solid var(--bl-rule-2); }
 
-/* Totals. Distinct without being loud: a heavier rule above it, the
-   sunken surface, and it stays put at the bottom of the scroll box so a
-   long table never hides the number it adds up to. */
 .rp-total > td {
     position: sticky;
     bottom: 0;
@@ -595,11 +428,6 @@
     color: var(--bl-ink);
 }
 
-/* ------------------------------------------------------------------
-   The pre-run state. Orders and Products defer their query until the
-   operator submits, so a cold page open shows this rather than an empty
-   table that looks like "no results".
-   ------------------------------------------------------------------ */
 .rp-gate {
     padding: var(--bl-space-8) var(--bl-space-4);
     text-align: center;
@@ -610,23 +438,6 @@
 .rp-gate__title { margin: 0 0 var(--bl-space-1); font-size: 14px; font-weight: 500; color: var(--bl-ink); }
 .rp-gate__text { margin: 0 auto; max-width: 52ch; font-size: 13px; color: var(--bl-ink-3); }
 
-/* ------------------------------------------------------------------
-   Charts, drawn in HTML and CSS rather than a canvas.
-
-   The old pages pulled Chart.js off a CDN and hardcoded rgba() fills that
-   knew nothing about the theme, so the charts stayed light-mode blue on a
-   dark page and the palette competed with the status colours everywhere
-   else. These are plain elements on the design tokens: they follow the
-   theme, need no network request, and are readable by a screen reader
-   because every bar carries its own text.
-
-   `.rp-trend` is one column per period. The column's height is the larger
-   of that period's revenue and its total cost, so the column says "how
-   much money moved". It is split into the cost it took (muted) and what
-   was left (accent). When cost exceeded revenue the top segment is the
-   overshoot, in danger: a loss reads as a column that grew past its own
-   revenue, which is exactly what happened.
-   ------------------------------------------------------------------ */
 .rp-chart {
     padding: var(--bl-space-4) var(--bl-space-5) var(--bl-space-3);
     margin-bottom: var(--bl-space-5);
@@ -647,27 +458,10 @@
 .rp-key { display: flex; gap: var(--bl-space-3); font-size: 11px; color: var(--bl-ink-3); }
 .rp-key__item { display: inline-flex; align-items: center; gap: var(--bl-space-1); }
 .rp-key__swatch { width: 8px; height: 8px; border-radius: 2px; background: var(--bl-ink-3); }
-/* Fix round, Important 3: was --bl-rule-2 (1.54:1 light, 1.50:1 dark
-   against --bl-sheet), well under the 3:1 WCAG 1.4.11 floor for a
-   graphic that carries meaning on its own (the whole point of this chart
-   is the revenue/cost split). --bl-ink-3 clears it comfortably: 5.13:1
-   light, 4.87:1 dark against --bl-sheet (base/tokens.css's own audited
-   matrix, the "surface" column). Matches .rp-trend__cost below, so the
-   legend swatch and the bar segment it explains are the same colour. */
 .rp-key__swatch--cost   { background: var(--bl-ink-3); }
 .rp-key__swatch--profit { background: var(--bl-brand-deep); }
 .rp-key__swatch--loss   { background: var(--bl-bad); }
 
-/* THE SERIES OWNS THE CARD.
-   One SVG for the whole series, stretched to the card's width, with an
-   axis of three round figures to its left and the period labels under
-   it on the same grid. A column used to be its own SVG pinned to a 44px
-   slot, which kept three months from drawing three slabs and then
-   starved every other range: four months sat in a 176px huddle inside a
-   1048px card, and a whole year was twelve slivers (the owner, 2026-08-29).
-   The bar widths are geometry inside the SVG (a share of a 100-unit
-   viewBox, decided by the count in the partial), so the CSS only has to
-   give the plot its room. */
 .rp-trend {
     --rp-plot-h: 220px;
     display: grid;
@@ -683,8 +477,6 @@
     flex-direction: column;
     justify-content: space-between;
     align-items: flex-end;
-    /* The figures sit ON their gridlines: the first at the top edge and
-       the last at the baseline, so half a line hangs above and below. */
     margin: -6px 0;
     font-family: inherit;
     font-variant-numeric: tabular-nums;
@@ -698,33 +490,18 @@
     grid-row: 1;
     display: block;
     width: 100%;
-    /* The row's height, never the viewBox's aspect: a square viewBox in
-       an auto-sized row made the SVG 1010px tall and drew the bars 800px
-       below the card. */
     height: var(--rp-plot-h);
     overflow: visible;
 }
 .rp-trend__grid { stroke: var(--bl-rule); stroke-width: 1; }
 .rp-trend__grid--base { stroke: var(--bl-rule-2); }
 .rp-trend__hit { fill: transparent; }
-/* The cost fill sits at --bl-ink-3 (5.13:1 light, 4.87:1 dark against
-   --bl-sheet) so the information-bearing segment clears the 3:1 floor on
-   its own; hover moves one step further so the column still answers. */
 .rp-trend__cost   { fill: var(--bl-ink-3); }
 .rp-trend__profit { fill: var(--bl-brand-deep); }
 .rp-trend__loss   { fill: var(--bl-bad); }
 .rp-trend__col:hover .rp-trend__cost   { fill: var(--bl-ink-2); }
 .rp-trend__col:hover .rp-trend__profit { fill: var(--bl-brand); }
 
-/* The figures are an HTML overlay on the plot, one flex cell per column
-   so each figure sits over its own column. Inside a cell a spacer as
-   tall as the empty space ABOVE the column pushes the figure down to the
-   column's top, and the figure hangs just above that line. The spacer's
-   height comes from two classes the view writes (tens and units of the
-   share, rp-sp-t3 rp-sp-u7 = 37%), which is how a per-column height is
-   set with no style attribute and twenty rules instead of a hundred. A
-   column at the very top of the scale would push its figure off the
-   plot, so it carries rp-trend__figure--in and prints inside the bar. */
 .rp-trend__figures {
     grid-column: 2;
     grid-row: 1;
@@ -768,10 +545,6 @@
 .rp-trend__figure--in .rp-trend__figure-v { transform: translateY(4px); color: var(--bl-paper); }
 .rp-trend__figure.rp-neg .rp-trend__figure-v { color: var(--bl-bad); }
 
-/* The ticks share the plot's grid: the same two-column grid as the
-   chart, with the axis column carrying the axis's widest figure
-   invisibly, so the flex row of ticks is exactly as wide as the plot and
-   slot n sits under column n. */
 .rp-trend__ticks {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
@@ -786,18 +559,12 @@
 .rp-trend__tick { flex: 1 1 0; min-width: 0; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rp-trend__tick[aria-hidden="true"] { visibility: hidden; }
 
-/* A ranked horizontal bar list. Used for the products report's two top-10
-   panels. The label sits above its own bar rather than in a fixed-width
-   gutter, so a long product name is never truncated to two characters. */
 .rp-rank { display: flex; flex-direction: column; gap: var(--bl-space-3); }
 .rp-rank__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--bl-space-3); align-items: baseline; }
 .rp-rank__name {
     grid-column: 1;
     font-size: 12px;
     color: var(--bl-ink);
-    /* The label sits above its own bar with the row's width to itself,
-       so it wraps rather than cuts: the partial's own comment promised a
-       name is never cut short, and it was cut at 24 characters. */
     overflow-wrap: anywhere;
 }
 .rp-rank__v {
@@ -822,10 +589,6 @@
 .rp-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--bl-space-4); margin-bottom: var(--bl-space-5); }
 .rp-panels .rp-chart { margin-bottom: 0; }
 
-/* ------------------------------------------------------------------
-   Product drill-down (products report). The child row holds a panel with
-   two small tables built by resources/js/pages/reports.js.
-   ------------------------------------------------------------------ */
 .rp-drill-col { width: 34px; padding-left: var(--bl-space-2); padding-right: 0; }
 .rp-drill-toggle {
     display: inline-flex;
@@ -901,37 +664,19 @@
 .rp-drill__msg { padding: var(--bl-space-3) 0; font-size: 12px; color: var(--bl-ink-3); }
 .rp-drill__msg--error { color: var(--bl-bad); }
 
-/* ------------------------------------------------------------------
-   Source / status chips inside a table cell.
-   ------------------------------------------------------------------ */
 .rp-idty { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .rp-idty__name { color: var(--bl-ink); overflow: hidden; text-overflow: ellipsis; }
 .rp-idty__sub { font-size: 11px; color: var(--bl-ink-3); font-family: var(--font-mono); }
 .rp-link { color: var(--bl-brand-deep); text-decoration: none; font-weight: 500; }
 .rp-link:hover { text-decoration: underline; }
 
-/* ------------------------------------------------------------------
-   Mobile. Below the restack breakpoint the table stops being a table, so
-   the scroll box has nothing to contain and gets out of the way. Two
-   columns of labelled values rather than the shared one, because a
-   twelve-field report row stacked one-per-line is a screen and a half.
-   ------------------------------------------------------------------ */
 @media (max-width: 640px) {
     .rp-scroll { overflow: visible; max-height: none; border-bottom: 0; }
     .rp-scroll .x-table { width: 100%; table-layout: fixed; }
 
-    /* A REPORT ROW ON A PHONE IS A SUMMARY, NOT A TRANSPOSED TABLE.
-       Every field one per line made one order 478px tall and one opened
-       month 37,000px. The row now reads as a card: its label cells on
-       one line, then Net profit and Margin as the one figure that
-       matters, then the money columns two to a row underneath. The base
-       restack in blotter-components.css forces every cell to span the
-       row; the rules below are specific enough to win there. */
     .rp-scroll .x-table tbody tr { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--bl-space-3); row-gap: 2px; padding: var(--bl-space-3) var(--bl-space-3); }
     .rp-scroll .x-table tbody td { white-space: normal; overflow-wrap: anywhere; padding: 0; }
     .rp-page .x-table tbody tr > td { grid-column: auto; }
-    /* The identifying cells read as one line each: who, then what it was
-       for. Their data-labels are dropped; "Order 1000082" needs no label. */
     .rp-page .x-table tbody tr > td:first-child,
     .rp-page .x-table tbody tr > td[data-label="Customer"],
     .rp-page .x-table tbody tr > td[data-label="Product"],
@@ -942,7 +687,6 @@
     .rp-page .x-table tbody tr > td[data-label="Status"]::before,
     .rp-page .x-table tbody tr > td[data-label="Customer"]::before,
     .rp-page .x-table tbody tr > td[data-label="Product"]::before { display: none; }
-    /* Money cells: label and figure on one line, two cells to a row. */
     .rp-page .x-table tbody tr > td.x-td-num { display: flex; justify-content: space-between; gap: var(--bl-space-2); align-items: baseline; }
     .rp-page .x-table tbody tr > td.x-td-num::before { margin: 0; }
     .rp-page .x-table tbody tr > td[data-label="Net profit"],
@@ -951,9 +695,6 @@
     .rp-col-name,
     .rp-scroll .x-table td[data-label="Customer"] { max-width: none; white-space: normal; }
 
-    /* Only the group's own label cell spans the row. Its figures keep the
-       two-column grid and their data-labels, so a restacked group header
-       reads "Revenue ...", not a stack of six anonymous amounts. */
     .rp-total > td { position: static; }
     .rp-grp > td:first-child,
     .rp-total > td:first-child { grid-column: 1 / -1; }
@@ -971,16 +712,8 @@
     .rp-trend__figures { display: none; }
 }
 
-/* Column widths. Sized to the widest real value each column holds, for
-   the same reason ui-table.css sizes the orders list: with the table in a
-   scroll container these keep the variable-width columns (Product,
-   Customer) from being squeezed by fixed-shape ones. */
 .rp-col-img    { width: 44px; padding-right: 0; }
 
-/* Its own thumbnail rather than components/detail.css's `.thumb-sm`: that
-   one is 42px (taller than a 32px report row) and paints itself with
-   --bl-chrome, a legacy variable the .x-app token set does not define,
-   so it would render on an undefined background inside the shell. */
 .rp-thumb {
     display: block;
     width: 26px;
@@ -996,24 +729,16 @@
 .rp-col-mstat  { width: 146px; }
 .rp-col-period { width: 210px; }
 
-/* Tone. See the header of this file: one job, and only when a figure
-   needs a human to look at it. */
 .rp-pos  { color: var(--bl-brand-deep); }
 .rp-neg  { color: var(--bl-bad); }
 .rp-warn { color: var(--bl-attn-fill); }
 
-/* ------------------------------------------------------------------
-   The Payouts table (2026-10-02): nine columns that fit beside the
-   sidebar. The marketplace's own number sits under ours and the paid
-   date under the payout state; long buyer names end in an ellipsis.
-   ------------------------------------------------------------------ */
 .rp-payouts .x-table .x-col-date { width: 98px; white-space: nowrap; }
 .rp-payouts .x-table .x-col-chan { width: 92px; }
 .rp-payouts .x-table td.x-cell-strong { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rp-mkt-id { display: block; margin-top: 2px; font-family: var(--font-mono); font-size: 11.5px; color: var(--bl-ink-3); }
 .rp-paid-on { display: block; margin-top: 3px; font-size: 11.5px; color: var(--bl-ink-3); font-variant-numeric: tabular-nums; }
 
-/* A laptop keeps the money columns: the marketplace's own state steps aside. */
 @media (min-width: 761px) and (max-width: 1360px) {
     .rp-payouts .x-table .rp-col-mstat { display: none; }
 }

@@ -4,32 +4,8 @@ namespace App\Integrations;
 
 use Illuminate\Support\Facades\DB;
 
-/**
- * One product, one group (cleanup point 2, the owner 2026-09-03).
- *
- * A product in several groups was the ambiguity that made group status
- * unreadable. Every membership write goes through claim(): products
- * already owned by another group ON THE SAME STORE are HELD and their
- * owner named - never silently reassigned - unless the caller passes
- * them in $moveIds, which is the operator's explicit "Move here". A store
- * never sees another store's groups, so a product may sit in one group
- * on each store.
- *
- * The pivots carry no store, so a caller passes the group table's store
- * column. Pedallion, a single-store channel, passes none and also keeps a
- * DB unique on its pivot's product_id; for every other channel this
- * class is the only gate.
- */
 class OneGroupRule
 {
-    /**
-     * @param array $productIds ids the caller wants in $groupId
-     * @param array $moveIds subset explicitly approved to move
-     * @return array{free: int[], held: array<int, string>, moved: array<int, string>}
-     *   free: not owned elsewhere - insert them;
-     *   held: product_id => owning group name - do NOT insert, tell the operator;
-     *   moved: product_id => former group name - old membership already deleted, insert them.
-     */
     public static function claim(
         string $pivotTable,
         string $groupFk,
@@ -71,12 +47,6 @@ class OneGroupRule
         return ['free' => $free, 'held' => $held, 'moved' => $moved];
     }
 
-    /**
-     * Who owns each product, excluding $groupId itself and scoped to
-     * $groupId's own store where groups are store-scoped.
-     *
-     * @return array<int, array{group_id: int, name: string}>
-     */
     public static function owners(
         string $pivotTable,
         string $groupFk,
@@ -96,8 +66,6 @@ class OneGroupRule
 
         if ($storeFk !== null) {
             $storeId = DB::table($groupTable)->where('id', $groupId)->value($storeFk);
-            // A group id that resolves no store (0 on a create form) means
-            // no scope to narrow by; unscoped beats matching nothing.
             if ($storeId !== null) {
                 $q->where('g.' . $storeFk, $storeId);
             }
@@ -111,7 +79,6 @@ class OneGroupRule
         return $out;
     }
 
-    /** The held-products clause every flash shares. */
     public static function heldClause(array $held): string
     {
         if ($held === []) {
@@ -129,11 +96,6 @@ class OneGroupRule
             . '. Use Move here to transfer one.';
     }
 
-    /**
-     * Put one product in a group of the store it was just added to, moving it
-     * out of any other group on that store. A group that is not this store's
-     * is refused (false) and nothing changes.
-     */
     public static function place(string $pivotTable, string $groupFk, string $groupTable, string $storeFk, int $storeId, int $groupId, int $productId): bool
     {
         $belongs = DB::table($groupTable)->where('id', $groupId)

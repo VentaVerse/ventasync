@@ -2,11 +2,6 @@
 @section('breadcrumb', 'Listings')
 @section('title', 'Add products to TikTok Shop')
 
-{{-- ADD PRODUCTS (#201, the owner 2026-09-05): your Master Catalog, each product
-     shown with whether it is already on this store and, if not, an Add to
-     store action. This is where a store's list is populated; the daily table
-     lives on This store (products/index). A lean read - no live status, no
-     readiness, no push - so it is its own view, not a branch of the table. --}}
 @section('content')
 @php
     $canManage = auth()->user()?->hasPermission('manage_tiktok/product') ?? false;
@@ -25,10 +20,6 @@
         ids: {{ \Illuminate\Support\Js::from(collect($products->items())->filter(fn ($r) => ! $r->on_store_pid)->pluck('product_id')->map(fn ($v) => (string) $v)->values()) }}
      }">
 
-{{-- The full-catalogue browse (#201): reached from the Add products panel's
-     "Browse the full catalogue" when a slide-over is too small for the job -
-     a big first setup, or a bulk pick. Never a tab and never a nav door; the
-     panel is the way in, and this is its overflow. --}}
 <div class="x-list-head">
     <div>
         <h1 class="x-page-title">Add products</h1>
@@ -85,9 +76,6 @@
 </form>
 
 @if($canManage)
-{{-- Add the ticked catalogue rows to this store in one submit. Only rows NOT
-     yet on the store can be ticked, so the count is always the number that
-     will actually be added. --}}
 <div class="cc-bulkbar" x-show="selected.length > 0" x-cloak role="status">
     <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected</span>
     <div class="cc-bulkbar__actions">
@@ -214,5 +202,5 @@
 <x-ui.pager :paginator="$paginator" />
 @endif
 
-</div>{{-- /.cc-page --}}
+</div>
 @endsection

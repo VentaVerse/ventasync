@@ -9,12 +9,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
-/**
- * Sized copies of a picture, OpenCart's way: square JPEGs on white under
- * cache/ with the picture's own path and the size in the name, made once,
- * drawn again when the picture changes, at the sizes Settings holds, and a
- * push copy every store accepts.
- */
 class ImageCacheTest extends TestCase
 {
     use RefreshDatabase;
@@ -50,7 +44,6 @@ class ImageCacheTest extends TestCase
         return $path;
     }
 
-    /** A noisy photo, which JPEG cannot compress well. */
     private function noisyPhoto(string $path, int $side): string
     {
         $image = imagecreatetruecolor($side, $side);
@@ -156,7 +149,6 @@ class ImageCacheTest extends TestCase
         $this->assertSame(['catalog/broken.jpg'], ImageCache::pushPaths(['catalog/broken.jpg']));
     }
 
-    /** Lazada fetches by URL, so it is handed the push copy's public address. */
     public function test_lazada_is_handed_the_push_copy(): void
     {
         $this->noisyPhoto('catalog/heavy.jpg', 1400);

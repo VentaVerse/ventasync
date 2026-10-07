@@ -4,24 +4,11 @@
 
 @section('content')
 @php
-    // Phase 4.5 (view/manage tier split). This used to be hardcoded `true`
-    // with a comment saying action triggers "are hidden" for read-tier
-    // operators, which they were not: every mutating control rendered for
-    // everyone and only 403'd when submitted. The real gate is the one on
-    // the routes themselves - orders.show is perm:view_orders|manage_orders,
-    // every POST/PUT/DELETE below is perm:manage_orders - so the UI now
-    // asks the same question the middleware asks.
     $canManageOrders = auth()->user()?->hasPermission('manage_sales/order') ?? false;
-    // Payments are their own key (OrderPaymentController): a manager of
-    // orders is not automatically a keeper of the books.
     $canManagePayments = auth()->user()?->hasPermission('manage_sales/order_payment') ?? false;
 
     $registry = app(\App\Integrations\IntegrationRegistry::class);
 
-    // Channel identity, resolved the same way the orders list resolves it
-    // (orders/index-v2.blade.php): brand-tinted text with no dot, because a
-    // dot on this page means "this is a state" and belongs to the status
-    // badge alone.
     $src = trim((string) $order->marketplace_source);
     $chanKey = $src === '' ? '' : strtok($src, ':');
     $chanTone = $src === '' ? 'neutral' : $chanKey;
@@ -36,22 +23,10 @@
     $refUrl = $orderRef['url'] ?? null;
     $refText = $orderRef['display'] ?? (string) $order->marketplace_order_id;
 
-    // Every money value in this view routes through App\Support\Money /
-    // <x-money> - see the class docblock. `currency_value` is the rate
-    // recorded at order time ("units of PHP per 1 unit of order currency");
-    // a default-currency order carries 1.0 and never shows the rate note.
     $defaultSymbol = \App\Support\Money::defaultSymbol();
-    // A blank currency_code (pre-currency-feature legacy orders) is
-    // default-currency, not "foreign with no name" - without this guard
-    // such an order renders a broken note.
     $isForeign = (string) $order->currency_code !== ''
         && strcasecmp((string) $order->currency_code, $defaultCurrency->code ?? 'PHP') !== 0;
     $orderRate = (float) ($order->currency_value ?: 1);
-    // A foreign order that predates normalization (or was created in the
-    // gap before the normalizer ran) has no foreign_total yet. Detect that
-    // explicitly rather than ever inferring the convention from the rate's
-    // magnitude - fall back to a single, still-labelled default-currency
-    // figure and a pending notice instead of a wrong or blank number.
     $normalized = !$isForeign || $order->foreign_total !== null;
     $dual = $isForeign && $normalized;
 
@@ -61,10 +36,6 @@
     $balance = $orderTotal - $totalPaid;
 
 
-    // Margin tone. There is no green "healthy" state on this page: colour
-    // marks money that needs attention, so a good margin is plain text and
-    // only a thin or negative one is tinted. Thresholds are the same 20/10
-    // the previous version of this page used.
     $marginTone = fn (float $pct) => $pct >= 20 ? '' : ($pct >= 10 ? 'od-warn' : 'od-neg');
 @endphp
 
@@ -73,8 +44,6 @@
      data-order-id="{{ $order->order_id }}"
      data-base-url="{{ url('/sales/orders') }}">
 
-    {{-- layouts.shell renders no flash region of its own; every action on
-         this page redirects back here with a session message. --}}
     <div class="od-flash" id="od-flash" role="status" aria-live="polite">
         @if(session('status'))
             <div class="od-note od-note--ok">
@@ -108,15 +77,9 @@
         <div class="od-head__id">
             <h1 class="x-page-title od-title">#{{ $order->order_id }}</h1>
             @if($canManageOrders)
-                {{-- The badge is the control (critique, 2026-08-27): it opens
-                     the two forms that used to sit two screens down, who sets
-                     the status and the change itself. --}}
                 <details class="od-status">
                     <summary class="od-status__summary" aria-label="Change the order status">
                         <x-ui.badge :tone="\App\Support\OrderStatusTone::for($order->status->name ?? null)">{{ $order->status->name ?? '-' }}</x-ui.badge>
-                        {{-- Says what the badge does. A 12px chevron was the
-                             only sign, and the owner could not find the
-                             control (the owner, 2026-08-27). --}}
                         <span class="od-status__hint">Change status</span>
                         <x-ui.icon name="chevron-down" size="12" class="od-status__caret" />
                     </summary>
@@ -133,13 +96,6 @@
                                 : 'Take over this order\'s status' }}">
                     </button>
                     <div class="od-override__body">
-                        {{-- One name for the switch and one sentence for what
-                             it does (the owner, 2026-09-08). It used to name a
-                             use case - "turn on before finalizing a return" -
-                             which is one of many and reads as the only one.
-                             What the switch actually does is the same in
-                             every case: the status stops coming from the
-                             marketplace. --}}
                         <div class="od-override__title">Status override</div>
                         <div class="od-override__note">
                             @if($order->sync_override)
@@ -178,14 +134,11 @@
                 </div>
             </form>
 
-                        {{-- Says what THIS move does, in units, once a status is
-                             picked; the generic sentence until then. --}}
                         <p class="od-status__note" data-status-note data-note-default="Moving to or from a status that takes stock adjusts inventory the moment you update.">Moving to or from a status that takes stock adjusts inventory the moment you update.</p>
                         <div class="od-status__foot">
                             <button type="button" class="x-btn x-btn--ghost x-btn--sm" data-status-close>Close</button>
                         </div>
                     </div>
-                    {{-- The scrim under the phone's bottom sheet; a tap on it closes. --}}
                     <div class="od-status__scrim" data-status-close aria-hidden="true"></div>
                 </details>
             @else
@@ -232,13 +185,7 @@
         </div>
     @endif
 
-    {{-- ============ THE FACTS ============ --}}
-    {{-- Who, where to, how paid: one band under the header, read before the
-         money the way the floor reads an order. These were a rail beside the
-         money; a one-line order left the money column empty under it while
-         the rail ran long (the owner, 2026-08-27, reshaped from three drafts). --}}
     <div class="od-facts">
-            {{-- Customer --}}
             <section class="od-card">
                 <div class="od-card__head">
                     <h2 class="od-card__title">Customer</h2>
@@ -246,9 +193,6 @@
                 <div class="od-card__body od-card__body--tight">
                     <div class="od-lines">
                         <span class="od-lines__name">{{ trim($order->firstname . ' ' . $order->lastname) ?: 'Guest' }}</span>
-                        {{-- The group the order was placed under, by name, as
-                             the storefront sent it (#129): a reseller's order
-                             says so where its lower margin is read. --}}
                         @if(trim((string) ($order->customer_group ?? '')) !== '')
                             <span class="od-fact">
                                 <span class="od-fact__k">Customer group</span>
@@ -261,7 +205,6 @@
                 </div>
             </section>
 
-            {{-- Shipping --}}
             @php
                 $hasShipping = $order->shipping_firstname || $order->shipping_lastname || $order->shipping_company
                     || $order->shipping_address_1 || $order->shipping_address_2 || $order->shipping_city
@@ -316,7 +259,6 @@
             </section>
             @endif
 
-            {{-- Payment --}}
             <section class="od-card">
                 <div class="od-card__head">
                     <h2 class="od-card__title">Billing</h2>
@@ -355,7 +297,6 @@
 
                 </div>
             </section>
-            {{-- Order comment --}}
             @if($order->comment)
             <section class="od-card">
                 <div class="od-card__head">
@@ -371,7 +312,6 @@
     <div class="od-body">
         <div class="od-col od-col--main">
 
-            {{-- Items --}}
             <section class="od-section">
                 <div class="od-section__head">
                     <h2 class="od-section__title">
@@ -391,10 +331,6 @@
                 @if($products->count())
                 @php
                     $totalRevenue = 0; $totalCogs = 0;
-                    /* The VARIATION's own picture, by the line's SKU, before the
-                       product's picture by id (#138 on this page too, the owner
-                       2026-08-27): the list resolved it that way, this page
-                       did not, so a red pedal's order showed the black one. */
                     $lineImages = \App\Support\CatalogImages::forSkus($products->pluck('model')->map(fn ($m) => trim((string) $m))->filter()->all());
                 @endphp
                 <div class="od-items">
@@ -477,11 +413,6 @@
                                     @else
                                         <span class="od-econ__v">{{ $unitCost > 0 ? \App\Support\Money::base($unitCost) : '-' }}</span>
                                     @endif
-                                    {{-- Cost is kept in pesos (PO figure at the PO's rate);
-                                         on a foreign order it is also read in the order's
-                                         currency at the rate recorded on the order, the
-                                         exchange at the time of sale, as price and total
-                                         are. The owner, 2026-08-27. --}}
                                     @if($dual && $unitCost > 0)
                                         <span class="money-secondary">{{ \App\Support\Money::foreign(\App\Services\OrderCurrencyService::toForeign($unitCost, $orderRate), $order->currency_code) }}</span>
                                     @endif
@@ -517,7 +448,6 @@
 
             @php
                 $feeCodes = array_column(\App\Services\Orders\MarketplaceFeeNormalizer::CODES, 0);
-                // Payout and payment-balance lines kept from older imports are not part of the sale.
                 $notSale = array_merge($feeCodes, ['total', 'escrow_amount', 'total_amount', 'partial_payment_total']);
                 $totalRow = $orderTotals->firstWhere('code', 'total');
                 $saleTotal = $totalRow ? (float) $totalRow->value : (float) $order->total;
@@ -526,7 +456,6 @@
                     : null;
                 $netProfit = $orderProfit->netProfit();
                 $shippingTotal = $orderProfit->shippingCost();
-                // A shipping cost a store reported is that store's figure; only the order's own is edited here.
                 $shippingEditable = $canManageOrders && $orderProfit->reportedShippingCost == 0.0;
                 $cogsForeign = $dual ? \App\Services\OrderCurrencyService::toForeign($orderProfit->cogs, $orderRate) : null;
             @endphp
@@ -630,9 +559,6 @@
                     @endforeach
 
                     @if($canManageOrders)
-                    {{-- Delete forms live outside the ledger rows: a <form> nested in a
-                         grid row would become a grid item and break the two-column
-                         alignment, so the buttons above reference these by id. --}}
                     @foreach($orderProfit->fees as $fee)
                         @if($fee['fee_id'] !== null)
                         <form id="od-fee-del-{{ $fee['fee_id'] }}"
@@ -673,14 +599,10 @@
             </section>
             </div>
 
-            {{-- ============ PAYMENTS ============ --}}
             <section class="od-section od-payments">
                 <div class="od-section__head">
                     <h2 class="od-section__title">Payments</h2>
                     @if($order->track_payments)
-                        {{-- The badge states the payment state; the amounts
-                             live in the card's own two figure lines below,
-                             so the balance is not printed twice. --}}
                         @if($balance <= 0 && $orderTotal > 0)
                             <x-ui.badge tone="success">Paid in full</x-ui.badge>
                         @elseif($totalPaid > 0)
@@ -800,7 +722,6 @@
         </div>
     </div>
 
-    {{-- ============ HISTORY ============ --}}
     <section class="od-section">
         <div class="od-section__head">
             <h2 class="od-section__title">

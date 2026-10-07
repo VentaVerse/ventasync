@@ -19,11 +19,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
-/**
- * The packing check: with it on, the packer types how many of each item is
- * in their hands before booking, never sees the ordered quantity, and no
- * booking route accepts an order that was not counted right by that person.
- */
 class PackingCheckTest extends TestCase
 {
     use RefreshDatabase;
@@ -60,7 +55,6 @@ class PackingCheckTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    /** A Lazada order of 2 cables and 4 ballpens, the cables as two rows the way Lazada sends them. */
     private function lazadaOrder(string $orderId = '1105065607396146'): LazadaOrder
     {
         $order = LazadaOrder::query()->create(['lazada_setting_id' => $this->lazada->id, 'region' => 'ph', 'order_id' => $orderId,
@@ -100,7 +94,6 @@ class PackingCheckTest extends TestCase
                 ->assertJsonPath('message', 'That count is wrong. Count again.');
         }
 
-        // Skipping the count: the booking route itself refuses.
         $this->actingAs($packer)
             ->post(route('ext.lazada.orders.pack_print', ['store' => $this->lazada->id, 'orderId' => '1105065607396146']))
             ->assertRedirect()
@@ -108,12 +101,10 @@ class PackingCheckTest extends TestCase
 
         $this->actingAs($packer)->postJson($verify, ['counts' => ['l0' => '2', 'l1' => '4']])->assertOk()->assertJsonPath('ok', true);
 
-        // Counted: the booking route lets the request through to the channel.
         $this->actingAs($packer)
             ->post(route('ext.lazada.orders.pack_print', ['store' => $this->lazada->id, 'orderId' => '1105065607396146']))
             ->assertSessionMissing('error');
 
-        // Someone else did not count it.
         $this->actingAs($this->packer())
             ->post(route('ext.lazada.orders.pack_print', ['store' => $this->lazada->id, 'orderId' => '1105065607396146']))
             ->assertSessionHas('error', 'Count the items before booking this order.');
@@ -132,10 +123,6 @@ class PackingCheckTest extends TestCase
             ->assertSessionHas('error', 'Count the items before booking this order.');
     }
 
-    /**
-     * A stand-in Lazada booking behind the real middleware, answering the
-     * way the channel buttons do: JSON, a flash, or a bulk pack's flash.
-     */
     private function standInBooking(): void
     {
         \Illuminate\Support\Facades\Route::middleware(['web', 'auth', 'packing.check:lazada'])
@@ -191,7 +178,6 @@ class PackingCheckTest extends TestCase
         $packer = $this->packer();
         $this->countRight($packer, $order);
 
-        // A success flashed by the request before, then a booking that answered nothing.
         $this->actingAs($packer)
             ->withSession(['lazada_orders_last_result' => ['ok' => true], '_flash' => ['old' => ['lazada_orders_last_result'], 'new' => []]])
             ->post('/_test/lazada/book', ['ids' => [$order->id], 'answer' => 'nothing']);
@@ -272,7 +258,6 @@ class PackingCheckTest extends TestCase
             ->assertRedirect(route('settings.fulfilment'))->assertSessionHas('status', 'Fulfilment settings saved.');
         $this->assertTrue((bool) Setting::singleton()->fresh()->packing_check);
 
-        // The page carries the switch to the script that asks for the count.
         $this->actingAs($admin)->get(route('settings.fulfilment'))->assertSee('name="packing-check"', false);
 
         $this->actingAs($admin)->put(route('settings.fulfilment.update'), [])->assertRedirect();

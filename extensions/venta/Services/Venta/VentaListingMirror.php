@@ -7,22 +7,8 @@ use Extensions\venta\Models\VentaProductLink;
 use Extensions\venta\Models\VentaSetting;
 use Illuminate\Support\Collection;
 
-/**
- * The listing status MIRROR for one store (#166 applied to Venta, #171):
- * what the store says each linked product is, kept on the listing row
- * (live_status, live_checked_at, live_price, live_quantity) so the index
- * and its strip read a table, not the store.
- *
- * Refreshed three ways, as on the marketplaces: on a schedule
- * (venta:refresh-listing-status, every 30 minutes once enabled), on
- * demand by the Refresh button on the index, and written through by
- * every push, unlist and relist the ERP makes. The index also fills its
- * own blanks: a linked row never checked is asked about once, up to ten
- * a view, so a product pushed a minute ago never reads "Not checked yet".
- */
 class VentaListingMirror
 {
-    /** The index's tabs: key => [label, mirrored status or null for all]. */
     public const TABS = [
         'all' => ['All', null],
         'active' => ['Active', VentaListing::STATUS_ACTIVE],
@@ -30,7 +16,6 @@ class VentaListingMirror
         'missing' => ['Not on the store', VentaListing::STATUS_MISSING],
     ];
 
-    /** Mirrored status => [label, badge tone]. */
     public const STATUS_MAP = [
         VentaListing::STATUS_ACTIVE => ['Active', 'success'],
         VentaListing::STATUS_INACTIVE => ['Unlisted', 'warning'],
@@ -48,16 +33,6 @@ class VentaListingMirror
         return new self($setting, new VentaClient($setting));
     }
 
-    /**
-     * One walk of the store's product list, written onto every linked
-     * product's listing row. The list carries id, sku and status for up
-     * to 200 products a page, so a shop of a thousand is five calls, not
-     * a thousand. A link the walk does not find is MISSING: the store no
-     * longer has it. Any page failing writes nothing, because a partial
-     * walk would file every product after the failure as missing.
-     *
-     * @return array{error: ?string, counts: array<string, int>, links: int}
-     */
     public function refresh(): array
     {
         $byId = [];
@@ -115,8 +90,6 @@ class VentaListingMirror
 
             $status = $facts['status'] ?? VentaListing::STATUS_MISSING;
             if ($facts !== null && $status === null) {
-                // The store answered without a status field: an older
-                // storefront. Leave the status alone rather than guess.
                 continue;
             }
 
@@ -135,18 +108,6 @@ class VentaListingMirror
         return ['error' => null, 'counts' => $counts, 'links' => $links->count()];
     }
 
-    /**
-     * The blanks on one page, filled: linked rows with no status yet are
-     * asked about once, up to $limit. Stops at the first non-answer so a
-     * store that is down leaves the rest blank rather than guessed.
-     *
-     * @param  Collection<int, VentaProductLink>  $links  the page's links, keyed by product id
-     * @param  ?string  $error  filled with WHY it stopped, when the store
-     *        refused. It used to be swallowed, so a refusal left every row
-     *        reading "not checked yet" with nothing on the page to say why
-     *        (the owner, 2026-09-09).
-     * @return int how many were filled
-     */
     public function fillBlanks(Collection $links, int $limit = 10, ?string &$error = null): int
     {
         $store = (int) $this->setting->id;
@@ -183,12 +144,6 @@ class VentaListingMirror
         return $filled;
     }
 
-    /**
-     * The strip's buckets from the mirror, linked products only, keyed
-     * the way TABS names them.
-     *
-     * @return array<string, int>
-     */
     public function counts(): array
     {
         $store = (int) $this->setting->id;

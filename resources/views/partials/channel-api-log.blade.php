@@ -1,30 +1,3 @@
-{{-- The API log panel, shared by every channel's Logs tab (#200).
-
-     One partial because six near-identical blades had already drifted
-     (two column vocabularies, one channel losing ?tab= on its toggle).
-     The caller normalizes its differences into $map and hands over:
-
-       $logChannel  display name ("Shopee", the store's name)
-       $canManage   whether mode / delete controls render
-       $logMode     current App\Support\ApiLogMode value
-       $modeUrl     POST target for the mode buttons
-       $logs        LengthAwarePaginator of log rows
-       $clearUrl    POST target for Delete all (DELETE), or null
-       $map         column map:
-                      path        endpoint column name
-                      status      status column name
-                      okFn        fn($row): bool
-                      ms          elapsed-ms column or null
-                      pack        pack column or null
-                      signed      auth column or null
-                      request     request payload column
-                      response    response payload column
-                      requestLabel  "Request parameters" | "Request body"
-
-     Filters ride the query string (log_show, log_q, logPage) beside the
-     active ?tab=, so a refresh - or the refresh button here - keeps the
-     operator exactly where they were. --}}
-
 @php
     $modeLabels = \App\Support\ApiLogMode::labels();
     $keepDays = \App\Support\ApiLogPanel::keepDays();
@@ -36,15 +9,9 @@
 <section class="fm-section">
     <div class="fm-section__head">
         <h2 class="fm-section__title">Recording</h2>
-        {{-- The explanation moved off the page into a tooltip (the owner,
-             2026-09-04): prose the operator reads once, not a paragraph
-             sitting under the control forever. --}}
         <x-ui.hint label="What each recording mode keeps">Everything keeps a copy of each request sent to {{ $logChannel }} and the answer that came back. Errors only keeps just the failed calls, so the every-minute order fetches stay out of the log while the rows that explain a problem stay in. Either way, rows older than {{ $keepDays }} days are removed nightly.</x-ui.hint>
     </div>
     @if($canManage)
-        {{-- One segmented control, the same shape as the All/Errors filter
-             below it: a bordered track, the active mode filled. It POSTs,
-             so it is a form of submit buttons rather than links. --}}
         <form method="POST" action="{{ $modeUrl }}" class="x-segment cs-modeseg" role="group" aria-label="What the API log records">
             @csrf
             @foreach($modeLabels as $mode => $label)
@@ -62,9 +29,6 @@
     <div class="fm-section__head">
         <h2 class="fm-section__title">Recent calls</h2>
         <div class="fm-section__aside cs-logtools">
-            {{-- Narrow to failures, search a path, refresh in place. The
-                 links rebuild the current URL, so the active tab and every
-                 other filter survive each move. --}}
             <nav class="x-segment" aria-label="Which calls to show">
                 <a class="x-segment__item {{ $showErrors ? '' : 'is-active' }}"
                    href="{{ request()->fullUrlWithQuery(['log_show' => null, 'logPage' => null]) }}"
@@ -132,9 +96,6 @@
                             <span class="cc-err">{{ \Illuminate\Support\Str::limit(json_encode($log->{$map['response']}), 120) }}</span>
                         @endif
 
-                        {{-- Server-rendered disclosure: a payload never needs
-                             JavaScript to be read, and nothing is written
-                             into the page by script. --}}
                         <details class="cs-disclosure">
                             <summary>Request and response</summary>
                             <div class="cs-disclosure__body">

@@ -31,7 +31,6 @@ class VentaPushReviews extends Command
             return 1;
         }
 
-        // Get all pending reviews that have a resolved product_id
         $pendingReviews = MarketplaceReview::query()
             ->whereIn('venta_sync_status', ['pending', 'error'])
             ->whereNotNull('product_id')
@@ -53,7 +52,6 @@ class VentaPushReviews extends Command
 
             $client = new VentaClient($setting);
 
-            // Ping check
             $ping = $client->ping();
             if (!($ping['ok'] ?? false)) {
                 $this->warn("  Cannot reach store, skipping.");
@@ -64,7 +62,6 @@ class VentaPushReviews extends Command
             $skipped = 0;
             $errors = 0;
 
-            // Build product link map for this store: product_id => sku
             $linkMap = VentaProductLink::query()
                 ->where('venta_setting_id', $setting->id)
                 ->pluck('sku', 'product_id')
@@ -73,13 +70,11 @@ class VentaPushReviews extends Command
             foreach ($pendingReviews as $review) {
                 $productSku = $linkMap[$review->product_id] ?? null;
 
-                // Skip if already pushed by a previous store in this run
                 if (!in_array($review->venta_sync_status, ['pending', 'error'])) {
                     continue;
                 }
 
                 if (!$productSku) {
-                    // Product not linked to this Venta store — skip silently
                     $skipped++;
                     continue;
                 }

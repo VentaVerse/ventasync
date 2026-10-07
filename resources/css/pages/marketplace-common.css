@@ -1,8 +1,3 @@
-/* ============================================================
-   MARKETPLACE COMMON (Shopee / Lazada / TikTok shared styles)
-   ============================================================ */
-
-/* Settings grid (used on all marketplace index pages) */
 .marketplace-settings-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -13,23 +8,15 @@
     .marketplace-settings-grid { grid-template-columns: 1fr; }
 }
 
-/* Order image preview (zoom on hover) */
 .order-img-wrap {
     position: relative; cursor: zoom-in; z-index: 1;
     width: 86px; min-height: 56px; flex-shrink: 0;
     align-self: stretch; border-radius: 8px; overflow: hidden;
-    /* The empty state behind a product thumbnail that has not loaded, or has
-       no image at all. Was --bl-chrome, defined only by base/variables.css
-       (deleted in Round F Task 4) and light-only; --bl-chrome is the
-       token equivalent and follows the theme, so the placeholder stops being
-       a pale slab on a dark order panel. */
     background: var(--bl-chrome);
 }
 .order-img-wrap img.order-img {
     width: 100%; height: 100%; object-fit: cover; display: block;
 }
-/* An order line with no photo shows the shipped placeholder; the words
-   stay for a screen reader only. */
 .order-img-wrap:has(> .co-item__none) {
     background-image: url('/images/brand/no-image.svg');
     background-repeat: no-repeat;
@@ -51,7 +38,6 @@
 .order-img-preview.visible { transform: scale(1); opacity: 1; }
 .order-img-preview img { display: block; width: 220px; height: 220px; object-fit: cover; }
 
-/* Order option pills */
 .order-option-wrap {
     margin-top: 6px; display: flex; flex-wrap: wrap;
     align-items: center; gap: 6px;
@@ -67,14 +53,6 @@
     border-radius: 999px; padding: 2px 10px;
 }
 
-/* The order group separator that used to live here matched
-   .order-header-row, a class this application stopped emitting when the
-   order band was renamed to .co-band. It sat here styling nothing while
-   the lists it was written for rendered with no separation at all. It now
-   lives with the rest of the order vocabulary, in blotter-components.css,
-   under the class the views actually use. */
-
-/* Action dropdown items (product tables) */
 .action-item {
     display: flex; align-items: center; gap: 8px;
     width: 100%; padding: 8px 14px;
@@ -88,7 +66,6 @@
 .action-item svg { flex-shrink: 0; opacity: .6; }
 .table-wrap.menu-open { overflow: visible; }
 
-/* Bulk update dropdown */
 .bulk-dropdown {
     position: relative;
     display: inline-block;
@@ -109,7 +86,7 @@
     background: var(--bl-sheet);
     border: 1px solid var(--bl-rule);
     border-radius: var(--bl-r-ctrl);
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--bl-lift);
     padding: 4px 0;
     margin-top: 4px;
 }
@@ -117,7 +94,6 @@
     display: block;
 }
 
-/* Bulk loading overlay */
 .bulk-loading-overlay {
     display: none; position: fixed; inset: 0;
     z-index: 9999; background: rgba(0,0,0,.35);
@@ -126,7 +102,7 @@
 .bulk-loading-overlay.active { display: flex; }
 .bulk-loading-box {
     background: var(--bl-sheet); border-radius: var(--bl-r-panel);
-    padding: 28px 36px; box-shadow: var(--shadow-lg);
+    padding: 28px 36px; box-shadow: var(--bl-lift);
     text-align: center; max-width: 320px;
 }
 .bulk-loading-box .spinner {
@@ -139,7 +115,6 @@
     font-weight: 600; color: var(--bl-ink);
 }
 
-/* Unmatched product link rows */
 .unmatched-link-row { position: relative; }
 .unmatched-results { top: 100%; left: 0; }
 .unmatched-result-item {
@@ -153,32 +128,26 @@
 .unmatched-result-item .result-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .unmatched-result-item .result-sku { color: var(--bl-ink-3); font-size: 11px; }
 
-/* Lazada-specific result item (products table) */
 .laz-result-item:hover { background: var(--bl-chrome-2); }
 
-/* Filter grid responsive */
 @media (max-width: 768px) {
     .card form[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
 
-    /* Collapse inline 2-column grids to single column (covers both spacing variants) */
     div[style*="grid-template-columns: 1fr 1fr"],
     div[style*="grid-template-columns:1fr 1fr"] {
         grid-template-columns: 1fr !important;
     }
 
-    /* 6-column product filter grids to single column */
     div[style*="grid-template-columns: 1fr auto auto auto auto auto"],
     div[style*="grid-template-columns:1fr auto auto auto auto auto"] {
         grid-template-columns: 1fr !important;
     }
 
-    /* 4-column filter grids to 2 columns */
     div[style*="grid-template-columns: 1fr auto auto auto"],
     div[style*="grid-template-columns:1fr auto auto auto"] {
         grid-template-columns: 1fr 1fr !important;
     }
 
-    /* 3-panel dual-list picker to stacked */
     div[style*="grid-template-columns: 1fr 48px 1fr"],
     div[style*="grid-template-columns:1fr 48px 1fr"] {
         grid-template-columns: 1fr !important;
@@ -186,55 +155,13 @@
 }
 
 @media (max-width: 480px) {
-    /* 4-column filters to single column on small screens */
     div[style*="grid-template-columns: 1fr auto auto auto"],
     div[style*="grid-template-columns:1fr auto auto auto"] {
         grid-template-columns: 1fr !important;
     }
 }
 
-/* ------------------------------------------------------------------
-   ORDER LISTS ON A PHONE
-
-   Measured at 390px, the orders table was 901px inside a 328px
-   scroller, so 64% of every row sat behind a second scroll axis - and
-   the hidden 64% held Amount, Shipping, Status and every action. What
-   stayed visible was a photograph, a truncated title and a quantity. On
-   Lazada, where every buyer masks to J******e, that made ten rows
-   visually identical. The warehouse floor is the scene PRODUCT.md calls
-   first-class, and it could not answer "which of these needs packing"
-   without dragging each row sideways.
-
-   Below 700px the table stops being a table. Every cell already carries
-   a data-label naming its column, because these views were written for
-   a restack that comments elsewhere refer to and that never existed in
-   the bundle. It exists now.
-
-   THE GATE IS AN OPT-IN CLASS, not :has(.co-band). It was the latter, and
-   that made a desktop layout choice silently decide whether a screen
-   worked on a phone: Shopee's returns list is the one marketplace list
-   not built from order bands, so it matched nothing, kept its desktop
-   grid at 745px inside a 326px viewport, and put Buyer, Refund, Status
-   and every action behind a second scroll axis. Its 50 data-label
-   attributes were inert the whole time. A list now says whether it
-   stacks, and the next list built without a band inherits nothing by
-   accident.
-
-   THIS FILE, not blotter-components.css, because the per-channel column
-   widths (.sp-col-products { width: 31% } and its Lazada and TikTok
-   twins) are unlayered page vocabulary, and unlayered rules beat
-   anything inside @layer components no matter how specific it is. The
-   first cut of this block lived in the layer and lost: every product
-   cell rendered 102px wide, which is 31% of a phone, with the product
-   title squeezed out entirely.
-
-   Order-level cells (Amount, Shipping, Status) carry rowspan, so they
-   render once, after the first item of their order. That reads
-   correctly for the one and two-item orders that are nearly all of
-   them, and in every case beats being off-screen.
-   ------------------------------------------------------------------ */
 @media (max-width: 700px) {
-    /* Column headers describe columns, and there are none now. */
     .x-table--stack > thead { display: none; }
 
     .x-table--stack,
@@ -245,8 +172,6 @@
         width: auto;
     }
 
-    /* The gap between orders does more work here than on a desktop,
-       because there are no column edges left to line the eye up. */
     .x-table--stack > tbody > tr.co-band > td {
         border-top-width: 12px;
         padding: 10px 12px;
@@ -262,14 +187,6 @@
         padding-bottom: 11px;
     }
 
-    /* Each figure says which figure it is, since the header that used to
-       say so is gone. The product cell names itself.
-
-       Scoped to "any row that is not a band" rather than to .co-itemrow:
-       a stacked list does not have to use the band anatomy, and when these
-       rules named co-itemrow the one list that does not (Shopee returns)
-       stacked without labels, so its Buyer and Refund cells printed bare
-       values with nothing saying which was which. */
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label]:not([data-label='Products'])::before {
         content: attr(data-label);
         display: block;
@@ -281,9 +198,6 @@
         color: var(--bl-ink-3);
     }
 
-    /* The product keeps its thumbnail beside its name rather than
-       stacking under it: the name is what identifies the row and it
-       needs the width. */
     .x-table--stack > tbody > tr:not(.co-band) > td .co-item {
         display: flex;
         gap: 10px;
@@ -296,49 +210,20 @@
         min-height: 0;
     }
 
-    /* Everything beside the image takes the rest of the row and wraps
-       like prose instead of one word per line. */
     .x-table--stack > tbody > tr:not(.co-band) > td .co-item > :not(.order-img-wrap) {
         flex: 1 1 auto;
         min-width: 0;
     }
 
-    /* A row action is a thumb target here, not a column. */
     .x-table--stack > tbody > tr:not(.co-band) > td .x-btn {
         min-height: 40px;
     }
 
-    /* ------------------------------------------------------------------
-       THE CARD ANSWERS THE PACKER'S QUESTIONS IN THE ORDER THEY ASK THEM.
-
-       Measured on the Lazada bench, one order is 578px on a 390px screen and
-       the reading order was: masked buyer, eighteen-digit order number,
-       product, quantity, price, amount, payment method, courier, THEN the
-       ship-by deadline, then the action. A packer asks four things - is it
-       late, what is it, how many, what do I do - and the first complete
-       answer arrived 458px down, after two currency figures.
-
-       The deadline leads, then the product, the quantity, THEN THE COURIER,
-       then the action. The courier sits above the button on purpose: it is
-       what decides whether the parcel joins the LEX pile or the Flash pile,
-       and it was below the control that commits the shipment. Money follows,
-       for the bench rather than the shelf.
-
-       WHAT THIS CANNOT DO, and it is worth knowing before someone tries: an
-       order is TWO table rows - a band carrying the identifiers and an item
-       row carrying everything else - and `order` cannot move a cell out of
-       its own flex container. So the identifier band stays at the top of the
-       card no matter what this block says. It is compressed instead, below.
-       Moving it would mean restructuring the markup for both hosts and every
-       channel, which is a different job from this one.
-       ------------------------------------------------------------------ */
     .x-table--stack > tbody > tr:not(.co-band) {
         display: flex;
         flex-direction: column;
     }
 
-    /* Anything unlisted lands between the work and the reference, which is
-       the right default for a cell this file has not been told about. */
     .x-table--stack > tbody > tr:not(.co-band) > td { order: 6; }
 
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Status'],
@@ -348,18 +233,12 @@
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Items'] { order: 2; }
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Qty'] { order: 3; }
 
-    /* The actions cell is the only one with no data-label, and it is what the
-       packer came to press - after they have seen who is carrying it. */
     .x-table--stack > tbody > tr:not(.co-band) > td:not([data-label]) { order: 5; }
 
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Shipping'],
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Tracking'],
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Return tracking'] { order: 4; }
 
-    /* Money last, and quieter. It is not nothing - a cash-on-delivery order is
-       one where the person holding the parcel needs the amount, and a phone is
-       where they are holding it - so it stays on the card and merely stops
-       taking a labelled block each. */
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Price'],
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Amount'],
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Payment'],
@@ -381,17 +260,10 @@
         margin-right: 6px;
     }
 
-    /* Whose it is and when it arrived are what you check against a waybill
-       after the decision, not before it. Venta and the storefronts carry a
-       date column and Shopee's returns carry a buyer; both belong here. */
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Buyer'],
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Date'],
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Return'] { order: 8; }
 
-    /* The identifier band cannot be moved, so it stops costing 105px. A
-       masked buyer name and an eighteen-digit order number are what a packer
-       checks against the waybill AFTER deciding to pick the order up, not
-       what they read to decide. */
     .x-table--stack > tbody > tr.co-band > td {
         padding-top: 7px;
         padding-bottom: 7px;

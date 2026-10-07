@@ -15,21 +15,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-/**
- * The per-product Venta surface (#171): one product on one store, the way
- * Shopee's and TikTok's listing pages show theirs. The live half is read
- * from the store on this load and written to the mirror; the record
- * beneath it (price rule, content on this store) is what the next push
- * from here sends. Saving never writes the catalogue product.
- *
- * Multi-store, like every Venta URL: the store is a path segment and the
- * listing record is one row per product per store.
- */
 class VentaListingController extends Controller
 {
     use \App\Http\Controllers\Concerns\ServesCategoryTree;
 
-    /** The channel whose category tree the picker on these pages reads. */
     protected function categoryChannel(): string
     {
         return 'venta';
@@ -39,7 +28,6 @@ class VentaListingController extends Controller
         catalogChangeIgnore as private ignoreCatalogChange;
     }
 
-    /** The store the Catalog change routes named, for the two methods below. */
     private int $catalogChangeStore = 0;
 
     public function catalogChangeSave(Request $request, int $store, int $productId)
@@ -56,7 +44,6 @@ class VentaListingController extends Controller
         return $this->ignoreCatalogChange($request, $productId);
     }
 
-    /** This store's listing of the product. */
     protected function catalogChangeListing(int $productId): \Illuminate\Database\Eloquent\Model
     {
         VentaSetting::findOrFail($this->catalogChangeStore);
@@ -69,18 +56,6 @@ class VentaListingController extends Controller
         return route('ext.venta.listings.edit', [$this->catalogChangeStore, $productId]);
     }
 
-    /**
-     * The store's listings index: one row per catalogue product in scope
-     * (any group on this store, plus anything already linked), the
-     * store's own status from the mirror, and the row's verbs in its menu.
-     * Same anatomy as Shopee's, Lazada's and TikTok's.
-     */
-    /**
-     * Ask this store about the links the page believes in - the product group
-     * page's check, on the workbench (#184's one-workbench rule). With
-     * rows ticked it checks those; with none it checks every linked
-     * product, 200 at a time.
-     */
     public function checkAgainstVenta(Request $request, int $store, \Extensions\venta\Services\Venta\VentaLinkCheck $check)
     {
         $setting = VentaSetting::findOrFail($store);
@@ -104,14 +79,6 @@ class VentaListingController extends Controller
         return redirect()->back()->with($r['tone'], $r['summary']);
     }
 
-    /**
-     * The Import page, stateless (the owner, 2026-09-04: "lets not even save
-     * them"). Nothing about the store's items is persisted: the page is
-     * blank until Fetch reads the store live, the rows exist only in the
-     * rendered page, and Import / Link re-read the item by its SKU at the
-     * moment they act. No queue tables, no dismissed state - what the
-     * store holds is what you see, every time.
-     */
     public function importPage(Request $request, int $store)
     {
         $setting = VentaSetting::findOrFail($store);
@@ -130,13 +97,6 @@ class VentaListingController extends Controller
         ]);
     }
 
-    /**
-     * Read the store live and keep only what the catalog cannot place -
-     * not on a product, not on a variation, not a known model. Pure read:
-     * the same diff the old scan ran, minus every write.
-     *
-     * @return array{0: ?array{found: int, rows: list<array>}, 1: ?string}
-     */
     private function fetchUnmatched(VentaSetting $setting): array
     {
         if (! $setting->enabled) {
@@ -184,7 +144,6 @@ class VentaListingController extends Controller
         return [['found' => $found, 'rows' => $rows], null];
     }
 
-    /** Import one fetched item, re-read live by its SKU. */
     public function importOne(Request $request, int $store, \Extensions\venta\Services\Venta\VentaItemImport $import)
     {
         $data = $request->validate(['ref' => 'required|string|max:191']);
@@ -195,7 +154,6 @@ class VentaListingController extends Controller
         return redirect()->back()->with($r['ok'] ? 'status' : 'error', $r['message']);
     }
 
-    /** Import selected: every ticked row, each in its own transaction. */
     public function importSelected(Request $request, int $store, \Extensions\venta\Services\Venta\VentaItemImport $import)
     {
         $data = $request->validate(['refs' => 'required|array|min:1', 'refs.*' => 'string|max:191']);
@@ -217,7 +175,6 @@ class VentaListingController extends Controller
         return redirect()->back()->with($line['tone'], $line['message']);
     }
 
-    /** Link a fetched item to a catalog product it already is. */
     public function linkItem(Request $request, int $store)
     {
         VentaSetting::findOrFail($store);
@@ -232,7 +189,6 @@ class VentaListingController extends Controller
             return redirect()->back()->with('error', 'That catalog product does not exist.');
         }
 
-        /* One catalog product to one Venta product per store, both ways (the owner, 2026-09-07). */
         $ventaId = (int) ($data['channel_id'] ?? 0) ?: null;
         $held = VentaProductLink::query()->where('venta_setting_id', $store)->where('product_id', (int) $data['product_id'])->whereNotNull('venta_product_id')->first();
         if ($held && $ventaId !== null && (int) $held->venta_product_id !== $ventaId) {
@@ -253,7 +209,6 @@ class VentaListingController extends Controller
         return redirect()->back()->with('status', 'Linked "' . $data['ref'] . '" to catalog product #' . $data['product_id'] . '.');
     }
 
-    /** Every catalog SKU-ish identifier, lowercased, for the fetch diff. */
     private function knownSkus(): \Illuminate\Support\Collection
     {
         $pfx = (string) config('catalog.prefix');
@@ -267,7 +222,6 @@ class VentaListingController extends Controller
             ->flip();
     }
 
-    /** The Link picker's catalog search: the shared shape, with the products this store already holds marked (App\Support\CatalogPickerSearch). */
     public function searchCatalog(Request $request, int $store)
     {
         VentaSetting::findOrFail($store);
@@ -286,19 +240,13 @@ class VentaListingController extends Controller
         $langId = (int) config('catalog.default_language_id');
 
         $q = trim((string) $request->get('q', ''));
-        /* The rail's choice: a group id, `none` for the products no group
-           claims, else the whole store. */
         $groupFilter = \App\Integrations\Listings\StatusMenu::group($request->get('group'));
         $erpStatus = (string) $request->get('erp_status', 'all');
         $syncStatus = (string) $request->get('sync_status', 'all');
-        // The status menu's words, with the page's older listed / not_listed still read.
         $syncStatus = ['listed' => 'uploaded', 'not_listed' => 'not_uploaded'][$syncStatus] ?? $syncStatus;
-        // A retired eligibility rung lands on the half it belonged to.
         if ($syncStatus !== 'error') {
             $syncStatus = \App\Integrations\Listings\StatusMenu::stand($syncStatus);
         }
-        /* The status menu's two switches narrow whatever the tree has
-         * chosen; an old sync_status=error link is Push failed switched on. */
         $failedFlag = $request->boolean('failed') || $syncStatus === 'error';
         $changeFlag = $request->boolean('change');
         if ($syncStatus === 'error') {
@@ -314,27 +262,16 @@ class VentaListingController extends Controller
         $dir = strtolower((string) $request->get('dir', 'asc')) === 'desc' ? 'desc' : 'asc';
 
         $mirror = VentaListingMirror::for($setting);
-        // Counted below, against the rows the status menu has chosen.
         $liveCounts = [];
         $liveCheckedAt = $mirror->checkedAt();
 
-        /* A store that cannot be asked says so, once, at the top (parity
-           with Shopee, Lazada and TikTok since 2026-09-09). Without it the
-           one state this explains - the store turned off or its keys
-           incomplete, which is what an expired token looks like - showed
-           as every row reading "not checked yet" with no reason anywhere. */
         $liveTabError = ($setting->enabled && $setting->isConnected()) ? null : 'Missing ' . $setting->store_name . ' settings.';
 
-        // Scope: every product a group on this store holds, plus anything
-        // already linked to this store.
         $groupIds = VentaProductGroup::where('venta_setting_id', $store)->pluck('id')->all();
         $pivotProductIds = VentaProductGroupProduct::query()->whereIn('venta_product_group_id', $groupIds ?: [0])
             ->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->all();
         $linkedProductIds = VentaProductLink::where('venta_setting_id', $store)->whereNotNull('venta_product_id')
             ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
-        // "This store's list" (#201): a group's products, anything linked, and
-        // anything Add products brought in (a listing row), one query shape
-        // shared with the slide-over and the state engine.
         $scopeIds = array_values(array_unique(array_merge($pivotProductIds, $linkedProductIds, \Extensions\venta\Services\Venta\VentaStoreProducts::ids($store))));
 
         $groupsByProductId = DB::table('venta_product_group_products as gp')
@@ -352,10 +289,6 @@ class VentaListingController extends Controller
             ->whereIn('p.product_id', $scopeIds ?: [0])
             ->select('p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as manufacturer_name');
 
-        /* The rail's choice, as a closure rather than a filter written into
-           the query here: the rail counts every group under everything else
-           the page has chosen EXCEPT the group, so a number and the list it
-           opens always agree. Grouped means grouped ON THIS STORE. */
         $groupedIds = VentaProductGroupProduct::query()
             ->whereIn('venta_product_group_id', VentaProductGroup::query()->where('venta_setting_id', $store)->select('id'))
             ->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
@@ -381,7 +314,6 @@ class VentaListingController extends Controller
                 $w->where('pd.name', 'like', '%' . $q . '%')
                     ->orWhere('p.model', 'like', '%' . $q . '%')
                     ->orWhere('p.sku', 'like', '%' . $q . '%')
-                    // The row shows this store's own title, so the search finds it by that too.
                     ->orWhereIn('p.product_id', VentaListing::query()
                         ->where('venta_setting_id', $store)
                         ->where('name', 'like', '%' . $q . '%')
@@ -390,20 +322,11 @@ class VentaListingController extends Controller
         }
         $states = \Extensions\venta\Services\Venta\VentaListingStates::for($store);
 
-        /* The dashboard's own figures, as a filter (VENT2-131): a chip
-           saying "3 listings need attention" links here with
-           ?state=attention, and the rows it narrows to are fetched by the
-           SAME query that counted them, so the number and the list cannot
-           disagree. */
         $troubleFilter = \App\Integrations\Listings\ListingTrouble::asked($request->query('state'));
         if ($troubleFilter !== null) {
             $query->whereIn('p.product_id', $states->productIdsIn($troubleFilter) ?: [0]);
         }
 
-        /* One definition of each place in the tree, used for the rows and
-         * for the menu's counts alike, so a number and its list agree.
-         * Listed means linked to this store; each half splits by the
-         * readiness the row's own Ready column reads. */
         $listed = fn ($query) => $query->whereIn('p.product_id', $linkedProductIds ?: [0]);
         $notListed = fn ($query) => $query->whereNotIn('p.product_id', $linkedProductIds ?: [0]);
         $applySync = function ($query, string $status) use ($listed, $notListed) {
@@ -419,13 +342,10 @@ class VentaListingController extends Controller
         $errored = $states->erroredProductIds();
         $changed = $states->productIdsIn('drift');
 
-        /* The status menu's choice, and the store's tab: each narrows the
-         * rows, and each one's counts are taken under the other's choice. */
         $applyMenu = function ($query) use ($applySync, $applyGroup, $syncStatus, $groupFilter, $failedFlag, $changeFlag, $errored, $changed) {
             $applyGroup($query, $groupFilter);
             $applySync($query, $syncStatus);
             if ($failedFlag) {
-                /* The rows that draw an error line, by the line's own engine. */
                 $query->whereIn('p.product_id', $errored ?: [0]);
             }
             if ($changeFlag) {
@@ -434,7 +354,6 @@ class VentaListingController extends Controller
 
             return $query;
         };
-        // A tab narrows the table to the products the mirror holds in that status. Only listed rows can match.
         $applyTab = function ($query) use ($tab, $store, $linkedProductIds) {
             if ($tab !== 'all') {
                 $tabIds = VentaListing::query()->where('venta_setting_id', $store)
@@ -445,7 +364,6 @@ class VentaListingController extends Controller
 
             return $query;
         };
-        // The mirror's buckets, as TABS names them, over the listed rows of the given query.
         $tabCounts = function ($query) use ($store, $listed): array {
             $byStatus = VentaListing::query()->where('venta_setting_id', $store)
                 ->whereIn('product_id', $listed(clone $query)->select('p.product_id'))
@@ -475,17 +393,11 @@ class VentaListingController extends Controller
             return $sub;
         };
 
-        // The segment counts inside the rail's chosen group, never inside itself.
         $standBase = $withFlags($applyGroup(clone $menuBase, $groupFilter));
         $menuCounts = ['all' => (clone $standBase)->count()];
         foreach (['not_uploaded', 'uploaded'] as $status) {
             $menuCounts[$status] = $applySync(clone $standBase, $status)->count();
         }
-        /* A filter narrows whatever the menu has already chosen: its link
-           carries the group and the half along with it, and the other filter
-           when that one is on. So each is counted inside that same choice
-           and never across the store, or the number would promise one list
-           and open a smaller one. */
         $filterBase = fn () => $applySync($applyGroup(clone $menuBase, $groupFilter), $syncStatus);
         $failedIn = $filterBase();
         if ($changeFlag) {
@@ -498,10 +410,6 @@ class VentaListingController extends Controller
         }
         $menuCounts['change'] = $changeIn->whereIn('p.product_id', $changed ?: [0])->count();
 
-        /* A group's number is the group's own size, and it does not move when
-           the tabs above the table change. The tabs already carry their own
-           numbers for the breakdown inside whichever group is open, so tying
-           the two together only made the menu re-sort itself under the hand. */
         $railBase = clone $menuBase;
         $menuCounts['store'] = (clone $railBase)->count();
         $groupRail = [];
@@ -519,7 +427,6 @@ class VentaListingController extends Controller
         ];
 
         $tabBase = $applyMenu(clone $query);
-        // The tab row's All products: every row the menu has chosen, before a tab narrows it.
         $catalogueTotal = (clone $tabBase)->count();
         $liveCounts = $tabCounts($tabBase);
 
@@ -530,7 +437,6 @@ class VentaListingController extends Controller
         $sortMenu = \Extensions\venta\Services\VentaListingSort::columns($storeId);
         $order = \App\Integrations\Listings\ListingSort::chosen($request, 'venta.listings.' . $storeId);
         if ($request->filled('sort')) {
-            // A column heading was pressed: it orders the table instead.
             $query->orderBy($sortColumns[$sort], $dir);
             if ($sortColumns[$sort] !== 'p.product_id') {
                 $query->orderBy('p.product_id', 'asc');
@@ -548,11 +454,6 @@ class VentaListingController extends Controller
         $linksByProductId = VentaProductLink::where('venta_setting_id', $store)->whereIn('product_id', $pageIds ?: [0])
             ->whereNotNull('venta_product_id')->get()->keyBy(fn ($l) => (int) $l->product_id);
 
-        /* The mirror fills its own blanks (#166): linked rows never
-           checked are asked about once, up to ten a view. A refusal is
-           reported rather than swallowed - but NOT as liveTabError, which
-           means the store cannot be asked at all; the counts are real when
-           a fill fails, so the tabs stay and this rides the flash. */
         $fillError = null;
         if ($setting->enabled && $linksByProductId->isNotEmpty() && $mirror->fillBlanks($linksByProductId, 10, $fillError) > 0) {
             $liveCounts = $tabCounts($tabBase);
@@ -564,7 +465,6 @@ class VentaListingController extends Controller
 
         $listingsByProductId = VentaListing::query()->where('venta_setting_id', $store)
             ->whereIn('product_id', $pageIds ?: [0])->get()->keyBy(fn ($l) => (int) $l->product_id);
-        // Each row is named by this store's own title, the catalog's name when it has none.
         $rowTitles = \App\Integrations\Listings\ListingContent::rowTitles($products, $listingsByProductId);
         $lastAttempts = VentaProductGroupProduct::query()
             ->whereIn('venta_product_group_id', $groupIds ?: [0])
@@ -595,7 +495,6 @@ class VentaListingController extends Controller
             'catalogueTotal' => $catalogueTotal,
             'failedFlag' => $failedFlag,
             'changeFlag' => $changeFlag,
-            // The whole group's size, whatever the search and tabs narrow: what Send group sends.
             'groupSize' => ctype_digit((string) $groupFilter) ? app(\Extensions\venta\Controllers\VentaProductGroupController::class)->groupSendSize((int) $groupFilter) : null,
             'statusMenu' => \App\Integrations\Listings\StatusMenu::build([
                 'url' => fn (array $params) => route('ext.venta.listings.index', array_merge(['store' => $store], $params)),
@@ -607,31 +506,16 @@ class VentaListingController extends Controller
                 'group' => $groupFilter,
                 'groups' => $groupRail,
                 'newGroup' => route('ext.venta.product-groups.create', $store),
-                // Live is a fact about a store, so a multi-store channel names the store itself.
                 'store' => (string) $setting->store_name,
             ]),
         ]);
     }
 
-    /**
-     * Whether each of this store's products could be pushed right now,
-     * listed or not, by the same readiness the row's own Ready column reads
-     * (one answer per product, a product with no answer read as not ready,
-     * exactly as VentaListingStates draws it), so a menu count and the rows
-     * it leads to agree. Held for a minute: the menu counts it on every
-     * page. A product added since is answered on the spot.
-     *
-     * @param  list<int>  $productIds
-     * @return array<int, bool>  product id => ready
-     */
     private function readyByProduct(int $store, array $productIds): array
     {
         return array_map(fn (array $a) => (bool) $a['ready'], $this->readinessRich($store, $productIds));
     }
 
-    /**
-     * @return array<int, list<string>>  product id => gap codes
-     */
     private function gapsByProduct(int $store, array $productIds): array
     {
         return array_map(
@@ -640,15 +524,8 @@ class VentaListingController extends Controller
         );
     }
 
-    /** Held for the request, per store. */
     private array $readinessRich = [];
 
-    /**
-     * Ready + gaps for the store's products, from the materialised readiness
-     * cache; recomputed only for products whose inputs changed.
-     *
-     * @return array<int, array{ready: bool, gaps: list<array{code: string, label: string}>}>
-     */
     private function readinessRich(int $store, array $productIds): array
     {
         if (isset($this->readinessRich[$store])) {
@@ -687,7 +564,6 @@ class VentaListingController extends Controller
         $readiness = \Extensions\venta\Services\Venta\VentaListingReadiness::forProducts($ids);
         $out = [];
         foreach ($ids as $pid) {
-            // Venta reads a product with no answer as ready (its original behaviour).
             $gaps = array_values((array) ($readiness[(int) $pid]['gaps'] ?? []));
             $out[(int) $pid] = ['ready' => $gaps === [], 'gaps' => $gaps];
         }
@@ -695,9 +571,6 @@ class VentaListingController extends Controller
         return $out;
     }
 
-    // ── Add products slide-over (#201, on Venta since 2026-09-06) ──────────
-
-    /** The slide-over's search: the catalog, saying what is already on this store. */
     public function catalogueSearch(Request $request, int $store)
     {
         VentaSetting::findOrFail($store);
@@ -732,7 +605,6 @@ class VentaListingController extends Controller
         return response()->json(['total' => $total, 'shown' => $items->count(), 'limit' => $limit, 'items' => $items]);
     }
 
-    /** Add one product to this store's list: a listing row, nothing sent. */
     public function addToStore(Request $request, int $store, int $productId)
     {
         VentaSetting::findOrFail($store);
@@ -740,7 +612,6 @@ class VentaListingController extends Controller
         $wasOn = \Extensions\venta\Services\Venta\VentaStoreProducts::has($store, $productId);
         VentaListing::query()->firstOrCreate(['venta_setting_id' => $store, 'product_id' => $productId]);
 
-        // The Add products window's group choice: this store's group, or none.
         $groupId = (int) $request->input('group', 0);
         if ($groupId > 0) {
             \App\Integrations\OneGroupRule::place('venta_product_group_products', 'venta_product_group_id', 'venta_product_groups', 'venta_setting_id', $store, $groupId, $productId);
@@ -752,7 +623,6 @@ class VentaListingController extends Controller
         return redirect()->back()->with('status', 'Added to this store. Configure and push it from Listings whenever you are ready.');
     }
 
-    /** Add several at once. */
     public function addToStoreBulk(Request $request, int $store)
     {
         VentaSetting::findOrFail($store);
@@ -768,11 +638,6 @@ class VentaListingController extends Controller
         return redirect()->back()->with('status', number_format($added) . ' ' . \Illuminate\Support\Str::plural('product', $added) . ' added to this store.');
     }
 
-    /**
-     * Remove a product from this store's list: its listing row, its link
-     * and its place in the store's groups go; the store itself is never
-     * touched (the owner, 2026-09-05: "remove from store" is free).
-     */
     public function removeFromStore(int $store, int $productId)
     {
         VentaSetting::findOrFail($store);
@@ -788,7 +653,6 @@ class VentaListingController extends Controller
             : ' It no longer syncs.'));
     }
 
-    /** The Refresh button: one walk of the store's product list onto the mirror. */
     public function refreshStatus(int $store)
     {
         $setting = VentaSetting::where('id', $store)->where('enabled', true)->first();
@@ -800,10 +664,6 @@ class VentaListingController extends Controller
         if ($result['error'] !== null) {
             return redirect()->back()->with('error', $result['error'] . ' The statuses shown are from the last refresh.');
         }
-        /* Refresh is the one button (the owner, 2026-09-07): every status is
-         * re-read first, then the links are checked against the store, the
-         * old Repair links folded in. */
-        // The check reads two hundred per run; the list starts after the last one checked, so "run it again" continues.
         $checked = app(\Extensions\venta\Services\Venta\VentaLinkCheck::class)->runNext($setting);
 
         $parts = [];
@@ -815,20 +675,11 @@ class VentaListingController extends Controller
             . ($checked ? ' ' . $checked['summary'] : ''));
     }
 
-    /**
-     * The selection bar's Unlist / Relist: the row's call, for many rows.
-     * The storefront has no bulk status endpoint, so this is one PUT per
-     * product, written through to the mirror as each one succeeds.
-     */
-    // ── The Listings page's missing verbs (parity, 2026-09-07) ──────────
-
-    /** Push stock for one row. */
     public function pushStock(int $store, int $productId)
     {
         return $this->figures($store, [$productId], true, false, 'Stock');
     }
 
-    /** Push price for one row. */
     public function pushPrice(int $store, int $productId)
     {
         return $this->figures($store, [$productId], false, true, 'Price');
@@ -854,14 +705,12 @@ class VentaListingController extends Controller
             return redirect()->back()->with('error', 'No products selected.');
         }
         $r = \Extensions\venta\Services\Venta\VentaStockPricePush::for($setting)->push($ids, $stock, $price);
-        // Each product's outcome through recordOutcome, onto the listing and its group rows alike.
         \Extensions\venta\Services\Venta\VentaStockPricePush::recordOutcomes($store, $r['outcomes']);
 
         return redirect()->back()->with($r['failed'] > 0 ? ($r['ok'] > 0 ? 'warning' : 'error') : 'status',
             \Extensions\venta\Services\Venta\VentaStockPricePush::sentence($r, $what, (string) $setting->store_name));
     }
 
-    /** Unlink ID: forget the link only; the store product stays up. */
     public function unlink(int $store, int $productId)
     {
         VentaSetting::findOrFail($store);
@@ -877,7 +726,6 @@ class VentaListingController extends Controller
             : 'That product was not linked, so there was nothing to unlink.');
     }
 
-    /** Delete from {Store}: removed AT the store, then forgotten here. */
     public function deleteFromStore(int $store, int $productId)
     {
         return $this->deleteOnStore($store, [$productId]);
@@ -903,7 +751,6 @@ class VentaListingController extends Controller
             \Extensions\venta\Services\Venta\VentaStoreDelete::sentence($r, (string) $setting->store_name));
     }
 
-    /** Remove from this channel, for the ticked rows: the single verb, repeated. */
     public function bulkRemoveFromStore(Request $request, int $store)
     {
         VentaSetting::findOrFail($store);
@@ -923,7 +770,6 @@ class VentaListingController extends Controller
         return redirect()->back()->with('status', "Removed {$n} " . ($n === 1 ? 'product' : 'products') . ' from this channel. Anything already on the store stays up until you delete it there.');
     }
 
-    /** @return list<int> */
     private function tickedIds(Request $request): array
     {
         return array_values(array_unique(array_filter(array_map('intval', (array) $request->input('product_ids', [])), fn ($v) => $v > 0)));
@@ -993,11 +839,6 @@ class VentaListingController extends Controller
         $listing = VentaListing::query()->where('venta_setting_id', $store)->where('product_id', $productId)->first();
         $link = VentaProductLink::where('venta_setting_id', $store)->where('product_id', $productId)->first();
 
-        // The live half, read from the store on this load. A disabled store
-        // is not asked: its answer would be about a shop nobody is selling
-        // from, and the page still needs to render so the record can be
-        // edited. The freshest answer there is goes to the mirror, so the
-        // group pages agree with this page at once (#166).
         $live = null;
         $liveError = null;
         if ($setting->enabled && VentaProductPush::skuOf($product) !== '') {
@@ -1013,10 +854,6 @@ class VentaListingController extends Controller
                     $push->rememberHeld($productId, array_column($live['variants'], 'sku'));
                 }
 
-                // A product the store holds under our SKU with no link on
-                // record is a link waiting to be made, and reconcile would
-                // make it on the next push anyway. Made here so the page
-                // can say "on the store" without a push.
                 if ($live['state'] === 'found' && ! $link && $live['venta_id']) {
                     if ($push->linkProductTo($productId, $live['venta_id'], $live['sku']) === null) {
                         $link = VentaProductLink::where('venta_setting_id', $store)->where('product_id', $productId)->first();
@@ -1025,9 +862,6 @@ class VentaListingController extends Controller
             }
         }
 
-        // The Product group band: the group holding this product on this
-        // store, this store's groups, and each group's values for the
-        // fields it fills.
         $groupId = \App\Integrations\Listings\ListingGroup::current([
             'pivot' => 'venta_product_group_products', 'fk' => 'venta_product_group_id',
             'groups' => 'venta_product_groups', 'storeFk' => 'venta_setting_id', 'storeId' => $store,
@@ -1051,8 +885,6 @@ class VentaListingController extends Controller
             ]])->all(),
         ];
 
-        // A blank category or price rule on the listing follows its group,
-        // so the fields show the group's value until the listing sets its own.
         $shownCategoryId = VentaListing::categoryFor($listing instanceof VentaListing ? $listing : null, $group);
         $ownRule = $listing && ($listing->markup_percent !== null || $listing->markup_fixed !== null);
         $markupPercent = $ownRule ? $num($listing->markup_percent) : $num($group?->markup_percent);
@@ -1061,9 +893,6 @@ class VentaListingController extends Controller
         $pushPrice = VentaListing::ruleFor($listing, $group)(VentaListing::startFor($listing, (float) $product->price, $hasVariations));
 
         return view('ext-venta::listings.edit', \App\Integrations\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('venta_product_groups', 'venta_product_group_products', 'venta_product_group_id', $productId, 'venta_setting_id', $store), 'venta', \App\Integrations\Listings\ListingStore::id('venta')) + [
-            /* What this listing still needs before the store would take
-               it, by the same computation the Ready column reads, so the
-               page cannot promise what the push refuses. */
             'readiness' => \Extensions\venta\Services\Venta\VentaListingReadiness::forProducts([$productId])[$productId] ?? null,
             'setting' => $setting,
             'product' => $product,
@@ -1116,26 +945,18 @@ class VentaListingController extends Controller
             ...\App\Integrations\Listings\ListingGroup::rules(),
         ]);
 
-        /* The pictures this listing sends, in the order the card arranged
-         * them. Only a save that CARRIED the arrangement may change it:
-         * the input is invisible, so a caller that does not send it must
-         * not be read as one that cleared it. */
         $images = $request->has('image_order')
             ? ['image_order' => \App\Integrations\Listings\ListingImages::submitted($productId, $data['image_order'] ?? null),
                'image_off' => \App\Integrations\Listings\ListingImages::submittedOff($productId, $request->input('image_off'))]
             : [];
 
-        // Saving here never writes the core product.
         $blank =fn ($v) => ($v === null || trim((string) $v) === '') ? null : $v;
-        // The listing's own category is one of this store's own; 0 is its "None".
         $rawCategory = $data['venta_category_id'] ?? null;
         $ownCategory = ($rawCategory === null || $rawCategory === '') ? null : (int) $rawCategory;
         if ($ownCategory && ! \Illuminate\Support\Facades\DB::table('venta_categories')->where('venta_setting_id', $store)->where('venta_category_id', $ownCategory)->exists()) {
             throw \Illuminate\Validation\ValidationException::withMessages(['venta_category_id' => 'Pick one of this store\'s categories.']);
         }
 
-        /* The group dropdown: picking a group moves the product into it,
-         * No group takes it out. */
         $picked = \App\Integrations\Listings\ListingGroup::submitted($request);
         if ($picked['present']) {
             \App\Integrations\Listings\ListingGroup::assign([
@@ -1147,8 +968,6 @@ class VentaListingController extends Controller
             }
         }
 
-        /* The listing's own words, as typed. Only a save that carried a
-         * field changes it; a new listing fills the rest from the catalog. */
         $currentDescription = VentaListing::query()->where('venta_setting_id', $store)->where('product_id', $productId)->value('description');
         $words = [];
         if ($request->has('name')) {
@@ -1163,7 +982,6 @@ class VentaListingController extends Controller
             $images + $words + ($request->has('venta_category_id') ? ['venta_category_id' => $ownCategory] : []) + [
                 'markup_percent' => $blank($data['markup_percent'] ?? null),
                 'markup_fixed' => $blank($data['markup_fixed'] ?? null),
-                // A product with variations prices each variation from the catalog, so it keeps no Price of its own.
                 'price' => VentaListing::withVariations([$productId]) !== [] ? null : $blank($data['price'] ?? null),
                 'weight' => $blank($data['weight'] ?? null),
                 'package_length' => $blank($data['package_length'] ?? null),
@@ -1178,7 +996,6 @@ class VentaListingController extends Controller
             ]
         );
 
-        // A value equal to the group's follows the group from now on.
         $groupRow = \Illuminate\Support\Facades\DB::table('venta_product_group_products as gp')
             ->join('venta_product_groups as g', 'g.id', '=', 'gp.venta_product_group_id')
             ->where('g.venta_setting_id', $store)->where('gp.product_id', $productId)->orderBy('gp.id')
@@ -1192,7 +1009,6 @@ class VentaListingController extends Controller
                 'markup_fixed' => $groupRow->markup_fixed,
             ], [['markup_percent', 'markup_fixed']]);
         }
-        // "None" declines a group's category; with none to decline it is the same as blank.
         if ($savedRow && $savedRow->venta_category_id !== null && (int) $savedRow->venta_category_id === 0 && ! (int) ($groupRow->venta_category_id ?? 0)) {
             $savedRow->forceFill(['venta_category_id' => null])->save();
         }
@@ -1203,8 +1019,6 @@ class VentaListingController extends Controller
 
         $back = \App\Support\BackTo::safe($request->input('back'), '');
 
-        // Save and push: the save ran; the push creates the product on the
-        // store or updates it in place, and names its own refusal.
         if ($request->boolean('push_after')) {
             return $this->push($request, $store, $productId);
         }
@@ -1213,11 +1027,6 @@ class VentaListingController extends Controller
             ->with('status', 'Listing saved.');
     }
 
-    /**
-     * Push this product to the store with the record's own content and
-     * price rule: creates when the store does not have it, updates in
-     * place when it does, and says which.
-     */
     public function push(Request $request, int $store, int $productId)
     {
         $setting = VentaSetting::where('id', $store)->where('enabled', true)->first();
@@ -1230,34 +1039,17 @@ class VentaListingController extends Controller
             return redirect()->back()->with('error', 'Push failed: ' . $answer['message']);
         }
 
-        // Accepted: back to the Listings page the operator came from, search and all (the owner, 2026-09-06); the page itself when there is none.
         $back = \App\Support\BackTo::safe($request->input('back'), '');
 
         return ($back !== '' ? redirect()->to($back) : redirect()->route('ext.venta.listings.edit', [$store, $productId]))
             ->with($answer['tone'], $answer['message']);
     }
 
-    /**
-     * Send ONE product to this store on its own settings, and answer for
-     * itself. The single-product button and the multi-tick bar are the
-     * same act on one product, so they are the same code: the button
-     * redirects with the answer, the bar collects it beside nine others.
-     *
-     * @return array{ok: bool, message: string, tone: string}
-     */
     private function pushOne(VentaSetting $setting, int $productId): array
     {
         $store = (int) $setting->id;
         $listing = VentaListing::query()->firstOrNew(['venta_setting_id' => $store, 'product_id' => $productId]);
 
-        /* THE PRICE RULE, IN THE ORDER EVERY CHANNEL KEEPS (2026-09-07):
-         * the listing's own markup, else its group's, else the catalog
-         * price untouched. Venta read the listing's and stopped, so a group
-         * markup was saved and never applied (VENT2-13).
-         *
-         * THE CATEGORY IS THE GROUP'S, for the same reason and by the same
-         * rule: core categories are internal, the store's own list is what
-         * a group picks from. */
         $group = $this->groupFor($store, $productId);
         $priceFor = match (true) {
             $listing->hasPriceRule() => fn (float $base) => $listing->priceFor($base),
@@ -1270,7 +1062,6 @@ class VentaListingController extends Controller
             $productId,
             $listing->overrides(),
             $priceFor,
-            // The listing's own category on this store, else its group's.
             VentaListing::categoryFor($listing, $group)
         );
 
@@ -1312,12 +1103,6 @@ class VentaListingController extends Controller
         return ['ok' => true, 'message' => trim($sentence), 'tone' => $tone];
     }
 
-    /**
-     * The one group this product is in on this store, for the settings a
-     * group LENDS a listing that has none of its own: its price rule and
-     * its category. One product, one group (the owner, 2026-09-05), so the
-     * first is the only.
-     */
     private function groupFor(int $store, int $productId): ?object
     {
         return DB::table('venta_product_groups as g')
@@ -1328,10 +1113,6 @@ class VentaListingController extends Controller
             ->first(['g.id', 'g.venta_category_id', 'g.markup_percent', 'g.markup_fixed']);
     }
 
-    /**
-     * Multi-tick push: each ticked product goes up on its OWN settings and
-     * reports for itself, in the words every channel shares.
-     */
     public function bulkPush(Request $request, int $store)
     {
         $setting = VentaSetting::where('id', $store)->where('enabled', true)->first();
@@ -1348,7 +1129,6 @@ class VentaListingController extends Controller
         return redirect()->back()->with($answer['key'], $answer['message']);
     }
 
-    /** Unlist or relist on the store, in the store's own terms: active or not. */
     public function toggle(Request $request, int $store, int $productId)
     {
         $request->validate(['action' => 'required|in:unlist,relist']);
@@ -1371,8 +1151,6 @@ class VentaListingController extends Controller
             return redirect()->back()->with('error', ($active ? 'Relist' : 'Unlist') . ' failed: ' . $result['message']);
         }
 
-        // Written through, so the next page view and every list agree
-        // without waiting for a refresh (#166).
         $listing = VentaListing::query()->firstOrNew(['venta_setting_id' => $store, 'product_id' => $productId]);
         $listing->mirror($active ? VentaListing::STATUS_ACTIVE : VentaListing::STATUS_INACTIVE, $listing->live_price, $listing->live_quantity);
 

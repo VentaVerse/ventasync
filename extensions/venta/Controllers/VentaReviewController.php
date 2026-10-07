@@ -12,9 +12,6 @@ use Illuminate\Support\Facades\Process;
 
 class VentaReviewController extends Controller
 {
-    /**
-     * Push a single marketplace review to Venta.
-     */
     public function push(Request $request, $id)
     {
         $review = MarketplaceReview::findOrFail($id);
@@ -81,9 +78,6 @@ class VentaReviewController extends Controller
         return redirect()->back()->with('error', 'Venta push failed: ' . $error);
     }
 
-    /**
-     * Push all pending reviews to Venta in background.
-     */
     public function pushAll(Request $request)
     {
         $count = MarketplaceReview::whereIn('venta_sync_status', ['pending', 'error'])

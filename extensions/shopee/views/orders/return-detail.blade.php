@@ -2,35 +2,6 @@
 @section('title', 'Return ' . $return->return_sn)
 @section('breadcrumb', $return->return_sn)
 
-{{-- Round F Task 1. Rebuilt on the shared `od-` record anatomy
-     (components/order-detail.css), the same one every other detail page in
-     this application uses, so a return reads like a record here and not like a
-     page from another product.
-
-     Five things changed beyond the drawing:
-
-       1. The six hand-rolled `ret-badge-*` colour classes are gone. Status
-          tone and label come from App\Support\ChannelStatusTone's
-          'shopee.returns' surface, which the Returns list this page is
-          reached from already uses, so a status is the same colour and the
-          same words on both screens and no marketplace constant reaches the
-          operator raw.
-       2. Money went through a hardcoded `$cur . number_format(...)`, which
-          composed a symbol in the view. It goes through App\Support\Money
-          now: the return's own currency when it carries one, the default
-          from the currencies table when it does not.
-       3. Every "no value" was an em dash. They are words now, and which word
-          depends on what is missing, because "Not set" and "Shopee has not
-          said" are different facts.
-       4. The recommendation banner led with an emoji. Emoji render
-          differently on every platform and cannot be aligned or coloured;
-          this uses the same od-note the rest of the record pages use.
-       5. `$setting` was passed by the controller and never read, and
-          `use Illuminate\Support\Str` was imported and never used. Neither is
-          referenced here; the controller is untouched.
-
-     Nothing on this page submits. There is no form, no CSRF and no script,
-     before or after. --}}
 @section('content')
 @php
     $raw = is_array($raw ?? null) ? $raw : [];
@@ -40,10 +11,6 @@
     $tone = \App\Support\ChannelStatusTone::toneFor('shopee.returns', $statusStr);
     $statusLabel = \App\Support\ChannelStatusTone::labelFor('shopee.returns', $statusStr);
 
-    // Currency is resolved through App\Support\Money, which reads the symbol
-    // off the currencies table, so no symbol is written into this view. A
-    // return carrying a code nobody has configured locally falls back to
-    // "CODE 1,234.00" rather than a wrong glyph.
     $currencyCode = (string) ($return->currency ?? '');
     $money = fn ($amount) => $currencyCode !== ''
         ? \App\Support\Money::foreign((float) $amount, $currencyCode)
@@ -66,29 +33,13 @@
 
     $needsLogistics = $return->needs_logistics;
 
-    // Shopee sends its own constants for the reason, the reverse-logistics
-    // stage, the compensation state and every negotiation term:
-    // ITEM_WRONG, PENDING_REQUEST, RETURN_REFUND. Those are wire values, not
-    // words, and a page that prints them is asking the operator to learn
-    // Shopee's vocabulary to read their own return. There is no label map for
-    // these the way ChannelStatusTone carries one for statuses (they run to
-    // dozens per marketplace and change without notice), so this does the one
-    // transform that is always safe and always an improvement: underscores
-    // become spaces and the shouting stops. ITEM_WRONG reads as "Item wrong".
     $plain = function ($value) {
         $value = trim((string) $value);
         if ($value === '') return '';
-        // Left alone if it is already prose: only a value that is entirely
-        // upper case and underscores is a marketplace constant.
         if (!preg_match('/^[A-Z0-9_]+$/', $value)) return $value;
         return ucfirst(strtolower(str_replace('_', ' ', $value)));
     };
 
-    // What to do next, in the words a warehouse supervisor would use. Same
-    // branching as before; only the wording and the tone class changed. The
-    // tone here is the note's own severity, not a status colour: "warn" is
-    // the one case where goods are physically coming back and someone has to
-    // be ready for them.
     [$adviceText, $adviceTone] = match (true) {
         in_array($status, ['REQUESTED', 'PROCESSING', 'JUDGING', 'SELLER_DISPUTE'], true)
             => ['This return is still with Shopee. There is nothing to do yet, beyond watching it.', ''],
@@ -158,16 +109,6 @@
         </div>
     @endif
 
-    {{-- What Shopee will actually accept on this return.
-         Asked on request rather than on load: it is a live call, and a
-         returns list of thirty would otherwise make thirty of them before
-         anyone had decided to act on one.
-
-         It reports only what Shopee permits. Nothing here submits - the
-         resolutions themselves are still made in Seller Centre until the
-         write calls have been exercised against a live shop, because our
-         sandbox refuses the permission and a resolution that fails does so
-         in front of a customer. --}}
     <div class="rs" data-return-solutions>
         <div class="rs__head">
             <div>
@@ -180,13 +121,8 @@
     </div>
 
     <div class="od-body">
-        {{-- ============ MAIN COLUMN ============ --}}
         <div class="od-col od-col--main">
 
-            {{-- Items. The same `od-` item grid the order detail pages use, so
-                 quantity and money line up down the page. Two figures per
-                 line rather than one, because a return's question is always
-                 "how many of how many, and for how much". --}}
             <section class="od-section">
                 <div class="od-section__head">
                     <h2 class="od-section__title">What is being returned</h2>
@@ -210,9 +146,6 @@
                                 $ordered = $orderedQty[$orderedKey] ?? null;
                                 $returning = (int) ($item['amount'] ?? 0);
 
-                                // "Variation" is the user-facing word across
-                                // this application and across every
-                                // marketplace it talks to.
                                 $metaParts = [];
                                 if (!empty($item['item_sku'])) $metaParts[] = 'SKU ' . $item['item_sku'];
                                 if (!empty($item['variation_sku'])) $metaParts[] = 'Variation ' . $item['variation_sku'];
@@ -256,8 +189,6 @@
                 </div>
             </section>
 
-            {{-- Why. The buyer's reason, their own words, and whatever they
-                 photographed. --}}
             <section class="od-section">
                 <div class="od-section__head">
                     <h2 class="od-section__title">Why the buyer is returning it</h2>
@@ -295,7 +226,6 @@
                 </div>
             </section>
 
-            {{-- The argument, when there is one. --}}
             @if(!empty(array_filter($negotiation)) || count($disputeReasons))
             <section class="od-section">
                 <div class="od-section__head">
@@ -340,7 +270,6 @@
             @endif
         </div>
 
-        {{-- ============ SIDE COLUMN ============ --}}
         <div class="od-col">
 
             <div class="od-card">
@@ -395,9 +324,6 @@
                 </div>
             </div>
 
-            {{-- Said plainly, not dressed as a disabled card of buttons.
-                 Accepting, disputing and uploading proof are not built yet,
-                 and a row of greyed controls would suggest they nearly are. --}}
             <div class="od-card">
                 <div class="od-card__head"><h2 class="od-card__title">Answering this return</h2></div>
                 <div class="od-card__body">

@@ -7,17 +7,10 @@ use Extensions\tiktok\Models\TikTokProductGroupProduct;
 use Extensions\tiktok\Models\TikTokSetting;
 use Illuminate\Support\Facades\DB;
 
-/**
- * TikTok Shop's half of the catalog delete (ProductRemover, 2026-09-07):
- * every local row for the product goes; the product on TikTok Shop
- * stays. Nothing is sent and nothing can refuse.
- */
 final class TikTokProductRemover
 {
-    /** Mirror statuses that mean the product is already gone there. */
     private const GONE = ['MISSING', 'DELETED', 'PLATFORM_DEACTIVATED', 'FREEZE'];
 
-    /** @see \App\Integrations\Contracts\ProductRemover::productPresence */
     public function presence(array $productIds): array
     {
         $out = [];
@@ -36,7 +29,6 @@ final class TikTokProductRemover
         return $out;
     }
 
-    /** @see \App\Integrations\Contracts\ProductRemover::removeProduct */
     public function remove(int $productId): array
     {
         $stays = [];
@@ -54,7 +46,6 @@ final class TikTokProductRemover
         return array_keys($stays);
     }
 
-    /** @see \App\Integrations\Contracts\ProductRemover::strandedProductIds */
     public function stranded(): array
     {
         $pfx = (string) config('catalog.prefix');
@@ -68,13 +59,6 @@ final class TikTokProductRemover
         return array_values(array_unique($ids));
     }
 
-    /**
-     * Every (store, TikTok product id) the products sit on: the listing
-     * row's own id, and the group pivots' ids for stores whose listing
-     * row carries none (the legacy shape).
-     *
-     * @return list<array{product_id:int, store_id:int, tiktok_product_id:string, live_status:?string}>
-     */
     private function holdings(array $productIds): array
     {
         $productIds = array_values(array_unique(array_map('intval', $productIds)));

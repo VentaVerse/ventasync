@@ -4,12 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-/**
- * One Run now of a scheduled job, or one send of a whole product group
- * (no job, subject "group:{id}"), walked in short steps by the page
- * (App\Services\AutomationRunner): the units it will touch, how many are
- * done, and the verdict so far.
- */
 class AutomationRun extends Model
 {
     public const RUNNING = 'running';
@@ -29,7 +23,6 @@ class AutomationRun extends Model
         return $this->belongsTo(ScheduledJob::class, 'scheduled_job_id');
     }
 
-    /** What the page draws. */
     public function toState(): array
     {
         return [

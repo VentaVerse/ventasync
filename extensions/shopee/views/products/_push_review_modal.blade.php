@@ -1,14 +1,3 @@
-{{-- The push-review modal shells (cleanup 7+9, approved from the draft
-     2026-09-03). Feedback without teleport: a READY push opens a modal
-     showing exactly what goes up - price with its arithmetic, category,
-     couriers, images, variations - with title and description as the two
-     editable fields, and the editor one click behind. The bulk state
-     leads with the verdict and groups blockers BY GAP, one fix each.
-
-     resources/js/pages/push-review.js fills these shells from the JSON
-     endpoints (push_review / bulk_push_review) with createElement and
-     textContent only; nothing off the wire is ever markup. Without JS
-     the intercepted forms submit as they always did. --}}
 <div class="pr-scrim" data-pr-scrim hidden></div>
 
 <div class="pr-modal" data-pr-single data-store="Shopee" role="dialog" aria-modal="true" aria-label="Push to Shopee" hidden>

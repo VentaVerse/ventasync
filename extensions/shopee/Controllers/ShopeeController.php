@@ -16,7 +16,6 @@ class ShopeeController extends Controller
 {
     use \App\Http\Controllers\Concerns\ReturnsToSettingsTab;
 
-    /** The settings page of the store this request stands in, for ReturnsToSettingsTab. */
     protected function settingsTabRoute(): array
     {
         $store = ShopeeSetting::defaultStore();
@@ -26,9 +25,6 @@ class ShopeeController extends Controller
 
 public function root(Request $request, ShopeeClient $client)
 {
-    // Shopee may only allow a domain-level redirect URI (the app's public APP_URL).
-    // When redirected here with ?code=...&shop_id=..., we exchange tokens immediately and persist them.
-
     $code = $request->query('code');
     $shopId = $request->query('shop_id');
 
@@ -39,17 +35,14 @@ public function root(Request $request, ShopeeClient $client)
     $setting = ShopeeSetting::defaultStore()?->decrypted();
     $mode = $setting->mode ?? 'sandbox';
 
-    // Persist shop_id to the env-appropriate column.
     if ($shopId) {
         $raw = ShopeeSetting::defaultStore() ?? new ShopeeSetting();
         $this->persistShopId($raw, $mode, (int)$shopId);
-        // Reload so the activeAuth() check below sees the just-saved shop_id.
         $setting = ShopeeSetting::defaultStore()?->decrypted();
     }
 
     $auth = $this->activeAuth($setting);
 
-    // If we have everything required, perform token exchange automatically
     if ($code && $setting && $auth['partner_id'] && $auth['partner_key'] && $auth['shop_id']) {
         $result = $client->exchangeToken(
             $auth['mode'],
@@ -59,7 +52,6 @@ public function root(Request $request, ShopeeClient $client)
             (int)$auth['shop_id']
         );
 
-        // Persist tokens if present
         if ($result['ok'] && is_array($result['body'])) {
             $access = $result['body']['access_token'] ?? null;
             $refresh = $result['body']['refresh_token'] ?? null;
@@ -79,7 +71,6 @@ public function root(Request $request, ShopeeClient $client)
         ]);
     }
 
-    // Fallback: show code + shop_id so user can complete token exchange manually in the Shopee page
     return view('ext-shopee::callback', [
         'code' => $code,
         'shop_id' => $shopId,
@@ -91,20 +82,9 @@ public function index(Request $request = null, ShopeeClient $client = null)
         $request = $request ?? request();
         $client = $client ?? app(ShopeeClient::class);
 
-        // Auto-exchange on OAuth callback. Shopee redirects to our
-        // computedRedirectUri() which is `route('ext.shopee.index')`, so the
-        // /shopee URL is what receives ?code=...&shop_id=.... If those params
-        // are present and we have credentials for the active env, exchange
-        // immediately and persist via the env-aware helpers below.
         $cbCode = (string) $request->query('code', '');
         $cbShopId = (string) $request->query('shop_id', '');
         if ($cbCode !== '' || $cbShopId !== '') {
-            /* Whose grant is this (S4b, #194)? The store that started the
-             * consent flow, else the store already holding this shop_id,
-             * else the default. Bound for the request so every
-             * defaultStore() read below - persistShopId, the exchange, the
-             * token write - lands on the SAME row: a grant must never
-             * split across stores. */
             $rawSetting = ($id = cache()->pull('shopee_oauth_store')) !== null
                 ? ShopeeSetting::query()->find($id)
                 : null;
@@ -151,11 +131,6 @@ public function index(Request $request = null, ShopeeClient $client = null)
                         }
                     }
                 }
-                // Strip the OAuth params from the URL so a refresh doesn't
-                // re-exchange a stale (one-time-use) code. The store whose
-                // grant this was shows the result on ITS settings page - and,
-                // freshly connected, sets itself up (categories, couriers)
-                // behind the progress popup that page opens on settings_setup.
                 $landing = ShopeeSetting::defaultStore();
 
                 return ($landing !== null
@@ -170,11 +145,6 @@ public function index(Request $request = null, ShopeeClient $client = null)
             }
         }
 
-        /* Multi-store S4 (#194): /shopee is the OAuth landing (its URI is
-         * registered byte-for-byte in the Open Platform console) and
-         * nothing else any more. A plain visit goes where Venta's does:
-         * the first store's settings page, or the module page when no
-         * store exists yet to configure. */
         $first = ShopeeSetting::query()->orderBy('id')->first();
         if ($first !== null) {
             return redirect()->route('ext.shopee.settings.show', ['store' => $first->id]);
@@ -183,12 +153,6 @@ public function index(Request $request = null, ShopeeClient $client = null)
         return redirect()->route('channels.module', ['module' => 'shopee']);
     }
 
-    /**
-     * The per-store settings page (multi-store S4, #194): everything the
-     * storeless /shopee page used to render, for the store the route
-     * names. ResolveShopeeStore has already bound that store, so every
-     * defaultStore() read below - and in the partials - answers with it.
-     */
     public function showSettings(Request $request)
     {
         $setting = ShopeeSetting::defaultStore();
@@ -233,7 +197,6 @@ public function index(Request $request = null, ShopeeClient $client = null)
             ->pluck('order_status_id', 'shopee_status')
             ->all();
 
-        // #200: the shared log panel - errors-only and path filters, paged.
         $logs = \App\Support\ApiLogPanel::paginate(
             ShopeeApiLog::query(), 'api_path', fn ($q) => $q->where('ok', 0)
         );
@@ -275,9 +238,6 @@ public function index(Request $request = null, ShopeeClient $client = null)
 
         $setting = ShopeeSetting::defaultStore() ?? new ShopeeSetting();
 
-        /* The store's own identity (S4b, #194): its name, and whether the
-         * crons and tabs treat it as live. Sent only by forms that carry
-         * the fields, so older callers change nothing. */
         if (array_key_exists('store_name', $data) && $data['store_name'] !== null) {
             $setting->store_name = $data['store_name'];
         }
@@ -285,7 +245,6 @@ public function index(Request $request = null, ShopeeClient $client = null)
             $setting->enabled = (bool) $data['enabled'];
         }
 
-        // Order pushes on or off: sent only by the form that carries the switch.
         if (array_key_exists('apply_order_pushes', $data) && $data['apply_order_pushes'] !== null) {
             $setting->apply_order_pushes = (bool) $data['apply_order_pushes'];
         }
@@ -294,10 +253,6 @@ public function index(Request $request = null, ShopeeClient $client = null)
         $setting->mode = $env;
 
         if ($env === 'live') {
-            // Credential fields are masked in the form (value="" + placeholder).
-            // A blank submission means "keep existing" — never wipe stored creds
-            // just because the user re-saved the form without typing them in.
-            // Region is a dropdown; a blank selection is the explicit "(not set)" choice.
             if (!empty($data['partner_id']))    $setting->partner_id = $data['partner_id'];
             if (!empty($data['shop_id']))       $setting->shop_id = $data['shop_id'];
             if (!empty($data['partner_key']))   $setting->partner_key = encrypt(trim($data['partner_key']));
@@ -332,11 +287,9 @@ public function index(Request $request = null, ShopeeClient $client = null)
 
     public function callback(Request $request)
     {
-        // Shopee returns code + shop_id (and possibly main_account_id for some setups)
         $code = $request->query('code');
         $shopId = $request->query('shop_id');
 
-        // Store shop_id in the env-appropriate column.
         if ($shopId) {
             $raw = ShopeeSetting::defaultStore() ?? new ShopeeSetting();
             $this->persistShopId($raw, $raw->mode ?? 'sandbox', (int)$shopId);
@@ -348,11 +301,6 @@ public function index(Request $request = null, ShopeeClient $client = null)
         ]);
     }
 
-    /**
-     * Pick the credentials for the currently-selected mode.
-     * Shopee settings store live + sandbox credentials independently;
-     * authorize, buildAuthUrl, and token exchange all need the active set.
-     */
     private function activeCredentials(?object $setting): array
     {
         $redirect = $this->computedRedirectUri();
@@ -376,12 +324,6 @@ public function index(Request $request = null, ShopeeClient $client = null)
         ];
     }
 
-    /**
-     * Full env-aware credential bundle for a token-exchange / token-refresh call.
-     * Extends activeCredentials() with shop_id + tokens, all read from the
-     * env-appropriate columns (live vs sandbox_*). Returns null partner_id etc
-     * when the column is empty, so callers can validate up front.
-     */
     private function activeAuth(?object $setting): array
     {
         if (!$setting) {
@@ -406,12 +348,6 @@ public function index(Request $request = null, ShopeeClient $client = null)
         ];
     }
 
-    /**
-     * Persist freshly-exchanged tokens to the right pair of columns. Encrypts
-     * access_token + refresh_token, and computes expires_at from expire_in.
-     * Mirrors the Lazada activeCredentials/persist pattern from a28c2d8 so
-     * sandbox-mode auth never spills tokens into the live columns.
-     */
     private function persistTokens(ShopeeSetting $raw, string $mode, string $access, ?string $refresh, $expireIn): void
     {
         $isSandbox = $mode === 'sandbox';
@@ -430,8 +366,6 @@ public function index(Request $request = null, ShopeeClient $client = null)
             $raw->access_token = encrypt($access);
             if ($refresh) {
                 $raw->refresh_token = encrypt($refresh);
-                // Shopee does not say when the refresh token dies: it is 30
-                // days from each grant, so the sign-in expiry is stamped here.
                 $raw->refresh_expires_at = now()->addDays(ShopeeSetting::REFRESH_TOKEN_DAYS);
             }
             if (is_numeric($expireIn)) {
@@ -441,12 +375,6 @@ public function index(Request $request = null, ShopeeClient $client = null)
         $raw->save();
     }
 
-    /**
-     * Save the shop_id returned by Shopee's callback to the right column.
-     * Sandbox callback flow returns the sandbox shop_id; in live mode it's
-     * the live shop_id. Routing both into a single shop_id column was the
-     * cause of sandbox auth flow overwriting live credentials.
-     */
     private function persistShopId(ShopeeSetting $raw, string $mode, int $shopId): void
     {
         if ($mode === 'sandbox') {
@@ -457,20 +385,6 @@ public function index(Request $request = null, ShopeeClient $client = null)
         $raw->save();
     }
 
-    /**
-     * Redirect URI we send to Shopee and display to the operator. Derived
-     * from APP_URL with HTTPS forced and pointed at the Shopee settings page
-     * — Shopee bounces the user back with `?code=...&shop_id=...` in the URL,
-     * so landing them on the settings page (which has the code-paste form
-     * in plain sight) is the right UX. Read-only in the UI prevents typos
-     * silently breaking OAuth, since the URL must byte-match what's
-     * registered in the Shopee Open Platform console.
-     */
-    /**
-     * A new Shopee store (S4b, #194): a named, disabled row the operator
-     * then dresses on its own settings page - credentials, mode, OAuth.
-     * Venta's createStore, in Shopee's anatomy.
-     */
     public function createStore(Request $request)
     {
         $data = $request->validate([
@@ -480,7 +394,6 @@ public function index(Request $request = null, ShopeeClient $client = null)
         $setting = ShopeeSetting::create([
             'store_name' => $data['store_name'],
             'enabled' => false,
-            // A new store starts in the sandbox: nothing it does reaches a real shop until it is switched over.
             'mode' => 'sandbox',
         ]);
 
@@ -491,11 +404,6 @@ public function index(Request $request = null, ShopeeClient $client = null)
             ->with('status', 'Store created. Add the partner credentials and authorize it to start syncing.');
     }
 
-    /**
-     * Where a settings write lands (multi-store S4, #194): the settings
-     * page of the store it acted on. The storeless name survives only as
-     * the no-store fallback, where it forwards to the module page.
-     */
     private function redirectToSettings()
     {
         $store = ShopeeSetting::defaultStore();
@@ -512,10 +420,6 @@ public function index(Request $request = null, ShopeeClient $client = null)
 
     public function redirectToShopeeAuth(ShopeeClient $client)
 {
-    /* Which store is consenting (S4b, #194): named by ?store= from the
-     * store's own settings page, else the default. Remembered for the
-     * callback, because Shopee's redirect URI is one fixed URL for the
-     * whole install and the answer arrives with no other context. */
     $store = request()->query('store')
         ? ShopeeSetting::query()->find((int) request()->query('store'))
         : ShopeeSetting::defaultStore();
@@ -581,12 +485,6 @@ public function buildAuthUrl(ShopeeClient $client)
         ]);
     }
 
-    /**
-     * One step of setting the store up (the owner, 2026-09-05): the reads a push
-     * needs, run from the progress popup on Settings > Connection right
-     * after an authorisation, or from Set up store. Answers a plain sentence
-     * as JSON; the payload goes to the API log inside the service.
-     */
     public function setupStep(string $step, \Extensions\shopee\Services\Shopee\ShopeeStoreSetup $setup)
     {
         $setting = ShopeeSetting::defaultStore()?->decrypted();
@@ -605,11 +503,6 @@ public function buildAuthUrl(ShopeeClient $client)
         return response()->json($out);
     }
 
-    /**
-     * Hard delete of a store (the owner, 2026-09-05). The store name typed
-     * exactly confirms; one transaction removes everything the store owns;
-     * core orders are untouched and keep the store's name.
-     */
     public function destroyStore(Request $request, \Extensions\shopee\Services\Shopee\ShopeeStoreDeleter $deleter)
     {
         abort_unless($request->user()?->hasPermission('manage_shopee/settings'), 403);
@@ -633,7 +526,6 @@ public function buildAuthUrl(ShopeeClient $client)
             ->with('status', "Deleted Shopee store {$name}. Sales already imported keep its name.");
     }
 
-    /** The token exchange and refresh answers belong on the API log, not the page (the owner, 2026-09-05). */
     private function logAuthCall(string $path, array $result): void
     {
         ShopeeApiLog::safeCreate([
@@ -675,7 +567,6 @@ public function buildAuthUrl(ShopeeClient $client)
         );
         $this->logAuthCall('/api/v2/auth/token/get', $result);
 
-        // Persist tokens if present
         $connected = false;
         if ($result['ok'] && is_array($result['body'])) {
             $access = $result['body']['access_token'] ?? null;
@@ -690,8 +581,6 @@ public function buildAuthUrl(ShopeeClient $client)
             }
         }
 
-        // A fresh connection sets the store up (categories, couriers) behind
-        // the progress popup the settings page opens on settings_setup.
         return $this->redirectToSettings()
             ->with('shopee_result', ['ok' => (bool)$result['ok'], 'title' => 'Token exchange', 'data' => $result])
             ->with('settings_setup', $connected);
@@ -741,7 +630,7 @@ public function buildAuthUrl(ShopeeClient $client)
                 if ($raw) {
                     Cache::forget('shopee_sync_paused:' . $raw->id);
                 }
-                Cache::forget('shopee_sync_paused'); // legacy pre-store key
+                Cache::forget('shopee_sync_paused');
             }
         }
 
@@ -884,7 +773,6 @@ public function buildAuthUrl(ShopeeClient $client)
         return $this->toSettingsTab('status')->with('status', 'Return status mapping saved.');
     }
 
-    /** The three-way log mode (#200): everything / errors only / off. */
     public function setApiLogMode(Request $request)
     {
         $data = $request->validate(['mode' => 'required|in:' . implode(',', \App\Support\ApiLogMode::MODES)]);
@@ -902,25 +790,14 @@ public function buildAuthUrl(ShopeeClient $client)
     public function clearApiLogs()
     {
         $count = ShopeeApiLog::query()->count();
-        // This store's rows only: the global scope holds the store, and a
-        // truncate would have wiped every store's record (2026-09-05).
+        // Delete this store's rows only; a truncate would wipe every store's log.
         ShopeeApiLog::query()->delete();
 
         return $this->toSettingsTab('logs')->with('status', "Deleted {$count} Shopee API log entries.");
     }
 
-    /**
-     * Null the `raw` API-response payload on Shopee order tables for rows
-     * older than N days. The synced order data itself is left intact —
-     * only the verbose raw blob is cleared, freeing DB space.
-     *
-     * Moved here from SettingController::purgeRaw so each integration
-     * owns its own table list and a low-permission user can't trigger
-     * Shopee-wide deletes via a generic Settings page action.
-     */
     public function purgeRaw(Request $request)
     {
-        // This store's rows only, on every table that carries the store (2026-09-05).
         $storeId = app()->bound('shopee.route-store') ? (int) app('shopee.route-store')->id : null;
         $request->validate([
             'days' => ['required', 'integer', 'min:1', 'max:3650'],
@@ -1017,8 +894,6 @@ public function buildAuthUrl(ShopeeClient $client)
             $query['shop_id'] = $shopId;
         }
 
-        // For GET requests, merge custom params into query
-        // For POST requests, they go into body
         $body = [];
         if ($data['method'] === 'GET') {
             $query = array_merge($query, $customParams);

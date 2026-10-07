@@ -4,15 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * The customer group an order was placed under, as a NAME (#129, decided
- * 2026-08-26). No customer-group entity in the ERP and no mapping: the
- * storefront sends the group's name with the order and the sync writes
- * it onto the order. One text column on the core order row, so the
- * margin report reads one place for every storefront; marketplace orders
- * leave it empty. customer_group_id stays as the channel-native id it
- * always held (#132).
- */
 return new class extends Migration
 {
     public function up(): void

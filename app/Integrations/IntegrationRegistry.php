@@ -5,23 +5,8 @@ namespace App\Integrations;
 use App\Extensions\ExtensionManager;
 use App\Models\User;
 
-/**
- * Central registry every marketplace integration registers itself with at boot.
- *
- * The Integrations page and the unified Orders page query this registry instead
- * of hardcoding marketplace knowledge. New integrations appear automatically by
- * implementing IntegrationProvider and calling IntegrationRegistry::register()
- * from their service provider's boot() method.
- *
- * Visibility filters apply in this order: enabled (DB) -> permission (per-user).
- * "Core" integrations (id starts with "core:") skip the enable gate and are
- * gated only by permission. Multi-store integrations may use compound ids
- * like "venta:1" — the gate check extracts the base extension id ("venta")
- * before consulting the extensions table.
- */
 class IntegrationRegistry
 {
-    /** @var array<string, IntegrationProvider> */
     protected array $providers = [];
 
     public function register(IntegrationProvider $provider): void
@@ -29,17 +14,11 @@ class IntegrationRegistry
         $this->providers[$provider->integrationId()] = $provider;
     }
 
-    /** @return array<string, IntegrationProvider> */
     public function all(): array
     {
         return $this->providers;
     }
 
-    /**
-     * Cards visible to the given user, after enabled + license + permission gates.
-     *
-     * @return IntegrationCard[]
-     */
     public function visibleCards(?User $user): array
     {
         $cards = [];
@@ -63,26 +42,6 @@ class IntegrationRegistry
         return $this->sortByDisplayOrder($cards);
     }
 
-    /**
-     * Cards whose channel passes the enabled + license gates, WITHOUT the
-     * card-level permission gate.
-     *
-     * visibleCards() answers "may this user be shown this channel", which is
-     * the right question on the status board and in the channel picker. It is
-     * the wrong question when a route has already authorised the request: a
-     * user holding only view_shopee/order is admitted to /shopee/orders by
-     * the door (EnsureControllerPermission), yet the Shopee card itself
-     * declares view_shopee/dashboard, and this app removed parent/child
-     * permission cascades, so the card gate would deny a page the door just
-     * granted. Callers that already hold an authorisation
-     * decision use this and let the route stay the authority.
-     *
-     * Nothing here is a permission bypass: the enable and license gates still
-     * apply, and every menu item this card yields is still filtered
-     * individually by ChannelWorkspace::allows().
-     *
-     * @return IntegrationCard[]
-     */
     public function cardsForAuthorisedRequest(?User $user): array
     {
         $cards = [];
@@ -103,13 +62,6 @@ class IntegrationRegistry
         return $this->sortByDisplayOrder($cards);
     }
 
-    /**
-     * Stable display order across the Integrations hub, the contextual
-     * sidebar, and the unified Orders tabs. Cards whose base id is not in
-     * the list are appended at the end in their natural (registration)
-     * order. The base id is the part before the colon for compound
-     * per-store ids like "venta:1".
-     */
     protected function sortByDisplayOrder(array $cards): array
     {
         $priority = [
@@ -136,37 +88,16 @@ class IntegrationRegistry
         return array_map(fn($t) => $t[2], $indexed);
     }
 
-    /**
-     * Providers that implement SkuResolver, regardless of user — used by core
-     * services (OrderStockService, etc.) that need to translate a marketplace
-     * SKU into a catalog product. Filters by enabled+licensed only; permission
-     * checks don't apply because this is system-level reconciliation, not UI.
-     *
-     * @return \App\Integrations\Contracts\SkuResolver[]
-     */
     public function skuResolvers(): array
     {
         return $this->providersImplementing(\App\Integrations\Contracts\SkuResolver::class);
     }
 
-    /**
-     * Providers that implement SkuSyncContributor — used by SkuSyncService
-     * when a catalog product's SKU changes and needs to be pushed to every
-     * connected marketplace.
-     *
-     * @return \App\Integrations\Contracts\SkuSyncContributor[]
-     */
     public function skuSyncContributors(): array
     {
         return $this->providersImplementing(\App\Integrations\Contracts\SkuSyncContributor::class);
     }
 
-    /**
-     * The provider for one channel id, when that channel can reveal a stored
-     * credential. Null for a channel that does not implement the contract,
-     * which is the same answer as "refuses", so the caller needs no second
-     * branch for "not supported" and "not allowed".
-     */
     public function credentialRevealer(string $channelId): ?\App\Integrations\Contracts\CredentialRevealer
     {
         $provider = $this->providers[$channelId] ?? null;
@@ -176,64 +107,31 @@ class IntegrationRegistry
             : null;
     }
 
-    /**
-     * Providers that implement DashboardContributor — used by core's
-     * DashboardController to gather per-marketplace stats, sync status,
-     * and other widgets without core knowing which marketplaces exist.
-     *
-     * @return \App\Integrations\Contracts\DashboardContributor[]
-     */
     public function dashboardContributors(): array
     {
         return $this->providersImplementing(\App\Integrations\Contracts\DashboardContributor::class);
     }
 
-    /**
-     * Providers that implement OrderImagesContributor — used by core's
-     * OrderController to resolve marketplace-supplied product images.
-     *
-     * @return \App\Integrations\Contracts\OrderImagesContributor[]
-     */
     public function orderImagesContributors(): array
     {
         return $this->providersImplementing(\App\Integrations\Contracts\OrderImagesContributor::class);
     }
 
-    /**
-     * Providers that implement OrderFeesContributor — used by core's
-     * OrderController to resolve marketplace-side fees (commission,
-     * shipping, transaction tax, etc.) for a catalog order.
-     *
-     * @return \App\Integrations\Contracts\OrderFeesContributor[]
-     */
     public function orderFeesContributors(): array
     {
         return $this->providersImplementing(\App\Integrations\Contracts\OrderFeesContributor::class);
     }
 
-    /**
-     * Channels that can say what they charged for an order, in the four
-     * buckets core normalizes onto it. The reports read the ORDER, never
-     * these - see App\Services\Orders\MarketplaceFeeNormalizer.
-     *
-     * @return \App\Integrations\Contracts\MarketplaceFeeSource[]
-     */
     public function marketplaceFeeSources(): array
     {
         return $this->providersImplementing(\App\Integrations\Contracts\MarketplaceFeeSource::class);
     }
 
-    /** @return list<\App\Integrations\Contracts\SaleLinesSource> */
     public function saleLinesSources(): array
     {
         return $this->providersImplementing(\App\Integrations\Contracts\SaleLinesSource::class);
     }
 
-    /**
-     * Find the MobileMarketplaceProvider whose platform slug matches the
-     * given identifier (e.g. 'lazada', 'shopee'). Returns null if no
-     * matching provider is enabled+licensed.
-     */
     public function mobileProviderFor(string $platform): ?\App\Integrations\Contracts\MobileMarketplaceProvider
     {
         foreach ($this->providersImplementing(\App\Integrations\Contracts\MobileMarketplaceProvider::class) as $provider) {
@@ -244,27 +142,11 @@ class IntegrationRegistry
         return null;
     }
 
-    /**
-     * Layout banner contributors — token expiry warnings, credentials
-     * prompts, etc. Layout iterates these on every page render.
-     *
-     * @return \App\Integrations\Contracts\LayoutBannerContributor[]
-     */
     public function layoutBannerContributors(): array
     {
         return $this->providersImplementing(\App\Integrations\Contracts\LayoutBannerContributor::class);
     }
 
-    /**
-     * The same contributors, keyed by integration id.
-     *
-     * The shell used to render every contributor's banners on every page,
-     * so an expired TikTok token announced itself on the Lazada brands page
-     * and on Shopee categories. Scoping that needs to know which channel
-     * owns a banner, and the id is the only thing that says so.
-     *
-     * @return array<string, \App\Integrations\Contracts\LayoutBannerContributor>
-     */
     public function layoutBannerContributorsById(): array
     {
         $out = [];
@@ -279,28 +161,11 @@ class IntegrationRegistry
         return $out;
     }
 
-    /**
-     * Product inventory detail contributors — used by the product edit
-     * form to show supplemental inventory breakdowns (warehousing, etc.).
-     *
-     * @return \App\Integrations\Contracts\ProductInventoryDetailContributor[]
-     */
     public function productInventoryDetailContributors(): array
     {
         return $this->providersImplementing(\App\Integrations\Contracts\ProductInventoryDetailContributor::class);
     }
 
-    /**
-     * Walk the root-route handlers and return the first non-null response
-     * from any handler that claims the request, or null when no handler
-     * wants it. Core's HomeController uses this to delegate the bare "/"
-     * URL to integrations that need a domain-level OAuth callback
-     * (e.g. Shopee).
-     *
-     * Returns mixed because handlers may legitimately return a Response,
-     * a RedirectResponse, a View, or any Responsable — Laravel's router
-     * converts whichever it gets to a final HTTP response.
-     */
     public function resolveRootRouteResponse(\Illuminate\Http\Request $request): mixed
     {
         foreach ($this->providersImplementing(\App\Integrations\Contracts\RootRouteHandler::class) as $handler) {
@@ -312,14 +177,6 @@ class IntegrationRegistry
         return null;
     }
 
-    /**
-     * Aggregate all available marketplace-source options for the unified
-     * orders filter dropdown. Single-account marketplaces contribute one
-     * option; multi-store integrations contribute one option per enabled
-     * store. Order reflects extension registration order.
-     *
-     * @return array<int, array{value: string, label: string, badge_class?: string}>
-     */
     public function availableMarketplaceSourceOptions(): array
     {
         $options = [];
@@ -333,15 +190,6 @@ class IntegrationRegistry
         return $options;
     }
 
-    /**
-     * Aggregate "related action" buttons that extensions want to contribute
-     * to the core product edit page (e.g. Purchasing's "Manage Vendors").
-     * Order reflects extension registration order. Per-action permission
-     * gating is handled by the view, not here — this method returns the
-     * raw list and the caller filters by current user.
-     *
-     * @return array<int, array{label:string, url:string, icon?:string, permission?:string}>
-     */
     public function productActions(int $productId): array
     {
         $actions = [];
@@ -355,11 +203,6 @@ class IntegrationRegistry
         return $actions;
     }
 
-    /**
-     * Walk the marketplace-source resolvers and return the first non-null
-     * label for the given source string, or null if no integration claims
-     * it.
-     */
     public function resolveMarketplaceSourceLabel(string $source): ?string
     {
         foreach ($this->providersImplementing(\App\Integrations\Contracts\MarketplaceSourceLabelResolver::class) as $resolver) {
@@ -371,14 +214,6 @@ class IntegrationRegistry
         return null;
     }
 
-    /**
-     * Walk the order-ref renderers and return the first non-null render
-     * spec for the given (marketplace_source, marketplace_order_id). The
-     * render spec is `['display' => '#1001', 'url' => '...']` so views can
-     * render a friendly label with a deep link back to the marketplace.
-     *
-     * @return array{display:string,url:?string}|null
-     */
     public function resolveOrderRef(string $marketplaceSource, string $marketplaceOrderId): ?array
     {
         if ($marketplaceSource === '' || $marketplaceOrderId === '') {
@@ -393,15 +228,6 @@ class IntegrationRegistry
         return null;
     }
 
-    /**
-     * Generic helper: return providers that implement the given interface
-     * AND pass enabled+licensed gates. No permission filter — these are
-     * system-level contracts, not UI surfaces.
-     *
-     * @template T
-     * @param class-string<T> $contract
-     * @return T[]
-     */
     protected function providersImplementing(string $contract): array
     {
         $matches = [];
@@ -419,13 +245,6 @@ class IntegrationRegistry
         return $matches;
     }
 
-    /**
-     * Order tabs visible to the given user, flattened across providers.
-     * Multi-store providers contribute one tab per store; single-store
-     * providers contribute one tab.
-     *
-     * @return OrderTab[]
-     */
     public function visibleOrderTabs(?User $user): array
     {
         $tabs = [];
@@ -449,12 +268,6 @@ class IntegrationRegistry
         return $this->sortByDisplayOrder($tabs);
     }
 
-    /**
-     * Every live store of every enabled channel, and Manual orders, with no
-     * person to gate them: for an API caller, whose scope is the gate.
-     *
-     * @return list<array{key:string, label:string, channel:string, source:string, store_id:?int}>
-     */
     public function storeOptions(): array
     {
         $out = [['key' => \App\Support\StoreKey::MANUAL, 'label' => 'Manual orders', 'channel' => 'VentaSync', 'source' => '', 'store_id' => null]];
@@ -472,17 +285,6 @@ class IntegrationRegistry
         return $out;
     }
 
-    /**
-     * Stores the channels no longer list that have orders between the two
-     * dates (either open): a deleted store ('deleted' => true), and every
-     * store of a channel whose extension is disabled ('channel_off' =>
-     * true), since a disabled channel is not loaded to list its own. Both
-     * are named by the name stamped on their latest order; nothing reads a
-     * disabled channel's own tables. With a user, only stores whose orders
-     * they may view; without one, every store, for an API caller.
-     *
-     * @return list<array{key:string, label:string, channel:string, source:string, store_id:?int, deleted:bool, channel_off:bool, months:list<string>}>
-     */
     public function unlistedStoreOptions(?User $user, ?string $from = null, ?string $to = null): array
     {
         $live = [];
@@ -506,7 +308,6 @@ class IntegrationRegistry
             $query->where('date_added', '<=', $to . ' 23:59:59');
         }
 
-        // One row per store, carrying the months it sold in.
         $rows = [];
         foreach ($query->get() as $r) {
             $id = $r->marketplace_source . '|' . $r->store_id;
@@ -525,7 +326,6 @@ class IntegrationRegistry
             $source = (string) $row->marketplace_source;
             $channelId = strstr($source, ':', true) ?: $source;
             $storeId = str_contains($source, ':') ? null : (int) $row->store_id;
-            // An order from before stores were stamped carries no store.
             if ($storeId === 0) {
                 continue;
             }
@@ -545,9 +345,6 @@ class IntegrationRegistry
                 }
                 $channel = (string) ($manifest['name'] ?? \Illuminate\Support\Str::headline($channelId));
             }
-            // A disabled channel's permissions are not on the group editor to
-            // grant or withdraw, so its stores are gated by the core order
-            // list, where their orders still show.
             if ($user && ! $user->hasPermission($on ? 'view_' . $channelId . '/order' : 'view_sales/order')) {
                 continue;
             }
@@ -575,14 +372,6 @@ class IntegrationRegistry
         return $out;
     }
 
-    /**
-     * The report store filter: the live stores the user may read by, then
-     * every deleted store and disabled channel's store that ever sold, each
-     * marked 'in_period' when it sold between the two dates or is ticked.
-     * The page shows the rest as the dates change, without a reload.
-     *
-     * @return list<array<string, mixed>>
-     */
     public function reportStoreOptions(?User $user, ?string $from = null, ?string $to = null, array $selected = []): array
     {
         $fromMonth = $from ? substr($from, 0, 7) : null;
@@ -599,20 +388,10 @@ class IntegrationRegistry
         return array_merge($this->visibleStoreOptions($user), $unlisted);
     }
 
-    /**
-     * Stores the user may read by, as filter choices, in provider order
-     * (per-store reports, the owner, 2026-09-05). Live stores only: a deleted
-     * store's orders keep the name stamped on them and stay inside the
-     * channel's totals, but are not offered as a choice.
-     *
-     * @return list<array{key:string, label:string, channel:string, source:string, store_id:?int}>
-     */
     public function visibleStoreOptions(?User $user): array
     {
         $out = [];
 
-        // Orders entered in VentaSync itself belong to no channel, so no
-        // provider offers them; they are a choice for anyone who sees orders.
         if ($user && ($user->hasPermission('view_sales/order') || $user->hasPermission('manage_sales/order'))) {
             $out[] = ['key' => \App\Support\StoreKey::MANUAL, 'label' => 'Manual orders', 'channel' => 'VentaSync', 'source' => '', 'store_id' => null];
         }
@@ -634,64 +413,32 @@ class IntegrationRegistry
         return $out;
     }
 
-    /**
-     * Enabled gate. Permission is checked per surface (card vs tab) by the
-     * visible* methods above so different permissions can apply to each.
-     */
     protected function passesGates(string $id, ?User $user): bool
     {
-        // Core integrations bypass extension gates; only permission applies.
         if (str_starts_with($id, 'core:')) {
             return true;
         }
 
-        // Compound ids (e.g. "venta:1" for store 1) are scoped per-instance but
-        // still gated against the underlying extension id ("venta").
         $baseId = str_contains($id, ':') ? strstr($id, ':', true) : $id;
 
         return app(ExtensionManager::class)->isEnabled($baseId);
     }
 
-    /**
-     * Every enabled channel that can answer "where does this product's
-     * listing stand?" (Phase B, #184). Consumers: the All Listings grid
-     * and any core surface showing per-listing sync state.
-     *
-     * @return array<int, \App\Integrations\Contracts\ListingStateSource>
-     */
     public function listingStateSources(): array
     {
         return $this->providersImplementing(\App\Integrations\Contracts\ListingStateSource::class);
     }
 
-    /**
-     * The channels a catalog delete reaches first (the owner, 2026-09-05):
-     * each removes the product from its stores before the catalog row
-     * goes. A disabled channel is skipped like everywhere else.
-     *
-     * @return \App\Integrations\Contracts\ProductRemover[]
-     */
     public function productRemovers(): array
     {
         return $this->providersImplementing(\App\Integrations\Contracts\ProductRemover::class);
     }
 
-    /**
-     * Providers that forget a deleted catalog variation (the delete rule
-     * one level down, 2026-09-07).
-     *
-     * @return \App\Integrations\Contracts\VariationForgetter[]
-     */
     public function variationForgetters(): array
     {
         return $this->providersImplementing(\App\Integrations\Contracts\VariationForgetter::class);
     }
 
-    /**
-     * The channel answering on POST /webhooks/{segment}, or null. Passes
-     * the same enable/licence gates as every other contributor: a
-     * disabled channel's endpoint answers 404, exactly like its pages.
-     */
     public function webhookReceiverFor(string $segment): ?\App\Integrations\Contracts\WebhookReceiver
     {
         foreach ($this->providersImplementing(\App\Integrations\Contracts\WebhookReceiver::class) as $receiver) {

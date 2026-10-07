@@ -24,11 +24,6 @@ class ShopeeSyncOrders extends Command implements \App\Integrations\Contracts\St
 
     protected $description = 'Sync orders from Shopee (create new + update existing + returns)';
 
-    /**
-     * Multi-store S3 (#194): one loop over enabled stores, and a store
-     * that fails - bad token, API pause, anything thrown - is reported
-     * and skipped, never allowed to stop the stores after it.
-     */
     public function handle(ShopeeClient $client): int
     {
         $stores = ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get();
@@ -124,11 +119,9 @@ class ShopeeSyncOrders extends Command implements \App\Integrations\Contracts\St
 
         $timeTo = time();
 
-        // Cursor-based pagination with sliding 15-day windows
-        // (Shopee API max window is 15 days per request)
         $allOrderSns = [];
         $maxOrders = 5000;
-        $windowSize = 15 * 86400; // 15 days in seconds
+        $windowSize = 15 * 86400;
 
         $windowFrom = $timeFrom;
         while ($windowFrom < $timeTo && count($allOrderSns) < $maxOrders) {
@@ -198,7 +191,6 @@ class ShopeeSyncOrders extends Command implements \App\Integrations\Contracts\St
             $windowFrom = $windowTo;
         }
 
-        // Read each order's detail and write it: the one path an order push takes too.
         $r = app(ShopeeOrderIngest::class)->orders($setting, $auth, $allOrderSns);
         $this->info("  Synced: {$r['created']} new, {$r['updated']} updated"
             . ($r['errors'] > 0 ? ", {$r['errors']} errors" : '')
@@ -219,11 +211,9 @@ class ShopeeSyncOrders extends Command implements \App\Integrations\Contracts\St
         $tz = new \DateTimeZone('Asia/Manila');
         $rangeStart = (new \DateTime('now', $tz))->modify("-{$syncDays} days")->getTimestamp();
         $rangeEnd = time();
-        $windowSecs = 15 * 86400; // Shopee caps each get_return_list request at 15 days
+        $windowSecs = 15 * 86400;
         $this->info("  Returns window: last {$syncDays} days (in <=15-day slices)");
 
-        // Slide <=15-day windows across the whole range so a >15-day backfill
-        // works despite Shopee's per-request cap (e.g. --days-returns=180).
         for ($winFrom = $rangeStart; $winFrom < $rangeEnd; $winFrom = $winTo) {
         $winTo = min($winFrom + $windowSecs, $rangeEnd);
         $pageNo = 0;
@@ -265,7 +255,6 @@ class ShopeeSyncOrders extends Command implements \App\Integrations\Contracts\St
 
             $body = $res['body'] ?? [];
             $respData = $body['response'] ?? $body;
-            // Shopee's get_return_list returns the array under `return` (not `return_list`).
             $returnList = $respData['return'] ?? $respData['return_list'] ?? [];
             if (!is_array($returnList) || empty($returnList)) {
                 break;
@@ -297,9 +286,6 @@ class ShopeeSyncOrders extends Command implements \App\Integrations\Contracts\St
         $this->info("  Synced: {$saved} return(s)" . ($errors > 0 ? ", {$errors} error(s)" : ''));
     }
 
-    /**
-     * Fetch escrow fees for shipped/completed orders that don't have fee data yet.
-     */
     private function backfillMissingFees(ShopeeClient $client, object $setting, array $auth): void
     {
         $region = $auth['region'] ?? 'ph';
@@ -322,18 +308,12 @@ class ShopeeSyncOrders extends Command implements \App\Integrations\Contracts\St
             if (!empty($order->fresh()->fees)) {
                 $filled++;
             }
-            usleep(200000); // 200ms rate limit
+            usleep(200000);
         }
 
         $this->info("  Backfilled fees for {$filled}/{$orders->count()} orders.");
     }
 
-    /**
-     * Run now walks this sync one phase per request (SteppableAutomation,
-     * 2026-09-07): the bar moves per phase and store, and the page never
-     * shows the console. The job's own options (returns only, no returns)
-     * choose the phases, exactly as the scheduler would.
-     */
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
         $args = $job->commandArguments();

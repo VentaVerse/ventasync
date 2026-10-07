@@ -1,40 +1,3 @@
-{{-- THE CATEGORY PICKER.
-
-     The field shows the whole path and does nothing else: pressing it opens
-     the picker, where there is room for the tree. Nothing is typed here, so
-     nothing half-typed can be mistaken for a choice.
-
-     Inside, a column per level, every one of them open. A DEPTH IS NEVER
-     ASSUMED: Shopee reaches five levels, Lazada six, and most of Lazada's
-     pickable categories sit deeper than three. A column appears whenever the
-     row picked says something is below it, and the walk stops at a leaf.
-
-     The choice is not made until Confirm. Cancel puts back whatever the
-     field held.
-
-     The field, its path and the first column are drawn here rather than
-     fetched, so the page says what it holds without waiting for script.
-
-     Expected keys:
-       name          string   the form field the chosen id is submitted as
-       id            string   a unique html id stem for this picker
-       label         string   the field's label
-       value         ?int     the chosen category id
-       channel       string   which channel's tree
-       storeId       int      the store, for a channel whose categories are
-                              its own
-       valueLabel    ?string  overrides the name read from the path
-       childrenUrl   string   one level of the tree
-       pathUrl       string   the path down to a chosen category
-       searchUrl     ?string  the channel's own remote search, where it has
-                              one; without it the picker filters what it holds
-       refreshUrl    ?string  re-reads the channel's categories, where the
-                              page offers it and the operator may write
-       canManage     bool
-       required      bool
-       requiredWord  string   what the browser's own bubble says when nothing
-                              is picked; required means required on both
-                              presses, so Save cannot skip it --}}
 @php
     $ctpValue = (int) ($value ?? 0);
     $ctpRequired = (bool) ($required ?? false);
@@ -62,8 +25,6 @@
         <input type="hidden" id="{{ $id }}-value" name="{{ $name }}" data-ctp-value data-combo-value
                value="{{ $ctpValue > 0 ? $ctpValue : '' }}">
 
-        {{-- The field is the path and the way in. It is a button, not a text
-             box: there is nothing here to type. --}}
         <button type="button" class="ctp__field" id="{{ $id }}" data-ctp-open @disabled(!$canManage)>
             <span class="ctp__field-text{{ $ctpName === '' ? ' ctp__field-text--none' : '' }}" data-ctp-field-text>{{ $ctpName !== '' ? $ctpName : 'No category picked' }}</span>
             <x-ui.icon name="pencil" size="14" class="ctp__pencil" />
@@ -71,8 +32,6 @@
 
         <p class="ctp__say" role="status" aria-live="polite" data-ctp-say hidden></p>
 
-        {{-- The picker. Its search box sits inside a page-level form on some
-             channels, so script stops Enter from submitting that form. --}}
         <div class="modal-backdrop ctp-modal" data-ctp-modal>
             <div class="fm-pick" role="dialog" aria-modal="true" aria-labelledby="{{ $id }}-pick-title">
                 <div class="fm-pick__head">

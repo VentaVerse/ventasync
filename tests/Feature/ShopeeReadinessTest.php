@@ -15,19 +15,10 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * "Ready to push" as a computed state (#101): can the one-click push
- * succeed, answered from the ERP's own records before anything is
- * pressed. One shared computation feeds the listing page, the listings
- * index rows, the readiness filter and the bulk push's refusal - so
- * Ready means the same thing everywhere, and a bulk push refuses to
- * start rather than half-failing across twelve products.
- */
 class ShopeeReadinessTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @var array<int, array{path: string, body: array}> */
     private array $sentPayloads = [];
 
     protected function setUp(): void
@@ -66,7 +57,6 @@ class ShopeeReadinessTest extends TestCase
         };
         $this->app->instance(ShopeeClient::class, $fake);
 
-        // A category whose sheet demands one answer.
         ShopeeCategoryTemplate::query()->create([
             'category_id' => 106755, 'region' => 'ph',
             'attributes' => [[
@@ -107,7 +97,6 @@ class ShopeeReadinessTest extends TestCase
         ]);
         DB::table($pfx . 'product_description')->insert([
             'product_id' => $productId, 'language_id' => $langId,
-            // A description: Shopee refuses a push without one, so readiness asks (2026-09-06).
             'name' => $name, 'description' => 'A description.',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
@@ -115,8 +104,6 @@ class ShopeeReadinessTest extends TestCase
         return $productId;
     }
 
-    /** The index scopes to grouped-or-linked products; a catch-all group
-     *  (like every live one) brings the seeded products into view. */
     private function catchAllGroup(): void
     {
         \Extensions\shopee\Models\ShopeeProductGroup::create([
@@ -134,23 +121,12 @@ class ShopeeReadinessTest extends TestCase
         ]);
     }
 
-    /**
-     * The store has been set up (the owner, 2026-09-05): its categories and
-     * couriers are on file, so a gap is the product's own choice, not
-     * "none have been fetched for this store yet".
-     */
     private function storeSetUp(): void
     {
         \Extensions\shopee\Models\ShopeeCategory::create(['category_id' => 106755, 'parent_id' => null, 'name' => 'Pedals', 'level' => 0, 'leaf' => true]);
         \Extensions\shopee\Models\ShopeeLogistic::create(['logistics_channel_id' => 41003, 'logistics_channel_name' => 'J&T Express', 'enabled' => true]);
     }
 
-    /**
-     * A group is a preset the product inherits (the owner, 2026-09-05): a
-     * listing with no category or couriers of its own is ready when its
-     * group carries them, because every push now fills the blanks from
-     * the group.
-     */
     public function test_a_grouped_product_inherits_the_groups_category_and_couriers(): void
     {
         $this->storeSetUp();
@@ -159,7 +135,6 @@ class ShopeeReadinessTest extends TestCase
         ]);
         \Extensions\shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 106755], ['attributes' => ['attribute_list' => []]]);
         $grouped = $this->seedProduct('Grouped bare', 'GRP-1');
-        // No category, no couriers of its own; the sheet's one answer given.
         ShopeeListing::query()->create(['product_id' => $grouped, 'attribute_values' => ['2000' => '1 year']]);
         \Extensions\shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $grouped]);
         $alone = $this->seedProduct('Alone bare', 'ALN-1');
@@ -171,7 +146,6 @@ class ShopeeReadinessTest extends TestCase
         $this->assertFalse($out[$alone]['ready']);
         $this->assertContains('a Shopee category', $out[$alone]['missing']);
 
-        // The listing's own choice still wins over the group's.
         ShopeeListing::query()->where('product_id', $grouped)->update(['shopee_category_id' => 999999]);
         $out = app(ShopeeListingReadiness::class)->forProducts([$grouped]);
         $this->assertStringContainsString('attribute sheet', implode(' ', $out[$grouped]['missing']), 'its own unread category, not the group\'s, is what readiness judged');
@@ -222,25 +196,16 @@ class ShopeeReadinessTest extends TestCase
         $ready = $this->seedProduct('Ready index product', 'RDY-IDX-1');
         $this->readyListing($ready);
         $bare = $this->seedProduct('Bare index product', 'RDY-IDX-2', '');
-        // On the store with a blank record (#201): what Add products leaves behind.
         ShopeeListing::query()->create(['product_id' => $bare]);
 
         $r = $this->actingAs($this->manager())->get(route('ext.shopee.products.index'));
 
         $r->assertOk();
-        // Only the bare product draws the amber line; a ready one draws nothing.
         $this->assertSame(1, substr_count($r->getContent(), 'cc-err-row--warn'));
         $r->assertSee('Needs details:');
         $r->assertSee('a Shopee category');
     }
 
-    /**
-     * Eligibility stopped being a place in the list on 2026-09-17: a product
-     * short of something says so on its own row and is refused at push, so
-     * the page no longer sorts the store by it. What is left is where a
-     * product stands, and a retired ?sync_status=ready address folds onto
-     * the half it belonged to rather than opening nothing.
-     */
     public function test_a_retired_readiness_filter_lands_on_not_live_with_both_products(): void
     {
         $this->catchAllGroup();
@@ -249,7 +214,6 @@ class ShopeeReadinessTest extends TestCase
         $bare = $this->seedProduct('Bare filter product', 'RDY-F-2', '');
         ShopeeListing::query()->create(['product_id' => $bare]);
 
-        // Neither product is on Shopee, so Not live holds both, complete or not.
         foreach (['ready', 'not_ready', 'not_uploaded'] as $address) {
             $this->actingAs($this->manager())
                 ->get(route('ext.shopee.products.index', ['sync_status' => $address]))
@@ -258,7 +222,6 @@ class ShopeeReadinessTest extends TestCase
                 ->assertSee('Bare filter product');
         }
 
-        // The shortfall still reaches the seller, on the row that carries it.
         $this->actingAs($this->manager())
             ->get(route('ext.shopee.products.index'))
             ->assertOk()

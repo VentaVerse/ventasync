@@ -25,8 +25,6 @@
         </div>
     </div>
 
-    {{-- One column, not the usual main plus side split: the permission editor
-         is the page, and a 320px side rail would squeeze every pill row. --}}
     <div class="fm-body">
         <div class="fm-col">
 

@@ -13,11 +13,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
-/**
- * A product carries one video: uploaded on its own, kept under video/ where
- * the picture library never lists it, saved with the product, and taken off
- * with the file. A file the stores will refuse is accepted and named.
- */
 class ProductVideoTest extends TestCase
 {
     use RefreshDatabase;
@@ -46,7 +41,6 @@ class ProductVideoTest extends TestCase
         return $id;
     }
 
-    /** An MP4 whose header says how long it runs: a `mvhd` atom with a timescale and a duration. */
     private function mp4(int $seconds, int $padBytes = 0): string
     {
         $timescale = 1000;
@@ -85,14 +79,6 @@ class ProductVideoTest extends TestCase
         Storage::disk('public')->assertExists($answer['path']);
     }
 
-    /**
-     * NOTHING IS MEASURED AGAINST A STORE'S LIMITS, HERE OR ANYWHERE.
-     *
-     * A marketplace changes what it takes without telling anyone, so a limit
-     * written into this application would one day refuse a video the store
-     * would have accepted, and the seller could not tell our guess from the
-     * store's answer. The video is sent and the store answers.
-     */
     public function test_no_store_limit_is_written_into_this_application(): void
     {
         Storage::fake('public');
@@ -141,7 +127,6 @@ class ProductVideoTest extends TestCase
         $this->assertTrue($row->ai_generated, 'the seller\'s answer on AI is kept, because Shopee asks for it');
         $this->assertSame(22, (int) round($row->duration_ms / 1000));
 
-        // An empty path is how the form says the video was taken off.
         $this->actingAs($manager)->put(route('products.update', $productId), [
             'name' => 'Pedal with a video', 'sku' => 'VID-3', 'price' => 100, 'quantity' => 1, 'status' => 1,
             'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
@@ -165,7 +150,6 @@ class ProductVideoTest extends TestCase
         Storage::disk('public')->assertMissing($staged);
     }
 
-    /** A remove reaches only the file some product's row claims, or this uploader's own staged file. */
     public function test_removing_never_reaches_another_products_video(): void
     {
         Storage::fake('public');
@@ -178,12 +162,10 @@ class ProductVideoTest extends TestCase
         $unclaimed = 'video/9999/orphan.mp4';
         Storage::disk('public')->put($unclaimed, $this->mp4(20));
 
-        // A file no row claims stays where it is.
         $this->actingAs($manager)->postJson(route('products.video.delete'), ['path' => $unclaimed, 'product_id' => $mine])
             ->assertOk()->assertJson(['kept' => true]);
         Storage::disk('public')->assertExists($unclaimed);
 
-        // A file another product's row claims goes with that row, never on its own.
         ProductVideo::create(['product_id' => $theirs, 'path' => $theirPath, 'original_name' => 'clip.mp4', 'bytes' => 100, 'duration_ms' => 20000]);
         $this->actingAs($manager)->postJson(route('products.video.delete'), ['path' => $theirPath, 'product_id' => $mine])->assertOk();
         $this->assertNull(ProductVideo::query()->where('product_id', $theirs)->first(), 'the row goes with its file, so nothing points at a file that is gone');
@@ -248,8 +230,6 @@ class ProductVideoTest extends TestCase
             ->assertSee('This video was made or helped by AI')
             ->assertSee('MP4 or MOV.');
 
-        /* The catalog names no channel and no channel's limits. What a store
-           takes is that store's business, said on its own listing page. */
         foreach (['Shopee', 'Lazada', 'TikTok', '30 MB', '10 to 60 seconds'] as $coupling) {
             $page->assertDontSee($coupling);
         }

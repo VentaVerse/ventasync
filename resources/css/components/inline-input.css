@@ -1,24 +1,3 @@
-/* ============================================================
-   INLINE INPUT
-
-   An editable field that lives inside a data row rather than in a
-   form's field grid: a line-item editor, an inline-editable list.
-
-   Why it is not `.x-input`: fifty boxed controls stacked in a column
-   read as a wall of chrome, and the border is the loudest thing on
-   the screen at exactly the moment the operator is trying to scan the
-   numbers rather than edit them. Here the border appears on hover and
-   on focus, which is when it is doing something. Everything else
-   about the control (height, radius, focus ring, invalid state) is
-   the same as `.x-input` so the two never look like different
-   systems.
-
-   Pure extraction. These rules were written for the warehousing line
-   editors (`wh-in`) and were needed unchanged by the petty cash
-   category rows, so they moved here under a neutral name rather than
-   being copied. No rule changed in the move.
-   ============================================================ */
-
 .x-inline-input {
     width: 100%;
     height: var(--bl-control-h-sm);
@@ -41,16 +20,12 @@
     box-shadow: 0 0 0 3px var(--bl-brand-wash);
 }
 
-/* Money, quantities and identifiers align on their last digit, same
-   rule as every other figure in this design system. */
 .x-inline-input--num {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     text-align: right;
 }
 
-/* Same state name `.x-input` uses in components/form-page.css, so a
-   page script does not have to know which of the two it is marking. */
 .x-inline-input.is-invalid {
     border-color: var(--bl-bad);
     background: color-mix(in srgb, var(--bl-bad) 8%, transparent);

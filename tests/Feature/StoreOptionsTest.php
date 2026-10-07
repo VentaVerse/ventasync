@@ -12,10 +12,6 @@ use Extensions\shopee\Models\ShopeeSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * Per-store reports (the owner, 2026-09-05): channels list their stores as
- * filter choices and the registry gates them by permission.
- */
 class StoreOptionsTest extends TestCase
 {
     use RefreshDatabase;

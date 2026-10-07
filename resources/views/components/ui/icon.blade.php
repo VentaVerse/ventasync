@@ -30,9 +30,6 @@
         'chevron-down'  => '<path d="m6 9 6 6 6-6"/>',
         'refresh-cw'    => '<path d="M3 12a9 9 0 0 1 15.36-6.36L21 8M21 12a9 9 0 0 1-15.36 6.36L3 16"/><path d="M21 3v5h-5M3 21v-5h5"/>',
         'square'   => '<rect x="3" y="3" width="18" height="18" rx="2"/>',
-        // Was missing, so <x-ui.icon name="info"> fell through to 'square'
-        // and drew a bare box - which, in a form made of controls, read as an
-        // unticked checkbox rather than as a note.
         'info'     => '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
         'log-out'  => '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
         'external-link' => '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
@@ -48,23 +45,14 @@
         'upload'   => '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v13"/>',
         'corner-up-left' => '<polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/>',
         'x'        => '<path d="M18 6 6 18M6 6l12 12"/>',
-        /* Direction for a period-over-period delta. Diagonal rather than
-           straight up/down so the pair never reads as a sort control. */
         'arrow-up-right'   => '<path d="M7 17 17 7"/><path d="M8 7h9v9"/>',
         'arrow-down-right' => '<path d="M7 7l10 10"/><path d="M17 8v9H8"/>',
         'download' => '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>',
-        /* v2.3. One per headline metric, drawn on the same 24 grid at the
-           same 1.75 stroke as everything above, because a filled block with
-           a borrowed glyph in it is the tell that gives a template away. */
         'trending-up' => '<path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/>',
         'cart'        => '<circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 11.6a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/>',
         'boxes'       => '<path d="M12 2 4 6v12l8 4 8-4V6z"/><path d="M4 6l8 4 8-4M12 10v12"/>',
         'banknote'    => '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>',
         'send'        => '<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/>',
-        /* The only closed shape in this set. It renders as an outline like
-           every other icon here (the <svg> carries fill="none"), and a CSS
-           rule outranks that presentation attribute, which is how
-           .rv-star--on fills it without needing a second path. */
         'star'     => '<path d="m12 3 2.9 5.9 6.5.9-4.7 4.6 1.1 6.4-5.8-3-5.8 3 1.1-6.4L2.6 9.8l6.5-.9z"/>',
     ];
 @endphp

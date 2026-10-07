@@ -7,44 +7,8 @@ use Extensions\lazada\Models\LazadaImageLink;
 use Extensions\lazada\Models\LazadaSetting;
 use Illuminate\Support\Str;
 
-/**
- * Image plumbing for Lazada, out of the god controller (Phase C, #184):
- * URL shapes for display and for the wire, and the inlink migration that
- * re-hosts catalog images on Lazada's own CDN before a payload carries
- * them.
- */
 class LazadaImages
 {
-    /**
-     * Convert an ERP product image path into an absolute URL that Lazada can fetch.
-     *
-     * - If value is already an absolute URL, keep it.
-     * - Otherwise, assume the stored path is already relative to the public web root
-     *   (e.g. "catalog/...").
-     */
-    /**
-     * A product image URL for the OPERATOR'S BROWSER, not for Lazada.
-     *
-     * toPublicImageUrl() below builds an ABSOLUTE url, deliberately: Lazada's
-     * servers fetch these over the internet, so they need a host, and that
-     * host comes from catalog.public_url. That is correct for the payload and
-     * wrong for this admin page, which is what emptied the listing grid.
-     *
-     * catalog.public_url was pointing at 192.168.122.8:8000, an address from
-     * an earlier network. Every thumbnail on the page was requested from a
-     * host the operator's browser cannot reach, so 2,074 products with images
-     * on disk rendered as empty frames. Correcting that value would have fixed
-     * it today and broken it again on the next address change, because the
-     * page was asking a config setting a question it already knew the answer
-     * to: the browser is already on the right host.
-     *
-     * So this returns a ROOT-RELATIVE path. It resolves against whatever
-     * address the operator actually used - LAN ip, hostname, localhost, or a
-     * tunnel - and cannot drift from it. An absolute url that is genuinely
-     * somebody else's (a CDN, a marketplace cdn) is kept as it is; only
-     * loopback is rewritten, because no browser but the server's own can
-     * follow it.
-     */
     public function toDisplayImageUrl(?string $imagePath): ?string
     {
         $imagePath = trim((string) ($imagePath ?? ''));
@@ -69,25 +33,17 @@ class LazadaImages
 
         $path = ltrim($imagePath, '/');
 
-        // Already carries a public prefix.
         if (Str::startsWith($path, ['storage/', 'image/'])) {
             return '/' . $this->encodeUrlPath($path);
         }
 
-        /* A page is shown the sized copy, never the original, the way every
-           other channel's listings are: a library photograph is measured in
-           megabytes and a row of them is a thumbnail each. The copy's path
-           is taken, not its url, because this method answers root-relative
-           on purpose. A picture that cannot be copied is shown as it is. */
         $path = \App\Services\Media\ImageCache::path($path) ?? $path;
 
-        // The Laravel public disk is where this install actually keeps them.
         try {
             if (file_exists(public_path('storage/' . $path))) {
                 return '/' . $this->encodeUrlPath('storage/' . $path);
             }
         } catch (\Throwable $e) {
-            // Fall through to the configured prefix.
         }
 
         $prefix = trim((string) config('catalog.image_prefix', 'image'), '/');
@@ -102,14 +58,10 @@ class LazadaImages
             return null;
         }
 
-        // Basic safety: never generate URLs that include path traversal.
         if (str_contains($imagePath, '..')) {
             return null;
         }
 
-        // If the DB already stores a full URL, keep it — except for localhost/loopback URLs.
-        // Some imports (or older code) may have saved http://localhost/... which will break Lazada.
-        // In that case, rewrite the host to the configured APP_URL host (or request host) while preserving the path.
         if (Str::startsWith($imagePath, ['http://', 'https://'])) {
             $host = strtolower((string) parse_url($imagePath, PHP_URL_HOST));
             if (in_array($host, ['localhost', '127.0.0.1', '0.0.0.0'], true)) {
@@ -130,29 +82,18 @@ class LazadaImages
         $base = $this->imageBaseUrl();
         $path = ltrim($imagePath, '/');
 
-        // Many ERP installs store uploaded product images on the Laravel "public" disk
-        // (public/storage -> storage/app/public). In that case, the publicly reachable URL
-        // is typically "/storage/{path}" (e.g. /storage/catalog/Brand/file.jpg).
-        //
-        // Historically, some code assumed OpenCart-style "/image/{path}". Lazada requires
-        // these URLs to return HTTP 200, so we must generate the correct public prefix.
-
-        // If the stored path already includes a known public prefix, keep it.
         if (Str::startsWith($path, ['storage/', 'image/'])) {
             return $base . '/' . $this->encodeUrlPath($path);
         }
 
-        // Prefer Laravel public disk if the file exists there: public/storage/{path}
         $storageCandidate = 'storage/' . $path;
         try {
             if (file_exists(public_path($storageCandidate))) {
                 return $base . '/' . $this->encodeUrlPath($storageCandidate);
             }
         } catch (\Throwable $e) {
-            // Ignore filesystem errors; fall back below.
         }
 
-        // Fall back to configured prefix (default: "image").
         $prefix = trim((string) config('catalog.image_prefix', 'image'), '/');
         if ($prefix === '') {
             $prefix = 'image';
@@ -162,9 +103,6 @@ class LazadaImages
         return $base . '/' . $this->encodeUrlPath($prefixed);
     }
 
-    /**
-     * Encode a relative URL path safely (encode each segment, preserve slashes).
-     */
     private function encodeUrlPath(string $path): string
     {
         $path = ltrim($path, '/');
@@ -172,15 +110,8 @@ class LazadaImages
         return implode('/', $parts);
     }
 
-    /**
-     * Returns the base URL used for building publicly reachable image URLs.
-     *
-     * We prefer config('app.url') (APP_URL), but if that is missing or somehow set to localhost,
-     * we fall back to the current HTTP host.
-     */
     private function imageBaseUrl(): string
     {
-        // Prefer the storefront/public catalog URL. The ERP may run on a different subdomain.
         $base = rtrim((string) config('catalog.public_url', config('app.url')), '/');
         $host = strtolower((string) (parse_url($base, PHP_URL_HOST) ?? ''));
 
@@ -188,23 +119,17 @@ class LazadaImages
             try {
                 $base = rtrim(request()->getSchemeAndHttpHost(), '/');
             } catch (\Throwable $e) {
-                // Ignore and keep whatever we have.
             }
         }
 
         return $base;
     }
 
-    /**
-     * Normalize an image URL/path into a publicly reachable URL based on APP_URL.
-     * This is a last-resort guard to prevent localhost/loopback URLs from leaking into payloads.
-     */
     public function normalizeImageUrl(string $urlOrPath): ?string
     {
         $urlOrPath = trim($urlOrPath);
         if ($urlOrPath === '') return null;
 
-        // If it's a full URL, rewrite localhost/loopback hosts to APP_URL host.
         if (Str::startsWith($urlOrPath, ['http://', 'https://'])) {
             $host = strtolower((string) parse_url($urlOrPath, PHP_URL_HOST));
             if (in_array($host, ['localhost', '127.0.0.1', '0.0.0.0'], true)) {
@@ -217,23 +142,9 @@ class LazadaImages
             return $urlOrPath;
         }
 
-        // Relative path
         return $this->toPublicImageUrl($urlOrPath);
     }
 
-/**
-     * The pictures this listing sends, in the order it sends them.
-     *
-     * The ORDER is decided in one place for every channel
-     * (App\Support\Catalog\ProductImages): the listing's own arrangement
-     * when it has one, the catalog product's gallery when it does not.
-     * Only the URL is Lazada's own, because Lazada is handed addresses it
-     * must be able to fetch, not bytes, so they are built from the public
-     * catalog URL rather than this ERP's.
-     *
-     * @param  ?array<int, mixed>  $own  the listing's own arrangement, or null to follow the catalog
-     * @return list<string>
-     */
     public function getProductImageUrls(int $productId, ?object $productRow, ?array $own = null, ?object $listing = null): array
     {
         $paths = \App\Services\Media\ListingWatermark::paths(
@@ -243,7 +154,6 @@ class LazadaImages
             'lazada',
             (int) ($listing?->lazada_setting_id ?? 0)
         );
-        // Lazada fetches each picture by URL: the square push copy, under its 1 MB limit.
         $paths = \App\Services\Media\ImageCache::pushPaths($paths);
         $images = [];
         foreach ($paths as $path) {
@@ -253,15 +163,9 @@ class LazadaImages
             }
         }
 
-        /* Every picture that is on goes up. How many Lazada takes is
-           Lazada's to say, and it says so on the push. */
         return $images;
     }
 
-    /**
-     * Lazada requires "inlink" images for product create/update.
-     * If we send non-Lazada URLs, QC returns BIZ_CHECK_EXIST_OUTER_MAIN_IMAGE.
-     */
     public function ensureLazadaInlinkImages(array $productPayload, $setting, LazadaClient $client): array
     {
         $creds = LazadaSetting::activeCredentials($setting);
@@ -280,10 +184,8 @@ class LazadaImages
             ]);
         }
 
-        // Lazada migration APIs support up to 8 images per call; keep it predictable.
         $images = array_slice($images, 0, 8);
 
-        // Reject localhost/private URLs: Lazada cannot fetch them.
         foreach ($images as $u) {
             $host = strtolower((string) parse_url($u, PHP_URL_HOST));
             if ($host === '' || in_array($host, ['localhost', '127.0.0.1', '0.0.0.0'], true)) {
@@ -303,7 +205,6 @@ class LazadaImages
             $client
         );
 
-        // Build an original->inlink map so we can sanitize SKU-level images reliably.
         $imageMap = [];
         foreach ($images as $i => $orig) {
             $orig = is_string($orig) ? trim($orig) : '';
@@ -315,9 +216,7 @@ class LazadaImages
 
         data_set($productPayload, 'Request.Product.Images.Image', $inlinks);
 
-        // Sanitize SKU-level images:
-        // Lazada rejects *any* non-Lazada URLs at SKU Images. Option images are optional,
-        // so if we can't safely migrate them, we drop them.
+        // Lazada rejects any non-Lazada URL on SKU images, so unmigrated ones are dropped.
         $skuRows = data_get($productPayload, 'Request.Product.Skus.Sku', []);
         if (is_array($skuRows)) {
             foreach ($skuRows as $idx => $row) {
@@ -335,19 +234,16 @@ class LazadaImages
                 if (!empty($skuImgs)) {
                     $clean = [];
                     foreach ($skuImgs as $u) {
-                        // Already a Lazada inlink -> keep
                         if ($this->isLazadaInlinkUrl($u)) {
                             $clean[] = $u;
                             continue;
                         }
 
-                        // If it matches a product image we already migrated, reuse its inlink.
                         if (isset($imageMap[$u]) && $this->isLazadaInlinkUrl($imageMap[$u])) {
                             $clean[] = $imageMap[$u];
                             continue;
                         }
 
-                        // Best-effort: migrate this SKU image. If migration fails, drop it.
                         $newUrl = $this->migrateSingleImageXml(
                             $region,
                             $u,
@@ -368,7 +264,6 @@ class LazadaImages
                         unset($row['Images']);
                     }
                 } else {
-                    // If empty/invalid, remove Images key to avoid sending blanks.
                     if (isset($row['Images'])) {
                         unset($row['Images']);
                     }
@@ -380,7 +275,6 @@ class LazadaImages
             data_set($productPayload, 'Request.Product.Skus.Sku', $skuRows);
         }
 
-        // SKU-level main image: force first SKU image to the first inlink.
         $first = $inlinks[0] ?? null;
         if ($first && $this->isLazadaInlinkUrl((string)$first)) {
             $sku0 = data_get($productPayload, 'Request.Product.Skus.Sku.0');
@@ -393,25 +287,10 @@ class LazadaImages
         return $productPayload;
     }
 
-    /** Lazada attributes that carry HTML, where a picture can sit. */
     private const HTML_ATTRIBUTES = ['description', 'short_description'];
 
-    /** Hosts only this server can follow. */
     private const LOOPBACK = ['localhost', '127.0.0.1', '0.0.0.0'];
 
-    /**
-     * The payload with every picture inside the description re-hosted on
-     * Lazada, and how many pictures were left out.
-     *
-     * Lazada refuses outside image links anywhere in a product payload, the
-     * description included. Each picture is fitted to what Lazada accepts,
-     * migrated from its public address, and its src swapped for the Lazada
-     * link; a link already migrated in this region is reused. A picture that
-     * cannot be migrated is taken out of the HTML rather than sent with our
-     * own address, and the push goes on without it.
-     *
-     * @return array{0: array, 1: int}
-     */
     public function ensureLazadaDescriptionImages(array $productPayload, $setting, LazadaClient $client): array
     {
         $attributes = data_get($productPayload, 'Request.Product.Attributes');
@@ -449,7 +328,6 @@ class LazadaImages
                     return '';
                 }
 
-                // A srcset would carry our own addresses past the swapped src.
                 $img = (string) preg_replace('/\ssrcset\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s"\'>]+)/i', '', $tag[0]);
 
                 return (string) preg_replace_callback(
@@ -466,7 +344,6 @@ class LazadaImages
         return [$productPayload, count($leftOut)];
     }
 
-    /** The line a push result carries when description pictures were left out, or null. */
     public static function descriptionNote(int $leftOut): ?string
     {
         if ($leftOut < 1) {
@@ -478,19 +355,6 @@ class LazadaImages
             : $leftOut . ' pictures were left out of the description.';
     }
 
-    /**
-     * The pictures of an item as Lazada's product API answers it, in order,
-     * each once, every one https.
-     *
-     * An item's own `images` list comes back EMPTY, not missing, when its
-     * pictures live on its variations. Reading it with `??` took the empty
-     * list as the answer, so 32 of the 34 items the Import page offered
-     * showed no picture and would have imported without one (the owner,
-     * 2026-09-26). The item's own list when it has one, else every
-     * variation's pictures.
-     *
-     * @return list<string>
-     */
     public static function ofItem(array $item): array
     {
         $own = array_filter((array) ($item['images'] ?? []), fn ($u) => is_string($u) && trim($u) !== '');
@@ -508,12 +372,6 @@ class LazadaImages
         return array_values(array_unique(array_map([self::class, 'secure'], $own)));
     }
 
-    /**
-     * A Lazada picture link over https. Some come back as http (an older
-     * image host), which a browser will not show inside this https page and
-     * App\Support\RemoteImage will not download; the same file is served
-     * over https.
-     */
     public static function secure(string $url): string
     {
         $url = trim($url);
@@ -521,7 +379,6 @@ class LazadaImages
         return preg_match('#^http://#i', $url) ? 'https://' . substr($url, 7) : $url;
     }
 
-    /** The Lazada link for one description picture, or null when it cannot be sent. */
     private function descriptionImageLink(string $src, string $region, array $creds, LazadaClient $client): ?string
     {
         if ($this->isLazadaInlinkUrl($src)) {
@@ -566,13 +423,6 @@ class LazadaImages
         return $link;
     }
 
-    /**
-     * The public address Lazada fetches a description picture from. One of
-     * ours (a relative path, or our own or a loopback host) is fitted to
-     * Lazada's rules and rebuilt on the public catalog URL, since the address
-     * the editor wrote may be one only the office can reach. An outside
-     * address goes as written. Null when there is nothing Lazada can fetch.
-     */
     private function descriptionImageSource(string $src): ?string
     {
         if (str_starts_with($src, '//')) {
@@ -607,7 +457,6 @@ class LazadaImages
         return ($url !== null && $host !== '' && !in_array($host, self::LOOPBACK, true)) ? $url : null;
     }
 
-    /** True for a host that is this install's own: the app, the public catalog, the current request, or loopback. */
     private function isOwnHost(string $host): bool
     {
         if ($host === '') {
@@ -624,7 +473,6 @@ class LazadaImages
         try {
             $own[] = request()->getHost();
         } catch (\Throwable) {
-            // No request: the configured hosts are enough.
         }
 
         foreach ($own as $candidate) {
@@ -636,11 +484,6 @@ class LazadaImages
         return false;
     }
 
-    /**
-     * Determine whether a URL is a Lazada inlink (i.e., Lazada-hosted image URL).
-     *
-     * Lazada rejects non-Lazada URLs in SKU Images (BIZ_CHECK_EXIST_OUTER_SKU_IMAGE).
-     */
     private function isLazadaInlinkUrl(string $url): bool
     {
         $url = trim($url);
@@ -648,30 +491,18 @@ class LazadaImages
         $host = strtolower((string) parse_url($url, PHP_URL_HOST));
         if ($host === '') return false;
 
-        // Common Lazada/CDN hosts across regions and sandbox.
         if (str_ends_with($host, 'slatic.net')) return true;
         if (str_ends_with($host, 'lazcdn.com')) return true;
-        if (str_contains($host, 'lazada')) return true; // defensive
+        if (str_contains($host, 'lazada')) return true;
 
         return false;
     }
 
-    /**
-     * Convert external/public image URLs to Lazada inlinks.
-     *
-     * IMPORTANT: We use /image/migrate (single-image) only.
-     * Lazada's product APIs do not allow non-Lazada URLs in Images, and /image/migrate
-     * returns the inlink immediately (data.image.url). This avoids the batch polling
-     * complexity (/images/migrate + /image/response/get) that caused repeated format/
-     * method errors during testing.
-     */
     public function migrateImagesToLazadaInlinks(string $region, array $imageUrls, string $appKey, string $appSecret, string $accessToken, LazadaClient $client): array
     {
     $imageUrls = array_values(array_filter(array_map(fn($u) => trim((string)$u), $imageUrls), fn($u) => $u !== ''));
     $imageUrls = array_slice($imageUrls, 0, 8);
 
-    // Keep Lazada inlinks as-is (no need to re-migrate).
-    // This also prevents us from accidentally sending an outer URL to /image/migrate.
     $already = [];
     $needsInput = [];
     foreach ($imageUrls as $u) {
@@ -682,7 +513,6 @@ class LazadaImages
         }
     }
 
-    // Serve from cache first.
     $out = [];
     $needs = [];
     foreach ($needsInput as $url) {
@@ -699,8 +529,6 @@ class LazadaImages
     }
 
     if (!empty($needs)) {
-        // Prefer batch migration first (faster for multiple images). If it fails or partially succeeds,
-        // fall back to the proven single-image migrate call.
         $batchMap = $this->tryMigrateBatchImagesXml($region, $needs, $appKey, $appSecret, $accessToken, $client);
 
         foreach ($needs as $originalUrl) {
@@ -724,7 +552,6 @@ class LazadaImages
         }
     }
 
-    // Return in the same order as input.
     $ordered = [];
     foreach ($imageUrls as $u) {
         if (isset($already[$u])) {
@@ -743,15 +570,10 @@ class LazadaImages
     return $ordered;
     }
 
-    /**
-     * Migrate a single image using /image/migrate with the proven XML payload.
-     * Returns Lazada inlink (data.image.url) or null on failure.
-     */
     private function migrateSingleImageXml(string $region, string $url, string $appKey, string $appSecret, string $accessToken, LazadaClient $client): ?string
     {
         $apiPath = '/image/migrate';
 
-        // Lazada API Explorer + SDK example format
         $xml = '<?xml version="1.0" encoding="UTF-8" ?>'
             . '<Request>'
             . '<Image><Url>' . htmlspecialchars($url, ENT_XML1) . '</Url></Image>'
@@ -795,23 +617,19 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
 
     $apiPath = '/images/migrate';
 
-    // Prepare candidate request formats.
     $candidates = [];
 
-    // A) XML payload under "payload"
     $xml = '<?xml version="1.0" encoding="UTF-8" ?>'
         . '<Request><Images>'
         . implode('', array_map(fn($u) => '<Url>' . htmlspecialchars($u, ENT_XML1) . '</Url>', $urls))
         . '</Images></Request>';
     $candidates[] = ['payload' => $xml];
 
-    // B) JSON payload under "payload"
     $json = json_encode(['Request' => ['Images' => ['Url' => $urls]]], JSON_UNESCAPED_SLASHES);
     if (is_string($json)) {
         $candidates[] = ['payload' => $json];
     }
 
-    // C) Direct param list (some gateways)
     $candidates[] = ['urls' => json_encode($urls, JSON_UNESCAPED_SLASHES)];
 
     foreach ($candidates as $extra) {
@@ -854,8 +672,6 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
 
         $apiPath2 = '/image/response/get';
 
-        // Lazada docs often show GET, but in production some gateways are strict.
-        // Try POST (form) first, then GET as fallback.
         foreach (['batch_id', 'request_id'] as $idKey) {
             $timestamp2 = (string) round(microtime(true) * 1000);
             $params2 = [

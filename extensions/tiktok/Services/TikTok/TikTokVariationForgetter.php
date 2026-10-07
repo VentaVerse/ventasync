@@ -5,15 +5,8 @@ namespace Extensions\tiktok\Services\TikTok;
 use Extensions\tiktok\Models\TikTokListing;
 use Extensions\tiktok\Models\TikTokProductGroupProduct;
 
-/**
- * A deleted catalog variation leaves the TikTok SKU map on the listing row
- * and every group pivot (the delete rule one level down, 2026-09-07). The
- * SKU the seller still has on TikTok Shop stays there; the next push names
- * it. Inside VentaSync only.
- */
 final class TikTokVariationForgetter
 {
-    /** @param list<string> $skus */
     public static function forget(int $productId, array $skus): void
     {
         $lower = array_values(array_unique(array_map(fn ($s) => strtolower(trim((string) $s)), $skus)));
@@ -32,7 +25,7 @@ final class TikTokVariationForgetter
     {
         $map = json_decode((string) ($row->tiktok_sku_id ?? ''), true);
         if (! is_array($map)) {
-            return; // a bare id or nothing: no SKU keys to forget
+            return;
         }
         $kept = [];
         foreach ($map as $sku => $id) {

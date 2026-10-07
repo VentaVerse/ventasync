@@ -12,47 +12,14 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-/**
- * The TikTok engine behind ListingState (Phase D, #184): one computation,
- * batch-shaped, that every TikTok surface renders from. It reads only the
- * ERP's own records - the listing row (settings, mirror and provenance in
- * one, product_id unique so no severity fold), the group pivots, the
- * catalogue row, the readiness service - and never calls TikTok:
- * freshness is the mirror's job (the 30-minute automation, the Refresh
- * button, and write-through on toggles and the edit page).
- *
- * The one wrinkle Lazada does not have: a product pushed before the
- * listing row carried the truth may be on TikTok only through a group
- * PIVOT row. Those count as linked here - with no mirror of their own
- * they read "Not checked yet" honestly until the next sweep back-fills
- * a listing row for them, which refreshMirror() already does.
- *
- * Raw vocabulary is TikTok's own words plus the ERP's honest MISSING
- * (uploaded once, no longer returned by the shop walk):
- *
- *   ACTIVATE → live · SELLER_DEACTIVATED → inactive
- *   IN_REVIEW / PENDING → reviewing
- *   FAILED / PLATFORM_DEACTIVATED / FREEZE / DRAFT / DELETED / MISSING → attention
- *   null (never checked) → unknown
- *
- * DRAFT is attention, deliberately: the product exists on TikTok but can
- * never go live without a human, and offering Activate against a draft
- * would send a call TikTok refuses. The label says exactly what it is.
- */
 class TikTokListingStates
 {
     public function __construct(private readonly TikTokListingReadiness $readiness)
     {
     }
 
-    /** The store the error slots are read and written for; null means the store in hand. */
     private ?int $store = null;
 
-    /**
-     * The same engine, pinned to one store. A loop over stores, or any
-     * write about a store other than the bound one, goes through here so
-     * it never lands on whichever store happens to be in hand.
-     */
     public function forStore(TikTokSetting|int $store): static
     {
         $pinned = clone $this;
@@ -66,18 +33,12 @@ class TikTokListingStates
         return $this->store ?? (int) (TikTokSetting::defaultStore()?->id ?? 0);
     }
 
-    /** This store's listing rows, named rather than left to the request's read fence. */
     private function listingsOnStore(): \Illuminate\Database\Eloquent\Builder
     {
         return TikTokListing::query()->withoutGlobalScope('tiktokStore')
             ->where('tiktok_listings.tiktok_setting_id', $this->storeId());
     }
 
-    /**
-     * The outcome of the latest thing done with this product on this
-     * store. Null is a success and clears every error slot; a reason is
-     * written onto the listing row, which is created when missing.
-     */
     public function recordOutcome(int $productId, ?string $failure): void
     {
         if ($failure === null) {
@@ -91,7 +52,6 @@ class TikTokListingStates
         }
 
         $reason = trim($failure) !== '' ? trim($failure) : PushLedger::NO_REASON;
-        // The column holds 480 characters, the trailing marker included.
         $values = ['last_push_error' => Str::limit($reason, 477), 'last_push_failed_at' => now()];
         if ($this->listingsOnStore()->where('product_id', $productId)->exists()) {
             $this->listingsOnStore()->where('product_id', $productId)->update($values);
@@ -100,13 +60,6 @@ class TikTokListingStates
         }
     }
 
-    /**
-     * Clear every slot errors() reads for these products on this store: the
-     * listing's own error and the group pivots' failures. A pivot marked
-     * unlinked keeps that status.
-     *
-     * @param list<int> $productIds
-     */
     public function clearErrors(array $productIds): void
     {
         $productIds = array_values(array_unique(array_filter(array_map('intval', $productIds), fn ($v) => $v > 0)));
@@ -130,13 +83,6 @@ class TikTokListingStates
         }
     }
 
-    /**
-     * The products on this store whose row shows an error line: the one
-     * definition behind the error filter, so the filter and the red lines
-     * cannot disagree.
-     *
-     * @return list<int>
-     */
     public function erroredProductIds(): array
     {
         $storeId = $this->storeId();
@@ -169,12 +115,6 @@ class TikTokListingStates
 
     private const ATTENTION_RAW = ['FAILED', 'PLATFORM_DEACTIVATED', 'FREEZE', 'DRAFT', 'DELETED', 'MISSING'];
 
-    /**
-     * The shop's listing troubles in two numbers, for the dashboard chip.
-     * Aggregate SQL, not the per-product path.
-     *
-     * @return array{attention: int, drift: int}
-     */
     public function summary(): array
     {
         return [
@@ -183,12 +123,6 @@ class TikTokListingStates
         ];
     }
 
-    /**
-     * The listings showing a Catalog change: their catalog product moved
-     * since they were last compared, and the two differ.
-     *
-     * @return array<int, list<string>>  product id => the fields that differ
-     */
     private function catalogChanges(): array
     {
         return \App\Integrations\Listings\CatalogCopy::pending(
@@ -196,13 +130,6 @@ class TikTokListingStates
         );
     }
 
-    /**
-     * The rows behind a figure, by the SAME query that counted them
-     * (#240): the Listings page filters on this, so a dashboard number and
-     * the rows it leads to can never disagree.
-     *
-     * @return list<int>
-     */
     public function productIdsIn(string $bucket): array
     {
         if ($bucket === 'drift') {
@@ -214,7 +141,6 @@ class TikTokListingStates
             ->map(fn ($v) => (int) $v)->unique()->values()->all();
     }
 
-    /** One definition of each bucket, counted and listed from here. */
     private function bucket(string $bucket): \Illuminate\Database\Eloquent\Builder
     {
         $pfx = (string) config('catalog.prefix');
@@ -232,10 +158,6 @@ class TikTokListingStates
         return $linked->whereIn('live_status', self::ATTENTION_RAW);
     }
 
-    /**
-     * @param list<int> $productIds
-     * @return array<int, ListingState> keyed by product id
-     */
     public function forProducts(array $productIds): array
     {
         $productIds = array_values(array_unique(array_map('intval', $productIds)));
@@ -248,8 +170,6 @@ class TikTokListingStates
             ->get()
             ->keyBy(fn ($l) => (int) $l->product_id);
 
-        // Products on TikTok only through a group pivot (pushed before the
-        // listing row carried the truth): linked, mirror unknown.
         $pivotTruth = TikTokProductGroupProduct::query()->onStore()
             ->whereIn('product_id', $productIds)
             ->whereNotNull('tiktok_product_id')
@@ -260,9 +180,6 @@ class TikTokListingStates
 
         $catalogChanges = \App\Integrations\Listings\CatalogCopy::pending($listings->values(), 'tiktok_listings', TikTokListing::copyColumns());
 
-        /* Readiness for every product, linked or not (the owner, 2026-09-06,
-         * the Ready column): a listed product answers the update's own
-         * checklist. */
         $readiness = $this->readiness->forProducts($productIds);
 
         $out = [];
@@ -272,8 +189,6 @@ class TikTokListingStates
             $pushedAtRaw = $listing?->last_pushed_at ?? $pivotTruth->get($productId)?->last_pushed_at;
             $pushedAt = $pushedAtRaw ? Carbon::parse($pushedAtRaw) : null;
 
-            // One latest error per product (the owner, 2026-09-05): the last
-            // refusal, from whichever surface pushed, told on every surface.
             $failure = [];
             if ($listing && trim((string) ($listing->last_push_error ?? '')) !== '') {
                 $failedAt = $listing->last_push_failed_at ? Carbon::parse($listing->last_push_failed_at) : null;
@@ -296,7 +211,6 @@ class TikTokListingStates
             $raw = $listing?->live_status !== null ? strtoupper((string) $listing->live_status) : null;
             $checkedAt = $listing?->live_checked_at ? Carbon::parse($listing->live_checked_at) : null;
 
-            // A product on TikTok only through a group pivot has no copy of its own.
             $inSync = $listing ? !isset($catalogChanges[$productId]) : null;
             $reasons = $failure;
 
@@ -334,16 +248,6 @@ class TikTokListingStates
         return $out;
     }
 
-    /**
-     * The Error column (the owner, 2026-09-07): the message a TikTok Shop listing is
-     * carrying right now, or null when nothing is wrong. One question, one
-     * answer, no rule about how old a failure is: the scheduled refresh
-     * re-runs the link check, and a successful push or sync clears the
-     * message it wrote.
-     *
-     * @param list<int> $productIds
-     * @return array<int, ?string>
-     */
     public function errors(array $productIds): array
     {
         $productIds = array_values(array_unique(array_map('intval', $productIds)));
@@ -362,8 +266,6 @@ class TikTokListingStates
             if ($listing && trim((string) ($listing->last_push_error ?? '')) !== '') {
                 $found[] = [$listing->last_push_failed_at ? Carbon::parse($listing->last_push_failed_at) : Carbon::createFromTimestamp(0), trim((string) $listing->last_push_error)];
             }
-            // A group push writes its refusal on the pivot row.
-            // A failure with no saved message still says it failed.
             $failed = ($pivots->get($pid) ?? collect())
                 ->filter(fn ($r) => in_array((string) $r->sync_status, ['error', 'failed'], true) || trim((string) ($r->push_error ?? '')) !== '')
                 ->sortByDesc('last_pushed_at')->first();
@@ -372,7 +274,6 @@ class TikTokListingStates
                     trim((string) $failed->push_error) ?: \App\Integrations\Push\PushLedger::NO_REASON];
             }
             usort($found, fn ($a, $b) => $b[0] <=> $a[0]);
-            // A sold variation the linked item does not hold rides beside it.
             $linked = ($listing && !empty($listing->tiktok_product_id))
                 || ($pivots->get($pid) ?? collect())->contains(fn ($r) => !empty($r->tiktok_product_id));
             $out[$pid] = ListingVariations::withMissing(
@@ -384,14 +285,6 @@ class TikTokListingStates
         return $out;
     }
 
-    /**
-     * Remember the variation SKUs a store's item holds, as just read from
-     * TikTok Shop. The parent's own SKU and model are not variations, nor
-     * is the __single__ placeholder, and a product without variations has
-     * nothing to remember.
-     *
-     * @param iterable<string|int|null> $skus
-     */
     public static function rememberHeld(int $storeId, int $productId, iterable $skus): void
     {
         if ($storeId <= 0 || $productId <= 0) {

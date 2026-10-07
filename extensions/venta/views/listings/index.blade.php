@@ -2,11 +2,6 @@
 @section('breadcrumb', 'Listings')
 @section('title', $setting->store_name . ' Listings')
 
-{{-- Venta listings (#171), on the same cc- anatomy as Shopee's, Lazada's
-     and TikTok's: one row per catalogue product in scope on this store,
-     the store's own status from the mirror on the listing row (refreshed
-     every 30 minutes, on demand, and by every push, unlist and relist),
-     and the row's verbs in its menu. --}}
 @section('content')
 @php
     $canManage = auth()->user()?->hasPermission('manage_venta/listing') ?? false;
@@ -48,9 +43,6 @@
     </div>
     @if($canManage)
         <div class="cc-head-actions">
-            {{-- Add products: the one way a main-catalogue product joins this
-                 store, opening the slide-over in place. Refresh sits in the
-                 status strip below. --}}
             <x-ui.button type="button" variant="primary" data-add-panel-open>
                 <x-ui.icon name="plus" size="14" /> Add products
             </x-ui.button>
@@ -64,20 +56,12 @@
     'clear' => route('ext.venta.listings.index', array_merge(['store' => $setting->id], request()->except(['state', 'page']))),
 ])
 
-{{-- A store that cannot be asked says so, once, at the top. The buckets
-     below are the mirror's last word, not a live read, so they stay; what
-     would otherwise be missing is any reason for every row reading "not
-     checked yet". --}}
 @if(($liveTabError ?? null) !== null)
     <div class="fm-note fm-note--warn" role="status">
         <div class="fm-note__body">@include('partials.channel-answer', ['channel' => $storeName, 'raw' => $liveTabError, 'settingsRoute' => null])</div>
     </div>
 @endif
 
-{{-- The store's own statuses, as the tab row above the table: the
-     catalogue's total and the store's buckets from the mirror, beside the
-     menu's VentaSync status. The two combine, and each one's counts follow
-     the other's choice. The strip says when the mirror was refreshed. --}}
 <div class="x-segment-bar">
     <div class="x-segment-groups">
         <div class="x-segment-group">
@@ -112,7 +96,6 @@
                 @endif
             </span>
             @if($canManage && $setting->enabled)
-                {{-- Refresh checks every link against the store and re-reads every status. --}}
                 <form method="POST" action="{{ route('ext.venta.listings.refresh_status', $setting->id) }}" class="x-segment-group__refresh" data-slow-action>
                     @csrf
                     <x-ui.button type="submit"><x-ui.icon name="refresh-cw" size="14" /> Refresh from {{ $storeName }}</x-ui.button>
@@ -127,8 +110,6 @@
 <div class="lsm-layout__main">
 
 @php
-    /* The group a Listings page stands in, and what acts on it: its settings
-       page, and a Send that uses those settings for the ticked rows. */
     $canManageGroups = auth()->user()?->hasPermission('manage_venta/product_group') ?? false;
     $chosenGroup = collect($statusMenu['groups'])->first(fn ($g) => $g['active'] && $g['key'] !== 'none');
     $groupLine = ($chosenGroup && $canManageGroups) ? [
@@ -151,14 +132,12 @@
 @include('partials.listing-stand-segment', ['menu' => $statusMenu, 'group' => $groupLine])
 
 <form method="GET" action="{{ $indexUrl() }}" class="x-filters">
-    {{-- The menu's choice rides a search. --}}
     @if($ventaTab !== 'all')
         <input type="hidden" name="venta_tab" value="{{ $ventaTab }}">
     @endif
     @if($syncStatus !== 'all')
         <input type="hidden" name="sync_status" value="{{ $syncStatus }}">
     @endif
-    {{-- The rail's choice rides a search too, or searching would drop it. --}}
     @if(($groupFilter ?? 'all') !== 'all')
         <input type="hidden" name="group" value="{{ $groupFilter }}">
     @endif
@@ -190,8 +169,6 @@
 @if($canManage && $setting->enabled)
 @php
     $bulk = [
-        /* Filing the ticked rows: into a group, between groups, or out of
-           every group; and, standing inside one, the quick way out of it. */
         'move' => $canManageGroups ? [
             'action' => route('ext.venta.product-groups.move', $setting->id),
             'groups' => collect($statusMenu['groups'])->reject(fn ($g) => $g['key'] === 'none')
@@ -205,8 +182,6 @@
             'confirm' => 'Take these products out of ' . $chosenGroup['label'] . '? They become ungrouped and stop taking its settings on the next push.',
             'return' => request()->getRequestUri(),
         ] : null,
-        /* Multi-tick push (2026-09-09): each ticked product goes up on
-           its own settings and reports for itself. */
         'push' => ['action' => route('ext.venta.listings.bulk_push', $setting->id), 'label' => 'Send to ' . $storeName,
             'confirm' => "Send the selected products to {$storeName}? Each goes up on its own settings, and anything not ready is named rather than sent."],
         'switch' => [
@@ -256,12 +231,6 @@
 
     @php
 
-        /* The mark each row wears, resolved for the whole page at once:
-
-           a row shows its picture as it goes up, so nobody is quietly
-
-           unaware that a watermark is on. */
-
         $marks = new \App\Integrations\Listings\ListingMarks(
 
             'venta', \App\Integrations\Listings\ListingStore::id('venta'),
@@ -286,8 +255,6 @@
             $optRows = $optionRowsByProductId->get($pid);
             $img = trim((string) ($p->image ?? ''));
             $thumbSrc = $marks->thumb((int) $p->product_id, $img) ?? '';
-            /* The mirrored status for this row; the strip says when it was
-               refreshed. Never refreshed reads as exactly that, not as a guess. */
             $rowLiveStatus = $listed ? ($listing?->live_status) : null;
             $attemptFailed = $attempt && in_array($attempt->sync_status, ['error', 'failed'], true);
             $listingUrl = route('ext.venta.listings.edit', [$setting->id, $pid, 'back' => request()->getRequestUri()]);
@@ -326,8 +293,6 @@
             <td class="cc-col-qty x-td-num" data-label="Stock"><span class="x-num">{{ (int) $p->quantity }}</span></td>
             <td class="cc-col-price x-td-num" data-label="Price"><x-money :php="(float) $p->price" /></td>
             <td class="cc-col-sync" data-label="Listing">
-                {{-- The engine's one state (partials.channel-listing-state), the
-                     cell every other channel draws, since 2026-09-06. --}}
                 @php $state = $listingStates[$pid] ?? null; @endphp
                 @if($state)
                     @include('partials.channel-listing-state', ['state' => $state, 'listingUrl' => $listingUrl, 'canCompare' => $canManage])
@@ -371,7 +336,6 @@
             </td>
         </tr>
         @if($optRows && count($optRows) > 0)
-            {{-- The variations as rows of this table, under the same headers (partials.channel-variation-rows). --}}
             @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManage, 'trail' => ['cc-col-sync', 'x-td-actions']])
         @endif
     @endforeach
@@ -380,8 +344,8 @@
 <x-ui.pager :paginator="$products" />
 @endif
 
-</div>{{-- /.lsm-layout__main --}}
-</div>{{-- /.lsm-layout --}}
+</div>
+</div>
 
 <div id="venta-listings-progress" class="modal-backdrop">
     <div class="modal co-modal co-modal--sm" role="dialog" aria-modal="true"

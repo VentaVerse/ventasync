@@ -1,43 +1,5 @@
-/* ============================================================
-   VentaSync v2.2: the shared component layer, in the Blotter.
-
-   Every page in this application is built from one set of shared Blade
-   components (x-ui.input, x-ui.field, x-ui.table, x-ui.badge, x-ui.menu)
-   and one set of form-page classes (fm-*). Those components are used by
-   both shells, so this file dresses their existing class names rather
-   than forking the components and their JavaScript with them. A page
-   loads app.css or blotter.css, never both, so exactly one set of rules
-   ever applies and the legacy pages cannot break.
-
-   That is the same move confirm-modal already made in blotter.css, at
-   the scale of the whole component layer. When the last view has moved
-   across, this file and the legacy class names go together.
-
-   The materials are the Blotter's throughout: hairline rules instead of
-   borders-plus-shadow, 2px corners, tabular figures on every number, and
-   colour reserved for state.
-   ============================================================ */
-
 @layer components {
-    /* ------------------------------------------------------------
-       Shared utilities
-       ------------------------------------------------------------ */
-    /* Visually hidden, and hidden from LAYOUT too.
-       
-       top/left pin it to its containing block's origin. Without them it sits
-       at its static position, and with no positioned ancestor that resolves
-       against the PAGE - so the "Actions" label on a wide table's last column
-       landed at x=851 on a 390px screen and dragged the document's
-       scrollWidth out with it. The table scrolled inside its own container as
-       designed AND the whole page slid sideways, on every table in the
-       application that labels a column this way. One 1px box, measured by
-       bisection: hiding it alone returned the page to 390.
-       
-       Pinning is the fix rather than making the wrapper a containing block,
-       which would have worked equally well for this and started clipping every
-       row action menu inside the table's overflow. Position is irrelevant to
-       what this element is for: it is clipped to nothing, and assistive
-       technology reads it in DOM order, not in page order. */
+    /* Pin top/left: unpinned, this hidden label resolves against the page and widens it on phones. */
     .x-sr {
         position: absolute;
         top: 0;
@@ -75,9 +37,6 @@
         text-decoration: none;
     }
 
-    /* ------------------------------------------------------------
-       Controls
-       ------------------------------------------------------------ */
     .x-input {
         width: 100%;
         padding: 6px 10px;
@@ -112,11 +71,6 @@
         resize: vertical;
     }
 
-    /* Applied per field by the caller, and it marks identifiers (model, SKU)
-       as often as figures, so it sets the face and the figure style without
-       touching alignment. Right-aligning it would set "White" against the
-       right edge of the Model field. Column alignment is the table's job,
-       via fm-num and fm-vcol-num below. */
     .fm-input--num,
     .fm-vars__table .x-input {
         font-family: var(--font-mono);
@@ -143,7 +97,6 @@
         pointer-events: none;
     }
 
-    /* A unit or currency welded to the front of a control. */
     .fm-group {
         display: flex;
         min-width: 0;
@@ -166,9 +119,6 @@
         border-radius: 0 2px 2px 0;
     }
 
-    /* ------------------------------------------------------------
-       Field: label above control, one message directly beneath it
-       ------------------------------------------------------------ */
     .fm-fields {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -180,8 +130,6 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    /* Three short fields that belong to one sentence (a percent and its
-       window); one line wide, stacked on a phone. */
     .fm-fields--3 {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
@@ -212,19 +160,7 @@
         color: var(--bl-ink-3);
     }
 
-    /* The marketplace's own sentence behind a plain headline
-       (partials.channel-answer): a summary that reads as a link, the
-       words beneath it in the note's own ink, wrapping anywhere because a
-       marketplace may answer with one unbroken token. */
-    /* The button that gets the operator out of a failure note: inline
-       with the sentence, a control by weight and shape, not a link that
-       reads as prose. */
     .fm-note__act { margin: 2px 0 2px 8px; vertical-align: middle; }
-    /* Where that button took you (resources/js/pages/gap-jump.js). A
-       same-page jump is silent and, when the section is already on screen,
-       invisible - so the section it lands on says "here" for a moment.
-       The ring is the attention hue rather than the failure one: nothing
-       is broken, something is unset. */
     .is-wanted {
         border-radius: var(--bl-r-ctrl);
         animation: fm-wanted 2.6s ease-out 1;
@@ -236,8 +172,6 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
-        /* The mark still happens, it simply does not fade: motion is the
-           decoration here, the ring is the message. */
         .is-wanted { animation: none; box-shadow: 0 0 0 2px var(--bl-attn); }
     }
 
@@ -258,9 +192,6 @@
     .fm-note__more[open] > summary::before { transform: translateY(-3px) rotate(45deg); }
     .fm-note__more > span { display: block; margin-top: 4px; overflow-wrap: anywhere; color: var(--bl-ink-2); }
 
-    /* A card that folds (details/summary): the voucher create forms. The
-       summary IS the card head, so the fold costs no new anatomy; the hint
-       says what opening does and leaves once it has. */
     .fm-card--fold > .fm-card__head--summary {
         display: flex;
         align-items: center;
@@ -273,8 +204,6 @@
     .fm-card--fold > .fm-card__head--summary:focus-visible { outline: 2px solid var(--bl-brand-deep); outline-offset: 2px; }
     .fm-card__hint { font-size: 12px; color: var(--bl-ink-3); }
     .fm-card--fold[open] .fm-card__hint { display: none; }
-    /* The fold is a control: a chevron says so, and the title keeps the
-       weight of a button rather than the muted weight of a card head. */
     .fm-card--fold > .fm-card__head--summary .fm-card__title { color: var(--bl-ink); }
     .fm-card--fold > .fm-card__head--summary::after {
         content: '';
@@ -291,9 +220,6 @@
     .fm-card--fold > .fm-card__head--summary .fm-card__hint { margin-left: auto; }
     .fm-card--fold[open] > .fm-card__head--summary .fm-card__hint { display: none; }
 
-    /* An asterisk, not a pill (the owner, 2026-09-04): the convention
-       every form taught, at label weight, in the attention hue. The
-       sr-only "(required)" beside it carries the word to a reader. */
     .fm-req {
         margin-left: 2px;
         font-size: 13px;
@@ -314,9 +240,6 @@
     }
 
 
-    /* An action that belongs to one section rather than to the page's save
-       bar: Purge now under the log retentions. Wraps on a phone so the
-       button and its sentence never sit shoulder to shoulder at 390px. */
     .fm-inline-action {
         display: flex;
         flex-wrap: wrap;
@@ -325,9 +248,6 @@
         margin-top: var(--bl-space-3);
     }
 
-    /* ------------------------------------------------------------
-       Page chrome
-       ------------------------------------------------------------ */
     .fm-page {
         display: flex;
         flex-direction: column;
@@ -335,16 +255,10 @@
         padding: 18px var(--bl-pad) 40px;
     }
 
-    /* Same guard as .od-back: a back link inside a flex column would
-       otherwise stretch across the page and make the whole line clickable.
-       Ignored where the parent is an ordinary block, which is most pages. */
     .fm-back {
         display: inline-flex;
         align-self: flex-start;
         align-items: center;
-        /* A 45x18 target is under the floor for a thumb. The padding
-           is cancelled by an equal negative margin, so the words stay
-           exactly where they were drawn and only the hitbox grows. */
         padding: 4px 0;
         margin: -4px 0;
         gap: 5px;
@@ -357,8 +271,6 @@
         color: var(--bl-ink);
     }
 
-    /* .fm-head is aliased onto .bl-head in blotter.css. */
-
     .fm-head__main {
         min-width: 0;
     }
@@ -370,10 +282,6 @@
         margin-left: auto;
     }
 
-    /* .fm-title is byte-identical to .x-page-title and joins it below. */
-
-    /* Record provenance: created, updated, who. Facts about the row, set
-       as facts rather than as chips. */
     .fm-stamps {
         display: flex;
         flex-wrap: wrap;
@@ -397,7 +305,6 @@
         font-variant-numeric: tabular-nums;
     }
 
-    /* Sticky action bar at the foot of a form. */
     .fm-bar {
         position: sticky;
         bottom: 0;
@@ -411,7 +318,6 @@
         background: var(--bl-paper);
     }
 
-    /* Room for the pinned bar, so a field that takes focus is never under it. */
     html:has(.fm-bar) {
         scroll-padding-bottom: 96px;
     }
@@ -440,8 +346,6 @@
         border-color: var(--bl-ink);
     }
 
-    /* On a phone the bar is one row of thumb-sized buttons, clear of the
-       home indicator; the note gives way to them. */
     @media (max-width: 640px) {
         .fm-bar {
             padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
@@ -467,9 +371,6 @@
         }
     }
 
-    /* ------------------------------------------------------------
-       Outcome messages. Tinted ground, never a coloured left bar.
-       ------------------------------------------------------------ */
     .fm-flash:empty {
         display: none;
     }
@@ -522,9 +423,6 @@
         color: var(--bl-ink);
     }
 
-    /* ------------------------------------------------------------
-       Body, columns, sections, side cards
-       ------------------------------------------------------------ */
     .fm-body {
         display: grid;
         grid-template-columns: minmax(0, 1fr);
@@ -537,16 +435,6 @@
             grid-template-columns: minmax(0, 1fr) 320px;
         }
 
-        /* A body with ONE column should not reserve a rail track for a
-           column that does not exist. The stock-adjustment page sat at 820px
-           of a 1224px content area with 320px of nothing beside it, and so
-           did every other single-column form; the pages that noticed had
-           each been handed a modifier class by hand.
-
-           :has() asks the question the modifier was answering, so a form
-           gets the right grid from its own structure and nobody has to
-           remember. .fm-body--single stays for the pages already carrying
-           it and for any that want to force the single track deliberately. */
         .fm-body:has(> .fm-col:only-child),
         .fm-body--single {
             grid-template-columns: minmax(0, 1fr);
@@ -564,10 +452,6 @@
         gap: 16px;
     }
 
-    /* The rail is 320px. A field pair that shares a row across an 800px
-       main column has to stack in it, or a datetime control ends up
-       120px wide and unreadable. The owner moved Price rule and Discount
-       into the rail on 2026-09-08; this is what the move costs. */
     @media (min-width: 1001px) {
         .fm-col--side .fm-fields--2,
         .fm-col--side .fm-fields--3 {
@@ -575,20 +459,6 @@
         }
     }
 
-    /* A form section is a card, like every other data container in v2.3.
-    
-       It was not, which is the same defect the order page's .od-section had:
-       when the surface upgrade turned containers into raised sheets on a
-       tinted ground, .fm-card was on the list and the SECTION wrappers were
-       not. So a form page's actual content sat bare on the grey while any
-       card beside it floated - the whole page reading as unfinished for
-       exactly the reason nobody can name at a glance.
-    
-       .fm-card > .fm-section is exempt: a section already inside a card is a
-       group within it, and a card inside a card is always wrong. */
-    /* Surface and nesting guard now come from .bl-sheet in blotter.css, which
-       this class is aliased onto. Only the internal rhythm is the form
-       anatomy's own. */
     .fm-section {
         display: flex;
         flex-direction: column;
@@ -618,9 +488,6 @@
         color: var(--bl-ink-3);
     }
 
-    /* A named group inside a section: the "Only on Shopee" section on a
-       listing page holds several (Parcel, Couriers), each with a small
-       heading of its own that ranks below the section title. */
     .fm-sub {
         display: flex;
         flex-direction: column;
@@ -645,10 +512,6 @@
         gap: 8px;
     }
 
-    /* What the store said about this section's own thing, beside its heading
-       rather than at the top of the page: a refusal about pictures belongs
-       where the pictures are turned off, and one about a video beside the
-       video. */
     .fm-section__bad {
         flex: 1;
         min-width: 0;
@@ -657,11 +520,6 @@
         font-weight: 560;
         color: var(--bl-bad);
     }
-
-    /* The side rail's panels. A ruled sheet, not a raised slab: this world
-       has no shadows, so a panel is told apart by its hairline and its
-       ground. */
-    /* .fm-card is aliased onto .bl-inset in blotter.css. */
 
     .fm-card__head {
         display: flex;
@@ -694,11 +552,6 @@
         margin: 0;
     }
 
-    /* ------------------------------------------------------------
-       Switch. Squared to match the world, and the knob carries enough
-       contrast in both positions that its state is visible rather than
-       inferred.
-       ------------------------------------------------------------ */
     .fm-switch {
         display: flex;
         align-items: center;
@@ -714,39 +567,6 @@
         pointer-events: none;
     }
 
-    /* THE SWITCH, and there is only one of it.
-    
-       This application has two switch implementations: .fm-switch__track on
-       every form page, and .od-switch on the order page. They were written
-       separately, drifted separately, and broke together - both took their
-       track radius from --bl-r-ctrl, which went 6px to 11px in v2.3, turning
-       a squarish track into a pill while both knobs kept their zero radius.
-       A square knob in a round track, in two places, from one token change.
-
-       The geometry is stated here in absolute values rather than borrowed
-       from a control token that is free to move again, and .od-switch is
-       held to the same numbers with a comment pointing here. A pill is a
-       pill; it does not share a radius with a text input.
-
-       On is brand cyan, the token whose stated meaning is "you can act
-       here", rather than ink - a switch that reads as OFF-but-dark is the
-       other classic switch defect. */
-    /* THE OFF STATE HAD NO READABLE BOUNDARY AND NO READABLE KNOB.
-       ------------------------------------------------------------------
-       Measured: the track reached 1.19:1 against its surround in light and
-       1.13 in dark, the border 1.27 and 1.51, and the knob was the same
-       luminance as the track it sits on - so a switch that was off was
-       effectively invisible, and where the knob sat could not be read at
-       all. The ON state was always fine, which is how it survived.
-
-       Both fixed with the token the inputs and fold triggers already pass
-       on: --bl-field-edge is the edge of a CONTROL and carries the 3:1 floor
-       (WCAG 1.4.11); --bl-rule-2 is a hairline between things and does not.
-       The knob takes the same edge so its position is legible against a
-       track of nearly its own lightness.
-
-       This mattered more the moment the switch stopped being one control on
-       the form and became one per variation row. */
     .fm-switch__track {
         position: relative;
         flex: none;
@@ -814,9 +634,6 @@
         color: var(--bl-ink-3);
     }
 
-    /* ------------------------------------------------------------
-       Typeahead and selected values
-       ------------------------------------------------------------ */
     .fm-ta {
         position: relative;
         min-width: 0;
@@ -874,7 +691,6 @@
         display: none;
     }
 
-    /* A chosen value, not a status, so it carries no colour. */
     .fm-tag {
         display: inline-flex;
         align-items: center;
@@ -905,9 +721,6 @@
         color: var(--bl-bad);
     }
 
-    /* ------------------------------------------------------------
-       Cost row and its derived figures
-       ------------------------------------------------------------ */
     .fm-cost {
         display: flex;
         flex-wrap: wrap;
@@ -928,7 +741,6 @@
         color: var(--bl-ink-3);
     }
 
-    /* Derived figures are figures, not disabled inputs. */
     .fm-metrics,
     .fm-stats {
         display: flex;
@@ -940,10 +752,6 @@
         background: var(--bl-chrome);
     }
 
-    /* A box of figures with no figure in it is a box of nothing. It can
-       happen wherever every stat is conditional, and Blade's whitespace
-       means :empty never fires - the question has to be asked about the
-       children. */
     .fm-metrics:not(:has(.fm-metric)),
     .fm-stats:not(:has(.fm-stat)) {
         display: none;
@@ -975,9 +783,6 @@
         letter-spacing: -0.02em;
     }
 
-    /* ------------------------------------------------------------
-       Images
-       ------------------------------------------------------------ */
     .fm-img {
         display: flex;
         flex-direction: column;
@@ -1011,11 +816,6 @@
         transform: translateY(-1px);
     }
 
-    /* The first image is what the catalog and every marketplace show. That
-       is the one piece of state in this grid worth seeing rather than
-       reading, so it sits ON the picture as a badge rather than as a word in
-       the footer. Ink on white, not a colour: it is an identity, not an
-       alarm. */
     .fm-img__main {
         position: absolute;
         top: 6px;
@@ -1031,8 +831,6 @@
         box-shadow: 0 1px 3px rgba(19, 26, 43, .4);
     }
 
-    /* The handle IS the instruction. A sentence saying "drag to reorder" is
-       a thing you have to read; a grip is a thing you can see. */
     .fm-img__grip {
         display: inline-flex;
         color: var(--bl-ink-3);
@@ -1068,22 +866,6 @@
         color: var(--bl-ink-3);
     }
 
-    /* ------------------------------------------------------------
-       Image picker
-       ------------------------------------------------------------ */
-    /* THE PICKER IS A DIALOG, and it never looked like one.
-
-       .modal-backdrop dims the page behind it, but .fm-pick itself carried
-       no background, no border, no radius, no shadow and no width - a bare
-       flex column, so the library's controls and thumbnails floated directly
-       on the dim with nothing behind them. Every other dialog in the build
-       gets that panel from .modal; this one was written separately and never
-       received it.
-
-       Wider and taller than .modal on purpose: that one is a confirm box,
-       this is a file browser and wants room for a grid. It takes the panel
-       radius rather than the control radius for the same reason - it is a
-       surface, not a control. */
     .fm-pick {
         display: flex;
         flex-direction: column;
@@ -1126,8 +908,6 @@
         max-width: 220px;
     }
 
-    /* Pushes search and sort to the far end of the toolbar, so "where am I"
-       sits left and "narrow this down" sits right. */
     .fm-pick__gap { flex: 1 1 auto; }
 
     .fm-pick__path {
@@ -1136,8 +916,6 @@
         color: var(--bl-ink-2);
     }
 
-    /* The grid scrolls inside the panel rather than pushing it past the
-       bottom of the screen. */
     .fm-pick__body {
         position: relative;
         flex: 1 1 auto;
@@ -1156,23 +934,6 @@
         align-items: start;
     }
 
-    /* THE TILE HAD NO RULE AT ALL.
-       ------------------------------------------------------------------
-       The stylesheet described a tidy grid and the script built
-       .fm-pick__item with a bare img element and a span carrying the class
-       "label", neither of which any rule matched. So every thumbnail sized itself to its own
-       photograph: a portrait shot stood twice as tall as its neighbours,
-       pushed its caption down into the row beneath, and the 76-character
-       filenames ran straight through the tile next door. The delete control
-       landed inline after the caption text, mid-filename.
-
-       A fixed square is what a file browser wants: the cell is about finding
-       the picture, not about displaying it, and equal cells are what make a
-       grid scannable. */
-    /* The cell owns the positioning context, because the delete control is
-       now a SIBLING of the tile rather than a child of it - a button cannot
-       legally contain another button, and the accessibility tree showed the
-       cost: the tile's name swallowed the delete button's label. */
     .fm-pick__cell {
         position: relative;
         display: flex;
@@ -1199,10 +960,6 @@
         box-shadow: var(--bl-lift);
     }
 
-    /* In the lineup: ringed and ticked, so it reads by shape as well as by
-       colour. The tick sits top left, clear of the delete control. */
-    /* An outline, not an inset shadow: the picture covers a shadow, while an
-       outline is painted over it. */
     .fm-pick__item.is-picked {
         position: relative;
         border-color: var(--bl-brand-deep);
@@ -1229,11 +986,6 @@
         background: var(--bl-chrome);
     }
 
-    /* A FOLDER IS NAVIGATION, AN IMAGE IS THE CONTENT, so they do not get the
-       same weight. At the square the thumbnails use, fourteen folders filled
-       three rows and pushed every picture below the fold - the dialog opened
-       on a wall of identical icons and you had to scroll to reach the thing
-       you came for. Short enough to scan, tall enough to hit. */
     .fm-pick__ico {
         display: flex;
         align-items: center;
@@ -1244,9 +996,6 @@
         color: var(--bl-ink-3);
     }
 
-    /* The caption. One line, ellipsised, with the full name on the title
-       attribute - these are legacy filenames and some run past 70
-       characters. */
     .fm-pick__label {
         display: block;
         padding: 0 7px 5px;
@@ -1258,9 +1007,6 @@
         white-space: nowrap;
     }
 
-    /* Which folder a search result came from. Muted and mono, because it is
-       an address rather than a name - the filename above it is the thing
-       being identified. */
     .fm-pick__where {
         display: block;
         padding: 0 7px 7px;
@@ -1272,8 +1018,6 @@
         white-space: nowrap;
     }
 
-    /* The section headings above each grid. Distinct from the tile caption,
-       which is what .fm-pick__label used to have to be as well. */
     .fm-pick__group {
         font-size: var(--bl-lab-size);
         font-stretch: var(--bl-lab-stretch);
@@ -1283,10 +1027,6 @@
         color: var(--bl-ink-3);
     }
 
-    /* Deleting a file off the server is destructive and rare, so it is a
-       corner control that appears on hover or focus rather than a permanent
-       glyph competing with the filename - which is where it used to sit,
-       inline, immediately after the caption text. */
     .fm-pick__del {
         position: absolute;
         top: 5px;
@@ -1313,12 +1053,6 @@
         opacity: 1;
     }
 
-    /* Shown only while something is being dragged over the dialog.
-       The script has always toggled aria-hidden on this element and nothing
-       ever acted on it, so a dashed "Drop files to upload them here" box sat
-       permanently under the grid, reading as an empty region rather than as
-       an invitation. It is an overlay now, over the thing you are dropping
-       onto, which is the only place it means anything. */
     .fm-pick__drop {
         position: absolute;
         inset: 0;
@@ -1345,11 +1079,6 @@
         color: var(--bl-ink-3);
     }
 
-    /* This sits in the HEAD, and was styled as a footer bar: a border-top and
-       padding above a Close button already under the title, which drew a
-       short rule floating across the top of the dialog and read as a broken
-       divider. It is a group of controls on the title row, so it behaves like
-       one and takes the far edge. */
     .fm-pick__actions {
         display: flex;
         align-items: center;
@@ -1357,9 +1086,6 @@
         margin-left: auto;
     }
 
-    /* ------------------------------------------------------------
-       Variations
-       ------------------------------------------------------------ */
     .fm-vars {
         display: flex;
         flex-direction: column;
@@ -1412,30 +1138,13 @@
 
     .fm-vars__table {
         width: 100%;
-        /* THE SCROLL CONTAINER ABOVE NEVER ENGAGED WITHOUT THIS.
-           width:100% alone means the table can only ever be as wide as its
-           box, so overflow-x had nothing to overflow: measured,
-           scrollWidth === clientWidth === 780 in every mode, and the columns
-           answered a narrow viewport by crushing their inputs instead. With
-           an image column that put the SKU field at about eight characters.
-           A floor lets the table keep its columns legible and hand the
-           overflow to the scroller, which is what the scroller is for. */
         min-width: 780px;
         border-collapse: collapse;
         font-variant-numeric: tabular-nums;
     }
 
-    /* The variation's own picture.
-       ------------------------------------------------------------------
-       A button, not an input: it opens the shared image library rather than
-       accepting a typed path, and the path itself rides in a hidden field
-       beside it. Sized to the row rather than to the picture, so a column of
-       them keeps the grid's rhythm instead of turning into a filmstrip. */
     .fm-vcol-img { width: 64px; }
 
-    /* Offered for sale. A state, not a field, so it takes the least width in
-       the grid and the switch inside it is a step down from the product's
-       own - same control, one level in. */
     .fm-vcol-on { width: 52px; }
 
     .fm-switch--sm .fm-switch__track {
@@ -1473,11 +1182,6 @@
         display: block;
     }
 
-    /* Inherited from the product, not chosen for this variation. Held back
-       so the difference is visible at a glance down a column of forty rows,
-       without hiding what would be used - which is the thing the operator
-       actually needs to know. The accessible name says it in words, because
-       opacity says nothing to a screen reader. */
     .fm-vimg img.is-inherited {
         opacity: .45;
         filter: saturate(.5);
@@ -1497,8 +1201,6 @@
 
     .fm-vimg:hover { border-color: var(--bl-ink-3); }
 
-    /* Clears back to inheriting. Only rendered when the variation has an
-       image of its own, because there is nothing to clear otherwise. */
     .fm-vimg__x {
         display: block;
         margin-top: 3px;
@@ -1541,7 +1243,6 @@
         text-align: right;
     }
 
-    /* A figure typed into a column of figures still aligns on its decimal. */
     .fm-vars__table td.fm-vcol-num .x-input {
         text-align: right;
     }
@@ -1567,18 +1268,6 @@
         color: var(--bl-bad);
     }
 
-    /* The rest of the cost equation, stated above the grid.
-       ------------------------------------------------------------------
-       A band rather than a paragraph, because it qualifies the table under
-       it and has to be read before the Cost column is trusted. Chrome
-       ground and a left rule mark it as the table's own note; a floating
-       line of grey text would have read as a caption nobody looks at.
-
-       It is written by script and hidden outright when the parent charges
-       no percentage and no additional, which is most of this catalog -
-       there the amount IS the unit cost and the note would say nothing. */
-    /* The grid's cost lock: the sentence and its Edit by hand, one row
-       above the table, the same pair the pricing section has. */
     .fm-vars__lock {
         display: flex;
         align-items: center;
@@ -1597,9 +1286,6 @@
         margin: 0;
         padding: 9px 14px;
         border-bottom: 1px solid var(--bl-rule);
-        /* --bl-field-edge, not --bl-rule-2. Measured on the band it sits
-           on, rule-2 came out invisible in both themes - a marker that
-           marks nothing. This is the token defined to stay visible. */
         border-left: 2px solid var(--bl-field-edge);
         background: var(--bl-chrome);
         font-size: 12.5px;
@@ -1607,16 +1293,6 @@
         color: var(--bl-ink-2);
     }
 
-    /* The worked-out unit cost, under the amount that produced it.
-       ------------------------------------------------------------------
-       Deliberately quiet and deliberately not a field. It is the one figure
-       in this row nobody types, and the equals sign is what says so - the
-       parent's pricing section separates its three inputs from its total
-       with the same word. Tabular figures so a column of them lines up
-       under the inputs above them.
-
-       nowrap because the cost column is 104px and "= 10,220.00" wrapping to
-       two lines would push every row in the table taller. */
     .fm-vars__unit {
         display: block;
         margin-top: 3px;
@@ -1626,8 +1302,6 @@
         color: var(--bl-ink-3);
     }
 
-    /* Why the figure is not the amount: a variation with no cost of its own
-       is costed at the product's. Its own line, under the number. */
     .fm-vars__unit-why {
         display: block;
         font-size: 11px;
@@ -1642,18 +1316,7 @@
         color: var(--bl-bad);
     }
 
-    /* ------------------------------------------------------------
-       Rich text editor.
 
-       Summernote ships its own stylesheet, pushed by the wysiwyg partial.
-       These rules only remove its chrome so the editor sits on the page as
-       another ruled field rather than as a widget from another design.
-       ------------------------------------------------------------ */
-
-
-    /* ------------------------------------------------------------
-       Shared display components
-       ------------------------------------------------------------ */
     .x-table-wrap {
         overflow-x: auto;
     }
@@ -1689,38 +1352,7 @@
         background: color-mix(in srgb, var(--bl-brand) 4%, var(--bl-sheet));
     }
 
-    /* ------------------------------------------------------------
-       Phones: a row stops being a row.
-       ------------------------------------------------------------
-       THIS RULE WENT MISSING AND NOBODY NOTICED, because the CSS that
-       depended on it still looked handled.
-
-       It used to live in components/ui-table.css. That file was folded into
-       this one and the restack did not come with it, leaving three page
-       stylesheets setting grid-template-columns on elements that were still
-       display: table-row - channel-catalog.css, reviews.css and reports.css
-       - and nine comments across six files citing a stylesheet that no
-       longer exists. Two more of the files those comments name as precedent,
-       pages/catalog.css and components/channel-orders.css, are gone as well.
-
-       What it cost, measured at 390px before this was restored: the Lazada
-       listings table rendered 1,136px wide inside a 328px box, so reaching a
-       row's actions menu - the only way to act on a row - took 808px of
-       horizontal travel, by which point the product name had left the
-       screen. You acted on a row you could no longer identify. 430px of
-       travel at 768px, which is a tablet, not a phone. And every data-label
-       attribute in 73 of the 76 tables in this application was inert: the
-       markup had opted in all along and the stylesheet had stopped asking.
-
-       Two columns by auto-flow is the generic shape, per the note the old
-       file left behind in channel-catalog.css. Pages that want a different
-       one override grid-template-columns and always did; those overrides
-       start working again the moment this rule exists. */
     @media (max-width: 640px) {
-        /* A header strip heads nothing once the columns are gone, but it
-           still names the cells for anyone reading the DOM, so it is hidden
-           from sight rather than removed - the ::before labels below are
-           what a sighted reader gets instead. */
         .x-table > thead {
             position: absolute;
             width: 1px;
@@ -1730,27 +1362,11 @@
             white-space: nowrap;
         }
 
-        /* THE TABLE ITSELF HAS TO STOP BEING A TABLE FIRST.
-           display: grid on a <tr> computes to grid and then does nothing:
-           a table-row-group may only contain table-rows, so the engine wraps
-           the grid in an anonymous row and the table algorithm goes on
-           sizing the columns. Measured, the row reported display: grid and
-           laid out on the table's own 88px/420px columns, which reads as a
-           cascade problem and is not one. Taking the table and the group out
-           of table display is what actually hands the row to grid. */
         .x-table,
         .x-table > tbody {
             display: block;
         }
 
-        /* ONE CELL PER LINE, and the row's actions in the corner.
-           Deterministic placement rather than auto-flow into a two-column
-           track list: an `auto` track is sized to its widest cell, and on
-           these tables that was a product name or an eight-line sync error,
-           so the card kept 200px of horizontal travel inside itself. Every
-           cell spanning the full width cannot overflow, and a phone reading
-           a dense marketplace row wants it stacked anyway - which is what
-           channel-catalog.css asked for in its own override. */
         .x-table > tbody > tr {
             display: grid;
             grid-template-columns: minmax(0, 1fr) auto;
@@ -1760,37 +1376,12 @@
             border-bottom: 1px solid var(--bl-rule);
         }
 
-        /* The card's own bottom edge draws that line. */
         .x-table > tbody > tr:last-child {
             border-bottom: 0;
         }
 
-        /* Every cell full width. reviews.css and reports.css each carry a
-           multi-column template for their own rows; both have been inert
-           since the restack went missing, and a phone reading a dense row
-           wants one field per line regardless, so they stay inert. A page
-           that genuinely wants columns back sets grid-column on its own
-           cells - the template alone will not do it. */
         .x-table > tbody > tr > td {
             grid-column: 1 / -1;
-            /* WIDTH HAS TO GO BACK TO AUTO, and forgetting it is what this
-               comment is here to prevent.
-
-               A column width on a <td> is a hint the table layout algorithm
-               weighs against every other column. On a GRID ITEM it is
-               literal. `.bl-col-actions { width: 1% }` - the ordinary
-               shrink-to-fit trick - resolved to 12px on a 328px card, and
-               its buttons laid out from there to negative x: measured, "Edit
-               permissions" sat at -130..-19 on the user groups list, 0%
-               visible and unreachable at every width from 360 to 640, with
-               no scroll that could bring it back. Two dozen .cc-col-* and
-               .bl-col-* classes carry a fixed px or % width and every one of
-               them behaves this way once the row is a grid.
-
-               channel-catalog.css used to carry exactly this reset for its
-               own cells and I removed it as redundant when the generic rule
-               landed. It was not redundant; it was the only thing standing
-               between those widths and this. */
             width: auto;
             min-width: 0;
             padding: 0;
@@ -1798,10 +1389,6 @@
             overflow-wrap: anywhere;
         }
 
-        /* A cell that was only ever legible under its column header gets
-           the header back. Same shape purchasing.css and warehousing.css
-           already use for their own stacked lines, so a reader who has seen
-           one has seen all three. */
         .x-table > tbody > tr > td[data-label]::before {
             content: attr(data-label);
             display: block;
@@ -1810,17 +1397,10 @@
             color: var(--bl-ink-3);
         }
 
-        /* Numerals stop being a column the moment the column does. Right
-           alignment with nothing to align against just reads as crooked. */
         .x-table > tbody > tr > td.x-td-num {
             text-align: left;
         }
 
-        /* The row's actions, held in the top corner rather than buried at
-           the foot of a 350px card. This is the cell 808px of horizontal
-           scroll used to hide; putting it back in the stack would only
-           trade one hunt for another. Row 1, so it sits beside whatever
-           identifies the row rather than below it. */
         .x-table > tbody > tr > td.x-td-actions {
             grid-column: 2;
             grid-row: 1;
@@ -1831,15 +1411,11 @@
             content: none;
         }
 
-        /* And the cell that names the row keeps the corner company instead
-           of running under it. */
         .x-table > tbody > tr > td:first-child {
             grid-column: 1;
             grid-row: 1;
         }
 
-        /* Hovering a card is not hovering a row; the tint spanned one cell
-           of a grid rather than the line, which read as a rendering fault. */
         .x-table > tbody > tr:hover > td {
             background: none;
         }
@@ -1853,8 +1429,6 @@
         text-align: right;
     }
 
-    /* Badge: a square and a word, never a tinted capsule. Same grammar as
-       bl-state, so a status reads identically wherever it appears. */
     .x-badge {
         display: inline-flex;
         align-items: center;
@@ -1888,9 +1462,6 @@
         border-top: 1px solid var(--bl-rule-2);
     }
 
-    /* The optional first-run medallion: a muted glyph in a soft ring. No
-       accent colour - this world spends its one accent on the action
-       (DESIGN.md), so the icon orients without competing with the CTA. */
     .x-empty__icon {
         display: flex;
         align-items: center;
@@ -1915,8 +1486,6 @@
         max-width: 46ch;
         font-size: 13px;
         color: var(--bl-ink-2);
-        /* A marketplace's own words can be one unbroken token (an id, a
-           code, a URL); they wrap instead of escaping the card. */
         overflow-wrap: anywhere;
     }
 
@@ -1924,22 +1493,12 @@
         margin-top: 16px;
     }
 
-    /* Menu. The trigger is whatever the caller put in it; the panel is a
-       ruled sheet with no shadow, because this world has none. */
     .x-menu {
         position: relative;
         display: inline-flex;
     }
 
-    /* Fixed, and placed by the component's script - see the reasoning in
-       components/ui/menu.blade.php. The short version: every table sits in
-       .x-table-wrap { overflow-x: auto }, and overflow-x: auto forces
-       overflow-y from visible to auto, so an absolutely positioned panel was
-       clipped at the wrapper's bottom edge on the last rows of every list.
-
-       top/left are placeholders the script overwrites. They are declared so
-       the panel has a defined position for the one frame between being shown
-       and being measured, rather than falling back to its static offset. */
+    /* Fixed, not absolute: tables sit in overflow-x:auto wrappers that would clip an absolute panel. */
     .x-menu__panel {
         position: fixed;
         top: 0;
@@ -1947,9 +1506,6 @@
         z-index: 40;
         min-width: 176px;
         max-width: min(320px, calc(100vw - 16px));
-        /* When neither side of the trigger has room - a short viewport, or a
-           menu that has grown past one - the panel scrolls rather than
-           running off the screen. */
         max-height: calc(100vh - 16px);
         overflow-y: auto;
         padding: 4px 0;
@@ -1977,18 +1533,6 @@
         color: var(--bl-ink);
     }
 
-    /* Red AT REST, not only under a pointer.
-       ------------------------------------------------------------------
-       This rule was :hover only, so "Delete from Lazada" and "Push stock"
-       rendered the same #4a5468 until a mouse crossed them - and a keyboard
-       user, who gets :focus-visible and never :hover, saw the destructive
-       items in a seven-item menu with no colour cue at all. Two of those
-       items destroy a live marketplace listing.
-
-       The hover pair also failed contrast: #cb3327 on --bl-chrome-2 measures
-       4.38:1 in light, under AA for 13px text, precisely while the pointer is
-       on the delete item. Deepening the hover ground rather than lightening
-       the text keeps the red the same red the confirm dialog uses. */
     .x-menu__item--danger {
         color: var(--bl-bad);
     }
@@ -1999,10 +1543,6 @@
         color: var(--bl-bad);
     }
 
-    /* The one action a row always offers. It carries weight because on this
-       menu everything else is either conditional or destructive, and the
-       operator should not have to read seven items to find the one that
-       always works. */
     .x-menu__item--primary {
         font-weight: 550;
         color: var(--bl-ink);
@@ -2014,14 +1554,6 @@
         background: var(--bl-rule);
     }
 
-    /* ------------------------------------------------------------
-       Fulfilment hub
-
-       The hub is a container: it draws the channel strip and the summary,
-       then renders whichever marketplace panel is selected inside itself.
-       Its class names are asserted by FulfilmentHubTest, so they are kept
-       exactly and only their materials change.
-       ------------------------------------------------------------ */
     .x-fh-head {
         display: flex;
         flex-wrap: wrap;
@@ -2030,7 +1562,6 @@
         padding: 18px var(--bl-pad) 14px;
     }
 
-    /* One card per channel, read left to right like a row of gauges. */
     .x-fh-strip {
         display: flex;
         align-items: stretch;
@@ -2071,8 +1602,6 @@
         color: var(--bl-ink-3);
     }
 
-    /* The figure is the point of the card, so it is set at the size the
-       band uses on the dashboard: the same measure means the same thing. */
     .x-fh-card__lead {
         font-size: 27px;
         line-height: 1.05;
@@ -2096,49 +1625,12 @@
         color: var(--bl-ink-3);
     }
 
-    /* The hub panel is NOT a card, and that is the decision rather than an
-       omission.
-
-       It was one briefly, and being one cost more than it paid. A card has
-       to hold its contents off its own edge, so it both took a 20px gutter
-       and republished --bl-pad to its children - and the children that ask
-       for that token (the tab strip, the filter row, the empty state) took
-       it a second time. The page ended up with four left edges stacked in
-       one column: 246 for the channel cards, 267 for the table and pager,
-       287 for the tabs and filters, 305 for the tab labels. On a phone the
-       compounding cost 82px of a 328px column and hid five of eight status
-       tabs behind a scroller with no affordance.
-
-       the owner picked the other way out, from rendered drafts of both: the
-       panel gives up the sheet entirely, so the hub below the channel cards
-       renders exactly as the seller centre does. One edge, one model, two
-       surfaces. The channel cards above are then the only elevated things
-       on the page, which is also the honest hierarchy - they are the
-       control you pick from, and everything under them is the work. */
     .x-fh-panel {
         min-width: 0;
     }
 
-    /* ============================================================
-       THE SUMMARY  (`fh-`)
-
-       Rebuilt 2026-08-10 (board #92). The rule the whole page obeys: every
-       figure is either RIGHT NOW or TODAY, and nothing else. Anything that
-       needs a date range, a filter or a scroll belongs to the order page.
-
-       That rule is also why nothing here reads the core order table, which is
-       what keeps this page clear of the two-sources seam on board #93.
-
-       The `x-fh-` vocabulary above belongs to the channel PANELS, which still
-       render on this page when a card is opened. This block is the Summary
-       only, so the two can be told apart at a glance in a diff.
-       ============================================================ */
-
     .fh-head { margin-bottom: var(--bl-space-5); }
 
-    /* The back link sits ABOVE the title, the same placement the channel
-       sidebar uses, so leaving a channel is the same gesture in both places.
-       Quiet by default: it is an escape hatch, not the page's action. */
     .fh-head__back {
         display: inline-flex;
         align-items: center;
@@ -2151,7 +1643,6 @@
 
     .fh-head__back:hover { color: var(--bl-ink); }
 
-    /* The page's whole answer, as a sentence rather than a row of figures. */
     .fh-head__state {
         display: flex;
         flex-wrap: wrap;
@@ -2164,30 +1655,11 @@
 
     .fh-head__work { font-weight: 600; color: var(--bl-ink-2); }
 
-    /* Work waiting is the one figure on this line worth a colour, and only when
-       there is some: an amber "Nothing waiting" would be an alarm about calm. */
     .fh-head__work.is-live { color: var(--bl-attn); }
 
-    /* --bl-rule-2 is a HAIRLINE colour, and at #dfe5ee on white the middot
-       was invisible: the two clauses read as one sentence with an accidental
-       gap in it. A separator has to be seen to separate. */
-    /* Separators take --bl-ink-3, the muted TEXT token, not --bl-rule-2.
-       A dot between two facts is something a person reads; --bl-rule-2 is a
-       hairline colour and measured 1.13-1.27:1 as type, which is not quiet,
-       it is absent. fh-head__sep was already right and is why the rest of
-       the family now matches it. */
     .fh-head__sep { color: var(--bl-ink-3); }
     .fh-head__link.is-bad { color: var(--bl-bad); font-weight: 600; }
 
-    /* ---- The card grid ----
-
-       One rule covers every behaviour asked for: cards stretch to fill the
-       width, shrink as channels are enabled, stop shrinking at 150px, and wrap
-       to the next row past that. No JS, no per-count breakpoints, and a channel
-       enabled tomorrow needs nothing changed.
-
-       Measured against the real content region: 4 surfaces are 322px each at a
-       1600px viewport, 6 are 208px, 8 are 152px, and 11 wrap to two rows. */
     .fh-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -2212,25 +1684,12 @@
 
     .fh-card:hover { border-color: var(--bl-rule-2); box-shadow: var(--bl-lift-2); }
 
-    /* WHICH CHANNEL is now carried by the cap, and which card is OPEN by the
-       ring around it. Those are two different questions and they get two
-       different devices, which is why the open state does not tint: the
-       colour is already saying "Shopee", and a second meaning on the same
-       colour is how a strip stops being readable.
-
-       The 8px square this replaces told you the channel only once you were
-       already reading that card. Four cards in a row have to be separable
-       from across the room. */
     .fh-card.is-open {
         border-color: var(--ch, var(--bl-ink));
         box-shadow: inset 0 0 0 1px var(--ch, var(--bl-ink));
         position: relative;
     }
 
-    /* The band above the strip (the owner's pick, 2026-09-06): the channel's
-       deep colour, the open store's name, the work waiting; and a marker on
-       the open card's top edge that ties the band to that card. The band
-       sits inside the grid's own gap so the strip does not move. */
     .fh-band {
         display: flex;
         align-items: center;
@@ -2261,10 +1720,6 @@
         border-radius: 2px;
     }
 
-    /* The cap bleeds to the card's edges, so it undoes the card's own padding
-       and re-applies it horizontally. --ch-deep, not --ch: the name is
-       reversed out in white, and most marketplace brand colours cannot hold
-       white text (Shopee's orange measures 3.66:1). */
     .fh-card__top {
         display: flex;
         align-items: center;
@@ -2278,8 +1733,6 @@
 
     .fh-card__top .fh-card__name { color: #fff; }
 
-    /* The mark sits on white, because a brand fill behind a brand mark is
-       never legible for every channel at once. */
     .fh-card__mark {
         display: flex;
         align-items: center;
@@ -2298,10 +1751,6 @@
         object-fit: contain;
     }
 
-
-    /* The card cap keeps the brand fill in both themes - it is a filled
-       block on a sheet, not text on the page, so the white name on it is
-       the only thing that has to clear, and --ch-deep already does. */
 
     .fh-card__name {
         min-width: 0;
@@ -2323,38 +1772,14 @@
         color: var(--bl-attn);
     }
 
-    /* Nothing waiting is the good state, so it reads as settled rather than as
-       a figure demanding attention. It keeps the size, because a row of cards
-       whose numbers change size as work arrives is a row that jumps. */
     .fh-card__lead.is-clear { color: var(--bl-ink-3); }
 
-    /* A figure no fetch can move.
-     *
-     * THIS USED TO TAKE --bl-ink-3, THE SAME TOKEN AS is-clear, and the two
-     * mean opposite things. Lazada sitting on 51 unshipped orders rendered in
-     * exactly the grey TikTok's 0 rendered in, so the largest backlog on the
-     * hub was its quietest number and read as "nothing to do here" at a
-     * glance. Stepping the number back was meant to say the figure is not
-     * live; what it actually said was that the work is not there.
-     *
-     * The staleness already has a voice - the label directly beneath reads
-     * "not connected - last known" - so the number does not need to whisper
-     * as well. It keeps the attention colour it earns by being work, and the
-     * caveat stays a caveat rather than becoming the headline.
-     *
-     * A dotted underline marks it as a figure with a footnote: visible on a
-     * monitor across the room, and it survives being read in greyscale, which
-     * a colour difference alone would not. */
     .fh-card__lead.is-stale {
         text-decoration: underline dotted var(--bl-ink-3);
         text-underline-offset: 4px;
         text-decoration-thickness: 1.5px;
     }
 
-    /* Not tracked and Not syncing are statements about instrumentation and
-       connection, not quantities, so both drop out of the numeric size
-       entirely. A solid ink-3, never a reduced opacity, which would fall under
-       the 4.5:1 floor over this surface. */
     .fh-card__lead.is-untracked,
     .fh-card__lead.is-stalled {
         font-size: 14px;
@@ -2369,16 +1794,6 @@
 
     .fh-card__label { font-size: 11.5px; color: var(--bl-ink-3); }
 
-    /* The two figures the staff act on, across the whole card at one size:
-       To Pack on the left, To Handover on the right, the way a parcel moves.
-       Each carries its label ABOVE the number so the two labels read as one
-       line and the two numbers share a baseline; the number is what the eye
-       lands on. The first cut led with To Pack and printed To Handover as a
-       small tally under it, which made the shelf count a footnote to the
-       packing count when the staff need both (the owner, 2026-08-26, chose this
-       from three drafts). A middle step (Lazada's To Arrange, parcels packed
-       but not yet booked) is one small line under the pair: it is neither
-       untouched nor on the shelf. */
     .fh-card__figures {
         display: grid;
         grid-template-columns: 1fr auto;
@@ -2397,9 +1812,6 @@
 
     .fh-card__fig--end { text-align: right; }
 
-    /* The left label may wrap ("nothing / to pack" at the narrow end): the
-       numbers sit on the grid's end line, so a two-line label above one of
-       them moves nothing. The right label is short and stays on one line. */
     .fh-card__fig-l {
         font-size: 11.5px;
         line-height: 1.25;
@@ -2419,16 +1831,8 @@
 
     .fh-card__fig-n.is-clear { color: var(--bl-ink-3); }
 
-    /* THE TO PACK COUNT IS RED when there is anything to pack (the owner,
-       2026-08-27): it is the one figure on the page the floor must never
-       miss, so it takes the loudest ink the system has. Zero stays the
-       quiet grey above, so red always means "there is work waiting" and
-       never decorates an empty queue. To Handover stays in the page's
-       ink: it is a shelf count, not an alarm. */
     .fh-card__fig:first-child .fh-card__fig-n:not(.is-clear) { color: var(--bl-bad); }
 
-    /* The same dotted underline .fh-card__lead.is-stale carries: a figure
-       no fetch can move. */
     .fh-card__fig-n.is-stale {
         text-decoration: underline dotted var(--bl-ink-3);
         text-underline-offset: 4px;
@@ -2455,20 +1859,11 @@
 
     .fh-card__fig-mid-n.is-clear { color: var(--bl-ink-3); font-weight: 550; }
 
-    /* The caveat under the count. It was inheriting plain ink-3, which made
-       "not syncing" read exactly like "clear" - the one comparison this card
-       exists to make impossible. Amber for a channel that has credentials and
-       has gone quiet, red for one that was never connected; the words say the
-       same thing, so the colour is never carrying it alone. */
     .fh-card__label.is-attn { color: var(--bl-attn); font-weight: 600; }
     .fh-card__label.is-bad { color: var(--bl-bad); font-weight: 600; }
 
     .fh-card.is-stalled { border-color: color-mix(in srgb, var(--bl-bad) 35%, var(--bl-rule)); }
 
-    /* Today's contribution, shown only when the card is wide enough to hold it.
-       Gated on the CARD's width through a container query rather than on the
-       viewport, because what decides whether there is room is how many channels
-       are enabled, which no viewport breakpoint knows. */
     .fh-card__today {
         display: flex;
         align-items: baseline;
@@ -2487,17 +1882,6 @@
         text-overflow: ellipsis;
     }
 
-    /* Today's money, given the far edge and the page's ink.
-       ------------------------------------------------------------------
-       It used to sit after a middot in the same 11.5px grey as the order
-       count, which made the one figure on the card that needs no label the
-       hardest thing on it to find. DESIGN.md is explicit that money is
-       stated loudly on this product; a footnote is the opposite of that.
-
-       Held one step under the waiting count rather than level with it: the
-       big figure answers "is anything waiting", which is what this page is
-       for, and two figures competing at the same weight would leave the card
-       with no subject. */
     .fh-card__money {
         margin-left: auto;
         flex: none;
@@ -2515,7 +1899,6 @@
         }
     }
 
-    /* ---- Today, as one line ---- */
     .fh-today {
         display: flex;
         flex-wrap: wrap;
@@ -2539,7 +1922,6 @@
     .fh-today__sep { color: var(--bl-ink-3); }
     .fh-today__note { color: var(--bl-ink-3); }
 
-    /* ---- Body: the feed beside the leaderboard ---- */
     .fh-body {
         display: grid;
         grid-template-columns: minmax(0, 1fr);
@@ -2550,11 +1932,6 @@
     @media (min-width: 1000px) {
         .fh-body { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
     }
-
-    /* Surface from .bl-sheet. This carried 15px 18px 17px, which was my own
-       drift away from the 18px 20px 20px every other sheet already used -
-       introduced while polishing this page and corrected here rather than
-       promoted into the foundation. */
 
     .fh-sec__head {
         display: flex;
@@ -2580,7 +1957,6 @@
 
     .fh-empty { margin: 6px 0; font-size: 13px; color: var(--bl-ink-3); }
 
-    /* ---- Today's orders ---- */
     .fh-feed { margin: 0; padding: 0; list-style: none; }
 
     .fh-feed__row {
@@ -2595,8 +1971,6 @@
 
     .fh-feed__row:first-child { border-top: 0; padding-top: 2px; }
 
-    /* The time leads. On a feed that is today by definition, WHEN is what a
-       reader scans; the reference is what they click. */
     .fh-feed__time { color: var(--bl-ink-3); font-variant-numeric: tabular-nums; }
 
     .fh-feed__chan {
@@ -2625,9 +1999,6 @@
 
     .fh-feed__total { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
 
-    /* On a phone the row folds to two lines: time and channel lead, then the
-       reference and its total. The customer drops - it is the least useful of
-       the five when the screen is 390px and the order is one tap away. */
     @media (max-width: 700px) {
         .fh-feed__row {
             grid-template-columns: 44px minmax(0, 1fr) auto;
@@ -2643,7 +2014,6 @@
         .fh-feed__who { display: none; }
     }
 
-    /* ---- Top products today ---- */
     .fh-top { margin: 0; padding: 0; list-style: none; }
 
     .fh-top__row {
@@ -2661,8 +2031,6 @@
     .fh-top__rank { font-size: 11.5px; font-weight: 600; color: var(--bl-ink-3); }
     .fh-top__name { min-width: 0; color: var(--bl-ink); }
 
-    /* Under the name: the variation chip (the same one the order rows
-       carry) and the SKU, on one line, wrapping when the column is narrow. */
     .fh-top__meta {
         display: flex;
         flex-wrap: wrap;
@@ -2728,8 +2096,6 @@
         padding: 0 var(--bl-pad) 18px;
     }
 
-    /* Best sellers. Rank, picture, name, then the figures right-aligned so
-       the column reads down as a column of quantities. */
     .x-fh-prod {
         display: flex;
         align-items: center;
@@ -2829,12 +2195,6 @@
         .x-fh-col-when { width: auto; }
     }
 
-    /* ------------------------------------------------------------
-       Marketplace order panels
-
-       Shopee, Lazada and TikTok all render through this one vocabulary,
-       so this block dresses all three at once.
-       ------------------------------------------------------------ */
     .co-notice {
         display: flex;
         align-items: flex-start;
@@ -2856,7 +2216,6 @@
         color: var(--bl-ink-2);
     }
 
-    /* Order reference and serial: identifiers, so mono. */
     .co-ref,
     .co-sn {
         display: block;
@@ -2919,43 +2278,17 @@
         color: var(--bl-ink-3);
     }
 
-    /* The empty-thumbnail placeholder on the import pages: a quiet image
-       glyph, not the word "None" repeated down a column. Muted so a row
-       that HAS a photo is what draws the eye. */
     .co-item__ph {
         color: var(--bl-ink-3);
         opacity: 0.55;
     }
 
-    /* The band that caps each order: buyer and reference on the left,
-       created on the right.
-
-       Every boundary in this table used to be the same hairline - the one
-       between two ORDERS and the one between two ITEMS of the same order.
-       Measured, the gap between orders was 0px and the rule carrying the
-       distinction sat at 1.16:1 against the sheet, so tracing an amount
-       back to the order it belongs to meant counting rows. The two
-       boundaries now differ in KIND rather than in weight: a band of page
-       between orders, the existing hairline within one.
-
-       This is v1's separator, restored. It was written as
-       .order-header-row > td { border-top: 16px solid ... } and was lost
-       when the class was renamed to .co-band, where it sat in
-       marketplace-common.css matching nothing for two rebuilds.
-
-       Drawn as a thick border on the CELL because a table row cannot take
-       a margin and its own padding does not render; a border on the cell
-       is the one technique that survives border-collapse. The tint makes
-       the band read as a header rather than as one more data row, which
-       is what it looked like when it carried no treatment at all. */
     .co-band > td {
         border-top: 14px solid var(--bl-paper);
         padding-top: 12px;
         background: var(--bl-chrome);
     }
 
-    /* The first order sits directly under the column headers, which
-       already separate it from everything above. */
     .x-table > tbody > tr.co-band:first-child > td {
         border-top-width: 0;
     }
@@ -3033,10 +2366,6 @@
         font-variant-numeric: tabular-nums;
     }
 
-    /* The quantity a packer picks. It sat at body size in the secondary ink,
-       the same weight as a SKU; on a pick list the count is the one figure
-       that must not be misread, so it takes the page's ink and a size step
-       (polish, 2026-08-26). */
     .co-qty {
         font-size: 15px;
         font-weight: 700;
@@ -3052,12 +2381,6 @@
         gap: 4px;
     }
 
-    /* The row's actions. Buttons wrap as whole buttons and their labels
-       never break: without this, a row that gains a third control (an
-       order with an Invoice beside Print waybill and Tracking) broke
-       "Print waybill" onto two lines and the column's width jumped
-       mid-list, so the eye lost the alignment it had been following down
-       the page. Wrapping a button is fine; hyphenating a label is not. */
     .co-actions {
         display: flex;
         align-items: center;
@@ -3077,7 +2400,6 @@
         color: var(--bl-ink-3);
     }
 
-    /* Panel dialogs share the confirm dialog's shell, sized per use. */
     .co-modal { max-width: 520px; }
     .co-modal--sm { max-width: 420px; }
     .co-modal--md { max-width: 480px; }
@@ -3132,15 +2454,6 @@
         flex: 1;
     }
 
-    /* ------------------------------------------------------------------
-       THE PARCEL INSIDE THE PACKED CONFIRMATION
-
-       A packer holding a box needs to see what the system thinks is in it,
-       one click before a waybill prints. The count leads the line rather
-       than trailing it, because miscounting is the error people actually
-       make here - the price is not on this screen at all, since nothing
-       about it changes what goes in the box.
-       ------------------------------------------------------------------ */
     .co-parcel {
         margin: 12px 0 4px;
         border: 1px solid var(--bl-rule-2);
@@ -3181,8 +2494,6 @@
         line-height: 1.3;
     }
 
-    /* The one figure on this screen that decides whether the parcel is
-       right. Tabular so a column of them compares. */
     .co-parcel__qty {
         flex: none;
         font-size: 17px;
@@ -3219,13 +2530,6 @@
         color: var(--bl-ink);
     }
 
-    /* ------------------------------------------------------------------
-       WHAT HAPPENED TO EACH ORDER IN A BULK PACK
-
-       Scrolls rather than growing: fifty outcomes must not push the print
-       button off the bottom of the screen, since the button is the reason
-       the operator is reading this at all.
-       ------------------------------------------------------------------ */
     .co-outcomes {
         margin: 10px 0 2px;
         padding: 0;
@@ -3261,11 +2565,6 @@
         line-height: 1.35;
     }
 
-    /* State is carried by the same badge the rows behind this modal use, not
-       by a coloured bar down the edge of each line. The bar was an invention
-       - this product already had a way to say what something is, and a
-       second one on the same surface is how a vocabulary stops being one. */
-
     .co-modal__foot {
         display: flex;
         gap: 8px;
@@ -3293,8 +2592,6 @@
         color: var(--bl-ink-3);
     }
 
-    /* A working indicator, not decoration: it only exists while a request
-       is in flight, and it stops moving for anyone who asked motion to stop. */
     .co-spinner {
         width: 16px;
         height: 16px;
@@ -3316,13 +2613,6 @@
         }
     }
 
-    /* ------------------------------------------------------------
-       List page furniture
-       ------------------------------------------------------------ */
-    /* .x-list-head is aliased onto .bl-head in blotter.css. */
-
-    /* One page title. .fm-title carried the same four declarations under a
-       second name across 40 views. */
     .x-page-title,
     .fm-title {
         margin: 0;
@@ -3353,33 +2643,12 @@
         max-width: 190px;
     }
 
-    /* A deliberate wrap point.
-     *
-     * Eight controls do not fit 1324px, so this row wraps whatever happens.
-     * Left to the browser the break landed between the opened-from date and
-     * the sort that belongs with it, splitting one idea across two lines
-     * while the second line sat two-thirds empty. Placed by hand the two
-     * lines each say something: find a particular return on the first,
-     * narrow and order the whole list on the second.
-     *
-     * Zero height, so it costs nothing on the widths where the row does fit
-     * on one line - it simply ends a line that was going to end anyway. */
     .x-filters__break {
         flex-basis: 100%;
         height: 0;
         margin: 0;
     }
 
-    /* A labelled pair inside the filter row.
-     *
-     * The two date boxes here filter the list; the two in the command bar
-     * above tell the marketplace what to send. Both pairs are about when a
-     * return was opened and both are date inputs, so the only thing telling
-     * them apart used to be an aria-label - audible to a screen reader,
-     * invisible to everyone else. The word sits on the screen now.
-     *
-     * The label reads as a prefix to the pair rather than as a field label,
-     * because it names both boxes at once: "Opened [from] [to]". */
     .x-filters__group {
         display: inline-flex;
         align-items: center;
@@ -3397,29 +2666,15 @@
     }
 
     @media (max-width: 560px) {
-        /* Stacked, the label takes the line above its pair rather than
-           stealing width from two boxes that are already sharing one row. */
         .x-filters__group { flex-wrap: wrap; width: 100%; }
         .x-filters__group-label { flex: 1 1 100%; }
     }
 
-    /* The one field that replaced four.
-     *
-     * Wider than a labelled search box because it has more to say: its
-     * placeholder is carrying the job the four labels used to do, and a
-     * placeholder that ellipsises has stopped doing it. It also grows into
-     * whatever the row leaves over, so the filter row's spare width pools in
-     * the control that benefits from it rather than in the per-page select. */
     .x-filters__find {
         flex: 1 1 320px;
         max-width: 440px;
     }
 
-    /* A date input carries its own picker glyph and a fixed-width value, so
-       it needs a sized box rather than the search field's 300px. The pair
-       reads as one range: they sit adjacent, and the second is nudged tight
-       to the first so "opened between these two" is legible as a shape and
-       not as two unrelated fields that happen to be next to each other. */
     .x-filters__date {
         width: 160px;
         flex: none;
@@ -3429,11 +2684,6 @@
         margin-left: -4px;
     }
 
-    /* The native calendar glyph is drawn near-black by the browser and does
-       not follow a colour property, so on the dark sheet it is a black mark
-       on a near-black field. Inverted there, and toned down in both, because
-       at full strength it is the loudest thing on a filter row that is
-       otherwise all quiet text. */
     .x-filters__date::-webkit-calendar-picker-indicator {
         opacity: .45;
         cursor: pointer;
@@ -3445,18 +2695,10 @@
     }
 
     @media (max-width: 560px) {
-        /* Two 160px boxes plus the row's gap no longer fit beside anything
-           else, so the range takes a line of its own and splits it. */
         .x-filters__date { width: calc(50% - 6px); }
         .x-filters__date + .x-filters__date { margin-left: 0; }
     }
 
-    /* --bl-pad is deliberately 0 inside .x-content, so asking for it here
-       gave this row no horizontal padding at all and left the Next button
-       sitting exactly on the page's alignment line with nothing after it.
-       A bordered surface can meet that line and read as deliberate; a
-       control meeting it reads as falling off the edge. Its own value,
-       then, rather than a token that means "the page already inset me". */
     .x-pager {
         display: flex;
         flex-wrap: wrap;
@@ -3478,17 +2720,6 @@
         margin-left: auto;
     }
 
-    /* The numbered pages.
-
-       Previously this row was Previous and Next alone, which made page 40 of
-       84 reachable only by clicking Next thirty-nine times. The numbers sit
-       between the two arrows, which is where the convention puts them and
-       where the owner asked for them.
-
-       They take the segmented control's language rather than a third one:
-       joined, hairline-separated, the current position filled with ink. A
-       pager IS a segmented control - one choice, many positions - so the
-       dashboard's range switch and this read as the same family. */
     .x-pager__pages {
         display: flex;
         align-items: center;
@@ -3537,10 +2768,6 @@
         color: var(--bl-ink-3);
     }
 
-    /* A page number is a one-handed tap on a warehouse floor as often as a
-       click at a desk, and 30px is too small a target for a thumb. Gated on
-       the input device, matching how the rest of the suite raises its
-       targets. */
     @media (pointer: coarse) {
         .x-pager__page {
             min-width: 44px;
@@ -3548,18 +2775,9 @@
         }
     }
 
-    /* Below the phone breakpoint the window narrows to the current page and
-       one neighbour either side: five numbers plus two arrows do not fit in
-       390px, and a pager that overflows its row is worse than a shorter one.
-       Done in CSS rather than by a second server-side window so there is one
-       source of truth for which pages exist. */
     @media (max-width: 560px) {
         .x-pager__count { width: 100%; }
 
-        /* The nav takes the whole row so Previous and Next keep their labels,
-           and the numbers between them scroll rather than pushing the row off
-           the window. Eight numbers plus two buttons need about 490px; a
-           phone has 330. */
         .x-pager__nav { margin-left: 0; width: 100%; }
 
         .x-pager__pages {
@@ -3580,15 +2798,6 @@
 }
 
 @layer components {
-    /* ------------------------------------------------------------
-       Marketplace command bar and status strip
-
-       The last of the fulfilment vocabulary: the bar that fetches orders
-       from a marketplace, and the strip of order states you filter by.
-       ------------------------------------------------------------ */
-    /* A bar can hold more than one form: Lazada's returns bar pairs a
-       date-scoped Fetch with an Update statuses that deliberately posts no
-       range. They sit on one row and one baseline rather than stacking. */
     .x-cmdbar {
         display: flex;
         flex-wrap: wrap;
@@ -3603,9 +2812,6 @@
     .x-cmdbar > form { flex: 1 1 auto; min-width: 0; }
     .x-cmdbar > form + form { flex: 0 0 auto; }
 
-    /* Stacked on a phone, the two forms are two rows rather than two columns,
-       and a 272px button above a 125px one reads as a mistake. Each row takes
-       the width it is given. */
     @media (max-width: 640px) {
         .x-cmdbar > form + form { flex: 1 1 100%; }
         .x-cmdbar > form + form > .x-btn { width: 100%; }
@@ -3671,33 +2877,6 @@
         color: var(--bl-ink-3);
     }
 
-    /* Order states, as a row of counted filters. The active one is filled
-       ink because it states what you are looking at, and the counts are
-       tabular so the row reads as a set of quantities. */
-    /* The status strip is a control, not a full-bleed rule, so its box takes
-       the page gutter like every other painted thing. Without it the active
-       segment's filled pill pressed straight against the sidebar. */
-    /* ⚠ MOSTLY SHADOWED — EDIT components/segment.css INSTEAD.
-     *
-     * These rules are in @layer components. The same control is declared
-     * again in components/segment.css under layer(vocabulary), and this
-     * bundle declares vocabulary AFTER components, so for any property the
-     * two both set, that file wins - regardless of specificity. Measured:
-     * `.x-segment__item.is-active { font-weight: 640 }` below computes as
-     * 500, because a LESS specific rule in the higher layer beats it.
-     *
-     * A handful of declarations here are still live, precisely because
-     * segment.css never mentions them: the bar's padding, the item's hover
-     * background, and the two rules in the max-width: 900px block at the end
-     * of this layer. Everything else is inert.
-     *
-     * The right end state is one file. That is a deliberate consolidation -
-     * port the live handful across, then delete the rest, and re-measure the
-     * strip against a captured baseline - not something to fold into an
-     * unrelated change, which is why it has not been done here. What HAS been
-     * done is remove the trap: nothing in this block uses a background
-     * shorthand any more, and this note stops the next person editing here
-     * and watching nothing happen. */
     .x-segment-bar {
         display: flex;
         align-items: center;
@@ -3754,10 +2933,6 @@
         color: var(--bl-ink-3);
     }
 
-    /* Two questions on one strip, each named (the owner, 2026-08-28): "All"
-       is the ERP's catalogue whether pushed or not, the rest are the
-       marketplace's own buckets, and nothing on the strip used to say
-       so. A group is a name and a strip; a hairline separates the two. */
     .x-segment-groups {
         display: flex;
         align-items: center;
@@ -3789,9 +2964,6 @@
         white-space: nowrap;
     }
 
-    /* When the mirror was last refreshed, and the button that refreshes
-       it. Beside the marketplace's strip, because that is the group the
-       stamp is about. */
     .x-segment-group__meta {
         font-size: 11.5px;
         color: var(--bl-ink-3);
@@ -3811,13 +2983,9 @@
         .x-segment-groups { flex-direction: column; align-items: stretch; }
         .x-segment-group { flex-direction: column; align-items: flex-start; gap: 6px; max-width: 100%; }
         .x-segment-group + .x-segment-group { margin: 6px 0 0; padding: 0; border-left: 0; }
-        /* A stacked group and its strip stop at the screen's edge, so a long
-           strip scrolls inside itself instead of widening the page. */
         .x-segment-group > .x-segment { max-width: 100%; }
     }
 
-    /* A link that leaves the app (a store's live page) carries a small
-       arrow at the upper right of its text. */
     .x-extlink {
         display: inline-block;
         margin-left: 2px;
@@ -3833,22 +3001,11 @@
         color: color-mix(in srgb, var(--bl-paper) 70%, transparent);
     }
 
-    /* A sub-tab strip is still a strip. This stripped its border and ground
-       entirely, so the To Ship / To Process row floated unhoused under a set
-       of main tabs that were properly contained - the two read as different
-       kinds of control when they are the same control one level down.
-
-       It keeps its own scale: the same housing, a step smaller and a step
-       quieter, which is what says "second level" rather than "different
-       thing". */
     .x-segment--sub {
         padding: 2px;
         gap: 2px;
         border: 1px solid var(--bl-rule);
-        /* background-COLOR, never the shorthand. The shorthand resets
-           background-image and background-attachment, and the scroll-edge
-           affordance lives entirely in those two. It has already cost this
-           control its overflow cue once. */
+        /* Use background-color, never the shorthand: it resets the images that draw the scroll-edge cue. */
         background-color: var(--bl-chrome);
     }
 
@@ -3867,9 +3024,6 @@
     .x-filters__select--wide { min-width: 232px; }
     .x-filters__select--narrow { min-width: 132px; }
 
-    /* x-btn--secondary and x-btn--md need no rules: the base .x-btn already
-       is the secondary weight at the medium size, so a variant rule would
-       only restate it. Ghost is the one that genuinely differs. */
     .x-btn--ghost {
         border-color: transparent;
         background: none;
@@ -3889,15 +3043,11 @@
         padding: 14px 0 0;
     }
 
-    /* Shared utilities the panels use. */
     .sp-hidden { display: none !important; }
     .text-secondary { color: var(--bl-ink-2); }
 
     @media (max-width: 900px) {
         .x-cmdbar__spacer { display: none; }
-        /* The hint drops below rather than sharing the line, so a bar holding
-           two forms shows two buttons of the same width instead of one cut
-           24px short by the "?" beside it. */
         .x-cmdbar__actions { width: 100%; flex-wrap: wrap; }
         .x-cmdbar__actions > .x-btn { flex: 1 1 100%; }
         .x-cmdbar__field { flex: 1 1 140px; }
@@ -3908,13 +3058,6 @@
 }
 
 @layer components {
-    /* ------------------------------------------------------------
-       Order rows, product thumbnails and the delivery clock
-
-       The last of the marketplace vocabulary. The SLA chip is the one
-       genuinely time-critical mark in this application, so it is also the
-       one place a filled colour block is earned.
-       ------------------------------------------------------------ */
     .co-itemrow {
         padding: 9px 0;
         border-bottom: 1px solid var(--bl-rule);
@@ -3925,14 +3068,6 @@
     }
 
 
-    /* The variation, axis and value: "Color/Finish | Red". Two cells in one
-       chip, the axis in the chrome tint and the value in the page's ink at
-       chip weight, so a packer reads WHICH variation before reading which
-       value, and the value is the darkest thing under the product name. The
-       chip's rule is ink-2 rather than rule-2: a SKU and a variation used to
-       share one 11.5px grey line and were told apart by nothing (polish,
-       2026-08-26). The plain .co-item__var chip stays for the labels that
-       are not variations (a product's groups, an option on a sales order). */
     .co-item__var {
         padding: 1px 7px;
         border: 1px solid var(--bl-rule-2);
@@ -3941,8 +3076,6 @@
         color: var(--bl-ink-2);
     }
 
-    /* A group chip on a Listings row opens that group, so it answers a hover
-       and a keyboard focus the way any link does, without leaving its shape. */
     a.co-item__var {
         text-decoration: none;
         transition: border-color var(--bl-motion-fast), color var(--bl-motion-fast);
@@ -4003,29 +3136,6 @@
         object-fit: cover;
     }
 
-    /* Time left to ship. A countdown is only useful if lateness is visible
-       across the room, so this is the one mark that fills with colour.
-     *
-     * THIS BLOCK NEVER RENDERED A PIXEL UNTIL NOW. A second, complete copy of
-     * the same component lived in components/sla-chip.css, imported
-     * layer(vocabulary) - and vocabulary outranks components in the order
-     * declared at the top of blotter.css, so the copy won every cascade and
-     * this tokenised version was dead code. Nothing failed: the class sweep
-     * saw the classes defined, the token guard saw only declared properties,
-     * and the page rendered chips. They were simply the wrong chips.
-     *
-     * What shipped instead was nine raw Tailwind hex values with no theme
-     * awareness, so in dark mode the critical chip painted a near-white cream
-     * pill on a near-black sheet - glare exactly where the operator needed
-     * signal - and DESIGN.md's rule that colour comes only from --bl-* was
-     * bypassed on the one mark it calls unmissable.
-     *
-     * The duplicate also carried an infinite slaPulse animation with no
-     * prefers-reduced-motion guard, in a codebase that guards motion
-     * everywhere else. It is gone with the file rather than reproduced here:
-     * on a bench where most orders are late, a pulse that never stops is not
-     * a signal, and the filled overdue tier already says the thing across
-     * the room that the pulse was reaching for. */
     .sla-chip-wrap {
         display: block;
         margin-top: 6px;
@@ -4078,30 +3188,12 @@
         color: var(--bl-bad);
     }
 
-    /* Already late. Filled, because by this point the row is costing money.
-     *
-     * The text is not simply white. --bl-bad is a dark red in light theme and
-     * a LIGHT one in dark (#cb3327 vs #f0705f), so a fill that holds white at
-     * 5.20:1 by day holds it at 2.92:1 at night - the chip that shouts loudest
-     * becoming the one you cannot read. The ink follows the fill: white on
-     * the dark red, --bl-paper on the light one, which measures 6.55:1. */
     .sla-chip--overdue {
         border-color: var(--bl-bad);
         background: var(--bl-bad);
         color: #fff;
     }
 
-    /* Full white, and the hierarchy carried by weight instead.
-     *
-     * This dimmed the label to 75% white to sit the word behind the figure,
-     * which put #f2ccc9 on #cb3327 at 3.53:1 - 11px text needs 4.5. So the
-     * one word naming the state was the least legible thing on the loudest
-     * chip on the busiest queue. Opacity is the wrong instrument for
-     * hierarchy on a saturated fill; the figure leads on weight now and both
-     * halves are legible. Full white measures 5.20:1. */
-    /* The date under the countdown.
-       Quiet on purpose: the pill above it is the alarm, this is the fact you
-       check against a cutoff. Tabular so a column of them compares. */
     .sla-chip__when {
         display: block;
         margin-top: 3px;
@@ -4132,21 +3224,11 @@
         color: var(--bl-ink-3);
     }
 
-    /* .x-btn.x-btn--sm, not .x-btn--sm. Both this and the .x-btn base sit in
-       @layer components at the same specificity, and blotter.css's own rules
-       are emitted AFTER the files it imports - so the base won on source
-       order and this modifier did nothing at all. Every "small" button in
-       the application has been rendering at the medium geometry: 6px 13px
-       at 13px, 33px tall, which is why a row's secondary actions have been
-       as loud as the page's primary one. One class more, and the modifier
-       outranks the base wherever it lands. */
     .x-btn.x-btn--sm {
         padding: 3px 9px;
         font-size: 12px;
     }
 
-    /* Lazada's own column proportions. Widths only: everything about how a
-       cell looks comes from the shared table above. */
     .lz-col-products { width: 29%; }
     .lz-col-qty { width: 5%; }
     .lz-col-price { width: 8%; }
@@ -4154,21 +3236,6 @@
     .lz-col-ship { width: 11%; }
     .lz-col-status { width: 12%; }
     .lz-col-act { width: 26%; }
-
-    /* The per-order document links a fulfilment row offers.
-       ------------------------------------------------------------------
-       Named .x-doc rather than .lz-doc because it is not Lazada's: the
-       storefront rows carry the same affordance, and the critique kept
-       finding the same control under a different name per channel. It also
-       means the coarse-pointer uplift has one selector to target instead of
-       one per marketplace. */
-    /* ------------------------------------------------------------------
-       Picking documents. These are printing, not fulfilment: the packer
-       reaches for them constantly but they change nothing, so they read as a
-       row of links under the buttons rather than as three more controls of the
-       same weight. The pipe separators the old row used are gone; the space
-       between them does that job without drawing anything.
-       ------------------------------------------------------------------ */
 
     .x-docs {
         display: flex;
@@ -4186,9 +3253,6 @@
     }
 
     .x-doc {
-        /* The whole row carries a stretched link overlay (.x-row-link::after in
-           components/ui-table.css), so anything clickable inside it has to be
-           lifted above that overlay or the row swallows the click. */
         position: relative;
         z-index: 1;
         font-size: 12px;
@@ -4210,33 +3274,10 @@
 }
 
 @layer components {
-    /* ------------------------------------------------------------
-       Command palette and the chrome that opens it
-
-       Dropped when the v2.2 shell was first built, which silently removed
-       Cmd+K from every converted page. Restored here: the component and
-       its JavaScript are unchanged, so the behaviour is exactly the one
-       the rest of the app already had.
-       ------------------------------------------------------------ */
-    /* ------------------------------------------------------------
-       CREDENTIAL FIELD
-
-       A stored secret, masked to its real length and READ-ONLY, with a
-       control that asks the server for the plaintext rather than reading it
-       out of the page.
-
-       The control carries its words now. It was a bare eye parked inside the
-       field's own box, which reads as "look" - and the button no longer only
-       lets you look, it hands the field over to be edited. An icon cannot say
-       "and edit", so it sits beside the field and says it.
-       ------------------------------------------------------------ */
     .x-cred { display: flex; align-items: center; gap: 8px; }
 
     .x-cred__input { flex: 1 1 auto; min-width: 0; }
 
-    /* A read-only field must LOOK unavailable, or its first refusal to accept
-       a keystroke is the only thing that says so. Not the disabled treatment:
-       this field is not unavailable, it is one click from being editable. */
     .x-cred__input[readonly] {
         background: var(--bl-chrome);
         color: var(--bl-ink-2);
@@ -4268,15 +3309,11 @@
         outline-offset: 2px;
     }
 
-    /* Below the narrowest desk width the label would push the field down to
-       nothing, so the words go and the accessible name carries them. */
     @media (max-width: 560px) {
         .x-cred__eye-label { display: none; }
         .x-cred__eye { padding: 0 9px; }
     }
 
-    /* Revealed is a state worth seeing from across the row: this field is
-       showing a secret right now. */
     .x-cred__eye[aria-pressed="true"] { color: var(--bl-attn); }
 
     .x-cred__meta {
@@ -4287,7 +3324,6 @@
 
     .x-cred__sep { color: var(--bl-ink-3); }
 
-    /* The control is a one-handed tap on a tablet as often as a click. */
     @media (pointer: coarse) {
         .x-cred__eye { min-height: 44px; height: 44px; }
     }
@@ -4297,11 +3333,6 @@
         align-items: center;
         gap: 8px;
         flex: 1;
-        /* A flex item's default min-width is auto, which is its content's
-           min-content width - so flex: 1 could not actually shrink this below
-           the width of its own label, and at 390px it pushed the theme switch
-           and the account menu off the right edge of the window. The
-           truncation on the label needed this to have any effect. */
         min-width: 0;
         max-width: 420px;
         padding: 6px 10px;
@@ -4316,10 +3347,6 @@
     }
 
     .x-search-trigger:hover { border-color: var(--bl-ink-2); }
-    /* Truncates rather than wraps. The global shell's label is the long one -
-       "Search products, orders, SKUs" - and at 390px it wrapped to three
-       lines and made the top bar taller than the page title under it. min-width
-       alone does not stop a flex child wrapping its own text. */
     .x-search-trigger__label {
         flex: 1;
         min-width: 0;
@@ -4359,7 +3386,6 @@
     .x-account__card-name { font-size: 13px; font-weight: 600; }
     .x-account__card-email { font-size: 12px; color: var(--bl-ink-3); }
 
-    /* The palette itself: a sheet over the page, not a page of its own. */
     .x-palette {
         position: fixed;
         inset: 0;
@@ -4463,15 +3489,6 @@
 }
 
 @layer components {
-    /* ------------------------------------------------------------
-       Channel workspace shell
-
-       layouts/channel is a second shell: same top bar and content region,
-       but a sidebar scoped to one marketplace instead of the global nav.
-       Fifty-five views extend it, so dressing this one layout converts all
-       of them at once. Its class names are the ones ChannelWorkspaceTest
-       and FulfilmentHubTest already assert on, so they are kept exactly.
-       ------------------------------------------------------------ */
     .x-app {
         min-height: 100vh;
         background: var(--bl-paper);
@@ -4533,15 +3550,10 @@
         justify-content: space-between;
         gap: 14px;
         flex: none;
-        /* The top bar sits outside the content region, so it takes the page
-           gutter directly: its search field has to line up with the page
-           beneath it. */
         padding: 10px var(--bl-page-gutter);
         border-bottom: 1px solid var(--bl-rule-2);
     }
 
-    /* Where you are: the nav toggle and the trail, as one child of the bar so
-       space-between still has exactly two things to distribute. */
     .x-topbar__left {
         display: flex;
         align-items: center;
@@ -4560,16 +3572,11 @@
         display: flex;
         align-items: center;
         gap: 12px;
-        /* Was flex: none, which on a phone pushed the search field, the
-           theme switch and the account 195px past the right edge of the
-           window. It may shrink; what it must not do is grow. */
         flex: 0 1 auto;
         min-width: 0;
     }
 
     @media (max-width: 640px) {
-        /* The search trigger's keyboard hint is meaningless on a device with
-           no keyboard, and it is the widest thing in the cluster. */
         .x-topbar__right .x-search-trigger__hint { display: none; }
         .x-topbar__right .x-search-trigger { min-width: 0; }
     }
@@ -4596,32 +3603,12 @@
     .x-theme__btn:hover { color: var(--bl-ink); }
     .x-theme__btn.is-on { background: var(--bl-ink); color: var(--bl-paper); }
 
-    /* The content region carries no padding of its own: sections inside it
-       are full-bleed and take the gutter themselves, exactly as on the
-       global shell. */
     .x-content {
         flex: 1;
         width: 100%;
         min-width: 0;
     }
 
-    /* ------------------------------------------------------------
-       THE SHELL BELOW 1024px
-
-       .x-shell is a two-column flex row with a 216px sidebar, and it had no
-       responsive treatment at any width. On a 390px phone that left the
-       content region 174px to render into, so every page on this layout -
-       every marketplace's orders, listings, settings and logistics - scrolled
-       sideways. The rule that would have fixed it lived in layout/shell.css,
-       which this bundle deliberately does not import, so it never applied and
-       reading the source suggested otherwise.
-
-       The sidebar becomes an off-canvas drawer instead. 1024px is the same
-       breakpoint layouts/blotter.blade.php uses for the global shell, stated
-       as a literal here because it is a shell decision rather than a page
-       one, and the two shells have to switch together: a user moving between
-       them at 1010px must not meet a drawer on one and a column on the other.
-       ------------------------------------------------------------ */
     @media (max-width: 1023px) {
         .x-shell > .x-sidebar {
             position: fixed;
@@ -4629,9 +3616,6 @@
             left: 0;
             z-index: 40;
             width: min(280px, 84vw);
-            /* Not translated off-screen: a hidden drawer must be out of the
-               tab order as well as out of sight, and a transformed element
-               keeps both. */
             display: none;
             overflow-y: auto;
             overscroll-behavior: contain;
@@ -4648,9 +3632,6 @@
         }
     }
 
-    /* The toggle is only ever seen on a small screen, so it is sized for a
-       thumb from the start rather than bumped later by the coarse-pointer
-       block. */
     .x-navtoggle {
         display: inline-flex;
         align-items: center;
@@ -4667,30 +3648,11 @@
 
     .x-navtoggle:hover { color: var(--bl-ink); border-color: var(--bl-ink-3); }
 
-    /* Above the breakpoint the drawer's furniture has nothing to do.
-
-       This block sits AFTER the base rules on purpose. It was written before
-       them, and inside one cascade layer at equal specificity the later rule
-       wins - so `display: inline-flex` on .x-navtoggle beat the media query
-       and a nav toggle for a drawer that does not exist sat in the top bar at
-       1440px. A media query carries no weight of its own; only its position
-       does.
-
-       The scrim is listed too. Alpine's x-show leaves the element in the DOM
-       and only toggles an inline display, so a window resized from phone to
-       desktop with the drawer open would otherwise keep a full-page dimmer
-       over a perfectly normal two-column page.
-
-       .x-cnav__close is hidden by the twin of this block further down, beside
-       its own base rule, for exactly the same reason: a hide has to come after
-       the declaration it is overriding, and these two rules live in different
-       parts of the file. */
     @media (min-width: 1024px) {
         .x-scrim,
         .x-navtoggle { display: none; }
     }
 
-    /* Channel sidebar. */
     .x-cnav {
         display: flex;
         flex-direction: column;
@@ -4716,11 +3678,6 @@
         color: var(--bl-side-ink);
     }
 
-    /* The back link and the drawer's close button share one row, so closing
-       the drawer and leaving the channel sit at the two ends of the same line
-       rather than stacking two rows of chrome above the nav itself. Above
-       1024px the button is display:none and the row collapses to the link
-       alone, which is what the sidebar looked like before the drawer existed. */
     .x-cnav__top {
         display: flex;
         align-items: center;
@@ -4745,9 +3702,6 @@
 
     .x-cnav__close:hover { background: var(--bl-side-hover); color: #fff; }
 
-    /* After the base rule, not with the shell's other desktop hides: same
-       layer and same specificity means the later declaration wins, and this
-       one is declared later in the file than that block is. */
     @media (min-width: 1024px) {
         .x-cnav__close { display: none; }
     }
@@ -4766,11 +3720,6 @@
         text-decoration: none;
     }
 
-    /* The parent takes the main sidebar's weight, and the child takes its
-       indent. In the main nav a child aligns under its parent's LABEL, not
-       under the parent's icon, which is what makes a group read as one thing
-       with parts. Here both sat at the same 8px and the hierarchy was
-       carried by nothing but the group label above them. */
     .x-cnav__item { font-weight: 500; }
 
     .x-cnav__child {
@@ -4815,18 +3764,6 @@
 }
 
 @layer components {
-    /* ------------------------------------------------------------
-       Flash messages and toasts
-
-       Rendered conditionally, which is why a class sweep over live pages
-       missed them: with no alert on screen there was no class to find, and
-       an unsized .alert__icon then drew a 1200px cross across the Shopee
-       workspace.
-
-       Shape matches fm-note deliberately: one hairline box, tone carried by
-       the border and the icon. The legacy version used a 3px coloured left
-       rule, which this world does not do.
-       ------------------------------------------------------------ */
     .alert {
         position: relative;
         display: flex;
@@ -4841,8 +3778,6 @@
         color: var(--bl-ink);
     }
 
-    /* The one that actually mattered: without a size this is an unbounded
-       SVG and it fills the page. */
     .alert__icon {
         width: 18px;
         height: 18px;
@@ -4862,15 +3797,8 @@
     .alert.info { border-color: var(--bl-cool); background: color-mix(in srgb, var(--bl-cool) 7%, var(--bl-sheet)); }
     .alert.info .alert__icon { color: var(--bl-cool); }
 
-    /* Darker than --bl-brand-deep, because this link does not sit on the
-       page ground. On the amber wash --bl-brand-deep measures 4.29:1 and
-       13px body copy needs 4.5, so the one link that fixes the fault the
-       banner is reporting was the least legible thing in it. */
     .alert a { color: var(--bl-alert-link); }
 
-    /* The close sits in a column the text never enters: absolutely placed
-       over a padding the text also used, it covered the end of the first
-       line wherever that line reached the right edge. */
     .alert:has(> .alert-close) {
         padding-right: 44px;
     }
@@ -4921,15 +3849,6 @@
 }
 
 @layer components {
-    /* ------------------------------------------------------------
-       The last of it
-
-       What the bridge did not cover: breadcrumb, the channel overview's
-       health and waiting blocks, a handful of table column modifiers and
-       a few utility names. Small enough to author properly.
-       ------------------------------------------------------------ */
-
-    /* Breadcrumb. Integrations / Shopee / Listings. */
     .x-crumb {
         display: flex;
         flex-wrap: wrap;
@@ -4950,28 +3869,6 @@
 
     .x-crumb__link:hover { color: var(--bl-ink); text-decoration: underline; }
 
-    /* Channel overview head: the channel or store on the left, its one
-       most-needed action pushed to the far right. It was packed left with a
-       14px gap, which left a lone Connect button hugging the tagline in the
-       middle of a 1160px page with no edge to belong to. Same shape as
-       .od-section__head and .fm-head, so all three heads on this shell agree.
-
-       The horizontal padding stays var(--bl-pad), which .x-content declares
-       as zero: the page gutter is the container's, and this head is not a
-       card. */
-    /* Shape, inset and action edge all come from .bl-head in blotter.css.
-       The justify-content: space-between that used to live here is gone: it
-       was the reason this head placed its action differently from every other
-       head in the application. */
-
-    /* .x-health / .x-waiting were the Overview's two full-bleed strips, one
-       cell per figure across the page width. Both were replaced by the
-       connection and waiting panels in the workspace rail (see .cw-rows in
-       pages/channels.css), which is where a figure you glance at belongs.
-       Their rules are deleted rather than left orphaned: they had a second,
-       conflicting definition in layout/channel.css, and a dead class with two
-       definitions is how the next person inherits a bug. */
-
     .x-cnav__state { font-size: 12px; color: var(--bl-side-ink); }
 
     .x-filters__reset {
@@ -4983,7 +3880,6 @@
 
     .x-filters__reset:hover { color: var(--bl-ink); border-color: var(--bl-ink); }
 
-    /* Order detail leftovers. */
     .od-card__foot {
         padding: 10px 14px;
         border-top: 1px solid var(--bl-rule);
@@ -5004,7 +3900,6 @@
     .od-time__note { grid-column: 2; color: var(--bl-ink-3); font-size: 11.5px; }
     .od-warn { color: var(--bl-attn); font-weight: 600; }
 
-    /* Variation and history table columns. Numbers right, identifiers mono. */
     .fm-vcol-name { min-width: 160px; }
     .fm-vcol-opt { width: 132px; }
     .fm-vcol-sku { width: 128px; }
@@ -5017,7 +3912,6 @@
 
     .po-lines__body { display: flex; flex-direction: column; }
 
-    /* Shopee panel odds and ends. */
     .sp-col-order { width: 178px; }
     .sp-col-buyer { width: 150px; }
     .sp-buyer { font-size: 12.5px; }
@@ -5025,7 +3919,6 @@
     .co-date { display: block; font-family: var(--font-mono); font-size: 11.5px; color: var(--bl-ink-3); }
     .co-status__note { font-size: 11.5px; color: var(--bl-ink-3); }
 
-    /* Settings odds and ends. */
     .st-code-input {
         font-family: var(--font-mono);
         letter-spacing: 0.28em;
@@ -5036,7 +3929,6 @@
     .st-perm { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
     .st-set-form { display: flex; flex-direction: column; gap: 16px; }
 
-    /* Small shared utilities the legacy sheets relied on. */
     .text-muted { color: var(--bl-ink-3); }
     .d-none { display: none !important; }
     .is-untracked { color: var(--bl-ink-3); }
@@ -5044,10 +3936,6 @@
 }
 
 @layer components {
-    /* The last three that can actually appear on screen. The rest of the
-       sweep's remainder is markers (x-nav__*, co-page role classes), an
-       Alpine loop variable, and a Tailwind v3 name in a component the
-       Blotter pages do not use. */
     .co-page,
     .st-page { display: flex; flex-direction: column; }
 
@@ -5057,22 +3945,10 @@
         margin-bottom: 8px;
     }
 
-    /* Replaced in place by the rich text editor; visible only in the moment
-       before it initialises. */
     textarea.wysiwyg { min-height: 180px; }
 }
 
 @layer components {
-    /* ------------------------------------------------------------
-       Sign in
-
-       The front door, and the one screen where brand colour leads rather
-       than annotates: navy ground, the mark in lime, the work surface a
-       white sheet. Everything past this point inverts that relationship.
-
-       This also retires the inline <style> block the old login page
-       carried, which the project's own rule forbids.
-       ------------------------------------------------------------ */
     .auth {
         display: flex;
         flex-direction: column;
@@ -5092,8 +3968,6 @@
         text-align: center;
     }
 
-    /* The sidebar's logo, same rule as the sign-in one: the size is on the
-       tag, this only keeps a wide mark inside the column. */
     .bl-brand__logo {
         max-width: 100%;
         height: auto;
@@ -5101,10 +3975,6 @@
         object-position: left center;
     }
 
-    /* The logo draws at the size its own file is, set on the tag from the box
-       in Settings. A height here would decide it instead and the box would do
-       nothing. The only rule left is the one that keeps a wide mark inside a
-       narrow panel. */
     .auth__logo {
         max-width: 100%;
         height: auto;
@@ -5145,7 +4015,6 @@
         gap: 14px;
     }
 
-    /* Two short fields on one line, so the first account form stays one screen tall. */
     .auth__pair {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -5201,7 +4070,6 @@
         text-align: center;
     }
 
-    /* Sign-in failures name the problem and nothing else. */
     .auth__error,
     .auth__status {
         padding: 9px 12px;
@@ -5220,9 +4088,6 @@
 }
 
 @layer components {
-    /* The bar under a product image tile: its position marker and remove
-       control. The Blotter adapter styled the tile but never this row, so
-       the label sat hard against the tile's own border. */
     .fm-img__bar {
         display: flex;
         align-items: center;
@@ -5231,8 +4096,6 @@
         border-top: 1px solid var(--bl-rule);
     }
 
-    /* Grip, then the position, then the remove pushed to the far end so it
-       is never the thing a thumb lands on by accident. */
     .fm-img__bar .fm-img__x { margin-left: auto; }
 
     .fm-img__pos {
@@ -5262,17 +4125,6 @@
     }
 }
 
-/* ============================================================
-   Hint: the question mark that withholds its prose until asked.
-
-   Explanatory sentences used to sit permanently under every command bar
-   and section heading. They are worth keeping and not worth reading
-   twice, so they moved in here: the control stays on screen, the
-   paragraph arrives on hover, focus or tap.
-
-   No JavaScript. Tapping the button focuses it, and focus and hover
-   share one rule, so all three inputs land in the same place.
-   ============================================================ */
 @layer components {
     .bl-hint {
         position: relative;
@@ -5295,7 +4147,6 @@
         font-size: 10.5px;
         font-weight: 600;
         line-height: 1;
-        /* `help`, not `pointer`: nothing navigates and nothing submits. */
         cursor: help;
         transition: color .12s, border-color .12s, background-color .12s;
     }
@@ -5326,10 +4177,6 @@
         text-transform: none;
         letter-spacing: normal;
         white-space: normal;
-        /* Withheld from sight, never from assistive technology: the button
-           points at this element with aria-describedby, and `visibility` or
-           `hidden` would take it out of the tree the description resolves
-           against. */
         opacity: 0;
         pointer-events: none;
         transform: translateY(-3px);
@@ -5342,28 +4189,8 @@
         transform: none;
     }
 
-    /* A hint on a section heading belongs to the title, not to the far side
-       of the bar: fm-section__head is space-between, so without this it flew
-       to the right edge and read as if it explained the actions there. */
     .fm-section__head > .bl-hint { margin-inline-end: auto; }
 
-    /* Anchored to whichever edge it is nearest, so the bubble opens into the
-       page instead of off it. Command bar actions are right-aligned, so a
-       hint sitting in one has nothing to its right to open into.
-
-       Only above the phone breakpoint: below it the bubble is not anchored to
-       the button at all (see below), and these would fight the left/right
-       pair that pins it to the viewport.
-
-       An earlier version also matched `.x-list-head > :last-child`, on the
-       assumption that the last child of a page head sits at the right. A head
-       with a single child is both its first and its last, so a hint at the
-       far LEFT of the page got right-anchored and opened off the left edge of
-       a phone. Position cannot be inferred from source order. */
-    /* A spacer in the row is what pushes the actions to the right, so it is
-       also the test for which way the bubble should open. Anchoring every
-       command bar hint to the right instead sent the bubble left across the
-       sidebar on the bars whose single button sits at the left. */
     @media (min-width: 901px) {
         .x-cmdbar__row:has(.x-cmdbar__spacer) .x-cmdbar__actions .bl-hint__bubble,
         .bl-hint--end .bl-hint__bubble {
@@ -5371,22 +4198,11 @@
             left: auto;
         }
 
-        /* Placed against the viewport by hint-place.js, so no table wrapper
-           or card clips it; the script writes top and left. */
         .bl-hint--placed .bl-hint__bubble {
             position: fixed;
         }
     }
 
-    /* Below 900px there is not enough width to open a 300px bubble beside
-       anything, whichever edge it is anchored to, so it stops being anchored
-       to the button and becomes a sheet across the bottom of the screen: the
-       same move the phone OS makes, for the same reason. It is still the
-       button's description, still shown only while that button is focused.
-
-       900px rather than a new number of its own, because that is already
-       where the command bar drops its spacer and sends the actions full
-       width. One breakpoint, one layout regime. */
     @media (max-width: 900px) {
         .bl-hint__bubble {
             position: fixed;
@@ -5403,69 +4219,9 @@
     }
 }
 
-/* ============================================================
-   CHANNEL IDENTITY, in the app layer.
-
-   This block lived in @layer components and lost: the active tab's
-   channel underline never rendered, because components/segment.css is
-   page vocabulary and page vocabulary outranks components. The rule was
-   correct and invisible for as long as it existed.
-
-   The app layer is declared above both in blotter.css and exists for
-   exactly this: a cross-cutting rule that has to win over a component AND
-   over the vocabulary dressing it.
-   ============================================================ */
 @layer app {
-    /* ------------------------------------------------------------
-       CHANNEL IDENTITY
-
-       A marketplace page used to look exactly like every other
-       marketplace page: you read the breadcrumb to find out whose orders
-       you were packing. The channel's own colour now drives the surfaces
-       that belong to it.
-
-       Two scopes, one rule. .x-app--channel is a seller-centre page,
-       which is always about one channel. .fh-scope is the fulfilment hub,
-       which is about one channel only while a panel is open and stays
-       neutral otherwise - so both publish --ch / --ch-deep and everything
-       below just asks for them, with the neutral as the fallback.
-
-       WHAT DOES NOT MOVE: state colour. Amber still means needs-a-person,
-       red still means trouble, and Ship by OVERDUE is still the loudest
-       thing on the page. Identity is spent on chrome and on the primary
-       action; it is never spent on a status.
-       ------------------------------------------------------------ */
-
-    /* The rule under the top bar is the first thing on screen and the
-       cheapest place to say where you are. */
     .x-app--channel .x-topbar { border-bottom: 2px solid var(--ch, var(--bl-rule)); }
 
-    /* The sidebar name deliberately does NOT take the channel colour. That
-       was the first cut and it was wrong: the channel sidebar is near-black
-       (--bl-side-bg #0b1228) and three of the seven brand colours are dark
-       too, so measured against that ground TikTok's black came out at
-       1.11:1, Lazada's navy at 1.19:1 and Venta's violet at 3.26:1 - a name
-       you cannot read is worse than a name with no colour on it. Every
-       surface below sits on a light ground instead, where all seven work.
-       The sidebar already says which channel this is, in words. */
-
-    /* WHICH VIEW OF THE LIST YOU ARE IN, IN THE CHANNEL'S OWN COLOUR.
-     *
-     * This used to be a 2px underline under a white pill. The pill is gone -
-     * every tab carries its own border now and the selected one is filled -
-     * so the channel takes the fill itself. One mark instead of three, and
-     * the loudest thing on the strip is the answer to the question the strip
-     * exists to ask.
-     *
-     * --ch-deep, not --ch. The label is printed on this, and the brand hex
-     * mostly cannot hold it: Shopee's orange measures 3.66:1 against the
-     * light ink. deep() walks the colour down to the lightest step that
-     * clears 4.5:1 against --bl-paper specifically, which is the ink that
-     * actually lands here.
-     *
-     * @layer app, so it beats the vocabulary layer segment.css sits in. The
-     * fallbacks are what an unscoped strip gets, and they resolve to the ink
-     * fill that file already specifies. */
     .x-app--channel .x-segment__item.is-active,
     .fh-scope .x-segment__item.is-active {
         background: var(--ch-deep, var(--bl-ink));
@@ -5474,31 +4230,12 @@
         box-shadow: none;
     }
 
-    /* Dark theme inverts it, the same way the primary button does here.
-     *
-     * A colour dark enough to hold light ink on a white page disappears on a
-     * near-black one - Lazada's navy sits at barely 1.3:1 against the dark
-     * sheet, so a navy-filled tab would read as an empty slot. --ch-lift is
-     * the same colour walked the other way, toward white, until it clears
-     * that sheet. */
     [data-theme='dark'] .x-app--channel .x-segment__item.is-active,
     [data-theme='dark'] .fh-scope .x-segment__item.is-active {
         background: var(--ch-lift, var(--bl-ink));
         border-color: var(--ch-lift, var(--bl-ink));
     }
 
-    /* THE SUB STEP TAKES THE SAME COLOUR AND INVERTS THE RELATIONSHIP.
-     *
-     * The rule above matches every active segment item in a channel scope,
-     * including the ones on the sub strip - so To Pack came out filled in
-     * exactly the orange To Ship was filled in, one above the other, and the
-     * page appeared to give two answers to the same question. Both levels
-     * have to speak the channel, and only one of them can shout.
-     *
-     * So the second level wears the colour as a wash and an edge, with the
-     * page's own ink for the label. Same family, unmistakably quieter. It has
-     * to be restated inside @layer app because the rule it is correcting is
-     * here; the copy in segment.css is what an unscoped sub strip gets. */
     .x-app--channel .x-segment--sub .x-segment__item.is-active,
     .fh-scope .x-segment--sub .x-segment__item.is-active {
         background: color-mix(in srgb, var(--ch, var(--bl-brand-deep)) 12%, var(--bl-sheet));
@@ -5511,145 +4248,39 @@
         color: var(--bl-ink-2);
     }
 
-    /* On the dark sheet a 12% wash of the brand hex is indistinguishable
-       from the sheet itself, so the tint is taken from --ch-lift, which is
-       the channel walked toward white until it clears that sheet. */
     [data-theme='dark'] .x-app--channel .x-segment--sub .x-segment__item.is-active,
     [data-theme='dark'] .fh-scope .x-segment--sub .x-segment__item.is-active {
         background: color-mix(in srgb, var(--ch-lift, var(--bl-brand)) 18%, var(--bl-sheet));
         border-color: var(--ch-lift, var(--bl-brand));
     }
 
-    /* THE CHANNEL COLOURS THE CHROME, NOT THE DATA.
-     *
-     * These three - the return number, the order reference, the row link -
-     * used to take --ch-deep, and that put the channel's colour on the two
-     * most-repeated cells of every row. Two things went wrong with it.
-     *
-     * The first is a collision, and it is measured: Shopee's accent deepens
-     * to #D14428, and --bl-bad is #CB3327. Eighteen units apart in RGB, which
-     * at 13px is not a distinction anyone can make. One returns list rendered
-     * thirty references in near-danger red beside two genuinely cancelled
-     * badges, and nothing on the page said which of the two colours meant
-     * something had gone wrong.
-     *
-     * The second is the general case behind it. Colour on these pages has one
-     * job, per DESIGN.md: saying which orders need the operator. A reference
-     * is not a state, it is an address - every row has one, they are all
-     * equally uneventful, and painting all of them saturated leaves the one
-     * badge that does carry a state outnumbered thirty to one. Shopee is
-     * merely the channel where the clash is also literal.
-     *
-     * So the references keep the ink and the hover underline the base already
-     * gives them, and the channel is stated where it costs nothing: the card
-     * cap, the segment underline, the primary button, the focus ring. Hover
-     * is the one place the accent still reaches a reference, because there it
-     * is a response to the operator rather than a claim about the row. */
     .x-app--channel .co-ref:hover,
     .x-app--channel .x-row-link:hover,
     .fh-scope .co-ref:hover,
     .fh-scope .x-row-link:hover { color: var(--ch-deep, var(--bl-brand-deep)); }
 
-    /* The page's primary action. Deepened, because it carries white text.
-
-       --ch-cta, not --ch-deep. This is the one place the channel's colour
-       lands on something shaped and weighted exactly like the destructive
-       button in a confirm dialog, and on Shopee the two were also eight
-       parts in 255 apart: "New listing" and "Delete this listing from
-       Shopee" arrived in the same red, with the dialog opening on top of the
-       page carrying the other one. cta() measures every channel against the
-       alert colour and hands back the neutral for any that cannot be told
-       from it. The cap, the underline and the ring keep --ch-deep - none of
-       them is ever mistaken for a button. */
     .x-app--channel .x-btn--primary,
     .fh-scope .x-btn--primary {
         background: var(--ch-cta, var(--bl-ink));
         border-color: var(--ch-cta, var(--bl-ink));
     }
 
-    /* THE FOCUS RING IS NOT THE CHANNEL'S TO COLOUR.
-     *
-     * This took var(--ch) - the channel's raw brand hue, unadjusted - and on
-     * the dark ground that is not a ring, it is nothing: Lazada's navy
-     * measures 1.22:1 and TikTok's near-black 1.15:1, against the 3:1 WCAG
-     * 1.4.11 requires of a focus indicator. A keyboard operator on either
-     * channel in the evening could not see where they were. Shopee (5.22) and
-     * Venta (3.36) happened to pass, which is what kept it invisible: half the
-     * channels worked, and the theme it failed in was not the one it was
-     * reviewed in.
-     *
-     * DESIGN.md had already settled this and the repaint overrode it -
-     * --bl-brand "means 'you can act here': focus rings, active rows".
-     *
-     * THE FIRST ATTEMPT AT THAT FIX TRADED ONE THEME FOR THE OTHER. It took
-     * --bl-brand literally: #4fb9d4 measures 8.40:1 on the dark ground and
-     * 2.03:1 on the light one, so the ring that had been invisible in dark on
-     * two channels became invisible in light on all of them. Fixing the theme
-     * that was measured while breaking the one that was not is the same
-     * mistake the repaint made, one theme over.
-     *
-     * --bl-brand-deep is the pair member that survives both, because it is
-     * itself redefined per theme: #1c7f9b on the light ground (4.10) and
-     * #8fd9ea on the dark one (12.10). A ring has to be visible in both or it
-     * is not a ring, and the guard below now asserts the ratio rather than
-     * just the token name.
-     *
-     * The channel keeps the card cap, the segment underline and the primary
-     * button. It does not get the one mark whose only purpose is to be seen. */
     .x-app--channel :focus-visible,
     .fh-scope :focus-visible { outline-color: var(--bl-brand-deep); }
 
-    /* DARK THEME. --ch-deep is computed against white, so it only answers
-       the light theme's question; on a near-black sheet the same colour can
-       vanish. Lazada is the proof: its navy clears white at 15.66:1 and sits
-       at about 1.3:1 on the dark sheet, so every order reference on a Lazada
-       page disappeared the moment the theme switched. --ch-lift is the same
-       hue walked toward white until it clears the dark sheet instead.
-
-       The primary button inverts here the way --bl-ink already does in this
-       theme: a light fill carrying dark text, rather than a dark fill
-       carrying light text. */
     [data-theme='dark'] .x-app--channel .co-ref:hover,
     [data-theme='dark'] .x-app--channel .x-row-link:hover,
     [data-theme='dark'] .fh-scope .co-ref:hover,
     [data-theme='dark'] .fh-scope .x-row-link:hover { color: var(--ch-lift, var(--bl-brand)); }
 
-    /* THE PRIMARY BUTTON IS THE OPERATOR'S, NOT THE MARKETPLACE'S.
-     *
-     * It used to take --ch-lift here, the channel colour walked toward
-     * white. For a black brand (TikTok) that walk lands on #818181, and
-     * "Save discount" rendered grey on ink: the one action the sticky bar
-     * exists for read as disabled. Lazada's came out a tepid lavender.
-     * DESIGN.md's rule is that brand cyan means "you can act here" and the
-     * channel colours only the chip, the ring and the header rule, so the
-     * dark primary is the brand on every channel (decided 2026-08-25). */
     [data-theme='dark'] .x-app--channel .x-btn--primary,
     [data-theme='dark'] .fh-scope .x-btn--primary {
         background: var(--bl-brand);
         border-color: var(--bl-brand);
-        /* --bl-paper, not --bl-ink: the tokens invert in dark, so ink is
-           near-white there and read 1.7:1 on the cyan. Paper is the dark
-           page ground, and dark-on-cyan clears 9:1. */
         color: var(--bl-paper);
     }
 }
 
-/* THE ONE CONTROL ON THIS SURFACE WITH NO FOCUS RING.
-   ------------------------------------------------------------------
-   Summernote's editable div ships `outline: none` and nothing in its place,
-   so a keyboard walk of the product form - 41 stops, every other one ringed -
-   went silent exactly where the typing happens. The global :focus-visible
-   rule never reached it because the vendor rule is more specific.
-
-   THE SELECTOR MIRRORS THE VENDOR'S ON PURPOSE. Summernote declares
-   `.note-editor .note-editing-area .note-editable { outline: none }`, which
-   is three classes, and its stylesheet is pushed from the CDN AFTER our
-   bundle - so a two-class rule of ours tied on specificity and lost on order.
-   Repeating the vendor's own chain and adding :focus takes it to four, which
-   wins without reaching for !important on a third-party override.
-
-   Inset offset, because the editor sits flush inside its frame and a ring
-   drawn outside it would be clipped by the frame's own border. */
 .note-editor .note-editing-area .note-editable:focus,
 .note-editor .note-editing-area .note-editable:focus-visible {
     outline: 2px solid var(--bl-brand-deep);
@@ -5657,21 +4288,6 @@
 }
 
 
-/* THE EDITOR CHROME, LIFTED OUT OF @layer components.
-   ------------------------------------------------------------------
-   These rules never applied. They sat inside @layer components while
-   Summernote's stylesheet is pushed from a CDN unlayered - and unlayered CSS
-   beats every layer, regardless of specificity or source order. Measured
-   before the move: the toolbar computed #f5f5f5 in BOTH themes against
-   --bl-chrome values of #f5f8fc and #0d1424, so in dark it was the brightest
-   object on the page and it was a toolbar.
-
-   Light theme is why nobody caught it: #f5f5f5 against #f5f8fc is a
-   difference of three units, so the rules looked like they worked.
-
-   The focus ring further down this file has always been at file scope, which
-   is why that one does work. Same lesson, applied properly this time: a rule
-   competing with an unlayered vendor sheet cannot live in a layer. */
 .fm-page .note-editor.note-frame {
     margin: 0;
     border: 1px solid var(--bl-rule-2);
@@ -5725,21 +4341,11 @@
     font-family: var(--font-mono);
 }
 
-/* A picture in a description fits the editor's width on every page that
-   carries the editor; the stored markup keeps its own size. Unscoped and
-   mirroring the vendor's chain, for the same reason as the focus ring. */
 .note-editor .note-editing-area .note-editable img {
     max-width: 100%;
     height: auto;
 }
 
-/* WHAT IS TYPED LOOKS LIKE WHAT IS STORED.
-   The base reset flattens every heading and list to body text, and the
-   editor's own stylesheet does not put them back, so a description with
-   headings and bullet points read as plain lines while it was being edited:
-   the markup was saved intact and drawn as if it were not there. Unscoped
-   and on the vendor's chain, like the rules above, so every page that
-   carries the editor gets it. */
 .note-editor .note-editing-area .note-editable p,
 .note-editor .note-editing-area .note-editable ul,
 .note-editor .note-editing-area .note-editable ol,
@@ -5802,15 +4408,9 @@
     white-space: pre-wrap;
 }
 
-/* A field's description is its ? tooltip on the label row (the owner,
-   2026-09-05): the label and the button sit on one line, the control
-   under both. The environment note on a channel's Settings rides the same
-   button beside the environment switch. */
 .fm-label__hint { margin-left: 6px; vertical-align: middle; }
 .fm-label + .fm-label__hint { position: relative; top: -1px; }
 .cs-env__hint { margin-left: 8px; }
-/* The label row: the label and its ? on one line, the control under both.
-   The label keeps its own type; the row only lays the pair out. */
 .fm-label-row { display: flex; align-items: center; gap: 6px; }
 .fm-label-row > .fm-label { margin: 0; }
 .fm-label-row > .fm-label__hint { margin-left: 0; top: 0; }

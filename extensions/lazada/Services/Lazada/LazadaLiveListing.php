@@ -4,20 +4,12 @@ namespace Extensions\lazada\Services\Lazada;
 
 use Extensions\lazada\Models\LazadaApiLog;
 
-/**
- * The live half of the Lazada listing surfaces: what Lazada says about the
- * shop RIGHT NOW, fetched on page load by design (the owner, 2026-08-23) -
- * status is the marketplace's answer, never a cached copy presented as
- * live. When Lazada does not answer, the pages say so instead of
- * substituting stale data. Mirror of Shopee's ShopeeLiveListing.
- */
 class LazadaLiveListing
 {
     public function __construct(private LazadaClient $client)
     {
     }
 
-    /** @throws \RuntimeException when Lazada does not answer */
     private function signedGet(object $setting, array $creds, string $apiPath, array $extra): array
     {
         $params = array_merge([
@@ -36,7 +28,6 @@ class LazadaLiveListing
                 (string) ($creds['mode'] ?? 'live')
             );
         } catch (\Throwable $e) {
-            // Never the raw message: it carries the signed URL. See TransportError.
             throw new \RuntimeException(\App\Support\TransportError::plain($e, 'Lazada'));
         }
 
@@ -50,7 +41,6 @@ class LazadaLiveListing
         return is_array($body) ? ($body['data'] ?? []) : [];
     }
 
-    /** total_products for one seller-center filter, one limit=1 call. */
     public function count(object $setting, array $creds, string $filter): int
     {
         $data = $this->signedGet($setting, $creds, '/products/get', [
@@ -60,7 +50,6 @@ class LazadaLiveListing
         return (int) ($data['total_products'] ?? 0);
     }
 
-    /** Every item id in one filter, paged at 50, capped at 500 items. */
     public function itemIds(object $setting, array $creds, string $filter): array
     {
         $ids = [];
@@ -82,23 +71,10 @@ class LazadaLiveListing
         return array_values(array_unique($ids));
     }
 
-    /**
-     * Live item statuses for a page of rows, looked up by seller SKU
-     * (Lazada's one batch lookup; 100 SKUs a call). Returns a map keyed by
-     * item_id (string) with the lowercased status. A linked item ABSENT
-     * from a successful answer is Lazada saying the shop holds no such
-     * item - the caller marks it, never papers over it.
-     *
-     * @param array<string> $skus
-     * @return array<string, string>
-     * @throws \RuntimeException when Lazada does not answer
-     */
     public function statusesBySku(object $setting, array $creds, array $skus): array
     {
         $statuses = [];
-        // Chunked at 50, not Lazada's 100-SKU input cap: the response is
-        // page-limited to 50 items (error 19 above that), so a 100-SKU ask
-        // could silently drop half its answers.
+        // Chunk at 50: the response is capped at 50 items even though the input accepts 100 SKUs.
         foreach (array_chunk(array_values(array_unique(array_filter($skus))), 50) as $chunk) {
             $data = $this->signedGet($setting, $creds, '/products/get', [
                 'filter' => 'all', 'limit' => '50', 'offset' => '0',
@@ -114,26 +90,6 @@ class LazadaLiveListing
         return $statuses;
     }
 
-    /**
-     * Which items hold these seller SKUs, batched at 50 (#156, Check
-     * against Lazada): lowercased seller SKU => ['item_id', 'status'].
-     * A SKU absent from a successful answer is Lazada saying no item
-     * carries it.
-     *
-     * @param array<string> $skus
-     * @return array<string, array{item_id: string, status: string}>
-     * @throws \RuntimeException when Lazada does not answer
-     */
-    /**
-     * Refresh the status mirror: one walk of the shop (filter all, 50 a
-     * page) plus one of the deleted bucket, and every uploaded listing
-     * row gets Lazada's own status word. A listing the shop no longer
-     * returns becomes missing. One walk serves every listings and group
-     * page until the next; a page view costs Lazada nothing (the owner,
-     * 2026-08-28).
-     *
-     * @return array{error: ?string, counts: array<string, int>, links: int}
-     */
     public function refreshMirror(object $setting, array $creds): array
     {
         try {
@@ -175,7 +131,6 @@ class LazadaLiveListing
         ];
     }
 
-    /** item_id => lowercased status for every item under one filter, 50 a page, up to 2,000 items. Throws when Lazada refuses. */
     public function statusIndex(object $setting, array $creds, string $filter): array
     {
         $out = [];
@@ -222,13 +177,6 @@ class LazadaLiveListing
         return $out;
     }
 
-    /**
-     * Every item on the shop with its seller SKUs (#156, Unlinked on
-     * Lazada): item_id => [skus], paged at 50, twenty pages at most, with
-     * a flag saying whether the walk finished.
-     *
-     * @return array{items: array<string, array<int, string>>, complete: bool}
-     */
     public function skuIndex(object $setting, array $creds): array
     {
         $items = [];
@@ -267,42 +215,16 @@ class LazadaLiveListing
         return ['items' => $items, 'complete' => $complete];
     }
 
-    /**
-     * One item's full live state for the edit page.
-     *
-     * @return array{live: ?array, error: ?string}
-     */
-    /**
-     * The FULL /product/item/get answer, for callers that need the whole
-     * item rather than the condensed status view - the importer (#196)
-     * reads name, description, brand, images, parcel and variation
-     * properties from it. Throws the same plain RuntimeException the
-     * other reads throw.
-     */
     public function raw(object $setting, array $creds, string $itemId): array
     {
         return $this->signedGet($setting, $creds, '/product/item/get', ['item_id' => $itemId]);
     }
 
-    /**
-     * The variation keys the item's SKUs carry now, in their order, from
-     * each SKU's saleProp map ({"Length": "1m"}); [] when the item has none.
-     * Throws when Lazada does not answer.
-     *
-     * @return list<string>
-     */
     public function salePropKeys(object $setting, array $creds, string $itemId): array
     {
         return $this->itemShape($setting, $creds, $itemId)['keys'];
     }
 
-    /**
-     * What an update has to respect on an item already on Lazada, from one
-     * /product/item/get read. See shapeOf(). Throws when Lazada does not
-     * answer.
-     *
-     * @return array{keys: list<string>, packages: list<array<string, string>>, variation: ?list<array{slot: int, name: string, customize: bool, has_image: mixed}>}
-     */
     public function itemShape(object $setting, array $creds, string $itemId): array
     {
         return self::shapeOf($this->signedGet($setting, $creds, '/product/item/get', ['item_id' => $itemId]));
@@ -310,20 +232,6 @@ class LazadaLiveListing
 
     public const PACKAGE_FIELDS = ['package_weight', 'package_length', 'package_width', 'package_height'];
 
-    /**
-     * An item/get answer reduced to what an update has to respect:
-     * - keys: the variation keys the SKUs carry, in their order, from each
-     *   SKU's saleProp map ({"Length": "1m"}); [] when the item has none;
-     * - packages: each SKU's package_weight/length/width/height, only the
-     *   ones it carries;
-     * - variation: the item's variation types (variation1..4) with name,
-     *   customize (true for a seller-defined type) and has_image, in slot
-     *   order; null when the answer carries no variation object;
-     * - status: the item's own status, lowercased;
-     * - skus: each SKU's id, seller SKU and lowercased status.
-     *
-     * @return array{keys: list<string>, packages: list<array<string, string>>, variation: ?list<array{slot: int, name: string, customize: bool, has_image: mixed}>, status: string, skus: list<array{sku_id: ?int, seller_sku: string, status: string}>}
-     */
     public static function shapeOf(array $data): array
     {
         $keys = [];

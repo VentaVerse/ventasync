@@ -8,21 +8,8 @@ use Extensions\tiktok\Models\TikTokOrder;
 use Extensions\tiktok\Models\TikTokSetting;
 use Illuminate\Http\Request;
 
-/**
- * Assembles the view data for the TikTok orders list: filters, tab and
- * sub-tab counts, sort persistence, the handover courier tally and
- * pagination. Shared by the TikTok seller center (TikTokOrderController@index)
- * and the fulfilment hub, both of which render the same
- * ext-tiktok::orders._panel partial with this array. Extracted from
- * TikTokOrderController@index without any logic change - mirrors
- * Extensions\shopee\Services\ShopeeOrdersPanel and
- * Extensions\lazada\Services\LazadaOrdersPanel exactly, see
- * docs/superpowers/plans/2026-08-07-tiktok-conversion.md Task 2.
- */
 class TikTokOrdersPanel
 {
-    // TikTok order status → tab mapping. Moved verbatim from the controller,
-    // which was the only reader of it.
     private array $tabStatusMap = [
         'UNPAID'           => ['UNPAID'],
         'TO_SHIP'          => ['AWAITING_SHIPMENT', 'AWAITING_COLLECTION'],
@@ -38,10 +25,6 @@ class TikTokOrdersPanel
             ? TikTokSetting::query()->find($storeId)
             : TikTokSetting::defaultStore();
         if ($storeId !== null && $setting !== null) {
-            /* The hub page itself is storeless, so bind the tab's store for
-             * the render: the model global scope narrows every TikTokOrder
-             * read to it, every route() in the panel partial fills its
-             * {store} from it, and nested defaultStore() reads agree. */
             app()->instance('tiktok.route-store', $setting);
             \Illuminate\Support\Facades\URL::defaults(['store' => (int) $setting->id]);
         }
@@ -53,15 +36,8 @@ class TikTokOrdersPanel
             'courier' => ['nullable', 'string', 'max:80'],
         ]);
 
-        // The courier pill on To Handover. A key from CourierTally, so a
-        // stale one (that courier's last parcel already left) matches
-        // nothing and the list simply stays whole.
         $courierKey = trim((string) ($filters['courier'] ?? ''));
 
-        /* One field matching order number, buyer and product, plus a range
-         * over when the order was placed - the same pair every other
-         * fulfilment list carries. See the note on the Shopee orders panel
-         * for why this replaced two labelled boxes. */
         $find = trim((string) ($filters['q'] ?? ''));
         $placedFrom = trim((string) ($filters['placed_from'] ?? ''));
         $placedTo = trim((string) ($filters['placed_to'] ?? ''));
@@ -77,7 +53,6 @@ class TikTokOrdersPanel
             $tab = 'ALL';
         }
 
-        // TO_SHIP has subtabs: to_pack (AWAITING_SHIPMENT) and to_handover (AWAITING_COLLECTION)
         $pendingSubtab = (string) $request->query('pending_sub', $tab === 'TO_SHIP' ? 'to_pack' : '');
         if ($tab !== 'TO_SHIP') {
             $pendingSubtab = '';
@@ -93,8 +68,6 @@ class TikTokOrdersPanel
             'CANCELLED'    => 'cancelled',
         ]);
 
-        // Per-marketplace sort persistence, see ShopeeOrderController
-        // for the rationale. Session key is namespaced to "tiktok".
         $defaultDir = ($tab === 'TO_SHIP') ? 'asc' : 'desc';
         $sortKey = strtolower((string) $request->query('sort', ''));
         if ($sortKey !== '') {
@@ -112,7 +85,6 @@ class TikTokOrdersPanel
         $baseCountQuery = TikTokOrder::query();
 
         if ($tab !== 'ALL') {
-            // Apply subtab filter for TO_SHIP
             if ($tab === 'TO_SHIP' && $pendingSubtab !== '') {
                 $subStatuses = match ($pendingSubtab) {
                     'to_pack'     => ['AWAITING_SHIPMENT'],
@@ -128,14 +100,12 @@ class TikTokOrdersPanel
             }
         }
 
-        // Search
         if ($find !== '') {
             $like = '%' . $find . '%';
 
             $query->where(function ($w) use ($like) {
                 $w->where('order_id', 'like', $like)
                     ->orWhere('buyer_name', 'like', $like)
-                    // The tracking number, where the row's Tracking cell reads it (2026-09-06).
                     ->orWhere('raw->tracking_number', 'like', $like)
                     ->orWhere('raw->line_items[0]->tracking_number', 'like', $like)
                     ->orWhereHas('products', function ($p) use ($like) {
@@ -153,21 +123,14 @@ class TikTokOrdersPanel
             $query->whereDate('order_created_at', '<=', $placedTo);
         }
 
-        // Badge counts
         $tab_counts = [];
         $tab_counts['ALL'] = (clone $baseCountQuery)->count();
         foreach ($this->tabStatusMap as $k => $statuses) {
             $tab_counts[$k] = (clone $baseCountQuery)->whereIn('status', $statuses)->count();
         }
-        // Subtab counts for TO_SHIP
         $tab_counts['to_pack'] = (clone $baseCountQuery)->whereIn('status', ['AWAITING_SHIPMENT'])->count();
         $tab_counts['to_handover'] = (clone $baseCountQuery)->whereIn('status', ['AWAITING_COLLECTION'])->count();
 
-        // Every order on the open To Ship step, filed under its courier,
-        // with the order ids kept so the list can be narrowed to one
-        // courier's. The courier is on the order from the moment it
-        // arrives, and the bench packs by courier before it hands over by
-        // courier (the owner, 2026-08-28). Walked only for the step shown.
         $subStepStatuses = ['to_pack' => 'AWAITING_SHIPMENT', 'to_handover' => 'AWAITING_COLLECTION'];
         $courierTally = new CourierTally();
         if ($tab === 'TO_SHIP' && isset($subStepStatuses[$pendingSubtab])) {
@@ -186,9 +149,6 @@ class TikTokOrdersPanel
                     }
                 });
 
-            // One courier's parcels, oldest first. The ids come from the
-            // same walk that produced the count on the pill, so the two
-            // cannot disagree.
             if ($courierKey !== '') {
                 $courierIds = $courierTally->idsFor($courierKey);
                 if ($courierIds !== null) {
@@ -198,10 +158,6 @@ class TikTokOrdersPanel
         }
 
         if ($sortBy === 'ship_by') {
-            // tts_sla_time, TikTok's ship-by deadline, the figure the SLA chip
-            // reads. An option, never the default: the queue stays first in,
-            // first out (the owner, 2026-08-26); this exists so the three
-            // marketplace dropdowns offer the same choices.
             $query->orderByRaw("CAST(JSON_UNQUOTE(JSON_EXTRACT(raw, '$.tts_sla_time')) AS UNSIGNED) {$sortDir}");
         }
         $orders = $query

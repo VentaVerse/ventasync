@@ -3,17 +3,8 @@
 
 @section('title', 'Shopee Listings')
 
-{{-- Leaves the .x-legacy content boundary, rebuilt on the token set and the
-     x-ui components. The page's behaviour moved out with it: everything that
-     used to be an inline <script> at the bottom of this file now lives in
-     resources/js/pages/shopee-listings.js, bound from data- attributes on
-     the elements below. --}}
 @section('content')
 @php
-    // Read tier is `view_shopee|manage_shopee`; every push, sync, link,
-    // dismiss and delete below is `manage_shopee`. Replaces a hardcoded
-    // `true` that showed a read-only operator five bulk buttons and eight
-    // row actions, all of which the route middleware would 403.
     $canManageShopee = auth()->user()?->hasPermission('manage_shopee/product') ?? false;
     $canEditCatalog = auth()->user()?->hasPermission('manage_catalog/product') ?? false;
 
@@ -36,10 +27,6 @@
     $sort = (string) ($sort ?? 'id');
     $dir = (string) ($dir ?? 'asc');
 
-    /* The same pair Lazada's listings page uses. Current query in, sort and
-       dir replaced, page dropped so a re-sort starts at the top. The
-       controller allow-lists the column, so an edited URL cannot reach
-       anything it does not name. */
     $toggleDir = function (string $col) use ($sort, $dir) {
         if ($sort !== $col) return 'asc';
         return $dir === 'asc' ? 'desc' : 'asc';
@@ -64,9 +51,6 @@
     <div>
         <h1 class="x-page-title">Listings</h1>
         <p class="x-page-sub">
-            {{-- This store's own list: the products this store carries, not
-                 the whole catalogue. A filtered count says what it is
-                 counting. --}}
             @if($hasFilters)
                 {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product matches' : 'products match' }}@if($statusMenu['label'] ?? null): {{ $statusMenu['label'] }}@endif
             @else
@@ -77,8 +61,6 @@
     </div>
     @if($canManageShopee)
         <div class="cc-head-actions">
-            {{-- Add products: the one way a main-catalogue product joins this
-                 store, opening the slide-over in place. --}}
             <x-ui.button type="button" variant="primary" data-add-panel-open>
                 <x-ui.icon name="plus" size="14" /> Add products
             </x-ui.button>
@@ -88,10 +70,6 @@
 
 
 
-{{-- Shopee's own statuses, as the tab row above the table: what the store
-     says about each item, beside the menu's VentaSync status. The two
-     combine, and each one's counts follow the other's choice. When Shopee
-     cannot be asked, the note says why and the row is not drawn. --}}
 @if(($liveTabError ?? null) !== null)
     <div class="fm-note fm-note--warn" role="status">
         <div class="fm-note__body">@include('partials.channel-answer', ['channel' => 'Shopee', 'raw' => $liveTabError, 'settingsRoute' => 'ext.shopee.index'])</div>
@@ -106,17 +84,11 @@
     'clear' => route('ext.shopee.products.index', request()->except(['state', 'page'])),
 ])
 
-{{-- One filter row. The old page had a five-column CSS grid of labelled
-     selects inside a card; the selects here submit on change (data-autosubmit,
-     resources/js/list-filters.js) so there is no Filter button to press, and
-     Clear is a link because it is navigation. --}}
 <div class="lsm-layout">
 @include('partials.listing-status-menu', ['menu' => $statusMenu])
 <div class="lsm-layout__main">
 
 @php
-    /* The group a Listings page stands in, and what acts on it: its settings
-       page, and a Send that uses those settings for the ticked rows. */
     $canManageGroups = auth()->user()?->hasPermission('manage_shopee/product_group') ?? false;
     $chosenGroup = collect($statusMenu['groups'])->first(fn ($g) => $g['active'] && $g['key'] !== 'none');
     $groupLine = ($chosenGroup && $canManageGroups) ? [
@@ -139,14 +111,12 @@
 @include('partials.listing-stand-segment', ['menu' => $statusMenu, 'group' => $groupLine])
 
 <form method="GET" action="{{ route('ext.shopee.products.index') }}" class="x-filters" id="shopee-listings-filter">
-    {{-- The menu's choice rides a search. --}}
     @if(($shopeeTab ?? 'all') !== 'all')
         <input type="hidden" name="shopee_tab" value="{{ $shopeeTab }}">
     @endif
     @if($syncStatus !== 'all')
         <input type="hidden" name="sync_status" value="{{ $syncStatus }}">
     @endif
-    {{-- The rail's choice rides a search too, or searching would drop it. --}}
     @if(($groupFilter ?? 'all') !== 'all')
         <input type="hidden" name="group" value="{{ $groupFilter }}">
     @endif
@@ -191,19 +161,8 @@
 </form>
 
 @if($canManageShopee)
-{{-- Bulk bar. It exists only once at least one row is ticked, which is the
-     whole reason the pre-redesign page's standing row of five marketplace
-     buttons is gone. Each action is still its own form posting product_ids[]
-     to its own route, exactly as before; the module injects the ticked ids
-     into whichever form is submitted. Delete keeps the transparent danger
-     treatment, not a solid red fill. --}}
-{{-- role="status" so the bar arriving is heard, not only seen. aria-live is
-     on the COUNT rather than the whole bar: the buttons do not change, and
-     re-reading five labels on every tick would be worse than silence. --}}
 @php
     $bulk = [
-        /* Filing the ticked rows: into a group, between groups, or out of
-           every group; and, standing inside one, the quick way out of it. */
         'move' => $canManageGroups ? [
             'action' => route('ext.shopee.product-groups.move'),
             'groups' => collect($statusMenu['groups'])->reject(fn ($g) => $g['key'] === 'none')
@@ -217,8 +176,6 @@
             'confirm' => 'Take these products out of ' . $chosenGroup['label'] . '? They become ungrouped and stop taking its settings on the next push.',
             'return' => request()->getRequestUri(),
         ] : null,
-        /* Multi-tick push, back on 2026-09-09: each ticked product goes up
-           on its own settings and reports for itself. */
         'push' => ['action' => route('ext.shopee.products.bulk_push'), 'label' => 'Send to Shopee',
             'confirm' => 'Send the selected products to Shopee? Each goes up on its own settings, and anything not ready is named rather than sent.'],
         'switch' => [
@@ -240,9 +197,6 @@
                     : ((($shopeeTab ?? 'all') !== 'all')
                         ? 'No listing on this store holds this status right now.'
                         : 'This store carries nothing yet. Add products from your Master Catalog and they will land here, ready to configure and push to Shopee.')">
-        {{-- A new store opens here empty (#201): the way forward is Add
-             products, not a dead end. The other two branches keep the reader
-             from being stuck behind a filter with no visible way out. --}}
         @if($hasFilters)
         <x-slot:action>
             <x-ui.button :href="route('ext.shopee.products.index')">Clear filters</x-ui.button>
@@ -303,12 +257,6 @@
 
     @php
 
-        /* The mark each row wears, resolved for the whole page at once:
-
-           a row shows its picture as it goes up, so nobody is quietly
-
-           unaware that a watermark is on. */
-
         $marks = new \App\Integrations\Listings\ListingMarks(
 
             'shopee', \App\Integrations\Listings\ListingStore::id('shopee'),
@@ -342,11 +290,6 @@
         <tr>
             @if($canManageShopee)
             <td class="cc-col-check">
-                {{-- No name attribute: these boxes belong to no form. Each
-                     bulk action is its own form and the module injects the
-                     ticked ids into whichever one is submitted, which is the
-                     pre-redesign wire unchanged. x-model keeps Alpine's
-                     count in step with the DOM the module reads. --}}
                 <input type="checkbox" class="cc-check" data-row-check value="{{ (string) $p->product_id }}"
                        data-live="{{ $link ? ($liveStatuses[(int) $link->shopee_item_id] ?? '') : 'NOT_LISTED' }}"
                        x-model="selected" aria-label="Select product {{ $p->product_id }}">
@@ -368,7 +311,6 @@
                         <div class="co-item__meta">
                             <span class="co-item__sku">{{ $p->sku ?: 'No SKU' }}</span>
                             @if($link)
-                                {{-- The item id opens the live listing, as the buyer sees it. --}}
                                 @php $liveUrl = \Extensions\shopee\Models\ShopeeSetting::publicListingUrl($link->shopee_item_id); @endphp
                                 @if($liveUrl)
                                     <a class="co-item__sku lsm-chanid" href="{{ $liveUrl }}" target="_blank" rel="noopener">Shopee {{ $link->shopee_item_id }}<x-ui.icon name="external-link" size="10" class="x-extlink" /><span class="x-sr"> (opens Shopee in a new tab)</span></a>
@@ -380,7 +322,6 @@
                                 <span>{{ $p->manufacturer_name }}</span>
                             @endif
                             @if(($groupFilter ?? 'all') === 'all' && count($pGroups) > 0)
-                                {{-- On All products a row names its group, and the name opens it. --}}
                                 <a class="co-item__var" href="{{ route('ext.shopee.products.index', array_merge(request()->except(['page', 'sync_status', 'group']), ['group' => $pGroups[0]['id']])) }}">Product group: {{ $pGroups[0]['name'] }}</a>
                             @endif
                         </div>
@@ -398,27 +339,16 @@
             </td>
 
             <td class="cc-col-sync" data-label="Listing">
-                {{-- ONE state, from the engine (Phase B, #184). This cell
-                     used to carry its own label map, one of three copies
-                     that had already drifted apart; every word and tone now
-                     comes from ListingState and cannot disagree with any
-                     other page. Never checked reads as exactly that, not as
-                     a guess. --}}
                 @php $rowState = $listingStates[(int) $p->product_id] ?? null; @endphp
                 @if($rowState === null)
                     <x-ui.badge tone="neutral">Not listed</x-ui.badge>
                 @elseif($rowState->state === \App\Integrations\Listings\ListingState::UNKNOWN && $link && ($liveCounts ?? null) === null)
-                    {{-- No shop configured: the mirror cannot exist, and
-                         "Listed" is all the link can honestly say. --}}
                     <x-ui.badge tone="success">Listed</x-ui.badge>
                 @elseif($rowState->state === \App\Integrations\Listings\ListingState::UNKNOWN)
                     <x-ui.badge tone="neutral" title="Press Refresh from Shopee to read its status">{{ $rowState->label() }}</x-ui.badge>
                 @elseif($rowState->state === \App\Integrations\Listings\ListingState::NOT_LISTED)
                     <x-ui.badge :tone="$rowState->tone()">{{ $rowState->label() }}</x-ui.badge>
-                    {{-- Whether a push would pass is the Ready column's. --}}
                 @else
-                    {{-- The title rides a wrapping span: Blade cannot compile
-                         an @if inside a component tag's attribute list. --}}
                     <span @if($rowState->checkedAt) title="Checked {{ $rowState->checkedAt->diffForHumans() }}" @endif>
                         <x-ui.badge :tone="$rowState->tone()">{{ $rowState->label() }}</x-ui.badge>
                     </span>
@@ -432,12 +362,6 @@
             </td>
 
             <td class="x-td-actions">
-                {{-- Each action keeps its own form inside the menu, exactly
-                     where the pre-redesign page had it, so no action gains or
-                     loses a confirmation step: only Unlink and Delete carry
-                     data-confirm, as before. The menu panel is z-index 20
-                     (components/ui-table.css), above the row's stretched-link
-                     overlay, so its controls stay clickable. --}}
                 @if($canManageShopee || $canEditCatalog)
                 @php
                     $menu = [
@@ -448,8 +372,6 @@
                     ];
                     if ($canManageShopee) {
                         if (!$link) {
-                            // One push, and it opens the listing page first when
-                            // something is missing (#149); ready rows push at once.
                             $menu['push'] = ($rowState?->ready ?? false)
                                 ? ['action' => route('ext.shopee.products.push_direct', $p->product_id), 'label' => 'Send to Shopee', 'attrs' => ['data-push-review' => route('ext.shopee.products.push_review', $p->product_id)]]
                                 : ['href' => route('ext.shopee.listings.edit', [$p->product_id, 'back' => request()->getRequestUri()]), 'label' => 'Send to Shopee', 'title' => 'Not ready yet - the listing page names what is still missing'];
@@ -477,7 +399,6 @@
             </td>
         </tr>
         @if($variationCount > 0)
-            {{-- The variations as rows of this table, under the same headers (partials.channel-variation-rows). --}}
             @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManageShopee, 'trail' => ['cc-col-stat', 'cc-col-sync', 'x-td-actions']])
         @endif
     @endforeach
@@ -487,20 +408,10 @@
 
 @endif
 
-</div>{{-- /.lsm-layout__main --}}
-</div>{{-- /.lsm-layout --}}
+</div>
+</div>
 
-{{-- Work-in-progress overlay. A push to Shopee is a multi-second round trip
-     and the page has to say so, or the operator clicks again. Rides
-     components/modals.css's .modal-backdrop show/hide mechanics, the same
-     single `.active` class partials/confirm-modal.blade.php and the orders
-     pages' own overlay already use. --}}
 <div id="shopee-listings-progress" class="modal-backdrop">
-    {{-- A dialog, and one that speaks. This overlay covers the page for
-         several seconds while a marketplace call is in flight and carried no
-         role, no name and no live region, so the only signal that anything
-         was happening was the spinner - which is to say none at all for
-         anyone not looking at it. --}}
     <div class="modal co-modal co-modal--sm" role="dialog" aria-modal="true"
          aria-labelledby="shopee-listings-progress-title" aria-describedby="shopee-listings-progress-note">
         <div class="cc-progress" role="status" aria-live="polite">
@@ -513,10 +424,6 @@
     </div>
 </div>
 
-{{-- The Add products slide-over (#201, Draft C), manage-gated like its
-     button and every route it calls. Each addition joins this store's list
-     (unpushed, the push workflow unchanged) and lands in the table behind
-     when the panel closes; the full catalogue page is the overflow. --}}
 @if($canManageShopee)
     <x-channel.add-panel
         id="shopee-add-panel"
@@ -534,7 +441,7 @@
         :full-url="route('ext.shopee.products.index', ['list' => 'add'])" />
 @endif
 
-</div>{{-- /.cc-page --}}
+</div>
 
 @if($canManageShopee)
     @include('ext-shopee::products._push_review_modal')

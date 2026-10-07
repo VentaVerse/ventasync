@@ -4,10 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Which of a product's pictures get the mark is chosen on the listing, so
- * the template no longer carries a main-image switch.
- */
 return new class extends Migration
 {
     public function up(): void

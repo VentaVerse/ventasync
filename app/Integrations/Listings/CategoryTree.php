@@ -5,38 +5,8 @@ namespace App\Integrations\Listings;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * A CHANNEL'S CATEGORIES AS A TREE, ONE LEVEL AT A TIME.
- *
- * Every channel already stores its categories with a parent, so the tree is
- * in the database and nothing here calls a marketplace. What differs is only
- * the spelling, so each channel's columns are named once below rather than
- * five pickers being written.
- *
- * DEPTH IS NEVER ASSUMED. Shopee reaches five levels, Lazada six, TikTok
- * five, and 70% of Lazada's pickable categories sit deeper than three, so a
- * caller asks for children until a node says it is a leaf.
- *
- * DEPTH IS ALSO NOT READ FROM A `level` COLUMN. Some tiers hold 0 in every
- * row of it, which would render an entire tree as roots. The parent chain is
- * the only trustworthy source, and it is what `path()` walks.
- */
 final class CategoryTree
 {
-    /**
-     * How each channel spells the same tree.
-     *
-     * table  - where the categories live
-     * id     - the marketplace's own id for a category
-     * parent - the id of the category above it
-     * leaf   - the column that says nothing is below, or null when the
-     *          channel keeps no such flag and it has to be counted
-     * store  - the column naming the store, for a channel whose categories
-     *          are the store's own rather than the marketplace's
-     * root   - what the parent column holds at the top of the tree
-     *
-     * @var array<string, array<string, mixed>>
-     */
     private const SHAPES = [
         'shopee' => ['table' => 'shopee_categories', 'id' => 'category_id', 'parent' => 'parent_id', 'leaf' => 'leaf', 'store' => null, 'root' => 0],
         'lazada' => ['table' => 'lazada_categories', 'id' => 'category_id', 'parent' => 'parent_id', 'leaf' => 'leaf', 'store' => null, 'root' => 0],
@@ -45,7 +15,6 @@ final class CategoryTree
         'woocommerce' => ['table' => 'woocommerce_categories', 'id' => 'woo_category_id', 'parent' => 'parent_id', 'leaf' => null, 'store' => 'woocommerce_setting_id', 'root' => 0],
     ];
 
-    /** How far a parent chain is followed before it is called a loop. */
     private const MAX_DEPTH = 12;
 
     public static function knows(string $channel): bool
@@ -53,13 +22,6 @@ final class CategoryTree
         return isset(self::SHAPES[$channel]) && Schema::hasTable(self::SHAPES[$channel]['table']);
     }
 
-    /**
-     * One level of the tree: the children of $parentId, or the roots when it
-     * is null. Each row says whether anything sits below it, so the caller
-     * knows to open another column or to stop.
-     *
-     * @return list<array{id: int, name: string, leaf: bool}>
-     */
     public static function children(string $channel, int $storeId, ?int $parentId = null): array
     {
         if (! self::knows($channel)) {
@@ -81,8 +43,6 @@ final class CategoryTree
             return [];
         }
 
-        /* A channel that keeps no leaf flag is asked the same question by
-           counting: a category nothing points at is the end of its branch. */
         $parents = $s['leaf'] === null
             ? self::scoped($channel, $storeId)
                 ->whereIn($s['parent'], $rows->pluck('id')->all())
@@ -98,13 +58,6 @@ final class CategoryTree
         ])->values()->all();
     }
 
-    /**
-     * The chain from the root down to this category, the category last. An
-     * id the channel does not hold answers with an empty list, which is how
-     * a listing pointing at a category the store no longer has reads.
-     *
-     * @return list<array{id: int, name: string, leaf: bool}>
-     */
     public static function path(string $channel, int $storeId, int $categoryId): array
     {
         if (! self::knows($channel) || $categoryId <= 0) {
@@ -122,8 +75,6 @@ final class CategoryTree
             }
             $row = self::scoped($channel, $storeId)->where($s['id'], $current)->first($select);
             if ($row === null) {
-                /* A chain that cannot reach the root is not half a path: the
-                   caller would open columns under a parent that is not there. */
                 return $chain === [] ? [] : [];
             }
 
@@ -140,17 +91,9 @@ final class CategoryTree
             $current = (int) $parent;
         }
 
-        // A parent that points back into its own chain: answer nothing rather than loop.
         return [];
     }
 
-    /**
-     * Categories whose name holds $q, leaves only, each with the readable
-     * path down to it. What the picker's search box shows: only a leaf can
-     * be confirmed, so only leaves are worth offering.
-     *
-     * @return list<array{id: int, name: string, path: string}>
-     */
     public static function search(string $channel, int $storeId, string $q, int $limit = 25): array
     {
         $q = trim($q);
@@ -169,8 +112,6 @@ final class CategoryTree
 
         $s['leaf'] !== null
             ? $query->where($s['leaf'], 1)
-            /* A channel that keeps no leaf flag is asked by counting: a
-               category nothing points at is the end of its branch. */
             : $query->whereNotIn($s['id'], self::scoped($channel, $storeId)->distinct()->pluck($s['parent'])->filter()->all());
 
         $rows = $query->orderBy('name')->limit(max(1, min(50, $limit)))->get([$s['id'] . ' as id', 'name']);
@@ -182,7 +123,6 @@ final class CategoryTree
         ])->values()->all();
     }
 
-    /** This channel's rows, narrowed to the store when its categories are the store's own. */
     private static function scoped(string $channel, int $storeId)
     {
         $s = self::SHAPES[$channel];
@@ -191,7 +131,6 @@ final class CategoryTree
         return $s['store'] === null ? $query : $query->where($s['store'], $storeId);
     }
 
-    /** @param array<string, mixed> $s */
     private static function whereRoot($query, array $s): void
     {
         $s['root'] === null

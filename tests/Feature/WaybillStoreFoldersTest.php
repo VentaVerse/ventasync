@@ -16,17 +16,12 @@ use Extensions\tiktok\Models\TikTokSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * Every channel keeps a store's waybills in that store's own folder, and
- * reads them back from there.
- */
 class WaybillStoreFoldersTest extends TestCase
 {
     use RefreshDatabase;
 
     private const PDF = "%PDF-1.4 waybill fixture";
 
-    /** @var array<int, string> */
     private array $written = [];
 
     protected function setUp(): void

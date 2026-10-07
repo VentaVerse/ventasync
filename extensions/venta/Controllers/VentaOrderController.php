@@ -17,17 +17,6 @@ class VentaOrderController extends Controller
 {
     use \App\Http\Controllers\Concerns\DrivesOrderFetchRuns;
 
-    // ── Courier fulfilment (#168) ───────────────────────────────────────
-    //
-    // These live on the ORDER controller rather than one of their own so
-    // they fall under the order permission pair (view_venta/order for the
-    // reads, manage_venta/order for the writes) that every operator already
-    // holds or lacks. A FulfilmentController would have minted a third key
-    // nobody has been granted. The JSON ones feed the booking modal in
-    // resources/js/pages/venta-orders.js; cancel is a plain form with the
-    // page's confirm and busy overlay, like Lazada's writes.
-
-    /** Who can carry this parcel: the booking modal's first step. */
     public function serviceability(int $store, int $order)
     {
         [$setting, $ventaOrder] = $this->storeAndOrder($store, $order);
@@ -35,7 +24,6 @@ class VentaOrderController extends Controller
         return response()->json(VentaFulfilment::for($setting)->serviceability($ventaOrder));
     }
 
-    /** Pickup slots for the chosen courier, when it offers them. */
     public function pickupSlots(Request $request, int $store, int $order)
     {
         [$setting, $ventaOrder] = $this->storeAndOrder($store, $order);
@@ -44,7 +32,6 @@ class VentaOrderController extends Controller
         return response()->json(VentaFulfilment::for($setting)->pickupSlots($ventaOrder, $courier !== '' ? $courier : null));
     }
 
-    /** A fee quote for the booking the modal is about to make. Creates nothing. */
     public function estimate(Request $request, int $store, int $order)
     {
         [$setting, $ventaOrder] = $this->storeAndOrder($store, $order);
@@ -52,11 +39,6 @@ class VentaOrderController extends Controller
         return response()->json(VentaFulfilment::for($setting)->estimate($ventaOrder, $this->bookingOptions($request)));
     }
 
-    /**
-     * Book the parcel. Answers JSON for the modal: on success the waybill
-     * URL to open and the page reloads into To Handover; on refusal the
-     * storefront's own sentence, which is what the packer needs to read.
-     */
     public function book(Request $request, int $store, int $order)
     {
         [$setting, $ventaOrder] = $this->storeAndOrder($store, $order);
@@ -67,8 +49,6 @@ class VentaOrderController extends Controller
             return response()->json(['ok' => false, 'message' => $result['message']], 422);
         }
 
-        // The page reloads after the waybill opens; this is what it says
-        // on arrival, so "booked" and "in To Handover" are both stated.
         session()->flash(($result['landing']['step'] ?? '') === 'to_handover' ? 'status' : 'warning', $result['message']);
 
         return response()->json([
@@ -81,7 +61,6 @@ class VentaOrderController extends Controller
         ]);
     }
 
-    /** Where a parcel can leave from: the modal's "Ships from" list. */
     public function pickupAddresses(int $store)
     {
         $setting = VentaSetting::where('id', $store)->where('enabled', true)->firstOrFail();
@@ -89,7 +68,6 @@ class VentaOrderController extends Controller
         return response()->json(VentaFulfilment::for($setting)->pickupAddresses());
     }
 
-    /** The store's couriers a parcel can be handed to by hand: the modal's "another courier" list. */
     public function shippingCouriers(int $store)
     {
         $setting = VentaSetting::where('id', $store)->where('enabled', true)->firstOrFail();
@@ -97,10 +75,6 @@ class VentaOrderController extends Controller
         return response()->json(VentaFulfilment::for($setting)->shippingCouriers());
     }
 
-    /**
-     * Record a shipment by hand. Answers JSON for the modal: there is no
-     * waybill to open, so success just reloads into To Handover.
-     */
     public function bookManual(Request $request, int $store, int $order)
     {
         [$setting, $ventaOrder] = $this->storeAndOrder($store, $order);
@@ -153,22 +127,11 @@ class VentaOrderController extends Controller
         return response()->json(VentaFulfilment::for($setting)->tracking($ventaOrder));
     }
 
-    /**
-     * The waybill. As JSON it answers whether one is ready, which is what
-     * the modal polls after booking; as a page it streams the cached PDF,
-     * fetching it from the storefront the first time. ?refresh=1 asks the
-     * storefront again, for a label reprinted at handover.
-     */
     public function awb(Request $request, int $store, int $order)
     {
         [$setting, $ventaOrder] = $this->storeAndOrder($store, $order);
         $fulfilment = VentaFulfilment::for($setting);
 
-        // The store is asked even when the ERP has no booking on record: a
-        // parcel booked from the storefront admin has a waybill the ERP
-        // knows nothing about until the order payload carries the booking
-        // (#169), and the store answers "no booking" itself when there is
-        // none. Refusing here would have hidden a printable label.
         $result = $fulfilment->label($ventaOrder, $request->boolean('refresh'));
 
         if ($request->expectsJson()) {
@@ -185,11 +148,6 @@ class VentaOrderController extends Controller
         ]);
     }
 
-    /**
-     * What the modal may send on to the storefront. Only these keys, only
-     * when present, so the storefront's per-courier defaults apply to
-     * anything the packer left alone.
-     */
     private function bookingOptions(Request $request): array
     {
         $data = $request->validate(VentaFulfilment::BOOKING_RULES);
@@ -197,7 +155,6 @@ class VentaOrderController extends Controller
         return array_filter($data, fn ($v) => $v !== null && $v !== '');
     }
 
-    /** @return array{0: VentaSetting, 1: VentaOrder} */
     private function storeAndOrder(int $store, int $order): array
     {
         $setting = VentaSetting::where('id', $store)->where('enabled', true)->firstOrFail();
@@ -215,13 +172,6 @@ class VentaOrderController extends Controller
         return redirect()->route('ext.venta.orders.index', $store->id);
     }
 
-    /**
-     * The store's own orders page. Everything the list is made of now lives
-     * in VentaOrdersPanel, which the fulfilment hub calls with the same
-     * request to render the same partial; this method's remaining job is the
-     * 404 for a store that does not exist, which the hub reaches by a
-     * different route (a channel key that matches no visible tab).
-     */
     public function index(Request $request, int $store, VentaOrdersPanel $panel)
     {
         VentaSetting::findOrFail($store);
@@ -229,11 +179,6 @@ class VentaOrderController extends Controller
         return view('ext-venta::orders.index', $panel->build($request, $store));
     }
 
-    /**
-     * Fetch orders, as a run of one-page steps (App\Services\OrderFetchRunner,
-     * 2026-09-07): the first pages ride this request, the page continues the
-     * rest one request per page.
-     */
     public function fetch(Request $request, int $store)
     {
         $setting = VentaSetting::where('id', $store)->where('enabled', true)->firstOrFail();
@@ -263,17 +208,10 @@ class VentaOrderController extends Controller
         return (int) $request->route('store');
     }
 
-    /** One page of the store's orders (a hundred, each with its detail), through the same pull the automation uses. */
     public function orderFetchStep(\App\Models\OrderFetchRun $run): array
     {
         $setting = VentaSetting::where('id', (int) $run->store_id)->where('enabled', true)->first();
         if (! $setting) {
-            /* A new store is created with syncing OFF and stays off until
-               somebody turns it on, so this is the first thing a freshly
-               connected store answers - and saying only "not enabled" left
-               the owner looking for a switch he had never been shown
-               (2026-09-10). An error says how to fix it or it is only half
-               an error. */
             return ['error' => 'This Venta store is not enabled, so nothing was fetched. Turn Syncing on under its Connection settings and try again.'];
         }
         $sync = new VentaOrderSync(new VentaClient($setting), $setting);

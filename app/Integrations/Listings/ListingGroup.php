@@ -7,22 +7,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
-/**
- * A listing's product group, chosen on the listing page.
- *
- * The group is the listing's template: a field the listing leaves blank
- * follows it. Picking a group here is the group page's own "Add" with
- * Move here, and "No group" is its Remove, through the same one-group
- * rule. A value the listing saves that equals its group's is stored as
- * blank, so it keeps following the group when the group changes.
- *
- * A channel describes its membership table once:
- *   pivot    the membership table
- *   fk       its group column
- *   groups   the group table
- *   storeFk  the group table's store column, null when groups are not per store
- *   storeId  this listing's store
- */
 final class ListingGroup
 {
     public static function rules(): array
@@ -33,7 +17,6 @@ final class ListingGroup
         ];
     }
 
-    /** @return array{present: bool, id: ?int} what the form's group dropdown asked for */
     public static function submitted(Request $request): array
     {
         return [
@@ -42,7 +25,6 @@ final class ListingGroup
         ];
     }
 
-    /** The group that holds this product on this store, if any. */
     public static function current(array $shape, int $productId): ?int
     {
         $id = DB::table($shape['pivot'] . ' as pv')
@@ -55,11 +37,6 @@ final class ListingGroup
         return $id !== null ? (int) $id : null;
     }
 
-    /**
-     * Put the product in $groupId on this store, or in no group when null.
-     *
-     * @param  array<string, mixed>  $extra  more columns the channel's membership row needs
-     */
     public static function assign(array $shape, int $productId, ?int $groupId, array $extra = []): void
     {
         if (self::current($shape, $productId) === $groupId) {
@@ -85,13 +62,6 @@ final class ListingGroup
         });
     }
 
-    /**
-     * Blank every field of a saved listing row that equals its group's
-     * value, so it follows the group from now on, then save the row.
-     *
-     * @param  array<string, mixed>  $groupValues  column => the group's value
-     * @param  list<list<string>>    $pairs        columns that follow only together, such as a price rule's two halves
-     */
     public static function follow(\Illuminate\Database\Eloquent\Model $row, array $groupValues, array $pairs = []): void
     {
         $paired = $pairs === [] ? [] : array_merge(...$pairs);
@@ -129,7 +99,6 @@ final class ListingGroup
         return $v === null || (is_string($v) && trim($v) === '') || (is_array($v) && $v === []);
     }
 
-    /** Whether a saved value equals the group's, so it is stored as following the group. */
     public static function same(mixed $mine, mixed $group): bool
     {
         $blank = fn ($v) => $v === null || (is_string($v) && trim($v) === '');
@@ -143,7 +112,6 @@ final class ListingGroup
         return strtolower(trim((string) $mine)) === strtolower(trim((string) $group));
     }
 
-    /** Whether two id lists hold the same ids, in any order. */
     public static function sameList(?array $mine, ?array $group): bool
     {
         $norm = fn ($l) => collect((array) $l)->map(fn ($v) => (int) $v)->filter()->unique()->sort()->values()->all();
@@ -151,14 +119,6 @@ final class ListingGroup
         return $norm($mine) === $norm($group);
     }
 
-    /**
-     * The listing's own attribute answers, less the ones equal to the
-     * group's: those follow the group.
-     *
-     * @param  array<string, mixed>  $mine
-     * @param  array<string, mixed>  $group
-     * @return array<string, mixed>
-     */
     public static function ownAnswers(array $mine, array $group): array
     {
         return array_filter($mine, fn ($v, $k) => ! (array_key_exists($k, $group) && self::same($v, $group[$k])), ARRAY_FILTER_USE_BOTH);

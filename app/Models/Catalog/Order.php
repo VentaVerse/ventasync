@@ -122,10 +122,6 @@ class Order extends BaseModel
         return $this->hasMany(\App\Models\OrderPayment::class, 'order_id', 'order_id');
     }
 
-    /**
-     * A tracking page address as a store gave it, or null when it is empty,
-     * too long for the column, or not an http(s) address.
-     */
     public static function cleanTrackingUrl(mixed $url): ?string
     {
         if (! is_string($url)) {
@@ -140,11 +136,6 @@ class Order extends BaseModel
         return in_array(strtolower((string) parse_url($url, PHP_URL_SCHEME)), ['http', 'https'], true) ? $url : null;
     }
 
-    /**
-     * Where the tracking number links: the store's own tracking page for this
-     * parcel. Null when there is no tracking number or the store gave no
-     * usable address, and the number is then shown as plain text.
-     */
     public function trackingHref(): ?string
     {
         if (trim((string) $this->tracking_number) === '') {

@@ -1,9 +1,3 @@
-/* ============================================================
-   DUAL-CURRENCY MONEY DISPLAY (order detail page)
-   PHP is always the primary, emphasised figure; the as-transacted
-   foreign figure - when there is one - sits beneath it as a secondary,
-   quieter line. See App\Support\Money and <x-money>.
-   ============================================================ */
 .money-primary {
     display: block;
     font-variant-numeric: tabular-nums;
@@ -17,11 +11,6 @@
     color: var(--bl-ink-2);
 }
 
-/* Foreign order whose exchange rate has not been recorded yet - the primary
-   figure above is unlabelled and ambiguous (could be read as either
-   currency), so this marker makes that explicit instead of silently
-   rendering identically to a genuine PHP order. Same warning tone as
-   .currency-banner--pending. */
 .money-pending {
     display: block;
     font-size: 0.72rem;
@@ -31,7 +20,6 @@
     color: var(--bl-attn-fill);
 }
 
-/* Exchange-rate banner shown above the line-items table on a foreign-currency order. */
 .currency-banner {
     display: flex;
     flex-wrap: wrap;
@@ -45,9 +33,6 @@
     font-size: 0.88rem;
 }
 
-/* Deploy-window tolerance: a foreign order whose exchange rate has not yet
-   been recorded (foreign_total IS NULL) gets a warning tone instead of the
-   normal accent, and no rate figure - see OrderController@show. */
 .currency-banner--pending {
     border-left-color: var(--bl-attn-fill);
     background: color-mix(in srgb, var(--bl-attn-fill) 10%, transparent);

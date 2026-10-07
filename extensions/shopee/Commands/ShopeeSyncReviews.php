@@ -39,7 +39,6 @@ class ShopeeSyncReviews extends Command
 
         $this->info('--- Syncing Shopee product reviews ---');
 
-        // Get unique item IDs from product links
         $itemIds = ShopeeProductLink::query()
             ->whereNotNull('shopee_item_id')
             ->where('shopee_item_id', '!=', '')
@@ -78,24 +77,18 @@ class ShopeeSyncReviews extends Command
                 $this->warn("  Error for item {$itemId}: " . $e->getMessage());
             }
 
-            usleep(200000); // 200ms rate limit between items
+            usleep(200000);
         }
 
-        $store->forceFill(['last_review_sync_at' => now()])->save(); // this store's stamp, not every store's
+        $store->forceFill(['last_review_sync_at' => now()])->save();
 
         $this->info("  Reviews: {$created} new, {$updated} updated" . ($errors > 0 ? ", {$errors} item error(s)" : ''));
         $this->info('Done.');
         return 0;
     }
 
-    /**
-     * Sync reviews for a single Shopee item using cursor-based pagination.
-     *
-     * @return array [created, updated]
-     */
     private function syncItemReviews(ShopeeClient $client, array $auth, string $itemId, ?int $lastSync, int $days): array
     {
-        // Resolve product_id from product links
         $link = ShopeeProductLink::query()
             ->where('shopee_item_id', $itemId)
             ->first();
@@ -103,7 +96,7 @@ class ShopeeSyncReviews extends Command
 
         $created = 0;
         $updated = 0;
-        $cursor = 0; // comment_id cursor; 0 = start from newest
+        $cursor = 0;
         $pageSize = 100;
         $maxPages = 20;
 
@@ -140,7 +133,6 @@ class ShopeeSyncReviews extends Command
                 $msg = is_array($body) ? ($body['message'] ?? 'API error') : 'API error';
                 $errorStr = is_array($body) ? ($body['error'] ?? '') : '';
 
-                // If item not found or no permission, skip silently
                 if (in_array($errorStr, ['error_not_found', 'error_permission'])) {
                     break;
                 }
@@ -164,14 +156,12 @@ class ShopeeSyncReviews extends Command
                 $commentId = (string) ($c['comment_id'] ?? '');
                 if ($commentId === '') continue;
 
-                // Check if this review is older than our last sync
                 $createTime = $c['create_time'] ?? null;
                 if ($lastSync && $createTime && (int) $createTime < $lastSync) {
                     $hitOldReview = true;
-                    continue; // Skip saving reviews older than the target date
+                    continue;
                 }
 
-                // Extract images (check media.image_url_list + legacy fields)
                 $images = [];
                 $media = $c['media'] ?? [];
                 $imageList = $media['image_url_list'] ?? $c['images'] ?? $c['image_list'] ?? [];
@@ -182,7 +172,6 @@ class ShopeeSyncReviews extends Command
                     }
                 }
 
-                // Extract videos (check media.video_url_list + legacy fields)
                 $videos = [];
                 $videoList = $media['video_url_list'] ?? $c['videos'] ?? $c['video_list'] ?? [];
                 if (is_array($videoList)) {
@@ -192,7 +181,6 @@ class ShopeeSyncReviews extends Command
                     }
                 }
 
-                // Seller reply
                 $reply = null;
                 $repliedAt = null;
                 $sellerReply = $c['reply'] ?? $c['seller_reply'] ?? null;
@@ -237,22 +225,19 @@ class ShopeeSyncReviews extends Command
                 }
             }
 
-            // Stop paginating if we've hit old reviews from a previous sync
             if ($hitOldReview && $lastSync) {
                 break;
             }
 
-            // Check for more pages
             $hasMore = (bool) ($respData['has_more'] ?? ($respData['more'] ?? false));
             if (!$hasMore) break;
 
-            // Set cursor to last comment_id for next page
             $lastComment = end($commentList);
             $nextCursor = (int) ($lastComment['comment_id'] ?? 0);
             if ($nextCursor === 0 || $nextCursor === $cursor) break;
             $cursor = $nextCursor;
 
-            usleep(200000); // 200ms between pages
+            usleep(200000);
         }
 
         return [$created, $updated];

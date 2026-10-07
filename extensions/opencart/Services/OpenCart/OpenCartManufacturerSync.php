@@ -12,7 +12,6 @@ class OpenCartManufacturerSync
     private OpenCartClient $client;
     private OpenCartSetting $setting;
 
-    /** @var array<int,int> oc_manufacturer_id → core manufacturer_id */
     private array $manufacturerMap = [];
 
     public function __construct(OpenCartClient $client, OpenCartSetting $setting)
@@ -21,9 +20,6 @@ class OpenCartManufacturerSync
         $this->setting = $setting;
     }
 
-    /**
-     * @return array{log: OpenCartSyncLog, map: array<int,int>}
-     */
     public function pull(): array
     {
         $log = OpenCartSyncLog::create([
@@ -56,7 +52,6 @@ class OpenCartManufacturerSync
                     $name = trim($raw['name'] ?? '');
                     if ($name === '') continue;
 
-                    // Match by name
                     $existing = DB::table($pfx . 'manufacturer')
                         ->where('name', $name)
                         ->select('manufacturer_id')

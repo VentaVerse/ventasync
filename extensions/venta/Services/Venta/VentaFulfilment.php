@@ -9,25 +9,8 @@ use Extensions\venta\Models\VentaSetting;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
-/**
- * Courier fulfilment of a storefront order, run from the ERP (#168).
- *
- * The storefront owns the courier integration: it knows QuadX, SPX and LBC,
- * holds the credentials, and moves its own order status when a parcel is
- * booked or a booking is cancelled. This class does not know any courier.
- * It asks the storefront, records what the storefront answered on the ERP's
- * mirror row, and then re-reads the order so the row lands in the step the
- * storefront put it in. That re-read is what makes "book" move a row from
- * To Pack to To Handover in one click rather than after the next pull.
- *
- * Everything returns arrays shaped for the controller: ok, message, and
- * whatever the storefront said, never an exception for a refusal. A
- * refusal ("courier unavailable", "address not serviceable") is an answer
- * the packer needs to read, not an error.
- */
 class VentaFulfilment
 {
-    /** What a booking may send on to the storefront, from the web's modal or the app. */
     public const BOOKING_RULES = [
         'courier'           => ['nullable', 'string', 'max:32'],
         'service'           => ['nullable', 'string', 'max:64'],
@@ -54,7 +37,6 @@ class VentaFulfilment
         return new self($setting, new VentaClient($setting));
     }
 
-    /** @return array{ok: bool, message: string, couriers: array<string, array>, all_refused: bool} */
     public function serviceability(VentaOrder $order): array
     {
         $res = $this->client->serviceability((int) $order->venta_order_id);
@@ -66,14 +48,7 @@ class VentaFulfilment
 
         $couriers = is_array($body['couriers'] ?? null) ? $body['couriers'] : [];
 
-        // Each courier's answer carries what a booking with it can choose
-        // and what it chooses by default, so the modal's second step is the
-        // storefront's own: the storefront's lists when it sends them, the
-        // ERP's copy of them until it does.
         foreach ($couriers as $key => $verdict) {
-            // Options first in the union: they already prefer what the
-            // store sent, field by field, and fill the rest; the verdict's
-            // own keys (status, kind, reason, fees, from) pass through.
             $verdict = is_array($verdict) ? $verdict : [];
             $couriers[$key] = VentaCourierOptions::for((string) $key, $verdict) + $verdict;
         }
@@ -86,13 +61,6 @@ class VentaFulfilment
         ];
     }
 
-    /**
-     * Where a parcel can leave from: the store's saved pickup addresses,
-     * default first. An empty list means the store's default address
-     * applies and the modal offers no choice.
-     *
-     * @return array{ok: bool, message: string, addresses: list<array{id: int, label: string, summary: string, is_default: bool}>}
-     */
     public function pickupAddresses(): array
     {
         $res = $this->client->pickupAddresses();
@@ -122,7 +90,6 @@ class VentaFulfilment
         return ['ok' => true, 'message' => '', 'addresses' => $addresses];
     }
 
-    /** @return array{ok: bool, message: string, slots: array<int, array{value: string, label: string}>} */
     public function pickupSlots(VentaOrder $order, ?string $courier): array
     {
         $res = $this->client->pickupSlots((int) $order->venta_order_id, $courier);
@@ -135,7 +102,6 @@ class VentaFulfilment
         return ['ok' => true, 'message' => '', 'slots' => is_array($body['slots'] ?? null) ? array_values($body['slots']) : []];
     }
 
-    /** @return array{ok: bool, message: string, label: string, amount: ?float, currency: ?string, insurance: mixed, total: ?float} */
     public function estimate(VentaOrder $order, array $opts): array
     {
         $res = $this->client->estimate((int) $order->venta_order_id, $opts);
@@ -156,14 +122,6 @@ class VentaFulfilment
         ];
     }
 
-    /**
-     * Book the parcel. On success the ERP row carries the booking at once
-     * (courier, tracking number, courier status, when) and is then re-read
-     * from the storefront so its order status, and with it its step, is
-     * whatever the storefront moved it to.
-     *
-     * @return array{ok: bool, message: string, already_booked: bool, courier: ?string, tracking_number: ?string}
-     */
     public function book(VentaOrder $order, array $opts): array
     {
         $res = $this->client->bookCourier((int) $order->venta_order_id, $opts);
@@ -208,11 +166,6 @@ class VentaFulfilment
         ];
     }
 
-    /**
-     * The store's couriers a parcel can be handed to by hand.
-     *
-     * @return array{ok: bool, message: string, couriers: list<array{id: int, name: string, tracking_url: ?string}>}
-     */
     public function shippingCouriers(): array
     {
         $res = $this->client->shippingCouriers();
@@ -241,15 +194,6 @@ class VentaFulfilment
         return ['ok' => true, 'message' => '', 'couriers' => $couriers];
     }
 
-    /**
-     * Record a shipment by hand: a courier off the store's list and a
-     * tracking number. The ERP row carries it at once under the 'manual'
-     * provider with the courier's name, and is re-read so its step is
-     * whatever the store moved it to.
-     *
-     * @param  array{shipping_courier_id?: int, courier_name?: string, tracking_number?: string, comment?: string}  $opts
-     * @return array{ok: bool, message: string, courier_name: ?string, tracking_number: ?string}
-     */
     public function bookManual(VentaOrder $order, array $opts): array
     {
         $res = $this->client->bookManual((int) $order->venta_order_id, array_filter([
@@ -300,7 +244,6 @@ class VentaFulfilment
         ];
     }
 
-    /** Undo a shipment recorded by hand. @return array{ok: bool, message: string} */
     public function clearManual(VentaOrder $order): array
     {
         $res = $this->client->clearManual((int) $order->venta_order_id);
@@ -326,7 +269,6 @@ class VentaFulfilment
         return ['ok' => true, 'message' => (string) ($body['message'] ?? 'Shipment cleared. The order is back in To Pack.')];
     }
 
-    /** @return array{ok: bool, message: string} */
     public function cancel(VentaOrder $order): array
     {
         $res = $this->client->cancelBooking((int) $order->venta_order_id);
@@ -359,7 +301,6 @@ class VentaFulfilment
         return ['ok' => true, 'message' => (string) ($body['message'] ?? 'Booking cancelled. The order is back in To Pack.')];
     }
 
-    /** @return array{ok: bool, message: string, courier: ?string, tracking_number: ?string, status: ?string, timeline: array, links: array} */
     public function tracking(VentaOrder $order): array
     {
         $res = $this->client->tracking((int) $order->venta_order_id);
@@ -369,8 +310,6 @@ class VentaFulfilment
             return ['ok' => false, 'message' => self::errorFrom($body, 'Tracking is not available for this order.'), 'courier' => null, 'tracking_number' => null, 'status' => null, 'timeline' => [], 'links' => []];
         }
 
-        // The storefront refreshed its own record on the way through; keep
-        // the mirror's courier status in step with it.
         if (! empty($body['status']) && $order->courier_status !== $body['status']) {
             $order->forceFill(['courier_status' => (string) $body['status']])->save();
         }
@@ -386,17 +325,6 @@ class VentaFulfilment
         ];
     }
 
-    /**
-     * The waybill as a local PDF path, fetching and caching it on first
-     * use. Null with a message when there is nothing to print.
-     *
-     * The storefront answers either with the PDF itself (couriers whose own
-     * link is perishable, SPX) or with the courier's URL. Both end up as one
-     * cached file here, so a reprint at handover never asks the courier
-     * twice and works even when the courier's link has expired.
-     *
-     * @return array{ok: bool, message: string, path: ?string}
-     */
     public function label(VentaOrder $order, bool $refresh = false): array
     {
         $path = $this->labelPath($order);
@@ -460,11 +388,6 @@ class VentaFulfilment
         }
     }
 
-    /**
-     * Re-read the order after a write. A failure here is logged and
-     * swallowed: the booking itself succeeded, and the next scheduled pull
-     * will bring the status across anyway.
-     */
     private function refresh(VentaOrder $order): void
     {
         try {
@@ -480,14 +403,6 @@ class VentaFulfilment
         }
     }
 
-    /**
-     * Where the store put the order after a write, in the queue's own
-     * words: which status, and which step that status sits in here. The
-     * packer reads this on the row's reload, because "booked" and "moved
-     * to To Handover" are two different facts and only the second one is
-     * what they are watching for. A status the store placed somewhere
-     * else is named, with where to fix it.
-     */
     public function landing(VentaOrder $order): array
     {
         $status = trim((string) $order->status);

@@ -6,32 +6,6 @@ use App\Support\LineCost;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Give every variation its parent's cost amount and additional, and compose
- * its unit cost from them. The owner, 2026-08-27, after the 2026-08-22 formula
- * and a purchase-order write into the wrong column left variations costed
- * at overhead only, or at double the parent, and the order lines that were
- * re-read from them wrong with them.
- *
- * Per variation (product_option_value and product_option_combinations):
- *
- *   cost_amount     = parent cost_amount
- *   cost_additional = parent cost_additional
- *   absolute_cost   = cost_amount + (parent cost_percentage / 100 * own price)
- *                     + cost_additional
- *   cost            = 0   (OpenCart's +/- delta column; a PO used to write
- *                          the unit TOTAL here and it read as a delta)
- *
- * By default only a variation with no cost of its own is filled (the same
- * reading as LineCost: an amount, or a figure typed before the formula
- * existed), so a figure typed for one size or received on a PO is kept; --overwrite gives
- * every variation the parent's regardless. A variation that already has an
- * amount but no absolute (a PO received before absolute_cost was written)
- * gets its absolute composed either way. Dry by default; --apply writes.
- *
- * Follow with orders:backfill-costs --force --from=<date> --apply so the
- * order lines are re-read from the repaired catalogue.
- */
 class BackfillVariationCosts extends Command
 {
     protected $signature = 'catalog:backfill-variation-costs
@@ -72,7 +46,6 @@ class BackfillVariationCosts extends Command
             $add = (float) $p->cost_additional;
 
             if ($amount <= 0 && (float) $p->cost <= 0) {
-                // Nothing to give. The parent itself needs a cost first.
                 $parentsWithoutCost++;
                 continue;
             }
@@ -96,9 +69,6 @@ class BackfillVariationCosts extends Command
                 $ownAmount = $take ? $amount : (float) $v->cost_amount;
                 $ownAdd = $take ? $add : (float) $v->cost_additional;
                 $price = (float) $v->absolute_price > 0 ? (float) $v->absolute_price : (float) $p->price;
-                // A kept row with an amount is composed; a kept row typed as
-                // one number before the formula has nothing to compose from
-                // and keeps its absolute as it is.
                 $newAbsolute = ($take || (float) $v->cost_amount > 0)
                     ? $unit($ownAmount, $ownAdd, $price)
                     : (float) $v->absolute_cost;

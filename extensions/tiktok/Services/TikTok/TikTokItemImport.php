@@ -9,21 +9,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-/**
- * Import a TikTok Shop product into the core catalog (#196), Shopee's
- * importer in TikTok's anatomy: core fields map to the core - name,
- * SKU, price, stock, parcel, description, images, variations from
- * sales attributes - TikTok-only details ride the product's tiktok
- * listing record (category, the seller_sku -> id map that stock and
- * price pushes need), and the link is the listing row itself.
- */
 class TikTokItemImport
 {
     public function __construct(private readonly TikTokClient $client)
     {
     }
 
-    /** @return array{ok: bool, product_id?: int, message: string} */
     public function import(array $c, string $tiktokProductId): array
     {
         try {
@@ -44,7 +35,6 @@ class TikTokItemImport
         $sellerSku = trim((string) ($first['seller_sku'] ?? ''));
         $hasVariations = count($skus) > 1;
 
-        // The leaf of the category chain, or the bare id, whichever answers.
         $categoryId = (string) (collect((array) data_get($d, 'category_chains', []))
             ->firstWhere('is_leaf', true)['id'] ?? data_get($d, 'category_chains.0.id') ?? data_get($d, 'category_id') ?? '');
 
@@ -52,9 +42,6 @@ class TikTokItemImport
         $langId = (int) config('catalog.default_language_id');
 
         try {
-            /* Ready the moment it lands (the owner, 2026-09-07): the category's
-             * attribute sheet is read now, so readiness can check the answers
-             * the product brought. A sheet TikTok will not hand over changes nothing. */
             if ($categoryId !== '') {
                 try {
                     app(TikTokAttributes::class)->ensureTemplate($categoryId, $this->client, $c);
@@ -68,7 +55,6 @@ class TikTokItemImport
                     'sku' => $hasVariations ? '' : $sellerSku,
                     'quantity' => $qty,
                     'price' => $price,
-                    // Live on TikTok Shop already; arriving disabled would misstate reality.
                     'status' => 1,
                     'image' => '',
                     'weight' => (float) (data_get($d, 'package_weight.value') ?? data_get($d, 'package_weight') ?? 0),
@@ -105,10 +91,6 @@ class TikTokItemImport
                     $this->writeVariations($productId, $skus, $tiktokProductId);
                 }
 
-                /* TikTok-only details ride the listing record: the category,
-                 * the title, and the seller_sku -> id map every stock and
-                 * price push reads. The listing row IS the link on this
-                 * channel, so the import is listed the moment it lands. */
                 $skuMap = [];
                 foreach ($skus as $s) {
                     $ss = trim((string) ($s['seller_sku'] ?? ''));
@@ -123,9 +105,6 @@ class TikTokItemImport
                         'tiktok_product_id' => $tiktokProductId,
                         'tiktok_sku_id' => $skuMap !== [] ? json_encode($skuMap) : null,
                         'tiktok_category_id' => $categoryId !== '' ? $categoryId : null,
-                        // The brand and the attribute answers the product carries, keyed the
-                        // way the sheet keys them (attribute id => value name), so the listing
-                        // is ready at once and the next Update sends them back unchanged.
                         'brand_id' => trim((string) data_get($d, 'brand.id', '')) ?: null,
                         'brand_name' => trim((string) data_get($d, 'brand.name', '')) ?: null,
                         'attribute_values' => collect((array) ($d['product_attributes'] ?? []))
@@ -146,11 +125,6 @@ class TikTokItemImport
         }
 
 
-        /* A product this application holds always has a code
-         * (the owner, 2026-09-09). The store is free to have none;
-         * the SKU is what every push sends and every link check
-         * searches by, so a blank one is minted from the
-         * product's own id and said out loud below. */
         $minted = \App\Support\Catalog\SkuFallback::fill((int) $productId);
 
         return [
@@ -179,7 +153,6 @@ class TikTokItemImport
         return (int) array_sum(array_map(fn ($inv) => (int) ($inv['quantity'] ?? 0), (array) ($sku['inventory'] ?? [])));
     }
 
-    /** Variations from sales_attributes: one or two axes, the form writer's shapes. */
     private function writeVariations(int $productId, array $skus, string $tiktokProductId): void
     {
         $axes = [];
@@ -226,7 +199,6 @@ class TikTokItemImport
             ->saveAbsoluteOptions($productId, Request::create('/', 'POST', $data));
     }
 
-    /** @return list<string> public-disk relative paths, in the order given */
     private function downloadImages(array $urls, string $productId): array
     {
         $paths = [];
@@ -235,13 +207,9 @@ class TikTokItemImport
             if ($url === '' || ! preg_match('#^https://#i', $url)) {
                 continue;
             }
-            /* The shared SSRF guard (App\Support\RemoteImage,
-             * 2026-09-04): the URL is the channel's data, so it is
-             * https-only, resolved-and-checked against private ranges,
-             * and never allowed to redirect. */
             $img = \App\Support\RemoteImage::fetch($url);
             if ($img === null) {
-                continue; // a photo is never a reason to fail an import
+                continue;
             }
             $rel = 'catalog/import/tiktok/' . $productId . '/' . $i . '.' . $img['ext'];
             Storage::disk('public')->put($rel, $img['body']);

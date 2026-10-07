@@ -21,12 +21,6 @@ class VentaClient
 
     private function http(): PendingRequest
     {
-        // Retry only what a retry can fix: a dropped connection or the
-        // storefront falling over. A 4xx is an answer ("courier unavailable",
-        // "not serviceable", "no booking to print") and is handed back as
-        // the response it is, body intact, rather than thrown away as an
-        // exception whose message is a status code. The refusal's own
-        // sentence is what the packer needs to read.
         return Http::timeout(30)->connectTimeout(5)
             ->retry(2, 300, function ($exception) {
                 return $exception instanceof ConnectionException
@@ -49,7 +43,6 @@ class VentaClient
 
         $responseBody = $result['body'] ?? [];
 
-        // Truncate large payloads to prevent DB bloat
         $reqJson = $requestBody ? json_encode($requestBody) : null;
         $resJson = json_encode($responseBody);
         if ($reqJson && strlen($reqJson) > 10000) {
@@ -195,8 +188,6 @@ class VentaClient
         return $result;
     }
 
-    // ── Convenience: Catalog ─────────────────────────────────
-
     public function getCategories(bool $activeOnly = false): array
     {
         $params = $activeOnly ? ['active_only' => 1] : [];
@@ -208,8 +199,6 @@ class VentaClient
         $params = $activeOnly ? ['active_only' => 1] : [];
         return $this->get('brands', $params);
     }
-
-    // ── Convenience: Products ────────────────────────────────
 
     public function getProducts(int $perPage = 50, ?string $updatedSince = null, ?string $sku = null): array
     {
@@ -234,8 +223,6 @@ class VentaClient
         return $this->put("products/{$sku}", $data);
     }
 
-    // ── Convenience: Variants ────────────────────────────────
-
     public function getVariants(string $productSku): array
     {
         return $this->get("products/{$productSku}/variants");
@@ -245,8 +232,6 @@ class VentaClient
     {
         return $this->put("variants/{$variantSku}", $data);
     }
-
-    // ── Convenience: Orders ──────────────────────────────────
 
     public function getOrders(int $perPage = 20, ?string $since = null, ?int $statusId = null, int $page = 1): array
     {
@@ -261,33 +246,22 @@ class VentaClient
         return $this->get("orders/{$orderId}");
     }
 
-    // ── Courier fulfilment (#168) ───────────────────────────────────────
-    //
-    // The storefront owns the courier integration and runs the booking
-    // through the same code its own queue uses; these are the ERP-facing
-    // endpoints its courier-fulfillment extension publishes. The order id
-    // throughout is the STOREFRONT's order id (venta_orders.venta_order_id),
-    // never the ERP row id.
-
-    /** Every configured courier's answer to "can you carry this parcel". */
     public function serviceability(int $orderId): array
     {
         return $this->get("orders/{$orderId}/serviceability");
     }
 
-    /** Pickup slots a courier offers for this order; empty for couriers without slot booking. */
     public function pickupSlots(int $orderId, ?string $courier = null): array
     {
         return $this->get("orders/{$orderId}/pickup-slots", array_filter(['courier' => $courier]));
     }
 
-    /** A fee quote for a booking about to be made. Creates nothing. */
     public function estimate(int $orderId, array $opts): array
     {
         return $this->post("orders/{$orderId}/estimate", $opts);
     }
 
-    /** Book the parcel with a courier. Idempotent while a booking is active. */
+    // Idempotent while a booking is active.
     public function bookCourier(int $orderId, array $opts): array
     {
         return $this->post("orders/{$orderId}/book-courier", $opts);
@@ -298,24 +272,16 @@ class VentaClient
         return $this->post("orders/{$orderId}/cancel-booking");
     }
 
-    /** Where a parcel can leave from: the store's saved pickup addresses. */
     public function pickupAddresses(): array
     {
         return $this->get('pickup-addresses');
     }
 
-    /** The store's own list of couriers a parcel can be handed to by hand. */
     public function shippingCouriers(): array
     {
         return $this->get('shipping-couriers', ['active_only' => 1]);
     }
 
-    /**
-     * Record a shipment with a courier the store does not integrate with:
-     * a name off the store's list and a tracking number, no API call to
-     * any courier, no waybill. The store moves the order the way its own
-     * "Record shipment" form does.
-     */
     public function bookManual(int $orderId, array $opts): array
     {
         return $this->post("orders/{$orderId}/book-manual", $opts);
@@ -326,21 +292,11 @@ class VentaClient
         return $this->post("orders/{$orderId}/clear-manual");
     }
 
-    /** Live tracking; the storefront refreshes its own record on the way through. */
     public function tracking(int $orderId): array
     {
         return $this->get("orders/{$orderId}/tracking");
     }
 
-    /**
-     * The shipping label. The storefront answers one of two ways: the PDF
-     * itself when it has cached the courier's perishable link, or JSON
-     * carrying the courier's own URL. Both are returned as they are, with
-     * the PDF bytes under 'pdf' so a caller can tell which it got, and the
-     * bytes are never written to the API log.
-     *
-     * @return array{ok: bool, status: int, body: array, pdf: ?string}
-     */
     public function label(int $orderId, string $format = 'zebra'): array
     {
         $path = "orders/{$orderId}/label";
@@ -382,8 +338,6 @@ class VentaClient
         return $this->put("orders/{$orderId}/status", $data);
     }
 
-    // ── Convenience: Stock ───────────────────────────────────
-
     public function pushStock(string $sku, int $quantity): array
     {
         return $this->put("products/{$sku}", ['quantity' => $quantity]);
@@ -394,14 +348,10 @@ class VentaClient
         return $this->put("variants/{$variantSku}", ['quantity' => $quantity]);
     }
 
-    // ── Convenience: Reviews ────────────────────────────────
-
     public function createReview(array $data): array
     {
         return $this->post('reviews', $data);
     }
-
-    // ── Connectivity ─────────────────────────────────────────
 
     public function ping(): array
     {

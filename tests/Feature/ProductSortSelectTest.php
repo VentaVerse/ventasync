@@ -9,14 +9,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * The products page's sort select (the owner, 2026-09-04). The column
- * headers already sorted - but on the phone this table scrolls sideways
- * and the header you want is off-screen, and no header offers
- * "recently updated". One select carries
- * field and direction as one decision, and the default is newest first:
- * the products you just made are the ones you came to work on.
- */
 class ProductSortSelectTest extends TestCase
 {
     use RefreshDatabase;

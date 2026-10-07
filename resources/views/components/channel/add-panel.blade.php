@@ -1,23 +1,3 @@
-{{-- The Add products slide-over (#201, Draft C - the owner 2026-09-05).
-
-     One component for every surface that adds products to a list in place:
-     a store's Listings (the Master Catalog into this store) and a product
-     group's page (this store's products into the group). The page supplies
-     the two endpoints and the words; the behaviour is the shared module
-     resources/js/pages/channel-add-panel.js, bound from the data- attributes
-     on the root. Every URL rides an attribute, never a Blade-built string in
-     script.
-
-     A page that passes $groups asks which of the store's product groups the
-     products go into, starting on the group the page is standing in.
-
-     A slide-over cannot list a whole catalogue, so the search is the way
-     through: results are capped by the server and the meta line says how
-     much is out of view. A surface with a full-page overflow passes
-     $fullUrl and the footer links to it.
-
-     Rides .modal-backdrop's fixed scrim and .active show/hide, the mechanism
-     every other dialog uses. --}}
 @props([
     'id',
     'searchUrl',
@@ -34,8 +14,6 @@
     'listLabel' => 'Products',
     'fullUrl' => null,
     'fullLabel' => 'Browse the full catalogue',
-    // The store's product groups (id => name) to add into; null leaves the
-    // choice out. $group is the one chosen when the window opens.
     'groups' => null,
     'group' => null,
 ])

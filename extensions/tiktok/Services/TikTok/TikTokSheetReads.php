@@ -7,12 +7,10 @@ use Extensions\tiktok\Models\TikTokCategoryTemplate;
 use Extensions\tiktok\Models\TikTokListing;
 use Extensions\tiktok\Models\TikTokProductGroup;
 
-/** The attribute sheets this store's listings and groups use and have never read. */
 class TikTokSheetReads
 {
     public function __construct(private TikTokAttributes $attributes) {}
 
-    /** @return array{read: int, failed: int, left: int, summary: string} */
     public function readMissing(array $c, TikTokClient $client, int $limit = SheetReads::PER_RUN): array
     {
         $wanted = TikTokListing::query()->whereNotNull('tiktok_category_id')->distinct()->pluck('tiktok_category_id')

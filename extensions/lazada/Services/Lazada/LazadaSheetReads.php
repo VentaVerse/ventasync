@@ -8,14 +8,8 @@ use Extensions\lazada\Models\LazadaCategoryTemplate;
 use Extensions\lazada\Models\LazadaProduct;
 use Extensions\lazada\Models\LazadaProductGroup;
 
-/**
- * The attribute sheets this store's listings and groups use and have
- * never read. Lazada files a sheet per region, so a sheet read for
- * another region's store does not count.
- */
 class LazadaSheetReads
 {
-    /** @return array{read: int, failed: int, left: int, summary: string} */
     public function readMissing(object $setting, LazadaClient $client, int $limit = SheetReads::PER_RUN): array
     {
         $region = (string) ($setting->region ?? '');

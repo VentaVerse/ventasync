@@ -13,13 +13,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * #200: API logging grows a middle setting. The owner wants it ON
- * permanently, but the every-minute order fetch eats the database -
- * "errors only" keeps the rows that explain a problem and drops the
- * routine noise. One writer per family proves the gate; the matrix
- * proves the vocabulary.
- */
 class ApiLogModeTest extends TestCase
 {
     use RefreshDatabase;
@@ -39,7 +32,6 @@ class ApiLogModeTest extends TestCase
 
     public function test_the_mode_vocabulary(): void
     {
-        // all: everything lands. errors: only failures land. off: nothing.
         $this->assertTrue(ApiLogMode::shouldLog('all', true));
         $this->assertTrue(ApiLogMode::shouldLog('all', false));
         $this->assertFalse(ApiLogMode::shouldLog('errors', true));
@@ -47,7 +39,6 @@ class ApiLogModeTest extends TestCase
         $this->assertFalse(ApiLogMode::shouldLog('off', true));
         $this->assertFalse(ApiLogMode::shouldLog('off', false));
 
-        // A misspelled or missing mode must never silently stop the log.
         $this->assertTrue(ApiLogMode::shouldLog(null, true));
         $this->assertTrue(ApiLogMode::shouldLog('loud', false));
     }
@@ -79,8 +70,6 @@ class ApiLogModeTest extends TestCase
     public function test_the_panel_filters_and_pages_without_losing_the_tab(): void
     {
         $store = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main', 'api_log_mode' => 'all']);
-        // Paths of their own: the page also renders the API explorer's
-        // endpoint catalog, which names the real Shopee paths.
         for ($i = 0; $i < 55; $i++) {
             ShopeeApiLog::create(['method' => 'GET', 'api_path' => '/test/quiet_routine_fetch', 'ok' => true, 'response_status' => 200]);
         }
@@ -93,15 +82,12 @@ class ApiLogModeTest extends TestCase
         );
         $user = \App\Models\User::factory()->create(['user_group_id' => $group->id]);
 
-        // Errors only: the one failure shows, the 55 routine fetches do not.
         $html = $this->actingAs($user)
             ->get(route('ext.shopee.settings.show', ['store' => $store->id, 'tab' => 'logs', 'log_show' => 'errors']))
             ->assertOk()->getContent();
         $this->assertStringContainsString('/test/rare_failure', $html);
         $this->assertStringNotContainsString('/test/quiet_routine_fetch', $html);
 
-        // Unfiltered, 56 rows page at 50 - and the pager keeps the tab, so
-        // page 2 still lands on the Logs panel.
         $html = $this->actingAs($user)
             ->get(route('ext.shopee.settings.show', ['store' => $store->id, 'tab' => 'logs']))
             ->assertOk()->getContent();
@@ -109,7 +95,6 @@ class ApiLogModeTest extends TestCase
         $this->assertMatchesRegularExpression('/href="[^"]*tab=logs[^"]*logPage=2|href="[^"]*logPage=2[^"]*tab=logs/', $html,
             'the pager carries ?tab=logs, so paging never leaves the panel');
 
-        // The path filter narrows.
         $html = $this->actingAs($user)
             ->get(route('ext.shopee.settings.show', ['store' => $store->id, 'tab' => 'logs', 'log_q' => 'rare_failure']))
             ->assertOk()->getContent();

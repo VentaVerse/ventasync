@@ -4,17 +4,10 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Every channel's listing gets its own starting price, which the price rule
- * is added to, and its own parcel where it had none. Blank follows the
- * catalog, as every listing field does. Guarded, so a tier that already has
- * a column is left as it is.
- */
 return new class extends Migration
 {
     private const TABLES = ['shopee_listings', 'lazada_products', 'tiktok_listings', 'venta_listings', 'woocommerce_listings'];
 
-    /** The parcel columns, in Shopee's own types. */
     private const PARCEL = ['weight', 'package_length', 'package_width', 'package_height'];
 
     public function up(): void
@@ -45,7 +38,6 @@ return new class extends Migration
             if (! Schema::hasTable($table)) {
                 continue;
             }
-            // Shopee had its parcel before this migration; only its price is new.
             $columns = $table === 'shopee_listings' ? ['price'] : array_merge(['price'], self::PARCEL);
             $columns = array_values(array_filter($columns, fn ($c) => Schema::hasColumn($table, $c)));
             if ($columns !== []) {

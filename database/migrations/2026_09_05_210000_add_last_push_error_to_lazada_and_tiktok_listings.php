@@ -5,12 +5,6 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * One latest push error per product, Lazada and TikTok (the owner,
- * 2026-09-05), the Shopee shape: the listing row every surface reads
- * carries the latest refusal, written by every push path and cleared on
- * success. Backfilled from the group pivots' failed attempts.
- */
 return new class extends Migration
 {
     public function up(): void
@@ -29,7 +23,6 @@ return new class extends Migration
             });
         }
 
-        // Lazada: the pivot names its listing row outright.
         if (Schema::hasTable('lazada_product_group_products') && Schema::hasColumn('lazada_product_group_products', 'push_error')) {
             $failed = DB::table('lazada_product_group_products')
                 ->where('sync_status', 'error')->whereNotNull('push_error')->whereNotNull('lazada_product_id')
@@ -41,7 +34,6 @@ return new class extends Migration
             }
         }
 
-        // TikTok: the store comes from the group; the listing row is (store, product).
         if (Schema::hasTable('tiktok_product_group_products') && Schema::hasColumn('tiktok_product_group_products', 'push_error')) {
             $failed = DB::table('tiktok_product_group_products as pv')
                 ->join('tiktok_product_groups as g', 'g.id', '=', 'pv.tiktok_product_group_id')

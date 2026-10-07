@@ -7,14 +7,8 @@ use Extensions\shopee\Models\ShopeeProductLink;
 use Extensions\shopee\Models\ShopeeSetting;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Push Stock and Push Price as steps for Run now (SteppableAutomation,
- * 2026-09-07): a unit is "storeId:productId", a step pushes its products
- * through the same sender the cron and the buttons use.
- */
 final class ShopeePushSteps
 {
-    /** @return list<string> */
     public static function units(): array
     {
         $pfx = (string) config('catalog.prefix');
@@ -33,7 +27,6 @@ final class ShopeePushSteps
         return $units;
     }
 
-    /** @param 'stock'|'price' $kind @param list<string> $units */
     public static function step(string $kind, array $units): array
     {
         $pfx = (string) config('catalog.prefix');

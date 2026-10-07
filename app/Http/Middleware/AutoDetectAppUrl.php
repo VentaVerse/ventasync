@@ -7,32 +7,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * Auto-detect APP_URL on the first web request that arrives while the .env
- * still holds a placeholder host (your-domain.com, example.com, localhost, …).
- *
- * Rationale: a fresh install ships with APP_URL=https://your-domain.com. Until
- * that is corrected, route() falls back to the placeholder in non-HTTP contexts
- * (queues, scheduled commands, mail) and helpers that read config('app.url')
- * directly produce unreachable URLs (Lazada/Shopee image migration, etc).
- *
- * Forcing the operator to edit .env on day one is unfriendly. Instead, this
- * middleware detects the real hostname from the incoming request, writes
- * APP_URL into .env once, and clears the bootstrap config cache so subsequent
- * processes pick up the new value.
- *
- * Security notes:
- *   - Only rewrites while APP_URL host is in the placeholder list. Once a real
- *     domain is set, this middleware is a no-op — no host-header-injection risk.
- *   - Domain moves require a manual .env edit on purpose; auto-overwriting a
- *     real domain on every visit would let an attacker repoint the install by
- *     visiting with a spoofed Host header.
- */
+// Only rewrite APP_URL while it is a placeholder; overwriting a real domain would allow Host header spoofing.
 class AutoDetectAppUrl
 {
-    /**
-     * Hostnames that mean "not configured yet". Match is case-insensitive.
-     */
     private const PLACEHOLDER_HOSTS = [
         '',
         'your-domain.com',
@@ -43,9 +20,6 @@ class AutoDetectAppUrl
         '0.0.0.0',
     ];
 
-    /**
-     * Per-worker idempotency flag. Avoid re-checking on every request.
-     */
     private static bool $checked = false;
 
     public function handle(Request $request, Closure $next): Response

@@ -12,26 +12,10 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-/**
- * Pull returns and refunds from TikTok Shop: the return_refund search,
- * fifty a page. Each return is stored whole; when its status is mapped
- * on the settings page, the linked sales order takes that status with a
- * history line, the same way an order sync does.
- *
- * One body of code for the two callers (#156, then the Automations sweep
- * of 2026-08-26): the Fetch button on the returns page and the
- * "Sync Returns" job. Shopee and Lazada had the job from the start;
- * TikTok's returns were fetched by hand only, so a return a buyer opened
- * overnight stayed invisible until somebody pressed the button.
- */
 class TikTokReturnSync
 {
     public function __construct(private TikTokClient $client) {}
 
-    /**
-     * @param array{app_key: string, app_secret: string, token: string, shop_cipher: string} $creds
-     * @return array{ok: bool, saved: int, updated: int, statused: int, failure: ?string, message: string}
-     */
     public function sync(array $creds, ?int $createdFrom, ?int $createdTo, ?int $userId = null): array
     {
         $body = array_filter([
@@ -116,7 +100,6 @@ class TikTokReturnSync
                 $saved++;
             }
 
-            // The return status map: a mapped status moves the linked sales order.
             $statusId = (int) ($returnMap[(string) ($ro['return_status'] ?? '')] ?? 0);
             $catalogOrderId = $payload['order_id']
                 ? (int) (DB::table('tiktok_orders')->where('order_id', $payload['order_id'])
@@ -146,13 +129,6 @@ class TikTokReturnSync
         return ['ok' => true, 'saved' => $saved, 'updated' => $updated, 'statused' => $statused, 'failure' => $failure, 'message' => $message];
     }
 
-    /**
-     * The credentials the sync signs with, from the settings row, or null
-     * when the shop is not connected. The same four values the controllers
-     * assemble in creds(); here so the command and the button agree.
-     *
-     * @return array{app_key: string, app_secret: string, token: string, shop_cipher: string}|null
-     */
     public static function credsFrom(?TikTokSetting $s): ?array
     {
         if (!$s) {

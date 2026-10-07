@@ -5,11 +5,6 @@ namespace Tests\Feature;
 use App\Support\MarketplaceAnswer;
 use Tests\TestCase;
 
-/**
- * The reason, only the reason (the owner, 2026-09-03): one reader knows
- * where each marketplace hides its error message, so no surface has to
- * choose between dumping the payload and shrugging "Unknown error".
- */
 class MarketplaceAnswerTest extends TestCase
 {
     public function test_a_success_is_no_error(): void
@@ -41,7 +36,6 @@ class MarketplaceAnswerTest extends TestCase
         ]));
     }
 
-    /** the owner, 2026-09-06: the detail is the message that matters; the broad one is a headline. */
     public function test_lazada_leads_with_the_detail_when_a_create_fails_validation(): void
     {
         $this->assertSame(

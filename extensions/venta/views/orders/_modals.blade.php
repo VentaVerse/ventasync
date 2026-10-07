@@ -1,14 +1,3 @@
-{{-- Venta order modals: book a courier, tracking, and the loading overlay.
-
-     One copy of the markup, included by orders/_panel.blade.php, which both
-     the seller centre and the fulfilment hub render. Every id below is
-     queried by resources/js/pages/venta-orders.js and must not change.
-
-     The book modal is Shopee's ship modal in shape: step one asks a
-     question the packer answers with one press (who will carry it), step
-     two holds the few options a booking can take, with defaults that let
-     the packer accept and go. Step two starts hidden via .vt-hidden, the
-     same toggle the module uses for every step transition. --}}
 @if($canManageVentaOrders)
 <div id="vtBookModal" class="modal-backdrop">
     <div class="modal co-modal">
@@ -18,33 +7,17 @@
         </div>
         <div class="co-modal__meta">Order <strong id="vtBookOrderNo"></strong></div>
 
-        {{-- The parcel summary: filled by the module from the row's own
-             template (components/fulfilment/parcel) when the dialog opens.
-             Its OWN id: it briefly shared vtBookParcel with the step-2
-             parcel-size select, and getElementById returned this div first
-             - so the courier's parcel options were poured in here as bare
-             text while the real dropdown stayed empty (the owner, live,
-             2026-09-02; introduced by 465a1365). --}}
         <div id="vtBookParcelSummary" class="vt-hidden"></div>
 
-        {{-- Step 1: who can carry it. Filled by the module from the
-             storefront's serviceability answer, one button per courier. --}}
         <div id="vtBookStep1">
             <p class="co-modal__prompt">Who will carry this parcel?</p>
             <div id="vtBookCouriersLoading" class="co-modal__loading">
                 <span class="co-spinner" aria-hidden="true"></span>
                 <span>Asking the couriers</span>
             </div>
-            {{-- Every way the parcel can leave, in one list: the storefront's
-                 couriers and, last, the one the store does not integrate with,
-                 recorded by hand. That last one used to sit under the list as
-                 a quiet ghost button and was missed (the owner, 2026-09-01); it is
-                 a card in the same line now, rendered by
-                 resources/js/pages/venta-orders.js with the others. --}}
             <div id="vtBookCouriers" class="co-modal__choices vt-hidden"></div>
         </div>
 
-        {{-- Step 2, by hand: a name off the store's list and a number. --}}
         <div id="vtBookManual" class="vt-hidden">
             <div class="co-modal__meta vt-book__courier">Recorded by hand, no waybill</div>
             <div class="co-modal__body">
@@ -75,13 +48,6 @@
             </div>
         </div>
 
-        {{-- Step 2: the booking's options, in the storefront's own order
-             (its queue's modal): where it leaves from, then what carries
-             it and in what, then insurance, then who pays. No dimensions:
-             the parcel size is a choice off the courier's list and the
-             courier prices it. The quote is fetched the moment the courier
-             is chosen and again on every change, through the storefront,
-             which asks the courier; it is never typed in here. --}}
         <div id="vtBookStep2" class="vt-hidden">
             <div class="co-modal__meta vt-book__courier">Courier <strong id="vtBookCourierName"></strong></div>
             <div class="co-modal__body">
@@ -133,8 +99,6 @@
                     </div>
                 </div>
 
-                {{-- The courier's quote for exactly what is chosen above,
-                     as the storefront's own modal shows it. --}}
                 <dl id="vtBookQuote" class="vt-quote" aria-live="polite">
                     <div class="vt-quote__row"><dt>Shipping</dt><dd id="vtQuoteShipping">Asking</dd></div>
                     <div class="vt-quote__row vt-hidden" id="vtQuoteInsuranceRow"><dt>Insurance</dt><dd id="vtQuoteInsurance"></dd></div>
@@ -156,8 +120,6 @@
 </div>
 @endif
 
-{{-- Tracking: the courier's timeline for a booked parcel, as the storefront
-     reports it. Same shape as TikTok's tracking modal. --}}
 <div id="vtTrackingModal" class="modal-backdrop">
     <div class="modal co-modal co-modal--md">
         <div class="modal-header co-modal__head">
@@ -174,9 +136,6 @@
     </div>
 </div>
 
-{{-- Loading overlay. Raised by the module while a booking runs, and by
-     resources/js/busy-overlay.js for the confirmed form submits on this
-     page (Fetch orders, Cancel booking), through the data-busy hooks. --}}
 <div id="vtLoadingOverlay" class="modal-backdrop" data-busy-overlay>
     <div class="modal co-modal co-modal--sm">
         <div class="co-progress">

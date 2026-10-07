@@ -1,16 +1,3 @@
-/**
- * The packing check: before a booking button does anything, the packer
- * types how many of each item is in their hands. The order's quantities
- * never reach the page; the server compares, and the booking goes ahead
- * only when every count matches.
- *
- * Switched on in Settings > Fulfilment, which puts a packing-check meta tag
- * on the page. A trigger carries data-pc-channel and either data-pc-order
- * (one order) or data-pc-bulk (the name of the selection's checkboxes).
- *
- * Registered at import, before the confirm dialog's listeners, so the count
- * comes first and the button's own confirmation follows it unchanged.
- */
 (function () {
     var meta = document.querySelector('meta[name="packing-check"]');
     if (!meta) return;
@@ -156,7 +143,6 @@
         });
     }
 
-    /* One order in the sequence: ask the server what is in it, then show it. */
     function loadOrder() {
         var c = current;
         var id = c.orders[c.index];
@@ -233,13 +219,10 @@
         }
     }
 
-    /* A button that does its work in its own click handler: Arrange
-       shipment, Ship order, Book courier. The click is held until the count
-       passes, then pressed again. */
     document.addEventListener('click', function (e) {
         var trigger = e.target.closest('[data-pc-channel][data-pc-order]');
         if (!trigger || trigger.tagName === 'FORM') return;
-        if (trigger.type === 'submit' && trigger.form) return;   // the submit listener's job
+        if (trigger.type === 'submit' && trigger.form) return;
         if (trigger._pcPassed) { trigger._pcPassed = false; return; }
 
         e.preventDefault();
@@ -250,7 +233,6 @@
         });
     }, true);
 
-    /* A form that books when submitted, alone or for a selection. */
     document.addEventListener('submit', function (e) {
         var form = e.target;
         var submitter = e.submitter || null;
@@ -266,7 +248,6 @@
             var boxes = form.elements.namedItem(bulk);
             boxes = boxes ? (boxes.length !== undefined && !boxes.tagName ? Array.prototype.slice.call(boxes) : [boxes]) : [];
             boxes.forEach(function (box) { if (box.checked) orders.push(box.value); });
-            // Nothing ticked: the booking itself says to pick orders first.
             if (orders.length === 0) return;
         } else {
             orders = [trigger.getAttribute('data-pc-order')];

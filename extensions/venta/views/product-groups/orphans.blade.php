@@ -2,14 +2,6 @@
 @section('title', 'Unlinked products on ' . ($setting->store_name ?: 'Venta'))
 @section('breadcrumb', 'Unlinked on Venta')
 
-{{-- The mirror of the products page. That one lists what the ERP holds and
-     asks whether Venta still has it; this lists what Venta holds and asks
-     whether the ERP knows about it. Neither question answers the other, and
-     until now only the first could be asked at all.
-
-     Read-only by design. Every row here is a judgement call - a SKU that
-     looks familiar may be a different product - so this page reports and the
-     operator decides. There is no Adopt button and there should not be one. --}}
 @section('content')
 @php
     $groupName = $group->name ?: 'this product group';
@@ -34,10 +26,6 @@
     </x-ui.button>
 </div>
 
-{{-- Same `alert warning` shape the flash partial uses, minus the close
-     button: these describe the state of the report on screen rather than the
-     result of an action, so dismissing one would leave a partial list looking
-     complete. --}}
 @if($error)
     <div class="alert warning" role="status" aria-live="polite">
         <x-ui.icon name="alert-triangle" size="18" class="alert__icon" />

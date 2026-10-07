@@ -5,33 +5,14 @@ namespace Extensions\lazada\Services\Lazada;
 use Carbon\Carbon;
 use Extensions\lazada\Models\LazadaSetting;
 
-/**
- * The money at Lazada for one store, in Lazada Seller Center's own words
- * (the owner, 2026-10-01/02: accuracy, not normalisation).
- *
- *   Total Balance            settlements paid into the wallet since the newest
- *                            withdrawal (the wallet ledger; see totalBalance)
- *   To be released tomorrow  every finance line after the latest daily
- *                            statement (matched ₱148.39 exactly)
- *   Orders to be confirmed   delivered orders the buyer has not confirmed,
- *                            as a count: Lazada's payout estimate for them
- *                            is not in its API
- *
- * To Release is not shown: Lazada keeps its estimate for unconfirmed orders
- * to itself, and one computed from fees came out 17% off on 2026-10-02.
- *
- * Read live, never stored. PayoutBalances keeps the last good read.
- */
 class LazadaBalance
 {
     private const STATEMENTS = '/finance/payout/status/get';
 
     private const LINES = '/finance/transaction/details/get';
 
-    /** The wallet ledger: settlements in, withdrawals out. */
     private const LEDGER = '/finance/transaction/accountTransactions/query';
 
-    /** Two weeks reaches back past Monday's auto-withdrawal with room to spare. */
     private const LEDGER_DAYS = 21;
 
     private const PAGE_SIZE = 500;
@@ -42,9 +23,6 @@ class LazadaBalance
     {
     }
 
-    /**
-     * @return array{ok: bool, error?: string, lead?: array, facts?: list<array>, note?: string}
-     */
     public function read(LazadaSetting $store): array
     {
         $setting = $store->decrypted();
@@ -61,7 +39,6 @@ class LazadaBalance
         usort($statements, fn ($a, $b) => strcmp((string) ($b['statement_number'] ?? ''), (string) ($a['statement_number'] ?? '')));
         $latest = $statements[0] ?? null;
 
-        // The ongoing statement: every finance line after the latest statement's day.
         $latestDay = $latest ? $this->statementDay($latest) : null;
         $ongoingFrom = ($latestDay ?? now()->startOfDay()->subDay())->copy()->addDay();
         $ongoing = 0.0;
@@ -89,8 +66,6 @@ class LazadaBalance
             $pages++;
         } while (count($lines) === self::PAGE_SIZE && $pages < self::MAX_PAGES);
 
-        // Delivered and waiting for the buyer to confirm. Lazada works out
-        // what each will pay and does not share it, so this is a count.
         $toConfirm = \Extensions\lazada\Models\LazadaOrder::query()
             ->where('lazada_setting_id', $store->id)
             ->where('status', 'delivered')
@@ -116,15 +91,6 @@ class LazadaBalance
         ];
     }
 
-    /**
-     * Lazada's Total Balance, from its wallet ledger (Query Account
-     * Transactions; dates as yyyyMMdd, which is why it once answered
-     * empty): every Settlement paid in since the newest withdrawal. Lazada
-     * auto-withdraws the whole balance every Monday at 08:22; on
-     * 2026-10-02 nine Mondays in a row each took exactly what had been paid
-     * in since the one before, and the result matched Seller Center's
-     * ₱11,694.31 to the centavo. Null when no withdrawal is in the window.
-     */
     private function totalBalance(object $setting, array $creds): float|string|null
     {
         $rows = [];
@@ -156,7 +122,6 @@ class LazadaBalance
         return round(array_sum(array_map(fn ($r) => $this->amount($r['amount'] ?? 0), $since)), 2);
     }
 
-    /** @return array<string, mixed>|string */
     private function post(object $setting, array $creds, string $path, array $query): array|string
     {
         $params = $query + [
@@ -176,7 +141,6 @@ class LazadaBalance
         return $body;
     }
 
-    /** @return array<string, mixed>|string */
     private function call(object $setting, array $creds, string $path, array $query): array|string
     {
         $params = $query + [
@@ -196,7 +160,6 @@ class LazadaBalance
         return $body;
     }
 
-    /** "PH1XR16D-2026-0930" is the statement for 30 Sep 2026. */
     private function statementDay(array $statement): ?Carbon
     {
         if (preg_match('/(\d{4})-(\d{2})(\d{2})$/', (string) ($statement['statement_number'] ?? ''), $m)

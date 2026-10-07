@@ -1,33 +1,13 @@
 @extends('layouts.channel')
 @section('title', 'Shopee Listing')
 @section('breadcrumb', $product->name !== '' ? $product->name : 'Listing')
-{{-- This page shows its own "Nothing was saved" note and marks the
-     offending fields, so the legacy bullet list stands down (critique
-     2026-09-08: one event was drawing two red boxes). --}}
 @section('own-errors', true)
 
-{{-- The individual listing page (quest 1, 2026-08-24). One catalog
-     product on Shopee, presented the way the seller center presents it:
-
-       1. the LIVE state at the top, fetched from Shopee on this page load,
-          with the same Active control the seller center has;
-       2. the listing record beneath it: the settings the next push will
-          use and the content overrides, editable;
-       3. provenance: what the last push actually sent, and from where.
-
-     Built entirely on the shared fm- anatomy (blotter-components.css) and
-     the gf- checkbox rows; no new CSS. Three forms live here - toggle,
-     push, save - and each is its own route; the primary Save reaches its
-     form through the HTML5 form attribute from the sticky bar. --}}
 @section('content')
 @php
     $canManage = auth()->user()?->hasPermission('manage_shopee/product') ?? false;
     $canEditCatalog = auth()->user()?->hasPermission('manage_catalog/product') ?? false;
 
-    /* The status words come from the engine (Phase B, #184): this page
-       carried its own map, one of three copies that had already drifted
-       apart. The engine ran after this page's live fetch wrote the
-       mirror, so its answer IS the fetch's answer, in the one vocabulary. */
     [$statusLabel, $statusTone] = ($live && ($listingState ?? null))
         ? [$listingState->label(), $listingState->tone()]
         : [null, null];
@@ -39,12 +19,8 @@
     $oldLogisticIds = old('logistic_ids');
     $savedLogisticIds = array_map('intval', $shown->logistic_ids ?? []);
 
-    // Shopee descriptions are plain text; the catalog HTML is converted for display and comparison.
     $coreDescription = \App\Support\Catalog\DescriptionText::of((string) ($product->description ?? ''));
 
-    // Readiness: what the one-click push still needs before it can run.
-    // Computed by the shared ShopeeListingReadiness, the same answer the
-    // listings index and the bulk push read (#101).
     $missing = $readinessMissing;
 @endphp
 
@@ -92,15 +68,7 @@
         </div>
     </div>
 
-    {{-- ── The strip: what Shopee says right now ─────────────────
-         One shape on every channel (the owner, 2026-09-08, draft C): the live
-         state, the channel's own figures, the last push and the verbs that
-         act on the live item, in one line in the channel's colour. What
-         only Shopee has - the variation table, the couriers - stays below
-         in Shopee's own sections. --}}
     @php
-        /* The figures this channel puts on the strip, in its own words.
-           The template holds the arrangement; the channel holds the facts. */
         $stripFigures = [];
         if ($link && $live) {
             if (!$live['has_model']) {
@@ -112,8 +80,6 @@
             if (($coverage['total'] ?? 0) > 0) {
                 $stripFigures[] = ['k' => 'On Shopee', 'v' => $coverage['linked'] . ' of ' . $coverage['total'] . ' variations'];
             }
-            // Only when it differs; clipped, so one long title cannot
-            // stretch the bar.
             if (($live['item_name'] ?? '') !== '' && $live['item_name'] !== $product->name) {
                 $stripFigures[] = ['k' => 'Title on Shopee', 'v' => \Illuminate\Support\Str::limit($live['item_name'], 40)];
             }
@@ -133,20 +99,6 @@
             : null;
     @endphp
 
-    {{-- HEALTH OFF ON SHOPEE (the owner, 2026-09-09): "What I want to see right
-         now are just fields to edit. Nothing about health." So the state
-         word, the live figures, Last push and the accent are all gone, and
-         the bar keeps only the verbs - what you can DO here, which is not a
-         report about the item. The notes went with them.
-
-         What survives is the required-field handling he asked to keep: the
-         validation summary at the top of the page, the browser's own bubble
-         on the category and the couriers, and the inline field errors.
-
-         This is a deliberate divergence from the other four, written into
-         extensions/CHANNEL-CONTRACT.md, and it is "for now" in his words -
-         the facts still exist and the page can take them back by passing
-         health again. --}}
     <x-channel.listing-strip channel="Shopee" :health="false" :linked="(bool) $link">
         @if($canManage)
             <x-slot:verbs>
@@ -167,8 +119,6 @@
                         </form>
                     @endif
                     @if(($coverage['missing'] ?? collect())->isNotEmpty())
-                        {{-- Phase F (#184): the loop that used to be unlink,
-                             re-match and hope is one push. --}}
                         <form method="POST" action="{{ route('ext.shopee.listings.push_missing_variations', $product->product_id) }}" data-slow-action
                               data-guard-stale data-confirm="Add the missing variations to the live Shopee listing? What is already live is not touched; new tier options are appended and the new variations go up priced by this listing's rule." data-confirm-tone="primary" data-confirm-verb="Add variations">
                             @csrf
@@ -185,15 +135,6 @@
 
     </x-channel.listing-strip>
 
-    {{-- The record, in the one order this page keeps (the owner, 2026-09-07,
-         draft B, amended 2026-09-08): the main column is what the listing
-         SAYS - Content, Category and brand, Category attributes, Images,
-         then what only Shopee has. The rail is what it COSTS and what it
-         came from - Price rule, Discount, Last push.
-
-         Price rule and Discount moved to the rail on the owner's word; the
-         other four channels follow, and until they do the gap is written
-         into extensions/CHANNEL-CONTRACT.md. --}}
     <form id="listing-form" method="POST" action="{{ route('ext.shopee.listings.update', $product->product_id) }}" data-guard-unsaved>
         <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
         @csrf
@@ -272,9 +213,6 @@
                         @endphp
                         <x-ui.field label="Brand" for="sl-brand" name="shopee_brand_id" wide
                                     hint="Only brands Shopee registers for the chosen category are offered. Leave it empty for No brand.">
-                            {{-- Same searchable combobox as the category,
-                                 dependent on it: the search asks for THIS
-                                 category's brands. --}}
                             <div class="gf-combo"
                                  data-category-combo
                                  data-combo-mode="remote"
@@ -294,8 +232,6 @@
                                                 :disabled="!$canManage" />
                                     <div class="gf-combo__results" data-combo-results role="listbox"
                                          aria-label="Shopee brands" hidden></div>
-                                    {{-- A first-time brand list is read from Shopee a
-                                         page at a time; this says so while it comes in. --}}
                                     <div class="gf-combo__progress" data-combo-progress role="status" aria-live="polite" hidden>
                                         <span class="gf-combo__bar" aria-hidden="true"></span>
                                         <span data-combo-progress-text></span>
@@ -306,12 +242,6 @@
                     </div>
                 </section>
 
-                {{-- ── The category's own attribute sheet (#98) ────────
-                     What Shopee's form would ask for this category:
-                     required-ness, option lists and free-text fields read
-                     from the marketplace's published template, never
-                     hardcoded. Same partial and same wire as the group
-                     form; picking a different category above reloads it. --}}
                 <section class="fm-section"
                          data-attributes-fetch
                          data-attributes-url="{{ route('ext.shopee.products.fetchAttributes') }}"
@@ -355,8 +285,6 @@
                     'weightMin' => '0.01',
                 ])
 
-                {{-- What only Shopee has, at the end of the main column: the
-                     couriers it is offered on. --}}
                 <section class="fm-section" id="sl-only">
                     <div class="fm-section__head">
                         <h2 class="fm-section__title">Only on Shopee</h2>
@@ -367,8 +295,6 @@
                             <div class="fm-error">{{ $errors->first('logistic_ids') }}</div>
                         @endif
                         @if(!empty($logistics))
-                            {{-- At least one, enforced the way the category is:
-                                 the browser's own bubble on a control it can focus. --}}
                             <div class="gf-checks" data-must-pick="Pick at least one courier.">
                                 @foreach($logistics as $channel)
                                     @php
@@ -417,16 +343,9 @@
             ? 'You can read this. Editing needs the Shopee manage permission.'
             : 'Save listing keeps everything on this page. Save and push keeps it and sends the listing to Shopee.' }}</x-slot:note>
         @if($canManage)
-            {{-- One press saves what was just typed, then pushes: a new item
-                 when the product is not on Shopee yet, an update onto the
-                 live item once it is. The save half runs first, so a
-                 refusal never loses the typing. --}}
             <x-ui.button type="submit" form="listing-form" name="push_after" value="1">{{ $link ? 'Save and push the update' : 'Save and push to Shopee' }}</x-ui.button>
         @endif
         <x-slot:primary>
-            {{-- Required means required on both presses: neither button
-                 carries formnovalidate, so a field the page marks with an
-                 asterisk is never saved empty. --}}
             @if($canManage)
                 <x-ui.button type="submit" form="listing-form" variant="primary">Save listing</x-ui.button>
             @endif

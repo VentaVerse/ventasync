@@ -4,11 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Shopee signs its pushes with a key of their own, issued per app in the
- * push settings, separate from the partner key that signs API calls. Each
- * environment's app has its own. Stored encrypted, like the partner keys.
- */
 return new class extends Migration
 {
     public function up(): void

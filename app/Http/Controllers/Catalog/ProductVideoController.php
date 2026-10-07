@@ -8,17 +8,8 @@ use App\Services\Media\ProductVideoFile;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-/**
- * The product's one video: put it there, take it off.
- *
- * The wire matches the picture manager's. The file is uploaded on its own,
- * before the product is saved, and the form carries the path; a product that
- * does not exist yet stages its video under a token, and the save settles it
- * into the product's own folder.
- */
 class ProductVideoController extends Controller
 {
-    /** Accept the file, say what the stores will make of it. */
     public function upload(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -27,7 +18,6 @@ class ProductVideoController extends Controller
             'token' => ['nullable', 'string', 'max:64'],
         ]);
 
-        // A folder is only made for a product that exists.
         $productId = (int) ($data['product_id'] ?? 0);
         if ($productId > 0) {
             abort_unless(\Illuminate\Support\Facades\DB::table((string) config('catalog.prefix') . 'product')->where('product_id', $productId)->exists(), 404);
@@ -45,15 +35,7 @@ class ProductVideoController extends Controller
         ]);
     }
 
-    /**
-     * Take the video off the product, file and all.
-     *
-     * The file is found through the row that claims it, never through the
-     * path alone: a path is what the page sends, and one product's remove
-     * must not be able to delete another product's video and leave its row
-     * pointing at a file that is gone. The one path without a row is a
-     * video staged in this session, which its own uploader may drop.
-     */
+    // Find the file through the row that claims it, so one product cannot delete another's video.
     public function destroy(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -77,7 +59,6 @@ class ProductVideoController extends Controller
             return response()->json(['ok' => true]);
         }
 
-        // Nothing here claims that file, so nothing here removes it.
         return response()->json(['ok' => true, 'kept' => true]);
     }
 }

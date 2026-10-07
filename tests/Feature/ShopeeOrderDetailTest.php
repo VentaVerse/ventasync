@@ -16,23 +16,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * The Shopee order detail page, rebuilt on the shared `od-` detail anatomy
- * inside the seller center (Task 2 of the order-detail redesign).
- *
- * Fixture discipline is ChannelWorkspaceTest's: this file builds its own
- * permission groups and its own orders rather than leaning on whatever the
- * test schema happens to hold, and the setUp below is that file's, for the
- * same reasons its docblocks give (the extension must be installed, enabled
- * and REGISTERED, and the router's name lookups rebuilt, before any Shopee
- * route resolves by name).
- *
- * No fixture here carries Shopee credentials, so ShopeeOrderController@show
- * never calls the live API: `$hasCreds` is false, the refresh and escrow
- * pulls are both skipped, and every figure asserted below comes from the
- * stored payload. That is deliberate - a test that could reach the network
- * proves nothing repeatable about a view.
- */
 class ShopeeOrderDetailTest extends TestCase
 {
     use RefreshDatabase;
@@ -47,18 +30,11 @@ class ShopeeOrderDetailTest extends TestCase
 
         $this->app->register(ShopeeExtension::class);
 
-        /* Multi-store S2 (#194): an order row belongs to a store, so the
-         * "no credentials" scenarios seed a bare, credential-less store -
-         * activeAuth() still answers incomplete, which is what they test. */
         ShopeeSetting::create(['mode' => 'production', 'store_name' => 'Main store']);
 
-        // Routes registered after the RouteCollection last built its name
-        // lookup table are invisible to Route::has(), which ChannelWorkspace
-        // calls for every sidebar destination. See ChannelWorkspaceTest.
         $this->app['router']->getRoutes()->refreshNameLookups();
     }
 
-    /** Read tier: can open the page, holds nothing that writes. */
     private function viewer(): User
     {
         $group = UserGroup::create(['name' => 'Shopee Detail Viewers']);
@@ -69,7 +45,6 @@ class ShopeeOrderDetailTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    /** Manage tier: the ship POST and the refresh pull are gated on this. */
     private function manager(): User
     {
         $group = UserGroup::create(['name' => 'Shopee Detail Managers']);
@@ -80,11 +55,6 @@ class ShopeeOrderDetailTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    /**
-     * An order in the shape ShopeeOrderController@show reads it: `region`
-     * 'ph' because with no ShopeeSetting row activeAuth() returns a null
-     * region and the controller falls back to 'ph'.
-     */
     private function order(string $status = 'READY_TO_SHIP', array $overrides = []): ShopeeOrder
     {
         $order = ShopeeOrder::create(array_merge([
@@ -147,10 +117,6 @@ class ShopeeOrderDetailTest extends TestCase
         return $order->fresh('products');
     }
 
-    // ------------------------------------------------------------------
-    // The page renders inside the seller center
-    // ------------------------------------------------------------------
-
     public function test_the_detail_page_renders_inside_the_workspace_for_the_read_tier(): void
     {
         $order = $this->order();
@@ -159,19 +125,14 @@ class ShopeeOrderDetailTest extends TestCase
 
         $response->assertOk();
 
-        // Channel menubar present, global sidebar PRESENT (reversed
-        // 2026-09-03, the teleportation fix: one shell, the channel menu
-        // rides inside the page), no cross-marketplace strip.
         $response->assertSee('x-chnav', false);
         $response->assertSee('All channels');
         $response->assertSee('data-nav', false);
         $response->assertDontSee('All marketplaces');
 
-        // On the shared detail anatomy, outside the .x-legacy boundary.
         $response->assertSee('class="od-page"', false);
         $response->assertDontSee('x-content x-legacy', false);
 
-        // Breadcrumb leaf is the order number.
         $response->assertSee('<span class="x-crumb__part x-crumb__part--current">'.$order->order_sn.'</span>', false);
     }
 
@@ -183,35 +144,29 @@ class ShopeeOrderDetailTest extends TestCase
 
         $response->assertOk();
 
-        // Identity and stamps
         $response->assertSee($order->order_sn);
-        $response->assertSee('Ready to ship');       // ChannelStatusTone label for READY_TO_SHIP
+        $response->assertSee('Ready to ship');
         $response->assertSee('2026-08-05 09:15');
         $response->assertSee('2026-08-06 14:40');
 
-        // Item line
         $response->assertSee('Alpha Wireless Keyboard');
         $response->assertSee('SKU-ALPHA-01');
         $response->assertSee('Graphite, US layout');
         $response->assertSee('https://cf.shopee.ph/file/alpha-keyboard', false);
         $response->assertSee(\App\Support\Money::foreign(1240.00, 'PHP'));
 
-        // Customer and delivery address
         $response->assertSee('juan_dela_cruz');
         $response->assertSee('Juan Dela Cruz');
         $response->assertSee('+639171234567');
         $response->assertSee('14 Mabini Street, Barangay Poblacion');
         $response->assertSee('Makati Metro Manila 1210 PH');
 
-        // Shipping
         $response->assertSee('J&amp;T Express', false);
         $response->assertSee('SPXPH0392841');
 
-        // Payment facts, the same two the fulfilment list prints
         $response->assertSee(\App\Support\Money::foreign(2480.00, 'PHP'));
         $response->assertSee('Cash on Delivery');
 
-        // Escrow block, both sides of the rule and the net figure
         $response->assertSee('Order income');
         $response->assertSee('Merchandise Subtotal');
         $response->assertSee('Commission Fee');
@@ -220,13 +175,11 @@ class ShopeeOrderDetailTest extends TestCase
         $response->assertSee('Estimated Order Income');
         $response->assertSee(\App\Support\Money::foreign(2201.60, 'PHP'));
 
-        // Invoice request
         $response->assertSee('Requested by buyer');
         $response->assertSee('Dela Cruz Trading');
         $response->assertSee('123-456-789-000');
         $response->assertSee('billing@delacruz.test');
 
-        // Raw payload disclosure
         $response->assertSee('Show the JSON Shopee returned');
     }
 
@@ -245,7 +198,6 @@ class ShopeeOrderDetailTest extends TestCase
         $response->assertSee('No items synced yet. Items will be fetched on the next order sync.');
         $response->assertSee('Shopee has not settled this order yet.');
         $response->assertSee('Not available from Shopee');
-        // A missing figure says so rather than printing a number nobody has.
         $response->assertSee('Not recorded');
     }
 
@@ -286,10 +238,6 @@ class ShopeeOrderDetailTest extends TestCase
         $response->assertSee('Wrong item sent');
     }
 
-    // ------------------------------------------------------------------
-    // Tier split, both directions, against the real middleware
-    // ------------------------------------------------------------------
-
     public function test_write_tier_controls_render_only_for_the_manage_tier(): void
     {
         $order = $this->order('READY_TO_SHIP');
@@ -306,8 +254,6 @@ class ShopeeOrderDetailTest extends TestCase
         $asViewer->assertDontSee($refreshUrl, false);
         $asViewer->assertDontSee('btnArrangeShipment', false);
 
-        // The read tier loses controls, not information: every figure the
-        // manager sees is still on their page.
         $asViewer->assertSee('Alpha Wireless Keyboard');
         $asViewer->assertSee('Estimated Order Income');
         $asViewer->assertSee('SPXPH0392841');
@@ -334,7 +280,6 @@ class ShopeeOrderDetailTest extends TestCase
 
         $viewer = $this->viewer();
 
-        // Both are read-tier routes, so the read tier keeps them.
         $withParcel = $this->actingAs($viewer)->get(route('ext.shopee.orders.show', $shipped->order_sn));
         $withParcel->assertSee(route('ext.shopee.orders.awb', ['orderSn' => $shipped->order_sn]), false);
         $withParcel->assertSee('btnShopeeTracking', false);
@@ -349,8 +294,6 @@ class ShopeeOrderDetailTest extends TestCase
     {
         $order = $this->order('READY_TO_SHIP');
 
-        // The ship modal posts with Accept: application/json, so a denial
-        // arrives as the middleware's JSON envelope rather than a redirect.
         $denied = $this->actingAs($this->viewer())
             ->postJson(route('ext.shopee.orders.ship', $order->order_sn), ['shipping_type' => 'dropoff']);
 
@@ -362,10 +305,6 @@ class ShopeeOrderDetailTest extends TestCase
     {
         $order = $this->order('READY_TO_SHIP');
 
-        // No credentials are configured in the test schema, so the
-        // controller's own precondition answers 422. That is the point: the
-        // response comes from the CONTROLLER, which means the gate let this
-        // user through, where the read tier above never reached it.
         $allowed = $this->actingAs($this->manager())
             ->postJson(route('ext.shopee.orders.ship', $order->order_sn), ['shipping_type' => 'dropoff']);
 
@@ -373,18 +312,8 @@ class ShopeeOrderDetailTest extends TestCase
         $allowed->assertJson(['ok' => false]);
     }
 
-    // ------------------------------------------------------------------
-    // F2: the refresh pull-and-persist path is manage-tier only. Both
-    // write branches in ShopeeOrderController@show (the order-detail pull
-    // gated on `refresh`, and the escrow/fee pull gated on `empty(fees) ||
-    // refresh`) must never run for a view-tier operator, even though the
-    // route itself is `perm:view_shopee_orders|manage_shopee_orders`.
-    // ------------------------------------------------------------------
-
     private function configureShopeeCredentials(): ShopeeSetting
     {
-        // Dresses the store setUp seeded; a second row would fight it for
-        // defaultStore() and win nothing.
         $s = ShopeeSetting::query()->orderBy('id')->firstOrNew();
         $s->fill([
             'mode' => 'production',
@@ -447,10 +376,6 @@ class ShopeeOrderDetailTest extends TestCase
         $this->assertSame('SHIPPED', $order->fresh()->status);
     }
 
-    // ------------------------------------------------------------------
-    // Standing constraints this page must not break
-    // ------------------------------------------------------------------
-
     public function test_the_page_uses_no_native_dialogs_and_no_inline_handlers(): void
     {
         $order = $this->order('COMPLETED');
@@ -462,8 +387,6 @@ class ShopeeOrderDetailTest extends TestCase
         $response->assertDontSee('alert(', false);
         $response->assertDontSee('onerror=', false);
         $response->assertDontSee('onclick=', false);
-        // No page-level inline script: the ship and tracking flows are the
-        // shopee-orders module's, bound on this page's own root id.
         $response->assertSee('id="shopee-order-detail-page"', false);
     }
 
@@ -474,8 +397,6 @@ class ShopeeOrderDetailTest extends TestCase
         $response = $this->actingAs($this->viewer())->get(route('ext.shopee.orders.index'));
 
         $response->assertOk();
-        // The stopgap is retired: the order number opens the detail page in
-        // this same workspace, so the sidebar and the filtered list survive.
         $response->assertSee(
             '<a class="co-sn" href="'.route('ext.shopee.orders.show', ['orderSn' => $order->order_sn]).'">'.$order->order_sn.'</a>',
             false

@@ -16,9 +16,6 @@
     @endif
 </div>
 
-{{-- The empty state stands alone, centred on the page. Inside the board
-     grid it sat in the first 280px column, off to the left (the owner,
-     2026-09-06). --}}
 @if(empty($channels))
         <x-ui.empty
             title="No stores yet"
@@ -38,24 +35,12 @@
             <header class="x-board__head">
                 @php $cMark = \App\Extensions\ExtensionImages::has(strtok((string) $c['key'], ':'), 'logo.png'); @endphp
                 @if($cMark)
-                    {{-- The channel's mark where a list's avatar goes, so a board of nine cards is read by shape before a word. --}}
                     <img class="x-board__mark" src="{{ \App\Extensions\ExtensionImages::url(strtok((string) $c['key'], ':'), 'logo.png') }}" alt="">
                 @endif
                 <div>
                     <p class="x-board__name">{{ $c['label'] }}</p>
                     @if($c['store'])<p class="x-board__store">{{ $c['store'] }}</p>@endif
                 </div>
-                {{-- Four states, not three. `untracked` means this channel
-                     reports nothing to judge it by, which is not the same as
-                     being unconfigured - a two-way ternary painted it red and
-                     told the seller to set up a store that was working. The
-                     channel nav already words this state correctly; this card
-                     was the last place still collapsing it into "Setup
-                     needed". --}}
-                {{-- Words and tone from ChannelWorkspace::badge(), the same
-                     function the channel sidebar calls. This card kept its own
-                     copy of both maps, which is how one channel could be
-                     "Not tracked" in the sidebar and something else here. --}}
                 @php($badge = \App\Support\ChannelWorkspace::badge($c['state'], $c['stateReason'] ?? null))
                 <x-ui.badge :tone="$badge['tone']">{{ $badge['label'] }}</x-ui.badge>
             </header>

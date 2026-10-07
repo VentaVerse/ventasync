@@ -7,25 +7,10 @@ use App\Support\Catalog\DescriptionText;
 use Extensions\shopee\Models\ShopeeApiLog;
 use Illuminate\Support\Str;
 
-/**
- * A Shopee item's description has one of two shapes. "normal" is a single
- * text field. "extended" is an ordered list of text and image fields, and it
- * is what Seller Center's rich editor saves, even when the list holds only
- * text. update_item refuses a plain description onto an extended item, so
- * an update reads the item's shape first and answers in it.
- *
- * A normal item gets plain text: a normal description cannot show pictures,
- * and an item is never switched to extended from here. An extended item
- * gets our description: its words and its pictures, in the order our HTML
- * holds them. The store's own image fields are not kept, since the next
- * push always writes our description over whatever Seller Center holds.
- */
 final class ShopeeDescription
 {
-    /** The words a description may carry, the same cut the plain description gets. */
     public const MAX_TEXT = 5000;
 
-    /** The largest picture fetched from another host for a description. */
     private const MAX_REMOTE_BYTES = 10 * 1024 * 1024;
 
     public function __construct(
@@ -33,13 +18,6 @@ final class ShopeeDescription
         private readonly ?ShopeeItemCreate $create = null,
     ) {}
 
-    /**
-     * The live item's description shape, or null when Shopee did not
-     * answer, in which case the update sends a plain description as it
-     * always has.
-     *
-     * @return array{type: string, fields: list<array<string, mixed>>}|null
-     */
     public function shapeOf(array $auth, int $itemId): ?array
     {
         $params = ['item_id_list' => (string) $itemId, 'need_complex_description' => 'true'];
@@ -75,16 +53,6 @@ final class ShopeeDescription
         ];
     }
 
-    /**
-     * The update_item payload with its description in the live item's
-     * shape, and the sentence the result carries about pictures that were
-     * left out (empty when none were).
-     *
-     * $payload already holds the plain description a normal item gets;
-     * $html is our description before it was flattened to text.
-     *
-     * @return array{payload: array<string, mixed>, note: string}
-     */
     public function write(array $payload, array $auth, int $itemId, string $html): array
     {
         $shape = $this->shapeOf($auth, $itemId);
@@ -95,7 +63,6 @@ final class ShopeeDescription
         unset($payload['description']);
         $ours = $this->fieldsOf($auth, $html);
         if ($ours['fields'] === []) {
-            // Nothing survived to send: the live description is left as it is rather than emptied.
             return ['payload' => $payload, 'note' => 'The description was not sent: it has no words and none of its pictures could be uploaded.'];
         }
 
@@ -105,14 +72,6 @@ final class ShopeeDescription
         return ['payload' => $payload, 'note' => self::leftOutNote($ours['left_out'])];
     }
 
-    /**
-     * Our description as extended fields, in its own order: each run of
-     * words a text field, line breaks kept as DescriptionText keeps them,
-     * and each picture an image field uploaded with scene "desc". Words on
-     * either side of a picture that was left out join into one field.
-     *
-     * @return array{fields: list<array<string, mixed>>, left_out: int}
-     */
     public function fieldsOf(array $auth, string $html): array
     {
         $parts = preg_split('#(<img\b[^>]*>)#i', $html, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY) ?: [];
@@ -146,7 +105,6 @@ final class ShopeeDescription
         return ['fields' => self::withinTextLimit($fields), 'left_out' => $leftOut];
     }
 
-    /** The sentence a result carries for pictures left out, empty when none were. */
     public static function leftOutNote(int $count): string
     {
         return match (true) {
@@ -156,10 +114,6 @@ final class ShopeeDescription
         };
     }
 
-    /**
-     * The words of an item read from Shopee: the plain description, or the
-     * text fields of an extended one, a blank line between them.
-     */
     public static function textOf(array $item): string
     {
         $plain = trim((string) ($item['description'] ?? ''));
@@ -176,13 +130,6 @@ final class ShopeeDescription
         return implode("\n\n", $parts);
     }
 
-    /**
-     * The text fields cut to MAX_TEXT across the whole description, in
-     * order; a text field with no room left goes, the pictures stay.
-     *
-     * @param  list<array<string, mixed>>  $fields
-     * @return list<array<string, mixed>>
-     */
     private static function withinTextLimit(array $fields): array
     {
         $room = self::MAX_TEXT;
@@ -201,7 +148,6 @@ final class ShopeeDescription
         return $out;
     }
 
-    /** The src of one img tag, entities decoded; empty when it has none. */
     private static function srcOf(string $tag): string
     {
         if (preg_match('#(?<![\w-])src\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s>]+))#i', $tag, $m) !== 1) {
@@ -211,10 +157,6 @@ final class ShopeeDescription
         return trim(html_entity_decode(($m[1] ?? '') . ($m[2] ?? '') . ($m[3] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
     }
 
-    /**
-     * One description picture into Shopee's media space, logged. The image
-     * id, or null when the picture could not be read or Shopee refused it.
-     */
     private function upload(array $auth, string $src): ?string
     {
         if ($src === '') {
@@ -254,14 +196,8 @@ final class ShopeeDescription
         return ($r['ok'] ?? false) && $imageId !== '' ? $imageId : null;
     }
 
-    /**
-     * The file behind a picture this app serves from its own image library,
-     * or null. Only the public disk and the catalog's image folder are read,
-     * and a path that climbs out of them is refused.
-     */
     private function libraryFile(string $src): ?string
     {
-        // A scheme other than http(s) (data:, file:, and the like) is never a library file.
         if (preg_match('#^[a-z][a-z0-9+.-]*:#i', $src) === 1 && preg_match('#^https?://#i', $src) !== 1) {
             return null;
         }
@@ -298,7 +234,6 @@ final class ShopeeDescription
         return null;
     }
 
-    /** @return list<string> the hosts this app answers on */
     private function ownHosts(): array
     {
         $hosts = [strtolower((string) parse_url((string) config('app.url'), PHP_URL_HOST))];
@@ -309,11 +244,6 @@ final class ShopeeDescription
         return array_values(array_unique(array_filter($hosts)));
     }
 
-    /**
-     * A picture hosted elsewhere, fetched through the catalog's guarded
-     * fetch (public addresses only, no redirects followed) into a temporary
-     * file the caller removes. Null when it is not a picture or cannot be read.
-     */
     private function fetchedFile(string $src): ?string
     {
         if (preg_match('#^https?://#i', $src) !== 1) {

@@ -19,7 +19,6 @@ return new class extends Migration
             });
         }
 
-        // Ensure default groups exist
         DB::table('user_groups')->updateOrInsert(['name' => 'Administrator'], ['name' => 'Administrator', 'created_at' => now(), 'updated_at' => now()]);
         DB::table('user_groups')->updateOrInsert(['name' => 'Staff'], ['name' => 'Staff', 'created_at' => now(), 'updated_at' => now()]);
 
@@ -37,6 +36,5 @@ return new class extends Migration
 
     public function down(): void
     {
-        // no auto-drop
     }
 };

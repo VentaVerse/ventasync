@@ -10,21 +10,14 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * TikTok Shop's fulfilment buttons for the mobile app. Each runs the TikTok
- * orders page's own action for the order's store, so the phone makes the
- * same TikTok calls, with the same checks, as the web.
- */
 final class TikTokAppFulfilment
 {
-    /** Each action => whether it changes the order. */
     public const ACTIONS = [
         'ship' => true,
         'awb' => false,
         'tracking' => false,
     ];
 
-    /** The order's step as the TikTok orders page places it, and what it allows. */
     public static function block(TikTokOrder $order): array
     {
         [$step, $writes, $reads] = match (strtoupper((string) $order->status)) {

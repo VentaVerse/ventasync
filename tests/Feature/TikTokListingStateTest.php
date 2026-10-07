@@ -19,13 +19,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * Phase D of the channels rebuild (#184): TikTok answers "where does this
- * product stand?" through the same ListingState vocabulary Shopee and
- * Lazada speak - one engine, rendered everywhere, never guessed. And the
- * paths that change the marketplace link stop leaving a stale mirror or
- * an orphaned listing row behind.
- */
 class TikTokListingStateTest extends TestCase
 {
     use RefreshDatabase;
@@ -88,7 +81,6 @@ class TikTokListingStateTest extends TestCase
         return $this->app->make(TikTokListingStates::class);
     }
 
-    /** TikTok's raw words map onto the one vocabulary, with TikTok's own attention labels. */
     public function test_the_truth_table_from_raw_status_to_state(): void
     {
         $expected = [
@@ -102,7 +94,7 @@ class TikTokListingStateTest extends TestCase
             'DRAFT' => [ListingState::ATTENTION, 'Draft'],
             'DELETED' => [ListingState::ATTENTION, 'Deleted'],
             'MISSING' => [ListingState::ATTENTION, 'Not found on TikTok Shop'],
-            '' => [ListingState::UNKNOWN, 'Not checked yet'], // never checked: live_status null
+            '' => [ListingState::UNKNOWN, 'Not checked yet'],
         ];
 
         $ids = [];
@@ -126,7 +118,6 @@ class TikTokListingStateTest extends TestCase
         }
     }
 
-    /** A product with no row at all is not_listed, with coded gaps. */
     public function test_a_rowless_product_is_not_listed_with_coded_gaps(): void
     {
         $productId = $this->seedProduct('Rowless', 'RL-1', image: '');
@@ -140,7 +131,6 @@ class TikTokListingStateTest extends TestCase
         $this->assertContains(ListingState::GAP_IMAGE, $codes);
     }
 
-    /** A product on TikTok only through a group pivot is LINKED, honestly unchecked. */
     public function test_a_pivot_only_product_counts_as_linked(): void
     {
         $productId = $this->seedProduct('Pivot legacy', 'PV-1');
@@ -156,11 +146,6 @@ class TikTokListingStateTest extends TestCase
         $this->assertSame('Not checked yet', $s->label());
     }
 
-    /**
-     * A listing is in sync with its catalog product, shows a Catalog change
-     * when the catalog moved since it was compared and the two differ, and
-     * without a listing row there is nothing to compare.
-     */
     public function test_drift_true_false_and_null(): void
     {
         $pfx = (string) config('catalog.prefix');
@@ -193,7 +178,6 @@ class TikTokListingStateTest extends TestCase
         $this->assertNull($states[$pivotOnly]->inSync, 'no listing row: nothing to compare');
     }
 
-    /** Unlinking cuts the link AND the mirror that described it. */
     public function test_unlink_voids_the_mirror(): void
     {
         $productId = $this->seedProduct('Cut loose', 'UN-1');
@@ -209,10 +193,6 @@ class TikTokListingStateTest extends TestCase
         $this->assertSame(ListingState::NOT_LISTED, $this->engine()->forProducts([$productId])[$productId]->state);
     }
 
-    /**
-     * A group unlink used to leave the LISTING row's link untouched, so the
-     * product still read "Listed" and offered Update against a cut link.
-     */
     public function test_group_unlink_clears_the_listing_row_too(): void
     {
         $productId = $this->seedProduct('Group cut', 'GC-1');
@@ -233,7 +213,6 @@ class TikTokListingStateTest extends TestCase
         $this->assertSame(ListingState::NOT_LISTED, $this->engine()->forProducts([$productId])[$productId]->state);
     }
 
-    /** The dashboard summary counts by aggregate. */
     public function test_summary_counts_attention_and_drift(): void
     {
         $pfx = (string) config('catalog.prefix');
@@ -249,12 +228,10 @@ class TikTokListingStateTest extends TestCase
         DB::table($pfx . 'product_description')->where('product_id', $behind)->update(['name' => 'Behind, renamed']);
         DB::table($pfx . 'product')->where('product_id', $behind)->update(['date_modified' => now()->addMinute()]);
 
-        // Saved in the catalog, but nothing differs: no Catalog change.
         $touched = $this->seedProduct('Touched', 'SM-5');
         TikTokListing::create(['product_id' => $touched, 'tiktok_product_id' => 'tt-605', 'live_status' => 'ACTIVATE', 'live_checked_at' => now()]);
         DB::table($pfx . 'product')->where('product_id', $touched)->update(['date_modified' => now()->addMinute()]);
 
-        // An unlinked leftover must not count: the trouble left with the link.
         $unlinked = $this->seedProduct('Unlinked leftover', 'SM-4');
         TikTokListing::create(['product_id' => $unlinked, 'tiktok_product_id' => null, 'live_status' => 'FREEZE', 'live_checked_at' => now()]);
 
@@ -263,7 +240,6 @@ class TikTokListingStateTest extends TestCase
         $this->assertSame(1, $sum['drift']);
     }
 
-    /** The listing troubles ride the dashboard chip, same phrasing as the other channels. */
     public function test_the_dashboard_chip_carries_the_listing_flags(): void
     {
         $failed = $this->seedProduct('Failed', 'DB-1');
@@ -276,18 +252,9 @@ class TikTokListingStateTest extends TestCase
         $this->assertCount(1, $flags);
         $this->assertSame('1 listing needs attention', $flags[0]['text']);
         $this->assertSame(1, $data['tiktokSyncStatus']->listing_attention);
-        // The figure leads to the rows it counted (#240).
         $this->assertStringContainsString('state=attention', (string) $flags[0]['href']);
     }
 
-    /**
-     * A groupless, never-pushed product the store carries is VISIBLE, and
-     * not_listed finds it. Phase D (#184) made the default view the whole
-     * catalogue so a new user's first product could never be invisible;
-     * #201 (2026-09-05) made the view THIS STORE's own list - so the product
-     * is on the store first, with the blank record Add products leaves, and
-     * a group is still not required for it to show.
-     */
     public function test_a_product_on_the_store_with_no_push_is_visible_by_default(): void
     {
         $pid = $this->seedProduct('My very first product', 'FIRST-1');
@@ -297,14 +264,11 @@ class TikTokListingStateTest extends TestCase
         $page->assertSee('My very first product');
         $page->assertSee('Not listed');
 
-        // Before Phase D a product without a group or a link was invisible
-        // even to the not_listed filter - the scope whereIn intersected it away.
         $this->actingAs($this->manager())
             ->get(route('ext.tiktok.products.index', ['sync_status' => 'not_listed']))
             ->assertOk()->assertSee('My very first product');
     }
 
-    /** Core reaches TikTok's states through the same contract as Shopee and Lazada. */
     public function test_the_engine_is_reachable_through_the_listing_state_contract(): void
     {
         $productId = $this->seedProduct('Contracted', 'CT-1');
@@ -318,11 +282,6 @@ class TikTokListingStateTest extends TestCase
         $this->assertSame(route('ext.tiktok.listings.edit', $productId), $tiktok->listingUrls([$productId])[$productId]);
     }
 
-    /**
-     * One latest push error per product (the owner, 2026-09-05): a refusal from
-     * any push lands on the listing row and every surface tells it, until
-     * a push succeeds; the Last sync column is the same answer everywhere.
-     */
     public function test_the_last_push_refusal_and_the_last_sync_are_one_answer(): void
     {
         $pid = $this->seedProduct('Refused one', 'RF-1');
@@ -334,7 +293,6 @@ class TikTokListingStateTest extends TestCase
         $this->assertStringContainsString('failed: Main image is required', implode(' ', $s->reasons));
         $this->assertStringContainsString('Main image is required', (string) $states->errors([$pid])[$pid]);
 
-        // A successful push clears it and the error line goes.
         \Extensions\tiktok\Models\TikTokListing::recordPush($pid, 'tt-1', null, 'listing');
         $this->assertNull($states->errors([$pid])[$pid]);
         $this->assertNull(\Extensions\tiktok\Models\TikTokListing::query()->where('product_id', $pid)->value('last_push_error'));
@@ -368,9 +326,6 @@ class TikTokListingStateTest extends TestCase
 
     public function test_a_group_is_a_preset_the_product_inherits(): void
     {
-        // A group is a preset the product inherits (the owner, 2026-09-05): a
-        // listing with no category of its own is judged, and pushed, with
-        // its group's category. Nothing is written to the row.
         $pid = $this->seedProduct('Inherits one', 'IN-1');
         $listing = TikTokListing::query()->create(['product_id' => $pid]);
         $grp = TikTokProductGroup::create(['name' => 'Preset group', 'tiktok_category_id' => '900009']);
@@ -389,11 +344,9 @@ class TikTokListingStateTest extends TestCase
         $this->assertNotContains(\App\Integrations\Listings\ListingState::GAP_CATEGORY, $codes);
         $this->assertContains(\App\Integrations\Listings\ListingState::GAP_SHEET, $codes, 'the inherited category is judged like its own: its sheet is still unread');
 
-        // The row keeps its blanks: the group is a preset, not a write.
         $this->assertNull(TikTokListing::query()->where('product_id', $pid)->value('tiktok_category_id'));
         $this->assertNull($listing->tiktok_category_id);
 
-        // A listing with its own category keeps it over the group's.
         $own = $this->seedProduct('Own one', 'OW-1');
         $ownListing = TikTokListing::query()->create(['product_id' => $own, 'tiktok_category_id' => '900777']);
         TikTokProductGroupProduct::create(['tiktok_product_group_id' => $grp->id, 'product_id' => $own, 'sync_status' => 'pending']);
@@ -402,7 +355,6 @@ class TikTokListingStateTest extends TestCase
         $this->assertSame([], $filled['inherited']);
     }
 
-    /** A product on the store, linked to a single-SKU TikTok Shop product. */
     private function linkedSingle(string $name, string $sku, string $ttId): int
     {
         $pid = $this->seedProduct($name, $sku);
@@ -457,11 +409,9 @@ class TikTokListingStateTest extends TestCase
         $this->actingAs($user)->post(route('ext.tiktok.products.push_price', $pid))->assertRedirect();
         $this->assertStringContainsString('Price is below the allowed floor.', (string) $this->engine()->errors([$pid])[$pid]);
 
-        // The link check finds the item still there: a read never clears.
         $this->actingAs($user)->post(route('ext.tiktok.products.check'), ['product_ids' => [$pid]])->assertRedirect();
         $this->assertStringContainsString('Price is below the allowed floor.', (string) $this->engine()->errors([$pid])[$pid]);
 
-        // Nor does the scheduled refresh, which re-reads statuses and checks the links.
         $this->artisan('tiktok:refresh-listing-status')->assertExitCode(0);
         $this->assertStringContainsString('Price is below the allowed floor.', (string) $this->engine()->errors([$pid])[$pid]);
 
@@ -547,7 +497,6 @@ class TikTokListingStateTest extends TestCase
         $this->actingAs($user)->get(route('ext.tiktok.products.index', ['sync_status' => 'error']))
             ->assertOk()->assertSee('Short a variation')->assertDontSee('Refused then fixed');
 
-        // The group page filters by the same definition.
         $grp = TikTokProductGroup::create(['name' => 'Filter group', 'tiktok_category_id' => '900009']);
         foreach ([$short, $refused, $clean] as $pid) {
             TikTokProductGroupProduct::create(['tiktok_product_group_id' => $grp->id, 'product_id' => $pid, 'sync_status' => 'pending']);

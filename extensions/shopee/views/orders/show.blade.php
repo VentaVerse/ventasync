@@ -2,15 +2,8 @@
 @section('title', 'Order ' . $order->order_sn)
 @section('breadcrumb', $order->order_sn)
 
-{{-- Leaves the .x-legacy content boundary, the same exit the Orders and
-     Returns pages took: this page is built directly on the design tokens,
-     the x-ui components and the shared `od-` detail anatomy. --}}
 @section('content')
 @php
-    // Wire-format truth is ShopeeOrderController@show. Every extraction
-    // below is the expression the previous version of this page used, moved
-    // unchanged: Shopee's payload is inconsistent across API versions and
-    // each `??` chain is a fallback someone hit in production.
     $raw = is_array($order->raw ?? null) ? $order->raw : [];
 
     $status = $order->status ?? ($raw['order_status'] ?? '');
@@ -40,28 +33,13 @@
     $items = $order->products ?? collect();
 
     $isToPack = ($statusNorm === 'READY_TO_SHIP');
-    // The waybill and the tracking trace exist once Shopee has a parcel to
-    // talk about. Same four statuses the previous version of this page used.
     $hasParcel = in_array($statusNorm, ['PROCESSED', 'SHIPPED', 'TO_CONFIRM_RECEIVE', 'COMPLETED'], true);
 
-    // Phase 4 - Shopee order detail: refresh-from-Shopee and Arrange
-    // Shipment are write-tier actions (refresh re-pulls from the API and
-    // persists, ship triggers a marketplace state change). The route
-    // middleware is the real gate (perm:manage_shopee_orders on the ship
-    // POST); this flag only stops the page offering what would 403.
     $canManageShopeeOrders = auth()->user()?->hasPermission('manage_shopee/order') ?? false;
 
-    // Tone and label from the same maps the orders list uses, so a status
-    // means the same colour and reads the same words on both surfaces. No
-    // marketplace constant reaches the screen raw.
     $tone = \App\Support\ChannelStatusTone::toneFor('shopee.orders', $statusStr);
     $statusLabel = \App\Support\ChannelStatusTone::labelFor('shopee.orders', $statusStr);
 
-    // Currency is resolved through App\Support\Money, which reads the symbol
-    // from the currencies table, so no symbol is written into this view. An
-    // order carrying a code nobody has configured locally falls back to
-    // "CODE 1,234.00" rather than a wrong glyph. Same resolution the orders
-    // list already applies to this order's own amount.
     $currencyCode = (string) ($raw['currency'] ?? '');
     $money = fn ($amount) => $currencyCode !== ''
         ? \App\Support\Money::foreign((float) $amount, $currencyCode)
@@ -128,14 +106,8 @@
     @endif
 
     <div class="od-body">
-        {{-- ============ MAIN COLUMN ============ --}}
         <div class="od-col od-col--main">
 
-            {{-- Items. Same `co-` item grammar as the fulfilment list (96px
-                 image, two-line name, SKU and variation meta), in the `od-`
-                 item grid so qty and price align down the page. Shopee
-                 stores no line total, so this page's grid is four columns
-                 rather than the core show's five. --}}
             <section class="od-section">
                 <div class="od-section__head">
                     <h2 class="od-section__title">
@@ -166,10 +138,6 @@
                             $price = (float)($it->price ?? 0);
                         @endphp
                         <div class="od-item">
-                            {{-- The store's own picture leads, because it is what the
-                                 buyer saw. Our catalogue's stands in when the store sent
-                                 none, or when the link it sent no longer answers, the way
-                                 the fulfilment panels already do. --}}
                             @php $itImg = $img !== '' ? $img : (string) (\App\Support\CatalogImages::urlFor($sku) ?? ''); @endphp
                             <div class="order-img-wrap od-item__media">
                                 @if($itImg !== '')
@@ -201,7 +169,6 @@
                 @endif
             </section>
 
-            {{-- The store's own breakdown of what this order came to, under the items it is for. --}}
             <section class="od-section">
                 <div class="od-section__head">
                     <h2 class="od-section__title">{{ $breakdown?->title ?? 'Order income' }}</h2>
@@ -221,16 +188,6 @@
                 @endif
             </section>
 
-            {{-- ============ INVOICE REQUEST ============
-                 The same three states and the same five fields the shared
-                 invoice card rendered, poured into this page's own grammar
-                 (that component is built from the legacy .card chrome and raw
-                 hex, which cannot follow this page out of .x-legacy). It sits
-                 in the main column, where the previous version of this page
-                 carried it: an invoice the seller has to issue is a document
-                 about the order, not a reference fact about its delivery.
-                 The copy buttons keep the [data-copy] contract
-                 resources/js/invoice-copy.js binds. --}}
             @php
                 $inv = is_array($order->buyer_invoice ?? null) ? $order->buyer_invoice : null;
                 $invState = 'unavailable';
@@ -297,10 +254,6 @@
             </section>
             @endif
 
-            {{-- Returns and refunds. Full-width in the main column rather
-                 than the side, because a return carries its own items and
-                 its own negotiation history: it is a second subject, not a
-                 reference fact about the first one. --}}
             @if($returns->count() > 0)
             <section class="od-section">
                 <div class="od-section__head">
@@ -409,23 +362,14 @@
             </section>
             @endif
 
-            {{-- Raw payload. Kept from the previous version of this page:
-                 when Shopee's response and this page disagree, this is what
-                 settles it. It closes the main column rather than running
-                 full width under the body, because the side column on this
-                 page is three cards taller than the item list and a
-                 full-width band below both left it marooned under a screen
-                 of empty canvas. --}}
             <details class="od-disclose od-rawbox">
                 <summary>Show the JSON Shopee returned</summary>
                 <pre class="spd-raw">{{ json_encode($raw, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) }}</pre>
             </details>
         </div>
 
-        {{-- ============ SIDE COLUMN ============ --}}
         <div class="od-col od-col--side">
 
-            {{-- Customer and delivery address --}}
             <section class="od-card">
                 <div class="od-card__head">
                     <h2 class="od-card__title">Customer</h2>
@@ -455,8 +399,6 @@
                 </div>
             </section>
 
-            {{-- Payment. Both figures are the ones the fulfilment list already
-                 prints for this same order, from the same payload keys. --}}
             @if(($orderTotal !== null && $orderTotal !== '') || $paymentMethod !== '')
             <section class="od-card">
                 <div class="od-card__head">
@@ -464,10 +406,6 @@
                 </div>
                 <div class="od-card__body">
                     @if($orderTotal !== null && $orderTotal !== '')
-                    {{-- "Order total", not "buyer paid": this is Shopee's
-                         total_amount, which an UNPAID order carries before
-                         any money has moved. A label the data does not
-                         support is the one thing this page cannot print. --}}
                     <div class="od-paid">
                         <span class="od-paid__k">Order total</span>
                         <span class="od-paid__v">{{ is_numeric($orderTotal) ? $money($orderTotal) : $orderTotal }}</span>
@@ -483,7 +421,6 @@
             </section>
             @endif
 
-            {{-- Shipping --}}
             <section class="od-card">
                 <div class="od-card__head">
                     <h2 class="od-card__title">Shipping</h2>
@@ -495,8 +432,6 @@
                     </div>
                     <div class="od-fact">
                         <span class="od-fact__k">Tracking number</span>
-                        {{-- Mono is for the identifier, not for the words
-                             that stand in when there is no identifier. --}}
                         <span class="od-fact__v {{ $tracking !== '' ? 'od-fact__v--mono' : '' }}">{{ $tracking !== '' ? $tracking : 'Not recorded' }}</span>
                     </div>
                 </div>
@@ -512,7 +447,7 @@
         </div>
     </div>
 
-</div>{{-- /#shopee-order-detail-page --}}
+</div>
 
 @include('ext-shopee::orders._modals')
 @endsection

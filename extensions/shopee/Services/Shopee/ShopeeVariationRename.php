@@ -5,38 +5,12 @@ namespace Extensions\shopee\Services\Shopee;
 use Extensions\shopee\Models\ShopeeApiLog;
 use Illuminate\Support\Facades\DB;
 
-/**
- * The catalog names an item's variations when an update reaches it.
- *
- * A variation type the seller named on Shopee takes the catalog option's
- * name, and its values take the catalog's value names. A type the category
- * defines (a standardise tier with a variation_id of its own) keeps
- * Shopee's name and values. Every model stays on its own tier_index, so no
- * variation is deleted or re-created to be renamed.
- *
- * The store's types and values are paired with the catalog's by the SKUs
- * the models carry. When that pairing is not certain, or Shopee refuses the
- * names, the rename is skipped with a warning and the rest of the update
- * goes ahead, so the item is never renamed by guesswork. The rename is one
- * update_tier_variation call: it takes whole or not at all.
- *
- * plan() reads and decides without writing; apply() sends the plan.
- */
 class ShopeeVariationRename
 {
-    /** Shopee's lengths, the same the first push cuts to. */
     private const TYPE_NAME_LIMIT = 26;
 
     private const VALUE_NAME_LIMIT = 50;
 
-    /**
-     * @param null|array{ok: bool, reason: string, response: array} $read
-     *        the item's models as already read (ShopeeVariationPush::readModels()),
-     *        or null to read them here
-     * @return array{ok: bool, message: string, payload: ?array}
-     *         ok false carries a one-line warning and no rename is sent;
-     *         ok true with a null payload means nothing needs renaming.
-     */
     public function plan(ShopeeClient $client, array $auth, int $itemId, int $productId, ?array $read = null): array
     {
         $catalog = $this->catalog($productId);
@@ -54,7 +28,6 @@ class ShopeeVariationRename
         $standardise = array_values((array) ($resp['standardise_tier_variation'] ?? []));
         $models = array_values((array) ($resp['model'] ?? []));
 
-        // An item without variations on Shopee has nothing to rename.
         if ($legacy === [] && $standardise === []) {
             return $this->nothing();
         }
@@ -62,7 +35,6 @@ class ShopeeVariationRename
             return $this->refuse('Shopee described the item\'s variation types in two ways that do not agree');
         }
 
-        // The item's own shape is the one written back.
         $shape = $standardise !== [] ? 'standardise' : 'legacy';
         $tiers = [];
         foreach ($shape === 'standardise' ? $standardise : $legacy as $entry) {
@@ -93,7 +65,6 @@ class ShopeeVariationRename
             return $this->refuse($pairing['refused']);
         }
 
-        // The names each tier ends with; a category's type keeps its own.
         $renamed = [];
         foreach ($tiers as $t => $tier) {
             if ($tier['standard']) {
@@ -128,7 +99,6 @@ class ShopeeVariationRename
             return $this->nothing();
         }
 
-        // Every model is named with the tier_index it already holds.
         $modelList = [];
         foreach ($models as $m) {
             $modelId = (int) ($m['model_id'] ?? 0);
@@ -168,12 +138,6 @@ class ShopeeVariationRename
         return ['ok' => true, 'message' => '', 'payload' => $payload];
     }
 
-    /**
-     * Send a plan. A plan with nothing to rename sends nothing.
-     *
-     * @param array{ok: bool, message: string, payload: ?array} $plan
-     * @return array{ok: bool, message: string}
-     */
     public function apply(ShopeeClient $client, array $auth, array $plan): array
     {
         if (!($plan['ok'] ?? false)) {
@@ -212,13 +176,6 @@ class ShopeeVariationRename
         return ['ok' => true, 'message' => ''];
     }
 
-    /**
-     * Which catalog option each tier is, and which catalog value each of
-     * the tier's options is, read from the models whose SKU the catalog
-     * also holds. Only an answer every matched model agrees with is taken.
-     *
-     * @return array{axisFor: array<int, int>, values: array<int, array<int, int>>}|array{refused: string}
-     */
     private function pair(array $tiers, array $axisIds, array $catalog, array $models): array
     {
         $evidence = [];
@@ -263,7 +220,6 @@ class ShopeeVariationRename
             return $fits[0];
         }
 
-        // Two arrangements fit the SKUs; a type already named like its option settles it.
         $scored = [];
         foreach ($fits as $k => $fit) {
             $score = 0;
@@ -284,12 +240,6 @@ class ShopeeVariationRename
         return ['refused' => 'the item\'s SKUs do not show which of its variation types is which catalog option'];
     }
 
-    /**
-     * Every order the catalog's options can sit in across the tiers.
-     * Shopee holds at most two tiers.
-     *
-     * @return list<list<int>>
-     */
     private function orders(array $axisIds): array
     {
         if (count($axisIds) === 2) {
@@ -299,12 +249,6 @@ class ShopeeVariationRename
         return [$axisIds];
     }
 
-    /**
-     * The catalog's options, values and each combination's values by SKU,
-     * or null when the product has no variations.
-     *
-     * @return null|array{axes: array<int, string>, values: array<int, array<int, string>>, combos: array<string, array<int, int>>}
-     */
     private function catalog(int $productId): ?array
     {
         $pfx = (string) config('catalog.prefix');
@@ -383,13 +327,11 @@ class ShopeeVariationRename
         return ['ok' => false, 'message' => $this->warning($reason), 'payload' => null];
     }
 
-    /** The one sentence a skipped rename adds to the update's result. */
     private function warning(string $reason): string
     {
         return 'Variation names were not changed: ' . $this->bare($reason) . '.';
     }
 
-    /** A reason without its closing full stop, so it can sit inside a sentence. */
     private function bare(string $text): string
     {
         return rtrim(trim($text), '.');

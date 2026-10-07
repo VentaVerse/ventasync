@@ -1,16 +1,3 @@
-/*
- * The Import pages (cleanup points 10-11): one page per channel under the
- * Catalog menu, every one a clone of the same queue table.
- *
- * When the queue left each listings workbench for its own page, it left the
- * workbench's JS behind: channel-listings.js is deliberately inert without
- * that page's own overlay, so nothing bound the catalog typeahead here and
- * every Link button sat permanently disabled. This module owns the import
- * pages instead, keyed on the overlay component they all include.
- *
- * The behaviour itself still lives in channel-listings.js - same picker,
- * same wire (GET search-catalog?q=, picked id into the hidden product_id).
- */
 import { initCatalogPicker } from './channel-listings';
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -19,11 +6,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.querySelectorAll('form[data-unmatched-link]').forEach(initCatalogPicker);
 
-    // Scan and Import are real marketplace round-trips; the overlay is the
-    // sign the press landed. Bubble phase + defaultPrevented so a guarded
-    // form's cancelled confirm never raises it (see busy-overlay.js).
-    // confirm-modal.js re-submits an accepted form via requestSubmit(),
-    // which runs these listeners again, so the overlay rises then too.
     document.querySelectorAll('form[data-slow-action]').forEach(function (form) {
         form.addEventListener('submit', function (e) {
             if (e.defaultPrevented) return;
@@ -31,10 +13,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    /* Import selected (the owner, 2026-09-04): tick rows, one press imports
-       them all. The checkboxes sit in the table but belong to the bulk
-       form through the form="" attribute, so no id injection is needed -
-       this only keeps the count honest and the button earned. */
     initPager();
     initLazyThumbs();
 
@@ -47,9 +25,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function refresh() {
         var n = boxes.filter(function (b) { return b.checked; }).length;
-        // The bar appears only once a row is ticked - the page never
-        // carries a control that does nothing (the products and listings
-        // pages hold the same rule). It rides sticky under the top bar.
         if (bar) bar.hidden = n === 0;
         if (count) count.textContent = String(n);
         if (all) {
@@ -65,8 +40,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (all) {
         all.addEventListener('change', function () {
-            // The page in view only: a tick-all on page 3 does not silently
-            // tick the 250 rows the operator has not looked at.
             boxes.forEach(function (b) {
                 var row = b.closest('[data-import-row]');
                 if (!row || !row.hidden) b.checked = all.checked;
@@ -78,19 +51,6 @@ document.addEventListener('DOMContentLoaded', function () {
     refresh();
 });
 
-/* ------------------------------------------------------------------
-   Pages of fifty (the owner, 2026-09-06: "No cap. But I want a pagination
-   instead. 50 products per page.").
-
-   The rows are never saved, so the pages are cut here over the rows the
-   render carries: one fetch, one page in view, the rest hidden with their
-   ticks intact. The shell is partials/channel-import-pager.blade.php and
-   wears the x-pager grammar of the Products pages; this fills the count,
-   draws the numbers and moves between pages. Hidden below two pages.
-   ------------------------------------------------------------------ */
-/* A row whose picture the store's list did not carry asks for it when it
-   scrolls into view (TikTok, 2026-09-07): <img data-thumb-url hidden>, the
-   endpoint answers {url}, the image shows when there is one. */
 function initLazyThumbs() {
     const imgs = document.querySelectorAll('img[data-thumb-url]');
     if (!imgs.length) return;
@@ -136,7 +96,6 @@ function initPager() {
     var current = 1;
 
     function numbers(cur, last) {
-        // 1 ... cur-1 cur cur+1 ... last, the same window the server pager draws.
         var out = [];
         for (var n = 1; n <= last; n++) {
             if (n === 1 || n === last || Math.abs(n - cur) <= 1) {
@@ -185,7 +144,6 @@ function initPager() {
             list.appendChild(li);
         });
 
-        // The select-all box speaks for the page in view.
         var all = document.querySelector('[data-import-check-all]');
         if (all) {
             var visible = rows.filter(function (r) { return !r.hidden; });

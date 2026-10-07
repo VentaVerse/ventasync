@@ -2,14 +2,7 @@
 @section('title', $channelName . ' Description Templates')
 @section('breadcrumb', 'Description Templates')
 
-{{-- The store's own words a listing puts above or below the product
-     description (the owner, 2026-09-07). One page for every channel; the
-     controller is per channel only so the permission keys stay per channel. --}}
 @section('content')
-{{-- The page head every Catalog page on a store carries (Listings, Product
-     Groups, Categories): .x-list-head. This had .x-page-head, a class with
-     no rule anywhere, so the title kept its own side padding, the action
-     fell out of the row and the head had none of the shared inset. --}}
 <div class="x-list-head">
     <div>
         <h1 class="x-page-title">Description Templates</h1>
@@ -21,8 +14,6 @@
 </div>
 
 @if($templates->isEmpty())
-    {{-- Title and button only: the sub line above already says what a
-         template is for. --}}
     <x-ui.empty title="No templates yet">
         @if($canManage)
             <x-slot:action>
@@ -62,7 +53,6 @@
 @endif
 
 @if($canManage)
-    {{-- One form for both verbs: empty for New, filled by Edit. --}}
     <div class="modal-backdrop" data-dt-modal>
         <div class="modal">
             <form method="POST" action="{{ $createUrl }}" data-dt-form>
@@ -91,7 +81,6 @@
         </div>
     </div>
     @if($richText) @include('catalog.products.partials.wysiwyg') @endif
-    {{-- Outside the template form: the picker's search box would submit it on Enter. --}}
     @if($browseUrl)
         @include('partials.image-library-pick', ['browseUrl' => $browseUrl])
     @endif

@@ -8,9 +8,6 @@ use Illuminate\Support\Facades\DB;
 
 class UniqueSku implements ValidationRule
 {
-    /**
-     * @param int|null $excludeProductId Product ID to exclude (for update scenarios)
-     */
     public function __construct(private ?int $excludeProductId = null)
     {
     }
@@ -19,13 +16,11 @@ class UniqueSku implements ValidationRule
     {
         $sku = trim((string) $value);
         if ($sku === '') {
-            return; // Empty SKUs are allowed (nullable)
+            return;
         }
 
         $p = (string) config('catalog.prefix');
 
-        // Check product.sku - naming WHO holds it (#185): "another
-        // product" sent the operator searching; the name lets them decide.
         $holder = DB::table($p . 'product')->where('sku', $sku);
         if ($this->excludeProductId) {
             $holder->where('product_id', '!=', $this->excludeProductId);
@@ -35,9 +30,6 @@ class UniqueSku implements ValidationRule
             return;
         }
 
-        // Check product_option_value.sku. A variation row whose product no
-        // longer exists holds nothing (a delete used to leave them behind,
-        // 2026-09-07); only a living product's variation counts.
         $optionQuery = DB::table($p . 'product_option_value as pov')
             ->join($p . 'product as pp', 'pp.product_id', '=', 'pov.product_id')
             ->where('pov.sku', $sku);
@@ -49,8 +41,6 @@ class UniqueSku implements ValidationRule
             return;
         }
 
-        // Check product_option_combinations.sku - the third place a SKU
-        // lives, and the one the old rule never looked at.
         $comboQuery = DB::table('product_option_combinations as c')
             ->join($p . 'product as cp', 'cp.product_id', '=', 'c.product_id')
             ->where('c.sku', $sku);

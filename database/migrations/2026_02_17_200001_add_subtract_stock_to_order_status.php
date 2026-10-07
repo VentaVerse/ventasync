@@ -18,7 +18,6 @@ return new class extends Migration
             });
         }
 
-        // Seed: Processing (2) and Delivered (9) subtract stock by default
         DB::table($table)->whereIn('order_status_id', [2, 9])->update(['subtract_stock' => 1]);
     }
 

@@ -18,13 +18,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * The individual Venta listing page (#171): one product on one store, on
- * the same anatomy as Shopee's and TikTok's. The live half is read from
- * the store on load and written to the mirror; the record beneath it is
- * what a push from here sends, with content overrides that follow the
- * catalogue when empty and a price rule the store price is run through.
- */
 class VentaListingPageTest extends TestCase
 {
     use RefreshDatabase;
@@ -33,7 +26,6 @@ class VentaListingPageTest extends TestCase
 
     private int $seq = 0;
 
-    /** @var array<string, User> */
     private array $users = [];
 
     protected function setUp(): void
@@ -83,7 +75,6 @@ class VentaListingPageTest extends TestCase
         ]);
     }
 
-    /** A catalogue product with a name, a price and a SKU. */
     private function product(string $sku = 'GP-200', float $price = 1000): int
     {
         $pfx = (string) config('catalog.prefix');
@@ -112,13 +103,6 @@ class VentaListingPageTest extends TestCase
         ], $extra);
     }
 
-    /**
-     * Live, 2026-09-11: a Push stock the storefront refused answered with a
-     * server error ("Unknown column 'last_push_error'"). The refusal is
-     * written to the listing's latest push error, and Venta's listing table
-     * was the one of five that never got the column. It is recorded now, and
-     * the page says what the storefront said.
-     */
     public function test_a_refused_stock_push_is_recorded_on_the_listing_not_a_server_error(): void
     {
         $store = $this->store();
@@ -138,7 +122,6 @@ class VentaListingPageTest extends TestCase
         $this->assertNotNull($listing->last_push_failed_at);
     }
 
-    /** The error line shows the latest outcome: a push refused, then a clean stock push, leaves no line. */
     public function test_a_failed_push_then_a_clean_stock_push_clears_the_error_line(): void
     {
         $store = $this->store();
@@ -177,7 +160,6 @@ class VentaListingPageTest extends TestCase
             ->assertDontSee('Title is too long');
     }
 
-    /** A read never clears an error: a push error survives a successful link check and Refresh, and the next clean stock push clears it. */
     public function test_a_push_error_survives_a_successful_link_check_and_the_next_stock_push_clears_it(): void
     {
         $store = $this->store();
@@ -210,7 +192,6 @@ class VentaListingPageTest extends TestCase
         $this->assertNull($line());
     }
 
-    /** A successful product push from the Listings page clears the error an earlier push left. */
     public function test_a_successful_push_clears_an_earlier_push_error(): void
     {
         $store = $this->store();
@@ -232,7 +213,6 @@ class VentaListingPageTest extends TestCase
         $this->assertNull(\Extensions\venta\Services\Venta\VentaListingStates::for($store->id)->errors([$pid])[$pid]);
     }
 
-    /** Unlink clears every error slot the line reads, on the listing and the group row. */
     public function test_unlinking_clears_the_error_line(): void
     {
         $store = $this->store();
@@ -259,12 +239,6 @@ class VentaListingPageTest extends TestCase
         Http::assertNothingSent();
     }
 
-    /**
-     * A product with three variations on this store: TEE-M switched off for
-     * the store, TEE-L not on the store's item. Returns [store, product id, group].
-     *
-     * @return array{0: VentaSetting, 1: int, 2: VentaProductGroup}
-     */
     private function productWithVariations(): array
     {
         $store = $this->store();
@@ -322,11 +296,6 @@ class VentaListingPageTest extends TestCase
         $this->assertOnlyTheSoldVariantsWentAndTheGapIsNamed($store, $pid);
     }
 
-    /**
-     * The one group shape (2026-09-07): a Venta group picks the store's own
-     * category, the way WooCommerce's does, and the listing page reports it.
-     * A category this store does not hold is refused.
-     */
     public function test_a_venta_group_picks_the_stores_own_category_and_the_listing_reports_it(): void
     {
         $store = $this->store();
@@ -345,7 +314,6 @@ class VentaListingPageTest extends TestCase
             ->assertSessionHasNoErrors();
         $group = \Extensions\venta\Models\VentaProductGroup::query()->where('name', 'Pedal group')->first();
         $this->assertSame(42, (int) $group->venta_category_id);
-        // Membership is the products page's business, not the form's.
         $this->assertSame([], $group->products()->pluck('product_id')->all());
 
         \Extensions\venta\Models\VentaProductGroupProduct::create(['venta_product_group_id' => $group->id, 'product_id' => $pid]);
@@ -354,7 +322,6 @@ class VentaListingPageTest extends TestCase
         $page->assertSee('Pedals');
         $page->assertSee('Pedal group');
 
-        // A category the store does not hold is refused.
         $this->actingAs($manager)
             ->from(route('ext.venta.product-groups.create', $store->id))
             ->post(route('ext.venta.product-groups.store', $store->id), ['name' => 'Ghost', 'venta_category_id' => 999])
@@ -374,15 +341,10 @@ class VentaListingPageTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        /* The strip's title and figures went with the health surface on
-           2026-09-09 (the owner: "just fields to edit. Nothing about health").
-           The store's own table below the fields stayed, and so did the
-           write-through this test is really about. */
         $this->assertStringNotContainsString('On Gear Depot right now', $html);
         $this->assertStringNotContainsString('Guitar Pedal 200 on the store', $html);
         $this->assertStringContainsString('GP-200-RED', $html);
         $this->assertStringContainsString('>Listed<', $html);
-        // A viewer reads; no verbs.
         $this->assertStringNotContainsString('Unlist on Gear Depot', $html);
         $this->assertStringNotContainsString('Save listing', $html);
 
@@ -406,10 +368,6 @@ class VentaListingPageTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        /* The sentence was a note under the strip and went with the rest
-           on 2026-09-09. The behaviour it announced is what matters and is
-           unchanged: the page records what the store said and drops
-           nothing by itself. */
         $this->assertStringNotContainsString('no longer has a product with this SKU', $html);
         $this->assertSame(VentaListing::STATUS_MISSING, VentaListing::where('product_id', $pid)->value('live_status'));
     }
@@ -428,13 +386,8 @@ class VentaListingPageTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        /* The sentence went with the health surface; the guarantee it
-           described did not. A failed read still writes nothing, so the
-           mirror below keeps what it had rather than being overwritten
-           with a guess. */
         $this->assertStringNotContainsString('live state is simply unknown', $html);
         $this->assertStringNotContainsString('Read from Gear Depot as this page loaded', $html);
-        // The mirror keeps what it had; the failed read wrote nothing.
         $this->assertSame(999.0, VentaListing::where('product_id', $pid)->first()->live_price);
     }
 
@@ -450,11 +403,6 @@ class VentaListingPageTest extends TestCase
         $this->assertSame(7777, (int) VentaProductLink::where('venta_setting_id', $store->id)->where('product_id', $pid)->value('venta_product_id'));
     }
 
-    /**
-     * The chosen prefix shows greyed above the description, as the push
-     * sends it, and a template body is printed sanitised, never as it was
-     * stored. The blocks are not fields, so nothing extra is posted.
-     */
     public function test_the_chosen_templates_frame_the_description_sanitised(): void
     {
         $store = $this->store();
@@ -469,7 +417,6 @@ class VentaListingPageTest extends TestCase
             'integration' => 'venta', 'store_id' => $store->id, 'name' => 'Warranty',
             'body' => '<p>One year warranty.</p><script>alert("xss-script")</script><img src="javascript:alert(\'xss-src\')" onerror="alert(\'xss-onerror\')">',
         ]);
-        // Another store's template is never offered or previewed here.
         $foreign = DescriptionTemplate::create([
             'integration' => 'venta', 'store_id' => $store->id + 1000, 'name' => 'Elsewhere', 'body' => 'Another store policy',
         ]);
@@ -511,13 +458,11 @@ class VentaListingPageTest extends TestCase
         $this->assertNull($listing->markup_fixed);
         $this->assertSame(1100.0, $listing->priceFor(1000));
 
-        // An emptied description on the listing stays empty.
         $this->actingAs($this->manager())
             ->put(route('ext.venta.listings.update', [$store->id, $pid]), ['name' => 'Pedal, store wording', 'description' => '<p><br></p>', 'description_edited' => '1'])
             ->assertRedirect();
         $this->assertNull($listing->fresh()->description);
 
-        // The catalogue product is untouched.
         $pfx = (string) config('catalog.prefix');
         $this->assertSame('Guitar Pedal 200', DB::table($pfx . 'product_description')->where('product_id', $pid)->value('name'));
     }
@@ -565,38 +510,17 @@ class VentaListingPageTest extends TestCase
         $this->assertSame('<p>Newer catalog words.</p>', $listing()->description);
         $this->assertSame([], $listing()->catalogChange());
 
-        // A product this store has no listing of has nothing to compare.
         $this->actingAs($this->manager())
             ->post(route('ext.venta.listings.catalog_change_ignore', [$store->id, $this->product('GP-300')]))
             ->assertNotFound();
     }
 
-    /**
-     * the owner, 2026-09-07: a store listing's own name and description are saved
-     * per store and must go up from EVERY door. The group push built its
-     * payload straight from the catalogue, so it sent the catalogue's name
-     * while the listing's own sat saved and unused.
-     */
-    /**
-     * A FEES-ONLY RUN TAKES THE MONEY AND LEAVES EVERYTHING ELSE.
-     *
-     * Venta backfilled its own past orders with a payment and delivery fee,
-     * and the ERP cannot find them in what it already holds: a stored
-     * payload is a photograph of what was sent at the time. So those orders
-     * have to be asked for again - and a full re-sync would delete and
-     * re-insert every order LINE and re-stamp each cost from today's
-     * catalogue, moving every profit figure in the system.
-     *
-     * This pins the difference: the line and its cost are untouched.
-     */
     public function test_a_fees_only_pull_never_rewrites_an_order_line(): void
     {
         $pfx = (string) config('catalog.prefix');
         $store = $this->store();
         $pid = $this->product();
 
-        // A core order as it stands today, with a cost that is NOT the
-        // catalogue's current one - which is the whole point.
         $oid = (int) DB::table($pfx . 'order')->insertGetId([
             'invoice_prefix' => 'INV-', 'store_id' => 0, 'store_name' => 'Test store', 'store_url' => '',
             'customer_id' => 0, 'customer_group_id' => 0, 'firstname' => 'A', 'lastname' => 'B', 'email' => 'a@b.test',
@@ -619,7 +543,6 @@ class VentaListingPageTest extends TestCase
         DB::table($pfx . 'order_product')->insert([
             'order_id' => $oid, 'product_id' => $pid, 'name' => 'Guitar Pedal 200', 'model' => 'GP-200',
             'quantity' => 1, 'price' => 1000, 'total' => 1000, 'tax' => 0, 'reward' => 0,
-            // What it cost when it sold, which is not what it costs now.
             'cost' => 111.11,
         ]);
         DB::table('venta_orders')->insert([
@@ -632,10 +555,6 @@ class VentaListingPageTest extends TestCase
             'id' => 77, 'order_number' => 77, 'status' => 'delivered',
             'created_at' => '2026-06-15T10:00:00Z', 'updated_at' => '2026-06-15T10:00:00Z',
             'totals' => ['total' => 1000, 'subtotal' => 1000, 'shipping' => 0],
-            /* The storefront's own names, from ErpOrderController::show:
-               payment_fee is the gateway's charge, shipping_cost is what
-               the COURIER charged the store, and totals.shipping above is
-               what the customer paid - a different number entirely. */
             'fees' => ['payment_fee' => 25.5, 'shipping_cost' => 60, 'net_after_fees' => 914.5],
             'items' => [['sku' => 'GP-200', 'quantity' => 1, 'price' => 1000, 'total' => 1000]],
         ];
@@ -650,19 +569,16 @@ class VentaListingPageTest extends TestCase
         ))->setFeesOnly()->setSkipStockAdjust()->pull(since: '2026-06-01', full: true, maxPages: 1);
 
 
-        // The line is exactly as it was.
         $this->assertSame(111.11, round((float) DB::table($pfx . 'order_product')->where('order_id', $oid)->value('cost'), 2),
             'A fees run re-stamped the cost of goods from the catalogue. That moves every profit figure in the system.');
         $this->assertSame(1, DB::table($pfx . 'order_product')->where('order_id', $oid)->count());
 
-        // And the money landed where the reports read it.
         $rows = DB::table($pfx . 'order_total')->where('order_id', $oid)
             ->whereIn('code', ['marketplace_payment_fee', 'marketplace_shipping_fee'])->pluck('value', 'code');
         $this->assertSame(-25.5, round((float) ($rows['marketplace_payment_fee'] ?? 0), 2));
         $this->assertSame(-60.0, round((float) ($rows['marketplace_shipping_fee'] ?? 0), 2));
     }
 
-    /** The storefront's tracking page for a parcel reaches the order, and a payload without one keeps it. */
     public function test_the_storefronts_tracking_page_reaches_the_order(): void
     {
         $store = $this->store();
@@ -695,18 +611,6 @@ class VentaListingPageTest extends TestCase
         $this->assertSame('https://app.gogoxpress.com/track/QX12345', $url(), 'a payload without the field keeps the stored page');
     }
 
-    /**
-     * THE TWO FEES TIE BACK TO THE STOREFRONT'S OWN NET FIGURE.
-     *
-     * Venta derives net_after_fees as total - payment_fee - shipping_cost
-     * and never stores it, so it cannot drift from its inputs. If what the
-     * ERP subtracts does not come to the same number, the ERP is
-     * subtracting the wrong fields - which is exactly what happened while
-     * the delivery fee was read under a name the storefront does not use.
-     *
-     * The same shape as reconciling Shopee against escrow_amount: the
-     * marketplace's own arithmetic is the check on ours.
-     */
     public function test_the_fees_tie_back_to_the_storefronts_net_after_fees(): void
     {
         $store = $this->store();
@@ -728,18 +632,11 @@ class VentaListingPageTest extends TestCase
         $this->assertSame(90.00, round($buckets['shipping'], 2), "The delivery fee is the COURIER's charge (fees.shipping_cost), not the buyer's 180.");
         $this->assertSame(0.0, round($buckets['commission'], 2), 'A storefront takes no commission from its own owner.');
 
-        // The storefront's own arithmetic, reproduced from what we subtract.
         $ours = round(11990 - $buckets['payment'] - $buckets['shipping'], 2);
         $this->assertSame(11525.30, $ours,
             'What the ERP subtracts does not come to the storefront\'s own net figure, so it is subtracting the wrong fields.');
     }
 
-    /**
-     * Null is NOT KNOWN YET and never zero - the storefront says so in its
-     * own comment, because a payment fee arrives at settlement and a
-     * courier's charge at booking. Reading either as zero would report an
-     * unbooked parcel as free and overstate the margin.
-     */
     public function test_an_order_whose_fees_are_not_settled_yet_writes_nothing(): void
     {
         $store = $this->store();
@@ -753,7 +650,6 @@ class VentaListingPageTest extends TestCase
         $this->assertNull((new \Extensions\venta\VentaExtension($this->app))->feeBucketsForOrder(4243),
             'An order whose fees are not settled yet must not be stamped with zeroes: it would read as free.');
 
-        // A half-known order still reports what IS known.
         DB::table('venta_orders')->where('venta_order_id', 92)->update([
             'raw' => json_encode(['id' => 92, 'fees' => ['payment_fee' => 12.5, 'shipping_cost' => null]]),
         ]);
@@ -762,18 +658,6 @@ class VentaListingPageTest extends TestCase
         $this->assertSame(0.0, round($half['shipping'], 2), 'An unbooked parcel has no courier charge to report yet.');
     }
 
-    /**
-     * THE PAGE COUNT IS AT THE TOP LEVEL OF THE STOREFRONT'S ANSWER.
-     *
-     * The pull read it at meta.last_page. The storefront returns a Laravel
-     * paginator straight from response()->json(), which puts last_page at
-     * the top level and has no meta at all - so the read always found
-     * nothing, fell back to 1, and every order pull stopped after the
-     * first hundred orders. A live store with 158 orders since February
-     * reported 100 (the owner, 2026-09-10).
-     *
-     * Verified against the storefront's own source rather than inferred.
-     */
     public function test_the_pull_walks_every_page_the_storefront_reports(): void
     {
         $store = $this->store();
@@ -789,7 +673,6 @@ class VentaListingPageTest extends TestCase
             self::BASE . '/api/v1/order-statuses*' => Http::response(['data' => []]),
             self::BASE . '/api/v1/orders/1' => Http::response($order(1)),
             self::BASE . '/api/v1/orders/2' => Http::response($order(2)),
-            // Two pages, counted the way this storefront counts them.
             self::BASE . '/api/v1/orders?*page=2*' => Http::response(['data' => [$order(2)], 'current_page' => 2, 'last_page' => 2]),
             self::BASE . '/api/v1/orders*' => Http::response(['data' => [$order(1)], 'current_page' => 1, 'last_page' => 2]),
         ]);
@@ -802,16 +685,6 @@ class VentaListingPageTest extends TestCase
             'The pull stopped after the first page: a store with more orders than fit on one page is silently half-read.');
     }
 
-    /**
-     * A GROUP'S MARKUP AND CATEGORY ARE NOT DECORATION (VENT2-13).
-     *
-     * The group screen has asked for a price markup and a store category
-     * since it was built, and saved both, and nothing ever read either:
-     * the group push built its payload straight from the catalog, so a 20%
-     * markup went up as the plain catalog price and a chosen category was
-     * never sent at all. The owner, on the card: "Leaving them is the only
-     * option that misleads."
-     */
     public function test_a_group_push_applies_the_groups_markup_and_sends_its_category(): void
     {
         $store = $this->store();
@@ -838,13 +711,11 @@ class VentaListingPageTest extends TestCase
             }
             $body = $request->data();
 
-            // 1000 in the catalog, 20% on the group; the store reads a list of categories.
             return round((float) $body['price'], 2) === 1200.0
                 && ($body['category_ids'] ?? null) === [77];
         });
     }
 
-    /** "None" on a listing declines its group's category and goes as an empty list; with no group category it is blank. */
     public function test_a_listings_none_declines_its_groups_category(): void
     {
         $store = $this->store();
@@ -872,11 +743,6 @@ class VentaListingPageTest extends TestCase
         $this->assertNull(VentaListing::query()->where('venta_setting_id', $store->id)->where('product_id', $loose)->value('venta_category_id'), 'with no group category to decline, None is blank');
     }
 
-    /**
-     * And the listing's own rule still wins over its group's, which is the
-     * order every channel keeps: the listing's markup, else its group's,
-     * else the catalog price untouched.
-     */
     public function test_a_listings_own_markup_beats_its_groups(): void
     {
         $store = $this->store();
@@ -920,7 +786,6 @@ class VentaListingPageTest extends TestCase
             self::BASE . '/api/v1/products' => Http::response(['id' => 9101, 'sku' => 'GP-200', 'images' => [], 'images_failed' => []], 201),
         ]);
 
-        // The group push is a product_group write, not a listing write.
         $pusher = $this->userWith(['view_venta/listing', 'manage_venta/listing', 'view_venta/product_group', 'manage_venta/product_group']);
         $this->actingAs($pusher)
             ->post(route('ext.venta.product-groups.push', [$store->id, $group->id]), ['ids' => [$pid]])
@@ -1064,7 +929,6 @@ class VentaListingPageTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        // No Edit listing on a group page (the owner, 2026-09-07); the row's pushes ride the group's rule and the listing is reached from Listings.
         $this->assertStringNotContainsString(route('ext.venta.listings.edit', [$store->id, $pid]), $html);
 
         $actions = $this->app->make(VentaExtension::class, ['app' => $this->app])->productActions($pid);
@@ -1084,41 +948,30 @@ class VentaListingPageTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        /* The note went with the health surface on 2026-09-09. What this
-           test exists to prove is that a disabled store is not ASKED, and
-           that is unchanged. */
         $this->assertStringNotContainsString('This store is turned off', $html);
         Http::assertNothingSent();
     }
 
-    /** Venta closes its Listings gaps (2026-09-06): the slide-over, the engine's cell, and the core grid reading Venta. */
     public function test_add_products_brings_a_product_onto_this_store_and_the_engine_names_its_state(): void
     {
         $store = $this->store();
         $pid = $this->product('GP-200');
         $nowhere = $this->product('PICK-1');
 
-        // Nothing on the store yet: the page offers Add products, not a group.
         $page = $this->actingAs($this->manager())->get(route('ext.venta.listings.index', $store->id))->assertOk();
         $page->assertSee('data-add-panel-open', false);
         $page->assertSee('venta-add-panel');
         $page->assertDontSee('Go to Product Groups');
 
-        // The search says what is not on the store; adding one makes a listing row and the row appears.
         $search = $this->actingAs($this->manager())->getJson(route('ext.venta.products.catalogue_search', [$store->id, 'q' => 'PICK']))->assertOk()->json();
         $this->assertSame([$nowhere], array_column($search['items'], 'id'));
         $this->actingAs($this->manager())->post(route('ext.venta.products.add_to_store', [$store->id, $nowhere]))->assertRedirect();
         $this->assertDatabaseHas('venta_listings', ['venta_setting_id' => $store->id, 'product_id' => $nowhere]);
         $page = $this->actingAs($this->manager())->get(route('ext.venta.listings.index', $store->id))->assertOk();
-        // Enabled with a SKU is all the store's push refuses on, so the Ready column says Ready (2026-09-06); the image is the store's to want.
-        /* Eligible was a rung in the old menu, and the menu is the store's
-           product groups now. A product with nothing missing draws no
-           readiness line at all, which is what these two assert. */
         $page->assertDontSee('a SKU on the catalog product');
         $page->assertDontSee('a product image on the catalog product');
         $page->assertSee('Remove from this channel');
 
-        // A linked product reads Live through the shared cell; the core grid's source agrees.
         \Extensions\venta\Models\VentaProductLink::create(['venta_setting_id' => $store->id, 'venta_product_id' => 9001, 'product_id' => $pid, 'sku' => 'GP-200']);
         \Extensions\venta\Models\VentaListing::create(['venta_setting_id' => $store->id, 'product_id' => $pid, 'live_status' => 'active', 'live_checked_at' => now(), 'last_pushed_at' => now()]);
         $states = (new \Extensions\venta\VentaExtension($this->app))->listingStates([$pid, $nowhere]);
@@ -1127,14 +980,12 @@ class VentaListingPageTest extends TestCase
         $this->assertContains($pid, (new \Extensions\venta\VentaExtension($this->app))->listedProductIds());
         $this->assertStringContainsString('/listings/' . $pid, (new \Extensions\venta\VentaExtension($this->app))->listingUrls([$pid])[$pid]);
 
-        // Remove from this store: the row, the link and the group place go; the store is not asked.
         $this->actingAs($this->manager())->post(route('ext.venta.products.remove_from_store', [$store->id, $nowhere]))->assertRedirect();
         $this->assertDatabaseMissing('venta_listings', ['venta_setting_id' => $store->id, 'product_id' => $nowhere]);
         $this->actingAs($this->manager())->get(route('ext.venta.listings.index', $store->id))->assertOk()->assertDontSee('PICK-1');
     }
 
 
-    /** Push price sends the price through the listing's own rule, never the plain catalog price. */
     public function test_push_price_sends_the_listings_price_rule(): void
     {
         $store = $this->store();
@@ -1153,7 +1004,6 @@ class VentaListingPageTest extends TestCase
     }
 
 
-    /** Answers a GET with not found, a create with a new product, and any update with success. */
     private function fakeAStoreWithoutTheProduct(): void
     {
         Http::fake(function ($request) {
@@ -1175,7 +1025,6 @@ class VentaListingPageTest extends TestCase
         return $sent->isEmpty() ? null : (float) ($sent->last()[0]->data()['price'] ?? 0);
     }
 
-    /** A listing's own Price is where its rule starts: 500 with 10 percent added goes up as 550, from the page and from Push price. */
     public function test_a_listings_own_price_is_where_its_rule_starts(): void
     {
         $store = $this->store();
@@ -1199,7 +1048,6 @@ class VentaListingPageTest extends TestCase
         $this->assertSame(550.0, $this->sentPrice('PUT', '/api/v1/products/GP-200'));
     }
 
-    /** Without a rule of its own, the group's rule is added to the listing's own Price. */
     public function test_a_groups_rule_is_added_to_the_listings_own_price(): void
     {
         $store = $this->store();
@@ -1215,7 +1063,6 @@ class VentaListingPageTest extends TestCase
         $this->assertSame(600.0, $this->sentPrice('PUT', '/api/v1/products/GP-200'));
     }
 
-    /** A blank Price starts from the catalog price. */
     public function test_a_blank_price_starts_from_the_catalog_price(): void
     {
         $store = $this->store();
@@ -1233,7 +1080,6 @@ class VentaListingPageTest extends TestCase
         $this->assertSame(1100.0, $this->sentPrice('POST', '/api/v1/products'));
     }
 
-    /** A product with variations has no Price field, and a Price sent for it anyway is not kept. */
     public function test_a_product_with_variations_has_no_price_field(): void
     {
         $store = $this->store();
@@ -1255,7 +1101,6 @@ class VentaListingPageTest extends TestCase
         $this->assertNull(VentaListing::where('venta_setting_id', $store->id)->where('product_id', $pid)->value('price'));
     }
 
-    /** The parcel sends the listing's own figures, and each blank one follows the catalog. */
     public function test_the_parcel_sends_the_listings_own_figures_and_follows_the_catalog_for_the_rest(): void
     {
         $store = $this->store();
@@ -1280,7 +1125,6 @@ class VentaListingPageTest extends TestCase
         $this->assertSame(1.5, (float) VentaListing::where('venta_setting_id', $store->id)->where('product_id', $pid)->value('weight'));
     }
 
-    /** A listing picks one of its own store's categories; one from outside the store is refused. */
     public function test_a_listing_holds_one_of_its_own_stores_categories(): void
     {
         $store = $this->store();
@@ -1331,13 +1175,6 @@ class VentaListingPageTest extends TestCase
         $this->assertStringContainsString('GP-200-L', $line);
     }
 
-    /**
-     * A catalog product whose one variation type is Colour, valued Crimson
-     * on TEE-RED and Navy on TEE-BLU. With $withSize every combination also
-     * carries Size M, so the product has two variation types.
-     *
-     * @return array{0: VentaSetting, 1: int, 2: VentaProductGroup}
-     */
     private function productNamedByTheCatalog(bool $linked = true, bool $withSize = false): array
     {
         $pfx = (string) config('catalog.prefix');
@@ -1396,12 +1233,6 @@ class VentaListingPageTest extends TestCase
         return [$store, $pid, $group];
     }
 
-    /**
-     * The store's item TEE, as its read endpoint answers: one variation type
-     * and a value per variant SKU.
-     *
-     * @param  array<string, string>  $values  variant sku => value
-     */
     private function storeTee(string $type, array $values): array
     {
         $variants = [];
@@ -1422,10 +1253,6 @@ class VentaListingPageTest extends TestCase
         ];
     }
 
-    /**
-     * The store reads TEE as $held (or has none), creates on POST, and
-     * answers the update with $putStatus and $putBody.
-     */
     private function fakeTheTeeStore(?array $held, int $putStatus = 200, ?array $putBody = null): void
     {
         Http::fake(function ($request) use ($held, $putStatus, $putBody) {
@@ -1444,7 +1271,6 @@ class VentaListingPageTest extends TestCase
         });
     }
 
-    /** @return array<string, array{0: string, 1: string}> sku => [option_name, name], from the one request of $method */
     private function sentVariations(string $method, string $path): array
     {
         $sent = Http::recorded(fn ($r) => $r->method() === $method && str_ends_with($r->url(), $path));

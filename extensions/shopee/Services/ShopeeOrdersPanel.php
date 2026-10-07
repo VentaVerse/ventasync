@@ -8,31 +8,14 @@ use Extensions\shopee\Models\ShopeeOrder;
 use Extensions\shopee\Models\ShopeeSetting;
 use Illuminate\Http\Request;
 
-/**
- * Assembles the view data for the Shopee orders list: filters, tab counts,
- * sort persistence, pagination and the AWB-saved lookup. Shared by the
- * Shopee seller center (ShopeeOrderController@index) and the fulfilment hub,
- * both of which render the same ext-shopee::orders._panel partial with this
- * array. Extracted from ShopeeOrderController@index without any logic
- * change - see docs/superpowers/specs/2026-08-07-fulfilment-hub.md section 3.
- */
 class ShopeeOrdersPanel
 {
-    /**
-     * @param ?int $storeId Multi-store S4 (#194): the store this panel
-     *   renders, parsed off the hub tab id (shopee:2). Null falls back to
-     *   the request's own store - the orders PAGE reaches here through
-     *   ResolveShopeeStore, which has already bound it.
-     */
     public function build(Request $request, ?int $storeId = null): array
     {
         $settingRaw = $storeId !== null
             ? ShopeeSetting::query()->find($storeId)
             : ShopeeSetting::defaultStore();
         if ($storeId !== null && $settingRaw !== null) {
-            /* The hub page itself is storeless, so bind the tab's store for
-             * the render: every route() in the panel partial fills its
-             * {store} from this, and nested defaultStore() reads agree. */
             app()->instance('shopee.route-store', $settingRaw);
             \Illuminate\Support\Facades\URL::defaults(['store' => (int) $settingRaw->id]);
         }
@@ -47,22 +30,8 @@ class ShopeeOrdersPanel
             'courier' => ['nullable', 'string', 'max:80'],
         ]);
 
-        // The courier pill on To Handover. A key from CourierTally, so a
-        // stale one (that courier's last parcel already left) matches
-        // nothing and the list simply stays whole.
         $courierKey = trim((string) ($filters['courier'] ?? ''));
 
-        /* ONE FIELD, THE SAME ONE THE RETURNS LISTS CARRY.
-         *
-         * This was an order-number box beside a buyer box, and the critique's
-         * standing red flag was that neither answers the call it was built
-         * for: a buyer on the phone has a product and a rough date, not an
-         * order number, and on Lazada every buyer name renders masked as
-         * J******e, so that box was a dead control on the channel that needed
-         * it most. Product was not searchable here at all.
-         *
-         * One box matching order number, buyer and product, and a date range
-         * over when the order was placed - which this list has never had. */
         $find = trim((string) ($filters['q'] ?? ''));
         $placedFrom = trim((string) ($filters['placed_from'] ?? ''));
         $placedTo = trim((string) ($filters['placed_to'] ?? ''));
@@ -87,23 +56,12 @@ class ShopeeOrdersPanel
             'DELIVERED_COMPLETED',
             'CANCELLED',
             'FAILED_DELIVERY',
-            // Anything this channel's tab map does not name. The tab only
-            // RENDERS when it has contents (see $otherCount below), but it
-            // has to be accepted here unconditionally: this guard runs long
-            // before the counts exist, and leaving it out silently bounced
-            // the tab back to All, so the one control that reaches those
-            // orders did nothing.
             'OTHER',
         ];
         if (!in_array($tab, $allowedTabs, true)) {
             $tab = 'ALL';
         }
 
-        // Per-marketplace sort persistence: an explicit ?sort= in the
-        // URL becomes the new sticky default for THIS marketplace only
-        // (different marketplaces keep separate prefs). With no URL
-        // param, fall back to the session value, then to the per-tab
-        // default direction.
         $defaultDir = ($tab === 'PENDING') ? 'asc' : 'desc';
         $sortKey = strtolower((string) $request->query('sort', ''));
         if ($sortKey !== '') {
@@ -146,13 +104,6 @@ class ShopeeOrdersPanel
             'FAILED_DELIVERY'     => ['RETRY_SHIP'],
         ];
 
-        // Every status the map above does not name is reachable only by
-        // paging through All, which on this channel is 191 pages. Shopee
-        // sends TO_RETURN today and will send something else the next time
-        // it extends its own list, so the gap is found rather than
-        // enumerated: anything unmapped falls into Other, and Other only
-        // appears when it has something in it. The tabs now always sum to
-        // All, which is the property that was quietly untrue.
         $mappedStatuses = array_values(array_unique(array_merge(...array_values($tabStatusMap))));
 
         $tabs = FulfilmentSteps::tabs([
@@ -165,11 +116,6 @@ class ShopeeOrdersPanel
             'FAILED_DELIVERY'     => 'failed',
         ]);
 
-        // The courier split of whichever To Ship step is open. The courier
-        // is on the order from the moment it arrives, and the bench packs
-        // by courier before it hands over by courier: whose rider comes
-        // first is decided at To Pack (the owner, 2026-08-28). Walked only for
-        // the step shown, since it reads every order's raw payload.
         $subStepStatuses = ['to_pack' => ['READY_TO_SHIP'], 'to_handover' => ['PROCESSED']];
         $courierTally = ($tab === 'PENDING' && isset($subStepStatuses[$pendingSubtab]))
             ? $this->buildToShipCourierTally($settingId, $subStepStatuses[$pendingSubtab])
@@ -199,9 +145,6 @@ class ShopeeOrdersPanel
             }
         }
 
-        // One courier's parcels, oldest first. The ids come from the same
-        // walk that produced the count on the pill, so the two cannot
-        // disagree.
         if ($tab === 'PENDING' && isset($subStepStatuses[$pendingSubtab]) && $courierKey !== '') {
             $courierIds = $courierTally->idsFor($courierKey);
             if ($courierIds !== null) {
@@ -221,15 +164,10 @@ class ShopeeOrdersPanel
                 $w->where('order_sn', 'like', $like)
                     ->orWhere('raw->buyer_username', 'like', $like)
                     ->orWhere('raw->buyer_user_name', 'like', $like)
-                    // The name on the parcel, which is the one a caller gives;
-                    // the username above is Shopee's masked handle.
                     ->orWhere('raw->recipient_address->name', 'like', $like)
-                    // The tracking number, where the row's Tracking cell reads it (2026-09-06).
                     ->orWhere('raw->tracking_no', 'like', $like)
                     ->orWhere('raw->tracking_number', 'like', $like)
 
-                    /* The products are on the order, so this reaches through
-                       the relation - the same shape the returns lists use. */
                     ->orWhereHas('products', function ($p) use ($like) {
                         $p->where('name', 'like', $like)
                             ->orWhere('sku', 'like', $like)
@@ -238,8 +176,6 @@ class ShopeeOrdersPanel
             });
         }
 
-        /* When the order was placed on the marketplace, not when a sync last
-           wrote the row. whereDate so a To date includes the whole of it. */
         if ($placedFrom !== '') {
             $query->whereDate('order_created_at', '>=', $placedFrom);
         }
@@ -250,11 +186,6 @@ class ShopeeOrdersPanel
         $tab_counts = [];
         $tab_counts['ALL'] = (clone $baseCountQuery)->count();
         foreach ($tabStatusMap as $k => $statuses) {
-            // To Ship counts BOTH of its steps. It used to count only
-            // READY_TO_SHIP, the To Pack sub-step, so a parcel sitting in To
-            // Handover made the page say "To Ship 0" directly above a
-            // sub-tab reading "To Handover 1" - the screen contradicting
-            // itself about whether there was work.
             $tab_counts[$k] = !empty($statuses)
                 ? (clone $baseCountQuery)->whereIn('status', $statuses)->count()
                 : 0;
@@ -273,10 +204,6 @@ class ShopeeOrdersPanel
         } elseif ($sortBy === 'confirmed_create') {
             $query->orderByRaw("CAST(JSON_UNQUOTE(JSON_EXTRACT(raw, '$.create_time')) AS UNSIGNED) {$sortDir}");
         } elseif ($sortBy === 'ship_by') {
-            // Shopee's ship-by deadline, the figure the SLA chip reads. An
-            // option, never the default: the queue stays first in, first
-            // out (the owner, 2026-08-26); this exists so the three marketplace
-            // dropdowns offer the same choices, as Lazada's already did.
             $query->orderByRaw("CAST(JSON_UNQUOTE(JSON_EXTRACT(raw, '$.ship_by_date')) AS UNSIGNED) {$sortDir}");
         }
         $orders = $query
@@ -285,7 +212,6 @@ class ShopeeOrdersPanel
             ->paginate($perPage)
             ->appends($request->query());
 
-        // Detect which orders have saved AWB PDFs
         $savedAwbs = [];
         foreach ($orders as $o) {
             $sn = (string) ($o->order_sn ?? '');
@@ -316,12 +242,6 @@ class ShopeeOrdersPanel
         ];
     }
 
-    /**
-     * Every order on one To Ship step, filed under its courier, with the
-     * order ids kept so the list can be narrowed to one courier's orders.
-     *
-     * @param  list<string>  $statuses  the step's Shopee statuses
-     */
     private function buildToShipCourierTally(int $settingId, array $statuses): CourierTally
     {
         $tally = new CourierTally();

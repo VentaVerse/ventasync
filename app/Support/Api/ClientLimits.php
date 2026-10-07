@@ -4,14 +4,8 @@ namespace App\Support\Api;
 
 use Illuminate\Http\Request;
 
-/**
- * An application's limits as a form sets them: the addresses it may call
- * from and how many calls a minute it may make. The same fields on API
- * Applications and on AI Tools, read and checked the same way.
- */
 final class ClientLimits
 {
-    /** @return array<string, array<int, mixed>> */
     public static function rules(): array
     {
         return [
@@ -26,7 +20,6 @@ final class ClientLimits
         ];
     }
 
-    /** @return array{allowed_ips: list<string>|null, calls_per_minute: int|null} */
     public static function fields(Request $request): array
     {
         $ips = self::splitIps((string) $request->input('allowed_ips', ''));
@@ -37,7 +30,6 @@ final class ClientLimits
         ];
     }
 
-    /** @return list<string> */
     public static function splitIps(string $raw): array
     {
         $parts = preg_split('/[\s,]+/', $raw) ?: [];

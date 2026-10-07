@@ -15,19 +15,12 @@ return new class extends Migration
 
     private function normalizeColumn(string $table, string $column): void
     {
-        // Only run if table/column exists (safe across environments)
         try {
             DB::table($table)->limit(1)->get([$column]);
         } catch (\Throwable $e) {
             return;
         }
 
-        // Normalize to OpenCart-style relative path like "catalog/..."
-        // Examples handled:
-        // - https://example.com/image/catalog/abc.jpg    -> catalog/abc.jpg
-        // - /image/catalog/abc.jpg                       -> catalog/abc.jpg
-        // - image/catalog/abc.jpg                        -> catalog/abc.jpg
-        // - storage/catalog/abc.jpg                      -> catalog/abc.jpg
         DB::statement("
             UPDATE `{$table}`
             SET `{$column}` = CASE
@@ -57,6 +50,5 @@ return new class extends Migration
 
     public function down(): void
     {
-        // No-op. This migration normalizes existing values to relative paths.
     }
 };

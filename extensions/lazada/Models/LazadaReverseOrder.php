@@ -35,27 +35,7 @@ class LazadaReverseOrder extends Model
         'refund_amount' => 'decimal:2',
     ];
 
-    /**
-     * When the SELLER has to act on this return, as a Unix timestamp.
-     *
-     * Lazada calls it `sla` and documents it as "seller operation sla in
-     * milliseconds", on each line of reverse_order_lines. It appears in both
-     * /reverse/getreverseordersforseller and /order/reverse/return/detail/list.
-     * See docs/marketplace-api/lazada-getreverseordersforseller.txt at the
-     * workspace root - the doc site is a JavaScript app that no plain fetch
-     * can read, so it was rendered with tools/fetch-doc.sh.
-     *
-     * NOT SEEN IN OUR OWN DATA YET. None of the 76 reverse orders on file
-     * carries the field, which is why this was first reported as "Lazada has
-     * no deadline" - that was reading our sandbox rather than the API. The
-     * accessor returns null when it is absent, so the chip simply does not
-     * render until real data brings one. That is the safe direction: no
-     * countdown is honest, a wrong countdown is not.
-     *
-     * One order can hold several lines, each with its own clock. The EARLIEST
-     * is the order's deadline, because that is the one that expires first and
-     * the operator acts on the order, not on a line.
-     */
+    // Lazada's sla is in milliseconds per line; the earliest line is the order's deadline.
     public function sellerDueAt(): ?int
     {
         $raw = is_array($this->raw) ? $this->raw : [];
@@ -80,8 +60,6 @@ class LazadaReverseOrder extends Model
                 continue;
             }
 
-            // Documented as milliseconds. Left as-is it would render as a date
-            // in the year 57000 and read as "never overdue" forever.
             if ($sla > 1000000000000) {
                 $sla = intdiv($sla, 1000);
             }

@@ -16,7 +16,6 @@ class LazadaController extends Controller
 {
     use \App\Http\Controllers\Concerns\ReturnsToSettingsTab;
 
-    /** The settings page of the store this request stands in, for ReturnsToSettingsTab. */
     protected function settingsTabRoute(): array
     {
         $store = LazadaSetting::defaultStore();
@@ -24,18 +23,12 @@ class LazadaController extends Controller
         return ['ext.lazada.index', $store ? ['store' => $store->id] : []];
     }
 
-    /**
-     * Lazada Open Platform image migrate endpoints require the "payload" parameter
-     * to be an XML string (NOT JSON). This normalizes common JSON shapes into
-     * the exact XML format shown in Lazada API Explorer.
-     */
     private function normalizeImageMigratePayload(string $apiPath, $payload): ?string
     {
         if (!in_array($apiPath, ['/images/migrate', '/image/migrate'], true)) {
             return null;
         }
 
-        // If already XML string, keep it.
         if (is_string($payload)) {
             $trim = trim($payload);
             if ($trim === '') return null;
@@ -43,7 +36,6 @@ class LazadaController extends Controller
                 return $trim;
             }
 
-            // If user pasted JSON, decode and rebuild.
             if (str_starts_with($trim, '{') || str_starts_with($trim, '[')) {
                 try {
                     $payload = json_decode($trim, true, 512, JSON_THROW_ON_ERROR);
@@ -99,12 +91,10 @@ class LazadaController extends Controller
     {
         $setting = LazadaSetting::defaultStore();
 
-        // #200: the shared log panel - errors-only and path filters, paged.
         $logs = \App\Support\ApiLogPanel::paginate(
             LazadaApiLog::query(), 'api_path', fn ($q) => $q->where('ok', 0)
         );
 
-        // Lightweight list for dropdowns (kept small for production safety)
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
@@ -123,7 +113,6 @@ class LazadaController extends Controller
             $row->model = html_entity_decode((string)($row->model ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         }
 
-        // Order status mapping data
         $orderStatusMap = \Extensions\lazada\Models\LazadaOrderStatusMap::where('context', 'order')->pluck('order_status_id', 'lazada_status')->all();
 
         $erpOrderStatuses = DB::table($pfx . 'order_status')
@@ -182,9 +171,6 @@ class LazadaController extends Controller
         ]);
     }
 
-    /**
-     * Save the Lazada → ERP order status mapping.
-     */
     public function saveOrderStatusMap(Request $request)
     {
         $map = $request->input('map', []);
@@ -210,9 +196,6 @@ class LazadaController extends Controller
         return $this->toSettingsTab('status')->with('status', 'Order status mapping saved.');
     }
 
-    /**
-     * Save the Lazada → ERP reverse order status mapping.
-     */
     public function saveReverseStatusMap(Request $request)
     {
         $map = $request->input('map', []);
@@ -245,7 +228,6 @@ class LazadaController extends Controller
         return $this->toSettingsTab('status')->with('status', 'Reverse order status mapping saved.');
     }
 
-    /** The three-way log mode (#200): everything / errors only / off. */
     public function setApiLogMode(Request $request)
     {
         $data = $request->validate(['mode' => 'required|in:' . implode(',', \App\Support\ApiLogMode::MODES)]);
@@ -268,25 +250,8 @@ class LazadaController extends Controller
         return $this->toSettingsTab('logs')->with('status', "Deleted {$count} Lazada API log entries.");
     }
 
-    /**
-     * Null the `raw` API-response payload on Lazada order tables for rows
-     * older than N days. The synced order data itself is left intact —
-     * only the verbose raw blob is cleared, freeing DB space.
-     */
-    /**
-     * Hard delete of a store (the owner, 2026-09-05). The store name typed
-     * exactly confirms; one transaction removes everything the store owns;
-     * core orders are untouched and keep the store's name.
-     */
-    /**
-     * One step of "Set up the store" (the Shopee shape, 2026-09-06): the
-     * setup popup runs categories then brands and reads a sentence back.
-     */
     public function setupStep(string $step, \Extensions\lazada\Services\Lazada\LazadaStoreSetup $setup)
     {
-        // The service takes the store MODEL; decrypted() is a plain copy for
-        // the credentials only. Passing the copy threw a TypeError on QA
-        // (the owner, 2026-09-06) that the popup then printed as the step's outcome.
         $store = LazadaSetting::defaultStore();
         $setting = $store?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
@@ -328,7 +293,6 @@ class LazadaController extends Controller
 
     public function purgeRaw(Request $request)
     {
-        // This store's rows only, on every table that carries the store (2026-09-05).
         $storeId = app()->bound('lazada.route-store') ? (int) app('lazada.route-store')->id : null;
         $request->validate([
             'days' => ['required', 'integer', 'min:1', 'max:3650'],
@@ -357,10 +321,6 @@ class LazadaController extends Controller
             ->with('status', "Purged raw payloads from {$total} Lazada row" . ($total === 1 ? '' : 's') . " older than {$request->days} days.");
     }
 
-    /**
-     * Phase 1: API Explorer runner for testing arbitrary endpoints.
-     * Supports GET/POST and optional auth (access_token).
-     */
     public function explorerRun(Request $request, LazadaClient $client)
     {
         $data = $request->validate([
@@ -411,7 +371,6 @@ class LazadaController extends Controller
             }
         }
 
-        // Base params required by Lazada signing.
         $timestamp = (string)round(microtime(true) * 1000);
         $params = [
             'app_key' => (string)$creds['app_key'],
@@ -423,10 +382,6 @@ class LazadaController extends Controller
             $params['access_token'] = (string)$creds['access_token'];
         }
 
-        // Merge custom params (but never allow overriding of required base/sign fields)
-
-        // Special-case: Lazada GetBrandByPages uses startRow + pageSize (NOT page_no/page_size).
-        // Some UI forms may still send page_no/page_size, so normalize to what Lazada expects.
         if ($apiPath === '/category/brands/query') {
             $pn = $customParams['page_no'] ?? null;
             $ps = $customParams['page_size'] ?? null;
@@ -444,7 +399,6 @@ class LazadaController extends Controller
                 continue;
             }
 
-            // Critical: /images/migrate and /image/migrate REQUIRE XML in payload.
             if ($k === 'payload') {
                 $maybeXml = $this->normalizeImageMigratePayload($apiPath, $v);
                 if (is_string($maybeXml) && $maybeXml !== '') {
@@ -456,11 +410,6 @@ class LazadaController extends Controller
             $params[$k] = is_scalar($v) || $v === null ? $v : json_encode($v, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         }
 
-        // Lazada ImageResponseGet:
-        // Lazada documentation says GET + auth required + batch_id.
-        // In practice, some gateways are strict about parameter placement/encoding.
-        // We will validate inputs, then run a deterministic multi-attempt strategy
-        // and surface a single consolidated result + all attempts (for transparency).
         if ($apiPath === '/image/response/get') {
             $batchId = isset($params['batch_id']) ? trim((string)$params['batch_id']) : '';
             if ($batchId === '') {
@@ -471,20 +420,15 @@ class LazadaController extends Controller
                 ]);
             }
 
-            // Safety: ensure access_token is present (docs say authorization required).
-            // If user forgot to enable Auth checkbox, enforce it for this endpoint.
             if (!isset($params['access_token']) || trim((string)$params['access_token']) === '') {
                 $params['access_token'] = (string)$creds['access_token'];
             }
 
-            // Some gateways reject unknown params; only send batch_id by default.
             $params['batch_id'] = $batchId;
         }
 
 
-        // Normalize pagination params for specific Lazada endpoints
         if ($apiPath === '/category/brands/query') {
-            // Lazada requires startRow + pageSize (not page_no/page_size)
             $pageNo = isset($params['page_no']) ? (int)$params['page_no'] : null;
             $pageSize = isset($params['page_size']) ? (int)$params['page_size'] : null;
 
@@ -493,7 +437,6 @@ class LazadaController extends Controller
                 $params['pageSize'] = max(1, $pageSize);
                 unset($params['page_no'], $params['page_size']);
             } else {
-                // if client already provided correct keys, ensure casing matches Lazada
                 if (isset($params['startRow']) && !isset($params['pageSize']) && isset($params['page_size'])) {
                     $params['pageSize'] = (int)$params['page_size'];
                     unset($params['page_size']);
@@ -505,13 +448,6 @@ class LazadaController extends Controller
 
         $method = (string)$data['method'];
 
-        // Special robust runner for /image/response/get to stop the "back and forth" loop.
-        // We will:
-        // - always try the doc method (GET)
-        // - if unsupported, try POST once
-        // - if E005, try a strict "payload" encoding variant
-        // - if E208, poll a few times (the migrate job may not be ready yet)
-        // - never mask the real root error; return consolidated diagnostics
         if ($apiPath === '/image/response/get') {
             $attempts = [];
 
@@ -525,7 +461,6 @@ class LazadaController extends Controller
                         return (string)$maybe['code'];
                     }
                 }
-                // Some errors use string codes like "UnsupportedHTTPMethod" (ISV)
                 if (is_array($body) && array_key_exists('code', $body) && is_string($body['code'])) {
                     return (string)$body['code'];
                 }
@@ -542,10 +477,8 @@ class LazadaController extends Controller
             };
 
             $base = $params;
-            // Ensure we don't accidentally carry a stale payload from UI.
             unset($base['payload']);
 
-            // Attempt A: POST as form (most compatible) + flat batch_id
             [$resA, $codeA, $paramsA, $labelA, $mA] = $runAttempt('POST', $base, 'POST flat batch_id');
             $attempts[] = ['label' => $labelA, 'method' => $mA, 'code' => $codeA, 'result' => $resA];
 
@@ -561,12 +494,11 @@ class LazadaController extends Controller
                 $method = 'POST';
                 $result['meta'] = ['attempts' => $attempts, 'selected' => $labelA];
             } else {
-                // If E208 (empty response), poll a few times using the same format.
                 if ($codeA === '208') {
                     $polled = $resA;
                     $pollCode = $codeA;
                     for ($i = 0; $i < 3; $i++) {
-                        usleep(400000); // 400ms
+                        usleep(400000);
                         [$tmpRes, $tmpCode, $tmpParams, $tmpLabel, $tmpMethod] = $runAttempt('POST', $base, 'POST flat batch_id (poll ' . ($i + 1) . ')');
                         $attempts[] = ['label' => $tmpLabel, 'method' => $tmpMethod, 'code' => $tmpCode, 'result' => $tmpRes];
                         $polled = $tmpRes;
@@ -590,8 +522,6 @@ class LazadaController extends Controller
                         ];
                     }
                 } else {
-                    // Attempt B: Some gateways reject flat params but accept a JSON-string payload.
-                    // Keep batch_id present (to satisfy gateways that strictly require it).
                     $b = $base;
                     $b['payload'] = json_encode(['batch_id' => (string)$base['batch_id']], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
                     [$resB, $codeB, $paramsB, $labelB, $mB] = $runAttempt('POST', $b, 'POST batch_id + payload');
@@ -603,17 +533,14 @@ class LazadaController extends Controller
                         $method = 'POST';
                         $result['meta'] = ['attempts' => $attempts, 'selected' => $labelB];
                     } else {
-                        // Attempt C: GET (docs) + flat batch_id.
                         [$resC, $codeC, $paramsC, $labelC, $mC] = $runAttempt('GET', $base, 'GET flat batch_id');
                         $attempts[] = ['label' => $labelC, 'method' => $mC, 'code' => $codeC, 'result' => $resC];
 
-                        // Attempt D: include request_id mirror (only if some gateways require it)
                         $d = $base;
                         $d['request_id'] = (string)($base['batch_id'] ?? '');
                         [$resD, $codeD, $paramsD, $labelD, $mD] = $runAttempt('POST', $d, 'POST batch_id + request_id');
                         $attempts[] = ['label' => $labelD, 'method' => $mD, 'code' => $codeD, 'result' => $resD];
 
-                        // Pick best candidate deterministically.
                         $candidates = [
                             ['label' => $labelA, 'res' => $resA, 'code' => $codeA, 'params' => $paramsA, 'method' => 'POST'],
                             ['label' => $labelB, 'res' => $resB, 'code' => $codeB, 'params' => $paramsB, 'method' => 'POST'],
@@ -652,7 +579,6 @@ class LazadaController extends Controller
                 : $client->get((string)$setting->region, $apiPath, $params);
         }
 
-// Log request+response for debugging (must never block UI)
         LazadaApiLog::safeCreate([
             'pack' => 'lazada.api.explorer',
             'method' => $method,
@@ -672,10 +598,6 @@ class LazadaController extends Controller
         ]);
     }
 
-    /**
-     * Phase 1: Preset Packs runner.
-     * Runs a curated sequence of API calls in order and logs each call.
-     */
     public function packsRun(Request $request, LazadaClient $client)
     {
         $data = $request->validate([
@@ -942,9 +864,7 @@ class LazadaController extends Controller
         }
 
 
-        // Normalize pagination params for specific Lazada endpoints
         if ($apiPath === '/category/brands/query') {
-            // Lazada requires startRow + pageSize (not page_no/page_size)
             $pageNo = isset($params['page_no']) ? (int)$params['page_no'] : null;
             $pageSize = isset($params['page_size']) ? (int)$params['page_size'] : null;
 
@@ -953,7 +873,6 @@ class LazadaController extends Controller
                 $params['pageSize'] = max(1, $pageSize);
                 unset($params['page_no'], $params['page_size']);
             } else {
-                // if client already provided correct keys, ensure casing matches Lazada
                 if (isset($params['startRow']) && !isset($params['pageSize']) && isset($params['page_size'])) {
                     $params['pageSize'] = (int)$params['page_size'];
                     unset($params['page_size']);
@@ -989,8 +908,6 @@ class LazadaController extends Controller
             'store_name' => 'nullable|string|max:128',
             'enabled' => 'nullable|boolean',
             'env' => 'nullable|in:live,sandbox',
-            // Required (the owner, 2026-09-05): every Lazada call is signed against
-            // a region's host, so a store without one cannot be set up.
             'region' => 'required|in:ph,sg,my,id,th,vn',
             'app_key' => 'nullable|string|max:64',
             'app_secret' => 'nullable|string|max:255',
@@ -999,8 +916,6 @@ class LazadaController extends Controller
         ]);
 
         $setting = LazadaSetting::defaultStore() ?? new LazadaSetting();
-        // The store's own name and switch (multi-store), saved with the
-        // production credentials form that carries them.
         if (array_key_exists('store_name', $data) && $data['store_name'] !== null) {
             $setting->store_name = $data['store_name'];
         }
@@ -1013,11 +928,6 @@ class LazadaController extends Controller
         $env = $data['env'] ?? 'live';
         $setting->mode = $env;
 
-        // Credential fields are masked in the form (value="" + placeholder).
-        // A blank submission means "keep existing" — never wipe stored creds
-        // just because the user re-saved the form without typing them in.
-        // (Also fixes a pre-existing bug where the live branch built a
-        // throwaway $creds array that was never assigned back to $setting.)
         if ($env === 'live') {
             if (!empty($data['app_key']))    $setting->app_key = $data['app_key'];
             if (!empty($data['app_secret'])) $setting->app_secret = encrypt(trim($data['app_secret']));
@@ -1028,7 +938,6 @@ class LazadaController extends Controller
 
         $setting->save();
 
-        // Back to THIS store's page (the owner, live 2026-09-07).
         return $this->redirectToSettings()->with('status', ($env === 'sandbox' ? 'Sandbox' : 'Production') . ' settings saved.');
     }
 
@@ -1044,13 +953,6 @@ class LazadaController extends Controller
 
     public function redirectToAuth(Request $request, LazadaClient $client)
     {
-        /* Which store is consenting (multi-store, the owner 2026-09-05): named by
-         * ?store= from that store's own settings page, else the default. Bound
-         * for the request so the reads below answer with it, and - the crux -
-         * carried through OAuth in the `state` parameter, because Lazada's
-         * callback URL is one fixed URL for the whole install and the grant
-         * comes back with no other context. Mirrors ShopeeController's cache
-         * carrier, but Lazada echoes `state` verbatim so it is the channel. */
         $store = $request->query('store')
             ? LazadaSetting::query()->find((int) $request->query('store'))
             : LazadaSetting::defaultStore();
@@ -1060,8 +962,6 @@ class LazadaController extends Controller
 
         $setting = $store?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
-        // ?sandbox=1 from "Authorize Sandbox" button forces sandbox mode.
-        // Otherwise the mode toggle (`$setting->mode`) decides.
         $isSandbox = $request->has('sandbox')
             ? $request->boolean('sandbox')
             : (($setting->mode ?? 'live') === 'sandbox');
@@ -1079,15 +979,7 @@ class LazadaController extends Controller
             ]);
         }
 
-        /* The store id and sandbox flag ride the OAuth state so the callback
-         * recovers them even when it lands with no session (a proxy, a
-         * cross-domain hop). The state is HMAC-signed with the app key, so the
-         * callback can TRUST the store it names without leaning on the session
-         * cookie the state exists to do without - an unsigned state would let
-         * anyone name any store and have its auth code written there. */
         $state = self::oauthStateToken((int) $store->id, $isSandbox);
-        // A best-effort session copy remains only as a same-device sanity
-        // signal; the signature, not the session, is what authorises the state.
         session(['lazada_oauth_sandbox' => $isSandbox]);
 
         $url = $client->authUrl((string)$appKey, $this->computedRedirectUri(), $state);
@@ -1095,13 +987,6 @@ class LazadaController extends Controller
         return redirect()->away($url);
     }
 
-    /**
-     * Build the signed OAuth state that carries the consenting store through
-     * Lazada's fixed callback URL: "{storeId}.{sandbox}.{nonce}.{hmac}", the
-     * hmac keyed on the app key over the first three parts. The nonce keeps two
-     * states for the same store distinct; the signature is what makes the
-     * store id trustworthy when it comes back, with no session in the loop.
-     */
     public static function oauthStateToken(int $storeId, bool $isSandbox): string
     {
         $payload = $storeId . '.' . ($isSandbox ? '1' : '0') . '.' . Str::random(24);
@@ -1109,11 +994,7 @@ class LazadaController extends Controller
         return $payload . '.' . hash_hmac('sha256', $payload, (string) config('app.key'));
     }
 
-    /**
-     * Verify and decode a signed OAuth state. Returns ['store_id', 'sandbox']
-     * only when the signature checks out; null for anything forged, tampered,
-     * malformed, or absent. hash_equals keeps the compare constant-time.
-     */
+    // The OAuth state is verified with hash_equals; anything forged or unsigned returns null.
     private function parseOAuthState(string $state): ?array
     {
         if (! preg_match('/^(\d+)\.([01])\.([A-Za-z0-9]+)\.([0-9a-f]{64})$/', $state, $m)) {
@@ -1128,11 +1009,6 @@ class LazadaController extends Controller
         return ['store_id' => (int) $m[1], 'sandbox' => $m[2] === '1'];
     }
 
-    /**
-     * Where a settings write lands (multi-store, the owner 2026-09-05): the
-     * settings page of the store it acted on. Falls back to the module page
-     * when no store exists to name.
-     */
     private function redirectToSettings()
     {
         $store = LazadaSetting::defaultStore();
@@ -1142,15 +1018,6 @@ class LazadaController extends Controller
             : redirect()->route('channels.module', ['module' => 'lazada']);
     }
 
-    /**
-     * Recover the store the grant belongs to from a VERIFIED OAuth state (see
-     * parseOAuthState). Binds it for the request so every defaultStore() read
-     * and every route() link below lands on the same store, and returns
-     * [storeId|null, isSandbox]. An absent state - the plain callback page a
-     * person opens with no grant in flight - falls back to the default store
-     * and the session sandbox flag; a PRESENT but invalid state never reaches
-     * here, callback() refuses it before any store is bound or code is written.
-     */
     private function bindStoreFromState(string $state): array
     {
         $parsed = $this->parseOAuthState($state);
@@ -1167,13 +1034,6 @@ class LazadaController extends Controller
         return [LazadaSetting::defaultStore()?->id, (bool) session('lazada_oauth_sandbox', false)];
     }
 
-    /**
-     * Add a Lazada store from the Integrations board's Add store modal
-     * (multi-store, the owner 2026-09-05). The fewest questions: a name only. The
-     * row is born disabled - region, app key/secret and the OAuth grant are
-     * filled on its settings page, exactly where a first-time connection is
-     * configured - so it never joins a sync half-built.
-     */
     public function createStore(Request $request)
     {
         $data = $request->validate([
@@ -1183,7 +1043,6 @@ class LazadaController extends Controller
         $setting = LazadaSetting::create([
             'store_name' => $data['store_name'],
             'enabled'    => false,
-            // A new store starts in the sandbox: nothing it does reaches a real shop until it is switched over.
             'mode'       => 'sandbox',
         ]);
 
@@ -1194,13 +1053,6 @@ class LazadaController extends Controller
             ->with('status', 'Store created. Add the region and app credentials, then authorize it to start syncing.');
     }
 
-    /**
-     * The redirect URI we send to Lazada and display to the operator. Derived
-     * from APP_URL with HTTPS forced — Lazada requires HTTPS for production
-     * callbacks and a stable byte-for-byte match against the value registered
-     * in the Lazada Open Platform console. Read-only in the UI prevents typos
-     * silently breaking OAuth.
-     */
     private function computedRedirectUri(): string
     {
         return preg_replace('/^http:/i', 'https:', route('lazada.callback'));
@@ -1214,15 +1066,7 @@ class LazadaController extends Controller
         $saved = false;
         $saveError = null;
 
-        /* THE STATE GATE (multi-store, the owner 2026-09-05). A real OAuth return
-         * carries the signed state we minted in redirectToAuth. A code that
-         * arrives with a forged, tampered, or absent state is a CSRF or
-         * cross-site callback - refuse it before a single store is bound or a
-         * single code is written, or an attacker could name a store in the
-         * state and have this shop's auth code land there. The signature, not
-         * the session, is the authority, so this holds even cross-domain where
-         * no session cookie survives. A bare visit to the page (no code) is not
-         * a grant and renders normally. */
+        // Refuse a forged, tampered or missing OAuth state before any store is bound or code saved.
         $stateOk = $this->parseOAuthState($state) !== null;
         if ($code !== '' && ! $stateOk) {
             return view('ext-lazada::callback', [
@@ -1238,13 +1082,8 @@ class LazadaController extends Controller
             ]);
         }
 
-        /* Recover the consenting store AND the sandbox flag from the VERIFIED
-         * state. This binds lazada.route-store so every defaultStore() read and
-         * route() link below is that store's own - the grant must never split
-         * across stores. */
         [$storeId, $isSandbox] = $this->bindStoreFromState($state);
 
-        // Persist the auth code so it's visible in the UI even if token exchange fails.
         if ($code !== '') {
             try {
                 $rawForCode = LazadaSetting::defaultStore() ?? new LazadaSetting();
@@ -1260,12 +1099,10 @@ class LazadaController extends Controller
             }
         }
 
-        // Also store in session so you can see it even if DB save failed.
         if ($code !== '') {
             session(['lazada_last_auth_code' => $code]);
         }
 
-        // Auto token exchange to complete the POC when settings are present.
         $tokenResult = null;
         $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
@@ -1317,7 +1154,6 @@ class LazadaController extends Controller
                 try {
                     $raw->save();
                 } catch (\Throwable $e) {
-                    // ignore save issues here; we still show tokenResult for debugging
                 }
             }
         }
@@ -1334,8 +1170,6 @@ class LazadaController extends Controller
             $message = 'Auth code received and saved.';
         }
 
-        // Freshly authorised: the settings page the operator goes to next
-        // sets the store up (categories, brands) behind the progress popup.
         if ($saved) {
             session()->flash('settings_setup', true);
         }
@@ -1343,18 +1177,12 @@ class LazadaController extends Controller
         return view('ext-lazada::callback', [
             'code' => $code !== '' ? $code : null,
             'state' => $state !== '' ? $state : null,
-            // A bare visit to the page (no code) has no state to refuse, so it
-            // reads as "nothing exchanged", not "refused". A present code only
-            // reaches here past the state gate above, so $stateOk is true then.
             'state_ok' => $code === '' ? true : $stateOk,
             'saved' => $saved,
             'save_error' => $saveError,
             'token_result' => $tokenResult,
             'message' => $message,
             'query' => $request->query(),
-            // The store the grant belongs to (bound from state above), so the
-            // "Go to settings" link lands on it. Null on a fresh install with
-            // no store at all - the view degrades to the channel landing then.
             'store' => LazadaSetting::defaultStore(),
         ]);
     }
@@ -1368,8 +1196,6 @@ class LazadaController extends Controller
 
         $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
-        // The form may carry an explicit `sandbox` flag (the sandbox tab posts
-        // <input name="sandbox" value="1">). Otherwise fall back to the mode toggle.
         $isSandbox = $request->has('sandbox')
             ? $request->boolean('sandbox')
             : (($setting->mode ?? 'live') === 'sandbox');
@@ -1388,7 +1214,6 @@ class LazadaController extends Controller
 
         $result = $this->doTokenCreate($client, (string)$setting->region, (string)$appKey, (string)$appSecret, (string)$request->input('code'), $isSandbox ? 'sandbox' : 'live');
 
-        // Persist the resulting token to the right column set, mirroring callback().
         if (($result['ok'] ?? false) && is_array($result['body'] ?? null)) {
             $access = $result['body']['access_token'] ?? null;
             $refresh = $result['body']['refresh_token'] ?? null;
@@ -1415,7 +1240,6 @@ class LazadaController extends Controller
             try {
                 $raw->save();
             } catch (\Throwable $e) {
-                // ignore — tokenResult will surface in UI
             }
         }
 
@@ -1491,18 +1315,6 @@ class LazadaController extends Controller
         ]);
     }
 
-    /**
-     * Save a pre-issued sandbox access token directly to sandbox_access_token.
-     *
-     * Workflow this supports: Lazada Open Platform → API Explorer → "Get Token"
-     * button hands the developer a pre-issued sandbox access token bound to a
-     * Lazada-owned test seller. The developer pastes that token here instead
-     * of running the full OAuth handshake (which requires logging in as the
-     * test seller — credential that Lazada doesn't always make available).
-     *
-     * The token saved here lands in sandbox_access_token; only API calls made
-     * with mode='sandbox' will use it.
-     */
     public function saveSandboxToken(Request $request)
     {
         $data = $request->validate([
@@ -1512,8 +1324,6 @@ class LazadaController extends Controller
 
         $setting = LazadaSetting::defaultStore() ?? new LazadaSetting();
 
-        // Saving a sandbox token implies the user wants to be in sandbox mode.
-        // Matches the same auto-sync we did for the env-driven settings save.
         $setting->mode = 'sandbox';
         $setting->sandbox_access_token = encrypt(trim($data['sandbox_access_token']));
         $setting->sandbox_expires_at   = now()->addDays((int) ($data['expires_in_days'] ?? 7));
@@ -1553,9 +1363,7 @@ class LazadaController extends Controller
         ];
 
 
-        // Normalize pagination params for specific Lazada endpoints
         if ($apiPath === '/category/brands/query') {
-            // Lazada requires startRow + pageSize (not page_no/page_size)
             $pageNo = isset($params['page_no']) ? (int)$params['page_no'] : null;
             $pageSize = isset($params['page_size']) ? (int)$params['page_size'] : null;
 
@@ -1564,7 +1372,6 @@ class LazadaController extends Controller
                 $params['pageSize'] = max(1, $pageSize);
                 unset($params['page_no'], $params['page_size']);
             } else {
-                // if client already provided correct keys, ensure casing matches Lazada
                 if (isset($params['startRow']) && !isset($params['pageSize']) && isset($params['page_size'])) {
                     $params['pageSize'] = (int)$params['page_size'];
                     unset($params['page_size']);
@@ -1583,9 +1390,6 @@ class LazadaController extends Controller
         ]);
     }
 
-    /**
-     * POC: Retrieve category tree (no auth required).
-     */
     public function categoryTree(LazadaClient $client)
     {
         $setting = LazadaSetting::defaultStore()?->decrypted();
@@ -1608,9 +1412,7 @@ class LazadaController extends Controller
         ];
 
 
-        // Normalize pagination params for specific Lazada endpoints
         if ($apiPath === '/category/brands/query') {
-            // Lazada requires startRow + pageSize (not page_no/page_size)
             $pageNo = isset($params['page_no']) ? (int)$params['page_no'] : null;
             $pageSize = isset($params['page_size']) ? (int)$params['page_size'] : null;
 
@@ -1619,7 +1421,6 @@ class LazadaController extends Controller
                 $params['pageSize'] = max(1, $pageSize);
                 unset($params['page_no'], $params['page_size']);
             } else {
-                // if client already provided correct keys, ensure casing matches Lazada
                 if (isset($params['startRow']) && !isset($params['pageSize']) && isset($params['page_size'])) {
                     $params['pageSize'] = (int)$params['page_size'];
                     unset($params['page_size']);
@@ -1637,9 +1438,6 @@ class LazadaController extends Controller
         ]);
     }
 
-    /**
-     * POC: Retrieve attributes for a category (no auth required).
-     */
     public function categoryAttributes(Request $request, LazadaClient $client)
     {
         $request->validate([
@@ -1667,9 +1465,7 @@ class LazadaController extends Controller
         ];
 
 
-        // Normalize pagination params for specific Lazada endpoints
         if ($apiPath === '/category/brands/query') {
-            // Lazada requires startRow + pageSize (not page_no/page_size)
             $pageNo = isset($params['page_no']) ? (int)$params['page_no'] : null;
             $pageSize = isset($params['page_size']) ? (int)$params['page_size'] : null;
 
@@ -1678,7 +1474,6 @@ class LazadaController extends Controller
                 $params['pageSize'] = max(1, $pageSize);
                 unset($params['page_no'], $params['page_size']);
             } else {
-                // if client already provided correct keys, ensure casing matches Lazada
                 if (isset($params['startRow']) && !isset($params['pageSize']) && isset($params['page_size'])) {
                     $params['pageSize'] = (int)$params['page_size'];
                     unset($params['page_size']);
@@ -1696,9 +1491,6 @@ class LazadaController extends Controller
         ]);
     }
 
-    /**
-     * POC: Retrieve brands by page (no auth required).
-     */
     public function brandsQuery(Request $request, LazadaClient $client)
     {
         $request->validate([
@@ -1728,9 +1520,7 @@ class LazadaController extends Controller
         ];
 
 
-        // Normalize pagination params for specific Lazada endpoints
         if ($apiPath === '/category/brands/query') {
-            // Lazada requires startRow + pageSize (not page_no/page_size)
             $pageNo = isset($params['page_no']) ? (int)$params['page_no'] : null;
             $pageSize = isset($params['page_size']) ? (int)$params['page_size'] : null;
 
@@ -1739,7 +1529,6 @@ class LazadaController extends Controller
                 $params['pageSize'] = max(1, $pageSize);
                 unset($params['page_no'], $params['page_size']);
             } else {
-                // if client already provided correct keys, ensure casing matches Lazada
                 if (isset($params['startRow']) && !isset($params['pageSize']) && isset($params['page_size'])) {
                     $params['pageSize'] = (int)$params['page_size'];
                     unset($params['page_size']);
@@ -1757,9 +1546,6 @@ class LazadaController extends Controller
         ]);
     }
 
-    /**
-     * POC: Get products by SellerSku (auth required).
-     */
     public function productsGet(Request $request, LazadaClient $client)
     {
         $request->validate([
@@ -1788,9 +1574,7 @@ class LazadaController extends Controller
         ];
 
 
-        // Normalize pagination params for specific Lazada endpoints
         if ($apiPath === '/category/brands/query') {
-            // Lazada requires startRow + pageSize (not page_no/page_size)
             $pageNo = isset($params['page_no']) ? (int)$params['page_no'] : null;
             $pageSize = isset($params['page_size']) ? (int)$params['page_size'] : null;
 
@@ -1799,7 +1583,6 @@ class LazadaController extends Controller
                 $params['pageSize'] = max(1, $pageSize);
                 unset($params['page_no'], $params['page_size']);
             } else {
-                // if client already provided correct keys, ensure casing matches Lazada
                 if (isset($params['startRow']) && !isset($params['pageSize']) && isset($params['page_size'])) {
                     $params['pageSize'] = (int)$params['page_size'];
                     unset($params['page_size']);
@@ -1817,10 +1600,6 @@ class LazadaController extends Controller
         ]);
     }
 
-    /**
-     * POC: Build a Lazada /product/create payload from an ERP product + its options.
-     * This only previews the JSON payload; it does not call Lazada.
-     */
     public function productPayloadPreview(Request $request)
     {
         $data = $request->validate([
@@ -1848,10 +1627,6 @@ class LazadaController extends Controller
         ]);
     }
 
-    /**
-     * POC: Call Lazada /product/create using the generated payload.
-     * Note: Lazada catalog requirements vary by category; this is intentionally a POC.
-     */
     public function productCreate(Request $request, LazadaClient $client)
     {
         $data = $request->validate([
@@ -1883,7 +1658,6 @@ class LazadaController extends Controller
         $apiPath = '/product/create';
         $timestamp = (string)round(microtime(true) * 1000);
 
-        // Lazada expects the payload as a JSON string in the 'payload' parameter.
         $params = [
             'app_key' => (string)$creds['app_key'],
             'sign_method' => 'sha256',
@@ -1893,9 +1667,7 @@ class LazadaController extends Controller
         ];
 
 
-        // Normalize pagination params for specific Lazada endpoints
         if ($apiPath === '/category/brands/query') {
-            // Lazada requires startRow + pageSize (not page_no/page_size)
             $pageNo = isset($params['page_no']) ? (int)$params['page_no'] : null;
             $pageSize = isset($params['page_size']) ? (int)$params['page_size'] : null;
 
@@ -1904,7 +1676,6 @@ class LazadaController extends Controller
                 $params['pageSize'] = max(1, $pageSize);
                 unset($params['page_no'], $params['page_size']);
             } else {
-                // if client already provided correct keys, ensure casing matches Lazada
                 if (isset($params['startRow']) && !isset($params['pageSize']) && isset($params['page_size'])) {
                     $params['pageSize'] = (int)$params['page_size'];
                     unset($params['page_size']);
@@ -1958,7 +1729,6 @@ class LazadaController extends Controller
 
         $images = array_values(array_filter(array_map('trim', preg_split('/\s*,\s*/', (string)$imagesCsv))));
 
-        // Gather option values for this product
         $rows = DB::table($pfx.'product_option_value as pov')
             ->join($pfx.'option_description as od', function ($j) use ($langId) {
                 $j->on('pov.option_id', '=', 'od.option_id')
@@ -2004,7 +1774,6 @@ class LazadaController extends Controller
 
         $skuRows = $this->buildVariantSkus($baseSku, $basePrice, $baseQty, $options);
 
-        // Minimal POC payload shape.
         return [
             'Request' => [
                 'Product' => [
@@ -2036,7 +1805,6 @@ class LazadaController extends Controller
         $groups = array_values($options);
         $groupNames = array_keys($options);
 
-        // Single option -> one SKU per value
         if (count($groups) === 1) {
             $out = [];
             foreach ($groups[0] as $v) {
@@ -2056,7 +1824,6 @@ class LazadaController extends Controller
                     'SellerSku' => $sku,
                     'quantity' => $qty,
                     'price' => $price,
-                    // Not part of Lazada schema; included to help us verify mapping in the POC.
                     'variation' => [
                         $groupNames[0] => $v['name'],
                     ],
@@ -2065,7 +1832,6 @@ class LazadaController extends Controller
             return $out;
         }
 
-        // Multi option -> Cartesian product
         $combos = [[]];
         foreach ($groups as $gi => $values) {
             $tmp = [];
@@ -2104,7 +1870,6 @@ class LazadaController extends Controller
                 'SellerSku' => $baseSku.'-'.implode('-', $ids),
                 'quantity' => $qty,
                 'price' => $price,
-                // Not part of Lazada schema; included to help us verify mapping in the POC.
                 'variation' => $var,
             ];
         }
@@ -2131,9 +1896,6 @@ class LazadaController extends Controller
     }
 
     
-    // ------------------------------
-    // POC: Orders + Waybill (PDF)
-    // ------------------------------
     public function ordersGet(Request $request, LazadaClient $client)
     {
         $data = $request->validate([
@@ -2218,7 +1980,7 @@ class LazadaController extends Controller
     public function awbPdfGet(Request $request, LazadaClient $client)
     {
         $data = $request->validate([
-            'order_item_ids' => 'required|string|max:2000', // comma-separated
+            'order_item_ids' => 'required|string|max:2000',
         ]);
 
         $setting = LazadaSetting::defaultStore()?->decrypted();
@@ -2255,7 +2017,6 @@ class LazadaController extends Controller
         $body = $res['body'] ?? null;
         $b64 = $this->findBase64Document($body);
         if (!$b64) {
-            // If Lazada returns a URL or non-base64 structure, just show raw response.
             return $this->toSettingsTab('explorer')->with('lazada_result', [
                 'ok' => true,
                 'title' => 'Get AWB PDF (response)',
@@ -2281,19 +2042,16 @@ class LazadaController extends Controller
 
     private function findBase64Document($body): ?string
     {
-        // Common patterns observed across Lazada document APIs
         $candidates = [];
 
         if (is_string($body)) {
             $candidates[] = $body;
         } elseif (is_array($body)) {
-            // direct keys
             foreach (['data', 'document', 'pdf', 'content'] as $k) {
                 if (isset($body[$k]) && is_string($body[$k])) {
                     $candidates[] = $body[$k];
                 }
             }
-            // nested common
             foreach (['result', 'module', 'body'] as $k) {
                 if (isset($body[$k]) && is_array($body[$k])) {
                     foreach (['data', 'document', 'pdf', 'content'] as $kk) {
@@ -2308,7 +2066,6 @@ class LazadaController extends Controller
         foreach ($candidates as $v) {
             $v = trim($v);
             if ($v === '') continue;
-            // very loose base64 check (avoid false positives)
             if (preg_match('/^[A-Za-z0-9+\/=\r\n]+$/', $v) && strlen($v) > 200) {
                 return $v;
             }

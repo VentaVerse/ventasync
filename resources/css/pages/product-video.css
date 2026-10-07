@@ -1,13 +1,3 @@
-/* ------------------------------------------------------------------
-   The product's one video, on the product form.
-
-   It borrows the picture manager's file row (.st-file) rather than
-   growing a second one, so the two media controls on the same page are
-   picked up and put down the same way. What is its own is below: the
-   player, the two facts under it, and the lines naming a store that
-   will refuse the file.
-   ------------------------------------------------------------------ */
-
 .pv { display: flex; flex-direction: column; align-items: flex-start; gap: 0; }
 
 .pv__now {
@@ -30,7 +20,6 @@
     background: #000;
 }
 
-/* Two facts, not a table: how long it runs and how heavy it is. */
 .pv__facts {
     display: flex;
     flex-wrap: wrap;
@@ -42,7 +31,6 @@
 
 .pv__fact { font-variant-numeric: tabular-nums; }
 
-/* A store that will refuse this file, said here rather than at the push. */
 .pv__warns {
     margin: 10px 0 0;
     padding-left: 18px;
@@ -73,8 +61,6 @@
     .pv__ai input { width: 20px; height: 20px; }
 }
 
-/* THE VIDEO THAT GOES UP, on a listing page. It wears the page's own field
-   anatomy: no tinted surface of its own, no oversized control. */
 .cv {
     display: flex;
     flex-direction: column;

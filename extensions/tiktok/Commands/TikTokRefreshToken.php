@@ -21,7 +21,7 @@ class TikTokRefreshToken extends Command
         foreach ($stores as $store) {
             $label = $store->store_name ?: ('#' . $store->id);
             $this->info("=== TikTok store: {$label} ===");
-            app()->instance('tiktok.route-store', $store); // bind: the model trait now scopes every query + stamps writes to THIS store
+            app()->instance('tiktok.route-store', $store);
             try {
                 $worst = max($worst, $this->handleStore($store));
             } catch (\Throwable $e) {
@@ -51,10 +51,6 @@ class TikTokRefreshToken extends Command
             return 1;
         }
 
-        // Skip if token still has >30 minutes remaining
-        // Window (1440 min / 24h) must exceed the refresh cron interval (12h) so
-        // a scheduled run always lands inside it before expiry; also survives one
-        // missed run. Well within TikTok's ~7-day token TTL.
         if ($expiresAt && now()->diffInMinutes($expiresAt, false) > 1440) {
             $this->info('Token still valid (expires ' . $expiresAt . '). Skipping refresh.');
             return 0;
@@ -77,7 +73,7 @@ class TikTokRefreshToken extends Command
                     $raw->{$prefix . 'refresh_token'} = encrypt((string) $refresh);
                 }
                 if (is_numeric($expiresIn)) {
-                    // TikTok returns Unix timestamps, not seconds-from-now
+                    // TikTok returns Unix timestamps, not seconds from now.
                     $raw->{$prefix . 'expires_at'} = \Carbon\Carbon::createFromTimestamp((int) $expiresIn);
                 }
                 if (is_numeric($refreshExpiresIn)) {

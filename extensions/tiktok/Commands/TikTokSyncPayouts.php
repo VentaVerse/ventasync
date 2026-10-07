@@ -9,14 +9,6 @@ use Extensions\tiktok\Services\TikTok\TikTokPayoutSync;
 use Extensions\tiktok\Services\TikTok\TikTokReturnSync;
 use Illuminate\Console\Command;
 
-/**
- * The Sync Payouts automation for TikTok Shop (the owner, 2026-10-01): which
- * delivered and completed orders have been settled to the seller's balance.
- * Its own job, hourly, out of the every-minute order sync, reading the
- * statements of the job's look-back (--days); see TikTokPayoutSync.
- * tiktok:backfill-payouts still reads from the oldest order waiting, however
- * old.
- */
 class TikTokSyncPayouts extends Command
 {
     protected $signature = 'tiktok:sync-payouts
@@ -69,8 +61,6 @@ class TikTokSyncPayouts extends Command
                 $exit = self::FAILURE;
             }
 
-            // Keep the store's balance fresh too, so the dashboard and the
-            // Payouts report never meet an empty one (PayoutBalances).
             if ($channel = app(\App\Services\Payouts\PayoutRegistry::class)->channel('tiktok')) {
                 $balance = app(\App\Services\Payouts\PayoutBalances::class)->refresh($channel, $store);
                 if (! ($balance['ok'] ?? false)) {

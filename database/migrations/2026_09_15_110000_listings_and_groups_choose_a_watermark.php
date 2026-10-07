@@ -4,12 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * A listing chooses a watermark template and whether it goes on every
- * picture or only the main one; a product group chooses a template its
- * listings borrow when they name none. Guarded so a tier that already has
- * the columns is left alone.
- */
 return new class extends Migration
 {
     private const LISTINGS = ['shopee_listings', 'lazada_products', 'tiktok_listings', 'venta_listings', 'woocommerce_listings'];

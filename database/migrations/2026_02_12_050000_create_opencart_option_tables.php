@@ -8,8 +8,6 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // These tables mirror OpenCart's option structure.
-        // They are created only if missing to keep installs stable.
         if (!Schema::hasTable('option')) {
             Schema::create('option', function (Blueprint $table) {
                 $table->engine = 'MyISAM';
@@ -84,6 +82,5 @@ return new class extends Migration
 
     public function down(): void
     {
-        // No-op for safety: dropping these tables can break existing installs.
     }
 };

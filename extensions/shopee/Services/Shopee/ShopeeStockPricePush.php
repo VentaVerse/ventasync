@@ -8,34 +8,8 @@ use Extensions\shopee\Services\ShopeeStockPushService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-/**
- * The one sender for update_stock and update_price (Phase E, #184, #190).
- * Four private copies of this loop existed across two controllers and a
- * cron, and every one of them could lie three different ways:
- *
- *  - an ERP variation whose SKU matched no link row was silently dropped
- *    (the deleted-1pc incident: the push "succeeded" and never said what
- *    it left out);
- *  - a null-model link on a model-level item was sent as model_id 0,
- *    sinking the WHOLE call with "model_id is mandatory" - and nothing
- *    re-read the models, so the only way out was unlink + rematch;
- *  - Shopee's per-model failure_list was never parsed, so an HTTP-200
- *    answer with failed models counted them as successes, stamped
- *    last_sync_ok = true on their rows and flashed green.
- *
- * Now: the plan is built from the LINK ROWS (what Shopee actually has),
- * a link that would provoke the model error triggers the same repair Sync
- * ID runs (one get_model_list, rewire, prune) BEFORE the call, a call
- * that still comes back with a model-level refusal repairs and retries
- * ONCE, and per-model verdicts land on each link row from its own
- * failure_list entry. Nothing is retried silently.
- *
- * And nothing is partial (the owner, 2026-09-07): a product whose variations
- * differ from Shopee's, in either direction, fails whole and names the
- * difference, and none of its models is sent. The old skip-by-name push
- * sent what matched, and the operator could not tell which product the
- * skipped variation belonged to.
- */
+// A null-model link sent as model_id 0 sinks the whole call; repair the links first.
+// HTTP 200 can carry failed models, so parse failure_list per model.
 class ShopeeStockPricePush
 {
     public function __construct(
@@ -47,24 +21,8 @@ class ShopeeStockPricePush
 
     private const MODEL_ERROR = '/model_id is mandatory|model level|model_id.*(?:not|doesn\'?t).*exist|invalid model/i';
 
-    /** A per-model refusal that says the model is gone from Shopee (the seller deleted the variation there). */
     private const DEAD_MODEL = '/model.*(?:not|no|doesn\'?t|does not).*(?:exist|found)|invalid model|no such model|model.*deleted/i';
 
-    /**
-     * @param 'stock'|'price' $kind
-     * @param iterable $links ShopeeProductLink rows
-     * @param ?callable $priceFor fn(int $productId, float $resolvedPrice): ?float
-     *        - required for price; null return skips the product BY NAME
-     *          (the no-listing-price-rule case, #96).
-     * @return array{
-     *   ok: int, err: int, last_error: string,
-     *   outcomes: array<int, array{ok: bool, error: ?string}>,
-     *   mismatched: list<array{product_id: int, sku: string, reason: string}>,
-     *   skipped_variations: list<array{product_id: int, sku: string, reason: string}>,
-     *   skipped_products: list<string>,
-     *   healed_items: list<int>,
-     * }
-     */
     public function push(string $kind, array $auth, $links, string $pfx, ?callable $priceFor = null): array
     {
         $links = collect($links)->values();
@@ -81,13 +39,6 @@ class ShopeeStockPricePush
 
         $erpVariationSkus = $this->erpVariationSkus($productIds, $pfx);
 
-        /* Pre-call heal: a null-model link on an item the cache knows is
-         * model-level WILL be refused - and a null-model link on a product
-         * that sells in variations is the stale-parent-link smell (a
-         * variation added in Seller Centre flipped the item to model
-         * level). Run the repair now, once per item, and work from the
-         * fresh rows; if Shopee says the item really is item-level, the
-         * repair leaves an honest parent link and nothing else changes. */
         $modelLevelItems = $this->modelLevelItems($links);
         $itemsToHeal = $links
             ->filter(fn ($l) => empty($l->shopee_model_id)
@@ -106,10 +57,6 @@ class ShopeeStockPricePush
 
         $rows = $this->resolver->resolve($links, $pfx);
 
-        /* Only what this store sells is sent. A variation switched off, a
-         * model the catalogue does not have, and a parent row on an item
-         * sold in variations are left alone; a variation Shopee does not
-         * carry is simply not asked of it. None of these is an error. */
         $hidden = \App\Integrations\Listings\ListingVariations::hidden('shopee', (int) ($auth['store_id'] ?? 0), $productIds);
         $grouped = [];
         foreach ($this->sendable($rows, $erpVariationSkus, $hidden) as $row) {
@@ -120,8 +67,6 @@ class ShopeeStockPricePush
             $this->pushItem($kind, $auth, (int) $itemId, $itemRows, $pfx, $priceFor, $erpVariationSkus, $hidden, $out, true);
         }
 
-        /* A failure is already on its link rows with its own time; a
-         * product that went through whole clears its error line. */
         $states = app(ShopeeListingStates::class)->forStore((int) ($auth['store_id'] ?? 0));
         foreach ($out['outcomes'] as $pid => $outcome) {
             if (! empty($outcome['ok'])) {
@@ -132,7 +77,6 @@ class ShopeeStockPricePush
         return $out;
     }
 
-    /** One item's call, with a single repair-and-retry on a model-level refusal. */
     private function pushItem(string $kind, array $auth, int $itemId, array $rows, string $pfx, ?callable $priceFor, array $erpVariationSkus, array $hidden, array &$out, bool $mayHeal): void
     {
         $list = [];
@@ -177,9 +121,6 @@ class ShopeeStockPricePush
         $message = (string) ($body['message'] ?? '');
         $callOk = ($result['ok'] ?? false) && ($topError === '' || ($body['error'] ?? null) === null);
 
-        /* The self-heal: a model-level refusal means the link rows disagree
-         * with Shopee's shape. Run the same repair Sync ID runs, rebuild
-         * this item's rows from the fresh links, retry ONCE - and say so. */
         if (!$callOk && $mayHeal && preg_match(self::MODEL_ERROR, $topError . ' ' . $message)) {
             $pids = collect($rows)->map(fn ($r) => (int) $r['link']->product_id)->unique();
             $healedAny = false;
@@ -195,7 +136,6 @@ class ShopeeStockPricePush
                     ->whereIn('product_id', $pids->all())
                     ->where('shopee_item_id', $itemId)
                     ->get();
-                // What the repair left unmatched is left alone; the rest retry once.
                 $freshRows = $this->sendable($this->resolver->resolve($fresh, $pfx), $erpVariationSkus, $hidden);
                 if (!empty($freshRows)) {
                     $this->pushItem($kind, $auth, $itemId, $freshRows, $pfx, $priceFor, $erpVariationSkus, $hidden, $out, false);
@@ -204,9 +144,6 @@ class ShopeeStockPricePush
             }
         }
 
-        /* Per-model verdicts (the failure_list Shopee has been sending all
-         * along): each link row wears its OWN model's outcome, not the
-         * item's. The product still fails if any of its models failed. */
         $failures = [];
         foreach ((array) data_get($body, 'response.failure_list', []) as $f) {
             $failures[(int) ($f['model_id'] ?? 0)] = (string) ($f['failed_reason'] ?? $f['message'] ?? 'refused');
@@ -214,9 +151,6 @@ class ShopeeStockPricePush
 
         $action = $kind === 'price' ? 'sync_price' : 'sync_qty';
 
-        /* A model Shopee says is gone (the seller deleted that variation in
-         * the seller centre) is not a failure: its link is dropped and the
-         * variation is simply no longer on Shopee. */
         $dead = [];
         foreach ($sentRows as $row) {
             $reason = $failures[(int) $row['model_id']] ?? null;
@@ -257,11 +191,6 @@ class ShopeeStockPricePush
         }
     }
 
-    /**
-     * The rows this store sells. A variation switched off, a model the
-     * catalogue does not have, and an item-level row on a product sold in
-     * variations are not sent; everything else is.
-     */
     private function sendable(array $rows, array $erpVariationSkus, array $hidden): array
     {
         return array_values(array_filter($rows, function ($row) use ($erpVariationSkus, $hidden) {
@@ -274,22 +203,16 @@ class ShopeeStockPricePush
         }));
     }
 
-    /**
-     * The honest suffix for a flash message: what was healed and what was
-     * skipped, by name. One builder, so no two pages phrase it apart.
-     */
     public static function ledgerClause(array $results): string
     {
         return \App\Integrations\Push\PushLedger::clause($results, 'Shopee');
     }
 
-    /** ERP variation SKUs per product: combinations first, then option values. */
     private function erpVariationSkus(array $productIds, string $pfx): array
     {
         return \App\Integrations\Push\PushLedger::erpVariationSkus($productIds, $pfx);
     }
 
-    /** The SKUs the repair matches models against, lowercased, main SKU included. */
     private function skusFor(int $productId, string $pfx, array $erpVariationSkus): array
     {
         $skus = array_map('strtolower', $erpVariationSkus[$productId] ?? []);
@@ -301,7 +224,6 @@ class ShopeeStockPricePush
         return $skus;
     }
 
-    /** Items known to be model-level: any model-id link, or any model row in the item cache. */
     private function modelLevelItems($links): array
     {
         $itemIds = collect($links)->pluck('shopee_item_id')->map(fn ($v) => (int) $v)->unique()->values();

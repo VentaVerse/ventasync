@@ -10,29 +10,14 @@ use Extensions\shopee\Models\ShopeeOrderProduct;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * Pick and packing lists over a selection of orders.
- *
- * The two documents differ in a way worth asserting rather than assuming,
- * because it is the whole reason there are two: a pick list consolidates by
- * SKU across the selection (one trip to one shelf for three orders wanting
- * the same cable), a packing list does not (it travels in the box and can
- * only describe the order it travels with).
- */
 class OrderPrintListsTest extends TestCase
 {
     use RefreshDatabase;
 
-    /**
-     * The permission rows these tests attach are synced from each
-     * extension's manifest when the extension is installed, so the channels
-     * under test have to be installed before a user can be given anything.
-     */
     protected function setUp(): void
     {
         parent::setUp();
 
-        // Multi-store S2 (#194): an order row belongs to a store.
         \Extensions\shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
 
         $manager = $this->app->make(\App\Extensions\ExtensionManager::class);
@@ -56,12 +41,6 @@ class OrderPrintListsTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    /**
-     * Three orders. Two of them want the same SKU, which is what the pick
-     * list has to notice and the packing list has to leave alone.
-     *
-     * @return array<int, int>
-     */
     private function seedOrders(): array
     {
         $ids = [];
@@ -96,19 +75,15 @@ class OrderPrintListsTest extends TestCase
 
         $response->assertOk();
 
-        // Two SKUs from three orders, and the repeated one carries the sum of
-        // both its lines rather than appearing twice.
         $response->assertSee('QB-IC50');
         $response->assertSee('EMP-EQ');
-        $response->assertSee('>5<', false);   // 2 + 3, consolidated
+        $response->assertSee('>5<', false);
         $this->assertSame(
             1,
             substr_count($response->getContent(), 'QB-IC50'),
             'QB-IC50 was printed more than once - the pick list did not consolidate it.'
         );
 
-        // And the orders it came from stay on the sheet, so a shortfall can
-        // be traced back to the order that is short.
         $response->assertSee('A-1');
         $response->assertSee('A-2');
     }
@@ -122,14 +97,12 @@ class OrderPrintListsTest extends TestCase
 
         $response->assertOk();
 
-        // One sheet per selected order.
         $this->assertSame(
             3,
             substr_count($response->getContent(), 'class="pl-page"'),
             'A packing list must render one sheet per order.'
         );
 
-        // The repeated SKU appears on both of its orders' sheets, unmerged.
         $this->assertSame(
             2,
             substr_count($response->getContent(), 'QB-IC50'),
@@ -141,13 +114,10 @@ class OrderPrintListsTest extends TestCase
     {
         $ids = $this->seedOrders();
 
-        // Printing reveals nothing the operator cannot read on the list, and
-        // contacts no marketplace, so the read tier is the right gate.
         $this->actingAs($this->userWith(['view_shopee/order']))
             ->post(route('fulfilment.print.pick', ['channel' => 'shopee']), ['ids' => $ids])
             ->assertOk();
 
-        // A different channel's permission opens nothing here.
         $this->actingAs($this->userWith(['view_lazada/order']))
             ->post(route('fulfilment.print.pick', ['channel' => 'shopee']), ['ids' => $ids])
             ->assertForbidden();
@@ -174,8 +144,6 @@ class OrderPrintListsTest extends TestCase
         $response = $this->actingAs($this->userWith(['view_shopee/order']))
             ->post(route('fulfilment.print.pick', ['channel' => 'shopee']), ['ids' => [999111, 999112]]);
 
-        // An empty sheet would claim the orders had no items rather than that
-        // they are gone.
         $response->assertSessionHasErrors('ids');
     }
 
@@ -185,8 +153,6 @@ class OrderPrintListsTest extends TestCase
 
         $orders = \App\Support\Fulfilment\OrderPrintLists::orders('shopee', $ids);
 
-        // The cap is on what is fetched, not on what is asked for, so a
-        // pathological selection cannot walk the whole table.
         $this->assertLessThanOrEqual(200, $orders->count());
     }
 }

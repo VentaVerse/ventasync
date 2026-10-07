@@ -4,12 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * TikTok returns and refunds (#156, item 10): the reverse orders TikTok
- * Shop reports through its return_refund API, stored the way Lazada's
- * reverse orders are so the same returns list renders in the workspace
- * and on the fulfilment hub.
- */
 return new class extends Migration
 {
     public function up(): void

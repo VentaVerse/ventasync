@@ -11,23 +11,12 @@ use Extensions\lazada\Services\Lazada\LazadaClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * Seller vouchers (#153, quest 4, Lazada half, 2026-08-26). Nothing is
- * stored locally: the page is a live read on every load (absent, never
- * stale) and create/deactivate pass straight through. The Lazada
- * sandbox has no voucher permission, so these tests pin OUR behaviour
- * (validation, verbs, verbatim errors, the parameter mapping as
- * implemented); a live shop confirms Lazada's field names, and a
- * correction there updates the mapping test consciously.
- */
 class LazadaVoucherTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @var array<int, array{method: string, path: string, params: array}> */
     private array $sentCalls = [];
 
-    /** What the fake marketplace answers per "METHOD path" (array or closure). */
     public array $callResponses = [];
 
     protected function setUp(): void
@@ -122,10 +111,10 @@ class LazadaVoucherTest extends TestCase
     public function test_the_page_lists_live_vouchers_with_the_verb_their_state_allows(): void
     {
         $this->callResponses['GET /promotion/vouchers/get'] = $this->listAnswer([
-            $this->sampleVoucher(),                                                                    // ongoing: End now
+            $this->sampleVoucher(),
             $this->sampleVoucher(['id' => 880012, 'name' => 'Next week', 'status' => 'not_start',
-                'discount_type' => 'PERCENTAGE_OFF', 'discount_value' => '10', 'max_discount_offering_money_value' => '100.00']), // upcoming: End now
-            $this->sampleVoucher(['id' => 880013, 'name' => 'Old news', 'status' => 'expired']),       // expired: nothing
+                'discount_type' => 'PERCENTAGE_OFF', 'discount_value' => '10', 'max_discount_offering_money_value' => '100.00']),
+            $this->sampleVoucher(['id' => 880013, 'name' => 'Old news', 'status' => 'expired']),
         ]);
 
         $r = $this->actingAs($this->manager())->get(route('ext.lazada.vouchers.index'));
@@ -138,8 +127,6 @@ class LazadaVoucherTest extends TestCase
         $r->assertSee('Upcoming');
         $r->assertSee('Old news');
         $r->assertSee('Expired');
-        // One verb per state across the three channels: End now for a
-        // running one, Cancel before it starts for one nobody has seen.
         $this->assertSame(1, substr_count($r->getContent(), '>End now<'));
         $this->assertSame(1, substr_count($r->getContent(), '>Cancel before it starts<'));
     }
@@ -172,9 +159,6 @@ class LazadaVoucherTest extends TestCase
 
     public function test_a_transport_failure_never_prints_the_signed_url(): void
     {
-        // Laravel's ConnectionException message carries the full request
-        // URL, credentials included. The page must say only the kind of
-        // failure; the raw message belongs to the API log.
         $this->callResponses['GET /promotion/vouchers/get'] = function () {
             throw new \Illuminate\Http\Client\ConnectionException(
                 'cURL error 28: Operation timed out after 10000 milliseconds for https://api.lazada.com.ph/rest/promotion/vouchers/get?app_key=114192&access_token=50000601137ySECRET&sign=abc'
@@ -217,7 +201,7 @@ class LazadaVoucherTest extends TestCase
         $this->assertSame('50.00', $p['discount_value']);
         $this->assertSame('500.00', $p['criteria_over_money']);
         $this->assertSame('100', $p['issued']);
-        $this->assertSame((string) ($starts->timestamp * 1000), $p['period_start_time']);   // Lazada takes milliseconds
+        $this->assertSame((string) ($starts->timestamp * 1000), $p['period_start_time']);
         $this->assertSame((string) ($ends->timestamp * 1000), $p['period_end_time']);
         $this->assertArrayNotHasKey('max_discount_offering_money_value', $p);
     }

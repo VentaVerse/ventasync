@@ -6,10 +6,6 @@ use App\Services\Sales\CustomerLedger;
 use App\Support\Api\Input;
 use App\Support\Api\Refused;
 
-/**
- * Customers as the orders name them: found by name, email or phone, and one customer's history.
- * The partner API and the assistant tools both run these.
- */
 final class CustomerReads
 {
     public function __construct(private readonly CustomerLedger $ledger)
@@ -42,12 +38,6 @@ final class CustomerReads
         ]);
     }
 
-    /**
-     * An answer, or a refusal when the status says the request was turned
-     * down: the message and status reach every door unchanged.
-     *
-     * @return array<string, mixed>
-     */
     private function json(mixed $data, int $status = 200): array
     {
         if ($status >= 400) {

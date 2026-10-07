@@ -1,52 +1,3 @@
-/*
- * Warehousing pages (layouts.shell).
- *
- * Drives the two line editors in this section, which are the same
- * machine with different columns:
- *
- *   - the transfer form (create and edit): search a product, add a
- *     line, type how many units to move, and see how many the source
- *     location actually holds;
- *   - the stock adjustment form: search a product, add a line, and
- *     type the counted quantity that should replace what the system
- *     believes.
- *
- * Both post `items[i][product_id]`, `items[i][product_option_value_id]`
- * and `items[i][quantity]`, which is exactly what
- * WarehouseTransferController::store()/update() and
- * WarehouseInventoryController::adjustStore() validate. The indices are
- * renumbered on every removal so the arrays stay contiguous.
- *
- * Two things this module exists to replace, both of which would fail
- * silently after the move to layouts.shell:
- *
- *   1. window.showFlashError. It writes into a #js-flash-container, which
- *      layouts.app was the only layout to render (it was deleted in Round F
- *      Task 4; partials/legacy-page-contract renders the container on
- *      layouts.channel now, and layouts.shell still has none). On the shell
- *      every client-side guard on these forms (no lines added, source equals
- *      destination, quantity over stock) therefore called a function that did
- *      nothing and let the submit proceed. The guards now write into the
- *      page's own .wh-flash region with textContent.
- *
- *   2. The inline <script> blocks the old views carried, with the
- *      search endpoint written into them by Blade. The endpoint now
- *      arrives on a data- attribute built by route(), so no URL shape
- *      is assumed in JS.
- *
- * Everything builds DOM with createElement/textContent. There is no
- * innerHTML in this file, so a product name containing markup is shown
- * as text and cannot inject anything.
- */
-
-/* ------------------------------------------------------------------
-   Shared helpers
-   ------------------------------------------------------------------ */
-
-/**
- * Show a single sentence in the page's flash region, or clear it.
- * Same note grammar the server-rendered flash uses.
- */
 function setFlash(region, message) {
     if (!region) return;
     region.textContent = '';
@@ -62,14 +13,6 @@ function setFlash(region, message) {
     region.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-/**
- * The product search popup, shared by both editors.
- *
- * `onPick` receives one API result. The "add all N variations" row is
- * only offered on the transfer form, where moving a whole product's
- * variations between locations in one go is the common case; the
- * adjustment form counts one shelf label at a time.
- */
 function productSearch(opts) {
     const { input, list, url, warehouseSelect, onPick, groupAdd, haveLabel } = opts;
     if (!input || !list || !url) return;
@@ -105,8 +48,6 @@ function productSearch(opts) {
             btn.appendChild(have);
         }
 
-        // mousedown, not click: the input's blur closes the list before
-        // a click could land on it.
         btn.addEventListener('mousedown', function (e) {
             e.preventDefault();
             onPick(item);
@@ -190,13 +131,6 @@ function productSearch(opts) {
     return { close: close };
 }
 
-/**
- * The line list both editors keep.
- *
- * `build` renders one line's cells into a container element; the rest
- * (duplicate detection, index renumbering, the empty notice) is the
- * same for both forms.
- */
 function lineList(opts) {
     const { host, empty, build, onChange } = opts;
     let nextIdx = 0;
@@ -230,9 +164,6 @@ function lineList(opts) {
         const productId = Number(item.product_id);
         const povId = Number(item.product_option_value_id || 0);
 
-        // Already listed: put the cursor on its quantity rather than
-        // adding a second line the controller would treat as a second
-        // movement of the same shelf label.
         const existing = find(productId, povId);
         if (existing) {
             const qty = existing.querySelector('[data-wh-qty]');
@@ -285,14 +216,12 @@ function lineList(opts) {
         syncEmpty();
     });
 
-    // Blade-rendered lines (transfer edit) are already in the host.
     renumber();
     syncEmpty();
 
     return { add: add, lines: lines, syncEmpty: syncEmpty };
 }
 
-/** One labelled cell. */
 function cell(line, className, label) {
     const el = document.createElement('span');
     if (className) el.className = className;
@@ -301,7 +230,6 @@ function cell(line, className, label) {
     return el;
 }
 
-/** A hidden field carrying an id the controller validates. */
 function hidden(parent, name, value) {
     const el = document.createElement('input');
     el.type = 'hidden';
@@ -310,10 +238,6 @@ function hidden(parent, name, value) {
     parent.appendChild(el);
     return el;
 }
-
-/* ------------------------------------------------------------------
-   Transfer form (create and edit)
-   ------------------------------------------------------------------ */
 
 function initTransferForm() {
     const form = document.querySelector('[data-wh-transfer-form]');
@@ -411,8 +335,6 @@ function initTransferForm() {
         haveLabel: 'have',
     });
 
-    /* Changing the source location changes what is on the shelf, so
-       every listed line's on-hand figure is looked up again. */
     if (fromSelect) {
         fromSelect.addEventListener('change', function () {
             const whId = fromSelect.value;
@@ -454,9 +376,6 @@ function initTransferForm() {
         });
     }
 
-    /* The two location selects cannot name the same place: the
-       controller validates `different:from_warehouse_id`, so the option
-       already chosen on one side is disabled on the other. */
     function lockPairs() {
         if (!fromSelect || !toSelect) return;
         Array.from(fromSelect.options).forEach(function (o) { o.disabled = false; });
@@ -477,10 +396,6 @@ function initTransferForm() {
     lockPairs();
 
 }
-
-/* ------------------------------------------------------------------
-   Stock adjustment form
-   ------------------------------------------------------------------ */
 
 function initAdjustForm() {
     const form = document.querySelector('[data-wh-adjust-form]');
@@ -536,9 +451,6 @@ function initAdjustForm() {
         },
     });
 
-    /* The search only knows a location's counts once a location is
-       chosen, so choosing one is the first step and the search stays
-       shut until it happens. */
     function syncSearchState() {
         if (!searchInput) return;
         const ready = Boolean(warehouse && warehouse.value);
@@ -563,22 +475,6 @@ function initAdjustForm() {
 
 }
 
-/* ------------------------------------------------------------------
-   Submit guards
-
-   Registered at module scope, in the capture phase, on purpose.
-   confirm-modal.js also listens for submit on document in the capture
-   phase; it intercepts a [data-confirm] form, shows the dialog and
-   re-submits on confirmation. Whichever listener is registered first
-   runs first, and confirm-modal registers inside its own
-   DOMContentLoaded handler. A guard registered the same way would run
-   only AFTER the operator had already confirmed, so a form with
-   nothing in it would ask "are you sure?" before saying there was
-   nothing to save.
-
-   Everything checked here is read straight off the DOM, so the guard
-   needs no state from the initialisers below.
-   ------------------------------------------------------------------ */
 document.addEventListener('submit', function (e) {
     const form = e.target;
     if (!form || !form.matches) return;

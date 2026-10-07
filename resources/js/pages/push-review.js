@@ -1,18 +1,3 @@
-/**
- * The push-review modal (cleanup 7+9, approved from the 2026-09-03 draft).
- *
- * SINGLE: a form marked data-push-review is intercepted; the endpoint's
- * JSON fills the modal - what goes up, price arithmetic included, with
- * title/description as the two editable fields - and Push submits the
- * original form with those two riding along. No JS, no interception: the
- * form still pushes with a native submit.
- *
- * BULK: gone (the owner, 2026-09-06). Many products go up from a product
- *   group's page; the Listings bar no longer pushes.
- *
- * SECURITY: every node is createElement + textContent. Nothing returned
- * by the endpoints is ever interpreted as markup.
- */
 (function () {
     'use strict';
 
@@ -47,8 +32,6 @@
         return fetch(url, { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) { return r.json(); });
     }
-
-    /* ── Single ──────────────────────────────────────────────── */
 
     let singleForm = null;
 
@@ -88,11 +71,6 @@
             input.value = single.querySelector('[data-pr-' + name + ']').value;
         });
 
-        /* Say that something is happening. form.submit() fires no submit
-           event, so busy-overlay.js never sees this one and the page sat
-           looking idle for the ten seconds Shopee takes (the owner,
-           2026-09-09). The modal closes first, or it hangs over the
-           overlay it just raised. */
         closeModal();
         document.dispatchEvent(new CustomEvent('busy:show', {
             detail: { title: 'Pushing to ' + (single.getAttribute('data-store') || 'the store') },
@@ -101,10 +79,6 @@
         singleForm.submit();
     });
 
-    /* CAPTURE phase on the document, so this runs before the shared
-       bulk-form and slow-action handlers (channel-listings.js) get the
-       event - they respect defaultPrevented, and the modal owns the
-       submit from here. A fetch failure falls back to the native flow. */
     function interceptSingle(form) {
         singleForm = form;
         getJson(form.getAttribute('data-push-review')).then(function (data) {

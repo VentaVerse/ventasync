@@ -2,11 +2,6 @@
 @section('title', 'Unlinked items on TikTok Shop')
 @section('breadcrumb', 'Unlinked on TikTok Shop')
 
-{{-- The mirror of the products page (parity #156, from Shopee's): that one
-     lists what the ERP holds and asks whether TikTok Shop still has it; this
-     lists what TikTok Shop holds and asks whether the ERP knows about it.
-     Read-only by design: every row is a judgement call, so this reports and
-     the operator decides. --}}
 @section('content')
 @php
     $groupName = $group->name ?: 'this product group';

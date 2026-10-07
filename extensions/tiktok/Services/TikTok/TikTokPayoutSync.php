@@ -7,30 +7,8 @@ use Extensions\tiktok\Models\TikTokApiLog;
 use Extensions\tiktok\Models\TikTokOrder;
 use Extensions\tiktok\Models\TikTokSetting;
 
-/**
- * Whether TikTok Shop has paid out each order, and when.
- *
- * TikTok settles orders into one statement a day, and pays each statement
- * out as a whole: a statement is PROCESSING until the money is sent, then
- * PAID with its payment time, or FAILED when the transfer did not go
- * through. An order's payout is therefore its statement's. This reads the
- * statements over a window (Get Statements, /finance/202309/statements),
- * the orders inside each one (Get Transactions by Statement,
- * /finance/202501/statements/{id}/statement_transactions), and writes the
- * verdict onto each waiting order:
- *
- *   PAID        Paid, paid_at = the statement's payment time
- *   SETTLED     Paid the same way (what the Philippine shop's statements say)
- *   PROCESSING  Releasing
- *   FAILED      Payment failed
- *
- * An order in no statement yet is not settled and is left as it is; the
- * payouts report reads it from the order's own status meanwhile. Paid
- * orders are never read again.
- */
 class TikTokPayoutSync
 {
-    /** Statements are paged 100 at a time; a run reads at most this many. */
     public const MAX_STATEMENTS = 400;
 
     public const PAID = PayoutStatus::PAID;
@@ -39,10 +17,8 @@ class TikTokPayoutSync
 
     public const FAILED = PayoutStatus::FAILED;
 
-    /** The order statuses that can have been settled into a statement. */
     public const PAYABLE_STATUSES = ['COMPLETED', 'DELIVERED'];
 
-    /** TikTok's "too many requests" code. */
     private const RATE_LIMITED = 36009002;
 
     private const RATE_LIMIT_PAUSE_SECONDS = 3;
@@ -53,12 +29,6 @@ class TikTokPayoutSync
     {
     }
 
-    /**
-     * How a store's Payouts page reads TikTok orders (App\Services\Payouts\
-     * PayoutAttention). The order page is addressed by the row id.
-     *
-     * @return array<string, mixed>
-     */
     public static function attention(): array
     {
         return [
@@ -73,13 +43,6 @@ class TikTokPayoutSync
         ];
     }
 
-    /**
-     * @param  array{app_key: string, app_secret: string, token: string, shop_cipher: string}  $creds
-     * @param  int|null  $sinceTs  read statements generated on or after this time; null reads from
-     *                             the oldest order still waiting, which is what a backfill wants
-     * @param  (callable(string): void)|null  $say  progress lines, for a console
-     * @return array{ok: bool, message: string, waiting: int, statements: int, paid: int, releasing: int, failed: int}
-     */
     public function sync(TikTokSetting $store, array $creds, ?int $sinceTs = null, ?callable $say = null): array
     {
         $say ??= static function (string $line): void {};
@@ -88,7 +51,6 @@ class TikTokPayoutSync
         $waiting = TikTokOrder::query()
             ->where('tiktok_setting_id', $store->id)
             ->whereIn('status', self::PAYABLE_STATUSES)
-            // A look-back's job has marked the older ones No payout found (TikTokSyncPayouts).
             ->when($sinceTs !== null, fn ($q) => $q->where('order_created_at', '>=', date('Y-m-d H:i:s', $sinceTs)))
             ->where(fn ($q) => $q->whereNull('payout_status')->orWhere('payout_status', '!=', self::PAID))
             ->get(['id', 'order_id', 'order_created_at', 'payout_status']);
@@ -100,8 +62,6 @@ class TikTokPayoutSync
             return $out;
         }
 
-        // A day before the oldest waiting order, so one created late on a UTC
-        // day is covered; a caller's window can only narrow that.
         $oldest = (int) $waiting->min(fn ($o) => $o->order_created_at?->getTimestamp() ?? time()) - 86400;
         $from = $sinceTs === null ? $oldest : max($sinceTs, $oldest);
 
@@ -143,8 +103,6 @@ class TikTokPayoutSync
                     if (! $byOrderId->has($orderId)) {
                         continue;
                     }
-                    // A later statement can carry an adjustment for the same
-                    // order; the settlement itself is the first one it is in.
                     $verdict[$orderId] ??= ['state' => $state, 'paid_at' => $paidAt];
                 }
 
@@ -159,9 +117,6 @@ class TikTokPayoutSync
         foreach ($verdict as $orderId => $v) {
             $order = $byOrderId->get($orderId);
             $values = match ($v['state']) {
-                // The Philippine shop's statements say SETTLED, never PAID:
-                // all 96 of them on 2026-10-01, each with its payment_id and
-                // payment_time. Read as PAID alone, every one stayed Releasing.
                 'PAID', 'SETTLED' => ['payout_status' => self::PAID, 'paid_at' => $v['paid_at'] > 0 ? date('Y-m-d H:i:s', $v['paid_at']) : now()],
                 'FAILED' => ['payout_status' => self::FAILED, 'paid_at' => null],
                 default => ['payout_status' => self::RELEASING, 'paid_at' => null],
@@ -185,12 +140,6 @@ class TikTokPayoutSync
         return $out;
     }
 
-    /**
-     * The order ids settled in one statement, every page of it, or null when
-     * TikTok Shop refused.
-     *
-     * @return list<string>|null
-     */
     private function ordersIn(array $creds, string $statementId): ?array
     {
         $ids = [];
@@ -220,18 +169,9 @@ class TikTokPayoutSync
         return array_values(array_unique($ids));
     }
 
-    /**
-     * One GET, logged like every other TikTok call. The verdict is the body's
-     * own code, never the HTTP status.
-     *
-     * @return array{data: array<string, mixed>, error: ?string}
-     */
     private function call(array $creds, string $path, array $params): array
     {
-        /* TikTok rate-limits the statement reads (HTTP 429, code 36009002,
-         * "a dependent service is temporarily rate limited": the scheduled
-         * run failed at 01:04 and 02:04 on 2026-10-02). A short gap between
-         * calls, and one retry after a pause when it says so. */
+        // TikTok rate-limits statement reads (HTTP 429, code 36009002); keep a gap between calls and retry once.
         usleep(self::CALL_GAP_MICROSECONDS);
         $result = $this->client->get($creds['app_key'], $creds['app_secret'], $creds['token'], $path, $params, $creds['shop_cipher'] ?: null);
         $body = is_array($result['body'] ?? null) ? $result['body'] : [];

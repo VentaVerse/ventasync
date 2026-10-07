@@ -13,13 +13,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * The stateless import (the owner, 2026-09-04: "lets not even save them").
- * Nothing about the store's items is persisted: the page is blank until
- * Fetch reads the store live, rows exist only in the render, and Import
- * re-reads the item by its SKU at the moment it acts. What IS written
- * is real data only - the catalog product and its channel link.
- */
 class VentaItemImportTest extends TestCase
 {
     use RefreshDatabase;

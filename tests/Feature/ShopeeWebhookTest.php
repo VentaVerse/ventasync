@@ -7,10 +7,6 @@ use Extensions\shopee\Models\ShopeeSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * Shopee's pushes are signed with each app's push partner key, which is
- * entered on the store's settings page beside the partner key.
- */
 class ShopeeWebhookTest extends TestCase
 {
     use RefreshDatabase;

@@ -20,7 +20,6 @@ class OpenCartController extends Controller
 {
     public function index()
     {
-        // Legacy fallback — redirect to first enabled store's per-store settings.
         $first = OpenCartSetting::query()->orderBy('id')->first();
         if ($first) {
             return redirect()->route('ext.opencart.settings.show', ['store' => $first->id]);
@@ -56,10 +55,6 @@ class OpenCartController extends Controller
         return view('ext-opencart::index', compact('stores', 'recentLogs', 'orderStatusMaps', 'erpOrderStatuses', 'singleStore'));
     }
 
-    /**
-     * "Add New Store" modal target — minimal create with name + base_url only.
-     * The user fills in the API key on the per-store settings page.
-     */
     public function createStore(Request $request)
     {
         $data = $request->validate([
@@ -84,10 +79,6 @@ class OpenCartController extends Controller
     public function save(Request $request)
     {
         $storeId = $request->input('store_id');
-        // Looked up ahead of validate() so the credential rule below can key
-        // off whether this store already has a stored key: the field is
-        // masked in the form, so a blank submission must not be forced
-        // through `required` just because the user didn't retype it.
         $existing = $storeId ? OpenCartSetting::findOrFail((int) $storeId) : null;
         $hasStoredKey = $existing !== null && $existing->api_key !== null && $existing->api_key !== '';
 
@@ -112,9 +103,6 @@ class OpenCartController extends Controller
                 'enabled'          => $data['enabled'],
                 'sync_orders_from' => $data['sync_orders_from'] ?? $setting->sync_orders_from,
             ]);
-            // Blank submission means "keep existing" -- never wipe the
-            // stored key just because the form was resaved without
-            // retyping it.
             if (!empty($data['api_key'])) {
                 $setting->api_key = $data['api_key'];
             }
@@ -132,15 +120,6 @@ class OpenCartController extends Controller
             ActivityLogger::log('created', 'OpenCart Store', $setting->id, $setting->store_name ?? $setting->base_url);
         }
 
-        // ext.opencart.settings.show, NOT ext.opencart.index.
-        //
-        // index is a legacy fallback that takes no store parameter and
-        // redirects to the FIRST store by id. Passing ['store' => n] to it
-        // does not scope anything: the id is appended as a query string and
-        // ignored, so saving store 3 landed the operator on store 1, looking
-        // at another shop's credentials with nothing saying it had moved. On a
-        // channel where every store is a live storefront that is worse than an
-        // inconvenience. Same defect Venta had.
         return redirect()
             ->route('ext.opencart.settings.show', ['store' => $setting->id])
             ->with('status', 'OpenCart store saved.');
@@ -202,12 +181,6 @@ class OpenCartController extends Controller
         return redirect()->route('ext.opencart.index')->with('status', 'Store deleted.');
     }
 
-    /**
-     * The typed-name hard delete behind "Delete this store" on Settings >
-     * Connection (the Shopee shape, #204, uniform on every channel from
-     * 2026-09-06). Everything the store owns in the ERP goes with it;
-     * sales already imported stay.
-     */
     public function destroyStore(Request $request, int $store, \Extensions\opencart\Services\OpenCart\OpenCartStoreDeleter $deleter)
     {
         $setting = OpenCartSetting::findOrFail($store);
@@ -233,14 +206,12 @@ class OpenCartController extends Controller
         $baseUrl = $request->input('base_url');
         $apiKey  = $request->input('api_key');
 
-        // Allow testing with raw base_url + api_key (before store is saved)
         if (!$storeId && $baseUrl && $apiKey) {
             $setting = new OpenCartSetting([
                 'base_url' => $baseUrl,
                 'api_key'  => $apiKey,
                 'enabled'  => true,
             ]);
-            // Skip encryption mutator for unsaved instance
             $setting->setRawApiKey($apiKey);
         } else {
             $setting = $storeId
@@ -280,7 +251,6 @@ class OpenCartController extends Controller
         try {
             $before = now();
 
-            // Date override for orders: bypass artisan and call sync service directly
             $dateFrom = $request->input('date_from');
             $dateTo = $request->input('date_to');
             $hasDateOverride = $entity === 'orders' && ($dateFrom || $dateTo);
@@ -310,7 +280,6 @@ class OpenCartController extends Controller
                     '--full'  => (bool) $request->input('full', false),
                 ];
 
-                // Initial import: skip stock adjustments for historical orders
                 if ($request->input('no_stock')) {
                     $artisanArgs['--no-stock'] = true;
                 }
@@ -318,7 +287,6 @@ class OpenCartController extends Controller
                 Artisan::call('opencart:sync', $artisanArgs);
             }
 
-            // Build summary from sync logs created during this run
             $logs = OpenCartSyncLog::where('opencart_setting_id', (int) $storeId)
                 ->where('created_at', '>=', $before)
                 ->orderBy('id')
@@ -387,7 +355,6 @@ class OpenCartController extends Controller
                 '--all'   => true,
             ]);
 
-            // Build summary from sync logs created during this run
             $logs = OpenCartSyncLog::where('opencart_setting_id', (int) $storeId)
                 ->where('created_at', '>=', $before)
                 ->orderBy('id')
@@ -515,9 +482,6 @@ class OpenCartController extends Controller
         }
     }
 
-    /**
-     * Verify the current user's password (for Initial Import unlock).
-     */
     public function verifyPassword(Request $request)
     {
         $request->validate(['password' => 'required|string']);
@@ -531,9 +495,6 @@ class OpenCartController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    /**
-     * Fetch order statuses from the remote OpenCart store via API.
-     */
     public function fetchOcStatuses(Request $request)
     {
         $storeId = $request->input('store_id');
@@ -558,9 +519,6 @@ class OpenCartController extends Controller
             return response()->json(['error' => 'No statuses returned from OpenCart. The API endpoint may not be available.'], 404);
         }
 
-        // Delta-merge — preserve existing order_status_id mappings, only update
-        // oc_status_name on rename. Rows whose IDs vanished from the API are
-        // removed; new ones are inserted with order_status_id=0 (awaiting pick).
         $apiIds = [];
         foreach ($statuses as $s) {
             $ocId = (int) ($s['order_status_id'] ?? $s['id'] ?? 0);
@@ -598,9 +556,6 @@ class OpenCartController extends Controller
         return response()->json(['statuses' => $persisted]);
     }
 
-    /**
-     * Save order status mapping for a store.
-     */
     public function saveOrderStatusMap(Request $request)
     {
         $storeId = $request->input('store_id');

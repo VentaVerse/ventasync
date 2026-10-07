@@ -19,20 +19,10 @@ use Extensions\tiktok\Services\TikTokStoreProducts;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
-/**
- * TikTok listings (#156): the index of every catalog product in scope
- * for TikTok Shop with the marketplace's own status fetched on this
- * load, readiness before a push, and the per-product verbs (push,
- * update in place, stock, price, activate, unlink, delete). Mirrors
- * Shopee's ShopeeProductController; every push runs through the one
- * builder (TikTokProductPush) on the product's OWN listing settings,
- * never a borrowed group's (#96).
- */
 class TikTokProductController extends Controller
 {
     use \App\Http\Controllers\Concerns\ServesCategoryTree;
 
-    /** The channel whose category tree the picker on these pages reads. */
     protected function categoryChannel(): string
     {
         return 'tiktok';
@@ -43,23 +33,16 @@ class TikTokProductController extends Controller
         $langId = (int) config('catalog.default_language_id');
         $q = trim((string) $request->get('q', ''));
         $syncStatus = (string) $request->get('sync_status', 'all');
-        /* The status menu speaks the shared words; the older listed and
-         * not_listed links still land where they did. */
         $syncStatus = ['listed' => 'uploaded', 'not_listed' => 'not_uploaded'][$syncStatus] ?? $syncStatus;
-        // A retired eligibility rung lands on the half it belonged to.
         if ($syncStatus !== 'error') {
             $syncStatus = \App\Integrations\Listings\StatusMenu::stand($syncStatus);
         }
-        /* The status menu's two switches narrow whatever the tree has
-         * chosen; an old sync_status=error link is Push failed switched on. */
         $failedFlag = $request->boolean('failed') || $syncStatus === 'error';
         $changeFlag = $request->boolean('change');
         if ($syncStatus === 'error') {
             $syncStatus = 'all';
         }
         $manufacturerFilter = (string) $request->get('manufacturer', 'all');
-        /* The rail's choice: a group id, `none` for the products no group
-           claims, else the whole store. */
         $groupFilter = \App\Integrations\Listings\StatusMenu::group($request->get('group'));
         $erpStatus = (string) $request->get('erp_status', 'all');
         $tiktokTab = (string) $request->get('tiktok_tab', 'all');
@@ -67,28 +50,15 @@ class TikTokProductController extends Controller
             $tiktokTab = 'all';
         }
 
-        /* ── Two surfaces on one workbench (#201, the owner 2026-09-05) ──
-         * THIS STORE is what this store carries and works day to day; ADD
-         * PRODUCTS is the Master Catalog, where a product is added into the
-         * store's list - the slide-over is the way in and this full page is
-         * its overflow. It has its own lean flow, so it returns before the
-         * live-status machinery below, which it does not need. */
         if ($request->query('list') === 'add') {
             return $this->addCatalogue($request);
         }
 
-        /* The store's own statuses, from the MIRROR on the listing rows
-         * (live_status, live_checked_at), refreshed every 30 minutes by
-         * the automation, on demand by the Refresh button, and written
-         * through by every activate and deactivate the ERP makes. A page
-         * view asks TikTok for nothing. The tab row says when the mirror
-         * was last refreshed. */
         $c = $this->creds();
         $liveTabError = null;
         $liveCounts = null;
         $liveCheckedAt = null;
         if ($c) {
-            // Counted below, against the rows the status menu has chosen.
             $liveCounts = [];
             $checked = TikTokListing::query()->whereNotNull('tiktok_product_id')->max('live_checked_at');
             $liveCheckedAt = $checked ? \Illuminate\Support\Carbon::parse($checked) : null;
@@ -117,24 +87,9 @@ class TikTokProductController extends Controller
             })
             ->leftJoin($pfx . 'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
             ->select('p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as manufacturer_name');
-        /* THIS STORE (#201, the owner 2026-09-05): the table is this store's own
-         * list, not the catalogue. A product is on the store once it has a
-         * listing record here (Add products, Import, a push) or a pushed
-         * group pivot from before the record carried the truth -
-         * TikTokStoreProducts is the one definition; the rest of the
-         * catalogue waits behind Add products. Phase D (#184) had made this
-         * the whole catalogue so a new user's first product was never
-         * invisible; multi-store is what changes the answer, and the empty
-         * state now leads to Add products instead. Filtering by a group
-         * below still narrows within the store's list. */
         $query->whereIn('p.product_id', TikTokStoreProducts::query());
-        // The set the listed / not listed places below answer from.
         $listedProductIds = TikTokStoreProducts::listedIds();
 
-        /* The rail's choice, as a closure rather than a filter written into
-           the query here: the rail counts every group under everything else
-           the page has chosen EXCEPT the group, so a number and the list it
-           opens always agree. Grouped means grouped ON THIS STORE. */
         $groupedIds = TikTokProductGroupProduct::query()->onStore()
             ->whereNotNull('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
         $applyGroup = function ($query, string $choice) use ($groupedIds) {
@@ -157,9 +112,6 @@ class TikTokProductController extends Controller
         } elseif ($erpStatus === 'disabled') {
             $query->where('p.status', 0);
         } else {
-            /* The default view (#197): a disabled product TikTok Shop does
-             * not hold is noise; a disabled product still listed needs
-             * eyes. The filter still offers Disabled on purpose. */
             $query->where(function ($sub) {
                 $sub->where('p.status', 1)
                     ->orWhereIn('p.product_id', TikTokListing::query()
@@ -173,15 +125,12 @@ class TikTokProductController extends Controller
                 $w->where('pd.name', 'like', '%' . $q . '%')
                     ->orWhere('p.model', 'like', '%' . $q . '%')
                     ->orWhere('p.sku', 'like', '%' . $q . '%')
-                    // The row shows this store's own title, so the search finds it by that too.
                     ->orWhereIn('p.product_id', TikTokListing::query()
                         ->forStore(TikTokSetting::defaultStore())
                         ->where('title', 'like', '%' . $q . '%')
                         ->select('product_id'));
             });
         }
-        /* One definition of each place in the tree, used for the rows and
-         * for the menu's counts alike, so a number and its list agree. */
         $listed = fn ($query) => $query->whereIn('p.product_id', $listedProductIds ?: [0]);
         $notListed = fn ($query) => $query->whereNotIn('p.product_id', $listedProductIds ?: [0]);
         $applySync = function ($query, string $status) use ($listed, $notListed) {
@@ -197,13 +146,10 @@ class TikTokProductController extends Controller
         $errored = $this->states()->erroredProductIds();
         $changed = $this->states()->productIdsIn('drift');
 
-        /* The status menu's choice, and the store's tab: each narrows the
-         * rows, and each one's counts are taken under the other's choice. */
         $applyMenu = function ($query) use ($applySync, $applyGroup, $syncStatus, $groupFilter, $failedFlag, $changeFlag, $errored, $changed) {
             $applyGroup($query, $groupFilter);
             $applySync($query, $syncStatus);
             if ($failedFlag) {
-                /* The rows that draw an error line, by the line's own engine. */
                 $query->whereIn('p.product_id', $errored ?: [0]);
             }
             if ($changeFlag) {
@@ -212,7 +158,6 @@ class TikTokProductController extends Controller
 
             return $query;
         };
-        // A TikTok tab narrows to the products the mirror holds in that status.
         $applyTab = function ($query) use ($tiktokTab, $liveCounts) {
             if ($tiktokTab !== 'all' && $liveCounts !== null) {
                 $query->whereIn('p.product_id', TikTokListing::query()->whereNotNull('tiktok_product_id')
@@ -221,7 +166,6 @@ class TikTokProductController extends Controller
 
             return $query;
         };
-        // The mirror's count per tab, over the products the query holds.
         $tabCounts = function ($query): array {
             $byStatus = TikTokListing::query()
                 ->whereNotNull('tiktok_product_id')
@@ -252,17 +196,11 @@ class TikTokProductController extends Controller
             return $sub;
         };
 
-        // The segment counts inside the rail's chosen group, never inside itself.
         $standBase = $withFlags($applyGroup(clone $menuBase, $groupFilter));
         $menuCounts = ['all' => (clone $standBase)->count()];
         foreach (['not_uploaded', 'uploaded'] as $status) {
             $menuCounts[$status] = $applySync(clone $standBase, $status)->count();
         }
-        /* A filter narrows whatever the menu has already chosen: its link
-           carries the group and the half along with it, and the other filter
-           when that one is on. So each is counted inside that same choice
-           and never across the store, or the number would promise one list
-           and open a smaller one. */
         $filterBase = fn () => $applySync($applyGroup(clone $menuBase, $groupFilter), $syncStatus);
         $failedIn = $filterBase();
         if ($changeFlag) {
@@ -275,10 +213,6 @@ class TikTokProductController extends Controller
         }
         $menuCounts['change'] = $changeIn->whereIn('p.product_id', $changed ?: [0])->count();
 
-        /* A group's number is the group's own size, and it does not move when
-           the tabs above the table change. The tabs already carry their own
-           numbers for the breakdown inside whichever group is open, so tying
-           the two together only made the menu re-sort itself under the hand. */
         $railBase = clone $menuBase;
         $menuCounts['store'] = (clone $railBase)->count();
         $groupRail = [];
@@ -296,7 +230,6 @@ class TikTokProductController extends Controller
         ];
 
         $tabBase = $applyMenu(clone $query);
-        // The tab row's All: every row the menu has chosen, before a tab narrows it.
         $catalogueTotal = (clone $tabBase)->count();
         if ($liveCounts !== null) {
             $liveCounts = $tabCounts($tabBase);
@@ -306,9 +239,6 @@ class TikTokProductController extends Controller
         $applyTab($query);
 
 
-        /* The dashboard's own figures, as a filter (#240): a chip that says
-         * "3 listings need attention" links here with ?state=attention, and
-         * the rows are fetched by the SAME query that counted them. */
         $troubleFilter = \App\Integrations\Listings\ListingTrouble::asked($request->query('state'));
         if ($troubleFilter !== null) {
             $troubleIds = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)->productIdsIn($troubleFilter);
@@ -319,7 +249,6 @@ class TikTokProductController extends Controller
         $sortMenu = \Extensions\tiktok\Services\TikTokListingSort::columns($storeId);
         $order = \App\Integrations\Listings\ListingSort::chosen($request, 'tiktok.listings.' . $storeId);
         if ($request->filled('sort')) {
-            // A column heading was pressed: it orders the table instead.
             $query->orderBy($sortColumns[$sort], $dir);
             if ($sortColumns[$sort] !== 'p.product_id') {
                 $query->orderBy('p.product_id', 'asc');
@@ -335,9 +264,7 @@ class TikTokProductController extends Controller
 
         $pageIds = $products->pluck('product_id')->map(fn ($v) => (int) $v)->all();
         $listingsByProductId = TikTokListing::query()->forStore(TikTokSetting::defaultStore())->whereIn('product_id', $pageIds ?: [0])->get()->keyBy(fn ($l) => (int) $l->product_id);
-        // Each row is named by this store's own title, the catalog's name when it has none.
         $rowTitles = \App\Integrations\Listings\ListingContent::rowTitles($products, $listingsByProductId);
-        // Products pushed before the record carried the truth: the pivots answer.
         $pivotTruth = TikTokProductGroupProduct::query()->onStore()
             ->whereIn('product_id', $pageIds ?: [0])->whereNotNull('tiktok_product_id')
             ->orderByDesc('last_pushed_at')->get()->groupBy(fn ($p) => (int) $p->product_id)->map(fn ($rows) => $rows->first());
@@ -350,11 +277,6 @@ class TikTokProductController extends Controller
         }));
         $readinessByProductId = app(TikTokListingReadiness::class)->forProducts($unlistedPageIds);
 
-        /* The mirror fills its own blanks (the owner, 2026-08-28: a product
-         * pushed a minute ago should not read "Not checked yet"). A listing
-         * that got its product id from a push has no status until someone
-         * asks; the page asks TikTok once for those rows, up to ten a
-         * view, then reads the mirror like every other row. */
         if ($liveCounts !== null && $c) {
             $blank = $listingsByProductId->filter(fn ($l) => $l->tiktok_product_id && $l->live_status === null)->take(10);
             if ($blank->isNotEmpty()) {
@@ -364,10 +286,6 @@ class TikTokProductController extends Controller
                     $answer = $live->fetch((string) $l->tiktok_product_id, $c);
                     $status = $answer['live']['status'] ?? null;
                     if ($status === null || $status === '') {
-                        /* TikTok is not answering: leave the rest blank
-                           rather than guessed, and SAY so - a swallowed
-                           refusal reads as rows that went unsynced by
-                           themselves (the owner, 2026-09-09). */
                         session()->now('error', \App\Integrations\Listings\BlankFillRefusal::sentence('TikTok Shop', $answer['error'] ?? null));
                         break;
                     }
@@ -382,7 +300,6 @@ class TikTokProductController extends Controller
             }
         }
 
-        // Per-row statuses, from the mirror: tiktok_product_id => status.
         $liveStatuses = [];
         foreach ($listingsByProductId as $l) {
             if ($l->tiktok_product_id && $l->live_status !== null) {
@@ -390,18 +307,10 @@ class TikTokProductController extends Controller
             }
         }
 
-        /* ONE state per row (Phase D, #184): the engine folds the mirror,
-         * the pivot fallback, drift and readiness into a single
-         * ListingState the blade renders verbatim - badge, drift chip and
-         * action menu alike (#188). Computed after the blank fill so it
-         * reads a filled mirror. */
         $listingStates = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)
             ->forProducts($pageIds);
-        // The Last sync column (the owner, 2026-09-05), one answer shared with the group pages.
         $rowErrors = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)->errors($pageIds);
 
-        // How many of this store's products actually stand on TikTok Shop,
-        // for the subtitle - listing rows plus pivot-only legacies, distinct.
         $listedTotal = count($listedProductIds);
 
         return view('ext-tiktok::products.index', [
@@ -432,7 +341,6 @@ class TikTokProductController extends Controller
             'readinessByProductId' => $readinessByProductId,
             'failedFlag' => $failedFlag,
             'changeFlag' => $changeFlag,
-            // The whole group's size, whatever the search and tabs narrow: what Send group sends.
             'groupSize' => ctype_digit((string) $groupFilter) ? app(\Extensions\tiktok\Controllers\TikTokProductGroupController::class)->groupSendSize((int) $groupFilter) : null,
             'statusMenu' => \App\Integrations\Listings\StatusMenu::build([
                 'url' => fn (array $params) => route('ext.tiktok.products.index', $params),
@@ -444,28 +352,16 @@ class TikTokProductController extends Controller
                 'group' => $groupFilter,
                 'groups' => $groupRail,
                 'newGroup' => route('ext.tiktok.product-groups.create'),
-                // Live is a fact about a marketplace: a product is live ON somewhere.
                 'store' => 'TikTok Shop',
             ]),
         ]);
     }
 
-    /**
-     * Whether each of this store's products could be pushed right now, listed
-     * or not, by the same per-product readiness the row's own Readiness reads
-     * (TikTokListingStates::forProducts), so a menu count and the rows it
-     * leads to agree. Held for a minute: the menu counts it on every page.
-     *
-     * @return array<int, bool>  product id => ready
-     */
     private function readyByProduct(): array
     {
         return array_map(fn (array $a) => (bool) $a['ready'], $this->readinessRich());
     }
 
-    /**
-     * @return array<int, list<string>>  product id => gap codes
-     */
     private function gapsByProduct(): array
     {
         return array_map(
@@ -474,15 +370,8 @@ class TikTokProductController extends Controller
         );
     }
 
-    /** Held for the request. */
     private ?array $readinessRich = null;
 
-    /**
-     * Ready + gaps for every product on the store, from the materialised
-     * readiness cache; recomputed only for products whose inputs changed.
-     *
-     * @return array<int, array{ready: bool, gaps: list<array{code: string, label: string}>}>
-     */
     private function readinessRich(): array
     {
         if ($this->readinessRich !== null) {
@@ -534,12 +423,6 @@ class TikTokProductController extends Controller
         return $out;
     }
 
-    /**
-     * The full-catalogue Add products page (#201): the overflow behind the
-     * slide-over, for a big first setup or a bulk pick. Your Master Catalog,
-     * each row flagged with whether this store already carries it. A lean
-     * read - no live status, no readiness, no push.
-     */
     private function addCatalogue(Request $request)
     {
         $pfx = (string) config('catalog.prefix');
@@ -548,7 +431,7 @@ class TikTokProductController extends Controller
         $q = trim((string) $request->query('q', ''));
         $manufacturerFilter = (string) $request->query('manufacturer', 'all');
         $groupFilter = (string) $request->query('group', 'all');
-        $onStore = (string) $request->query('on_store', 'all'); // all | off (not yet) | on
+        $onStore = (string) $request->query('on_store', 'all');
 
         $sort = (string) $request->query('sort', 'id');
         $sortColumns = ['id' => 'p.product_id', 'product' => 'pd.name', 'quantity' => 'p.quantity', 'price' => 'p.price'];
@@ -622,7 +505,6 @@ class TikTokProductController extends Controller
         ]);
     }
 
-    /** The same storage path the Listings rows draw their thumbnails from. */
     private function thumbUrl(?string $image): ?string
     {
         $image = trim((string) $image);
@@ -630,32 +512,19 @@ class TikTokProductController extends Controller
         return $image !== '' ? \App\Services\Media\ImageCache::url($image) : null;
     }
 
-    /**
-     * Add one catalogue product to this store's list (#201): a blank listing
-     * record for this store is the membership. The listing page fills it
-     * in, and readiness reads it as "needs a TikTok category" until then, so
-     * the row lands under This store ready to configure and push through
-     * the unchanged workflow. The BelongsToTikTokStore trait stamps the
-     * store, so firstOrCreate never crosses stores or doubles a row.
-     */
     public function addToStore(Request $request, int $productId)
     {
         $exists = DB::table((string) config('catalog.prefix') . 'product')->where('product_id', $productId)->exists();
         abort_unless($exists, 404);
 
-        // "Already on the store" includes a product carried by a pushed
-        // pivot alone; the listing record it gains here changes nothing for it.
         $wasOn = TikTokStoreProducts::has($productId);
         TikTokListing::firstOrCreate(['product_id' => $productId]);
 
-        // The Add products window's group choice: this store's group, or none.
         $groupId = (int) $request->input('group', 0);
         if ($groupId > 0) {
             \App\Integrations\OneGroupRule::place('tiktok_product_group_products', 'tiktok_product_group_id', 'tiktok_product_groups', 'tiktok_setting_id', \App\Integrations\Listings\ListingStore::id('tiktok'), $groupId, $productId);
         }
 
-        // The Add products panel adds in place and asks for JSON (#201,
-        // Draft C); the full catalogue page still posts a form and lands back.
         if ($request->wantsJson()) {
             return response()->json(['ok' => true, 'product_id' => $productId, 'added' => ! $wasOn]);
         }
@@ -663,15 +532,6 @@ class TikTokProductController extends Controller
         return redirect()->back()->with('status', 'Added to this store. Configure and push it from This store whenever you are ready.');
     }
 
-    /**
-     * The Add products panel's search (#201, Draft C - the owner 2026-09-05): the
-     * Master Catalog, each row flagged with whether it is already on this
-     * store. Capped, on purpose: a slide-over cannot list a whole catalogue,
-     * so the operator narrows by searching and the total says how much is
-     * still out of view; the full catalogue page is one link away for a
-     * browse. Defaults to what is NOT yet on the store, since adding is the
-     * panel's one job.
-     */
     public function catalogueSearch(Request $request)
     {
         $pfx = (string) config('catalog.prefix');
@@ -686,7 +546,6 @@ class TikTokProductController extends Controller
             })
             ->leftJoinSub(TikTokStoreProducts::query(), 'os', 'os.product_id', '=', 'p.product_id')
             ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.model', 'p.quantity', 'p.price', 'os.product_id as on_store_pid')
-            // A disabled catalogue product is not something to put on a store.
             ->where('p.status', 1);
 
         if ($q !== '') {
@@ -716,16 +575,6 @@ class TikTokProductController extends Controller
         return response()->json(['total' => $total, 'shown' => $items->count(), 'limit' => $limit, 'items' => $items]);
     }
 
-    /**
-     * Remove a product from this store's list (#201) - the inverse of Add.
-     * This store's group memberships and the listing record go, so the
-     * product leaves This store and STOPS SYNCING at once. Deliberately no
-     * blocker (the owner, 2026-09-05): nobody keeps a product on the marketplace
-     * while stripping it here. It never touches TikTok Shop - a live product
-     * stays up until it is removed there, which the confirm says plainly and
-     * Delete from TikTok Shop already covers. Every query here is
-     * store-scoped, so a product carried only by another store answers 404.
-     */
     public function removeFromStore(int $productId)
     {
         abort_unless(TikTokStoreProducts::has($productId), 404);
@@ -751,9 +600,6 @@ class TikTokProductController extends Controller
         return redirect()->back()->with('status', "Removed product #{$productId} from this store." . $note);
     }
 
-    /**
-     * Add the ticked catalogue products to this store's list in one go (#201).
-     */
     public function addToStoreBulk(Request $request)
     {
         $data = $request->validate(['product_ids' => ['required', 'array'], 'product_ids.*' => ['integer']]);
@@ -775,7 +621,6 @@ class TikTokProductController extends Controller
             : number_format($added) . ' products added to this store.');
     }
 
-    /** The Refresh button on the listings strip: the same walk the 30-minute automation runs. */
     public function refreshStatus(Request $request, TikTokLiveListing $live)
     {
         $c = $this->creds();
@@ -787,15 +632,10 @@ class TikTokProductController extends Controller
         if ($result['error'] !== null) {
             return redirect()->back()->with('error', $result['error'] . ' The statuses shown are from the last refresh.');
         }
-        /* Refresh is the one button (the owner, 2026-09-07): every status is
-         * re-read first, then the links are checked against the store, the
-         * old Repair links folded in. */
-        // The check reads two hundred per run; the list starts after the last one checked, so "run it again" continues.
         $checked = app(\Extensions\tiktok\Services\TikTok\TikTokLinkCheck::class)->runNext($c, (int) (\Extensions\tiktok\Models\TikTokSetting::defaultStore()?->id ?? 0));
         $sheets = app(\Extensions\tiktok\Services\TikTok\TikTokSheetReads::class)
             ->readMissing($c, app(TikTokClient::class), \App\Integrations\Listings\SheetReads::PER_PRESS);
 
-        // One word per state, the engine's (#184 D): 'unlisted', not 'deactivated'.
         $labels = ['ACTIVATE' => 'live', 'SELLER_DEACTIVATED' => 'unlisted', 'PLATFORM_DEACTIVATED' => 'deactivated by TikTok',
             'IN_REVIEW' => 'under review', 'PENDING' => 'under review', 'FAILED' => 'failed review', 'FREEZE' => 'frozen',
             'DRAFT' => 'draft', 'DELETED' => 'deleted', 'MISSING' => 'not found on TikTok Shop'];
@@ -809,11 +649,6 @@ class TikTokProductController extends Controller
             . ($sheets['summary'] !== '' ? ' ' . $sheets['summary'] : ''));
     }
 
-    /** The one-click push on the product's OWN listing settings (#96). */
-    /**
-     * The Import page (cleanup point 10, the owner 2026-09-03): its own page
-     * under the Catalog menu, not a card squatting on the workbench.
-     */
     public function importPage(Request $request, \Extensions\tiktok\Services\TikTok\TikTokLiveListing $live)
     {
         $fetched = null;
@@ -837,35 +672,21 @@ class TikTokProductController extends Controller
 
         $answer = $this->pushOne($productId, $c, $client);
         if (! $answer['ok']) {
-            // A refusal about the category lands under the category field on
-            // the listing page as well as in the header (2026-09-06).
             $fieldErrors = preg_match('/categor/i', $answer['message']) ? ['tiktok_category_id' => 'TikTok: ' . $answer['message']] : [];
 
             return redirect()->back()->with('error', 'Push failed: ' . $answer['message'])->withErrors($fieldErrors);
         }
 
-        // Accepted: back to the Listings page the operator came from, search and all (the owner, 2026-09-06).
         $done = \App\Support\BackTo::safe($request->input('back'), url()->previous(route('ext.tiktok.products.index')));
 
         return redirect()->to($done)->with(! empty($answer['warning']) ? 'warning' : 'status', $answer['message']);
     }
 
-    /**
-     * Send ONE product to TikTok Shop on its own settings, and answer for
-     * itself. The single-product button and the multi-tick bar are the
-     * same act on one product, so they are the same code: the button
-     * redirects with the answer, the bar collects it beside nine others.
-     *
-     * @param  array<string, mixed>  $c
-     * @return array{ok: bool, message: string}
-     */
     private function pushOne(int $productId, array $c, TikTokClient $client): array
     {
         if ($this->truthFor($productId)) {
-            // Send is one verb: a product already on TikTok Shop is updated there.
             return app(TikTokListingController::class)->updateOne($productId, $client);
         }
-        // The options read the category's sheet first, so the gate judges the real one.
         $opts = $this->listingPushOptions($productId, $c);
         $readiness = app(TikTokListingReadiness::class)->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => ['a TikTok category']];
         if (!$readiness['ready']) {
@@ -895,10 +716,6 @@ class TikTokProductController extends Controller
         ];
     }
 
-    /**
-     * Multi-tick push: each ticked product goes up on its OWN settings and
-     * reports for itself, in the words every channel shares.
-     */
     public function bulkPush(Request $request, TikTokClient $client)
     {
         $c = $this->creds();
@@ -915,17 +732,6 @@ class TikTokProductController extends Controller
         return redirect()->back()->with($answer['key'], $answer['message']);
     }
 
-    /**
-     * Send the selection to TikTok Shop: new products are created, anything
-     * already listed gets its content updated in place. Refuses to start
-     * when an unlisted selection is not ready, naming what it needs.
-     */
-    /**
-     * Ask TikTok Shop whether the links this page believes in are still
-     * true (Phase F, #184): the group page's check, on the workbench,
-     * via the shared TikTokLinkCheck. With rows ticked it checks those;
-     * with none it checks every linked product.
-     */
     public function checkAgainstTikTok(Request $request, \Extensions\tiktok\Services\TikTok\TikTokLinkCheck $check)
     {
         $c = $this->creds();
@@ -948,18 +754,6 @@ class TikTokProductController extends Controller
         return redirect()->back()->with($r['tone'], $r['summary']);
     }
 
-    /**
-     * Dress the selected products' listing records in a product group's shared
-     * settings (#195): category and price rule, created where no record
-     * exists yet. Then Send to TikTok Shop works, without one visit to
-     * the Product Groups page.
-     */
-    /**
-     * TikTok's import queue (#196): walk the shop once, keep what is
-     * neither linked here nor matched by any catalog SKU - the same
-     * scan Shopee and Lazada carry, in TikTok's anatomy.
-     */
-    /** The Link picker's catalog search: the shared shape, with the products this store already holds marked (App\Support\CatalogPickerSearch). */
     public function searchCatalogProducts(Request $request)
     {
         return response()->json(\App\Support\CatalogPickerSearch::items((string) $request->get('q', ''), function (array $ids) {
@@ -975,12 +769,6 @@ class TikTokProductController extends Controller
         }));
     }
 
-    /**
-     * Read the shop live and keep only products the catalog cannot place
-     * - not linked, no SKU known. Pure read; one row per product.
-     *
-     * @return array{0: ?array{found: int, rows: list<array>}, 1: ?string}
-     */
     private function fetchUnmatched(TikTokLiveListing $live): array
     {
         $c = $this->creds();
@@ -1043,14 +831,6 @@ class TikTokProductController extends Controller
         return [['found' => $found, 'rows' => $rows, 'truncated' => (bool) ($shop['truncated'] ?? false)], null];
     }
 
-    /** Import one fetched product, re-read live by its id. */
-    /**
-     * The Import page's picture for one TikTok product, read from the product
-     * detail and kept for a day: TikTok's product search answers no pictures
-     * at all, only the detail does (the owner, 2026-09-07: the fetch showed
-     * none while the import saved them). One row asks only when it scrolls
-     * into view, so a page of fifty costs fifty reads once, not every load.
-     */
     public function thumb(string $ref, TikTokClient $client)
     {
         $c = $this->creds();
@@ -1085,7 +865,6 @@ class TikTokProductController extends Controller
         return redirect()->back()->with($r['ok'] ? 'status' : 'error', $r['message']);
     }
 
-    /** Import selected: every ticked row, each in its own transaction. */
     public function importSelected(Request $request, \Extensions\tiktok\Services\TikTok\TikTokItemImport $import)
     {
         $data = $request->validate(['refs' => 'required|array|min:1', 'refs.*' => 'string|max:64']);
@@ -1111,7 +890,6 @@ class TikTokProductController extends Controller
         return redirect()->back()->with($line['tone'], $line['message']);
     }
 
-    /** Link a fetched product to a catalog product it already is. */
     public function linkItem(Request $request)
     {
         $data = $request->validate([
@@ -1125,10 +903,6 @@ class TikTokProductController extends Controller
             return redirect()->back()->with('error', 'Catalog product not found.');
         }
 
-        /* One catalog product to one TikTok product per store, both ways
-         * (the owner, 2026-09-07). A second link is refused with what holds
-         * the first; this action used to overwrite the row and wipe its
-         * SKU map, so a wrong pick silently re-pointed every push. */
         $held = TikTokListing::query()->where('product_id', $productId)->whereNotNull('tiktok_product_id')->value('tiktok_product_id')
             ?: TikTokProductGroupProduct::query()->onStore()->where('product_id', $productId)->whereNotNull('tiktok_product_id')->value('tiktok_product_id');
         if ($held && (string) $held !== (string) $data['ref']) {
@@ -1146,8 +920,6 @@ class TikTokProductController extends Controller
 
         return redirect()->back()->with('status', 'Linked TikTok product #' . $data['ref'] . ' to catalog product #' . $productId . '.');
     }
-
-    // ── The Listings page's bulk verbs (parity, 2026-09-07) ─────────────
 
     public function bulkPushStock(Request $request, TikTokClient $client)
     {
@@ -1183,7 +955,6 @@ class TikTokProductController extends Controller
         if ($rows === []) {
             return redirect()->back()->with('error', 'None of the selected products is on TikTok Shop, so there is nothing to push.');
         }
-        // The one price rule (2026-09-07): the listing's own, else its group's, else the catalog price.
         $results = app(\Extensions\tiktok\Services\TikTok\TikTokStockPricePush::class)->push(
             $what === 'price' ? 'price' : 'stock', $c, $rows, (string) config('catalog.prefix'),
             \Extensions\tiktok\Commands\TikTokPushPrice::priceRule($rows)
@@ -1195,7 +966,6 @@ class TikTokProductController extends Controller
         return redirect()->back()->with($results['err'] > 0 ? ($results['ok'] > 0 ? 'warning' : 'error') : 'status', $msg);
     }
 
-    /** Delete from TikTok Shop for the ticked rows: the single verb, repeated. */
     public function bulkDeleteFromTikTok(Request $request, TikTokClient $client)
     {
         $c = $this->creds();
@@ -1236,7 +1006,6 @@ class TikTokProductController extends Controller
         return redirect()->back()->with($errors ? ($deleted > 0 ? 'warning' : 'error') : 'status', $msg);
     }
 
-    /** Remove from this channel, for the ticked rows: the single verb, repeated. */
     public function bulkRemoveFromStore(Request $request)
     {
         $ids = array_values(array_unique(array_filter(array_map('intval', (array) $request->input('product_ids', [])), fn ($v) => $v > 0)));
@@ -1264,7 +1033,6 @@ class TikTokProductController extends Controller
         return $this->pushFigures($productId, $client, 'price');
     }
 
-    /** Stock or price for one product through the shared resolver. */
     private function pushFigures(int $productId, TikTokClient $client, string $what)
     {
         $c = $this->creds();
@@ -1275,9 +1043,6 @@ class TikTokProductController extends Controller
         $listing = TikTokListing::query()->where('product_id', $productId)->first();
         $pseudo = (object) ['product_id' => $productId, 'tiktok_product_id' => $truth->tiktok_product_id, 'tiktok_sku_id' => $truth->tiktok_sku_id];
 
-        /* The shared sender (Phase F, #184): skip ledger, per-SKU verdicts,
-         * the one-shot map repair, the shared tone. */
-        // The one price rule (2026-09-07): the listing's own, else its group's, else the catalog price.
         $results = app(\Extensions\tiktok\Services\TikTok\TikTokStockPricePush::class)->push(
             $what === 'price' ? 'price' : 'stock', $c, [$pseudo], (string) config('catalog.prefix'),
             \Extensions\tiktok\Commands\TikTokPushPrice::priceRule([$pseudo])
@@ -1292,11 +1057,8 @@ class TikTokProductController extends Controller
         return redirect()->back()->with('status', ucfirst($what) . ' pushed to TikTok Shop.' . $clause);
     }
 
-    /** Forget the link; the TikTok product stays up. */
     public function unlink(int $productId)
     {
-        // The mirror described the link that was just cut (#184 D): a kept
-        // status would be stale forever, and a later re-match would wear it.
         TikTokListing::query()->where('product_id', $productId)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null]);
         TikTokProductGroupProduct::query()->onStore()->where('product_id', $productId)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'sync_status' => 'unlinked']);
         $this->states()->clearErrors([$productId]);
@@ -1304,7 +1066,6 @@ class TikTokProductController extends Controller
         return redirect()->back()->with('status', 'Unlinked. The TikTok Shop product stays up and can be matched again later.');
     }
 
-    /** Delete the product at TikTok Shop and forget the link. */
     public function deleteFromTikTok(int $productId, TikTokClient $client)
     {
         $c = $this->creds();
@@ -1323,16 +1084,12 @@ class TikTokProductController extends Controller
 
             return redirect()->back()->with('error', 'Delete failed: ' . $this->message($result));
         }
-        // The link is gone; void the mirror rather than keep a status the
-        // sweep can no longer correct (#184 D).
         TikTokListing::query()->where('product_id', $productId)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null]);
         TikTokProductGroupProduct::query()->onStore($c['setting'] ?? null)->where('product_id', $productId)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'sync_status' => 'pending']);
         $this->states($c['setting'] ?? null)->clearErrors([$productId]);
 
         return redirect()->back()->with('status', 'Deleted from TikTok Shop.');
     }
-
-    // ── Combobox endpoints (the door is keyed on this controller) ─────
 
     public function searchCategories(Request $request)
     {
@@ -1360,7 +1117,6 @@ class TikTokProductController extends Controller
         return app(TikTokProductGroupController::class)->fetchAttributesAjax($request);
     }
 
-    /** TikTok's brand list by name, live. */
     public function brandsSearch(Request $request, TikTokClient $client)
     {
         $q = trim((string) $request->input('q', ''));
@@ -1389,9 +1145,6 @@ class TikTokProductController extends Controller
         return response()->json(['ok' => true, 'brands' => $brands]);
     }
 
-    // ── Helpers ──────────────────────────────────────────────────
-
-    /** The product's TikTok truth: the listing record, then the pivots. */
     private function truthFor(int $productId): ?object
     {
         $listing = TikTokListing::query()->where('product_id', $productId)->first();
@@ -1403,12 +1156,8 @@ class TikTokProductController extends Controller
         return $pivot ? (object) ['tiktok_product_id' => $pivot->tiktok_product_id, 'tiktok_sku_id' => $pivot->tiktok_sku_id] : null;
     }
 
-    /** The push settings from the product's OWN listing record. */
     private function listingPushOptions(int $productId, array $c): array
     {
-        /* A group is a preset the product inherits (the owner, 2026-09-05): a
-         * blank category is filled from the group, in memory only - for a
-         * product with no row yet as well, the way readiness judges it. */
         $listing = TikTokListing::query()->where('product_id', $productId)->first() ?? (new TikTokListing())->forceFill(['product_id' => $productId]);
         $inherit = app(\Extensions\tiktok\Services\TikTok\TikTokInheritedSettings::class);
         $listing = $inherit->fill($listing, $inherit->forProducts([$productId])[$productId] ?? null)['listing'];
@@ -1442,7 +1191,6 @@ class TikTokProductController extends Controller
             ->first(['p.product_id', 'pd.name', 'pd.description', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.image', 'p.weight', 'p.length', 'p.width', 'p.height', 'p.status']);
     }
 
-    /** The listing-state engine, pinned to the store this request acts for. */
     private function states(?TikTokSetting $store = null): \Extensions\tiktok\Services\TikTok\TikTokListingStates
     {
         $engine = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class);
@@ -1478,7 +1226,6 @@ class TikTokProductController extends Controller
 
     private function message(array $result): string
     {
-        // The one reader that knows where every channel hides its reason.
         return \App\Support\MarketplaceAnswer::errorText('TikTok Shop', $result);
     }
 

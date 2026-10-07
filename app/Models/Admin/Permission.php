@@ -11,14 +11,6 @@ class Permission extends Model
     public $timestamps = false;
     protected $fillable = ['key'];
 
-    /**
-     * Resolve label. Precedence:
-     *   1. Owning extension's lang file (`ext-{owner}::permissions.{key}.label`)
-     *      — extension fully owns its display strings, multi-locale ready.
-     *   2. Core lang file (`permissions.{key}.label`) — used only for
-     *      core-declared permissions (Catalog, Sales, Settings, etc).
-     *   3. Humanized key as final fallback.
-     */
     protected function label(): Attribute
     {
         return Attribute::get(function () {
@@ -43,9 +35,6 @@ class Permission extends Model
         });
     }
 
-    /**
-     * Resolve description with the same precedence as label().
-     */
     protected function description(): Attribute
     {
         return Attribute::get(function () {

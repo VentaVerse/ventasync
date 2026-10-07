@@ -17,13 +17,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * Phase B of the channels rebuild (#184): ONE computation answers "where
- * does this product stand on Shopee?", and every surface renders it.
- * Before this, eleven status vocabularies and three disagreeing label maps
- * meant pages could not agree; a user can only trust a system whose
- * screens agree with each other.
- */
 class ShopeeListingStateTest extends TestCase
 {
     use RefreshDatabase;
@@ -56,7 +49,6 @@ class ShopeeListingStateTest extends TestCase
             'date_added' => now()->subDays(30), 'date_modified' => $modified ?? now()->subDays(30),
             'date_available' => now()->subDays(30),
         ]);
-        // A name and a description: Shopee refuses a push without them, so readiness asks (2026-09-06).
         DB::table($pfx . 'product_description')->insert([
             'product_id' => $id, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => 'Product ' . $sku, 'description' => 'A description.',
@@ -66,7 +58,6 @@ class ShopeeListingStateTest extends TestCase
         return $id;
     }
 
-    /** A catalog edit, made a minute after the listing was compared. */
     private function editCatalog(int $productId, ?string $name = null): void
     {
         $pfx = (string) config('catalog.prefix');
@@ -97,7 +88,6 @@ class ShopeeListingStateTest extends TestCase
 
     public function test_the_truth_table_from_not_listed_to_attention(): void
     {
-        // Not listed, nothing configured: not ready, with CODED gaps.
         $bare = $this->product('BARE', '');
         $s = $this->states([$bare])[$bare];
         $this->assertSame(ListingState::NOT_LISTED, $s->state);
@@ -108,21 +98,18 @@ class ShopeeListingStateTest extends TestCase
         $this->assertContains(ListingState::GAP_IMAGE, $codes);
         $this->assertStringContainsString('a Shopee category', $s->missingSummary());
 
-        // Not listed with settings, sheet and image: ready.
         $ready = $this->product('READY');
         $this->readyListing($ready);
         $s = $this->states([$ready])[$ready];
         $this->assertSame(ListingState::NOT_LISTED, $s->state);
         $this->assertTrue($s->ready, $s->missingSummary());
 
-        // Linked, mirror never read: unknown, never a guess.
         $unknown = $this->product('UNK');
         ShopeeProductLink::create(['product_id' => $unknown, 'shopee_item_id' => 111, 'sku' => 'UNK']);
         $s = $this->states([$unknown])[$unknown];
         $this->assertSame(ListingState::UNKNOWN, $s->state);
         $this->assertSame('Not checked yet', $s->label());
 
-        // The observed statuses, one state each.
         foreach ([
             'NORMAL' => [ListingState::LIVE, 'Live', 'success'],
             'UNLIST' => [ListingState::INACTIVE, 'Unpublished', 'neutral'],
@@ -142,11 +129,6 @@ class ShopeeListingStateTest extends TestCase
         }
     }
 
-    /**
-     * One latest error per product (the owner, 2026-09-05): a refusal from any
-     * push lands on the listing record and every surface tells it, until
-     * a push succeeds and clears it.
-     */
     public function test_the_last_push_refusal_is_told_on_every_surface_until_a_push_succeeds(): void
     {
         $pid = $this->product('IMG');
@@ -160,7 +142,6 @@ class ShopeeListingStateTest extends TestCase
         $this->assertStringContainsString('Last push', $s->reasons[0]);
         $this->assertStringContainsString('failed: The number of product images must be between 1 and 9', $s->reasons[0]);
 
-        // The workbench draws it on the error line above the product's row.
         $group = \App\Models\Admin\UserGroup::create(['name' => 'Shopee push readers']);
         $group->permissions()->attach(\App\Models\Admin\Permission::whereIn('key', ['view_shopee/product', 'manage_shopee/product'])->pluck('id')->all());
         $user = \App\Models\User::factory()->create(['user_group_id' => $group->id]);
@@ -168,11 +149,8 @@ class ShopeeListingStateTest extends TestCase
         $this->assertStringContainsString('<tr class="cc-err-row">', $html);
         $this->assertStringContainsString('between 1 and 9', $html);
 
-        // The one answer both pages draw (the owner, 2026-09-07): the message the
-        // row is carrying right now, and nothing else.
         $this->assertStringContainsString('between 1 and 9', (string) app(ShopeeListingStates::class)->errors([$pid])[$pid]);
 
-        // A linked product carries it too, beside its live state.
         ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 777, 'sku' => 'IMG', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
         $this->assertStringContainsString('between 1 and 9', implode(' ', $this->states([$pid])[$pid]->reasons));
 
@@ -180,16 +158,13 @@ class ShopeeListingStateTest extends TestCase
         $this->assertSame([], $this->states([$pid])[$pid]->reasons);
         $this->assertNull(ShopeeListing::query()->where('product_id', $pid)->value('last_push_error'));
 
-        // With no refusal the column is empty, whatever the row has synced.
         ShopeeProductLink::query()->where('product_id', $pid)->update(['last_synced_at' => now()->subMinutes(5), 'last_sync_action' => 'stock', 'last_sync_ok' => true]);
         ShopeeListing::query()->where('product_id', $pid)->update(['last_pushed_at' => now()->subHours(3)]);
         $this->assertNull(app(ShopeeListingStates::class)->errors([$pid])[$pid]);
 
-        // A failed stock sync is told the same way, in the channel's own words.
         ShopeeProductLink::query()->where('product_id', $pid)->update(['last_sync_ok' => false, 'last_sync_error_message' => 'Stock update refused: item is under review.']);
         $this->assertSame('Stock update refused: item is under review.', app(ShopeeListingStates::class)->errors([$pid])[$pid]);
 
-        // A failure the channel gave no reason for still says something.
         ShopeeProductLink::query()->where('product_id', $pid)->update(['last_sync_error_message' => null]);
         $this->assertSame(\App\Integrations\Push\PushLedger::NO_REASON, app(ShopeeListingStates::class)->errors([$pid])[$pid]);
 
@@ -228,14 +203,6 @@ class ShopeeListingStateTest extends TestCase
         $this->assertNull(app(ShopeeListingStates::class)->errors([$pid])[$pid]);
     }
 
-    /**
-     * EVERY PICTURE THAT IS ON GOES UP, MAIN FIRST.
-     *
-     * How many Shopee takes is Shopee's to say and it changes without telling
-     * anyone, so nothing here counts against a number of ours. Shopee refuses
-     * a set it thinks is too long, and the seller answers by holding some
-     * back, which is what `image_off` is for.
-     */
     public function test_a_push_sends_every_picture_that_is_on_main_first(): void
     {
         $pid = $this->product('MANY', 'catalog/main.png');
@@ -251,7 +218,6 @@ class ShopeeListingStateTest extends TestCase
         $this->assertCount(13, $paths, 'nothing is trimmed on a store\'s behalf');
         $this->assertSame('catalog/main.png', $paths[0], 'the main image leads');
 
-        // Held back is not removed: the picture keeps its place and stops going up.
         $listing = ShopeeListing::query()->create([
             'product_id' => $pid,
             'image_off' => ['catalog/g2.png', 'catalog/g5.png'],
@@ -267,8 +233,6 @@ class ShopeeListingStateTest extends TestCase
 
     public function test_live_and_a_catalog_change_are_different_facts_and_both_are_told(): void
     {
-        // The catalog product was edited after the listing was made, and
-        // the two now differ: live, and showing a Catalog change.
         $moved = $this->product('MOVED');
         $this->readyListing($moved);
         ShopeeProductLink::create(['product_id' => $moved, 'shopee_item_id' => 900, 'sku' => 'MOVED',
@@ -280,7 +244,6 @@ class ShopeeListingStateTest extends TestCase
         $this->assertSame('Catalog change', $s->driftLabel());
         $this->assertSame([], $s->reasons, 'a Catalog change is a button, not a reason');
 
-        // The catalog saved with the same values: nothing to compare.
         $steady = $this->product('STEADY');
         $this->readyListing($steady);
         ShopeeProductLink::create(['product_id' => $steady, 'shopee_item_id' => 901, 'sku' => 'STEADY',
@@ -290,14 +253,11 @@ class ShopeeListingStateTest extends TestCase
         $this->assertTrue($s->inSync);
         $this->assertNull($s->driftLabel());
 
-        // A listing not on Shopee yet compares all the same.
         $unlisted = $this->product('UNLISTED');
         $this->readyListing($unlisted);
         $this->editCatalog($unlisted, 'Product UNLISTED, renamed');
         $this->assertFalse($this->states([$unlisted])[$unlisted]->inSync);
 
-        // Linked with no listing row (matched in): nothing to compare, and
-        // the engine says so instead of guessing.
         $adopted = $this->product('ADOPTED');
         ShopeeProductLink::create(['product_id' => $adopted, 'shopee_item_id' => 902, 'sku' => 'ADOPTED',
             'live_status' => 'NORMAL', 'live_checked_at' => now()]);
@@ -320,8 +280,6 @@ class ShopeeListingStateTest extends TestCase
 
     public function test_a_push_writes_the_mirror_through_with_shopees_own_answer(): void
     {
-        // The write-through asks Shopee, never assumes: a fresh item can be
-        // NORMAL or REVIEWING and only Shopee knows which.
         $fake = new class extends ShopeeClient {
             public function __construct() {}
             public function shopGet(string $mode, int $partnerId, string $partnerKey, string $accessToken, int $shopId, string $path, array $extraQuery = []): array
@@ -363,7 +321,6 @@ class ShopeeListingStateTest extends TestCase
 
     public function test_the_summary_counts_trouble_without_walking_every_product(): void
     {
-        // Two attention (banned + missing), one live with a Catalog change, one clean live.
         foreach ([
             ['BANNED', 1101], ['MISSING', 1102],
         ] as [$status, $item]) {
@@ -403,26 +360,14 @@ class ShopeeListingStateTest extends TestCase
         $this->assertSame('1 listing needs attention', $flags[0]['text']);
         $this->assertSame(1, $data['shopeeSyncStatus']->listing_attention);
 
-        /* And it goes somewhere (#240): a figure that leads to the orders
-           page, or nowhere at all, is a fact the operator cannot act on. */
         $this->assertStringContainsString('state=attention', (string) $flags[0]['href']);
         $this->assertStringContainsString('/shopee/', (string) $flags[0]['href']);
 
-        // No troubles, no line: absence is the ordinary state.
         ShopeeProductLink::query()->update(['live_status' => 'NORMAL']);
         $data = (new \Extensions\shopee\ShopeeExtension(app()))->dashboardData();
         $this->assertSame([], $data['shopeeSyncStatus']->listing_flags);
     }
 
-    /**
-     * The figure leads to the rows it counted (#240).
-     *
-     * the owner, 2026-09-08, on a card that said "1 listing needs attention"
-     * and opened the orders page: "That doesnt really answer the question
-     * needs attention. Im looking at Overview and in listing, but I dont
-     * know what Im looking for." So the count and the filter are the same
-     * query, and the page says which filter is on in the same words.
-     */
     public function test_the_listings_page_filters_to_the_figure_the_dashboard_counted(): void
     {
         $troubled = $this->product('SICK');
@@ -452,15 +397,6 @@ class ShopeeListingStateTest extends TestCase
         $page->assertDontSee('WELL');
     }
 
-    /**
-     * A groupless, never-pushed product the store carries is visible by
-     * default. Phase C (#184) made the default view the whole catalogue so
-     * a new user's first product could never be invisible (the CedCommerce
-     * worldview had hidden it until a group claimed it); #201 (2026-09-05)
-     * made the view THIS STORE's own list - so the product is on the store
-     * first, with the blank record Add products leaves, and a group is still
-     * not required for it to show or for not_listed to find it.
-     */
     public function test_a_groupless_never_pushed_product_on_the_store_is_visible_by_default(): void
     {
         $pid = $this->product('FIRSTEVER');
@@ -481,19 +417,10 @@ class ShopeeListingStateTest extends TestCase
         $page->assertSee('My very first product');
         $page->assertSee('Not listed');
 
-        // And the not_listed filter can actually find it now: the old
-        // default whereIn used to intersect it away.
         $this->actingAs($user)->get(route('ext.shopee.products.index').'?sync_status=not_listed')
             ->assertOk()->assertSee('My very first product');
     }
 
-    /**
-     * From Phase B1 until this fix BOTH toggles were invisible on every row:
-     * the label-map rewrite deleted $rowLiveStatus but the toggle forms still
-     * keyed their hidden attribute on it, and an undefined variable hides
-     * both. Actions now derive from the same state the badge wears (#188),
-     * so only the applicable toggle exists at all.
-     */
     public function test_the_row_menu_offers_only_the_applicable_toggle(): void
     {
         $live = $this->product('TGL-LIVE');
@@ -507,8 +434,6 @@ class ShopeeListingStateTest extends TestCase
         );
         $user = \App\Models\User::factory()->create(['user_group_id' => $group->id]);
 
-        // The bulk bar always carries both verbs for the selection, so the
-        // assertions pin the row MENU's items specifically.
         $liveRow = $this->actingAs($user)->get(route('ext.shopee.products.index').'?q=TGL-LIVE')->assertOk();
         $liveRow->assertSee('x-menu__item">Delist from Shopee', false);
         $liveRow->assertDontSee('x-menu__item">Publish on Shopee', false);
@@ -518,7 +443,6 @@ class ShopeeListingStateTest extends TestCase
         $offRow->assertDontSee('x-menu__item">Delist from Shopee', false);
     }
 
-    /** The group page offers the toggle the listings page offers (#188, the owner 2026-09-02). */
     public function test_the_group_page_offers_the_toggle_the_listing_page_offers(): void
     {
         $pid = $this->product('TGL-GRP');
@@ -558,9 +482,6 @@ class ShopeeListingStateTest extends TestCase
         $this->assertSame(ListingState::LIVE, $states[$pid]->state);
     }
 
-    // ── The error line is the outcome of the last thing done ─────────
-
-    /** Shopee's answer per API path; a path not named answers an empty success. */
     private function fakeShopee(array $answers): void
     {
         Http::fake(function (\Illuminate\Http\Client\Request $request) use ($answers) {
@@ -669,7 +590,6 @@ class ShopeeListingStateTest extends TestCase
 
     public function test_the_error_filter_lists_exactly_the_rows_that_show_an_error_line(): void
     {
-        // Nothing wrong but a variation the store sells that its item lacks.
         $missing = $this->product('MISSVAR');
         foreach (['MISSVAR-A', 'MISSVAR-B'] as $i => $sku) {
             DB::table('product_option_combinations')->insert([
@@ -690,7 +610,6 @@ class ShopeeListingStateTest extends TestCase
         $this->assertSame([$missing, $refused], $states->erroredProductIds());
 
         $user = $this->operator();
-        // On the Listings page an old error link is the menu's Push failed switch.
         $this->actingAs($user)->get(route('ext.shopee.products.index', ['sync_status' => 'error']))->assertOk()
             ->assertSee('MISSVAR')->assertSee('PUSHERR')->assertDontSee('CLEANROW')
             ->assertSee('products match: Push failed', false);
@@ -713,12 +632,10 @@ class ShopeeListingStateTest extends TestCase
             ->assertSee('MISSVAR')->assertDontSee('PUSHERR');
     }
 
-    /** A live item with a gap on VentaSync's side is found under Listed, and Shopee's tab narrows it further. */
     public function test_a_listed_product_that_needs_details_is_found_under_listed(): void
     {
         $this->linkedProduct('LISTOK', 7001);
 
-        // A listed item keeps its live photos and price, so the gap that still counts is the parcel.
         $gap = $this->product('LISTGAP');
         DB::table((string) config('catalog.prefix') . 'product')->where('product_id', $gap)->update(['weight' => 0]);
         $this->readyListing($gap);
@@ -733,12 +650,9 @@ class ShopeeListingStateTest extends TestCase
 
         $user = $this->operator();
         $page = $this->actingAs($user)->get(route('ext.shopee.products.index', ['sync_status' => 'uploaded']))->assertOk();
-        /* Live means live, complete or not: the shortfall is the row's own
-           amber line now, not a place in the menu. */
         $page->assertSee('LISTGAP')->assertSee('LISTOK')->assertDontSee('NOTPUSHED')
             ->assertSee('Needs details')->assertSee('class="x-segment-bar"', false);
 
-        // Both retired rungs belonged to Listed, so both land there.
         foreach (['listed_not_ready', 'listed_ready'] as $retired) {
             $this->actingAs($user)->get(route('ext.shopee.products.index', ['sync_status' => $retired]))->assertOk()
                 ->assertSee('LISTOK')->assertSee('LISTGAP')->assertDontSee('NOTPUSHED');
@@ -748,7 +662,6 @@ class ShopeeListingStateTest extends TestCase
             ->assertOk()->assertDontSee('LISTGAP')->assertSee('class="x-segment-bar"', false);
     }
 
-    /** The item id on the product line opens the live Shopee listing, as the buyer sees it. */
     public function test_the_item_id_opens_the_live_listing_on_shopee(): void
     {
         $this->linkedProduct('LIVELINK', 7003);

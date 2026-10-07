@@ -1,7 +1,3 @@
-/* The Listings status menu (partials/listing-status-menu). On a narrow
- * screen each group is a row you swipe; the chosen entry is scrolled into
- * view, so the row opens on what is chosen rather than on All.
- */
 (function () {
     function init() {
         document.querySelectorAll('[data-lsm] .lsm-group').forEach(function (group) {

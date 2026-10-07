@@ -5,18 +5,6 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * THE ACTIVITY LOG NAMES THE ASSISTANT.
- *
- * A change made by an assistant or other API application is recorded
- * against that application, not a person. Deleting the application keeps
- * its entries and their name; only the link is cleared.
- *
- * Entries written before this carry the application's id in user_id, where
- * it reads as the person who shares the number. Only an application writes
- * the 'api' origin, so those rows lose the user id, and gain the link where
- * exactly one application has the recorded name.
- */
 return new class extends Migration
 {
     public function up(): void

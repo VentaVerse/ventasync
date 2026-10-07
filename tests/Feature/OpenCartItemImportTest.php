@@ -13,14 +13,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * OpenCart joins the import pattern (cleanup point 11, the owner 2026-09-04),
- * closing the set: every channel now has the same Import page. What is
- * distinct here: option prices arrive RELATIVE (+/- over the base) and
- * must convert to absolute; a product with ONE option set becomes a real
- * axis, one with several imports flat and says so, because OpenCart
- * options are independent - there are no combination rows to read.
- */
 class OpenCartItemImportTest extends TestCase
 {
     use RefreshDatabase;
@@ -76,7 +68,6 @@ class OpenCartItemImportTest extends TestCase
         return $pid;
     }
 
-    /** One fake for the api/erp module: every call carries index.php?route=... */
     private function fakeProducts(array $rows): void
     {
         Http::fake([
@@ -141,8 +132,6 @@ class OpenCartItemImportTest extends TestCase
         $this->assertEqualsCanonicalizing(['IMP-1-S', 'IMP-1-L'], $values->pluck('sku')->all(),
             'one OpenCart option set becomes a real variation axis');
 
-        // The conversion under test: relative +/- over base 100 must land
-        // as absolute 95 and 110 in the column the catalog sells from.
         $absolute = $values->map(fn ($v) => (float) $v->absolute_price)->all();
         $this->assertEqualsCanonicalizing([95.0, 110.0], $absolute,
             'relative OpenCart prices convert to absolute variation prices');

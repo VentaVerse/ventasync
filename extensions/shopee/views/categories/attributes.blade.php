@@ -2,28 +2,8 @@
 @section('title', $category->name . ' Attributes, Shopee')
 @section('breadcrumb', $category->name . ' Attributes')
 
-{{-- Round F Task 1. Rebuilt on the shared cc- list anatomy
-     (pages/channel-catalog.css) and the x-ui components.
-
-     This is a read page with exactly one action on it. What it shows is what
-     Shopee says a product in this category has to carry, cached locally, plus
-     the log of the last few times we asked. Nothing here submits a value; the
-     values are set on the product group's form.
-
-     Changed beyond the drawing:
-
-       - `$canManageShopee` was hardcoded true, so a view_shopee operator was
-         shown a Fetch button the route would refuse;
-       - the raw cached response and the request parameters were four
-         spreadsheet-ruled tables and two <pre> blocks all at equal weight.
-         The attribute list is the page; the raw response is behind a
-         disclosure, because it is what you open when the list looks wrong;
-       - MANDATORY was a red badge on every second row. Red now means one
-         thing on this page, and it is not "this field exists". --}}
 @section('content')
 @php
-    // The GET is `view_shopee|manage_shopee`; the fetch POST is
-    // `manage_shopee` (extensions/shopee/routes/web.php).
     $canManageShopee = auth()->user()?->hasPermission('manage_shopee/category_attribute') ?? false;
 
     $attributes = $attributes ?? [];
@@ -40,9 +20,6 @@
         </p>
     </div>
     @if($canManageShopee)
-        {{-- The one action. It is the primary because it is the only thing
-             this page can do, and it is what you came here for when the list
-             below is empty or stale. --}}
         <form method="POST" action="{{ route('ext.shopee.categories.attributes.fetch', $category->category_id) }}" data-slow-action>
             @csrf
             <x-ui.button type="submit" variant="primary">Read them from Shopee</x-ui.button>
@@ -94,9 +71,6 @@
             <tr>
                 <td data-label="Attribute">
                     <span class="co-item__name">{{ $attribute['name'] }}</span>
-                    {{-- Shopee's own key. It is what appears in an API error
-                         message, so it is worth showing, and it reads as the
-                         machine name it is. --}}
                     <span class="cc-sub cc-sub--mono">{{ $attribute['key'] }}</span>
                 </td>
                 <td class="cc-col-flag" data-label="Required">
@@ -119,8 +93,6 @@
     </x-ui.table>
 @endif
 
-{{-- The two diagnostics. Behind disclosures because they are what you open
-     when the list above looks wrong, not what you read on the way past. --}}
 <section class="fm-section">
     <div class="fm-section__head">
         <h2 class="fm-section__title">If the list looks wrong</h2>
@@ -170,8 +142,6 @@
     </details>
 </section>
 
-{{-- Reading a category tree from Shopee is a multi-second round trip, so the
-     page says so rather than letting the operator click again. --}}
 <div id="shopee-group-progress" class="modal-backdrop">
     <div class="modal co-modal co-modal--sm">
         <div class="cc-progress">
@@ -184,5 +154,5 @@
     </div>
 </div>
 
-</div>{{-- /.cc-page --}}
+</div>
 @endsection

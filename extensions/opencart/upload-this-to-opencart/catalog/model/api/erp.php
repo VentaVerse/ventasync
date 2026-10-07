@@ -1,13 +1,6 @@
 <?php
-/**
- * OpenCart 2.3 ERP Sync API Model (Catalog-side)
- *
- * Deploy to: catalog/model/api/erp.php on the OpenCart server.
- */
 class ModelApiErp extends Model
 {
-    // ─── Products ─────────────────────────────────────────────
-
     public function getProductCount($filter = [])
     {
         $sql = "SELECT COUNT(*) AS total FROM " . DB_PREFIX . "product p";
@@ -135,8 +128,6 @@ class ModelApiErp extends Model
         return $result->rows;
     }
 
-    // ─── Orders ───────────────────────────────────────────────
-
     public function getOrderCount($filter = [])
     {
         $sql = "SELECT COUNT(*) AS total FROM " . DB_PREFIX . "order o
@@ -217,7 +208,6 @@ class ModelApiErp extends Model
         $result = $this->db->query($sql);
         $products = $result->rows;
 
-        // Attach options for each order product
         foreach ($products as &$p) {
             $optResult = $this->db->query(
                 "SELECT oo.order_option_id, oo.product_option_id, oo.product_option_value_id,
@@ -254,8 +244,6 @@ class ModelApiErp extends Model
         return $result->rows;
     }
 
-    // ─── Categories ───────────────────────────────────────────
-
     public function getCategories($filter = [])
     {
         $sql = "SELECT c.category_id, c.parent_id, c.top, c.column,
@@ -276,7 +264,6 @@ class ModelApiErp extends Model
         $result = $this->db->query($sql);
         $categories = $result->rows;
 
-        // Attach category path for each
         foreach ($categories as &$cat) {
             $pathResult = $this->db->query(
                 "SELECT path_id, level
@@ -290,8 +277,6 @@ class ModelApiErp extends Model
         return $categories;
     }
 
-    // ─── Manufacturers ────────────────────────────────────────
-
     public function getManufacturers()
     {
         $result = $this->db->query(
@@ -301,8 +286,6 @@ class ModelApiErp extends Model
         );
         return $result->rows;
     }
-
-    // ─── Order Statuses ───────────────────────────────────────
 
     public function getOrderStatuses()
     {
@@ -316,8 +299,6 @@ class ModelApiErp extends Model
         );
         return $result->rows;
     }
-
-    // ─── Options ──────────────────────────────────────────────
 
     public function getOptions()
     {
@@ -347,24 +328,15 @@ class ModelApiErp extends Model
         return $options;
     }
 
-    // ─── Product Create ──────────────────────────────────────
-
-    /**
-     * Create a new product. Resolves categories, manufacturer, and options by name.
-     *
-     * @return int The new product_id
-     */
     public function createProduct($data)
     {
         $langId = (int)$this->config->get('config_language_id');
 
-        // Resolve manufacturer by name (before transaction — read-only)
         $manufacturerId = 0;
         if (!empty($data['manufacturer_name'])) {
             $manufacturerId = $this->resolveManufacturer(trim($data['manufacturer_name']));
         }
 
-        // Handle main image (before transaction — file I/O)
         $mainImage = isset($data['image']) ? $data['image'] : '';
         if (!empty($data['image_data']) && !empty($data['image_filename'])) {
             $saved = $this->saveBase64Image($data['image_data'], $data['image_filename'], $data['manufacturer_name'] ?? '');
@@ -373,12 +345,10 @@ class ModelApiErp extends Model
             }
         }
 
-        // Wrap all DB writes in a transaction to prevent partial inserts
         $this->db->query("START TRANSACTION");
 
         try {
 
-        // Insert product
         $this->db->query(
             "INSERT INTO " . DB_PREFIX . "product SET
                 model = '" . $this->db->escape($data['model'] ?? '') . "',
@@ -416,9 +386,6 @@ class ModelApiErp extends Model
 
         $productId = (int)$this->db->getLastId();
 
-        // Cost/profit tracking is handled by the ERP, not OpenCart
-
-        // Insert product description
         $this->db->query(
             "INSERT INTO " . DB_PREFIX . "product_description SET
                 product_id = '" . $productId . "',
@@ -431,14 +398,12 @@ class ModelApiErp extends Model
                 tag = '" . $this->db->escape($data['tag'] ?? '') . "'"
         );
 
-        // Insert product to store
         $this->db->query(
             "INSERT INTO " . DB_PREFIX . "product_to_store SET
                 product_id = '" . $productId . "',
                 store_id = '0'"
         );
 
-        // Resolve and insert categories by name path
         if (!empty($data['category_names']) && is_array($data['category_names'])) {
             foreach ($data['category_names'] as $catPath) {
                 $categoryId = $this->resolveCategoryPath(trim($catPath), $langId);
@@ -452,7 +417,6 @@ class ModelApiErp extends Model
             }
         }
 
-        // Insert images
         if (!empty($data['images']) && is_array($data['images'])) {
             foreach ($data['images'] as $img) {
                 $imgPath = isset($img['image']) ? $img['image'] : '';
@@ -471,7 +435,6 @@ class ModelApiErp extends Model
             }
         }
 
-        // Insert specials
         if (!empty($data['specials']) && is_array($data['specials'])) {
             foreach ($data['specials'] as $sp) {
                 $this->db->query(
@@ -486,7 +449,6 @@ class ModelApiErp extends Model
             }
         }
 
-        // Resolve and insert options by name
         if (!empty($data['options']) && is_array($data['options'])) {
             foreach ($data['options'] as $opt) {
                 $optionName = trim($opt['option_name'] ?? '');
@@ -527,7 +489,6 @@ class ModelApiErp extends Model
                                 weight_prefix = '" . $this->db->escape($val['weight_prefix'] ?? '+') . "'"
                         );
 
-                        // Upsert ADV Profit product_option_cost
                         $povId = (int)$this->db->getLastId();
                         if (isset($val['cost_amount']) || isset($val['cost_percentage']) || isset($val['cost_additional'])) {
                             $this->db->query(
@@ -561,14 +522,6 @@ class ModelApiErp extends Model
         }
     }
 
-    // ─── Image Helpers ─────────────────────────────────────────
-
-    /**
-     * Decode a base64-encoded image and save it to OC's image/catalog/ directory.
-     * Organizes by manufacturer name folder (matching Laravel convention).
-     *
-     * @return string|false The relative image path (e.g. "catalog/valeton/image.jpg") or false on failure
-     */
     private function saveBase64Image($base64, $filename, $manufacturerName = '')
     {
         $decoded = base64_decode($base64, true);
@@ -576,7 +529,6 @@ class ModelApiErp extends Model
             return false;
         }
 
-        // Validate it's actually an image
         $tmp = tempnam(sys_get_temp_dir(), 'erp_img_');
         file_put_contents($tmp, $decoded);
         $info = @getimagesize($tmp);
@@ -586,7 +538,7 @@ class ModelApiErp extends Model
         }
         @unlink($tmp);
 
-        // Sanitize filename
+        // Strip the filename to safe characters so an uploaded name cannot traverse paths.
         $filename = preg_replace('/[^A-Za-z0-9._-]/', '_', basename($filename));
         $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
         if (!in_array($ext, array('jpg', 'jpeg', 'png', 'webp'))) {
@@ -596,7 +548,6 @@ class ModelApiErp extends Model
             $filename = pathinfo($filename, PATHINFO_FILENAME) . '.' . $ext;
         }
 
-        // Build folder: image/catalog/<manufacturer-slug>/
         $slug = '';
         if ($manufacturerName !== '') {
             $slug = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($manufacturerName)), '-');
@@ -610,7 +561,6 @@ class ModelApiErp extends Model
             @mkdir($dir, 0755, true);
         }
 
-        // Avoid overwriting: append _N if file exists
         $target = $dir . '/' . $filename;
         if (file_exists($target)) {
             $base = pathinfo($filename, PATHINFO_FILENAME);
@@ -627,15 +577,9 @@ class ModelApiErp extends Model
             return false;
         }
 
-        // Return relative path from OC's image/ root
         return 'catalog/' . $slug . '/' . $filename;
     }
 
-    // ─── Name Resolution Helpers ─────────────────────────────
-
-    /**
-     * Find or create a manufacturer by name. Returns manufacturer_id.
-     */
     private function resolveManufacturer($name)
     {
         $result = $this->db->query(
@@ -656,7 +600,6 @@ class ModelApiErp extends Model
 
         $mfgId = (int)$this->db->getLastId();
 
-        // Add to default store
         $this->db->query(
             "INSERT INTO " . DB_PREFIX . "manufacturer_to_store SET
                 manufacturer_id = '" . $mfgId . "',
@@ -666,10 +609,6 @@ class ModelApiErp extends Model
         return $mfgId;
     }
 
-    /**
-     * Resolve a category path string like "Parent > Child > Grandchild".
-     * Creates missing categories along the way. Returns the leaf category_id.
-     */
     private function resolveCategoryPath($path, $langId)
     {
         $parts = array_map('trim', explode('>', $path));
@@ -678,7 +617,6 @@ class ModelApiErp extends Model
         foreach ($parts as $level => $name) {
             if ($name === '') continue;
 
-            // Look up category by name + parent_id
             $result = $this->db->query(
                 "SELECT c.category_id FROM " . DB_PREFIX . "category c
                  INNER JOIN " . DB_PREFIX . "category_description cd
@@ -691,7 +629,6 @@ class ModelApiErp extends Model
             if ($result->num_rows) {
                 $parentId = (int)$result->row['category_id'];
             } else {
-                // Create the category
                 $this->db->query(
                     "INSERT INTO " . DB_PREFIX . "category SET
                         parent_id = '" . (int)$parentId . "',
@@ -717,15 +654,12 @@ class ModelApiErp extends Model
                         meta_keyword = ''"
                 );
 
-                // Add to default store
                 $this->db->query(
                     "INSERT INTO " . DB_PREFIX . "category_to_store SET
                         category_id = '" . $catId . "',
                         store_id = '0'"
                 );
 
-                // Build category path
-                // First copy parent's path
                 $this->db->query(
                     "INSERT INTO " . DB_PREFIX . "category_path (category_id, path_id, level)
                      SELECT '" . $catId . "', path_id, level
@@ -733,7 +667,6 @@ class ModelApiErp extends Model
                      WHERE category_id = '" . (int)$parentId . "'"
                 );
 
-                // Then add self as the deepest level
                 $levelResult = $this->db->query(
                     "SELECT MAX(level) AS max_level FROM " . DB_PREFIX . "category_path
                      WHERE category_id = '" . $catId . "'"
@@ -756,9 +689,6 @@ class ModelApiErp extends Model
         return $parentId;
     }
 
-    /**
-     * Find or create a global option by name. Returns option_id.
-     */
     private function resolveOption($name, $type, $langId)
     {
         $result = $this->db->query(
@@ -790,9 +720,6 @@ class ModelApiErp extends Model
         return $optionId;
     }
 
-    /**
-     * Find or create an option value by name within an option. Returns option_value_id.
-     */
     private function resolveOptionValue($optionId, $name, $langId)
     {
         $result = $this->db->query(
@@ -827,11 +754,8 @@ class ModelApiErp extends Model
         return $valueId;
     }
 
-    // ─── Product Update ───────────────────────────────────────
-
     public function updateProduct($product_id, $data)
     {
-        // Check product exists
         $check = $this->db->query(
             "SELECT product_id FROM " . DB_PREFIX . "product
              WHERE product_id = '" . (int)$product_id . "'"
@@ -841,7 +765,6 @@ class ModelApiErp extends Model
             return false;
         }
 
-        // Build SET clause for product table
         $sets = [];
 
         if (array_key_exists('quantity', $data)) {
@@ -865,7 +788,6 @@ class ModelApiErp extends Model
         if (array_key_exists('weight', $data)) {
             $sets[] = "weight = '" . (float)$data['weight'] . "'";
         }
-        // Handle main image file transfer
         if (!empty($data['image_data']) && !empty($data['image_filename'])) {
             $saved = $this->saveBase64Image($data['image_data'], $data['image_filename'], $data['manufacturer_name'] ?? '');
             if ($saved) {
@@ -883,9 +805,6 @@ class ModelApiErp extends Model
             );
         }
 
-        // Cost/profit tracking is handled by the ERP, not OpenCart
-
-        // Update description if name or description provided
         $descSets = [];
         if (array_key_exists('name', $data)) {
             $descSets[] = "name = '" . $this->db->escape($data['name']) . "'";
@@ -911,14 +830,12 @@ class ModelApiErp extends Model
             );
         }
 
-        // Update option value quantities if provided (legacy simple format)
         if (isset($data['option_values']) && is_array($data['option_values'])) {
             $langId = (int)$this->config->get('config_language_id');
 
             foreach ($data['option_values'] as $ov) {
                 $povId = isset($ov['product_option_value_id']) ? (int)$ov['product_option_value_id'] : 0;
 
-                // Try matching by SKU
                 if ($povId <= 0 && !empty($ov['sku'])) {
                     $skuLookup = $this->db->query(
                         "SELECT product_option_value_id FROM " . DB_PREFIX . "product_option_value
@@ -931,7 +848,6 @@ class ModelApiErp extends Model
                     }
                 }
 
-                // Try matching by option value name
                 if ($povId <= 0 && !empty($ov['name'])) {
                     $nameLookup = $this->db->query(
                         "SELECT pov.product_option_value_id
@@ -968,12 +884,9 @@ class ModelApiErp extends Model
             }
         }
 
-        // Full options upsert — handles adding new options/values and updating existing ones.
-        // Uses the same format as createProduct(): options[]{option_name, type, required, values[]{name, sku, ...}}
         if (isset($data['options']) && is_array($data['options'])) {
             $langId = (int)$this->config->get('config_language_id');
 
-            // Index existing product_option rows by option_id
             $existingPo = $this->db->query(
                 "SELECT po.product_option_id, po.option_id, od.name AS option_name
                  FROM " . DB_PREFIX . "product_option po
@@ -986,7 +899,6 @@ class ModelApiErp extends Model
                 $poByOptionId[(int)$row['option_id']] = $row;
             }
 
-            // Index existing product_option_value rows by "option_id:sku" and "option_id:value_name"
             $existingPov = $this->db->query(
                 "SELECT pov.product_option_value_id, pov.option_id, pov.option_value_id, pov.sku,
                         ovd.name AS value_name
@@ -1015,7 +927,6 @@ class ModelApiErp extends Model
                 $optionId = $this->resolveOption($optionName, $opt['type'], $langId);
                 $seenOptionIds[] = $optionId;
 
-                // Upsert product_option
                 if (isset($poByOptionId[$optionId])) {
                     $productOptionId = (int)$poByOptionId[$optionId]['product_option_id'];
                     $this->db->query(
@@ -1042,7 +953,6 @@ class ModelApiErp extends Model
                         $valSku = isset($val['sku']) ? trim($val['sku']) : '';
                         $optionValueId = $this->resolveOptionValue($optionId, $valName, $langId);
 
-                        // Match existing product_option_value: by SKU first, then by name
                         $matchedRow = null;
                         if ($valSku !== '' && isset($povBySku[$optionId . ':' . $valSku])) {
                             $matchedRow = $povBySku[$optionId . ':' . $valSku];
@@ -1051,7 +961,6 @@ class ModelApiErp extends Model
                         }
 
                         if ($matchedRow) {
-                            // Update existing
                             $povId = (int)$matchedRow['product_option_value_id'];
                             $seenPovIds[] = $povId;
                             $this->db->query(
@@ -1070,7 +979,6 @@ class ModelApiErp extends Model
                                  WHERE product_option_value_id = '" . $povId . "'"
                             );
 
-                            // Upsert ADV Profit product_option_cost
                             if (isset($val['cost_amount']) || isset($val['cost_percentage']) || isset($val['cost_additional'])) {
                                 $this->db->query(
                                     "INSERT INTO " . DB_PREFIX . "product_option_cost SET
@@ -1089,7 +997,6 @@ class ModelApiErp extends Model
                                 );
                             }
                         } else {
-                            // Insert new
                             $this->db->query(
                                 "INSERT INTO " . DB_PREFIX . "product_option_value SET
                                     product_option_id = '" . $productOptionId . "',
@@ -1109,7 +1016,6 @@ class ModelApiErp extends Model
                             $newPovId = (int)$this->db->getLastId();
                             $seenPovIds[] = $newPovId;
 
-                            // Upsert ADV Profit product_option_cost
                             if (isset($val['cost_amount']) || isset($val['cost_percentage']) || isset($val['cost_additional'])) {
                                 $this->db->query(
                                     "INSERT INTO " . DB_PREFIX . "product_option_cost SET
@@ -1132,7 +1038,6 @@ class ModelApiErp extends Model
                 }
             }
 
-            // Remove option values no longer in the incoming list
             foreach ($existingPov->rows as $row) {
                 $povId = (int)$row['product_option_value_id'];
                 if (!in_array($povId, $seenPovIds)) {
@@ -1147,10 +1052,8 @@ class ModelApiErp extends Model
                 }
             }
 
-            // Remove product options no longer in the incoming list
             foreach ($poByOptionId as $oid => $row) {
                 if (!in_array((int)$oid, $seenOptionIds)) {
-                    // Clean up option costs for all values in this option group
                     $this->db->query(
                         "DELETE poc FROM " . DB_PREFIX . "product_option_cost poc
                          INNER JOIN " . DB_PREFIX . "product_option_value pov
@@ -1169,15 +1072,12 @@ class ModelApiErp extends Model
             }
         }
 
-        // Update additional images if provided
         if (isset($data['images']) && is_array($data['images'])) {
-            // Delete existing additional images
             $this->db->query(
                 "DELETE FROM " . DB_PREFIX . "product_image
                  WHERE product_id = '" . (int)$product_id . "'"
             );
 
-            // Insert new images
             foreach ($data['images'] as $img) {
                 $imgPath = isset($img['image']) ? $img['image'] : '';
                 if (!empty($img['image_data']) && !empty($img['image_filename'])) {
@@ -1200,12 +1100,6 @@ class ModelApiErp extends Model
         return true;
     }
 
-    // ─── Reviews ──────────────────────────────────────────────
-
-    /**
-     * Check if a review already exists by platform dedup marker in the text.
-     * Marker format: <!--[platform:id]-->
-     */
     public function findReviewByPlatformId($platform, $platformReviewId)
     {
         $marker = '<!--[' . $platform . ':' . $platformReviewId . ']-->';
@@ -1215,12 +1109,6 @@ class ModelApiErp extends Model
         return $result->num_rows ? (int)$result->row['review_id'] : null;
     }
 
-    /**
-     * Create a product review.
-     *
-     * @param array $data {product_id, author, text, rating, status, date_added, platform, platform_review_id}
-     * @return int review_id
-     */
     public function createReview($data)
     {
         $productId = (int)$data['product_id'];
@@ -1232,21 +1120,18 @@ class ModelApiErp extends Model
         $platform  = isset($data['platform']) ? $data['platform'] : '';
         $platId    = isset($data['platform_review_id']) ? $data['platform_review_id'] : '';
 
-        // Dedup: check for existing review by marker
         if ($platform !== '' && $platId !== '') {
             $existing = $this->findReviewByPlatformId($platform, $platId);
             if ($existing) {
-                return $existing; // already exists
+                return $existing;
             }
         }
 
-        // Verify product exists
         $check = $this->db->query("SELECT product_id FROM " . DB_PREFIX . "product WHERE product_id = '" . $productId . "'");
         if (!$check->num_rows) {
             throw new \Exception('Product #' . $productId . ' not found in OpenCart');
         }
 
-        // Build text with invisible dedup marker (escape once at SQL interpolation)
         $text = isset($data['text']) ? $data['text'] : '';
         $marker = ($platform !== '' && $platId !== '') ? '<!--[' . $platform . ':' . $platId . ']-->' : '';
         $fullText = $marker !== '' ? $marker . ' ' . $text : $text;

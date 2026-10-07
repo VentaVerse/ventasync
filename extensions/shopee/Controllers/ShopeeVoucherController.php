@@ -8,17 +8,8 @@ use Extensions\shopee\Models\ShopeeSetting;
 use Extensions\shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Http\Request;
 
-/**
- * Shop vouchers (#153, quest 4). A voucher is a SHOP-LEVEL object the
- * marketplace owns completely, so nothing is stored here: the page is a
- * live read of v2.voucher on every load (absent, never stale) and the
- * writes pass straight through. The lifecycle decides the verb: an
- * upcoming voucher can be deleted, an ongoing one only ended, an
- * expired one neither - the row offers exactly what its state allows.
- */
 class ShopeeVoucherController extends Controller
 {
-    /** Shopee's status vocabulary for get_voucher_list. */
     private const STATUSES = ['all', 'upcoming', 'ongoing', 'expired'];
 
     public function index(Request $request, ShopeeClient $client)
@@ -31,7 +22,7 @@ class ShopeeVoucherController extends Controller
         $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
 
-        $vouchers = null;   // null = the marketplace did not answer
+        $vouchers = null;
         $liveError = null;
         if ($setting && $auth['complete']) {
             $result = $this->voucherCall($client, $auth, 'GET', '/api/v2/voucher/get_voucher_list', [
@@ -94,11 +85,11 @@ class ShopeeVoucherController extends Controller
             'voucher_code' => strtoupper($data['voucher_code']),
             'start_time' => strtotime($data['starts_at']),
             'end_time' => strtotime($data['ends_at']),
-            'voucher_type' => 1,                    // shop voucher
-            'reward_type' => $fixed ? 1 : 2,        // 1 fixed amount, 2 percentage
+            'voucher_type' => 1,
+            'reward_type' => $fixed ? 1 : 2,
             'usage_quantity' => (int) $data['usage_quantity'],
             'min_basket_price' => (float) ($data['min_basket_price'] ?? 0),
-            'display_channel_list' => [1],          // display everywhere
+            'display_channel_list' => [1],
         ];
         if ($fixed) {
             $body['discount_amount'] = (float) $data['discount_amount'];
@@ -131,8 +122,6 @@ class ShopeeVoucherController extends Controller
             'Voucher deleted before it started. Buyers never saw it.', 'Delete failed');
     }
 
-    // ── Helpers ──────────────────────────────────────────────────
-
     private function passThrough(ShopeeClient $client, string $path, int $voucherId, string $okWords, string $failWord)
     {
         $setting = ShopeeSetting::defaultStore()?->decrypted();
@@ -151,7 +140,6 @@ class ShopeeVoucherController extends Controller
         return redirect()->route('ext.shopee.vouchers.index')->with('status', $okWords);
     }
 
-    /** One signed voucher call, logged. */
     private function voucherCall(ShopeeClient $client, array $auth, string $method, string $path, array $payload): array
     {
         try {

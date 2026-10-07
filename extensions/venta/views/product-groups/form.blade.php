@@ -2,32 +2,14 @@
 @section('title', ($mode === 'create' ? 'Add' : 'Edit') . ' ' . $setting->store_name . ' Product group')
 @section('breadcrumb', ($mode === 'create' ? 'New' : 'Edit') . ' Product group')
 
-{{-- This page shows its own validation summary (the fm-note below) and marks
-     the offending fields inline, so partials/legacy-page-contract skips its
-     bullet list of every message rather than stacking a second red box on
-     top of this one. --}}
 @section('own-errors', true)
 
-{{-- Leaves the .x-legacy content boundary, rebuilt on the fm- form anatomy.
-
-     Venta is multi-store: the form action, the back link, the products link
-     and the product-search endpoint all carry the {store} segment this page
-     arrived on, and the store is named in the header as well as in the
-     breadcrumb. --}}
 @section('content')
 @php
-    // The create GET is `manage_venta`, but the EDIT GET is registered in the
-    // read product group, so a `view_venta` operator can open this page on an
-    // existing product group. The store and update writes behind it are
-    // manage-only, so for that operator every control is disabled and the Save
-    // button is absent: a form you can fill in and never submit is worse than a
-    // form that says up front it is a read.
     $canManageVenta = auth()->user()?->hasPermission('manage_venta/product_group') ?? false;
 
     $storeName = $setting->store_name ?: 'Unnamed store';
 
-    // The store's own categories, nested for the picker. The store owns
-    // them; nothing here is ever written back to it.
     $byParent = $storeCategories->groupBy('parent_id');
     $categoryOptions = [];
     $walk = function (int $parent, int $depth) use (&$walk, &$categoryOptions, $byParent) {
@@ -52,8 +34,6 @@
       data-guard-unsaved>
     @csrf
     @if($mode === 'create')
-        {{-- Back to the page that sent you here: the store's list, or the
-             groups list. Only a local path is ever followed. --}}
         <input type="hidden" name="_return" value="{{ \App\Support\BackTo::capture() }}">
     @endif
     @if($mode === 'edit')

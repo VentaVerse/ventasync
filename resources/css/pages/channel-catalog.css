@@ -1,60 +1,3 @@
-/* Channel catalog surfaces: the shared `cc-` grammar.
-   -------------------------------------------------------------------
-   The four workspace pages every marketplace channel carries that are
-   not orders and not settings: Listings, Product Groups, Categories,
-   and Logistics (Brands on Lazada). Shopee is the first channel onto
-   this file; Lazada and TikTok follow into the same pieces, which is
-   why the prefix names the surface (`cc-`, channel catalog) rather
-   than the channel, the same call components/channel-orders.css made
-   when Lazada became the second consumer of Shopee's `sp-` rules.
-
-   Almost nothing here is new. These pages are lists, so they are built
-   on the shared list anatomy already proven by the orders pages and the
-   catalog index: x-list-head / x-filters / x-cmdbar / x-ui.table /
-   x-pager / x-ui.empty / x-ui.menu. This file carries only the three
-   things that anatomy genuinely does not cover:
-
-     1. column widths, which are per page and cannot be shared;
-     2. media rows (a 96px product photo and a stack of variation
-        lines) which need the table's default one-line-per-row
-        assumption relaxed;
-     3. two controls with no shared equivalent yet: the bulk-selection
-        bar and the unmatched-item linker.
-
-   Three decisions carried in from the anatomies this builds on:
-
-   1. Colour has one job. Accent marks the primary action and the one
-      status that means "this is live on the marketplace". A sync error
-      is --bl-bad. Nothing else on these pages is coloured, and there is
-      no channel identity colour anywhere - the sidebar and the
-      breadcrumb say which channel you are standing in.
-
-   2. Elevation is flat. Hairlines between rows, one bordered strip for
-      the command bar. No card stacks.
-
-   3. Every numeral is mono with tabular figures. Marketplace item ids,
-      catalog ids, prices, quantities, channel ids, weight limits.
-      Applied per column by the caller (.x-num or a column class), never
-      baked into the shared table, for the reason
-      components/ui-table.css already states about .x-td-num.
-   ------------------------------------------------------------------- */
-
-/* ------------------------------------------------------------------
-   Page frame. Same three declarations pages/catalog.css writes under
-   .cat-page, and for the same reason: components/ui-table.css sets a
-   fixed row height and `white-space: nowrap` on every cell, which is
-   right for a list of short known-width values and wrong for a row
-   carrying a photo, a name that wraps, and a stack of variation lines.
-
-   Deliberately NOT reusing .co-page (components/channel-orders.css) or
-   .cat-page (pages/catalog.css) even though the declarations match.
-   channel-orders.css documents .co-page as the hook for fulfilment
-   surfaces specifically, and .cat-page is the core catalog's. A
-   channel's Listings page is neither, and borrowing either name would
-   couple three unrelated surfaces to one selector - the same reasoning
-   pages/catalog.css itself gave for not reusing .co-page.
-   ------------------------------------------------------------------ */
-
 .cc-page .x-table tbody td {
     padding-top: var(--bl-space-3);
     padding-bottom: var(--bl-space-3);
@@ -64,12 +7,8 @@
 
 .cc-page .x-table tbody tr { height: auto; }
 
-/* Numerals stay on one line so a column of them still compares by eye
-   even though the cells around them now wrap. */
 .cc-page .x-table .x-num { white-space: nowrap; }
 
-/* Mono at the cell, not on the shared component - same convention
-   components/ui-table.css uses for .x-table td.x-col-total. */
 .cc-page .x-table td.cc-col-price,
 .cc-page .x-table td.cc-col-qty,
 .cc-page .x-table td.cc-col-id,
@@ -77,15 +16,6 @@
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
 }
-
-/* ------------------------------------------------------------------
-   Command bar with a single action. The orders pages' bar carries a row
-   of date fields and filters with the hint underneath, which is right
-   when the row is full. These four pages have exactly one button, so
-   that shape rendered an empty 1100px row above a sentence and read as
-   a layout fault. This modifier puts the sentence in the row, where the
-   spacer would otherwise be, and keeps the button on the far end.
-   ------------------------------------------------------------------ */
 
 .x-cmdbar__hint--inline {
     flex: 1 1 320px;
@@ -95,16 +25,9 @@
     max-width: 78ch;
 }
 
-/* ------------------------------------------------------------------
-   Column widths. Sized to the widest real value in each column, per
-   page. table-layout: fixed means a column narrower than its content
-   clips rather than widening the table, so these are measured, not
-   guessed. Columns with no width here take the remainder.
-   ------------------------------------------------------------------ */
-
 .cc-col-check   { width: 36px; }
-.cc-col-id      { width: 72px; }   /* catalog product_id, 6 digits + air */
-.cc-col-chanid  { width: 112px; }  /* a Shopee item id is 11 digits in mono */
+.cc-col-id      { width: 72px; }
+.cc-col-chanid  { width: 112px; }
 .cc-col-sku     { width: 148px; }
 .cc-col-qty     { width: 78px; }
 .cc-col-price   { width: 104px; }
@@ -113,68 +36,24 @@
 .cc-col-group   { width: 132px; }
 .cc-col-count   { width: 88px; }
 .cc-col-lvl     { width: 72px; }
-/* Wide enough for the header, not the value: "Can list here" is 13 characters
-   and clipped to "Can list ..." at the 80px this started at, on both channels'
-   Categories pages. Measured against the header, which is the widest string in
-   the column. */
 .cc-col-leaf    { width: 108px; }
-.cc-col-flag    { width: 130px; }  /* "Cash on delivery" is the widest header here */
+.cc-col-flag    { width: 130px; }
 .cc-col-flag--sm { width: 96px; }
-/* A full timestamp in mono, which is how the API-call logs on both channels'
-   category-attribute pages are read: down the column, against each other.
-   Round F Task 1. */
 .cc-col-when    { width: 168px; }
 .cc-col-limit   { width: 148px; }
-/* "plus 7.5% of price" on two lines, not four. */
 .cc-col-markup  { width: 156px; }
 
-/* ------------------------------------------------------------------
-   Lazada-only columns. Three widths that exist because Lazada's pages
-   carry a column Shopee's do not, so they take the channel's own
-   established `lz-` prefix (pages/lazada-orders.css) rather than a
-   `cc-` name that would imply every channel has them.
-
-   They live in this file rather than a fourth stylesheet because they
-   are the same object as the widths above - a column measured against
-   the widest real value in it - and a 3-rule file imported for that
-   would be a file to remember rather than a boundary that means
-   anything.
-   ------------------------------------------------------------------ */
-
-.lz-col-region { width: 88px; }   /* a two-letter code, uppercased */
-.lz-col-var    { width: 118px; }  /* "Has variations" is the widest header */
+.lz-col-region { width: 88px; }
+.lz-col-var    { width: 118px; }
 
 .cc-page .x-table td.lz-col-region {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
 }
 
-/* ------------------------------------------------------------------
-   TikTok-only and OpenCart-only columns (Round C Task 3). Same object as
-   the widths above, and here for the same reason the lz- pair is: a
-   column measured against the widest real value in it. Each takes its
-   own channel's established page prefix (pages/tiktok-orders.css,
-   pages/opencart.css) rather than a `cc-` name that would imply every
-   channel has the column.
-   ------------------------------------------------------------------ */
-
-/* A comma-joined list of TikTok's selling-permission codes. Wide enough
-   for two of them before it wraps, which is what the real rows carry. */
 .tt-col-perms { width: 190px; }
 
-/* "Also listed on" stacks one short line per other marketplace the
-   catalog product is linked to. Measured against
-   "Another OpenCart store 12345", the longest real value. */
 .oc-col-elsewhere { width: 200px; }
-
-/* ------------------------------------------------------------------
-   Category tree depth. The pre-redesign view drew depth by repeating an
-   em dash per level, which is both a character this project does not
-   use in anything a person reads and a value that has to be re-read to
-   be counted. Indentation is the thing itself: the row's name starts
-   further in the deeper it sits, and the level is still printed as a
-   figure in its own column for anyone who needs the number.
-   ------------------------------------------------------------------ */
 
 .cc-tree { display: block; min-width: 0; }
 
@@ -182,15 +61,8 @@
 .cc-tree[data-level="2"] { padding-left: var(--bl-space-6); }
 .cc-tree[data-level="3"] { padding-left: calc(var(--bl-space-6) + var(--bl-space-4)); }
 .cc-tree[data-level="4"] { padding-left: calc(var(--bl-space-6) * 2); }
-/* Shopee's tree is four deep in practice; anything deeper stops
-   indenting rather than pushing the name off the row. */
 .cc-tree[data-level="5"] { padding-left: calc(var(--bl-space-6) * 2 + var(--bl-space-4)); }
 
-/* <x-money> is shared with the legacy order pages, so its own file
-   (components/currency-dual.css) cannot assume the mono face. Here every
-   numeral is mono, so the two lines are re-faced rather than
-   reimplemented - the same two rules components/order-detail.css and
-   components/form-page.css already write for their own pages. */
 .cc-page .money-primary {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
@@ -204,10 +76,6 @@
     color: var(--bl-ink-3);
 }
 
-/* A price markup expressed as a share of the selling price rather than a
-   fixed amount. It is a figure in its own right, not a footnote to the
-   fixed amount above it, so it keeps a readable size instead of dropping
-   to the .cc-sub caption weight. */
 .cc-markup__pct {
     display: block;
     font-family: var(--font-mono);
@@ -216,7 +84,6 @@
     color: var(--bl-ink-2);
 }
 
-/* A parent's own line, under a name that has children. */
 .cc-sub {
     display: block;
     margin-top: 2px;
@@ -228,19 +95,6 @@
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
 }
-
-/* ------------------------------------------------------------------
-   Product thumbnail. Same 96px verification scale
-   components/channel-orders.css and pages/catalog.css both settled on,
-   and the same construction: a "No image" label always in the DOM
-   underneath, so a photo that 404s reveals it by hiding itself rather
-   than by rewriting markup.
-
-   Not reusing .order-img-wrap / img.order-img: those two names are
-   load-bearing for the hover zoom-preview bound by pages/*-orders.js
-   with delegated document listeners, so a listing thumbnail carrying
-   them would silently opt into order-verification zoom behaviour.
-   ------------------------------------------------------------------ */
 
 .cc-thumb {
     position: relative;
@@ -265,11 +119,6 @@
     object-fit: cover;
 }
 
-/* A box with no photo shows the shipped placeholder. The "No image"
-   label stays for a screen reader only, and the import pages' glyph gives
-   way to the same picture. While a photo is in the box the placeholder
-   goes, so a photo with a transparent background never shows it through;
-   a photo that fails is removed by thumb-fallback.js and it returns. */
 .cc-thumb,
 .cc-var-row__thumb {
     background-image: url('/images/brand/no-image.svg');
@@ -296,19 +145,7 @@
     display: none;
 }
 
-/* The small copy used inside the unmatched linker, where the row is a
-   dropdown result rather than a table row. */
 .cc-thumb--sm { width: 36px; height: 36px; }
-
-/* ------------------------------------------------------------------
-   Variation rows. A listing's variations are rows of the same table,
-   straight after the product's row, so a variation's stock sits in the
-   Stock column and its price in the Price column (the owner, 2026-09-06: the
-   old stack inside the Product cell carried its own columns that lined
-   up with nothing). The row is quieter than its product: smaller type,
-   the secondary ink, a tighter line, and the product's own rule is held
-   back until the last variation so the group reads as one.
-   ------------------------------------------------------------------ */
 
 .cc-page .x-table tbody tr.cc-var-row > td {
     padding-top: 3px;
@@ -318,15 +155,12 @@
     color: var(--bl-ink-2);
 }
 
-/* The product keeps its variations: no rule between them, and the group
-   closes with the ordinary row rule under the last one. */
 .cc-page .x-table tbody tr:has(+ tr.cc-var-row) > td { border-bottom: 0; padding-bottom: var(--bl-space-1); }
 .cc-page .x-table tbody tr.cc-var-row:not(:has(+ tr.cc-var-row)) > td {
     padding-bottom: var(--bl-space-3);
     border-bottom: 1px solid var(--bl-rule);
 }
 
-/* Indented to the product's name: past its 96px picture and the gap. */
 .cc-var-row__item {
     display: flex;
     align-items: center;
@@ -335,8 +169,6 @@
     margin-left: calc(96px + var(--bl-space-3));
 }
 
-/* The variation's own picture. Empty stays an outlined slot rather than
-   collapsing: a missing image is information, and the names keep one x. */
 .cc-var-row__thumb {
     width: 24px;
     height: 24px;
@@ -354,8 +186,6 @@
     display: block;
 }
 
-/* The name wraps rather than truncates: "11-49 Medium" is the figure a
-   picker reads, and three dots are not a variation. */
 .cc-var-row__name { min-width: 0; color: var(--bl-ink); }
 
 .cc-var-row__sku {
@@ -365,9 +195,6 @@
     white-space: nowrap;
 }
 
-/* Whether this store sells the variation: its own Sell here switch. Green
-   on, red off, the dot the page's badges already use. The copy beside the
-   name is for a phone, where the Listing cell is hidden. */
 .cc-var-dot {
     display: inline-block;
     width: 8px;
@@ -379,12 +206,6 @@
 .cc-var-dot--on { background: var(--bl-good); }
 .cc-var-dot--off { background: var(--bl-bad); }
 .cc-var-dot--phone { display: none; }
-
-/* ------------------------------------------------------------------
-   Error line. A product's error is a full-width row directly above the
-   product's own row. No rule between the two: the product row's rule
-   closes the pair.
-   ------------------------------------------------------------------ */
 
 .cc-page .x-table tbody tr.cc-err-row > td,
 .cc-page .x-table tbody tr.cc-err-row:hover > td {
@@ -401,12 +222,6 @@
     overflow-wrap: anywhere;
 }
 
-/* ------------------------------------------------------------------
-   Sync error cell. The one place on these pages where --bl-bad is
-   spent, because a failed push is the only thing on the row an
-   operator has to act on.
-   ------------------------------------------------------------------ */
-
 .cc-err {
     display: block;
     font-size: 12px;
@@ -418,21 +233,12 @@
 .cc-err__code {
     font-family: var(--font-mono);
     font-weight: 500;
-    /* .cc-err sets overflow-wrap: anywhere so a long URL in a marketplace
-       message cannot widen the column. It also broke the error CODE mid-
-       token, so VALIDATION_ERROR rendered as "VALIDATION_" over "ERROR" and
-       read as two separate things. A code is one word or it is nothing. */
     white-space: nowrap;
 }
 
-/* ── A picker result the store already holds ──────────────────────────
-   Greyed and unpickable; the line under the name says what holds it. */
 .cc-ta__held { display: block; font-size: 12px; color: var(--bl-attn); }
 .fm-ta__list button.is-held { opacity: 0.55; cursor: not-allowed; }
 
-/* ── The readiness line ────────────────────────────────────────────────
-   The error line's anatomy in amber: what a product still needs before a
-   push, above its row. Under a red line the two keep a hairline apart. */
 .cc-page .x-table tbody tr.cc-err-row.cc-err-row--warn > td,
 .cc-page .x-table tbody tr.cc-err-row.cc-err-row--warn:hover > td {
     background: color-mix(in srgb, var(--bl-attn) 8%, var(--bl-sheet));
@@ -441,11 +247,6 @@
 .cc-page .x-table tbody tr.cc-err-row + tr.cc-err-row--warn > td { box-shadow: inset 0 1px 0 var(--bl-sheet); }
 .cc-warn-lead { font-weight: 640; }
 
-/* ── A ticked product ──────────────────────────────────────────────────
-   The whole product reads as one picked block (js/pages/row-picked.js):
-   the lines above its row, the row, its variation rows, the pinned
-   actions cell included. One brand tint; the lines keep their own words
-   and colour. On a phone the row is a card, so the row takes it too. */
 .cc-page .x-table > tbody > tr.is-picked,
 .cc-page .x-table > tbody > tr.is-picked:hover,
 .cc-page .x-table tbody tr.is-picked > td,
@@ -457,9 +258,6 @@
 }
 .cc-page .x-table input[data-row-check] { accent-color: var(--bl-brand-deep); }
 
-/* While any product is ticked, a product's block is one large tick box: the
-   links and buttons inside it stand down, and the block under the pointer
-   shows faintly what a click will tick. */
 .cc-page .x-table.is-picking tr.is-pickable { cursor: pointer; }
 .cc-page .x-table.is-picking tr.is-pickable a,
 .cc-page .x-table.is-picking tr.is-pickable button { pointer-events: none; }
@@ -468,12 +266,6 @@
     background: color-mix(in srgb, var(--bl-brand) 7%, var(--bl-sheet));
 }
 
-/* ── Belief vs fact, under the push badge ─────────────────────────────
-
-   Deliberately quieter than the badge it sits beneath. The badge is the
-   answer; this is the footnote saying how fresh the answer is, and it must
-   never compete for the scan. 11px matches .cc-err so the two captions that
-   can appear in adjacent columns share a baseline. */
 .cc-checked {
     display: block;
     margin-top: 3px;
@@ -482,26 +274,15 @@
     color: var(--bl-ink-3);
 }
 
-/* Not a warning colour. A product nobody has re-checked since pushing it is
-   the normal case, not a problem, and painting it amber would cry wolf on
-   almost every row. */
 .cc-checked--never {
     font-style: italic;
 }
 
-/* "Catalog changed since this push" is the one note in this family that
-   wants attention: something moved after the marketplace last heard from
-   us. It takes the attention ink, upright, so it never reads as the
-   muted "nothing to report" grammar of --never. */
 .cc-checked--stale {
     font-style: normal;
     color: var(--bl-attn);
 }
 
-/* ── Failures outlive the banner that announced them ──────────────────
-   A line, not a card. The count is the whole group's, and it links to
-   exactly the rows it counts. The word "failed" carries the meaning; the
-   colour only agrees with it. */
 .cc-failnote {
     display: flex;
     align-items: center;
@@ -526,9 +307,6 @@
     color: var(--bl-ink);
 }
 
-/* A new control does not get to ship under the comfort target. Gated on the
-   input device rather than the viewport, matching how the rest of the suite
-   raises its targets, so a narrow desktop window keeps the tighter rhythm. */
 @media (pointer: coarse) {
     .cc-failnote__link {
         display: inline-flex;
@@ -536,14 +314,6 @@
         min-height: 44px;
     }
 }
-
-/* ------------------------------------------------------------------
-   Selection checkbox. Needs its own stacking context for the reason
-   pages/catalog.css states for .cat-check: the row is a stretched link
-   (.x-row-link::after, inset: 0 against the positioned <tr>) and an
-   un-layered control sits underneath that overlay and never receives a
-   click.
-   ------------------------------------------------------------------ */
 
 .cc-check {
     position: relative;
@@ -555,10 +325,6 @@
     cursor: pointer;
 }
 
-/* A finger gets the 24px floor on the face itself. A pseudo-element hit
-   area cannot do it: a checkbox is a replaced element, Chromium draws no
-   ::after on it, and a tap beside the 14px box landed on the row. A 44px
-   face would dominate the row it belongs to. */
 @media (pointer: coarse) {
     .cc-check {
         width: 24px;
@@ -566,24 +332,7 @@
     }
 }
 
-/* ------------------------------------------------------------------
-   Bulk bar. Appears only once at least one row is selected. There is no
-   standing row of five marketplace-write buttons above the table the
-   way the pre-redesign page had, and Delete-from-Shopee keeps the
-   transparent .x-btn--danger treatment every destructive control in
-   this system uses rather than a solid red fill.
-
-   Same shape as pages/catalog.css's .cat-bulkbar, deliberately declared
-   here rather than borrowed: that class belongs to the core catalog's
-   own sheet, and a channel page reaching into it would tie two surfaces
-   that have no other relationship to one selector.
-   ------------------------------------------------------------------ */
-
 .cc-bulkbar {
-    /* Sticky: a tick on row 30 of a 6,800px table used to change nothing
-       on screen, the bar sat static above the header. It rides just under
-       the channel menu band on wide screens, never behind it, and along
-       the bottom edge on a phone, where the thumb is. */
     position: sticky;
     top: calc(var(--bl-chband-h, 43px) + var(--bl-space-2));
     z-index: 6;
@@ -609,38 +358,14 @@
     gap: var(--bl-space-2);
 }
 
-/* ------------------------------------------------------------------
-   Unmatched items. Shopee listings that no catalog SKU matched. This
-   is a work queue, not part of the list, so it sits above the table as
-   its own section under a hairline heading - the same .fm-section
-   construction the form pages use, reused here because it is exactly
-   the same object (a titled group of controls sitting directly on the
-   canvas, no box) and forking it would be two names for one picture.
-   ------------------------------------------------------------------ */
-
-/* A titled section that sits above or below the table, separated from it.
-   The top margin was added in Round C Task 3: on the two product-group
-   Products pages this section follows the pager directly, and without it the
-   heading sat on the pager's baseline. */
 .cc-unmatched { margin-top: var(--bl-space-6); margin-bottom: var(--bl-space-5); }
 
-/* Except where it is the first thing after the list head, which is where the
-   listings pages put it. */
 .x-list-head + .cc-unmatched { margin-top: 0; }
 
-/* Import selected: the bulk form sits between the queue note and the table.
-   The button only earns itself once a row is ticked (channel-import.js). */
 .cc-import-bulk { margin-bottom: var(--bl-space-3); }
 
-/* Import and Dismiss on one baseline in the queue's actions cell (the owner,
-   2026-09-04). The generic .x-td-actions is 44px - sized for a kebab -
-   which is why the pair used to stack; the cell cannot itself go flex
-   without leaving table display, so the wrapper carries the row. */
 .cc-unmatched .x-td-actions { width: 148px; }
 
-/* The Import page's pages are cut in the browser (channel-import.js): a row
-   off the current page is hidden, and must stay hidden under the phone
-   layout too, which gives every tr its own display. */
 .cc-unmatched tr[data-import-row][hidden] { display: none !important; }
 .cc-rowact {
     display: flex;
@@ -649,27 +374,11 @@
     gap: var(--bl-space-3);
 }
 
-/* Two head actions (a secondary control beside a primary one). `.x-list-head`
-   is a two-child flex, so a page with more than one needs a wrapper, the same
-   one pages/settings.css writes as `.st-head-actions` for the same reason. */
 .cc-head-actions {
     display: flex;
     align-items: center;
     gap: var(--bl-space-2);
     flex-shrink: 0;
-    /* The parent .x-list-head wraps, so this block drops below the title on a
-       narrow screen - but only as a unit. Venta's head carries three controls
-       whose labels contain the store name ("Check against Shop A"),
-       which is wider than a phone on its own, so the group has to be able to
-       break internally as well.
-
-       max-width IS LOAD-BEARING. flex-wrap alone did nothing here and the page
-       still scrolled sideways at 390px: flex-shrink: 0 above means the box is
-       never squeezed to the line, so it sized to its content (542px inside a
-       390px viewport) and its children never reached a width that would make
-       them wrap. Capping it at the parent's width is what gives the wrap
-       something to happen against, while keeping the no-squash behaviour the
-       shrink rule is there for. */
     flex-wrap: wrap;
     justify-content: flex-end;
     max-width: 100%;
@@ -679,13 +388,6 @@
 
 .cc-col-link { width: 340px; }
 
-/* The linker: a search box and its Link button on one baseline, with
-   the results list positioned against the pair.
-
-   .fm-ta / .fm-ta__list / .fm-ta__empty (components/form-page.css) are
-   reused verbatim for the dropdown. They are pure positioning and
-   surface - no form-page coupling - and the alternative was a second
-   token-built dropdown with the same twenty declarations. */
 .cc-link {
     display: flex;
     align-items: center;
@@ -697,8 +399,6 @@
 
 .cc-link .x-input { width: 100%; }
 
-/* A result row inside the dropdown: thumbnail, name, identifiers. The
-   button itself is .fm-ta__list button; this is only its contents. */
 .cc-ta__row {
     display: flex;
     align-items: center;
@@ -737,14 +437,6 @@
     color: var(--bl-ink-3);
 }
 
-/* ------------------------------------------------------------------
-   Work-in-progress overlay. A bulk push to a marketplace is a
-   multi-second round trip, and the page has to say so or the operator
-   clicks again. Rides components/modals.css's .modal-backdrop show/hide
-   mechanics (one `.active` class) exactly as the orders pages'
-   #spLoadingOverlay does, so there is one such mechanism, not two.
-   ------------------------------------------------------------------ */
-
 .cc-progress {
     display: flex;
     align-items: center;
@@ -756,70 +448,23 @@
 
 .cc-progress__note { margin-top: 2px; font-size: 12px; color: var(--bl-ink-3); }
 
-/* ------------------------------------------------------------------
-   Phones.
-
-   This block used to open by describing what "the generic 640px restack
-   in components/ui-table.css" did, and cite pages/catalog.css and
-   components/channel-orders.css as precedent. All three files were gone -
-   folded into blotter-components.css during a consolidation that did not
-   bring the restack with them - so for as long as that was true, these
-   overrides set grid properties on elements that were still table rows and
-   did nothing at all. Measured before the restack was rewritten: 808px of
-   horizontal travel to reach a row's actions menu at 390px.
-
-   The generic rule now lives in blotter-components.css and gives every cell
-   its own line with the row's actions in the corner, which is what the
-   overrides below were asking for, so they are gone rather than repeated.
-   What is left here is the part that is genuinely this page's: the cells
-   that hold more than one figure.
-   ------------------------------------------------------------------ */
-
 @media (max-width: 640px) {
-    /* THE PHONE ROW (#155). The generic restack gave every cell its own
-       line, labels and all, so a listings row stood ~736px tall and a page
-       of fifty measured 36,542px: "Shopee ID: None", "Last sync: Never",
-       "Catalog: Enabled", each on its own line, for a picker who only
-       wants to know whether the product is listed and how many are in
-       stock. On a phone the row is: the product (name, SKU, thumbnail)
-       with the row's actions in the corner, then Stock and Listing side by
-       side. The id, the price, the channel id and the catalog status stay
-       in the DOM for a reader and are a tap away on the listing page; on
-       this screen they were the noise. */
     .cc-page .x-table > tbody > tr > td.cc-col-id,
     .cc-page .x-table > tbody > tr > td.cc-col-price,
     .cc-page .x-table > tbody > tr > td.cc-col-chanid,
     .cc-page .x-table > tbody > tr > td.cc-col-stat { display: none; }
 
-    /* THE WIDTH RESET, back where it has to live. The generic restack in
-       blotter-components.css sets td width back to auto, but that rule is
-       in the components layer and this file is in vocabulary - a later
-       layer wins regardless of specificity - so every .cc-col-* fixed
-       width in this file stays LITERAL on the phone grid. Measured: the
-       340px linker cell ran 44px past the card's edge on the import pages
-       at 390px, input clipped mid-letter. The generic rule cannot reach
-       these from a lower layer; the page resets its own. */
     .cc-page .x-table > tbody > tr > td { width: auto; }
 
-    /* The tick box shares the first line with the actions rather than
-       taking a line of its own above the name. */
     .cc-page .x-table > tbody > tr > td.cc-col-check { grid-column: 1; grid-row: 1; align-self: center; }
     .cc-page .x-table > tbody > tr > td.cc-col-check::before { display: none; }
 
-    /* Stock on one line, under its label, then Listing across the next. */
     .cc-page .x-table > tbody > tr > td.cc-col-qty { grid-column: 1; }
     .cc-page .x-table > tbody > tr > td.cc-col-sync { grid-column: 1 / -1; }
 
-    /* The product cell needs no "Product" label above a product name, and
-       its thumbnail comes down from the desktop 96px: on a 328px card the
-       picture is a cue, not the subject. */
     .cc-page .x-table > tbody > tr > td[data-label="Product"]::before { display: none; }
     .cc-page .x-table > tbody > tr > td[data-label="Product"] .order-img-wrap { width: 64px; }
 
-    /* A variation is a two-line card tucked under its product: the name
-       on the first line, stock and price side by side on the second with
-       their labels inline. The cells the row has nothing for are hidden,
-       so the generic one-cell-per-line grid never draws an empty line. */
     .cc-page .x-table > tbody > tr.cc-var-row {
         grid-template-columns: minmax(0, 1fr) auto;
         padding-top: 6px;
@@ -846,7 +491,6 @@
     .cc-var-row__item { margin-left: 0; flex-wrap: wrap; }
     .cc-var-dot--phone { display: inline-block; }
 
-    /* The error line runs the full width of the card below it, unlabelled. */
     .cc-page .x-table > tbody > tr.cc-err-row {
         grid-template-columns: minmax(0, 1fr);
         padding: 0;
@@ -859,13 +503,8 @@
         padding: var(--bl-space-2) var(--bl-space-3);
     }
 
-    /* The single-action bar stacks: the sentence above, the button below
-       it, both full width. */
     .x-cmdbar__hint--inline { flex: 1 1 100%; align-self: flex-start; }
 
-    /* Right-aligned numerals read as a column; stranded alone above a
-       left-aligned stacked label they just look misaligned. Same call
-       pages/catalog.css makes for its own numeric columns. */
     .cc-page .x-table td.cc-col-qty,
     .cc-page .x-table td.cc-col-price,
     .cc-page .x-table td.cc-col-count,
@@ -875,23 +514,11 @@
     .cc-bulkbar__actions { width: 100%; }
     .cc-bulkbar__actions .x-btn { flex: 1 1 auto; }
 
-    /* The linker is a text field and a button; stacked they each get the
-       full width rather than squeezing a 320px column onto a 358px
-       screen. */
     .cc-link { flex-wrap: wrap; }
     .cc-link .fm-ta { flex: 1 1 100%; }
 }
 
 
-/* ------------------------------------------------------------------
-   Row actions stay reachable when the table is wider than its wrap.
-   Lazada Listings measured 1256px inside an 1162px wrap at 1440, and
-   nothing signalled the horizontal scroll, so the Actions column (and
-   every verb in it) sat off-screen on the owner's own desk viewport.
-   The cell pins to the right edge on a sheet background with a hairline
-   on its left; the menu it opens is positioned relative to the cell and
-   comes along.
-   ------------------------------------------------------------------ */
 @media (min-width: 900px) {
     .cc-page .x-table-wrap > .x-table > thead > tr > th.x-td-actions,
     .cc-page .x-table-wrap > .x-table > tbody > tr > td.x-td-actions {
@@ -908,14 +535,9 @@
 }
 
 
-/* A page-level note (the marketplace did not answer) keeps its own gap
-   above the filter row; it sat flush against the search input. */
 .cc-page > .fm-note { margin-bottom: var(--bl-space-3); }
 
 
-/* Add products: a row already on this store is context, not a target - dim it
-   so the addable rows carry the eye, and name the state in the store's own
-   colour rather than a bare tick. */
 .cc-row--muted td { opacity: 0.6; }
 .cc-onstore {
     display: inline-flex;
@@ -931,9 +553,6 @@
 }
 .cc-onstore-link:hover { color: var(--bl-ink); }
 
-/* Add products: the action column holds a real button, not the 3-dot menu the
-   default .x-td-actions width is sized for. Shrink the column to its content
-   and keep the button on one line, so "Add to store" never wraps to a stack. */
 .cc-add-table .x-td-actions {
     width: 1%;
     white-space: nowrap;
@@ -942,14 +561,6 @@
 }
 .cc-add-table .x-td-actions .x-btn { white-space: nowrap; }
 
-/* ── The Add products slide-over (#201, Draft C - the owner 2026-09-05) ──────
-   A right-anchored sheet over the Listings table: search your Master Catalog
-   and add in place; the additions land in the table behind when the panel
-   closes. Rides .modal-backdrop's fixed scrim and .active show/hide, the
-   mechanism every other dialog uses; only the sheet's anchoring and motion
-   are its own. Results are capped server-side and the meta line says
-   "Showing n of N" - the honest answer to a panel that cannot list a whole
-   catalogue. */
 .cc-addpanel { justify-content: flex-end; align-items: stretch; padding: 0; }
 .cc-addpanel__sheet {
     width: min(440px, 100vw);
@@ -996,8 +607,6 @@ body.cc-addpanel-open { overflow: hidden; }
 .cc-addpanel__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .cc-addpanel__name { font-weight: 600; color: var(--bl-ink); font-size: .92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cc-addpanel__meta2 { color: var(--bl-ink-3); font-size: .78rem; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* The same teal fill with dark ink the app's primary button uses; teal is a
-   light hue in both themes, so the dark ink holds either way. */
 .cc-addpanel__add {
     appearance: none; border: 1px solid var(--bl-brand); background: var(--bl-brand); color: #04121a;
     font: inherit; font-weight: 600; font-size: .82rem; padding: 6px 12px; border-radius: var(--bl-r-ctrl);
@@ -1005,9 +614,6 @@ body.cc-addpanel-open { overflow: hidden; }
 }
 .cc-addpanel__add:hover { filter: brightness(1.07); }
 .cc-addpanel__add:disabled { opacity: .6; cursor: default; }
-/* Move here (the one-group rule on a group's panel): the same control, but
-   outlined - it takes the product away from another group, so it should not
-   read as the plain Add it sits beside. */
 .cc-addpanel__add--move { background: transparent; color: var(--bl-ink); border-color: var(--bl-rule-2); }
 .cc-addpanel__add--move:hover { filter: none; border-color: var(--bl-brand); color: var(--bl-brand); }
 .cc-addpanel__on { display: inline-flex; align-items: center; gap: 4px; color: var(--bl-good); font-weight: 600; font-size: .82rem; white-space: nowrap; flex: 0 0 auto; }
@@ -1019,20 +625,6 @@ body.cc-addpanel-open { overflow: hidden; }
 .cc-addpanel__full:hover { color: var(--bl-ink); }
 
 
-/* ------------------------------------------------------------
-   THE STATE FILTER STRIP (#240)
-
-   A dashboard chip says "3 listings need attention" and links here with
-   ?state=attention. Arriving at a shorter table with nothing to explain it
-   reads as a page that lost rows, so the filter says itself in the same
-   words the chip used, with the way out beside it.
-   ------------------------------------------------------------ */
-/* Written first as a rounded card with a thick accent rail down its left
-   edge, which is the single most recognisable tell of a generated
-   interface and is on this project's own banned list. It is not a card at
-   all: it is a line of state above a table, so it wears the grammar this
-   application already uses for state everywhere else - a square and a
-   word (.x-badge) - over a hairline. */
 .cs-filter {
     display: flex;
     align-items: center;
@@ -1063,10 +655,6 @@ body.cc-addpanel-open { overflow: hidden; }
 
 .cs-filter__clear:hover { color: var(--bl-ink); }
 
-/* The way out of a readiness line, when the fix is on a page this row cannot
-   reach. It rides the sentence rather than standing as a control: the line is
-   already amber and full width, and a button inside it would read as a second
-   row action competing with the row's own menu. */
 .cc-warn-fix {
     margin-left: 6px;
     color: inherit;

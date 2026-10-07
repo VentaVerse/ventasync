@@ -6,13 +6,6 @@ use Extensions\venta\Models\VentaProductLink;
 use Extensions\venta\Models\VentaSetting;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Stock and price onto the store for linked products, one sender for the
- * Listings page's row and bulk verbs and the group page's (parity,
- * 2026-09-07: Venta's Listings page had neither Push stock nor Push
- * price). Combinations first, then single-axis values, then the parent,
- * the way the group page has always sent them.
- */
 final class VentaStockPricePush
 {
     public function __construct(private readonly VentaSetting $setting, private readonly VentaClient $client) {}
@@ -22,11 +15,6 @@ final class VentaStockPricePush
         return new self($setting, new VentaClient($setting));
     }
 
-    /**
-     * @param list<int> $productIds
-     * @return array{ok:int, failed:int, skipped:int, errors:array<int,string>, outcomes:array<int,?string>}
-     *         outcomes: product id => null when it worked, the failure text when it did not; skipped products are absent
-     */
     public function push(array $productIds, bool $stock, bool $price): array
     {
         $pfx = (string) config('catalog.prefix');
@@ -60,28 +48,17 @@ final class VentaStockPricePush
             $fine = true;
             $why = '';
             $allVariants = ($combos->get($pid) ?? collect())->isNotEmpty() ? $combos->get($pid) : ($options->get($pid) ?? collect());
-            // Only the variations this store sells are synced.
             $variants = $allVariants->filter(fn ($v) => \App\Integrations\Listings\ListingVariations::allows($hidden, $pid, (string) ($v->sku ?? '')));
             if ($allVariants->isNotEmpty() && $variants->isEmpty()) {
                 $out['skipped']++;
                 continue;
             }
             $basePrice = (float) $product->price;
-            // The listing's own price rule, else its group's, else the catalog price.
             $rule = \Extensions\venta\Models\VentaListing::ruleFor($listings->get($pid), $groupsByProduct->get($pid));
 
-            // A variation product exists on the store only as its variants
-            // (variants/{sku}); there is no simple products/{sku} for it, so a
-            // product-level push (pushStock/updateProduct) 404s "Product not
-            // found" and flips an otherwise-successful push to failed. Push the
-            // product level ONLY for simple products; for variation products
-            // the per-variant calls are the whole operation.
             $variantSkus = $variants->filter(fn ($v) => trim((string) ($v->sku ?? '')) !== '');
             $hasVariants = $variantSkus->isNotEmpty();
 
-            // Each variant's answer by lowercase SKU: whether the store's item
-            // holds it. One the item lacks is named on the listing, not failed
-            // here, and never stops the others.
             $answers = [];
             $sure = true;
             $variantCall = function (array $r, string $vsku) use (&$answers, &$sure, &$fine, &$why): void {
@@ -125,7 +102,6 @@ final class VentaStockPricePush
                     }
                 }
             }
-            // Only a run where every variant call was answered says what the item holds.
             if ($hasVariants && $sure && $answers !== []) {
                 $this->rememberHeld($pid, $answers);
             }
@@ -142,11 +118,6 @@ final class VentaStockPricePush
         return $out;
     }
 
-    /**
-     * Whether a variant call says the store's item holds the variant: true
-     * when it took the change, false when the store answers "Variant not
-     * found", null for any other answer (a refusal, or no answer at all).
-     */
     private static function holds(array $r): ?bool
     {
         if ($r['ok'] ?? false) {
@@ -157,12 +128,6 @@ final class VentaStockPricePush
         return (int) ($r['status'] ?? 0) === 404 && stripos($error, 'variant not found') !== false ? false : null;
     }
 
-    /**
-     * The variants the store answered for, kept as the SKUs its item holds.
-     * A variation this run did not ask about keeps what was last read of it.
-     *
-     * @param array<string, array{0: string, 1: bool}> $answers lowercase SKU => [SKU, held]
-     */
     private function rememberHeld(int $productId, array $answers): void
     {
         $held = [];
@@ -183,7 +148,6 @@ final class VentaStockPricePush
         \App\Integrations\Listings\ListingVariations::remember('venta', (int) $this->setting->id, $productId, $held);
     }
 
-    /** A combination carries its own price; a single-axis value its own or an adjustment on the base. */
     public static function variantPrice(object $v, float $basePrice): float
     {
         if ((float) ($v->absolute_price ?? 0) > 0) {
@@ -196,13 +160,6 @@ final class VentaStockPricePush
         return $basePrice;
     }
 
-    /**
-     * Each product's verdict onto its group rows for THIS store, where the
-     * group page reads sync_status, and onto the listing's error line, so
-     * the two always agree.
-     *
-     * @param array<int, ?string> $outcomes product id => null when it worked, else the failure text
-     */
     public static function recordOutcomes(int $settingId, array $outcomes): void
     {
         if ($outcomes === []) {
@@ -223,7 +180,6 @@ final class VentaStockPricePush
         }
     }
 
-    /** The one sentence a stock or price push leaves behind. */
     public static function sentence(array $r, string $what, string $storeName): string
     {
         $msg = "{$what} pushed to {$storeName}: {$r['ok']} updated";

@@ -23,23 +23,8 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
-        <!-- config/cache.php reads CACHE_DRIVER, not CACHE_STORE, so the line
-             above never took effect and every test run shared the FILE cache
-             with every other run and with artisan serve. A cached Lazada API
-             response from one run satisfied Cache::remember in the next and
-             the pull assertion failed with no code change anywhere. Both
-             names set until config/cache.php modernises. -->
         <env name="CACHE_DRIVER" value="array"/>
-        <!--
-            Tests run against MySQL, not sqlite: the catalog schema uses a
-            MySQL-only FULLTEXT index (create_catalog_schema.php:158) that
-            sqlite cannot create.
-
-            DB_DATABASE MUST be a dedicated *_test schema. RefreshDatabase
-            drops and rebuilds every table in whatever database it is pointed
-            at, pointing this at ventasync would destroy the sandbox.
-            Tests\TestCase enforces the _test suffix as a hard guard.
-        -->
+        <!-- Tests wipe this database on every run: its name must end in _test. -->
         <env name="DB_CONNECTION" value="mysql"/>
         <env name="DB_DATABASE" value="ventasync_test"/>
         <env name="DB_TABLE_PREFIX" value=""/>

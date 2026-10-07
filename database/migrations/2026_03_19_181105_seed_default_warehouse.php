@@ -6,12 +6,8 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        // Seed default warehouse if none exist
         if (DB::table('warehouses')->count() === 0) {
             DB::table('warehouses')->insert([
                 'name' => 'Main Store',
@@ -23,13 +19,11 @@ return new class extends Migration
             ]);
         }
 
-        // Backfill warehouse_inventory from existing product quantities
         if (DB::table('warehouse_inventory')->count() === 0) {
             $defaultId = DB::table('warehouses')->where('is_default', true)->value('id');
             if ($defaultId) {
                 $pfx = config('catalog.prefix');
 
-                // Products with options: one row per option value
                 $povProductIds = DB::table($pfx . 'product_option_value')
                     ->distinct()
                     ->pluck('product_id')
@@ -48,7 +42,6 @@ return new class extends Migration
                     }
                 }
 
-                // Products without options: one row with pov = 0
                 $noOptProducts = DB::table($pfx . 'product')
                     ->whereNotIn('product_id', $povProductIds)
                     ->get(['product_id', 'quantity']);
@@ -65,6 +58,5 @@ return new class extends Migration
 
     public function down(): void
     {
-        // No reversal — data seeding only
     }
 };

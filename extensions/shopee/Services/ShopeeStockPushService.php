@@ -4,44 +4,8 @@ namespace Extensions\shopee\Services;
 
 use Illuminate\Support\Facades\DB;
 
-/**
- * Single source of truth for "given a Shopee product link, what quantity and
- * price should I push to Shopee right now?".
- *
- * Both the UI flow (ShopeeProductGroupController::pushStockForLinks /
- * pushPriceForLinks) and the cron flow (ShopeePushStock command) used to
- * compute this independently by reading product_option_value. Multi-option
- * products store SKUs and quantities in product_option_combinations rather
- * than product_option_value, so they silently fell through both paths —
- * exactly the drift that caused production overselling on Lazada before
- * we extracted LazadaStockPushService. Mirroring that pattern here so the
- * Shopee cron and UI consume one resolver.
- *
- * For each link, this resolver:
- *   1. Tries to match link->sku against product_option_combinations.sku
- *      first (multi-option products).
- *   2. Falls back to product_option_value (single-option products).
- *   3. Falls back to the base product (no ERP variants).
- *
- * Returns an associative row per link: model_id, seller_sku, quantity, price.
- * The caller groups by shopee_item_id and assembles the Shopee API payload.
- */
 class ShopeeStockPushService
 {
-    /**
-     * @param iterable $links collection / array of ShopeeProductLink objects
-     *                        (must expose product_id, sku, shopee_item_id, shopee_model_id)
-     * @param string $pfx     catalog table prefix
-     * @return array<int, array{
-     *     link: object,
-     *     item_id: int,
-     *     model_id: int,
-     *     seller_sku: string,
-     *     quantity: int,
-     *     price: float,
-     *     matched: bool
-     * }>
-     */
     public function resolve(iterable $links, string $pfx): array
     {
         $productIds = [];
@@ -56,13 +20,11 @@ class ShopeeStockPushService
             return [];
         }
 
-        // 1) Product base rows.
         $products = DB::table($pfx . 'product')
             ->whereIn('product_id', $productIds)
             ->get(['product_id', 'price', 'quantity', 'status'])
             ->keyBy('product_id');
 
-        // 2) Combinations (multi-option products) — keyed by (product_id, sku).
         $comboBySku = DB::table('product_option_combinations')
             ->whereIn('product_id', $productIds)
             ->whereNotNull('sku')
@@ -73,7 +35,6 @@ class ShopeeStockPushService
                 return $rows->keyBy(fn ($r) => trim((string) $r->sku));
             });
 
-        // 3) POV (single-option products) — keyed by (product_id, sku).
         $povBySku = DB::table($pfx . 'product_option_value')
             ->whereIn('product_id', $productIds)
             ->whereNotNull('sku')

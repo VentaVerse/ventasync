@@ -16,22 +16,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * Variations ride the push (the owner's first QAS push, 2026-08-24: the
- * GP-200 went up flat, its Red and Black never left). After add_item,
- * init_tier_variation gives the item its tiers - one model per
- * combination with the combination's OWN sku, stock and price through
- * the push's rule - and Shopee's answered model ids become the
- * model-level links and cache rows the syncs already expect.
- */
 class ShopeeVariationPushTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @var array<int, array{path: string, body: array}> */
     private array $sentPayloads = [];
 
-    /** When set, the fake answers init_tier_variation with this instead. */
     public ?array $initRefusal = null;
 
     protected function setUp(): void
@@ -44,7 +34,6 @@ class ShopeeVariationPushTest extends TestCase
         $this->app->register(\Extensions\shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalogue');
-        // The category's sheet is cached: a push judges it, and refuses without it (2026-09-06).
         \Extensions\shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 106755], ['attributes' => ['attribute_list' => []], 'fetched_at' => now()]);
 
         ShopeeSetting::query()->create([
@@ -63,7 +52,6 @@ class ShopeeVariationPushTest extends TestCase
                     if ($this->test->initRefusal !== null) {
                         return $this->test->initRefusal;
                     }
-                    // Shopee answers with the model ids it assigned.
                     $models = array_map(fn ($m, $i) => [
                         'model_id' => 700001 + $i,
                         'model_sku' => $m['model_sku'],
@@ -122,7 +110,6 @@ class ShopeeVariationPushTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    /** A product with two colour combinations, Red carrying its own image. */
     private function seedVariationProduct(): int
     {
         $pfx = (string) config('catalog.prefix');
@@ -210,8 +197,6 @@ class ShopeeVariationPushTest extends TestCase
         $this->assertSame(14, (int) $models[0]['seller_stock'][0]['stock']);
         $this->assertSame([1], $models[1]['tier_index']);
 
-        // Shopee's answered model ids became model-level links; the
-        // parent-level link went, as the syncs expect for tiered items.
         $links = ShopeeProductLink::query()->where('product_id', $productId)->get();
         $this->assertCount(2, $links);
         $this->assertTrue($links->every(fn ($l) => $l->shopee_model_id !== null));
@@ -219,7 +204,6 @@ class ShopeeVariationPushTest extends TestCase
         $this->assertSame(2, ShopeeItemCache::query()->where('shopee_item_id', 990077)->count());
     }
 
-    /** A new item takes the catalog's names through init_tier_variation, and no rename runs. */
     public function test_a_new_item_is_created_as_before_with_no_rename(): void
     {
         $productId = $this->seedVariationProduct();
@@ -267,15 +251,9 @@ class ShopeeVariationPushTest extends TestCase
 
         $this->assertNotNull(collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/add_item'));
         $this->assertNull(collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/init_tier_variation'));
-        // The parent-level link stays for a plain item.
         $this->assertSame(1, ShopeeProductLink::query()->where('product_id', $productId)->whereNull('shopee_model_id')->count());
     }
 
-    /**
-     * #192, the #2062 incident's first half: a refusal the ERP can compute
-     * from its own prices stops the push BEFORE the item exists. No
-     * half-listed parent, no API call to regret.
-     */
     public function test_a_knowable_price_ratio_stops_the_push_at_the_door(): void
     {
         $productId = $this->seedVariationProduct();
@@ -297,12 +275,6 @@ class ShopeeVariationPushTest extends TestCase
             'the refusal is known in advance, so the item is never created');
     }
 
-    /**
-     * #192, the second half: when Shopee refuses the variations AFTER the
-     * item was created, the item is taken down again - half-listed is
-     * worse than unlisted, and "listed, but its variations could not be
-     * created" was a success wearing an error.
-     */
     public function test_a_refused_variation_push_takes_the_half_created_item_down(): void
     {
         $productId = $this->seedVariationProduct();

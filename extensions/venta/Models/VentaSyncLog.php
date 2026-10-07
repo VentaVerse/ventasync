@@ -38,12 +38,6 @@ class VentaSyncLog extends Model
         return $this->belongsTo(VentaSetting::class, 'venta_setting_id');
     }
 
-    /**
-     * This store's own level, set on its Sync log tab. Null (the column's
-     * default) means it follows Settings, Website. Read straight from the
-     * table: this runs inside a model event on every sync run, and a
-     * relationship load per run is a query nobody asked for.
-     */
     public function syncLogLevel(): ?string
     {
         $id = (int) ($this->venta_setting_id ?? 0);

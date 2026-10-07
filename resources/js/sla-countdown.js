@@ -1,12 +1,3 @@
-/*
- * SLA countdown updater
- *
- * Walks all elements with [data-sla-deadline] (Unix seconds) and refreshes
- * their displayed remaining time + colour class on a 30s tick.
- *
- * Tier thresholds: <0 → overdue, <4h → crit, <24h → warn, else ok.
- */
-
 const TIER = {
     OVERDUE: 'sla-chip--overdue',
     CRIT: 'sla-chip--crit',
@@ -23,9 +14,6 @@ function tierFor(diffSec) {
 }
 
 function formatRemaining(diffSec) {
-    // Past the deadline the chip keeps counting, in the same units, so a row
-    // an hour late and a row three weeks late are tellable apart. Mirrors the
-    // Blade component's first paint; if one changes the other has to.
     if (diffSec < 0) {
         const late = -diffSec;
         const ld = Math.floor(late / 86400);
@@ -64,9 +52,6 @@ function refreshAll() {
             timeNode.textContent = formatRemaining(diff);
         }
 
-        // The word carries the state, not just the colour. A chip that
-        // crosses zero with the page open has to stop saying "Ship by", or
-        // the ticker prints the very sentence the component was fixed for.
         const labelNode = el.querySelector('.sla-chip__label');
         if (labelNode) {
             labelNode.textContent = diff < 0

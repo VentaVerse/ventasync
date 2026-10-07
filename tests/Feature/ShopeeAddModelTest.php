@@ -14,15 +14,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * Phase F of the channels rebuild (#184): adding a variation to a LIVE
- * Shopee listing is one push. The owner's daily loop - add the variation in
- * the ERP, unlink, re-match, hope - is retired: the tier structure is
- * extended by appending options (nothing live moves), add_model creates
- * the new combinations, and the links learn them at once. Anything that
- * cannot be done safely blind is refused in plain words before any
- * write.
- */
 class ShopeeAddModelTest extends TestCase
 {
     use RefreshDatabase;
@@ -31,7 +22,6 @@ class ShopeeAddModelTest extends TestCase
 
     public array $getResponses = [];
 
-    /** @var array<int, array{path: string, body: array}> */
     public array $sentPosts = [];
 
     protected function setUp(): void
@@ -83,7 +73,6 @@ class ShopeeAddModelTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    /** A product with one option axis (Pack size) and the given combinations. */
     private function packProduct(array $packs): int
     {
         $pfx = (string) config('catalog.prefix');
@@ -145,7 +134,6 @@ class ShopeeAddModelTest extends TestCase
         ShopeeListing::create(['product_id' => $productId, 'shopee_category_id' => 100139, 'markup_percent' => 0, 'markup_fixed' => 0]);
     }
 
-    /** The Shopee side: one tier (Pack size) holding only "5 pcs" / PK-5 at first. */
     private function fakeShopeeHolds(): void
     {
         $calls = 0;
@@ -158,7 +146,6 @@ class ShopeeAddModelTest extends TestCase
                 ]]];
             }
 
-            // After add_model: the repair reads the new shape.
             return ['ok' => true, 'status' => 200, 'body' => ['response' => [
                 'tier_variation' => [['name' => 'Pack size', 'option_list' => [['option' => '5 pcs'], ['option' => '10 pcs']]]],
                 'model' => [
@@ -169,7 +156,6 @@ class ShopeeAddModelTest extends TestCase
         };
     }
 
-    /** The loop, retired: a new pack size joins the live listing in one push. */
     public function test_a_new_variation_joins_the_live_listing_in_one_push(): void
     {
         $pid = $this->packProduct([['5 pcs', 'PK-5', 10, 500], ['10 pcs', 'PK-10', 8, 950]]);
@@ -184,26 +170,21 @@ class ShopeeAddModelTest extends TestCase
         $this->assertStringContainsString('1 variation added to Shopee', $flash);
         $this->assertStringContainsString('1 new tier option', $flash);
 
-        // The tier was EXTENDED, never rearranged: 5 pcs keeps position 0.
         $tier = collect($this->sentPosts)->firstWhere('path', '/api/v2/product/update_tier_variation');
         $this->assertNotNull($tier);
         $this->assertSame(['5 pcs', '10 pcs'], array_column($tier['body']['tier_variation'][0]['option_list'], 'option'));
 
-        // add_model carries the new combination at the appended index,
-        // priced by the listing's own rule.
         $add = collect($this->sentPosts)->firstWhere('path', '/api/v2/product/add_model');
         $this->assertNotNull($add);
         $this->assertSame('PK-10', $add['body']['model_list'][0]['model_sku']);
         $this->assertSame([1], $add['body']['model_list'][0]['tier_index']);
         $this->assertSame(950.0, (float) $add['body']['model_list'][0]['original_price']);
 
-        // The links learned the new model at once.
         $models = ShopeeProductLink::query()->where('product_id', $pid)
             ->pluck('shopee_model_id')->map(fn ($v) => (int) $v)->sort()->values()->all();
         $this->assertSame([81, 82], $models);
     }
 
-    /** Nothing missing means nothing sent - and it says so. */
     public function test_nothing_missing_writes_nothing(): void
     {
         $pid = $this->packProduct([['5 pcs', 'PK-5', 10, 500]]);
@@ -219,7 +200,6 @@ class ShopeeAddModelTest extends TestCase
         $this->assertNull(collect($this->sentPosts)->firstWhere('path', '/api/v2/product/add_model'));
     }
 
-    /** A spread past Shopee's 5x rule - existing models included - is refused before any write. */
     public function test_a_price_spread_across_the_whole_item_is_refused_at_the_door(): void
     {
         $pid = $this->packProduct([['5 pcs', 'PK-5', 10, 500], ['100 pcs', 'PK-100', 3, 9000]]);
@@ -235,10 +215,6 @@ class ShopeeAddModelTest extends TestCase
         $this->assertNull(collect($this->sentPosts)->firstWhere('path', '/api/v2/product/add_model'));
     }
 
-    /**
-     * A product ready for an update, its options given as name => values
-     * and its combinations as SKU => one value per option, in option order.
-     */
     private function variationProduct(array $options, array $combos): int
     {
         $pfx = (string) config('catalog.prefix');
@@ -309,7 +285,6 @@ class ShopeeAddModelTest extends TestCase
         ShopeeListing::create(['product_id' => $productId, 'shopee_category_id' => 100139, 'logistic_ids' => [8003]]);
     }
 
-    /** What Shopee holds for item 800. */
     private function itemHolds(array $response): void
     {
         $this->getResponses['/api/v2/product/get_model_list'] = ['ok' => true, 'status' => 200, 'body' => ['error' => '', 'response' => $response]];
@@ -326,11 +301,6 @@ class ShopeeAddModelTest extends TestCase
         return null;
     }
 
-    /**
-     * A type the seller named takes the catalog option's name, its values
-     * the catalog's, paired by SKU rather than by position, and every model
-     * keeps the tier_index it already had.
-     */
     public function test_an_update_renames_a_custom_type_and_its_values_to_the_catalogs(): void
     {
         $pid = $this->variationProduct(['Pack size' => ['5 pcs', '10 pcs']], ['PK-5' => ['5 pcs'], 'PK-10' => ['10 pcs']]);
@@ -369,11 +339,6 @@ class ShopeeAddModelTest extends TestCase
         $this->assertNull(ShopeeListing::query()->where('product_id', $pid)->value('last_push_error'));
     }
 
-    /**
-     * A type the category defines keeps Shopee's name and values; the
-     * seller's type beside it takes the catalog's. Sent in the item's own
-     * standardise shape, through the group's update.
-     */
     public function test_a_category_defined_type_keeps_the_stores_name(): void
     {
         $pid = $this->variationProduct(
@@ -428,7 +393,6 @@ class ShopeeAddModelTest extends TestCase
         $this->assertNotNull($this->postIndex('/api/v2/product/update_item'));
     }
 
-    /** Names already the catalog's, and a type only the category names: no rename call. */
     public function test_no_rename_call_when_the_names_already_match(): void
     {
         $pid = $this->variationProduct(['Pack size' => ['5 pcs', '10 pcs']], ['PK-5' => ['5 pcs'], 'PK-10' => ['10 pcs']]);
@@ -468,10 +432,6 @@ class ShopeeAddModelTest extends TestCase
         $this->assertNotNull($this->postIndex('/api/v2/product/update_item'));
     }
 
-    /**
-     * A rename that cannot happen is skipped: no rename call, the update
-     * still goes, the result carries the warning and the success stands.
-     */
     public function test_a_rename_that_cannot_be_paired_is_skipped_and_the_update_goes(): void
     {
         $pid = $this->variationProduct(['Pack size' => ['5 pcs', '10 pcs']], ['PK-5' => ['5 pcs'], 'PK-10' => ['10 pcs']]);
@@ -496,7 +456,6 @@ class ShopeeAddModelTest extends TestCase
         $this->assertNotNull($this->postIndex('/api/v2/product/update_item'), 'A skipped rename never holds the update back.');
         $this->assertNull(ShopeeListing::query()->where('product_id', $pid)->value('last_push_error'), 'The update succeeded, so the success is recorded.');
 
-        // Shopee not answering for the models is skipped the same way.
         $this->sentPosts = [];
         $this->getResponses['/api/v2/product/get_model_list'] = ['ok' => false, 'status' => 500, 'body' => ['error' => 'error_server', 'message' => 'Something wrong.']];
 
@@ -509,7 +468,6 @@ class ShopeeAddModelTest extends TestCase
         $this->assertNotNull($this->postIndex('/api/v2/product/update_item'));
     }
 
-    /** Three pack sizes, all on the item as models 81, 82 and 83, linked by SKU. */
     private function threePacksOnTheItem(): int
     {
         $pid = $this->variationProduct(
@@ -533,13 +491,11 @@ class ShopeeAddModelTest extends TestCase
         return (int) ShopeeSetting::defaultStore()->id;
     }
 
-    /** @return list<array> the bodies sent to one path, in order */
     private function sentTo(string $path): array
     {
         return array_values(array_map(fn ($p) => $p['body'], array_filter($this->sentPosts, fn ($p) => $p['path'] === $path)));
     }
 
-    /** @return list<string> the SKUs remembered as held by the store's item */
     private function rememberedSkus(int $pid): array
     {
         $skus = (array) json_decode((string) DB::table(\App\Integrations\Listings\ListingVariations::STORE_SKUS)
@@ -549,11 +505,6 @@ class ShopeeAddModelTest extends TestCase
         return $skus;
     }
 
-    /**
-     * A variation switched off for the store stops selling: its model alone
-     * is deleted, the others are left exactly as they are, and the result
-     * names what went.
-     */
     public function test_a_switched_off_variation_has_its_model_deleted_and_nothing_else(): void
     {
         $pid = $this->threePacksOnTheItem();
@@ -587,10 +538,6 @@ class ShopeeAddModelTest extends TestCase
         $this->assertNull(ShopeeListing::query()->where('product_id', $pid)->value('last_push_error'));
     }
 
-    /**
-     * Switched back on, the variation returns through the add path: a new
-     * model on the option it had, no tier rebuilt, the links learn its id.
-     */
     public function test_switching_it_back_on_adds_it_through_the_add_path(): void
     {
         $pid = $this->threePacksOnTheItem();
@@ -627,7 +574,6 @@ class ShopeeAddModelTest extends TestCase
         $this->assertSame(['PK-10', 'PK-20', 'PK-5'], $this->rememberedSkus($pid));
     }
 
-    /** A delete Shopee refuses is the listing's error, with Shopee's reason, and the link stays. */
     public function test_a_refused_delete_is_the_listings_error(): void
     {
         $pid = $this->threePacksOnTheItem();
@@ -656,10 +602,6 @@ class ShopeeAddModelTest extends TestCase
         $this->assertSame([], $this->sentTo('/api/v2/product/add_model'));
     }
 
-    /**
-     * The item's last model is never deleted while nothing sold here can
-     * take its place; once one is added, it goes, after the add.
-     */
     public function test_the_last_remaining_model_is_never_deleted(): void
     {
         $pid = $this->variationProduct(['Pack size' => ['5 pcs', '10 pcs']], ['PK-5' => ['5 pcs'], 'PK-10' => ['10 pcs']]);
@@ -683,7 +625,6 @@ class ShopeeAddModelTest extends TestCase
         $this->assertStringContainsString('Not added to Shopee: 5 pcs (PK-5)', $error);
         $this->assertStringContainsString('Not removed from Shopee: 10 pcs (PK-10) (a Shopee item keeps at least one variation', $error);
 
-        // Shopee takes the add: the last model goes, after it.
         $this->sentPosts = [];
         unset($this->postResponses['/api/v2/product/add_model']);
 
@@ -699,7 +640,6 @@ class ShopeeAddModelTest extends TestCase
         $this->assertNull(ShopeeListing::query()->where('product_id', $pid)->value('last_push_error'));
     }
 
-    /** Every variation switched off is still refused by name, and nothing is deleted. */
     public function test_every_variation_off_is_refused_and_nothing_is_deleted(): void
     {
         $pid = $this->threePacksOnTheItem();
@@ -728,7 +668,6 @@ class ShopeeAddModelTest extends TestCase
         );
     }
 
-    /** The group's update follows the store's switches the same way. */
     public function test_the_group_update_deletes_a_switched_off_variation(): void
     {
         $pid = $this->threePacksOnTheItem();
@@ -755,10 +694,6 @@ class ShopeeAddModelTest extends TestCase
         $this->assertFalse(ShopeeProductLink::query()->where('shopee_model_id', 83)->exists());
     }
 
-    /**
-     * Shopee refusing the rename call itself leaves the item as it was
-     * (the call is whole or nothing), and the group's update still goes.
-     */
     public function test_a_refused_rename_call_warns_and_the_update_goes(): void
     {
         $pid = $this->variationProduct(['Pack size' => ['5 pcs', '10 pcs']], ['PK-5' => ['5 pcs'], 'PK-10' => ['10 pcs']]);
@@ -790,11 +725,6 @@ class ShopeeAddModelTest extends TestCase
         $this->assertLessThan($this->postIndex('/api/v2/product/update_item'), $this->postIndex('/api/v2/product/update_tier_variation'));
     }
 
-    /**
-     * Send is one verb. Ticking a product that is already on Shopee and
-     * pressing Send on the selection bar updates the item, the same update
-     * its row menu makes; it used to be refused as "already listed".
-     */
     public function test_the_selection_bars_send_updates_a_product_already_on_shopee(): void
     {
         $pid = $this->variationProduct(['Pack size' => ['5 pcs', '10 pcs']], ['PK-5' => ['5 pcs'], 'PK-10' => ['10 pcs']]);

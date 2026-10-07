@@ -10,14 +10,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Read-only order access for external API clients (scope: orders:read).
- *
- * Exposes order headers (status, channel, totals) and line items (with cost
- * + price) so an external tool can assess fulfilment and per-line
- * profitability. Unprefixed OpenCart tables (catalog.prefix is empty here);
- * table names still resolved via config for portability.
- */
 class OrderController extends Controller
 {
     public function index(Request $request): JsonResponse
@@ -30,7 +22,6 @@ class OrderController extends Controller
         return $this->run(fn () => app(\App\Actions\Sales\OrderReads::class)->show(Input::from($request), $id));
     }
 
-    /** A shared rule's answer as JSON, or its refusal with its status. */
     private function run(\Closure $rule, int $status = 200): JsonResponse
     {
         try {

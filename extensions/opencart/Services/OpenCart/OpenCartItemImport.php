@@ -9,17 +9,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-/**
- * Import an OpenCart product into the catalog (cleanup point 11, the owner
- * 2026-09-04). The api/erp module ships with this repo, so the shapes
- * are certain: OpenCart-native product rows plus option_values with
- * RELATIVE prices (+/- over the base). One option becomes a real axis
- * with absolute prices computed from base and prefix; a multi-option
- * product imports flat and says so - OpenCart options are independent
- * (no combination rows), and inventing a cartesian would falsify stock.
- * Image paths are store-relative; they resolve against the store's own
- * base URL through the shared SSRF guard.
- */
 class OpenCartItemImport
 {
     public function import(OpenCartSetting $setting, int $ocProductId): array
@@ -53,7 +42,7 @@ class OpenCartItemImport
                     'sku' => $sku,
                     'quantity' => (int) ($item['quantity'] ?? 0),
                     'price' => (float) ($item['price'] ?? 0),
-                    'status' => 1, // already selling there (#197's rule)
+                    'status' => 1,
                     'image' => '',
                     'weight' => (float) ($item['weight'] ?? 0),
                     'length' => (float) ($item['length'] ?? 0),
@@ -72,7 +61,6 @@ class OpenCartItemImport
                     'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
                 ]);
 
-                // Store-relative paths become absolute against the store.
                 $base = rtrim((string) $setting->base_url, '/');
                 $urls = [];
                 if (trim((string) ($item['image'] ?? '')) !== '') {
@@ -109,11 +97,6 @@ class OpenCartItemImport
             return ['ok' => false, 'message' => 'Not imported: ' . implode(' ', collect($e->errors())->flatten()->take(3)->all())];
         }
 
-        /* A product this application holds always has a code
-         * (the owner, 2026-09-09). The store is free to have none;
-         * the SKU is what every push sends and every link check
-         * searches by, so a blank one is minted from the
-         * product's own id and said out loud below. */
         $minted = \App\Support\Catalog\SkuFallback::fill((int) $productId);
 
         return [
@@ -126,7 +109,6 @@ class OpenCartItemImport
         ];
     }
 
-    /** One OpenCart option: a real axis, absolute prices from base ± the relative price. */
     private function writeVariations(int $productId, string $parentSku, float $basePrice, array $optionValues): void
     {
         $values = [];
@@ -152,14 +134,13 @@ class OpenCartItemImport
             ]));
     }
 
-    /** @return list<string> public-disk relative paths, in the order given */
     private function downloadImages(array $urls, string $key): array
     {
         $paths = [];
         foreach (array_values($urls) as $i => $url) {
             $img = \App\Support\RemoteImage::fetch((string) $url);
             if ($img === null) {
-                continue; // a photo is never a reason to fail an import
+                continue;
             }
             $rel = 'catalog/import/opencart/' . $key . '/' . $i . '.' . $img['ext'];
             Storage::disk('public')->put($rel, $img['body']);

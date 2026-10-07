@@ -8,10 +8,6 @@ use Illuminate\Support\Facades\DB;
 use Tests\Support\MakesCoreOrders;
 use Tests\TestCase;
 
-/**
- * orders:rewrite-sale-lines rewrites only an order's Sale lines, from what
- * the channel already stores, and leaves everything else as it was.
- */
 class SaleLinesRewriteTest extends TestCase
 {
     use RefreshDatabase;

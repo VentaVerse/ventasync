@@ -1,13 +1,3 @@
-{{--
-    Session flash for the review pages.
-
-    layouts.shell renders no flash region of its own, and the legacy
-    `#js-flash-container` these pages used to rely on only exists in the
-    old layout, so every message the review controller sets would be
-    silently dropped once the pages moved. Three keys reach these pages:
-    `review_result` (fetch, push all, delete all - an ok flag plus a
-    sentence), `status` (push, skip) and `error` (every refusal).
---}}
 @php
     $result = session('review_result');
     $ok = session('status');

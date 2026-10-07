@@ -9,7 +9,6 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // 1. Create pivot table
         Schema::create('lazada_product_profile', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('lazada_product_id');
@@ -27,7 +26,6 @@ return new class extends Migration
                 ->cascadeOnDelete();
         });
 
-        // 2. Migrate existing data from lazada_products.lazada_profile_id
         DB::statement('
             INSERT INTO lazada_product_profile (lazada_product_id, lazada_profile_id)
             SELECT id, lazada_profile_id
@@ -35,9 +33,7 @@ return new class extends Migration
             WHERE lazada_profile_id IS NOT NULL
         ');
 
-        // 3. Drop old FK column
         Schema::table('lazada_products', function (Blueprint $table) {
-            // Drop FK constraint if it exists
             $fks = collect(DB::select("
                 SELECT CONSTRAINT_NAME
                 FROM information_schema.KEY_COLUMN_USAGE
@@ -57,7 +53,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        // Re-add the column
         Schema::table('lazada_products', function (Blueprint $table) {
             $table->unsignedBigInteger('lazada_profile_id')->nullable()->after('product_id');
             $table->foreign('lazada_profile_id')
@@ -65,7 +60,6 @@ return new class extends Migration
                 ->nullOnDelete();
         });
 
-        // Restore data from pivot (take any one profile per product)
         $rows = DB::table('lazada_product_profile')
             ->select('lazada_product_id', DB::raw('MIN(lazada_profile_id) as lazada_profile_id'))
             ->groupBy('lazada_product_id')

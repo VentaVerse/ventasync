@@ -53,8 +53,6 @@ class MarketplaceReview extends Model
         'woocommerce_pushed_at' => 'datetime',
     ];
 
-    // -- Scopes -----------------------------------------------
-
     public function scopeShopee($query)
     {
         return $query->where('platform', 'shopee');
@@ -74,8 +72,6 @@ class MarketplaceReview extends Model
     {
         return $query->where('oc_sync_status', 'pushed');
     }
-
-    // -- Relationships ----------------------------------------
 
     public function product()
     {

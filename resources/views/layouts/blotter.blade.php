@@ -12,49 +12,17 @@
     @vite(['resources/css/blotter.css', 'resources/js/app.js'])
     @stack('styles')
 </head>
-{{-- bl-app marks a page as converted to the v2.2 shell, the same way x-app
-     marked the shell before it. The suite asserts on it. body-class and
-     body-attrs are how layouts/channel rides this shell: the channel class
-     and the channel's accent variables land here, so one document serves
-     both and the channel pages stop teleporting into a second shell
-     (the owner, 2026-09-03). --}}
 <body class="bl-app min-h-screen @yield('body-class')" @hasSection('body-attrs')@yield('body-attrs')@endif>
-{{-- The navigation progress line (components/nav-progress.css, js/nav-progress.js). --}}
 <div class="x-progress" id="x-progress" aria-hidden="true"></div>
-{{-- The bypass block (WCAG 2.4.1). A keyboard user passed 15 to 17 stops
-     through the shell before reaching the first control inside the content
-     on every page of this application, on every page load. Visible only on
-     focus, so it costs the mouse nothing. --}}
 <a class="x-skip" href="#main">Skip to content</a>
-<!--
-    IMPECCABLE DIRECTION CONTRACT (v2.3)
-    THESIS: Money and work-in-hand are stated loudly in colour, everything else is a quiet white sheet. Refuses the terminal arrangement v2.2 shipped, where restraint was total and the product read as unfinished from across the room.
-    OWN-WORLD: Tinted cool ground; white sheets raised on soft shadow at 16px corners; five saturated identity fills (cyan, violet, amber, green, rose) carrying headline figures in white; navy sidebar; Archivo with tabular figures, JetBrains Mono for identifiers; drawn icons at one stroke weight. State colour (amber/green/red) is separate from identity colour and never appears on a fill.
-    STORY: The operator reads today's money and today's queue in one glance, sees which channels are stale, and acts on a row without leaving the page.
-    FIRST VIEWPORT: Five filled metric blocks across the top; a row of channel chips under them; then latest orders beside inventory and purchasing. Zero-value blocks drop to white so absence never shouts.
-    FORM: Colour-forward admin, pinned by the owner from CoreUI Pro, Purple React and Devias. User-pinned direction, so no concept roll; session seed a9ccf491.
-    FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
--->
 <div x-data="{ nav: false }" class="lg:grid lg:grid-cols-[248px_minmax(0,1fr)] min-h-screen">
 
-    {{-- Sidebar. Off-canvas below lg; above it, it stays in sight while the
-         page scrolls, one window tall, its links scrolling inside it. --}}
     <aside @keydown.escape.window="nav = false"
            :class="nav && '!flex'"
            class="fixed inset-y-0 left-0 z-40 hidden w-[248px] flex-col border-r border-side-rule bg-side
                   lg:sticky lg:top-0 lg:z-auto lg:flex lg:h-screen lg:self-start">
         <div class="flex items-center gap-2.5 border-b border-side-rule px-4 py-3">
-            {{-- The store's own logo, the one uploaded under Settings,
-                 Website, and nothing else: no company name beside it (the
-                 logo IS the name). The name stays in the markup as the alt,
-                 so a screen reader and a broken image both still say whose
-                 sidebar this is. With no upload the shipped mark stands in,
-                 the same one the sign-in screen shows. --}}
             @php $blCompany = $appSetting->company_name ?? config('app.name', 'VentaSync'); @endphp
-            {{-- The sidebar's own copy, fitted to the box Settings gives it, so
-                 a large upload is not downloaded whole and scaled down here. It
-                 draws at the size that copy is: a height fixed here would
-                 decide it instead and make the box do nothing. --}}
             @php $blLogo = \App\Services\Media\BrandImage::show($appSetting->logo_path ?? null, \App\Services\Media\BrandImage::NAV); @endphp
             <img class="bl-brand__logo" src="{{ $blLogo['url'] }}"
                  width="{{ $blLogo['width'] }}" height="{{ $blLogo['height'] }}"
@@ -69,11 +37,8 @@
             @include('partials.nav-blotter', ['navGroups' => \App\Support\Navigation::groups()])
         </div>
 
-        {{-- No footer: it held the company name and the version, and both
-             have left the nav (the owner, 2026-08-31). --}}
     </aside>
 
-    {{-- Scrim, mobile only. --}}
     <div x-show="nav" x-cloak @click="nav = false"
          class="fixed inset-0 z-30 bg-ink/40 lg:hidden" aria-hidden="true"></div>
 
@@ -85,28 +50,12 @@
                 <x-ui.icon name="menu" size="16" />
             </button>
 
-            {{-- The trail, derived from the URL (App\Support\Breadcrumbs), the
-                 same partial the channel workspace carries. The settings pages
-                 had no way back to Settings but the sidebar (live fix
-                 2026-08-26). --}}
-            {{-- x-topbar__crumb is the name the workspace tests slice the
-                 trail out by; it rode the old channel topbar and moved here
-                 with the channel pages (2026-09-03). --}}
             <div class="hidden min-w-0 sm:block">
-                {{-- The inner div carries the exact class the workspace
-                     tests slice the trail out by (it rode the old channel
-                     topbar and moved here with the channel pages,
-                     2026-09-03); the outer one keeps the shell's own
-                     responsive rule. --}}
                 <div class="x-topbar__crumb">
                     @include('partials.breadcrumb')
                 </div>
             </div>
 
-            {{-- Opens the command palette, which owns search for the whole
-                 application. Cmd+K and Ctrl+K reach the same component; a
-                 keyboard shortcut nobody can see is not discoverable, so the
-                 control states it. --}}
             <button type="button" class="x-search-trigger"
                     x-data="{ mac: /Mac|iPod|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '') }"
                     @click="$dispatch('ventasync-open-palette')"
@@ -116,12 +65,6 @@
                 <kbd class="x-search-trigger__hint" x-text="mac ? '&#8984;K' : 'Ctrl K'"></kbd>
             </button>
 
-            {{-- shrink-0 on the cluster and min-w-0 on the search beside it.
-                 Without them the search field refused to give up width at
-                 390px and pushed the theme switch and the account menu 67px
-                 past the right edge of the window - the same overflow the
-                 channel topbar had, in the layout that was not touched when
-                 that one was fixed. --}}
             <div class="ml-auto flex shrink-0 items-center gap-4">
                 @isset($headerStatus)
                     <div class="hidden sm:block">{{ $headerStatus }}</div>
@@ -180,29 +123,15 @@
             </div>
         </header>
 
-        {{-- A full-width band between the topbar and the content - shell
-             chrome, not page content, so it spans the column edge to edge
-             and never inherits the content region's ceiling or gutters.
-             layouts/channel puts the channel menubar here (2026-09-03). --}}
         @yield('shell-band')
 
-        {{-- x-content names the content region, as it did on the shell before
-             this one. It is not a style hook here: the suite slices the page
-             on it to prove a panel rendered inside the content area rather
-             than anywhere else on the document. --}}
         <main id="main" tabindex="-1" class="x-content min-w-0 flex-1 @yield('content-class', '')">
-            {{-- The channel menubar (or nothing). A section, not an include,
-                 so only layouts/channel pays for it and this layout never
-                 learns what a channel is. --}}
             @yield('main-prelude')
             {{ $slot ?? '' }}
             @yield('content')
         </main>
     </div>
 </div>
-{{-- The project bans native confirm()/alert(); every destructive control uses
-     the data-confirm attribute this partial listens for, so it must ship on
-     any layout that renders one. --}}
 @include('partials.confirm-modal')
 <x-ui.palette />
 @stack('scripts')

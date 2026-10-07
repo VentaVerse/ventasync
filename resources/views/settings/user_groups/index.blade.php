@@ -4,9 +4,6 @@
 
 @section('content')
 @php
-    // routes/settings.php gates the list on view_user_groups|manage_user_groups
-    // and every write on manage_user_groups. The pre-redesign view hardcoded
-    // this to true and offered Edit and Delete to the read tier.
     $canManageUserGroups = auth()->user()?->hasPermission('manage_settings/user_group') ?? false;
 
     $hasFilters = ($q ?? '') !== '';
@@ -65,17 +62,10 @@
                     <div class="st-note">Always keeps settings, users and user groups. Cannot be deleted.</div>
                 @endif
             </td>
-            {{-- Two actions and a wide empty column: a menu here hides the
-                 controls and wastes the space at the same time. Shown inline,
-                 with the column sized to its content so the name still gets
-                 every pixel it can use. --}}
             <td class="bl-col-actions">
                 @if($canManageUserGroups)
                     <div class="bl-rowactions">
                         <a class="x-btn x-btn--sm" href="{{ route('user_groups.edit', $g->id) }}">Edit permissions</a>
-                        {{-- A new role is almost always "like that one, minus
-                             a few rows". POST via its own form; a GET that
-                             creates a group would be a link crawlers click. --}}
                         <button type="button" class="x-btn x-btn--sm"
                                 data-confirm="Create a copy of {{ $g->name }} with the same permissions? You land on the copy to adjust it."
                                 data-confirm-tone="primary"

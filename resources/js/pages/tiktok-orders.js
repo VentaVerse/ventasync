@@ -1,48 +1,3 @@
-/**
- * TikTok Shop Orders page
- * (extensions/tiktok/views/orders/_panel.blade.php, rendered by both the
- * TikTok seller center and the Fulfilment hub).
- *
- * This used to be an inline <script> block at the bottom of the Orders Blade
- * file. It moves here as part of that page's exit from the .x-legacy
- * boundary: a new-UX page owns no inline script, the same way it owns no
- * inline style. Bundled into the shared app.js (every layout loads it) and
- * guarded on #tiktok-orders-page, so it is inert everywhere else. That is
- * the same convention shopee-orders.js and lazada-orders.js already use.
- *
- * Behaviour is the same flow as the inline version: same endpoint, same
- * modal, same tracking payload shapes. Four things changed while moving, all
- * of them defects rather than design:
- *
- *   1. The inline version was not guarded at all. It ran on every page in
- *      the app and called addEventListener on
- *      document.getElementById('btnCloseTtTracking') unconditionally, which
- *      threw on every page that does not have that button, killing whatever
- *      else the same DOMContentLoaded pass would have done. Half of it (the
- *      image preview) also sat outside the DOMContentLoaded callback and
- *      appended a preview node to document.body on literally every page
- *      load.
- *
- *   2. innerHTML. Two of the tracking modal's own labels were written as
- *      markup strings. None of that data was user-controlled, but a module
- *      that never writes markup as a string has no escaping to get wrong
- *      later, when a field that IS user-controlled joins the same builder.
- *      Every node here is createElement/textContent.
- *
- *   3. The Blade file interpolated session('...')['awb_url'] straight into a
- *      window.open() call. That value now rides on the page root as a data
- *      attribute, escaped by Blade, and is resolved against this page's own
- *      origin before it is opened: a value that reaches window.open() should
- *      not be trusted on provenance alone.
- *
- *   4. Failure paths. The tracking fetch left the modal reading "Loading" if
- *      the request threw before its own catch could run, and the fetch form
- *      had no client-side date check at all, so a submit the server was
- *      always going to reject still put the operator through a round trip.
- *      Every branch below ends with the overlay hidden or the body showing a
- *      real message, and nothing is disabled without a path that re-enables
- *      it.
- */
 document.addEventListener('DOMContentLoaded', function () {
     var page = document.getElementById('tiktok-orders-page');
     var detailPage = document.getElementById('tiktok-order-detail-page');
@@ -55,25 +10,10 @@ document.addEventListener('DOMContentLoaded', function () {
         initShipModal();
     }
 
-    // The order detail page (extensions/tiktok/views/orders/show.blade.php)
-    // is a second document with a second root id, not a section of the list.
-    // It carries the same tracking modal - one copy of that markup lives in
-    // orders/_modals.blade.php and both pages include it - and its Tracking
-    // button is the same .btnTtTracking contract, so the flow is the module's
-    // existing one rather than a second implementation.
-    //
-    // It has no fetch/update command bar and no session waybill to open, so
-    // neither initialiser is called here. The thumbnail preview opts itself
-    // out of detail pages now - see order-thumb-preview.js, which states the
-    // reason once instead of three modules each declining separately.
     if (detailPage) {
         initTrackingModal();
         initBrokenImages(detailPage);
     }
-
-    /* ------------------------------------------------------------------
-       Shared helpers.
-       ------------------------------------------------------------------ */
 
     function showModal(el) { if (el) el.classList.add('active'); }
     function hideModal(el) { if (el) el.classList.remove('active'); }
@@ -89,7 +29,6 @@ document.addEventListener('DOMContentLoaded', function () {
         return el;
     }
 
-    // Closes a modal on its backdrop, its close buttons, and Escape.
     function bindModalDismiss(modal, buttons) {
         if (!modal) return;
         (buttons || []).forEach(function (btn) {
@@ -103,17 +42,10 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    /* ------------------------------------------------------------------
-       A waybill produced by the ship request that just finished is handed
-       back through the session and opened once, here.
-       ------------------------------------------------------------------ */
     function openPendingAwb(root) {
         var raw = root.getAttribute('data-awb-url') || '';
         if (!raw) return;
 
-        // Resolve against this page's own origin and refuse anything that
-        // lands elsewhere. A relative path stays a relative path; an
-        // absolute URL to another host is dropped rather than opened.
         var resolved;
         try {
             resolved = new URL(raw, window.location.origin);
@@ -125,9 +57,6 @@ document.addEventListener('DOMContentLoaded', function () {
         window.open(resolved.href, '_blank', 'noopener');
     }
 
-    /* ------------------------------------------------------------------
-       Loading overlay on Fetch / Update.
-       ------------------------------------------------------------------ */
     function initFetchUpdateOverlay() {
         var overlay = document.getElementById('ttLoadingOverlay');
         var title = document.getElementById('ttLoadingTitle');
@@ -142,18 +71,10 @@ document.addEventListener('DOMContentLoaded', function () {
         if (updateBtn) updateBtn.addEventListener('click', function () { clickedBtn = 'update'; });
 
         fetchForm.addEventListener('submit', function (e) {
-            // A submit that will not happen must not raise the overlay: the
-            // confirmation dialog preventDefaults this same event from a
-            // capture-phase listener, and Cancel never takes an overlay down.
-            // See the note above the submit handler in confirm-modal.js.
             if (e.defaultPrevented) return;
 
             var isUpdate = clickedBtn === 'update';
 
-            // Update statuses refreshes a fixed 30-day window server-side and
-            // never reads the dates, so it is not held to them. Fetch is, and
-            // is validated before anything is shown: a rejected submit must
-            // not leave an overlay covering the page it refused to leave.
             if (!isUpdate) {
                 var dateFrom = fetchForm.querySelector('input[name="date_from"]');
                 var dateTo = fetchForm.querySelector('input[name="date_to"]');
@@ -175,20 +96,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    /* ------------------------------------------------------------------
-       Tracking modal. The endpoint answers with TikTok's own payload
-       wrapped in an { ok, body, tracking_number, shipping_carrier } shell,
-       and the event list sits under one of three keys depending on which of
-       its endpoints served the request.
-       ------------------------------------------------------------------ */
-    /* ------------------------------------------------------------------
-       Ship. The row's Ship order button opens #ttShipModal instead of
-       submitting: the dialog shows the parcel (cloned from the row's own
-       <template data-parcel-for>, one copy of the markup in
-       components/fulfilment/parcel, no fetch and no HTML strings) and
-       states what TikTok is told; its Ship order submits the row's form,
-       whose data-busy raises the overlay exactly as the bare confirm did.
-       ------------------------------------------------------------------ */
     function fillParcel(container, key, hiddenClass) {
         if (!container) return;
         while (container.firstChild) container.removeChild(container.firstChild);
@@ -215,7 +122,6 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('btnCloseTtShip2')
         ]);
 
-        // Delegated, so it keeps working for rows added by anything later.
         document.addEventListener('click', function (e) {
             var btn = e.target.closest ? e.target.closest('.btnTtShip') : null;
             if (!btn) return;
@@ -250,9 +156,7 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('btnCloseTtTracking2')
         ]);
 
-        // TikTok sends Unix timestamps, in seconds on some fields and
-        // milliseconds on others. Both are recognised; anything already
-        // formatted as text is passed through untouched.
+        // TikTok sends Unix timestamps in seconds on some fields and milliseconds on others.
         function formatEventTime(t) {
             if (!t) return '';
             if (typeof t === 'number' && t > 1000000000000) {
@@ -290,9 +194,6 @@ document.addEventListener('DOMContentLoaded', function () {
             var trackNum = res.tracking_number || data.tracking_number || '';
             var carrier = res.shipping_carrier || data.shipping_provider || '';
 
-            // Carrier and tracking number are the header of the answer, not
-            // events in it, so they sit in the modal's meta line rather than
-            // as two more rows above the timeline.
             if (sub) {
                 var parts = [];
                 if (carrier) parts.push(carrier);
@@ -337,16 +238,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 .then(function (r) { return r.json(); })
                 .then(renderTracking)
                 .catch(function () {
-                    // Covers both a network failure and a response that is
-                    // not JSON at all, either of which used to leave the
-                    // modal reading "Loading" forever.
                     clear(body);
                     if (sub) sub.textContent = '';
                     body.appendChild(textNode('div', 'text-danger', 'Could not load tracking for this order.'));
                 });
         }
 
-        // Delegated, so it keeps working for rows added by anything later.
         document.addEventListener('click', function (e) {
             var btn = e.target.closest ? e.target.closest('.btnTtTracking') : null;
             if (!btn) return;
@@ -358,13 +255,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    /* ------------------------------------------------------------------
-       Broken item thumbnails. The previous version of the detail page hid
-       these with an inline onerror="" attribute, which this project does
-       not allow. A capture-phase listener on the page root does the same
-       job (the error event does not bubble, so capture is what reaches it)
-       with no attribute and no inline script.
-       ------------------------------------------------------------------ */
     function initBrokenImages(root) {
         root.addEventListener('error', function (e) {
             var img = e.target;
@@ -372,8 +262,4 @@ document.addEventListener('DOMContentLoaded', function () {
             img.hidden = true;
         }, true);
     }
-
-    /* ------------------------------------------------------------------
-       Thumbnail hover preview (order-img-wrap / img.order-img).
-       ------------------------------------------------------------------ */
 });

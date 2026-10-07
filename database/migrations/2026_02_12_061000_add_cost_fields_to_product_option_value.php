@@ -13,7 +13,6 @@ return new class extends Migration
         }
 
         Schema::table('product_option_value', function (Blueprint $table) {
-            // Add only if missing (idempotent)
             if (!Schema::hasColumn('product_option_value', 'sku')) {
                 $table->string('sku', 64)->default('')->after('option_value_id');
             }
@@ -34,6 +33,5 @@ return new class extends Migration
 
     public function down(): void
     {
-        // No-op (safe). We do not drop columns automatically in production.
     }
 };

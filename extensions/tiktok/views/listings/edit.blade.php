@@ -2,14 +2,6 @@
 @section('title', 'TikTok Listing')
 @section('breadcrumb', ($product->name ?? '') !== '' ? $product->name : 'Listing')
 
-{{-- The individual TikTok listing page (#156), on the same anatomy as
-     Shopee's: the LIVE state at the top, fetched from TikTok Shop on this
-     load; the record beneath it (category, brand, attribute answers, price
-     rule, content overrides, discount), which the next push uses; and
-     provenance. Saving never writes the catalog product. --}}
-{{-- This page shows its own "Nothing was saved" note and marks the
-     offending fields, so the legacy bullet list stands down (critique
-     2026-09-08: one event was drawing two red boxes). --}}
 @section('own-errors', true)
 
 @section('content')
@@ -17,8 +9,6 @@
     $canManage = auth()->user()?->hasPermission('manage_tiktok/listing') ?? false;
     $canEditCatalog = auth()->user()?->hasPermission('manage_catalog/product') ?? false;
     $listed = (bool) $truth;
-    /* The engine's words (#184 D), same as every list this product sits
-       in - the page's own STATUS_MAP copy is gone. */
     [$statusLabel, $statusTone] = ($live && ($listingState ?? null))
         ? [$listingState->label(), $listingState->tone()]
         : [null, null];
@@ -30,11 +20,6 @@
 
 <div class="fm-page">
 
-    {{-- The one thing a refused save must not do is refuse in silence. The
-         page marks the offending fields inline (x-ui.field draws each
-         message under its own control); this is the summary that says a
-         save was refused at all, and it is the surface the owner asked to keep
-         when the rest of the notes came off (2026-09-09). --}}
     <div class="fm-flash" role="status" aria-live="polite">
         @if($errors->any())
             <div class="fm-note fm-note--fail">
@@ -63,9 +48,6 @@
         </div>
     </div>
 
-    {{-- ── The strip: what TikTok Shop says right now ─────────────
-         The one template (the owner, 2026-09-08, draft C). What only TikTok has
-         - the variations it holds - stays in its own section below. --}}
     @php
         $stripFigures = [];
         if ($listed && $live) {
@@ -73,9 +55,6 @@
             if (($coverage['total'] ?? 0) > 0) {
                 $stripFigures[] = ['k' => 'On TikTok Shop', 'v' => $coverage['linked'] . ' of ' . $coverage['total'] . ' variations'];
             }
-            /* Only when it DIFFERS: a title that matches what you have is
-               not news, and the strip is where the news goes. Clipped, so
-               one long title cannot stretch the bar. */
             if (($live['title'] ?? '') !== '' && $live['title'] !== $product->name) {
                 $stripFigures[] = ['k' => 'Title on TikTok Shop', 'v' => \Illuminate\Support\Str::limit($live['title'], 40)];
             }
@@ -92,19 +71,6 @@
             : null;
     @endphp
 
-    {{-- HEALTH OFF (the owner, 2026-09-09): "What I want to see right
-         now are just fields to edit. Nothing about health." The state
-         word, the live figures, Last push and the accent are gone, and the
-         bar keeps only the verbs - what you can DO here, which is not a
-         report about the item. The notes went with them.
-
-         What survives is the required-field handling: the validation
-         summary above, the browser's own bubble on the required fields,
-         and the inline field errors.
-
-         Nothing was deleted from the system: the engine still computes
-         every one of these facts and the Listings index still shows them.
-         This page takes them back by passing health again. --}}
     <x-channel.listing-strip channel="TikTok Shop" :health="false" :linked="(bool) $listed">
         @if($canManage)
             <x-slot:verbs>
@@ -130,8 +96,6 @@
 
     </x-channel.listing-strip>
 
-    {{-- Main is what the listing says, led by its product group, the
-         listing's template; the rail is what it costs. --}}
     <form id="listing-form" method="POST" action="{{ route('ext.tiktok.listings.update', $product->product_id) }}" data-guard-unsaved>
         <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
         @csrf
@@ -211,9 +175,6 @@
                     </div>
                 </section>
 
-                {{-- The category's attribute sheet (#156): what TikTok Shop asks
-                     for this category, answered here for this listing. Reloaded
-                     when the category changes, same wire as the group form. --}}
                 <section class="fm-section"
                          id="tl-attributes"
                          data-attributes-fetch
@@ -260,9 +221,6 @@
                     'pushPrice' => $pushPrice, 'hasVariations' => $hasVariations,
                 ])
 
-                {{-- When and where from are figures on the strip now
-                     (the owner, 2026-09-08); what the push SENT would live here,
-                     and TikTok does not record it yet. --}}
             </x-slot:rail>
         </x-channel.listing-body>
     </form>
@@ -272,14 +230,9 @@
             ? 'You can read this. Editing needs the TikTok manage permission.'
             : 'Save listing keeps everything on this page. Save and push keeps it and sends the listing to TikTok Shop.' }}</x-slot:note>
         @if($canManage)
-            {{-- One press saves what was just typed, then pushes: a new
-                 product, or an update onto the live one. --}}
             <x-ui.button type="submit" form="listing-form" name="push_after" value="1">{{ $listed ? 'Save and push the update' : 'Save and push to TikTok Shop' }}</x-ui.button>
         @endif
         <x-slot:primary>
-            {{-- Required means required on both presses: neither button
-                 carries formnovalidate, so a field the page marks with an
-                 asterisk is never saved empty. --}}
             @if($canManage)
                 <x-ui.button type="submit" form="listing-form" variant="primary">Save listing</x-ui.button>
             @endif

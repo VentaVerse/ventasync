@@ -3,11 +3,8 @@
 
 @section('title', 'Shopee Product Groups')
 
-{{-- Leaves the .x-legacy content boundary, rebuilt on the token set. --}}
 @section('content')
 @php
-    // Read tier is `view_shopee|manage_shopee`; create, edit and destroy are
-    // all `manage_shopee`. Replaces a hardcoded `true`.
     $canManageShopee = auth()->user()?->hasPermission('manage_shopee/product_group') ?? false;
 @endphp
 
@@ -54,10 +51,6 @@
             $logCount = count($p->logistic_ids ?? []);
             $productsUrl = route('ext.shopee.product-groups.products', $p->id);
 
-            // Same two figures the old view printed, kept as separate lines
-            // rather than joined with an ampersand: they are a fixed amount
-            // and a percentage of the selling price, which are different
-            // units and do not belong on one line reading as a sum.
             $markupFixed = !empty($p->markup_fixed) ? (float) $p->markup_fixed : null;
             $markupPercent = !empty($p->markup_percent) ? (float) $p->markup_percent : null;
         @endphp
@@ -100,11 +93,6 @@
                     @if($canManageShopee)
                         <a class="x-menu__item" href="{{ route('ext.shopee.product-groups.edit', $p->id) }}">Edit product group</a>
                         <div class="x-menu__sep"></div>
-                        {{-- Destroy is never a standing control: it sits in the
-                             overflow menu behind the shared confirm dialog and
-                             drives a form outside this table, because a form
-                             cannot be nested inside a row that is itself a
-                             stretched link. --}}
                         <button type="button" class="x-menu__item x-menu__item--danger"
                                 data-confirm="Delete the product group {{ $p->name }}? Its products stay in the catalog and stay listed on Shopee. Only the grouping is removed."
                                 data-confirm-submit="spg-del-{{ $p->id }}">Delete product group</button>
@@ -125,5 +113,5 @@
     @endforeach
 @endif
 
-</div>{{-- /.cc-page --}}
+</div>
 @endsection

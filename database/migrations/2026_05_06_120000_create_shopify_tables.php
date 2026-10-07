@@ -77,7 +77,7 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('shopify_setting_id');
             $table->string('shopify_status', 64);
-            $table->string('context', 16)->default('order'); // order | return
+            $table->string('context', 16)->default('order');
             $table->unsignedInteger('order_status_id')->default(0);
             $table->timestamps();
 
@@ -90,7 +90,7 @@ return new class extends Migration
         Schema::create('shopify_product_links', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('shopify_setting_id');
-            $table->unsignedInteger('product_id'); // catalog product
+            $table->unsignedInteger('product_id');
             $table->unsignedBigInteger('shopify_product_id');
             $table->unsignedBigInteger('shopify_variant_id')->nullable();
             $table->unsignedBigInteger('inventory_item_id')->nullable();
@@ -108,8 +108,8 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('shopify_setting_id')->nullable();
             $table->string('entity_type', 32);
-            $table->string('direction', 8); // pull | push
-            $table->string('status', 16); // running | completed | failed
+            $table->string('direction', 8);
+            $table->string('status', 16);
             $table->unsignedInteger('records_processed')->default(0);
             $table->unsignedInteger('records_created')->default(0);
             $table->unsignedInteger('records_updated')->default(0);

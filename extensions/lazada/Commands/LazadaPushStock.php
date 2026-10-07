@@ -28,7 +28,7 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
         foreach ($stores as $store) {
             $label = $store->store_name ?: ('#' . $store->id);
             $this->info("=== Lazada store: {$label} ===");
-            app()->instance('lazada.route-store', $store); // bind: the model trait now scopes every query + stamps writes to THIS store
+            app()->instance('lazada.route-store', $store);
             try {
                 $worst = max($worst, $this->handleStore($client, $store));
             } catch (\Throwable $e) {
@@ -52,11 +52,8 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
 
         $pfx = (string) config('catalog.prefix');
 
-        // ── Phase 1: Resolve missing variants (capped per run) ──────────
         $this->resolveUnknownVariants($setting, $client, $pfx);
 
-        // ── Phase 2: Push stock in batches ──────────────────────────────
-        // Only load listings that actually have cached variant sku_ids — skip the rest at DB level
         $query = LazadaProduct::query()
             ->where('product_id', '>', 0)
             ->whereNotNull('lazada_item_id')
@@ -68,7 +65,6 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
             $query->whereIn('id', $ids);
         }
 
-        // Eager-load variants to avoid N+1 queries
         $listings = $query->with(['variants' => fn ($q) => $q->whereNotNull('sku_id')])->get();
 
         if ($listings->isEmpty()) {
@@ -78,7 +74,6 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
 
         $this->info("Pushing stock for {$listings->count()} listing(s)...");
 
-        // Collect all push items across all listings first
         $allPushItems = [];
         $skipped = 0;
 
@@ -114,7 +109,6 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
             return 0;
         }
 
-        // Batch SKUs into groups of 20 per API call
         $batchSize = 20;
         $batches = array_chunk($allPushItems, $batchSize);
         $totalOk = 0;
@@ -151,7 +145,6 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
                     'response' => $msg,
                 ]);
 
-                // Invalidate stale sku_ids so they get re-fetched on the next run
                 $details = is_array($body) ? ($body['detail'] ?? []) : [];
                 foreach ($details as $d) {
                     $errCode = $d['code'] ?? '';
@@ -164,7 +157,6 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
             }
         }
 
-        // Each product's verdict becomes its error line on THIS store.
         $states = \Extensions\lazada\Services\Lazada\LazadaListingStates::on($store);
         foreach (array_keys($sentProducts) as $pid) {
             $states->recordOutcome((int) $pid, isset($failedProducts[$pid]) ? 'Stock push: ' . $failedProducts[$pid] : null);
@@ -177,18 +169,11 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
         return $totalErr > 0 ? 1 : 0;
     }
 
-    /**
-     * Phase 1: For listings that have a lazada_item_id but no cached variants,
-     * OR whose cached variants don't cover all ERP option SKUs (stale cache),
-     * fetch variant details from the Lazada API and cache them.
-     * Capped at 20 API calls per run to keep execution time bounded.
-     */
     private function resolveUnknownVariants(object $setting, LazadaClient $client, string $pfx): void
     {
         $maxFetches = 20;
         $fetched = 0;
 
-        // Part A: Listings with NO cached variants at all
         $noVariants = LazadaProduct::query()
             ->where('product_id', '>', 0)
             ->whereNotNull('lazada_item_id')
@@ -205,7 +190,6 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
             }
         }
 
-        // Part B: Listings with cached variants that don't cover all ERP option SKUs (stale cache)
         $remaining = $maxFetches - $fetched;
         if ($remaining <= 0) return;
 
@@ -225,13 +209,10 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
                 ->map(fn ($s) => trim((string) $s))
                 ->toArray();
 
-            // Combinations AND option values (Phase F, #184): POV alone
-            // meant a multi-option product's cache never went stale here.
-            // Only what this store sells can be missing from its cache.
             $erpSkus = \App\Integrations\Listings\ListingVariations::sold('lazada', (int) ($listing->lazada_setting_id ?? 0), [(int) $listing->product_id], $pfx)[(int) $listing->product_id] ?? [];
 
             if (empty($erpSkus) || empty(array_diff($erpSkus, $cachedSkus))) {
-                continue; // Cache is up-to-date
+                continue;
             }
 
             app(\Extensions\lazada\Services\Lazada\LazadaItemCache::class)->fetchAndCacheVariants($listing, $setting, $client, 'lazada.product.item.get.cron');
@@ -244,25 +225,15 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
         }
     }
 
-    /**
-     * Build the list of {sku_id, seller_sku, quantity} items for one listing.
-     * Uses eager-loaded variants from the listing.
-     */
     private function buildPushItems(string $pfx, LazadaProduct $listing, object $product): array
     {
-        // Delegates to LazadaStockPushService — combinations-aware. See that
-        // class for why this is shared with the UI controller's push path.
         $service = app(LazadaStockPushService::class);
         $rows = $service->buildPushItems($listing, $product, $pfx);
-        /* Orphan variants (on Lazada, gone from the catalogue) are skipped,
-         * not zeroed (Phase F, #184) - a silent zero is a lie the shop
-         * wears until someone notices the missing stock. */
         $hasVariations = !empty(\App\Integrations\Push\PushLedger::erpVariationSkus([(int) $listing->product_id], $pfx)[(int) $listing->product_id] ?? []);
         if ($hasVariations) {
             $rows = array_values(array_filter($rows, fn ($r) => $r['matched'] ?? true));
         }
 
-        // Cron only consumes sku_id/seller_sku/quantity. Strip the price field.
         return array_map(function ($r) use ($listing) {
             return [
                 'product_id' => (int) $listing->product_id,
@@ -274,9 +245,6 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
     }
 
 
-    /**
-     * Build XML payload with multiple SKUs in a single request.
-     */
     private function buildBatchStockXml(array $items): string
     {
         $skuXml = '';
@@ -368,7 +336,6 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
     }
 
 
-    /** Run now walks this push ten products per request (SteppableAutomation, 2026-09-07). */
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
         return ['label' => 'products', 'units' => \Extensions\lazada\Services\Lazada\LazadaPushSteps::units()];

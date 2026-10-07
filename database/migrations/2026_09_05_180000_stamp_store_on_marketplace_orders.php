@@ -4,16 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Per-store reports (the owner, 2026-09-05): core orders pulled before the
- * stamp carry store_id 0 and no name. Fill them from the channel order
- * rows, by catalog_order_id first and by (source, marketplace order id)
- * second, with the name from the settings row. Orders whose channel row
- * is gone stay at 0. Runs again safely: only rows still at 0 are touched.
- *
- * A named class rather than an anonymous one so the backfill test can
- * call up() again on rows it seeded.
- */
 class StampStoreOnMarketplaceOrders extends Migration
 {
     public function up(): void
@@ -46,6 +36,5 @@ class StampStoreOnMarketplaceOrders extends Migration
 
     public function down(): void
     {
-        // The stamp is data, not schema; nothing to undo.
     }
 }

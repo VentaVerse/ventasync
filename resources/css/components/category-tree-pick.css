@@ -1,16 +1,9 @@
-/* THE CATEGORY PICKER.
-
-   The field wears the page's own field anatomy, so it reads as a field that
-   happens to open something, not as a surface of its own. The picker borrows
-   the house picker shell (.fm-pick) the image library already uses. */
-
 .ctp {
     display: flex;
     flex-direction: column;
     gap: var(--bl-space-2);
 }
 
-/* The field: the whole path, and a pencil saying it can be changed. */
 .ctp__field {
     display: flex;
     align-items: center;
@@ -71,7 +64,6 @@
     color: var(--bl-bad);
 }
 
-/* Inside the picker. */
 .ctp__search {
     max-width: 320px;
 }
@@ -85,8 +77,6 @@
     white-space: nowrap;
 }
 
-/* A column per level, all of them open. Depth scrolls sideways rather than
-   folding: a level that hides itself gives no sign it is there. */
 .ctp__cols {
     display: flex;
     align-items: stretch;
@@ -187,7 +177,6 @@
     color: var(--bl-ink-3);
 }
 
-/* Search results stand in for the columns while they are showing. */
 .ctp__results {
     display: flex;
     flex-direction: column;

@@ -17,12 +17,10 @@ return new class extends Migration
             });
         }
 
-        // Seed base permissions (idempotent)
         $rows = [
             ['key' => 'manage_products', 'label' => 'Manage Products'],
             ['key' => 'manage_manufacturers', 'label' => 'Manage Manufacturers'],
             ['key' => 'manage_categories', 'label' => 'Manage Categories'],
-            // Keep legacy key for backwards compatibility
             ['key' => 'manage_users_groups', 'label' => 'Manage Users & Groups'],
 
             ['key' => 'manage_users', 'label' => 'Manage Users'],
@@ -40,6 +38,5 @@ return new class extends Migration
 
     public function down(): void
     {
-        // no auto-drop
     }
 };

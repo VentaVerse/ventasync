@@ -4,12 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * The mobile app's recent writes, by the key the app sent with each, so a
- * write the app sends again after losing the reply is answered with the
- * first answer instead of being done twice. Rows older than a day are
- * cleared as new ones arrive.
- */
 return new class extends Migration
 {
     public function up(): void

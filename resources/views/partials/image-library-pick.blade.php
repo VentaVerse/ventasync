@@ -1,13 +1,3 @@
-{{-- The image library, opened from the "Images that go up" card on a
-     listing page (the owner, 2026-09-08). It browses the same folders the
-     catalog product's own image manager browses, over the same read-only
-     endpoint, and hands back the paths that were ticked. Nothing is
-     uploaded or deleted from here: this is a picker, not a manager.
-
-     Included once per page, OUTSIDE the listing form - its search box
-     would submit the whole form on a stray Enter.
-
-     Expected: $browseUrl, the products.images.browse route. --}}
 <div class="modal-backdrop" data-ilp-modal data-ilp-url="{{ $browseUrl }}">
     <div class="fm-pick" role="dialog" aria-modal="true" aria-labelledby="ilp-title">
         <div class="fm-pick__head">

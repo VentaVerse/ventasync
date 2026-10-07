@@ -5,20 +5,8 @@ namespace App\Services\Orders;
 use App\Models\Catalog\Order;
 use Illuminate\Support\Facades\DB;
 
-/**
- * The profit of one order, by the same rule as the order profitability report.
- *
- * Revenue is what the order's lines sold for. Shipping cost is the order's own
- * shipping cost plus the delivery fee a store reported. Fees are the fee lines
- * a store reported, or the order's payment and extra costs when there are none,
- * plus the vouchers and coupons the seller paid for, plus fees added on the
- * order by hand. An order with no lines carries no money.
- */
 final class OrderProfit
 {
-    /**
-     * @param  list<array{label: string, amount: float, fee_id: ?int}>  $fees
-     */
     private function __construct(
         public readonly float $revenue,
         public readonly float $cogs,

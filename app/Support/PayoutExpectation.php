@@ -2,27 +2,8 @@
 
 namespace App\Support;
 
-/**
- * What a marketplace said it would pay the seller for one order (the owner,
- * 2026-10-01), read from the order's stored fee data. One answer for the
- * Payouts report and every store's Payouts page, so the two never disagree.
- *
- *   Shopee  order_income.escrow_amount, the payout Seller Center shows.
- *   Lazada  the sum of the order's finance lines (Item Price Credit and
- *           every fee against it), which is what a statement pays; older
- *           orders keep those lines bucketed, which sums the same.
- *           paid_total is NOT a payout: it is the buyer's price.
- *   TikTok  settlement_amount, from the order's statement transaction.
- *
- * Before the marketplace reports, there is no payout to read. The order's
- * own total stands in, flagged estimated, so a page can say "est." instead
- * of passing a gross figure off as a net one.
- */
 final class PayoutExpectation
 {
-    /**
-     * @return array{amount: ?float, estimated: bool}
-     */
     public static function for(string $channel, ?string $feesJson, ?string $rawJson = null): array
     {
         $fees = self::decode($feesJson);
@@ -42,7 +23,6 @@ final class PayoutExpectation
         return ['amount' => $total !== null ? round($total, 2) : null, 'estimated' => $total !== null];
     }
 
-    /** Whether the marketplace has reported this order's payout yet. */
     public static function reported(string $channel, ?string $feesJson): bool
     {
         $expected = self::for($channel, $feesJson);
@@ -59,9 +39,6 @@ final class PayoutExpectation
 
     private static function lazada(array $fees): ?float
     {
-        // The finance lines as a list: `transactions` (name + amount) since
-        // the order breakdown, `transaction_lines` (Lazada's own rows) on a
-        // few in between.
         foreach (['transactions', 'transaction_lines'] as $key) {
             $lines = $fees[$key] ?? null;
             if (is_array($lines) && $lines !== []) {
@@ -81,9 +58,6 @@ final class PayoutExpectation
             }
         }
 
-        // Older orders keep the same lines bucketed: commission, payment
-        // fee, shipping, and every other line (Item Price Credit among them)
-        // under other_fees. The buckets add up to the same payout.
         if (is_array($fees['other_fees'] ?? null) && $fees['other_fees'] !== []) {
             $sum = 0.0;
             foreach (['commission', 'payment_fee', 'shipping_service_cost'] as $bucket) {

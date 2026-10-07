@@ -5,17 +5,6 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * One latest push error per product (the owner, 2026-09-05). A group push
- * wrote its refusal on the group pivot and the workbench never read it;
- * a workbench push wrote its refusal nowhere. The listing record is the
- * one row every surface reads, one per product per store, so the latest
- * refusal lives there: every push path writes it on a refusal and clears
- * it on success, the state engine and the group page both read it.
- *
- * Backfilled from the pivots' failed attempts, latest per product, onto
- * the listing row of the group's store.
- */
 return new class extends Migration
 {
     public function up(): void
@@ -43,7 +32,6 @@ return new class extends Migration
             ->orderBy('pv.last_pushed_at')
             ->get(['pv.product_id', 'pv.push_error', 'pv.last_pushed_at', 'g.shopee_setting_id']);
 
-        // Ordered oldest first, so the last write per product is the latest attempt.
         foreach ($failed as $row) {
             $exists = DB::table('shopee_listings')
                 ->where('shopee_setting_id', $row->shopee_setting_id)

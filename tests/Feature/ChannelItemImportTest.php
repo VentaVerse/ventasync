@@ -18,21 +18,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * The Lazada and TikTok halves of the importer (#196): the whole item
- * lands as a real core product, channel-only details ride the channel's
- * own listing record, and the link exists the moment it lands.
- */
 class ChannelItemImportTest extends TestCase
 {
     use RefreshDatabase;
 
-    /**
-     * The seeded Lazada store. Both channels are store-scoped (the owner
-     * 2026-09-05) and share the one 'store' URL default, so whichever setUp
-     * creates last (TikTok) wins it; a bare route('ext.lazada.*') then fills
-     * {store} with the TikTok id and 404s. The Lazada route names its store.
-     */
     private LazadaSetting $lazadaStore;
 
     protected function setUp(): void
@@ -72,7 +61,6 @@ class ChannelItemImportTest extends TestCase
                     ]]];
                 }
                 if ($apiPath === '/category/attributes/get') {
-                    // The category's template: one plain attribute and one variation axis.
                     return ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => [
                         ['name' => 'material', 'label' => 'Material', 'is_mandatory' => 0, 'input_type' => 'text', 'attribute_type' => 'normal'],
                         ['name' => 'Length', 'label' => 'Length', 'is_mandatory' => 0, 'is_sale_prop' => 1, 'input_type' => 'text', 'attribute_type' => 'sku'],
@@ -155,7 +143,6 @@ class ChannelItemImportTest extends TestCase
         $this->assertSame('Nylon', LazadaProductAttribute::where('lazada_product_id', $listing->id)->where('attribute_key', 'material')->value('value'),
             'a Lazada-only field the core has no column for rides the listing record, not the floor');
 
-        // Ready the moment it lands (the owner, 2026-09-07): the template was read during the import.
         $this->assertTrue(\Extensions\lazada\Models\LazadaCategoryTemplate::query()->where('primary_category_id', 10099)->exists());
         $ready = app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class)->forListings(collect([$listing]))[$listing->id];
         $this->assertTrue($ready['ready'], 'not ready: ' . implode('; ', $ready['missing']));
@@ -184,7 +171,6 @@ class ChannelItemImportTest extends TestCase
         $this->assertSame('s-1', (string) data_get(json_decode((string) $listing->tiktok_sku_id, true), 'TTI-BLK'),
             'the seller_sku -> id map lands too - stock and price pushes work at once');
 
-        // Ready the moment it lands (the owner, 2026-09-07): brand, answers and the sheet arrive with the product.
         $this->assertSame('b-77', (string) $listing->brand_id);
         $this->assertSame('Strapco', (string) $listing->brand_name);
         $this->assertSame(['100392' => 'Leather'], $listing->attribute_values, 'keyed the way the sheet keys them');
@@ -195,8 +181,6 @@ class ChannelItemImportTest extends TestCase
 
     public function test_the_tiktok_fetch_renders_the_live_diff_and_saves_none_of_it(): void
     {
-        // Stateless (the owner, 2026-09-04): the page is blank until Fetch,
-        // and a fetch renders one row per PRODUCT, saved nowhere.
         $html = $this->actingAs($this->manager(['manage_tiktok/product', 'view_tiktok/product']))
             ->get(route('ext.tiktok.products.import'))->assertOk()->getContent();
         $this->assertStringContainsString('Nothing fetched yet', $html);

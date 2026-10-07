@@ -1,11 +1,3 @@
-/* A listing's Description field framed by the store's prefix and suffix
-   templates: one bordered box, the chosen templates greyed above and below
-   the editable area. Markup: partials/channel-description-compose.
-
-   Imported outside every layer: the editor frame rules in
-   blotter-components.css are unlayered to beat Summernote's own sheet, and
-   these have to take the frame's border off inside the box. */
-
 .dp-box {
     border: 1px solid var(--bl-field-edge);
     border-radius: var(--bl-r-ctrl);
@@ -21,7 +13,6 @@
     border-color: var(--bl-bad);
 }
 
-/* The editable area: the box draws the edge, so the control loses its own. */
 .dp-box > .x-input,
 .fm-page .dp-box > .note-editor.note-frame {
     border: 0;
@@ -39,8 +30,6 @@
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
 }
-
-/* ── The template blocks ─────────────────────────────────────────── */
 
 .dp-block {
     padding: 8px 10px;
@@ -67,7 +56,6 @@
     border-radius: 0 0 calc(var(--bl-r-ctrl) - 1px) calc(var(--bl-r-ctrl) - 1px);
 }
 
-/* Plain-text channels keep the template's own line breaks. */
 .dp-block--plain {
     white-space: pre-wrap;
 }

@@ -23,7 +23,6 @@ return new class extends Migration
             }
         });
 
-        // Backfill: move existing flat cost into cost_amount
         DB::table($table)
             ->where('cost', '>', 0)
             ->whereRaw('cost_amount = 0 AND cost_percentage = 0 AND cost_additional = 0')

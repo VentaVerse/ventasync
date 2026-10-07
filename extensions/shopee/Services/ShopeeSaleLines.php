@@ -4,12 +4,6 @@ namespace Extensions\shopee\Services;
 
 use App\Services\Orders\SaleLines\AbstractSaleLines;
 
-/**
- * A Shopee order's sale as Seller Center shows it, from the escrow detail's
- * order_income once Shopee has settled the order. Shopee's buyer total is the
- * total. Item markdown (order_seller_discount, shopee_discount) is already in
- * the selling price used as the subtotal, so it is not a line of its own.
- */
 final class ShopeeSaleLines extends AbstractSaleLines
 {
     protected function isComplete(): bool
@@ -41,7 +35,6 @@ final class ShopeeSaleLines extends AbstractSaleLines
             self::SELLER_VOUCHER => ['title' => 'Seller Voucher', 'field' => 'voucher_from_seller', 'sign' => -1, 'standard' => true],
             self::COINS => ['title' => 'Coins', 'field' => 'coins', 'sign' => -1],
             self::BUYER_TRANSACTION_FEE => ['title' => 'Transaction fee paid by buyer', 'field' => 'buyer_transaction_fee', 'sign' => 1],
-            // Optional cover the buyer adds at checkout; Shopee collects it and it is not paid out to the seller.
             self::PRODUCT_PROTECTION => ['title' => 'Product protection', 'field' => 'final_product_protection', 'sign' => 1],
         ];
     }

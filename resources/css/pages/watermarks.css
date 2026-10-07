@@ -1,16 +1,3 @@
-/* ------------------------------------------------------------------
-   WATERMARK TEMPLATES (VENT2-128)
-
-   A named mark, defined in the catalogue and chosen by any listing or
-   product group. Two things on this page need drawing that nothing else
-   here does: a mark shown against something that proves its transparency,
-   and the nine positions as a shape rather than a dropdown.
-   ------------------------------------------------------------------ */
-
-/* A CHEQUER, because a white logo on a white card looks like an empty
-   box, and "my logo is missing" is the first thing that would be
-   reported. The squares are the convention every image editor uses for
-   transparency, so it reads without a caption. */
 .wm-chip {
     display: inline-flex;
     align-items: center;
@@ -48,9 +35,6 @@
     flex-wrap: wrap;
 }
 
-/* THE NINE POSITIONS AS A PICTURE OF THE FRAME. A select listing
-   "bottom-right, middle-center..." makes the reader translate words into
-   a corner; this is the corner. */
 .wm-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -85,8 +69,6 @@
     outline-offset: 2px;
 }
 
-/* The preview is a real photograph stamped by the real stamper, so it is
-   shown at the size a photograph deserves rather than as a thumbnail. */
 .wm-preview {
     margin-top: var(--bl-space-2);
     border: 1px solid var(--bl-rule-2);
@@ -101,12 +83,6 @@
     height: auto;
 }
 
-/* SLIDERS (the owner, 2026-09-11), for size, the two offsets and transparency.
-   The browser's own range input carries none of the palette, so the track,
-   the fill and the thumb are drawn from it. The fill runs from --wm-from to
-   --wm-to, which the form script sets: from the start on a plain slider,
-   from the centre on a signed one, so a signed fill says which way and how
-   far rather than how much. */
 .wm-slider {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 4.5rem;
@@ -182,8 +158,6 @@
     border-radius: 999px;
 }
 
-/* A signed slider shows where zero is: a short tick at the centre of the
-   track, so "flush" can be found by eye as well as by double click. */
 .wm-slider--signed .wm-slider__range {
     background: linear-gradient(var(--bl-field-edge), var(--bl-field-edge)) center / 2px 14px no-repeat;
 }

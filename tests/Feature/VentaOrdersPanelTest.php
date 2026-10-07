@@ -12,27 +12,12 @@ use Extensions\venta\VentaExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * The storefront's orders strip is the same fixed row the three
- * marketplaces carry (the owner, 2026-08-28): All, Unpaid, To Ship with To
- * Pack and To Handover underneath, then the rest of the lifecycle, every
- * tab present at zero, landing on To Ship. It used to be whatever statuses
- * the store had sent, so it changed shape from store to store, and a step
- * with nothing in it did not exist.
- */
 class VentaOrdersPanelTest extends TestCase
 {
     use RefreshDatabase;
 
     private int $seq = 0;
 
-    /**
-     * Same idempotent-install rationale as FulfilmentHubTest::setUp():
-     * install()/enable() alone do not re-register the provider once
-     * ExtensionServiceProvider::boot() has run, and refreshNameLookups() is
-     * needed because routes registered by a provider booted this late are
-     * invisible to route() until the name table is rebuilt.
-     */
     protected function setUp(): void
     {
         parent::setUp();
@@ -82,7 +67,6 @@ class VentaOrdersPanelTest extends TestCase
         ]);
     }
 
-    /** The strip between the nav's opening tag and its closing tag. */
     private function strip(string $html): string
     {
         $this->assertSame(1, preg_match('/<nav class="x-segment" aria-label="Order status">(.*?)<\/nav>/s', $html, $m),
@@ -104,11 +88,9 @@ class VentaOrdersPanelTest extends TestCase
             $this->assertStringContainsString('<span>' . $label . '</span>', $strip, $label . ' is missing from the strip');
         }
 
-        // Every count is a zero, and every tab still has an href.
         $this->assertSame(7, substr_count($strip, '<span class="x-segment__count">0</span>'));
         $this->assertSame(7, substr_count($strip, 'href="'));
 
-        // Other is defined by exclusion and only appears with something in it.
         $this->assertStringNotContainsString('<span>Other</span>', $strip);
     }
 
@@ -140,17 +122,14 @@ class VentaOrdersPanelTest extends TestCase
         $response->assertOk();
         $html = $response->getContent();
 
-        // To Ship is the active tab, and the sub strip is open on To Pack.
         $this->assertMatchesRegularExpression('/class="x-segment__item is-active"\s+aria-current="true"\s*>\s*<span>To Ship<\/span>/', $html);
         $this->assertStringContainsString('aria-label="To Ship step"', $html);
         $this->assertMatchesRegularExpression('/class="x-segment__item is-active"\s+aria-current="step"\s*>\s*<span>To Pack<\/span>/', $html);
 
-        // The list holds the To Pack order and nothing from the other steps.
         $this->assertStringContainsString('Bench Buyer', $html);
         $this->assertStringNotContainsString('Shelf Buyer', $html);
         $this->assertStringNotContainsString('Done Buyer', $html);
 
-        // The filter form carries the tab so a search stays on it.
         $this->assertStringContainsString('<input type="hidden" name="tab" value="TO_SHIP">', $html);
         $this->assertStringContainsString('<input type="hidden" name="pending_sub" value="to_pack">', $html);
     }
@@ -167,7 +146,6 @@ class VentaOrdersPanelTest extends TestCase
         $response = $this->actingAs($this->viewer())->get(route('ext.venta.orders.index', $store->id));
         $html = $response->getContent();
 
-        // To Ship counts both of its steps.
         $this->assertMatchesRegularExpression('/<span>To Ship<\/span>\s*<span class="x-segment__count">3<\/span>/', $html);
         $this->assertMatchesRegularExpression('/<span>To Pack<\/span>\s*<span class="x-segment__count">2<\/span>/', $html);
         $this->assertMatchesRegularExpression('/<span>To Handover<\/span>\s*<span class="x-segment__count">1<\/span>/', $html);
@@ -175,7 +153,6 @@ class VentaOrdersPanelTest extends TestCase
         $this->assertMatchesRegularExpression('/<span>Delivered<\/span>\s*<span class="x-segment__count">1<\/span>/', $html);
         $this->assertMatchesRegularExpression('/<span>All<\/span>\s*<span class="x-segment__count">5<\/span>/', $html);
 
-        // And the hub card counts the same way, off the same map.
         $steps = VentaExtension::stepCounts($store->id);
         $this->assertSame(2, $steps['to_pack']);
         $this->assertSame(1, $steps['to_handover']);
@@ -197,7 +174,6 @@ class VentaOrdersPanelTest extends TestCase
         $this->assertMatchesRegularExpression('/class="x-segment__item is-active"\s+aria-current="step"\s*>\s*<span>To Handover<\/span>/', $html);
     }
 
-    /** Old links named a raw status; they still land where they always did. */
     public function test_a_status_link_still_filters_and_opens_its_own_tab(): void
     {
         $store = $this->store();
@@ -214,7 +190,6 @@ class VentaOrdersPanelTest extends TestCase
         $this->assertStringNotContainsString('Bench Buyer', $delivered);
         $this->assertMatchesRegularExpression('/class="x-segment__item is-active"\s+aria-current="true"\s*>\s*<span>Delivered<\/span>/', $delivered);
 
-        // A To Handover status opens To Ship on its To Handover step.
         $shelf = $this->actingAs($viewer)
             ->get(route('ext.venta.orders.index', ['store' => $store->id, 'status' => 'Start Pickup']))
             ->getContent();

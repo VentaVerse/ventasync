@@ -8,10 +8,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
-/**
- * A listing's pictures as they go up: the main one marked by default, every
- * one when the listing asks, each marked copy drawn once and reused.
- */
 class StampedImagesTest extends TestCase
 {
     use RefreshDatabase;

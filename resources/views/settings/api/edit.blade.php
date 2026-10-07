@@ -4,8 +4,6 @@
 
 @section('content')
 @php
-    // Same derivation the pre-redesign view used: the date box shows the
-    // token's own expiry, and "No expiry" starts on only when there is none.
     $expiresValue = old('expires_at', $expiresAt?->format('Y-m-d'));
     $noExpiry = (bool) old('no_expiry', $expiresAt ? null : '1');
 @endphp

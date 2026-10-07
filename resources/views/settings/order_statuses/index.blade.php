@@ -4,9 +4,6 @@
 
 @section('content')
 @php
-    // routes/settings.php gates the list on view_order_statuses|manage_order_statuses
-    // and every write on manage_order_statuses. The pre-redesign view hardcoded
-    // this to true.
     $canManageOrderStatuses = auth()->user()?->hasPermission('manage_settings/order_status') ?? false;
 
     $hasFilters = ($q ?? '') !== '';
@@ -42,19 +39,12 @@
         @endif
     </x-ui.empty>
 @else
-{{-- Alpine tracks the selection so the bulk bar can appear only once
-     something is selected. The checkboxes themselves carry the real
-     `ids[]` name and bind to the bulk form with form=, so the payload is
-     built declaratively by the browser rather than assembled in a submit
-     handler, which would run twice through the confirm dialog. --}}
 <div class="st-os-page" x-data="{
         selected: [],
         ids: {{ \Illuminate\Support\Js::from($statuses->pluck('order_status_id')->map(fn ($v) => (string) $v)->values()) }}
     }">
 
 @if($canManageOrderStatuses)
-    {{-- OrderStatusController@bulkAction only ever deletes, so this bar
-         offers exactly that and nothing invented alongside it. --}}
     <form id="st-os-bulk-form" method="POST" action="{{ route('order_statuses.bulk') }}">@csrf</form>
 
     <div class="st-bulkbar" x-show="selected.length > 0" x-cloak>
@@ -125,8 +115,6 @@
 </x-ui.table>
 
 @if($canManageOrderStatuses)
-    {{-- Hoisted out of the table: the bulk form above cannot contain them,
-         and a form cannot nest inside another form. --}}
     @foreach($statuses as $s)
         <form id="st-os-del-{{ $s->order_status_id }}" method="POST" action="{{ route('order_statuses.destroy', $s->order_status_id) }}" class="x-sr">
             @csrf

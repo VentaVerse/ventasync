@@ -8,18 +8,6 @@ use Illuminate\Contracts\View\View;
 
 class SettingsHubController extends Controller
 {
-    /**
-     * A browsable front door for configuration. The nav keeps its direct
-     * links; this exists so someone who does not know a setting's name can
-     * still find it by scanning, which a dropdown does not allow.
-     *
-     * Visibility is DERIVED, not declared: Navigation::allows() reads each
-     * destination route's own `perm:` middleware, so a card can never offer a
-     * page the route behind it would bounce, and changing a route's gate needs
-     * no edit here. This list used to carry a hand-copied permission string
-     * per card with a comment admitting it could drift; the drift is what the
-     * IA migration's spec decision 7 deleted, not the comment.
-     */
     public function index(): View
     {
         $groups = array_filter(array_map(
@@ -33,25 +21,10 @@ class SettingsHubController extends Controller
         return view('settings.hub', ['groups' => $groups]);
     }
 
-    /**
-     * What the hub offers, and how each card reads. Labels, descriptions,
-     * icons and search keywords are this page's presentation - content
-     * somebody wrote for a human to scan - and stay declared. Only the
-     * route name is wiring, and everything else about a card (does it exist,
-     * may this user open it) is derived from that one string.
-     *
-     * Public so the breadcrumb (App\Support\Breadcrumbs) can name the card a
-     * settings page sits under: the hub is the section's own index and this
-     * list is the only place its cards exist, so nothing is registered twice.
-     */
     public static function destinations(): array
     {
         return [
             'Store' => [
-                // IA migration (2026-08-08, Task 3), spec decision 4: the
-                // once-tabbed settings page split into four real routes,
-                // each its own hub destination, rather than one card that
-                // dumped a visitor onto the first tab.
                 ['label' => 'General', 'description' => 'Company name and address',
                  'route' => 'settings.general', 'icon' => 'building',
                  'keywords' => ['company', 'name', 'address', 'contact']],
@@ -83,8 +56,6 @@ class SettingsHubController extends Controller
                 ['label' => 'User Groups', 'description' => 'Roles and what each one may do',
                  'route' => 'user_groups.index', 'icon' => 'shield',
                  'keywords' => ['role', 'permission', 'access', 'group']],
-                // Built on the API branch and never listed here, so the page
-                // existed with no way to click to it (the owner, 2026-08-28).
                 ['label' => 'API Applications', 'description' => 'Keys for other software to read or change your data',
                  'route' => 'api_clients.index', 'icon' => 'plug',
                  'keywords' => ['api', 'token', 'mcp', 'assistant', 'claude', 'integration', 'scope']],

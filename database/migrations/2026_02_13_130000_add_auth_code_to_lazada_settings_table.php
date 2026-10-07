@@ -9,7 +9,6 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('lazada_settings', function (Blueprint $table) {
-            // Keep it nullable; Lazada returns a short-lived code that can be overwritten on each authorization.
             if (!Schema::hasColumn('lazada_settings', 'auth_code')) {
                 $table->text('auth_code')->nullable()->after('redirect_uri');
             }

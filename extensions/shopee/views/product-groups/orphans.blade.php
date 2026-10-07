@@ -2,15 +2,6 @@
 @section('title', 'Unlinked items on Shopee')
 @section('breadcrumb', 'Unlinked on Shopee')
 
-{{-- The mirror of the products page. That one lists what the ERP holds and
-     asks whether Shopee still has it; this lists what Shopee holds and asks
-     whether the ERP knows about it. Neither question answers the other, and
-     until now only the first could be asked at all.
-
-     Read-only by design. Every row here is a judgement call, because a SKU
-     that looks familiar may belong to a different product, so this page
-     reports and the operator decides. There is no Adopt button and there
-     should not be one. --}}
 @section('content')
 @php
     $groupName = $group->name ?: 'this product group';
@@ -35,9 +26,6 @@
     </x-ui.button>
 </div>
 
-{{-- Same `alert warning` shape the flash partial uses, minus the close button:
-     this describes the state of the report on screen rather than the result of
-     an action, so dismissing it would leave a partial list looking complete. --}}
 @if(! $complete)
     <div class="alert warning" role="status" aria-live="polite">
         <x-ui.icon name="alert-triangle" size="18" class="alert__icon" />

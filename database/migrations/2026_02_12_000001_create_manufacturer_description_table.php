@@ -26,6 +26,5 @@ return new class extends Migration
 
     public function down(): void
     {
-        // Intentionally not dropping catalog tables.
     }
 };

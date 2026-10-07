@@ -4,13 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Additive only. Adds nullable columns to hold as-transacted foreign amounts.
- *
- * Existing money columns keep their meaning (default currency). No existing
- * value is read or written here - the data transformation lives in
- * `php artisan orders:currency-normalize`, which must be invoked explicitly.
- */
 return new class extends Migration
 {
     public function up(): void

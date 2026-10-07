@@ -4,12 +4,6 @@ namespace Extensions\venta\Services\Venta;
 
 use App\Services\Orders\SaleLines\AbstractSaleLines;
 
-/**
- * A Venta order's sale as the storefront's order summary shows it, from the
- * order payload's totals: subtotal, shipping, then every line the storefront
- * lists between them and the total (coupon, store credit and any other total
- * the checkout added), under the storefront's own labels.
- */
 final class VentaSaleLines extends AbstractSaleLines
 {
     private const CODE_PREFIX = 'venta_';

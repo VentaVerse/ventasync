@@ -1,20 +1,8 @@
 <?php
-/**
- * OpenCart 2.3 ERP Sync API Controller (Catalog-side)
- *
- * Deploy to: catalog/controller/api/erp.php on the OpenCart server.
- *
- * Runs on the catalog (frontend) side to avoid admin login requirements.
- * Configured via Extensions > Modules > ERP Sync API in admin.
- * All endpoints require the header: X-ERP-API-Key: <your-key>
- */
 class ControllerApiErp extends Controller
 {
     private $moduleSettings = null;
 
-    /**
-     * Load the module settings once (direct DB query — no admin model needed).
-     */
     private function getModuleSettings()
     {
         if ($this->moduleSettings === null) {
@@ -31,22 +19,16 @@ class ControllerApiErp extends Controller
         return $this->moduleSettings;
     }
 
-    /**
-     * Authenticate via X-ERP-API-Key header.
-     * Also checks module status and IP whitelist.
-     */
     private function authenticate()
     {
         $settings = $this->getModuleSettings();
 
-        // Check module is enabled
         $status = isset($settings['module_erp_sync_status']) ? (int)$settings['module_erp_sync_status'] : 0;
         if (!$status) {
             $this->sendJson(403, ['success' => false, 'error' => 'ERP Sync API module is disabled']);
             return false;
         }
 
-        // IP whitelist check
         $whitelist = isset($settings['module_erp_sync_ip_whitelist']) ? trim($settings['module_erp_sync_ip_whitelist']) : '';
         if ($whitelist !== '') {
             $allowed = array_map('trim', explode(',', $whitelist));
@@ -58,7 +40,6 @@ class ControllerApiErp extends Controller
             }
         }
 
-        // API key check
         $header = '';
         if (isset($this->request->server['HTTP_X_ERP_API_KEY'])) {
             $header = $this->request->server['HTTP_X_ERP_API_KEY'];
@@ -72,10 +53,8 @@ class ControllerApiErp extends Controller
             }
         }
 
-        // Read key from module settings
         $stored = isset($settings['module_erp_sync_api_key']) ? trim($settings['module_erp_sync_api_key']) : '';
         if ($stored === '') {
-            // Fall back to legacy erp_api group
             $legacy = $this->db->query(
                 "SELECT `value` FROM " . DB_PREFIX . "setting WHERE `code` = 'erp_api' AND `key` = 'erp_api_key' LIMIT 1"
             );
@@ -93,9 +72,6 @@ class ControllerApiErp extends Controller
         return true;
     }
 
-    /**
-     * Get client IP address.
-     */
     private function getClientIp()
     {
         if (!empty($this->request->server['HTTP_X_FORWARDED_FOR'])) {
@@ -105,9 +81,6 @@ class ControllerApiErp extends Controller
         return $this->request->server['REMOTE_ADDR'] ?? '0.0.0.0';
     }
 
-    /**
-     * Write to OpenCart error log if debug logging is enabled.
-     */
     private function debugLog($message)
     {
         $settings = $this->getModuleSettings();
@@ -117,9 +90,6 @@ class ControllerApiErp extends Controller
         }
     }
 
-    /**
-     * Send a JSON response and halt.
-     */
     private function sendJson($code, $data)
     {
         if ($code === 200) {
@@ -138,9 +108,6 @@ class ControllerApiErp extends Controller
         $this->response->setOutput(json_encode($data, JSON_UNESCAPED_UNICODE));
     }
 
-    /**
-     * Read a GET/POST parameter.
-     */
     private function param($key, $default = null)
     {
         if (isset($this->request->get[$key])) {
@@ -152,11 +119,6 @@ class ControllerApiErp extends Controller
         return $default;
     }
 
-    // ─── Endpoints ────────────────────────────────────────────
-
-    /**
-     * GET index.php?route=api/erp/ping
-     */
     public function ping()
     {
         if (!$this->authenticate()) return;
@@ -171,11 +133,6 @@ class ControllerApiErp extends Controller
         ]);
     }
 
-    /**
-     * GET api/erp/products
-     *
-     * Params: page, limit, modified_since
-     */
     public function products()
     {
         if (!$this->authenticate()) return;
@@ -192,7 +149,6 @@ class ControllerApiErp extends Controller
         $total = $this->model_api_erp->getProductCount($filter);
         $rows  = $this->model_api_erp->getProducts($filter);
 
-        // Enrich each row with categories, options, images
         $data = [];
         foreach ($rows as $row) {
             $pid = (int)$row['product_id'];
@@ -216,11 +172,6 @@ class ControllerApiErp extends Controller
         ]);
     }
 
-    /**
-     * GET api/erp/orders
-     *
-     * Params: page, limit, modified_since
-     */
     public function orders()
     {
         if (!$this->authenticate()) return;
@@ -258,11 +209,6 @@ class ControllerApiErp extends Controller
         ]);
     }
 
-    /**
-     * GET api/erp/categories
-     *
-     * Params: modified_since (optional)
-     */
     public function categories()
     {
         if (!$this->authenticate()) return;
@@ -282,9 +228,6 @@ class ControllerApiErp extends Controller
         ]);
     }
 
-    /**
-     * GET api/erp/manufacturers
-     */
     public function manufacturers()
     {
         if (!$this->authenticate()) return;
@@ -300,11 +243,6 @@ class ControllerApiErp extends Controller
         ]);
     }
 
-    /**
-     * GET api/erp/options
-     *
-     * Returns all global options with their values (for name-based matching).
-     */
     public function options()
     {
         if (!$this->authenticate()) return;
@@ -320,11 +258,6 @@ class ControllerApiErp extends Controller
         ]);
     }
 
-    /**
-     * GET api/erp/order_statuses
-     *
-     * Returns all order statuses (id + name) for the default language.
-     */
     public function order_statuses()
     {
         if (!$this->authenticate()) return;
@@ -340,21 +273,6 @@ class ControllerApiErp extends Controller
         ]);
     }
 
-    /**
-     * POST api/erp/product/create
-     *
-     * Creates a new product in OpenCart. Resolves categories, manufacturer, and options by name.
-     *
-     * Body: {
-     *   sku, model, name, description, meta_title, meta_description, tag,
-     *   price, quantity, status, weight, image, date_available,
-     *   manufacturer_name,
-     *   category_names: ["Parent", "Parent > Child"],
-     *   images: [{ image, sort_order }],
-     *   specials: [{ customer_group_id, priority, price, date_start, date_end }],
-     *   options: [{ option_name, type, required, values: [{ name, sku, quantity, subtract, price, price_prefix, weight, weight_prefix }] }]
-     * }
-     */
     public function product_create()
     {
         if (!$this->authenticate()) return;
@@ -381,11 +299,6 @@ class ControllerApiErp extends Controller
         }
     }
 
-    /**
-     * POST api/erp/product/update
-     *
-     * Body: { product_id, quantity?, price?, status?, name?, description? }
-     */
     public function product_update()
     {
         if (!$this->authenticate()) return;
@@ -413,11 +326,6 @@ class ControllerApiErp extends Controller
         }
     }
 
-    /**
-     * POST api/erp/product/bulk_update
-     *
-     * Body: { products: [ { product_id, quantity?, price?, ... }, ... ] }
-     */
     public function product_bulk_update()
     {
         if (!$this->authenticate()) return;
@@ -460,22 +368,6 @@ class ControllerApiErp extends Controller
         ]);
     }
 
-    /**
-     * POST api/erp/review_create
-     *
-     * Creates a product review in OpenCart.
-     *
-     * Body: {
-     *   product_id: int,                // OC product_id (required)
-     *   author: string,                 // buyer name
-     *   text: string,                   // review text
-     *   rating: int,                    // 1-5 (required)
-     *   status: int,                    // 0=pending, 1=approved (default 1)
-     *   date_added: string,             // optional ISO datetime
-     *   platform: string,               // 'shopee' or 'lazada' (for dedup)
-     *   platform_review_id: string      // marketplace review ID (for dedup)
-     * }
-     */
     public function review_create()
     {
         if (!$this->authenticate()) return;

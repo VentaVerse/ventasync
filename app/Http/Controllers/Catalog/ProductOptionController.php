@@ -23,7 +23,6 @@ class ProductOptionController extends Controller
         $p = config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        // Detect mode: 1-option (legacy) vs 2-option (combinations)
         $hasCombinations = $request->has('combinations') && $request->has('option2_name');
 
         if ($hasCombinations) {
@@ -33,9 +32,6 @@ class ProductOptionController extends Controller
         return $this->updateOneOption($request, $id, $p, $langId);
     }
 
-    /**
-     * Save 1-option product (same as before + combination sync).
-     */
     private function updateOneOption(Request $request, int $id, string $p, int $langId)
     {
         $validated = $request->validate([
@@ -58,7 +54,6 @@ class ProductOptionController extends Controller
             return $this->removeAllOptions($p, $id);
         }
 
-        // Validate SKU uniqueness (cross-product + intra-form + vs parent SKU)
         $parentProduct = DB::table($p . 'product')->where('product_id', $id)->first(['price', 'sku']);
         $basePrice = (float) $parentProduct->price;
 
@@ -90,14 +85,11 @@ class ProductOptionController extends Controller
             throw \Illuminate\Validation\ValidationException::withMessages(['option_sku' => $skuErrors]);
         }
         $skuChanges = ['product_sku' => null, 'option_skus' => []];
-        // The variation SKUs before the save; the ones the save removes are
-        // forgotten on every channel after it commits (VariationForgetService).
         $variationsBefore = \App\Services\VariationForgetService::snapshot($id);
 
         DB::transaction(function () use ($p, $id, $langId, $optionName, $values, $basePrice, &$skuChanges) {
             $optionId = $this->resolveOptionId($p, $langId, $optionName);
 
-            // Upsert product_option
             $existingPo = DB::table($p . 'product_option')
                 ->where('product_id', $id)
                 ->first();
@@ -116,7 +108,6 @@ class ProductOptionController extends Controller
                 ]);
             }
 
-            // Index existing POV rows
             $existingPov = DB::table($p . 'product_option_value')
                 ->where('product_id', $id)
                 ->where('product_option_id', $productOptionId)
@@ -124,7 +115,7 @@ class ProductOptionController extends Controller
                 ->keyBy('option_value_id');
 
             $seenOptionValueIds = [];
-            $povIdMap = []; // option_value_id → product_option_value_id (for combo sync)
+            $povIdMap = [];
 
             foreach ($values as $v) {
                 $valueName = trim($v['name']);
@@ -195,7 +186,6 @@ class ProductOptionController extends Controller
                 }
             }
 
-            // Remove option values no longer in the list
             $deletedPovIds = [];
             foreach ($existingPov as $ovId => $row) {
                 if (!in_array((int) $ovId, $seenOptionValueIds, true)) {
@@ -206,7 +196,6 @@ class ProductOptionController extends Controller
                 }
             }
 
-            // Remove extra product_option groups (enforce max 1 for 1-option mode)
             $otherPo = DB::table($p . 'product_option')
                 ->where('product_id', $id)
                 ->where('product_option_id', '!=', $productOptionId)
@@ -221,17 +210,13 @@ class ProductOptionController extends Controller
                 DB::table($p . 'product_option')->where('product_option_id', $po->product_option_id)->delete();
             }
 
-            // Clean stale downstream references
             if (!empty($deletedPovIds)) {
                 DB::table('lazada_product_variants')
                     ->whereIn('product_option_value_id', $deletedPovIds)
                     ->update(['product_option_value_id' => null]);
-                // Delete combinations for deleted POVs
                 $this->deleteCombinationsForPovIds($deletedPovIds);
             }
 
-            // Sync combinations: 1 combo per POV (1-option mode)
-            // Build resolved list with actual pov_ids (no re-matching needed)
             $resolvedValues = [];
             foreach ($values as $v) {
                 $valueName = trim($v['name'] ?? '');
@@ -271,9 +256,6 @@ class ProductOptionController extends Controller
         return redirect()->route('products.options.edit', $id)->with('status', $status);
     }
 
-    /**
-     * Save 2-option product with explicit combinations.
-     */
     private function updateTwoOption(Request $request, int $id, string $p, int $langId)
     {
         $validated = $request->validate([
@@ -294,7 +276,6 @@ class ProductOptionController extends Controller
             'combinations.*.absolute_cost' => 'nullable|numeric',
         ]);
 
-        // Validate SKU uniqueness (cross-product + intra-form + vs parent SKU)
         $parentProduct = DB::table($p . 'product')->where('product_id', $id)->first(['price', 'sku']);
         $basePrice = (float) $parentProduct->price;
 
@@ -332,11 +313,9 @@ class ProductOptionController extends Controller
             $opt1Values = array_map('trim', $validated['option1_values']);
             $opt2Values = array_map('trim', $validated['option2_values']);
 
-            // Resolve both option groups
             $optionId1 = $this->resolveOptionId($p, $langId, $opt1Name);
             $optionId2 = $this->resolveOptionId($p, $langId, $opt2Name);
 
-            // Clean existing product_option entries for this product
             $existingPos = DB::table($p . 'product_option')->where('product_id', $id)->get();
             $oldPovIds = [];
             foreach ($existingPos as $po) {
@@ -348,7 +327,6 @@ class ProductOptionController extends Controller
             DB::table($p . 'product_option_value')->where('product_id', $id)->delete();
             DB::table($p . 'product_option')->where('product_id', $id)->delete();
 
-            // Clean stale downstream refs
             if (!empty($oldPovIds)) {
                 DB::table('lazada_product_variants')
                     ->whereIn('product_option_value_id', $oldPovIds)
@@ -356,7 +334,6 @@ class ProductOptionController extends Controller
                 $this->deleteCombinationsForPovIds($oldPovIds);
             }
 
-            // Delete existing combinations for this product
             DB::table('product_option_combination_values')
                 ->whereIn('combination_id', function ($q) use ($id) {
                     $q->select('id')->from('product_option_combinations')->where('product_id', $id);
@@ -364,7 +341,6 @@ class ProductOptionController extends Controller
                 ->delete();
             DB::table('product_option_combinations')->where('product_id', $id)->delete();
 
-            // Create product_option rows
             $poId1 = DB::table($p . 'product_option')->insertGetId([
                 'product_id' => $id, 'option_id' => $optionId1, 'value' => '', 'required' => 1,
             ]);
@@ -372,10 +348,8 @@ class ProductOptionController extends Controller
                 'product_id' => $id, 'option_id' => $optionId2, 'value' => '', 'required' => 1,
             ]);
 
-            // Resolve all option values and create POV rows
-            // Map: value_name → { option_value_id, product_option_value_id }
-            $pov1Map = []; // opt1 value name → pov_id
-            $pov2Map = []; // opt2 value name → pov_id
+            $pov1Map = [];
+            $pov2Map = [];
 
             foreach ($opt1Values as $vName) {
                 $ovId = $this->resolveOptionValueId($p, $langId, $optionId1, $vName);
@@ -405,11 +379,9 @@ class ProductOptionController extends Controller
                 $pov2Map[strtolower($vName)] = $povId;
             }
 
-            // Create combination rows
             $now = now();
             $sortOrder = 0;
 
-            // Aggregate data for POV back-sync: pov_id → [prices[], quantities[]]
             $pov1Agg = [];
             $pov2Agg = [];
 
@@ -425,15 +397,11 @@ class ProductOptionController extends Controller
                 $qty = (int) ($c['quantity'] ?? 0);
                 $sku = (string) ($c['sku'] ?? '');
                 $image = trim((string) ($c['image'] ?? ''));
-                // Absent means enabled, so an older payload cannot switch a
-                // variation off by omission.
                 $status = array_key_exists('status', $c) ? (int) (bool) $c['status'] : 1;
 
                 $comboId = DB::table('product_option_combinations')->insertGetId([
                     'product_id' => $id,
                     'sku' => $sku,
-                    // Null, not '', so "inherit the product's image" is one
-                    // value rather than two that read the same.
                     'status' => $status,
                     'image' => $image !== '' ? $image : null,
                     'quantity' => $qty,
@@ -450,7 +418,6 @@ class ProductOptionController extends Controller
                     ['combination_id' => $comboId, 'product_option_value_id' => $povId2],
                 ]);
 
-                // Aggregate for POV back-sync
                 $pov1Agg[$povId1]['prices'][] = $absPrice;
                 $pov1Agg[$povId1]['costs'][] = $absCost;
                 $pov1Agg[$povId1]['qty'] = ($pov1Agg[$povId1]['qty'] ?? 0) + $qty;
@@ -460,7 +427,6 @@ class ProductOptionController extends Controller
                 $pov2Agg[$povId2]['qty'] = ($pov2Agg[$povId2]['qty'] ?? 0) + $qty;
             }
 
-            // Back-sync POV rows with aggregated data (for OC compatibility)
             $this->backSyncPov($p, $pov1Agg, $basePrice);
             $this->backSyncPov($p, $pov2Agg, $basePrice);
         });
@@ -470,10 +436,6 @@ class ProductOptionController extends Controller
         return redirect()->route('products.options.edit', $id)->with('status', 'Options saved (2-option combination).');
     }
 
-    /**
-     * Back-sync POV rows from aggregated combination data.
-     * Sets POV quantity = sum of combo quantities, price = average combo price.
-     */
     private function backSyncPov(string $p, array $povAgg, float $basePrice): void
     {
         foreach ($povAgg as $povId => $agg) {
@@ -499,17 +461,10 @@ class ProductOptionController extends Controller
         }
     }
 
-    /**
-     * Sync combination rows for 1-option products.
-     * Each POV maps 1:1 to a combination.
-     *
-     * @param array $resolvedValues [{pov_id, sku, quantity, absolute_price, absolute_cost}, ...]
-     */
     private function syncOneOptionCombinations(int $productId, array $resolvedValues): void
     {
         $now = now();
 
-        // Build a lookup: pov_id → existing combination_id
         $allPovIds = array_column($resolvedValues, 'pov_id');
         $existingCombos = [];
         if (!empty($allPovIds)) {
@@ -568,7 +523,6 @@ class ProductOptionController extends Controller
             }
         }
 
-        // Delete orphan combinations for this product that weren't seen
         $orphanCombos = DB::table('product_option_combinations')
             ->where('product_id', $productId)
             ->when(!empty($seenComboIds), fn($q) => $q->whereNotIn('id', $seenComboIds))
@@ -580,9 +534,6 @@ class ProductOptionController extends Controller
         }
     }
 
-    /**
-     * Delete combinations that reference given POV IDs.
-     */
     private function deleteCombinationsForPovIds(array $povIds): void
     {
         if (empty($povIds)) return;
@@ -598,8 +549,6 @@ class ProductOptionController extends Controller
             DB::table('product_option_combinations')->whereIn('id', $comboIds)->delete();
         }
     }
-
-    // --- Shared helpers ---
 
     private function resolveOptionId(string $p, int $langId, string $name): int
     {
@@ -641,14 +590,6 @@ class ProductOptionController extends Controller
             'option_id' => $optionId, 'image' => '', 'sort_order' => 0,
         ]);
 
-        /* option_id is NOT NULL with no default on this table, so omitting it
-           made every insert here fatal: typing a variation value that did not
-           already exist - "Red", the first time anyone adds a colour - threw
-           a 1364 and the whole save 500'd inside its transaction. The row is
-           also wrong without it, since option_value_description is keyed by
-           the option as well as the value. Found by the round-trip test for
-           the variation image, which is the first thing to exercise this path
-           with a genuinely new value. */
         DB::table($p . 'option_value_description')->insert([
             'option_value_id' => $optionValueId,
             'language_id' => $langId,
@@ -705,7 +646,6 @@ class ProductOptionController extends Controller
                 }
             }
 
-            // Delete all combinations for this product
             DB::table('product_option_combination_values')
                 ->whereIn('combination_id', function ($q) use ($id) {
                     $q->select('id')->from('product_option_combinations')->where('product_id', $id);

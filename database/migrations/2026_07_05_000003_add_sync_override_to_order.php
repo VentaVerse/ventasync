@@ -6,11 +6,6 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Per-order manual Override. When set, marketplace syncs must NOT change
-     * the order's status or move stock — the operator has taken manual control
-     * (e.g. finalising a return as Returned/Refunded). See order-status memo.
-     */
     public function up(): void
     {
         $table = config('catalog.prefix') . 'order';

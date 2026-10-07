@@ -9,14 +9,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * Saving returns to the search you came from (#189). The owner: edit a
- * product from search results, save, land on the plain list - and the
- * search is gone. The plumbing half-existed: edit() captured the
- * previous URL and update() honoured _return, but one stored an
- * ABSOLUTE URL and the other (rightly) follows only local paths, so
- * every save fell back to the bare index.
- */
 class BackToTheSearchTest extends TestCase
 {
     use RefreshDatabase;
@@ -82,15 +74,12 @@ class BackToTheSearchTest extends TestCase
 
     public function test_a_hostile_return_never_reaches_the_href(): void
     {
-        /* old('_return') is user input flashed back on a failed save; a
-         * javascript: URI in an href executes on click. Only a local path
-         * survives the render boundary. */
         $pid = $this->seedProduct('BTS-XSS', 'Hostile return');
         $user = $this->catalogManager();
         $editUrl = route('products.edit', $pid);
 
         $this->actingAs($user)->from($editUrl)->put(route('products.update', $pid), [
-            'name' => '', // fails validation, flashing _return back
+            'name' => '',
             '_return' => 'javascript:alert(1)',
         ]);
 

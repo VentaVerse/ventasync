@@ -20,12 +20,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * The group tools Shopee's page had and the other two did not (parity
- * #156, item 9): Check against the marketplace, which corrects the ERP's
- * own records to what the shop holds, and the Unlinked view, which lists
- * what the shop holds that no catalog product is linked to.
- */
 class ChannelGroupToolsTest extends TestCase
 {
     use RefreshDatabase;
@@ -35,12 +29,6 @@ class ChannelGroupToolsTest extends TestCase
     public array $tiktokAnswers = [];
     private int $groupSeq = 0;
 
-    /**
-     * The seeded stores. Both channels are store-scoped (the owner 2026-09-05) and
-     * share the one 'store' URL default, so whichever setUp creates last wins
-     * it; a bare route('ext.lazada.*') then fills {store} with the TikTok id
-     * and 404s. Every store-scoped route() call names its own channel's store.
-     */
     private LazadaSetting $lazadaStore;
     private TikTokSetting $tiktokStore;
 
@@ -123,8 +111,6 @@ class ChannelGroupToolsTest extends TestCase
         return $productId;
     }
 
-    // ── Lazada ──
-
     public function test_lazada_check_links_a_product_the_shop_already_holds_and_drops_a_lost_link(): void
     {
         $unlisted = $this->seedProduct('GT-NEW');
@@ -135,7 +121,6 @@ class ChannelGroupToolsTest extends TestCase
         $lostListing = LazadaProduct::create(['product_id' => $lost, 'primary_category_id' => 10001, 'lazada_item_id' => '9990001']);
         LazadaProductGroupProduct::create(['lazada_product_group_id' => $group->id, 'product_id' => $lost, 'lazada_product_id' => $lostListing->id, 'sync_status' => 'pushed']);
 
-        // Lazada holds GT-NEW on item 5550001 and nothing for GT-LOST.
         $this->lazadaAnswers['GET /products/get'] = ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => ['products' => [
             ['item_id' => 5550001, 'status' => 'active', 'skus' => [['SellerSku' => 'GT-NEW']]],
         ]]]];
@@ -143,7 +128,7 @@ class ChannelGroupToolsTest extends TestCase
         $r = $this->actingAs($this->manager(['manage_lazada/product_group', 'view_lazada/product_group']))
             ->post(route('ext.lazada.product-groups.check', ['store' => $this->lazadaStore->id, 'id' => $group->id]));
 
-        $r->assertSessionHas('error');   // a lost link is reported as a problem
+        $r->assertSessionHas('error');
         $this->assertStringContainsString('1 linked to the item Lazada holds', session('error'));
         $this->assertStringContainsString('1 no longer on Lazada', session('error'));
         $this->assertSame('5550001', (string) LazadaProduct::where('product_id', $unlisted)->value('lazada_item_id'));
@@ -152,12 +137,6 @@ class ChannelGroupToolsTest extends TestCase
         $this->assertSame('error', LazadaProductGroupProduct::where('product_id', $lost)->value('sync_status'));
     }
 
-    /**
-     * The bulk bar's check is scoped to the selection (2026-08-26): a
-     * whole-group check on a big group is one Lazada call per fifty SKUs
-     * and used to die past the execution limit with the page still
-     * waiting. A few chosen products is one call about those alone.
-     */
     public function test_lazada_check_scoped_to_a_selection_asks_only_about_those_products(): void
     {
         $chosen = $this->seedProduct('GT-PICK');
@@ -184,9 +163,7 @@ class ChannelGroupToolsTest extends TestCase
         $this->assertNotContains('GT-REST', $asked, 'the unselected product is not asked about');
         $this->assertNull(LazadaProduct::where('product_id', $other)->value('lazada_deleted_at'), 'and is not judged either');
 
-        // The bar offers it, the way Shopee's does.
         $html = $this->actingAs($manager)->get(route('ext.lazada.product-groups.products', ['store' => $this->lazadaStore->id, 'id' => $group->id]))->assertOk()->getContent();
-        // The bar offers it as Link IDs, and every listed row as Check against Lazada (one row menu on every channel, 2026-09-07).
         $this->assertStringContainsString('Link IDs', $html);
         $this->assertGreaterThanOrEqual(1, substr_count($html, route('ext.lazada.product-groups.check', ['store' => $this->lazadaStore->id, 'id' => $group->id])));
     }
@@ -209,8 +186,6 @@ class ChannelGroupToolsTest extends TestCase
         $r->assertSee('ORPHAN-1, ORPHAN-2');
         $r->assertDontSee('GT-KNOWN');
     }
-
-    // ── TikTok ──
 
     public function test_tiktok_check_links_by_seller_sku_and_drops_a_lost_link(): void
     {
@@ -237,11 +212,6 @@ class ChannelGroupToolsTest extends TestCase
         $this->assertSame('error', TikTokProductGroupProduct::where('product_id', $lost)->value('sync_status'));
     }
 
-    /**
-     * The workbench check (Phase F, #184): the same sweep with no group
-     * anywhere in sight. Adoption still works - the listing is dressed
-     * from nothing and left for the workbench - and a lost link drops.
-     */
     public function test_the_lazada_workbench_check_needs_no_group(): void
     {
         $unlisted = $this->seedProduct('WB-NEW');
@@ -268,7 +238,6 @@ class ChannelGroupToolsTest extends TestCase
         $this->seedProduct('WB-BTN');
         $html = $this->actingAs($this->manager(['manage_lazada/product', 'view_lazada/product']))
             ->get(route('ext.lazada.products.index', ['store' => $this->lazadaStore->id]))->assertOk()->getContent();
-        // Refresh folds the check in (2026-09-07); the bar offers Link IDs.
         $this->assertStringContainsString('Link IDs', $html);
         $this->assertStringContainsString('Refresh from Lazada', $html);
     }
@@ -298,7 +267,6 @@ class ChannelGroupToolsTest extends TestCase
         $this->seedProduct('WBT-BTN');
         $html = $this->actingAs($this->manager(['manage_tiktok/product', 'view_tiktok/product']))
             ->get(route('ext.tiktok.products.index'))->assertOk()->getContent();
-        // Refresh folds the check in (2026-09-07); the bar offers Link IDs.
         $this->assertStringContainsString('Link IDs', $html);
         $this->assertStringContainsString('Refresh from TikTok Shop', $html);
     }

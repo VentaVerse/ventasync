@@ -20,10 +20,6 @@ class NormalizeOrderCurrencyTest extends TestCase
 
     private function makeOrder(int $id, string $code, float $cv, float $total): void
     {
-        // The legacy OpenCart-derived `order` table has many NOT NULL columns
-        // with no default; MySQL's default STRICT_TRANS_TABLES mode rejects an
-        // insert that omits them. These are irrelevant to currency normalization
-        // and exist only to satisfy the schema.
         DB::table($this->p.'order')->insert([
             'order_id' => $id, 'currency_code' => $code, 'currency_value' => $cv,
             'total' => $total, 'order_status_id' => 1, 'date_added' => '2021-04-19 00:00:00',
@@ -114,38 +110,22 @@ class NormalizeOrderCurrencyTest extends TestCase
         $this->assertEquals(1.0, (float) $order->currency_value);
     }
 
-    /**
-     * Minor fix (final whole-branch review): the command used to catch only
-     * RuntimeException around the transaction, but assertOldRate() throws
-     * InvalidArgumentException from the REPORT block, before the transaction
-     * even opens. A single corrupt row (currency_value <= 0) used to abort
-     * the whole run with a raw stack trace and normalize nothing - including
-     * every OTHER legitimate legacy order in the same run. The fix catches
-     * Throwable and skips/reports the bad row instead of aborting.
-     */
     public function test_a_corrupt_row_is_skipped_and_reported_without_aborting_the_whole_run(): void
     {
-        // Corrupt row: currency_value <= 0 classifies as LEGACY (not ~1, not
-        // the default currency) but is not a usable rate.
         $this->makeOrder(70001, 'USD', -5.0, 1000.00);
         $this->makeLine(70001, 101, 500.00, 1000.00);
 
-        // A genuinely normalizable legacy order in the SAME run.
         $this->makeOrder(8827, 'USD', 0.02100927, 6602.08);
         $this->makeLine(8827, 1, 2790.00, 5580.00);
 
         $this->artisan('orders:currency-normalize --execute')
             ->assertExitCode(0);
 
-        // The corrupt row must be left completely untouched - not
-        // normalized, not crashed on.
         $bad = DB::table($this->p.'order')->where('order_id', 70001)->first();
         $this->assertNull($bad->foreign_total);
         $this->assertEquals(-5.0, (float) $bad->currency_value);
         $this->assertEquals(1000.00, (float) $bad->total);
 
-        // The other, legitimate legacy order in the same run must still be
-        // normalized - one bad row must not sink the whole run.
         $good = DB::table($this->p.'order')->where('order_id', 8827)->first();
         $this->assertEquals(6602.08, (float) $good->total, 'authoritative total must not move');
         $this->assertEquals(138.7049, (float) $good->foreign_total);

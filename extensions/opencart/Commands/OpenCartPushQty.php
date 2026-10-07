@@ -69,7 +69,6 @@ class OpenCartPushQty extends Command implements \App\Integrations\Contracts\Ste
         return 0;
     }
 
-    /** Run now walks this push ten products per request (SteppableAutomation, 2026-09-07). */
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
         return ['label' => 'products', 'units' => \Extensions\opencart\Services\OpenCart\OpenCartPushSteps::units($job)];

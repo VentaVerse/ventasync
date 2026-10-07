@@ -2,36 +2,10 @@
 @section('title', ($mode === 'create' ? 'Add' : 'Edit') . ' TikTok Shop Product group')
 @section('breadcrumb', $mode === 'create' ? 'New Product group' : $group->name)
 
-{{-- This page shows its own validation summary (the fm-note below) and marks
-     the offending fields inline, so partials/legacy-page-contract skips its
-     bullet list of every message rather than stacking a second red box on
-     top of this one. --}}
 @section('own-errors', true)
 
-{{-- Round F Task 1. Rebuilt on the shared fm- form anatomy
-     (components/form-page.css) and the gf- product picker
-     (pages/group-form.css), with the behaviour moved out of an inline
-     <script> into resources/js/pages/group-form.js.
-
-     The wire, checked against TikTokProductGroupController::store()/update():
-
-       name, tiktok_category_id, markup_percent, markup_fixed, attributes[<key>]
-
-     No product list since #201 (the owner, 2026-09-05): this form is the
-     group's own settings only. Products join and leave the group on its
-     products page, through the Add products panel over THIS STORE's list;
-     the whole-catalogue dual list went with product_ids[] and search-products.
-
-     TikTok is the simplest of the three: no brand, no delivery options and no
-     category attributes. Its category picker filters a list the controller
-     already loaded rather than searching the server, which is the
-     `data-combo-mode="local"` half of the shared combobox. --}}
 @section('content')
 @php
-    // The CREATE render is manage-tier, the EDIT render is in the read product group
-    // (extensions/tiktok/routes/web.php), so a view_tiktok operator can open
-    // this page on an existing product group. The previous version hardcoded the
-    // manage tier on and offered a Save button that would 403.
     $canManageTiktok = auth()->user()?->hasPermission('manage_tiktok/product_group') ?? false;
 
     $selectedCategoryId = (string) old('tiktok_category_id', $group->tiktok_category_id ?? '');
@@ -39,16 +13,11 @@
         ? $tiktokCategories->firstWhere('id', $selectedCategoryId)
         : null;
 
-    // The combobox filters this locally. Ids are strings on TikTok's side
-    // (tiktok_category_id is `required|string|exists:...`), so they are kept
-    // as strings all the way through rather than cast to int anywhere.
     $categoryOptions = $tiktokCategories->map(fn ($c) => [
         'id'   => (string) $c->id,
         'name' => (string) $c->name,
     ])->values();
 
-    // JSON_HEX_TAG encodes < and >, so a category literally named
-    // "</script>" cannot close its data island.
     $jsonFlags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
 @endphp
 
@@ -59,8 +28,6 @@
       data-guard-unsaved>
     @csrf
     @if($mode === 'create')
-        {{-- Back to the page that sent you here: the store's list, or the
-             groups list. Only a local path is ever followed. --}}
         <input type="hidden" name="_return" value="{{ \App\Support\BackTo::capture() }}">
     @endif
     @if($mode === 'edit')
@@ -137,10 +104,6 @@
                 </div>
             </section>
 
-            {{-- The category's attribute sheet (#156): what TikTok Shop asks
-                 for this category, answered once for the whole product group. Reloaded
-                 when the category changes (data-attributes-fetch, same wire
-                 as Shopee's). --}}
             <section class="fm-section"
                      data-attributes-fetch
                      data-attributes-url="{{ route('ext.tiktok.product-groups.fetchAttributes') }}"

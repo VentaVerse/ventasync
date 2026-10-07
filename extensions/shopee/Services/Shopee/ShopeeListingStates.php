@@ -13,39 +13,14 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-/**
- * The Shopee engine behind ListingState (Phase B, #184): one computation,
- * batch-shaped, that every Shopee surface renders from. It reads only the
- * ERP's own records - the link mirror, the listing record, the catalogue
- * row, the readiness service - and never calls Shopee: freshness is the
- * mirror's job (the 30-minute automation, the Refresh button, and the
- * write-through every push now performs).
- *
- * A product can hold several link rows (one per variation model, rarely
- * several items). One product still gets ONE state: the rows' statuses
- * are folded by severity, worst first, because "one of its variations is
- * banned" IS the product's situation. Severity: attention > reviewing >
- * inactive > live; unknown only when no row has ever been checked.
- *
- * Drift is a Catalog change (App\Integrations\Listings\CatalogCopy): the
- * catalog product moved since the listing was last compared, and the two
- * differ. A product with no listing row has nothing to compare, and inSync
- * stays null rather than pretending.
- */
 class ShopeeListingStates
 {
-    /** The store this instance reads and writes; null follows ShopeeSetting::defaultStore(). */
     private ?int $storeId = null;
 
     public function __construct(private readonly ShopeeListingReadiness $readiness)
     {
     }
 
-    /**
-     * The same engine, pinned to one store. A cron or command looping
-     * stores writes through this, so an outcome lands on the store the
-     * call was about and never on whichever store happens to be bound.
-     */
     public function forStore(ShopeeSetting|int|null $store): static
     {
         $id = $store instanceof ShopeeSetting ? (int) $store->id : (int) $store;
@@ -60,7 +35,6 @@ class ShopeeListingStates
         return $this->storeId ?? (int) (ShopeeSetting::defaultStore()?->id ?? 0);
     }
 
-    /** A store-owned query fenced to this store, request or console alike. */
     private function mine(string $model): \Illuminate\Database\Eloquent\Builder
     {
         $query = $model::query();
@@ -71,11 +45,6 @@ class ShopeeListingStates
             : $query;
     }
 
-    /**
-     * The outcome of the latest thing done with this product on this
-     * store. Null is a success and clears every error slot; a reason is a
-     * failure and becomes the listing's error line.
-     */
     public function recordOutcome(int $productId, ?string $failure): void
     {
         if ($failure === null) {
@@ -100,12 +69,6 @@ class ShopeeListingStates
         ])->save();
     }
 
-    /**
-     * Clear every slot errors() reads for these products on this store,
-     * and the group pivot's copy. An unlinked pivot row is left alone.
-     *
-     * @param list<int> $productIds
-     */
     public function clearErrors(array $productIds): void
     {
         $productIds = array_values(array_unique(array_filter(array_map('intval', $productIds), fn ($v) => $v > 0)));
@@ -146,13 +109,6 @@ class ShopeeListingStates
         }
     }
 
-    /**
-     * The products that show an error line on this store, by the same
-     * errors() the rows are drawn from, so the filter and the red lines
-     * can never disagree.
-     *
-     * @return list<int>
-     */
     public function erroredProductIds(): array
     {
         $storeId = $this->storeId();
@@ -179,14 +135,6 @@ class ShopeeListingStates
         return $out;
     }
 
-    /**
-     * The shop's listing troubles in two numbers, for the dashboard chip:
-     * how many products need a human (violation, deleted, vanished) and
-     * how many are live but behind the catalogue. Aggregate SQL, not the
-     * per-product path: the dashboard must not walk two thousand rows.
-     *
-     * @return array{attention: int, drift: int}
-     */
     public function summary(): array
     {
         return [
@@ -195,12 +143,6 @@ class ShopeeListingStates
         ];
     }
 
-    /**
-     * The listings showing a Catalog change: their catalog product moved
-     * since they were last compared, and the two differ.
-     *
-     * @return array<int, list<string>>  product id => the fields that differ
-     */
     private function catalogChanges(): array
     {
         return \App\Integrations\Listings\CatalogCopy::pending(
@@ -208,16 +150,6 @@ class ShopeeListingStates
         );
     }
 
-    /**
-     * The rows behind a figure, by the SAME query that counted them
-     * (#240). A number on the dashboard that leads nowhere is a fact the
-     * operator cannot act on - the owner, 2026-09-08: "That doesnt really
-     * answer the question needs attention. Im looking at Overview and in
-     * listing, but I dont know what Im looking for." The Listings page
-     * filters on this, so the count and the rows can never disagree.
-     *
-     * @return list<int>
-     */
     public function productIdsIn(string $bucket): array
     {
         if ($bucket === 'drift') {
@@ -229,7 +161,6 @@ class ShopeeListingStates
             ->map(fn ($v) => (int) $v)->unique()->values()->all();
     }
 
-    /** One definition of each bucket, counted and listed from here. */
     private function bucket(string $bucket): \Illuminate\Database\Eloquent\Builder
     {
         $pfx = (string) config('catalog.prefix');
@@ -246,29 +177,8 @@ class ShopeeListingStates
             ->whereIn('live_status', ['BANNED', 'SELLER_DELETE', 'SHOPEE_DELETE', 'MISSING']);
     }
 
-    /** Worst first; the fold keeps the first status this list names. */
     private const SEVERITY = ['BANNED', 'SHOPEE_DELETE', 'SELLER_DELETE', 'MISSING', 'REVIEWING', 'UNLIST', 'NORMAL'];
 
-    /**
-     * The Last sync column, one answer for the Listings page and every
-     * group page (the owner, 2026-09-05): a refusal wins and is told in full,
-     * whichever surface pushed or synced; otherwise the newest successful
-     * sync, stock and price on the link rows or the listing push, with
-     * what it was; otherwise never.
-     *
-     * @param list<int> $productIds
-     * @return array<int, array{tone: 'failed'|'ok'|'none', headline: string, detail: ?string, at: ?Carbon}>
-     */
-    /**
-     * The Error column (the owner, 2026-09-07): the message a Shopee listing is
-     * carrying right now, or null when nothing is wrong. One question, one
-     * answer, no rule about how old a failure is: the scheduled refresh
-     * re-runs the link check, and a successful push or sync clears the
-     * message it wrote.
-     *
-     * @param list<int> $productIds
-     * @return array<int, ?string>
-     */
     public function errors(array $productIds): array
     {
         $productIds = array_values(array_unique(array_map('intval', $productIds)));
@@ -284,14 +194,10 @@ class ShopeeListingStates
             $listing = $listings->get($pid);
             $rows = $links->get($pid) ?? collect();
 
-            // The newest of the two errors a row can carry: a refused push,
-            // and a refused stock, price or link-check sync on a link row.
             $found = [];
             if ($listing && trim((string) ($listing->last_push_error ?? '')) !== '') {
                 $found[] = [$listing->last_push_failed_at ? Carbon::parse($listing->last_push_failed_at) : Carbon::createFromTimestamp(0), trim((string) $listing->last_push_error)];
             }
-            // A failure with no saved message still says it failed: blank in
-            // a column that only fills on failure reads as nothing wrong.
             $failedSync = $rows->filter(fn ($r) => $r->last_sync_ok !== null && ! $r->last_sync_ok)
                 ->sortByDesc('last_synced_at')->first();
             if ($failedSync) {
@@ -299,7 +205,6 @@ class ShopeeListingStates
                     trim((string) $failedSync->last_sync_error_message) ?: \App\Integrations\Push\PushLedger::NO_REASON];
             }
             usort($found, fn ($a, $b) => $b[0] <=> $a[0]);
-            // A sold variation the linked item does not hold rides beside it.
             $out[$pid] = ListingVariations::withMissing(
                 $found === [] ? null : $found[0][1],
                 isset($missing[$pid]) && $rows->isNotEmpty() ? ListingVariations::missingMessage('Shopee', $missing[$pid]) : null
@@ -309,13 +214,6 @@ class ShopeeListingStates
         return $out;
     }
 
-    /**
-     * Remember the variation SKUs a store's item holds, as just read from
-     * Shopee. The parent's own SKU and model are not variations, and a
-     * product without variations has nothing to remember.
-     *
-     * @param iterable<string|null> $skus
-     */
     public static function rememberHeld(int $storeId, int $productId, iterable $skus): void
     {
         if ($storeId <= 0 || $productId <= 0) {
@@ -350,10 +248,6 @@ class ShopeeListingStates
         ListingVariations::remember('shopee', $storeId, $productId, $held);
     }
 
-    /**
-     * @param list<int> $productIds
-     * @return array<int, ListingState> keyed by product id
-     */
     public function forProducts(array $productIds): array
     {
         $productIds = array_values(array_unique(array_map('intval', $productIds)));
@@ -375,10 +269,6 @@ class ShopeeListingStates
 
         $catalogChanges = \App\Integrations\Listings\CatalogCopy::pending($listings->values(), 'shopee_listings', ShopeeListing::copyColumns());
 
-        /* Readiness for every product, linked or not (the owner, 2026-09-06,
-         * the Ready column): a listed product answers the update's own
-         * checklist, so Ready means the next push, whichever verb, passes
-         * every check this side can run. */
         $readiness = $this->readiness->forProducts($productIds);
 
         $out = [];
@@ -386,9 +276,6 @@ class ShopeeListingStates
             $listing = $listings->get($productId);
             $pushedAt = $listing?->last_pushed_at ? Carbon::parse($listing->last_pushed_at) : null;
 
-            // One latest error per product (the owner, 2026-09-05): the last
-            // refusal, from whichever surface pushed, told as a sentence on
-            // every surface until a push succeeds.
             $failure = [];
             if ($listing && trim((string) ($listing->last_push_error ?? '')) !== '') {
                 $failedAt = $listing->last_push_failed_at ? Carbon::parse($listing->last_push_failed_at) : null;
@@ -423,8 +310,6 @@ class ShopeeListingStates
             $inSync = $listing ? !isset($catalogChanges[$productId]) : null;
             $reasons = $failure;
 
-            // The attention label is Shopee's own word for the trouble;
-            // core ListingState knows no marketplace's vocabulary (#184 C).
             [$state, $attentionLabel, $extraReason] = match ($worst) {
                 'NORMAL' => [ListingState::LIVE, null, null],
                 'UNLIST' => [ListingState::INACTIVE, null, null],

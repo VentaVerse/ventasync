@@ -7,25 +7,8 @@ use Extensions\shopee\Models\ShopeeProductGroup;
 use Extensions\shopee\Models\ShopeeProductGroupAttribute;
 use Illuminate\Support\Facades\DB;
 
-/**
- * A group is a preset the product inherits (the owner, 2026-09-05): wherever
- * a listing's own requirement is blank, its group's stands in, on every
- * push and in readiness alike. Before this a group's category rode only
- * a group push, so the workbench called a grouped product "missing a
- * category" while the group page pushed it fine.
- *
- * Inherited: the category, the couriers, the brand, the attribute answers
- * and the price rule (2026-09-06): a listing with no rule of its own
- * prices the way its group does.
- *
- * One product, one group per store, so there is at most one answer.
- */
 final class ShopeeInheritedSettings
 {
-    /**
-     * @param list<int> $productIds
-     * @return array<int, array{group_id:int, group_name:string, category_id:?int, logistic_ids:list<int>, brand_id:?int, markup_fixed:?float, markup_percent:?float, attributes:array<string,string>}>
-     */
     public function forProducts(array $productIds): array
     {
         $productIds = array_values(array_unique(array_map('intval', $productIds)));
@@ -33,7 +16,6 @@ final class ShopeeInheritedSettings
             return [];
         }
 
-        // This store's groups, named outright: the pivot carries no store.
         $rows = DB::table('shopee_product_group_products as pv')
             ->joinSub(ShopeeProductGroup::query()->forStore(\Extensions\shopee\Models\ShopeeSetting::defaultStore())->select(['id', 'name', 'shopee_category_id', 'shopee_brand_id', 'logistic_ids', 'markup_fixed', 'markup_percent']), 'g', 'g.id', '=', 'pv.shopee_product_group_id')
             ->whereIn('pv.product_id', $productIds)
@@ -44,7 +26,7 @@ final class ShopeeInheritedSettings
         foreach ($rows as $row) {
             $pid = (int) $row->product_id;
             if (isset($out[$pid])) {
-                continue; // one product, one group; the oldest membership wins, as the migration ruled
+                continue;
             }
             $logistics = is_string($row->logistic_ids) ? (json_decode($row->logistic_ids, true) ?: []) : (array) ($row->logistic_ids ?? []);
             $out[$pid] = [
@@ -58,9 +40,6 @@ final class ShopeeInheritedSettings
                 'attributes' => [],
             ];
         }
-        /* The group's attribute answers ride along (the owner, 2026-09-06, the
-         * Ready column), the way Lazada's and TikTok's do; fill() read them
-         * and the markup from a row that never carried either. */
         $groupIds = array_values(array_unique(array_map(fn ($g) => $g['group_id'], $out)));
         if ($groupIds !== []) {
             $answers = ShopeeProductGroupAttribute::query()->whereIn('shopee_product_group_id', $groupIds)
@@ -73,13 +52,6 @@ final class ShopeeInheritedSettings
         return $out;
     }
 
-    /**
-     * The listing with its blanks filled from the group, as an in-memory
-     * copy that is never saved: the listing's own record stays the truth
-     * of what the operator chose. `inherited` names what came from where.
-     *
-     * @return array{listing: ShopeeListing, inherited: array<string,string>}
-     */
     public function fill(ShopeeListing $listing, ?array $group): array
     {
         $copy = clone $listing;
@@ -100,11 +72,6 @@ final class ShopeeInheritedSettings
             $copy->shopee_brand_id = $group['brand_id'];
             $inherited['brand'] = $group['group_name'];
         }
-        /* The price rule and the attribute answers are presets too
-         * (2026-09-06, the Ready column): a listing with no rule of its own
-         * prices the way its group does, exactly as Lazada's builder has
-         * always done, and a listing's own answer to an attribute wins over
-         * the group's. Readiness and every push read the same filled copy. */
         if ($copy->markup_percent === null && $copy->markup_fixed === null && ($group['markup_percent'] !== null || $group['markup_fixed'] !== null)) {
             $copy->markup_percent = $group['markup_percent'];
             $copy->markup_fixed = $group['markup_fixed'];

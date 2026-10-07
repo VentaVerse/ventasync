@@ -44,28 +44,16 @@ class VentaOrder extends Model
         'courier_booked_at' => 'datetime',
     ];
 
-    /**
-     * Whether a courier holds this parcel under a booking the ERP knows
-     * about. The storefront's own To Handover membership is by status;
-     * this is the narrower question "do we have a tracking number", which
-     * is what decides whether a waybill can be printed from here.
-     */
     public function isBooked(): bool
     {
         return trim((string) $this->courier_tracking_number) !== '';
     }
 
-    /**
-     * Whether the parcel left with a courier the store does not integrate
-     * with, recorded by hand. Such a shipment has no waybill to print and
-     * no timeline to track; what it has is a name and a number.
-     */
     public function isManualShipment(): bool
     {
         return $this->courier_provider === self::MANUAL_PROVIDER;
     }
 
-    /** The provider key a hand-recorded shipment carries. */
     public const MANUAL_PROVIDER = 'manual';
 
     public function setting(): BelongsTo

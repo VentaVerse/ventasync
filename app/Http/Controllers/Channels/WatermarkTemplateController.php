@@ -11,33 +11,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
-/**
- * WATERMARK TEMPLATES FOR ONE STORE.
- *
- * A template is a named mark: which picture, where it sits, how big and how
- * strong. A listing of this store picks one, or borrows the one its product
- * group names, and the mark is stamped on the pictures at the moment they
- * are sent.
- *
- * This is the same object as a description template, and is kept the same
- * way. A mark carries a shop's words as much as its logo, COD accepted or
- * an authorised distributor line, so it belongs to the store that says
- * them and never travels to another.
- *
- * THE PICTURE IS CHOSEN FROM THE IMAGE LIBRARY, not uploaded into the
- * template: one logo, uploaded once, pointed at by every template that
- * wants it, in whichever store.
- *
- * One base for every channel; each extension subclasses it with two lines
- * so the permission catalogue keys the page on that channel
- * (shopee/watermark_template, lazada/watermark_template, and so on).
- */
 abstract class WatermarkTemplateController extends Controller
 {
-    /** The channel this subclass serves: 'shopee', 'lazada', ... */
     abstract protected function integration(): string;
 
-    /** The store the request is acting for, bound by the channel's own middleware. */
     protected function storeId(): int
     {
         $key = $this->integration() . '.route-store';
@@ -45,7 +22,6 @@ abstract class WatermarkTemplateController extends Controller
             return (int) app($key)->id;
         }
 
-        // A channel whose middleware leaves the segment in place (Venta).
         return (int) (request()->route('store') ?? 0);
     }
 
@@ -64,8 +40,6 @@ abstract class WatermarkTemplateController extends Controller
             ->paginate(50)
             ->withQueryString();
 
-        /* The page is handed finished URLs rather than building them from a
-         * channel name, so nothing on it is a dynamic route() call. */
         return view('channels.watermarks.index', [
             'templates' => $templates,
             'q' => $q,
@@ -125,12 +99,6 @@ abstract class WatermarkTemplateController extends Controller
         $row = $this->ownRow($template);
         $name = (string) $row->name;
 
-        /* Nothing is repaired for the listings that pointed here, and
-           nothing needs to be: a listing naming a template that no longer
-           exists simply stamps nothing, exactly as if it named none. The
-           alternative - refusing to delete while anything uses it - makes
-           a template impossible to retire without hunting every listing
-           that ever chose it. */
         $row->delete();
 
         ActivityLogger::log('deleted', 'Watermark template', $template, $name);
@@ -139,19 +107,8 @@ abstract class WatermarkTemplateController extends Controller
             ->with('status', 'Template deleted. Anything that used it now goes up unmarked.');
     }
 
-    /**
-     * A preview of this mark on a real photograph, so the seller sees what
-     * the buyer will see before a single product goes up. Answers the
-     * stamped bytes, or the plain picture when the mark cannot be used -
-     * the same rule the push follows.
-     */
     public function preview(Request $request)
     {
-        /* Numbers here are CLAMPED, never refused. A preview is a question
-           asked while somebody is still deciding, and refusing an
-           out-of-range value answered with an error the picture could not
-           show. The SAVE still validates strictly; this only has to draw
-           something true. */
         $data = $request->validate([
             'image_path' => 'required|string|max:1000',
             'position' => ['nullable', Rule::in(Watermarker::POSITIONS)],
@@ -167,21 +124,11 @@ abstract class WatermarkTemplateController extends Controller
             abort(404);
         }
 
-        /* A photograph from the library to try it on: whichever the caller
-           named, else any catalog image. A preview of a mark on nothing
-           would show the mark, which is not the question being asked. */
         $sample = ProductImages::acceptable([(string) ($data['sample'] ?? '')]);
         $samplePath = $sample[0] ?? $this->anyCatalogImage();
 
-        /* Through the disk, not public/storage: the symlink is a web
-           server convenience, and a missing one would blank every preview
-           while the files sit exactly where the library put them. */
         $disk = Storage::disk('public');
 
-        /* A catalog with no usable photograph still gets a preview, drawn
-           on a plain square. A fresh install has no products at all, and a
-           preview that answers 404 there teaches the seller the mark is
-           broken when it is only untried. */
         $sampleFile = $samplePath !== null ? $disk->path($samplePath) : $this->plainSquare();
         if ($sampleFile === null) {
             abort(404);
@@ -204,7 +151,6 @@ abstract class WatermarkTemplateController extends Controller
         return response($bytes, 200, ['Content-Type' => 'image/jpeg', 'Cache-Control' => 'no-store']);
     }
 
-    /** @return array<string, mixed> */
     private function formData(WatermarkTemplate $template, string $mode, string $action): array
     {
         return [
@@ -218,14 +164,11 @@ abstract class WatermarkTemplateController extends Controller
         ];
     }
 
-    /** @return array<string, mixed> */
     private function validated(Request $request, ?int $ignoreId): array
     {
         abort_unless($this->canManage(), 403);
 
         $data = $request->validate([
-            /* One name within this store. Another store keeping a mark of
-               the same name is not a clash: it never sees this one. */
             'name' => ['required', 'string', 'max:120', Rule::unique('watermark_templates', 'name')
                 ->where('integration', $this->integration())
                 ->where('store_id', $this->storeId())
@@ -238,14 +181,9 @@ abstract class WatermarkTemplateController extends Controller
             'transparency' => 'required|numeric|min:0|max:' . WatermarkTemplate::MAX_TRANSPARENCY,
         ]);
 
-        /* Shown as transparency, stored as the opacity the stamper
-           multiplies by. */
         $data['opacity'] = WatermarkTemplate::opacityFor((float) $data['transparency']);
         unset($data['transparency']);
 
-        /* The mark has to be a file the library actually holds: this path
-           is read at push time, on every picture of every product that
-           uses it, and a hidden input is client input like any other. */
         $accepted = ProductImages::acceptable([$data['image_path']]);
         if ($accepted === []) {
             throw \Illuminate\Validation\ValidationException::withMessages([
@@ -257,13 +195,11 @@ abstract class WatermarkTemplateController extends Controller
         return $data;
     }
 
-    /** A template of THIS store, or a 404. One store never edits another's. */
     private function ownRow(int $id): WatermarkTemplate
     {
         return WatermarkTemplate::ofStore($this->integration(), $this->storeId())->where('id', $id)->firstOrFail();
     }
 
-    /** @param  array<string, mixed>  $params */
     private function url(string $action, array $params = []): string
     {
         return route('ext.' . $this->integration() . '.watermarks.' . $action, ['store' => $this->storeId()] + $params);
@@ -275,13 +211,6 @@ abstract class WatermarkTemplateController extends Controller
             ?? \Illuminate\Support\Str::headline($this->integration());
     }
 
-    /**
-     * A photograph from the library to try a mark on.
-     *
-     * Several candidates, not one: a product's image column can name a file
-     * that is no longer on disk, and one stale row on the newest product
-     * used to leave the whole preview blank.
-     */
     private function anyCatalogImage(): ?string
     {
         $pfx = (string) config('catalog.prefix');
@@ -301,12 +230,6 @@ abstract class WatermarkTemplateController extends Controller
         return null;
     }
 
-    /**
-     * A plain light square to stamp when the catalog offers no photograph,
-     * written where the stamper can read it. Deliberately not a stock
-     * product picture: a mark judged against someone else's photo is the
-     * preview that tells you nothing.
-     */
     private function plainSquare(): ?string
     {
         $image = @imagecreatetruecolor(800, 800);

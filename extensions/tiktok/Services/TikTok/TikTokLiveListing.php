@@ -4,22 +4,8 @@ namespace Extensions\tiktok\Services\TikTok;
 
 use Extensions\tiktok\Models\TikTokApiLog;
 
-/**
- * What TikTok says about a product RIGHT NOW (#156, mirroring Shopee's
- * ShopeeLiveListing): fetched on the page load that shows it, never
- * cached, and when TikTok does not answer the page says so instead of
- * showing yesterday. One product for the listing page; the whole shop
- * by status for the index's tabs and row chips.
- */
 class TikTokLiveListing
 {
-    /* The STATUS_MAP that lived here is gone (#184 D): the words come
-     * from TikTokListingStates -> ListingState now, one vocabulary for
-     * every surface. This service keeps only the wire and the tabs. */
-
-    /** The index's tabs: key => [label, TikTok status filter or null for all].
-     * Labels speak the engine's words - the row badge says Unlisted, so the
-     * tab that filters to it must not say Deactivated. */
     public const TABS = [
         'all' => ['All', null],
         'live' => ['Live', 'ACTIVATE'],
@@ -31,7 +17,6 @@ class TikTokLiveListing
 
     public function __construct(private TikTokClient $client) {}
 
-    /** @return array{live: ?array, error: ?string} */
     public function fetch(string $tiktokProductId, array $c): array
     {
         try {
@@ -65,13 +50,6 @@ class TikTokLiveListing
         ], 'error' => null];
     }
 
-    /**
-     * The item's SKUs with the variation types TikTok holds them under:
-     * id, seller_sku and sales_attributes [{id, name, value_id, value_name}].
-     * skus is null when TikTok does not answer.
-     *
-     * @return array{skus: ?list<array>, error: ?string}
-     */
     public function variationSkus(string $tiktokProductId, array $c): array
     {
         try {
@@ -105,13 +83,6 @@ class TikTokLiveListing
         return ['skus' => $skus, 'error' => null];
     }
 
-    /**
-     * Every product on the shop, page by page (100 per page, ten pages
-     * at most), keyed by TikTok product id: status, title and the seller
-     * SKUs it carries. The index's tabs, the group's Check and the
-     * Unlinked view all read this one walk.
-     * @return array{products: ?array<string, array{status: string, title: string, skus: array<int, string>}>, error: ?string}
-     */
     public function shop(array $c, ?string $status = null): array
     {
         $out = [];
@@ -146,7 +117,6 @@ class TikTokLiveListing
                     'status' => (string) ($p['status'] ?? ''),
                     'title' => (string) ($p['title'] ?? ''),
                     'skus' => $skus,
-                    // The first picture, for the Import page's row (2026-09-07).
                     'image' => (string) (data_get($p, 'main_images.0.urls.0') ?? data_get($p, 'main_images.0.url') ?? ''),
                 ];
             }
@@ -156,14 +126,9 @@ class TikTokLiveListing
             }
         }
 
-        // Ten pages of 100 is the walk's ceiling; a token left over means the shop holds more than was read.
         return ['products' => $out, 'error' => null, 'truncated' => $token !== null];
     }
 
-    /**
-     * The shop's statuses alone, keyed by TikTok product id.
-     * @return array{statuses: ?array<string, string>, error: ?string}
-     */
     public function statuses(array $c, ?string $status = null): array
     {
         $shop = $this->shop($c, $status);
@@ -174,16 +139,6 @@ class TikTokLiveListing
         ];
     }
 
-    /**
-     * Refresh the status mirror (the owner, 2026-08-28): one walk of the shop,
-     * written onto every listing row that is on TikTok. A product the
-     * shop no longer returns becomes MISSING. A product on TikTok only
-     * through a group pivot (pushed before the listing record carried the
-     * truth) gets a listing row so the mirror has one home; the page and
-     * the tabs read that row. A page view asks TikTok for nothing.
-     *
-     * @return array{error: ?string, counts: array<string, int>, links: int}
-     */
     public function refreshMirror(array $c): array
     {
         $answer = $this->statuses($c);
@@ -193,8 +148,6 @@ class TikTokLiveListing
         $statuses = $answer['statuses'];
         $now = now();
 
-        // Pivot truths with no listing row: give them one, so one table
-        // carries the mirror.
         $withRow = \Extensions\tiktok\Models\TikTokListing::query()->pluck('product_id')->map(fn ($v) => (int) $v)->all();
         $pivots = \Extensions\tiktok\Models\TikTokProductGroupProduct::query()->onStore($c['setting'] ?? null)
             ->whereNotNull('tiktok_product_id')
@@ -208,7 +161,6 @@ class TikTokLiveListing
                 ['tiktok_product_id' => (string) $pv->tiktok_product_id, 'tiktok_sku_id' => $pv->tiktok_sku_id, 'last_pushed_at' => $pv->last_pushed_at, 'last_push_source' => 'group']
             );
         }
-        // A listing row with no product id of its own inherits the pivot's.
         $blank = \Extensions\tiktok\Models\TikTokListing::query()->whereNull('tiktok_product_id')->get();
         foreach ($blank as $row) {
             $pv = \Extensions\tiktok\Models\TikTokProductGroupProduct::query()->onStore($c['setting'] ?? null)

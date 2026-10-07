@@ -1,46 +1,6 @@
-/* ============================================================
-   WAREHOUSING (layouts.shell)
-
-   Six pages: transfers index / create-edit / record, stock by
-   location, stock adjustment, and locations index / form.
-
-   The three shared anatomies carry almost all of it. What is left
-   and lives here:
-
-     - the transfer lifecycle rail on the record page, which is the
-       one piece of this section that has to say something the badge
-       cannot: where the transfer sits between five states, and
-       whether stock has moved yet;
-     - two line editors (transfer items, stock adjustment). Both are
-       grids rather than tables for the same reason the purchase-order
-       editor is: a row of live <input>s cannot restack the way
-       .x-table's read-only cells do;
-     - the product search popup both editors share;
-     - the per-location quantity treatment on the stock table.
-
-   Colour has one job across the whole section: the transfer's
-   lifecycle, through its status badge. The only other tinted things
-   are a quantity that has gone negative (--bl-bad, which is a real
-   fault, not a state) and a line whose transfer quantity exceeds what
-   is on the shelf (--bl-bad, because the server will refuse it).
-   Zero stock is NOT tinted: an empty shelf is ordinary.
-   ============================================================ */
-
-/* ------------------------------------------------------------------
-   Flash. Same grammar as the purchasing pages: the shell renders no
-   flash region and every mutating action here redirects back with
-   `status` or `error`.
-   ------------------------------------------------------------------ */
 .wh-flash { display: grid; gap: var(--bl-space-2); }
 .wh-flash:not(:empty) { margin-bottom: var(--bl-space-4); }
 
-/* ------------------------------------------------------------------
-   Transfers list
-   ------------------------------------------------------------------ */
-
-/* A transfer's identity is its reference plus where the goods are
-   going, so the two live in one cell and the route reads as one
-   phrase instead of two columns the eye has to join up. */
 .wh-route {
     display: inline-flex;
     align-items: baseline;
@@ -72,14 +32,6 @@
     max-width: 34ch;
 }
 
-/* Date range filter.
-
-   Two bare <input type="date"> boxes side by side read as raw browser
-   chrome: both show the same "mm/dd/yyyy" placeholder and neither says
-   which end of the range it is. Screen-reader-only labels fix the
-   accessibility half and leave the visual half wrong. So the pair is
-   one bordered control with the words in it, and the inputs inside it
-   drop their own border. */
 .wh-dates {
     display: inline-flex;
     align-items: center;
@@ -116,8 +68,6 @@
 
 .wh-dates__in:focus { outline: none; }
 
-/* The native calendar button inherits the page's own colour instead of
-   arriving as a blue system glyph. */
 .wh-dates__in::-webkit-calendar-picker-indicator {
     opacity: .5;
     cursor: pointer;
@@ -125,10 +75,6 @@
 
 .wh-dates__in:hover::-webkit-calendar-picker-indicator { opacity: 1; }
 
-/* The native calendar glyph is drawn dark and stays dark on the dark
-   theme, where it all but disappears against the surface. The whole
-   theme is applied as data-theme on <html> (base/tokens.css), so the
-   same selector shape flips it. */
 :root[data-theme="dark"] .wh-dates__in::-webkit-calendar-picker-indicator {
     filter: invert(1);
 }
@@ -139,18 +85,6 @@
 .wh-col-when  { width: 132px; }
 .wh-col-who   { width: 148px; }
 
-/* ------------------------------------------------------------------
-   Transfer record: the lifecycle rail
-
-   Draft -> In progress -> Completed, with the two terminal states
-   said in words underneath rather than drawn as extra stations. The
-   rail exists to answer one question at a glance, "has the stock
-   moved yet", so the step where it moves is the one that changes
-   weight.
-   ------------------------------------------------------------------ */
-/* The transfer's status strip is a page-level panel sitting on the ground
-   beside the Lines sheet, so it takes the sheet treatment rather than the
-   inset's 11px. Measured at depth 1 from the content region. */
 .wh-rail {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -172,8 +106,6 @@
     min-width: 0;
 }
 
-/* The connector is drawn by the step it leaves, so the last step has
-   none and the rail never overhangs its own box. */
 .wh-step::before {
     content: '';
     position: absolute;
@@ -187,12 +119,6 @@
 .wh-step:last-child::before { display: none; }
 .wh-step.is-past::before { background: var(--bl-brand-deep); }
 
-/* Fix round, Minor 14: the idle ring was --bl-rule-2 on --bl-sheet,
-   1.54:1 light / 1.50:1 dark, under the 3:1 WCAG 1.4.11 floor. Every
-   other state (past/now/stopped, below) already carries a token that
-   clears it (--bl-brand-deep or --bl-bad); only the untouched-yet state was
-   under the line. --bl-ink-3 clears it at 5.13:1 light / 4.87:1 dark
-   against --bl-sheet (base/tokens.css's own audited matrix). */
 .wh-step__dot {
     width: 9px;
     height: 9px;
@@ -209,10 +135,6 @@
     border-color: var(--bl-brand-deep);
 }
 
-/* The state the transfer is standing in right now. A ring rather
-   than a second hue: the badge in the header already carries the
-   colour, and repeating it here would make two things compete to say
-   the same thing. */
 .wh-step.is-now .wh-step__dot {
     background: var(--bl-brand-deep);
     border-color: var(--bl-brand-deep);
@@ -246,10 +168,6 @@
     max-width: 30ch;
 }
 
-/* Terminal states get a sentence, not a station. "Cancelled" and
-   "Voided" are not further along the rail than "Completed"; they are
-   the record ending, and the difference between them (whether stock
-   moved and was put back) is the only thing worth reading. */
 .wh-ended {
     display: flex;
     gap: var(--bl-space-3);
@@ -266,12 +184,6 @@
 
 .wh-ended strong { color: var(--bl-ink); font-weight: 500; }
 
-/* ------------------------------------------------------------------
-   Transfer record: item rows
-
-   Read-only counterpart of the editor grid below, on the same track
-   so a line looks like the line you typed.
-   ------------------------------------------------------------------ */
 .wh-det__head,
 .wh-det-line {
     display: grid;
@@ -279,14 +191,12 @@
         28px            /* index */
         minmax(0, 1fr)  /* product */
         140px           /* sku */
-        88px;           /* qty */
+        88px;
     gap: var(--bl-space-3);
     align-items: center;
     padding: var(--bl-space-2) var(--bl-space-3);
 }
 
-/* One box, three bands: header strip, lines, total. The border and
-   the radius belong to the box so no band has to fake a corner. */
 .wh-det {
     border: 1px solid var(--bl-rule);
     border-radius: var(--bl-r-ctrl);
@@ -327,8 +237,6 @@
 
 .wh-det-line__qty { color: var(--bl-ink); }
 
-/* Total sits under the lines on the same right edge as the quantity
-   column, so the figures stack. */
 .wh-det-foot {
     display: grid;
     grid-template-columns: auto 88px;
@@ -350,13 +258,6 @@
     color: var(--bl-ink);
 }
 
-/* ------------------------------------------------------------------
-   Line editors (transfer items, stock adjustment)
-
-   One grid track, two column sets. Both are built in Blade for rows
-   that exist on load and by resources/js/pages/warehousing.js for
-   rows added in the browser; the two must stay in step.
-   ------------------------------------------------------------------ */
 .wh-lines {
     border: 1px solid var(--bl-rule);
     border-radius: var(--bl-r-ctrl);
@@ -372,13 +273,11 @@
     padding: var(--bl-space-2) var(--bl-space-3);
 }
 
-/* Transfer: product / sku / on hand / move */
 .wh-lines--transfer .wh-lines__head,
 .wh-lines--transfer .wh-line {
     grid-template-columns: minmax(0, 1fr) 130px 84px 100px 28px;
 }
 
-/* Adjustment: product / sku / counted now / set to */
 .wh-lines--adjust .wh-lines__head,
 .wh-lines--adjust .wh-line {
     grid-template-columns: minmax(0, 1fr) 130px 84px 110px 28px;
@@ -411,14 +310,6 @@
 
 .wh-line__have { text-align: right; }
 
-/* The fields inside a line are `.x-inline-input`
-   (components/inline-input.css), quieter than a standalone `.x-input`
-   so fifty of them stacked do not read as a wall of chrome.
-   warehousing.js marks one `.is-invalid` when its quantity is more
-   than the source location holds: the server refuses that transfer at
-   completion time, and saying so while the number is being typed is
-   the whole point of showing the on-hand figure beside it. */
-
 .wh-line__x {
     display: grid;
     place-items: center;
@@ -442,11 +333,6 @@
     color: var(--bl-ink-3);
 }
 
-/* The empty notice is toggled with the `hidden` attribute, and the
-   attribute is only a UA display rule: anything here that sets
-   `display` would out-specify it. It does not, but the opt-out is
-   cheap and the failure it prevents (a script that appears to do
-   nothing) has already cost this project a round. */
 .wh-lines__empty[hidden] { display: none; }
 
 .wh-lines__foot {
@@ -472,9 +358,6 @@
     color: var(--bl-ink);
 }
 
-/* ------------------------------------------------------------------
-   Add-a-line search
-   ------------------------------------------------------------------ */
 .wh-add {
     display: flex;
     gap: var(--bl-space-2);
@@ -537,16 +420,6 @@
 
 .wh-ac__empty { padding: var(--bl-space-2) var(--bl-space-3); font-size: 13px; color: var(--bl-ink-3); }
 
-/* ------------------------------------------------------------------
-   Stock by location
-
-   Every location is a column, so the row is a set of figures that
-   have to line up on the decimal. Zero is muted, not red: an empty
-   shelf is the ordinary case on a multi-location table and colouring
-   it would tint most of the page. Negative is a genuine fault (the
-   schema permits it for option arithmetic) and is the one thing here
-   that carries --bl-bad.
-   ------------------------------------------------------------------ */
 .wh-qty {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
@@ -558,9 +431,6 @@
 .wh-qty--neg  { color: var(--bl-bad); }
 .wh-qty--total { font-weight: 600; }
 
-/* One column per location, and a location is named by a person, so the
-   header has to be able to hold "Main stockroom" without truncating it
-   to "Main stock...". It wraps instead. */
 .wh-col-qty { width: 104px; }
 .x-table th.wh-col-qty { white-space: normal; }
 
@@ -568,38 +438,21 @@
 .wh-idty__name { font-weight: 500; color: var(--bl-ink); }
 .wh-idty__sub { font-size: 12px; color: var(--bl-ink-3); }
 
-/* The sellable rule is a property of the location, not of the row, so
-   it is stated once above the table rather than repeated per column. */
 .wh-legend {
     margin: 0 0 var(--bl-space-4);
     font-size: 12px;
     color: var(--bl-ink-3);
 }
 
-/* ------------------------------------------------------------------
-   Locations
-   ------------------------------------------------------------------ */
 .wh-col-code   { width: 120px; }
 .wh-col-flags  { width: 200px; }
 .wh-col-sort   { width: 88px; }
 
 .wh-flags { display: inline-flex; gap: var(--bl-space-2); flex-wrap: wrap; }
 
-/* ------------------------------------------------------------------
-   Menu triggers outside a table
-
-   .x-menu__trigger rests at opacity 0 and its only reveal rule is
-   written against `.x-table tbody tr:hover`. Any anatomy that puts a
-   menu somewhere else has to opt in or the action behind it is
-   unreachable with a mouse.
-   ------------------------------------------------------------------ */
 .wh-line:hover .x-menu__trigger,
 .wh-line:focus-within .x-menu__trigger { opacity: 1; }
 
-/* ------------------------------------------------------------------
-   Responsive. Line editors restack into labelled cards; the stock
-   table falls to .x-table's own data-label restack.
-   ------------------------------------------------------------------ */
 @media (max-width: 900px) {
     .wh-lines__head,
     .wh-det__head { display: none; }
@@ -612,12 +465,6 @@
         align-items: start;
     }
 
-    /* The line becomes a labelled card: the product name and the remove
-       control share the first row, and every field below it spans the
-       full width. Placement is explicit rather than left to auto-flow,
-       because the remove button is the LAST child in source order and
-       auto-flow would leave the second column to the SKU, squeezing it
-       into 28px. */
     .wh-line > * { grid-column: 1 / -1; }
     .wh-line__name { grid-column: 1; grid-row: 1; }
     .wh-line > [data-wh-remove] { grid-column: 2; grid-row: 1; justify-self: end; }
@@ -639,8 +486,6 @@
 
     .x-inline-input--num { text-align: left; }
 
-    /* A field that is only a number needs its name back once the
-       column header is gone. */
     .wh-line > [data-label]::before,
     .wh-det-line > [data-label]::before {
         content: attr(data-label);

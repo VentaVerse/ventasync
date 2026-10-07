@@ -1,11 +1,4 @@
 @extends('layouts.blotter')
-{{--
-    No manual escaping here: the inline `@section('name', $value)` form
-    already runs the value through e() (ManagesLayouts::startSection()),
-    so wrapping it again double-encodes. Confirmed via curl on a category
-    with the same shape of name during Task 3 - see categories/edit's
-    equivalent comment for the exact repro.
---}}
 @section('title', 'Edit ' . ($manufacturer->name ?: 'manufacturer'))
 @section('breadcrumb', $manufacturer->name ?: ('Manufacturer ' . $manufacturer->manufacturer_id))
 
@@ -43,9 +36,6 @@
 
         <div class="fm-head__actions">
             <x-ui.menu label="Manufacturer {{ $manufacturer->manufacturer_id }} actions">
-                {{-- Destroy is never a standing control: it sits behind the
-                     overflow menu and the shared confirm dialog, and drives a
-                     form that lives outside this one (forms cannot nest). --}}
                 <button type="button" class="x-menu__item x-menu__item--danger"
                         data-confirm="Delete {{ $manufacturer->name ?: 'this manufacturer' }}? This cannot be undone."
                         data-confirm-submit="manufacturer-delete-form">Delete manufacturer</button>
@@ -56,9 +46,6 @@
     <div class="fm-body">
         <div class="fm-col fm-col--main">
 
-            {{-- ---------------------------------------------------------
-                 General
-                 --------------------------------------------------------- --}}
             <section class="fm-section">
                 <div class="fm-section__head">
                     <h2 class="fm-section__title">General</h2>
@@ -74,7 +61,6 @@
 
         <div class="fm-col fm-col--side">
 
-            {{-- Details --------------------------------------------------- --}}
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Details</h2></div>
                 <div class="fm-card__body">

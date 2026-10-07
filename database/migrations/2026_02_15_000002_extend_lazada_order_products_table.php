@@ -8,11 +8,9 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // After rename migration, add fields needed for the unified order list UI.
         $tableName = Schema::hasTable('lazada_order_products') ? 'lazada_order_products' : 'lazada_order_items';
 
         Schema::table($tableName, function (Blueprint $table) use ($tableName) {
-            // Only add if missing (safe for repeated deploys).
             if (!Schema::hasColumn($tableName, 'variation')) {
                 $table->string('variation', 255)->nullable()->after('name');
             }

@@ -6,8 +6,6 @@
 @php
     $user = auth()->user();
 
-    // Same per-item gate the registry's own consumers apply: a menu entry
-    // with a permission is only offered to somebody who holds it.
     $allowed = fn ($item) => ! $item->permission || ($user && $user->hasPermission($item->permission));
 
     $visibleMenu = collect($card->menu)->filter($allowed)->values();
@@ -16,11 +14,6 @@
     $pending = $stores->filter(fn ($s) => ($s->status ?? 'active') === 'setup_pending')->count();
 @endphp
 
-{{-- The store list for a channel that has no seller center of its own yet.
-     A converted channel is entered through /channels/{id}; this page
-     is what the rest still land on, so it stays on the same list anatomy
-     every other index in the application uses rather than keeping its own
-     card grammar. --}}
 <div class="int-mod">
 
     @include('partials.flash')

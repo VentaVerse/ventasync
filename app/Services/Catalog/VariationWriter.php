@@ -7,23 +7,8 @@ use App\Services\StockHistoryLogger;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
-/**
- * Writes a product's variations, in the shape the product form posts them.
- *
- * One variation type: `option_name` and `values[]`, one row per value
- * (name, sku, quantity, absolute_price, cost_amount, and optionally
- * cost_additional, image and status). Two types: `option1_name`,
- * `option2_name`, `option1_values[]`, `option2_values[]` and
- * `combinations[]`, one row per pair (opt1, opt2 and the same fields).
- * No type name at all removes the product's variations.
- *
- * The product form, the API and the imports all save variations here, so a
- * variation is written one way whoever makes it. Option and option value
- * records are shared across products and found by name before one is made.
- */
 class VariationWriter
 {
-    /** The product's stock when it has variations: the sum of theirs. Null when there are no rows. */
     public function totalQuantity(array $input): ?int
     {
         $values = $input['values'] ?? [];
@@ -39,13 +24,6 @@ class VariationWriter
         return null;
     }
 
-    /**
-     * Every typed variation SKU is checked before anything writes: not the
-     * parent's SKU, not twice in the same product, and not held by another
-     * product or its variations. A create passes 0, which excludes nothing.
-     *
-     * @throws ValidationException under `option_sku`, one message per refused SKU
-     */
     public function validateSkus(int $productId, array $input): void
     {
         $skuRule = new UniqueSku($productId);
@@ -99,11 +77,6 @@ class VariationWriter
         }
     }
 
-    /**
-     * Save the variations in $input onto the product. $skuChanges collects
-     * each existing variation whose SKU changed, for the channel SKU sync
-     * the caller runs after its transaction commits.
-     */
     public function save(int $productId, array $input, array &$skuChanges = []): void
     {
         $optionName = trim($input['option_name'] ?? '');
@@ -223,20 +196,6 @@ class VariationWriter
         }
     }
 
-    /**
-     * The parent's cost formula, in the two parts a variation inherits.
-     *
-     * A product composes its unit cost from a fixed amount, a share of the
-     * selling price, and an additional. Only the amount is a property of the
-     * particular variation, so the percentage and the additional stay on the
-     * parent and reach every row.
-     *
-     * Read from the input first because the parent is saved in the same
-     * submission. The fallback is for callers that touch variations without
-     * sending the parent's pricing fields.
-     *
-     * @return array{0: float, 1: float} [percentage, additional]
-     */
     private function parentCostFormula(int $productId, array $input): array
     {
         $pct = array_key_exists('cost_percentage', $input) ? (float) ($input['cost_percentage'] ?? 0) : null;
@@ -254,21 +213,11 @@ class VariationWriter
         return [$pct, $add];
     }
 
-    /**
-     * What one variation costs, against its own selling price: the
-     * percentage is a share of this row's price, not the parent's. Never
-     * taken from the client; the stored figure is worked out here.
-     */
     private function variationUnitCost(float $amount, float $price, float $pct, float $add): float
     {
         return round($amount + ($pct / 100 * $price) + $add, 4);
     }
 
-    /**
-     * The additional cost a row carries: its own when the row names one, the
-     * parent's when it does not. An empty string is "not named", a typed 0
-     * is a real 0.
-     */
     private function rowCostAdditional(array $row, float $parentAdd): float
     {
         $raw = $row['cost_additional'] ?? null;
@@ -288,7 +237,6 @@ class VariationWriter
 
         $optionId = $this->findOrCreateOption($optionName);
 
-        // Remove product_options for other option_ids (the type was switched)
         $stalePos = DB::table($pfx . 'product_option')
             ->where('product_id', $productId)
             ->where('option_id', '!=', $optionId)
@@ -312,7 +260,6 @@ class VariationWriter
 
         $productOptionId = $this->ensureProductOption($productId, $optionId);
 
-        // Index existing POVs
         $existingPovs = DB::table($pfx . 'product_option_value')
             ->where('product_option_id', $productOptionId)
             ->get()
@@ -320,11 +267,6 @@ class VariationWriter
 
         $seenOptionValueIds = [];
 
-        /* The image, status and cost parts belong to the COMBINATION, the
-         * sellable unit, not to product_option_value. The combination rebuild
-         * at the end reads its rows back out of product_option_value, so these
-         * maps carry each row's values across to it; without them every save
-         * would write defaults over what was there. */
         $imageByOptionValueId = [];
         $statusByOptionValueId = [];
         $costAmountByOptionValueId = [];
@@ -343,14 +285,11 @@ class VariationWriter
 
             $seenOptionValueIds[] = $optionValueId;
             $imageByOptionValueId[$optionValueId] = trim((string) ($v['image'] ?? ''));
-            // Absent means enabled: a caller that says nothing about status
-            // must not switch a variation off.
+            // An absent status means enabled; do not switch a variation off when the caller says nothing.
             $statusByOptionValueId[$optionValueId] = array_key_exists('status', $v)
                 ? (int) (bool) $v['status']
                 : 1;
 
-            // absolute_cost is read as the amount when cost_amount is absent,
-            // for older payloads whose one cost number was the amount.
             $costAmount = (float) ($v['cost_amount'] ?? $v['absolute_cost'] ?? 0);
             $costAmountByOptionValueId[$optionValueId] = $costAmount;
             $costAdd = $this->rowCostAdditional($v, $parentAdd);
@@ -416,7 +355,6 @@ class VariationWriter
             }
         }
 
-        // Remove old values not in new list
         $deletedPovIds = [];
         foreach ($existingPovs as $ovId => $row) {
             if (!in_array((int) $ovId, $seenOptionValueIds, true)) {
@@ -432,7 +370,6 @@ class VariationWriter
                 ->update(['product_option_value_id' => null]);
         }
 
-        // Rebuild combinations (1 combo per value)
         DB::table('product_option_combination_values')
             ->whereIn('combination_id', function ($q) use ($productId) {
                 $q->select('id')->from('product_option_combinations')->where('product_id', $productId);
@@ -492,7 +429,6 @@ class VariationWriter
         $optionId1 = $this->findOrCreateOption($opt1Name);
         $optionId2 = $this->findOrCreateOption($opt2Name);
 
-        // Remove product_options for other option_ids
         $keepOptionIds = [$optionId1, $optionId2];
         $stalePos = DB::table($pfx . 'product_option')
             ->where('product_id', $productId)
@@ -520,11 +456,9 @@ class VariationWriter
 
         [$parentPct, $parentAdd] = $this->parentCostFormula($productId, $input);
 
-        // Sync POV rows for each type; they are structural, pricing lives in the combinations.
         $opt1PovMap = $this->syncOptionValues($productId, $optionId1, $poId1, $opt1ValueNames);
         $opt2PovMap = $this->syncOptionValues($productId, $optionId2, $poId2, $opt2ValueNames);
 
-        // Rebuild combinations
         DB::table('product_option_combination_values')
             ->whereIn('combination_id', function ($q) use ($productId) {
                 $q->select('id')->from('product_option_combinations')->where('product_id', $productId);
@@ -544,9 +478,6 @@ class VariationWriter
             $pov2Id = $opt2PovMap[strtolower($v2Name)] ?? null;
             if (!$pov1Id || !$pov2Id) continue;
 
-            // Straight off the row here: a combination in this path IS the
-            // input row, unlike the one-type path, which rebuilds from
-            // product_option_value and needs the image mapped across.
             $image = trim((string) ($combo['image'] ?? ''));
 
             $comboPrice = (float) ($combo['absolute_price'] ?? 0);
@@ -581,9 +512,6 @@ class VariationWriter
         }
     }
 
-    /**
-     * Sync product_option_value rows for one type. Returns map: lowercase_name => pov_id
-     */
     private function syncOptionValues(int $productId, int $optionId, int $productOptionId, array $valueNames): array
     {
         $pfx = config('catalog.prefix');
@@ -632,7 +560,6 @@ class VariationWriter
             }
         }
 
-        // Remove old values not in new list
         foreach ($existingPovs as $ovId => $row) {
             if (!in_array((int) $ovId, $seenOptionValueIds, true)) {
                 DB::table($pfx . 'product_option_value')

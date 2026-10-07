@@ -1,26 +1,7 @@
-{{-- The Shopee returns list, as a panel.
-
-     Same contract as ext-shopee::orders._panel and for the same reason: this
-     list now renders in two places - the channel workspace, and in place on
-     the fulfilment hub. It used to exist only as a seller-centre page, so the
-     hub's "Returns and refunds" link navigated out of the hub and into the
-     channel shell, which is a different sidebar and a different sense of
-     where you are, reached by a link that looked like every other filter
-     beside it.
-
-     $panelBaseUrl is the caller's own route and $panelHiddenParams the
-     context it needs carried (channel + view on the hub, nothing in the
-     seller centre), so every tab, filter and pager below comes back to the
-     page the operator is actually standing on. Detail links (a return, its
-     order, a waybill) still leave for their own page, which is what they are
-     for. --}}
 @php
     $panelBaseUrl = $panelBaseUrl ?? route('ext.shopee.orders.returns');
     $panelHiddenParams = $panelHiddenParams ?? [];
 
-    // The way back to this channel's orders. On the hub that is the same
-    // page with the view swapped; in the seller centre it is the orders
-    // route. Passed in rather than assumed, because only the caller knows.
     $panelOrdersUrl = $panelOrdersUrl ?? route('ext.shopee.orders.index');
 
     $panelSelfUrl = function (array $params = [], array $except = []) use ($panelBaseUrl, $panelHiddenParams) {
@@ -36,10 +17,6 @@
     };
 @endphp
 @php
-    // Returns is visible to view_shopee_orders holders; Fetch Returns
-    // renders only for the manage tier. The route middleware
-    // (perm:manage_shopee_orders on the POST) is the real gate; this flag
-    // only stops the page offering a button that would 403.
     $canManageShopeeOrders = auth()->user()?->hasPermission('manage_shopee/order') ?? false;
 
     $tabs = $tabs ?? [];
@@ -50,9 +27,6 @@
     $openedFromFilter = (string) ($filters['opened_from'] ?? '');
     $openedToFilter = (string) ($filters['opened_to'] ?? '');
     $hasSearch = $findFilter !== '' || $openedFromFilter !== '' || $openedToFilter !== '';
-    /* Four orderings over the two dates a return actually has. The same
-       "field, direction" phrasing the orders list uses, so the two controls
-       read as one idea. */
     $rtSortLabels = [
         'updated_desc' => 'Last update, newest first',
         'updated_asc'  => 'Last update, oldest first',
@@ -60,23 +34,9 @@
         'opened_asc'   => 'Opened, oldest first',
     ];
 
-    // The return status tone and label maps that used to sit here now live
-    // in App\Support\ChannelStatusTone under the 'shopee.returns' surface.
-    // The reasoning travelled with them: this page has no mutating row
-    // action, so no status takes the accent tone; warning marks the states
-    // awaiting an outcome, info the states sitting with Shopee's own
-    // review, neutral a settled amount, danger the ways a return ends
-    // without a payout.
 @endphp
 
 
-{{-- The head is the HOST's, not the panel's. The orders panels are
-     headless for exactly this reason: on the fulfilment hub the page
-     already carries an <h1> naming the channel, so a panel that brought
-     its own printed two <h1> elements and told the operator where they
-     were twice, neither time about returns. The seller-centre wrapper
-     renders this block itself; the hub folds the word into its own
-     title. --}}
 @if($panelOwnsHead ?? false)
 <div class="x-list-head">
     <div>
@@ -88,15 +48,6 @@
 </div>
 @endif
 
-{{-- No command bar on this page.
-
-     Shopee's get_return_list takes no date range, so the bar had nothing in
-     it but a button: measured 1282x63 with 1150px of white, a card holding
-     one control, and on an empty tab it was most of the screen. A bar whose
-     only job is to hold one action is not a bar. The action moved to the
-     tab strip's aside slot below, beside the way back to Orders, which is
-     where this page's other standing link already lives. --}}
-
 @if($last_result)
     <div class="co-notice {{ $last_result['ok'] ? 'co-notice--ok' : 'co-notice--fail' }}" role="status" aria-live="polite">
         <span class="co-notice__title">{{ $last_result['ok'] ? 'Done' : 'Failed' }}</span>
@@ -106,63 +57,18 @@
     </div>
 @endif
 
-{{-- Status filters as the same segmented control the Orders page uses.
-     The old markup carried two tab rows: one that mirrored the Orders
-     page's own status tabs (with this page's tab marked active, purely to
-     get back to Orders) and one that filtered this list by return status.
-     The channel sidebar already lists Orders and Returns as siblings (see
-     partials/channel-nav.blade.php), so the first row's only real job,
-     getting back to Orders, is already covered by standing navigation and
-     does not need a second, heavier control repeating it. It is kept here
-     as a single plain-weight link on the far side of the bar, the same
-     x-segment-bar__aside treatment the Orders page uses for the reverse
-     trip to Returns. The second row, the actual filter, becomes the
-     segment; there is no second data axis on this page the way Orders'
-     To Ship tab has Pack/Handover, so x-segment--sub is not pressed into
-     service just to use it. --}}
-{{-- Phone only. The fetch bar and the filter row are a desk's tools, not
-     a bench's - measured at 443px of the 887px a packer scrolled past before
-     the first order - so below the table's restack width they start folded
-     behind this and one tap brings them back. Nothing is removed and nothing
-     moves; above that width this button does not exist. --}}
 <button type="button" class="x-desk-toggle" data-desk-toggle aria-expanded="true">
     <span data-desk-label>Find, dates and sync</span>
     <span class="x-desk-toggle__mark" aria-hidden="true">&#9662;</span>
 </button>
 
 <div class="x-segment-bar">
-    {{-- Navigation, not an ARIA tablist. Each item is a link that loads a
-     filtered page, and role="tablist" promises children with role="tab"
-     controlling panels that switch in place - so a screen reader
-     announced a tab list containing no tabs, on the control a
-     fulfilment worker uses most. A nav landmark with aria-current is
-     what a set of filter links actually is. --}}
     <nav class="x-segment" aria-label="Return status">
         @foreach($tabs as $key => $label)
             @php
                 $isActive = $active_tab === strtoupper((string) $key);
                 $count = $tab_counts[$key] ?? null;
             @endphp
-            {{-- A filter with no members is shown but not offered.
-                 Four of Lazada's seven return tabs read 0, and each was a
-                 full target onto an empty list - the operator spends a click
-                 to be told what the tab already told them. It stays visible,
-                 because a tab that disappears when its queue empties makes
-                 the strip change shape as the day goes on and the operator
-                 re-learn where things are; it just stops being a target.
-
-                 An anchor without an href is the whole mechanism: not in the
-                 tab order, not announced as a link, no pointer cursor. The
-                 active tab keeps its href even at 0, because that URL is
-                 where the operator already is. --}}
-            {{-- A tab with nothing in it stays clickable.
-                 It was briefly rendered without an href, on the reasoning that
-                 spending a click to be told what the tab already told you is
-                 waste. The owner asked for it back, and the reasoning was thinner
-                 than it looked: a count is a number the last sync produced,
-                 and going to the tab is how an operator checks whether that is
-                 still true. A control that refuses the check is arguing with
-                 the person using it. --}}
             <a href="{{ $panelSelfUrl(['tab' => $key], ['page']) }}"
                class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
                @if($isActive) aria-current="true" @endif>
@@ -179,10 +85,6 @@
             All orders
         </a>
         @if($canManageShopeeOrders)
-            {{-- Fetch is a standing action, not a filter, so it sits outside
-                 the trough with the other standing link rather than in a bar
-                 of its own. It still names its cost before it runs: this
-                 endpoint always walks the full history. --}}
             <form method="POST" action="{{ route('ext.shopee.orders.fetch_returns') }}" id="formFetchReturns"
                   data-confirm="Fetch every return and refund Shopee has on file? This walks the channel's full history and can take a while."
                   data-confirm-tone="primary">
@@ -193,10 +95,7 @@
     </div>
 </div>
 
-{{-- One filter row, replacing the old search card and the old separate
-     per-page form. --}}
 @php
-    /* What the Filters button admits to. */
     $sprActiveFilters = 0;
     if (($openedFromFilter ?? '') !== '') { $sprActiveFilters++; }
     if (($openedToFilter ?? '') !== '') { $sprActiveFilters++; }
@@ -204,31 +103,16 @@
     if ((int) ($perPage ?? 10) !== 10) { $sprActiveFilters++; }
 @endphp
 
-{{-- One toolbar, after the tabs: choose the queue, then narrow it. Same
-     fold as the other channels, so nobody relearns the toolbar crossing
-     between them. --}}
 <div class="x-toolbar">
 <form method="GET" action="{{ $panelBaseUrl }}" class="x-filters" data-desk-tool id="orders-filter">
 @foreach($panelHiddenParams as $panelHiddenKey => $panelHiddenValue)    <input type="hidden" name="{{ $panelHiddenKey }}" value="{{ $panelHiddenValue }}">
 @endforeach    <input type="hidden" name="tab" value="{{ $active_tab }}">
 
-    {{-- One box, matching whatever the caller just said. See the note in
-         the panel service for why this is not four labelled fields. --}}
     <x-ui.input type="search" name="q" class="x-filters__find"
                 value="{{ $findFilter }}"
                 placeholder="Return no, order no, buyer or product"
                 aria-label="Find a return by return number, order number, buyer or product" />
 
-    {{-- The list range, labelled on screen and not only in an aria-label.
-         This pair filters the rows already on the page; the pair up in the
-         command bar tells the marketplace which returns to send. Both are
-         about when a return was opened, both are date boxes, and until this
-         label existed the only thing separating them was a word screen
-         readers could hear and nobody else could see. On Lazada that put
-         four identical boxes on one screen, two of which write orders. --}}
-    {{-- Folded, with a count of what is set. Search stays out: it is the
-         control used most. A fold that hides an ACTIVE filter would be worse
-         than no fold, which is what the count is for. --}}
     <x-ui.foldout label="Filters" :count="$sprActiveFilters ?: null">
         <span class="x-filters__group">
             <span class="x-filters__group-label" id="sp-opened-label">Opened</span>
@@ -270,28 +154,11 @@
         if ($hasSearch) {
             $rtEmptyDesc = 'Nothing matches that search. Clear it to see the full list.';
         } elseif ($active_tab !== 'ALL') {
-            // Keep the tab's own capitalisation, same fix as the orders
-            // page: lowercasing produced unreadable copy.
             $rtEmptyDesc = 'No returns in ' . ($tabs[$active_tab] ?? $active_tab) . ' right now.';
         } else {
             $rtEmptyDesc = 'Nothing has been synced yet. Click Fetch returns to pull data from Shopee.';
         }
 
-        /* Whether the list the operator is looking at is narrowed - read off
-         * the panel's STATE, not off the URL.
-         *
-         * This used to be derived from the query string alone, which is only
-         * true for a panel whose unfiltered view is also its default. Shopee
-         * orders defaults its tab to PENDING and TikTok to TO_SHIP, so
-         * landing on either carries no query parameters at all: the check
-         * said "not filtered", the way out was suppressed, and the operator
-         * stood on "No orders in To Pack right now" with one order sitting in
-         * To Handover and nothing pointing at it. The one case where they are
-         * most stuck was the one case with no exit.
-         *
-         * page is excluded because paging is not narrowing, tab=ALL because
-         * that is the unnarrowed state, and the hidden params because they
-         * identify the panel rather than filter it. */
         $emptyFiltered = (isset($active_tab) && strtoupper((string) $active_tab) !== 'ALL')
             || collect(request()->except(array_merge(array_keys($panelHiddenParams ?? []), ['page'])))
             ->filter(fn ($v, $k) => $v !== null && $v !== '' && !($k === 'tab' && $v === 'ALL'))
@@ -321,9 +188,6 @@
         @php
             $items = is_array($ret->items) ? $ret->items : [];
 
-            // ordered-qty map (item_id_model_id => qty) from the linked order,
-            // so a returned line can say how many of the original order it
-            // covers.
             $orderedMap = [];
             if ($ret->order && $ret->order->relationLoaded('products')) {
                 foreach ($ret->order->products as $p) {
@@ -413,36 +277,12 @@
                 <div class="co-status">
                     <x-ui.badge :tone="$tone">{{ $statusLabel }}</x-ui.badge>
 
-                    {{-- Your clock, and only while it is running.
-                         Shopee sends return_seller_due_date while there is
-                         something for you to answer and 0 once there is not,
-                         so a cancelled return shows no countdown rather than
-                         a dead one. The label says "Respond by" because that
-                         is the obligation - the buyer's own shipping
-                         deadline is a different field and is deliberately not
-                         shown, since a countdown on someone else's
-                         obligation is worse than none.
-
-                         Lazada's returns carry no deadline of any kind, so
-                         that list has no chip. The asymmetry is the
-                         marketplaces', and inventing a Lazada countdown to
-                         make the two pages match would be inventing data. --}}
                     @if($ret->sellerDueAt())
                         <x-sla-chip :deadline="$ret->sellerDueAt()" label="Respond by" />
                     @endif
-                    {{-- Both lines used to print Shopee's own constants at
-                         the operator - CHANGE_MIND under a badge that said
-                         "Requested" - and neither said which was the
-                         buyer's reason and which was the parcel's
-                         whereabouts. Named, and translated through the
-                         class whose whole job is that no marketplace
-                         constant reaches a screen raw. --}}
                     @if($ret->reason)
                         <span class="co-band__muted text-xs">Reason: {{ \App\Support\ChannelStatusTone::labelFor('shopee.return_reason', $ret->reason) }}</span>
                     @endif
-                    {{-- Some rows carry a literal "-" where Shopee sent
-                         nothing, which is a value the truthy check let
-                         through and which says less than an absent line. --}}
                     @if($ret->reverse_logistics_status && trim($ret->reverse_logistics_status) !== '-')
                         <span class="co-band__muted text-xs">Parcel: {{ \App\Support\ChannelStatusTone::labelFor('shopee.reverse_logistics', $ret->reverse_logistics_status) }}</span>
                     @endif
@@ -450,21 +290,6 @@
             </td>
 
             <td class="sp-col-act">
-                {{-- Visible buttons, not an overflow menu.
-                     The same call was already made for the Shopee ORDERS
-                     panel and written into its comment - the packing desk is
-                     a working surface, and a kebab made the column read as
-                     empty. Returns never got the same treatment, so the same
-                     job was a button on Lazada and hidden behind a menu here:
-                     12 visible buttons against 3, on two pages doing one
-                     thing. Neither action is destructive, which is the only
-                     reason this surface hides anything (see Venta's Delete).
-
-                     Nothing else about this panel changes. The columns and
-                     the tab words stay as they are, because Lazada and
-                     Shopee genuinely model returns differently and matching
-                     those would mean inventing a state one of them does not
-                     have. --}}
                 <div class="co-actions">
                     <x-ui.button size="sm" :href="$detailUrl">Open return</x-ui.button>
                     @if($ret->order_sn)
@@ -481,11 +306,6 @@
 <x-ui.pager :paginator="$returns" />
 @endif
 
-{{-- Loading overlay. Identical markup and ids to the Orders page's own
-     copy (resources/js/pages/shopee-orders.js queries these by id and is
-     already built to wire up #formFetchReturns when it finds it on the
-     page - see initFetchReturnsOverlay()). Each page carries its own copy
-     because a modal cannot be shared across two separate documents. --}}
 <div id="spLoadingOverlay" class="modal-backdrop">
     <div class="modal co-modal co-modal--sm">
         <div class="co-progress">

@@ -12,7 +12,6 @@ class OpenCartCategorySync
     private OpenCartClient $client;
     private OpenCartSetting $setting;
 
-    /** @var array<int,int> oc_category_id → core category_id */
     private array $categoryMap = [];
 
     public function __construct(OpenCartClient $client, OpenCartSetting $setting)
@@ -21,9 +20,6 @@ class OpenCartCategorySync
         $this->setting = $setting;
     }
 
-    /**
-     * @return array{log: OpenCartSyncLog, map: array<int,int>}
-     */
     public function pull(?string $modifiedSince = null, bool $full = false): array
     {
         $log = OpenCartSyncLog::create([
@@ -50,7 +46,6 @@ class OpenCartCategorySync
             $failed = 0;
             $errors = [];
 
-            // Sort by depth (parent_id = 0 first) so parents are created before children
             usort($categories, function ($a, $b) {
                 $aDepth = count($a['path'] ?? []);
                 $bDepth = count($b['path'] ?? []);
@@ -65,14 +60,12 @@ class OpenCartCategorySync
                     $name = trim($raw['name'] ?? '');
                     if ($name === '') continue;
 
-                    // Resolve parent: use map if OC parent exists
                     $ocParentId = (int) ($raw['parent_id'] ?? 0);
                     $coreParentId = 0;
                     if ($ocParentId > 0 && isset($this->categoryMap[$ocParentId])) {
                         $coreParentId = $this->categoryMap[$ocParentId];
                     }
 
-                    // Match by name + parent_id for disambiguation
                     $existing = DB::table($pfx . 'category AS c')
                         ->join($pfx . 'category_description AS cd', function ($join) use ($langId) {
                             $join->on('c.category_id', '=', 'cd.category_id')
@@ -105,7 +98,6 @@ class OpenCartCategorySync
                         $created++;
                     }
 
-                    // Upsert description
                     DB::table($pfx . 'category_description')->updateOrInsert(
                         ['category_id' => $coreCatId, 'language_id' => $langId],
                         [
@@ -121,7 +113,6 @@ class OpenCartCategorySync
                         ]
                     );
 
-                    // Rebuild category path using mapped IDs
                     DB::table($pfx . 'category_path')
                         ->where('category_id', $coreCatId)
                         ->delete();
@@ -129,13 +120,12 @@ class OpenCartCategorySync
                     if (isset($raw['path']) && is_array($raw['path'])) {
                         foreach ($raw['path'] as $p) {
                             $ocPathId = (int) ($p['path_id'] ?? 0);
-                            // Map the path_id through our category map, or use self if it's this category
                             if ($ocPathId === $ocCatId) {
                                 $corePathId = $coreCatId;
                             } elseif (isset($this->categoryMap[$ocPathId])) {
                                 $corePathId = $this->categoryMap[$ocPathId];
                             } else {
-                                $corePathId = $coreCatId; // fallback
+                                $corePathId = $coreCatId;
                             }
 
                             DB::table($pfx . 'category_path')->insert([
@@ -145,7 +135,6 @@ class OpenCartCategorySync
                             ]);
                         }
                     } else {
-                        // At minimum, every category has a self-referencing path entry
                         DB::table($pfx . 'category_path')->insert([
                             'category_id' => $coreCatId,
                             'path_id'     => $coreCatId,

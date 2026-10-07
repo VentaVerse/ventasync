@@ -12,10 +12,8 @@ class OpenCartOptionSync
     private OpenCartClient $client;
     private OpenCartSetting $setting;
 
-    /** @var array<int,int> oc_option_id → core option_id */
     private array $optionMap = [];
 
-    /** @var array<int,int> oc_option_value_id → core option_value_id */
     private array $optionValueMap = [];
 
     public function __construct(OpenCartClient $client, OpenCartSetting $setting)
@@ -24,9 +22,6 @@ class OpenCartOptionSync
         $this->setting = $setting;
     }
 
-    /**
-     * @return array{log: OpenCartSyncLog, optionMap: array<int,int>, optionValueMap: array<int,int>}
-     */
     public function pull(): array
     {
         $log = OpenCartSyncLog::create([
@@ -60,7 +55,6 @@ class OpenCartOptionSync
                     $name = trim($raw['name'] ?? '');
                     if ($name === '') continue;
 
-                    // Match option by name
                     $existing = DB::table($pfx . 'option AS o')
                         ->join($pfx . 'option_description AS od', function ($join) use ($langId) {
                             $join->on('o.option_id', '=', 'od.option_id')
@@ -95,7 +89,6 @@ class OpenCartOptionSync
 
                     $this->optionMap[$ocOptionId] = $coreOptionId;
 
-                    // Sync option values
                     $values = $raw['values'] ?? [];
                     foreach ($values as $val) {
                         $ocValueId = (int) ($val['option_value_id'] ?? 0);
@@ -104,7 +97,6 @@ class OpenCartOptionSync
                         $valName = trim($val['name'] ?? '');
                         if ($valName === '') continue;
 
-                        // Match option value by (option_id, name)
                         $existingVal = DB::table($pfx . 'option_value AS ov')
                             ->join($pfx . 'option_value_description AS ovd', function ($join) use ($langId) {
                                 $join->on('ov.option_value_id', '=', 'ovd.option_value_id')

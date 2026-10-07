@@ -1,16 +1,3 @@
-{{-- A listing's Catalog change panel: the catalog product and this listing
-     side by side, both editable. Included once, outside the listing form,
-     only while the listing shows a Catalog change. It opens from the page
-     head's button, and is already open when the page was reached with
-     ?compare=1 or came back with an error from it.
-
-     Expected keys:
-       listing     the listing model (App\Integrations\Listings\KeepsItsOwnCopy)
-       storeLabel  string  the store, as "Channel: Store"
-       saveUrl     string
-       ignoreUrl   string
-       back        string  where Save and Ignore return
-       canManage   bool    the user may edit this listing --}}
 @php
     $pid = (int) $listing->product_id;
     $cols = $listing::copyColumns();
@@ -30,8 +17,6 @@
         'listing' => ['label' => 'This listing', 'values' => $own, 'photos' => $photosOf('listing', $own['photos']), 'can' => (bool) $canManage],
     ];
     $num = fn ($v, int $places) => rtrim(rtrim(number_format((float) $v, $places, '.', ''), '0'), '.');
-    /* The listing's price and parcel show only what it holds of its own; an
-       empty box follows the catalog, whose figure is its placeholder. */
     $ownNum = fn ($v, int $places) => ($v === null || $v === '') ? '' : $num($v, $places);
 @endphp
 @if($catalog !== null)
@@ -143,9 +128,6 @@
                                         <div class="lcx-parcel__f">
                                             <label class="lcx-mini" for="lcx-{{ $side }}-{{ $key }}">{{ $label }}</label>
                                             <input type="number" class="x-input fm-input--num" name="{{ $side }}[{{ $key }}]" id="lcx-{{ $side }}-{{ $key }}"
-                                                   {{-- Both sides take the same shapes now: the store's columns hold
-                                                        decimals as the catalog's always have, so a length of 10.5 is
-                                                        kept rather than refused with the browser's own words. --}}
                                                    step="{{ $key === 'weight' ? '0.001' : '0.01' }}"
                                                    min="{{ $mine ? ($key === 'weight' ? '0.001' : '0.01') : '0' }}"
                                                    value="{{ old($side . '.' . $key, $mine ? $ownNum(((float) $listing->{\App\Integrations\Listings\CatalogCopy::PARCEL[$key]}) > 0 ? $listing->{\App\Integrations\Listings\CatalogCopy::PARCEL[$key]} : null, $places) : $num($s['values']['parcel'][$key], $places)) }}"

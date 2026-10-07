@@ -1,21 +1,4 @@
-/* ============================================================
-   VentaSync v2.2: extension vocabularies, in the Blotter.
-
-   The third and last adapter. blotter-components.css dresses the shared
-   component layer, blotter-pages.css the core page families, and this
-   file the vocabularies each extension owns: catalog satellites (cat-),
-   warehousing (wh-), purchasing (po-), petty cash (pc-), the audit log
-   (au-), reports (rp- additions) and the integrations board (x-board).
-
-   Same contract throughout: keep the class names, keep the widths and
-   grid tracks that were designed against real content, change only the
-   materials. Column widths in particular are carried over verbatim.
-   ============================================================ */
-
 @layer components {
-    /* ------------------------------------------------------------
-       Catalog satellites: categories, manufacturers
-       ------------------------------------------------------------ */
     .cat-page {
         display: flex;
         flex-direction: column;
@@ -42,8 +25,6 @@
         accent-color: var(--bl-ink);
     }
 
-    /* The bulk bar only exists while a selection does, so it can afford to
-       take the attention wash without competing with anything. */
     .cat-bulkbar,
     .po-bulkbar {
         display: flex;
@@ -94,9 +75,6 @@
         object-fit: cover;
     }
 
-    /* ------------------------------------------------------------
-       Warehousing
-       ------------------------------------------------------------ */
     .wh-col-ref { width: 132px; }
     .wh-col-items { width: 72px; }
     .wh-col-stat { width: 128px; }
@@ -107,8 +85,6 @@
     .wh-col-flags { width: 200px; }
     .wh-col-sort { width: 88px; }
 
-    /* A name over its identifier. The same two-line block appears in
-       purchasing and petty cash, so all three share this shape. */
     .wh-idty,
     .po-idty {
         display: flex;
@@ -130,7 +106,6 @@
         color: var(--bl-ink-3);
     }
 
-    /* From here to there. The arrow is the whole point of a transfer. */
     .wh-route {
         display: inline-flex;
         align-items: baseline;
@@ -169,8 +144,6 @@
         font-variant-numeric: tabular-nums;
     }
 
-    /* Stock figures. Quantity is the one column where the sign is the
-       story, so negative and zero are the states that take colour. */
     .wh-qty {
         font-family: var(--font-mono);
         font-variant-numeric: tabular-nums;
@@ -214,9 +187,6 @@
         gap: 8px;
     }
 
-    /* ------------------------------------------------------------
-       Purchasing
-       ------------------------------------------------------------ */
     .po-col-check { width: 36px; }
     .po-col-id { width: 64px; }
     .po-col-ref { width: 132px; }
@@ -255,9 +225,6 @@
 
     .po-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
 
-    /* ------------------------------------------------------------
-       Petty cash
-       ------------------------------------------------------------ */
     .pc-top {
         display: grid;
         grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
@@ -272,8 +239,6 @@
         .pc-top { grid-template-columns: minmax(0, 1fr); gap: 16px; }
     }
 
-    /* The float. One figure, set at band scale, because it is the only
-       number on this page anyone memorises. */
     .pc-hero {
         display: flex;
         flex-direction: column;
@@ -334,8 +299,6 @@
         text-align: right;
     }
 
-    /* Money in and money out are opposite states, so the sign carries the
-       colour rather than a separate badge. */
     .pc-amt__sign { font-weight: 700; }
     .pc-amt--in { color: var(--bl-good); }
     .pc-amt--out { color: var(--bl-bad); }
@@ -391,7 +354,6 @@
 
     .pc-field--wide { grid-column: 1 / -1; }
 
-    /* In or out, as a two-position segmented control. */
     .pc-kind {
         display: inline-flex;
         padding: 3px;
@@ -431,9 +393,6 @@
         outline-offset: 1px;
     }
 
-    /* ------------------------------------------------------------
-       Audit log
-       ------------------------------------------------------------ */
     .au-page { display: flex; flex-direction: column; }
     .au-col-action { width: 124px; }
     .au-col-ip { width: 132px; }
@@ -463,8 +422,6 @@
 
     .au-page .x-table tbody td { white-space: normal; }
 
-    /* What changed, as before and after. Strike-through on the old value
-       and a plain arrow: the diff reads without needing colour at all. */
     .au-diff { margin-top: 4px; }
 
     .au-diff__toggle {
@@ -501,9 +458,6 @@
     .au-diff__now { color: var(--bl-ink); }
     .au-diff__arrow { flex: none; color: var(--bl-ink-3); }
 
-    /* ------------------------------------------------------------
-       Reports: filter extras and the licence gate
-       ------------------------------------------------------------ */
     .rp-choices {
         display: flex;
         flex-wrap: wrap;
@@ -541,9 +495,6 @@
         color: var(--bl-ink-2);
     }
 
-    /* ------------------------------------------------------------
-       Integrations board
-       ------------------------------------------------------------ */
     .x-board {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));

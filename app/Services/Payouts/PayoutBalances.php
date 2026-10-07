@@ -4,28 +4,16 @@ namespace App\Services\Payouts;
 
 use Illuminate\Support\Facades\Cache;
 
-/**
- * The money at each marketplace, kept so that no page waits on it (the owner,
- * 2026-10-01).
- *
- * A store's own Payouts page reads it when what is kept is older than five
- * minutes: someone who opened that page asked for it. The dashboard and the
- * report never wait: they show what is kept, with its age, and when it is
- * older than five minutes they ask for a fresh one after the page has been
- * sent, so the next look has it. A refusal is kept one minute only.
- */
 class PayoutBalances
 {
     public const FRESH_FOR = 300;
 
-    /** What is kept is shown up to a day old, always with its age. */
     private const KEEP_FOR = 86400;
 
     private const REFUSAL_TTL = 60;
 
     private const MIN_REFRESH_AGE = 60;
 
-    /** Read now when stale (a store page). */
     public function current(PayoutChannel $channel, object $store, bool $force = false): array
     {
         $kept = $this->kept($channel, $store);
@@ -37,14 +25,9 @@ class PayoutBalances
 
         $fresh = $this->read($channel, $store);
 
-        // A refusal never replaces a good figure: the good one is shown, with its age.
         return ($fresh['ok'] ?? false) || ! ($kept['ok'] ?? false) ? $fresh : $kept + ['stale_error' => $fresh['error'] ?? null];
     }
 
-    /**
-     * What is kept, without waiting (dashboard, report). Null when nothing
-     * has been read yet; a fresh read is then due after the response.
-     */
     public function kept(PayoutChannel $channel, object $store, bool $refreshIfStale = false): ?array
     {
         $kept = Cache::get($this->key($channel, $store));
@@ -64,7 +47,6 @@ class PayoutBalances
         return $kept;
     }
 
-    /** Read now and keep it: the hourly Sync Payouts calls this, so no page meets an empty one. */
     public function refresh(PayoutChannel $channel, object $store): array
     {
         return $this->read($channel, $store);

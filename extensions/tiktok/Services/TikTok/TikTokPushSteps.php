@@ -7,14 +7,8 @@ use Extensions\tiktok\Models\TikTokProductGroup;
 use Extensions\tiktok\Models\TikTokProductGroupProduct;
 use Extensions\tiktok\Models\TikTokSetting;
 
-/**
- * Push Stock and Push Price as steps for Run now (SteppableAutomation,
- * 2026-09-07): a unit is "storeId:productId", a step pushes its pivots
- * through the same sender the buttons use and stamps them.
- */
 final class TikTokPushSteps
 {
-    /** @return list<string> */
     public static function units(): array
     {
         $units = [];
@@ -36,7 +30,6 @@ final class TikTokPushSteps
         return $units;
     }
 
-    /** @param 'stock'|'price' $kind @param list<string> $units */
     public static function step(string $kind, array $units): array
     {
         $pfx = (string) config('catalog.prefix');

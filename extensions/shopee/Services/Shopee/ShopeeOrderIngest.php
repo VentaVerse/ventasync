@@ -11,29 +11,10 @@ use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
-/**
- * THE ONE WAY A SHOPEE ORDER IS WRITTEN (2026-10-04). Given order numbers,
- * reads each order's current detail from Shopee and applies it: the Shopee
- * order row, its items, the buyer's invoice request, the ERP order with its
- * status and stock movement, and the fees once the order is past payment.
- *
- * Two callers, one path: the order sync (shopee:sync-orders) for every
- * order it lists, and an order push for the one order it names. So an order
- * arriving by push moves stock exactly as one arriving by the sync does.
- *
- * Each order is written under a lock on its store and number. The ERP order
- * step reads the old status, then moves stock for the change; two writers
- * at once would both read the same old status and move the stock twice. With
- * the lock the second writer finds the order already current, and a status
- * that has not changed moves nothing.
- *
- * The status a push carries is never applied: Shopee is asked for the
- * order's current state, so pushes arriving out of order cannot set an old
- * status over a newer one.
- */
+// Each order is written under a lock, or two writers both read the old status and move stock twice.
+// A pushed status is never applied; the order's current state is read from Shopee instead.
 class ShopeeOrderIngest
 {
-    /** Seconds a held order lock lasts, and how long a second writer waits for it. */
     private const LOCK_SECONDS = 120;
 
     private const LOCK_WAIT_SECONDS = 20;
@@ -42,12 +23,6 @@ class ShopeeOrderIngest
     {
     }
 
-    /**
-     * Read and apply these orders, in batches of fifty.
-     *
-     * @param  list<string>  $orderSns
-     * @return array{created: int, updated: int, errors: int, busy: int, missing: list<string>}
-     */
     public function orders(object $setting, array $auth, array $orderSns): array
     {
         $out = ['created' => 0, 'updated' => 0, 'errors' => 0, 'busy' => 0, 'missing' => []];
@@ -81,7 +56,6 @@ class ShopeeOrderIngest
             $detailList = $detailResp['order_list'] ?? [];
             if (!is_array($detailList)) $detailList = [];
 
-            // Buyer invoice info — batched once per chunk, results applied below.
             $invoiceMap = $this->buyerInvoices($setting, $auth, $chunk);
 
             $answered = [];
@@ -96,8 +70,6 @@ class ShopeeOrderIngest
                     $this->apply($setting, $region, $auth, $o, $orderSn, $invoiceMap, $out);
                 });
                 if (! $written) {
-                    // Another writer held it throughout; it is applying this
-                    // order now, and the next sync reads it again regardless.
                     $out['busy']++;
                 }
             }
@@ -108,7 +80,6 @@ class ShopeeOrderIngest
         return $out;
     }
 
-    /** One order's detail, written as the order sync always has. */
     private function apply(object $setting, string $region, array $auth, array $o, string $orderSn, array $invoiceMap, array &$out): void
     {
         $existing = ShopeeOrder::query()
@@ -117,7 +88,6 @@ class ShopeeOrderIngest
             ->first();
 
         if ($existing) {
-            // --- Update existing order ---
             $fillExisting = [
                 'status'           => (string) ($o['order_status'] ?? $existing->status),
                 'order_created_at' => $this->parseTimestamp($o['create_time'] ?? null) ?? $existing->order_created_at,
@@ -147,7 +117,6 @@ class ShopeeOrderIngest
             return;
         }
 
-        // --- Create new order ---
         try {
             $newOrder = ShopeeOrder::query()->create([
                 'shopee_setting_id' => (int) $setting->id,
@@ -180,11 +149,6 @@ class ShopeeOrderIngest
         }
     }
 
-    /**
-     * Read one return's detail and save it.
-     *
-     * @return string|null an error sentence, or null when saved
-     */
     public function returnBySn(object $setting, array $auth, string $returnSn, array $listed = []): ?string
     {
         $detailRes = $this->client->shopGet(
@@ -253,20 +217,13 @@ class ShopeeOrderIngest
         return null;
     }
 
-    /**
-     * Fetch escrow/fee details for an order past payment.
-     * Only calls the API if the order is SHIPPED, TO_CONFIRM_RECEIVE or
-     * COMPLETED and has no fee data stored yet.
-     */
     public function feesIfReady(array $auth, ShopeeOrder $order): void
     {
         $status = strtoupper(trim((string) $order->status));
 
-        // Fetch escrow for any order past payment (SHIPPED, TO_CONFIRM_RECEIVE, COMPLETED)
         $eligibleStatuses = ['SHIPPED', 'TO_CONFIRM_RECEIVE', 'COMPLETED'];
         if (!in_array($status, $eligibleStatuses)) return;
 
-        // Skip if already has fee data
         if (!empty($order->fees)) return;
 
         try {
@@ -300,7 +257,6 @@ class ShopeeOrderIngest
                 }
             }
         } catch (\Throwable $e) {
-            // Best-effort — don't break the sync
         }
     }
 
@@ -321,17 +277,8 @@ class ShopeeOrderIngest
         return $ts === false ? null : date('Y-m-d H:i:s', $ts);
     }
 
-    /**
-     * Run a write to one Shopee order under its lock. Every path that writes
-     * an order and its ERP order takes it: this service, arranging shipment,
-     * Update statuses and Fetch on the orders page. Keyed by the order number
-     * alone, which Shopee never gives two orders, whichever store holds it.
-     *
-     * @return bool false when another writer held the order for the whole wait
-     */
     public static function locked(string $orderSn, callable $write): bool
     {
-        // Switch off on every store: the write runs as it always did, unlocked.
         if (! self::pushesOn()) {
             $write();
 
@@ -349,13 +296,6 @@ class ShopeeOrderIngest
         }
     }
 
-    /**
-     * THE SWITCH (Shopee Settings > Apply order pushes). Off on every store,
-     * the order sync runs exactly as it did before order pushes were
-     * applied: no locks, no new guards, pushes only recorded. On for any
-     * store, every Shopee order write takes the order's lock, since an
-     * order number is never shared between stores. Read once per process.
-     */
     public static function pushesOn(): bool
     {
         static $on = null;
@@ -377,7 +317,6 @@ class ShopeeOrderIngest
             $itemId = (string) ($it['item_id'] ?? '');
             $modelId = (string) ($it['model_id'] ?? '');
 
-            // Prefer model_sku (variant) over item_sku (parent) so option-value stock resolves correctly
             $sku = trim((string) ($it['model_sku'] ?? ''));
             if ($sku === '') {
                 $sku = trim((string) ($it['item_sku'] ?? ''));
@@ -402,15 +341,6 @@ class ShopeeOrderIngest
         }
     }
 
-    /**
-     * Fetch buyer-invoice info for a chunk of order SNs in a single API call
-     * and return a map of order_sn => normalized invoice payload.
-     *
-     * Persisted shape (so the UI doesn't have to care which marketplace it came from):
-     *   - { is_requested: true,  type, name, tin, email, phone, address: {...} }  (buyer requested)
-     *   - { is_requested: false }                                                  (buyer declined)
-     *   - { error: "...message..." }                                               (Shopee couldn't classify)
-     */
     private function buyerInvoices(object $setting, array $auth, array $chunk): array
     {
         $queries = array_map(fn ($sn) => ['order_sn' => (string) $sn], $chunk);

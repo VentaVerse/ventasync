@@ -4,11 +4,6 @@ namespace Extensions\shopee\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-/**
- * One product's Shopee listing: its settings, its Shopee-specific content,
- * and the provenance of its last push. See the shopee_listings migration
- * for the contract (card #97) and what is deliberately NOT stored here.
- */
 class ShopeeListing extends Model
 {
     use \Extensions\shopee\Models\Concerns\BelongsToShopeeStore, \App\Integrations\Listings\KeepsItsOwnCopy;
@@ -47,7 +42,6 @@ class ShopeeListing extends Model
         'catalog_seen_at' => 'datetime',
     ];
 
-    /** The price this listing sells at, from the core price it never stores. */
     public function priceFor(float $corePrice): float
     {
         return round(
@@ -58,11 +52,6 @@ class ShopeeListing extends Model
         );
     }
 
-    /**
-     * The price the rule is added to: this listing's own Price when it has
-     * one and the product has no variations, the catalog price otherwise.
-     * A product with variations prices each variation from the catalog.
-     */
     public function startingPrice(float $corePrice, bool $hasVariations): float
     {
         $own = $this->price !== null ? (float) $this->price : 0.0;
@@ -70,19 +59,11 @@ class ShopeeListing extends Model
         return (! $hasVariations && $own > 0) ? $own : $corePrice;
     }
 
-    /** What the item sells at: its starting price run through the rule. */
     public function itemPriceFor(float $corePrice, bool $hasVariations): float
     {
         return $this->priceFor($this->startingPrice($corePrice, $hasVariations));
     }
 
-    /**
-     * The products among these that sell in variations: any combination,
-     * or option values carrying their own SKUs.
-     *
-     * @param list<int> $productIds
-     * @return array<int, true>
-     */
     public static function withVariations(array $productIds): array
     {
         $productIds = array_values(array_unique(array_map('intval', $productIds)));
@@ -105,17 +86,11 @@ class ShopeeListing extends Model
         return isset(self::withVariations([$productId])[$productId]);
     }
 
-    /** Whether an unattended push has what it needs. */
     public function pushable(): bool
     {
         return $this->shopee_category_id !== null && ! empty($this->logistic_ids);
     }
 
-    /**
-     * This listing's own words (App\Integrations\Listings\ListingContent).
-     *
-     * @return array{title: ?string, description: ?string}
-     */
     public function contentOverrides(): array
     {
         return ['title' => $this->item_name, 'description' => $this->description];

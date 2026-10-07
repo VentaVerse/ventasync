@@ -10,13 +10,6 @@ use Extensions\lazada\Services\Lazada\LazadaStockPricePush;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
-/**
- * The "Push Price" automation (the owner, 2026-09-07). The old
- * stock-and-price row's cron stripped the price on purpose; price is its own
- * row now, on every channel. Every listing with an item id on every
- * enabled store goes up through the rule the buttons use: the listing's
- * own markup, else its group's, else the catalog price as it is.
- */
 class LazadaPushPrice extends Command implements \App\Integrations\Contracts\SteppableAutomation
 {
     protected $signature = 'lazada:push-price';
@@ -36,7 +29,7 @@ class LazadaPushPrice extends Command implements \App\Integrations\Contracts\Ste
         foreach ($stores as $store) {
             $label = $store->store_name ?: ('#' . $store->id);
             $this->info("=== Lazada store: {$label} ===");
-            app()->instance('lazada.route-store', $store); // the model trait scopes every query to THIS store
+            app()->instance('lazada.route-store', $store);
             try {
                 $worst = max($worst, $this->handleStore($store));
             } catch (\Throwable $e) {
@@ -84,15 +77,6 @@ class LazadaPushPrice extends Command implements \App\Integrations\Contracts\Ste
         return $results['err'] > 0 ? 1 : 0;
     }
 
-    /**
-     * The rule the buttons use, resolved once per product: the listing's
-     * own markup, else its group's, else no markup at all. The base it is
-     * added to is the listing's own price for a product without
-     * variations, else the catalog's (LazadaStockPushService).
-     *
-     * @param iterable<LazadaProduct> $listings
-     * @return \Closure(int, float): float
-     */
     public static function priceRule(iterable $listings): \Closure
     {
         $listings = collect($listings);
@@ -116,7 +100,6 @@ class LazadaPushPrice extends Command implements \App\Integrations\Contracts\Ste
         };
     }
 
-    /** Run now walks this push ten products per request (SteppableAutomation, 2026-09-07). */
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
         return ['label' => 'products', 'units' => \Extensions\lazada\Services\Lazada\LazadaPushSteps::units()];

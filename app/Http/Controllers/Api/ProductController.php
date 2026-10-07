@@ -105,7 +105,6 @@ class ProductController extends Controller
             ->where('language_id', $langId)
             ->value('name') ?? '';
 
-        // Get option values with their names
         $optionValues = DB::table($p . 'product_option_value as pov')
             ->join($p . 'option_description as od', function ($j) use ($langId) {
                 $j->on('pov.option_id', '=', 'od.option_id')
@@ -163,7 +162,6 @@ class ProductController extends Controller
             return response()->json(['message' => 'Product not found'], 404);
         }
 
-        // Check if product has option values
         $hasOptions = DB::table($p . 'product_option_value')
             ->where('product_id', $id)
             ->exists();
@@ -207,7 +205,6 @@ class ProductController extends Controller
 
                 $totalQty += $qty;
 
-                // Sync warehouse inventory for this option value
                 if (class_exists(\Extensions\warehousing\Services\WarehouseStockService::class)) {
                     $defaultWh = \Extensions\warehousing\Services\WarehouseStockService::getDefaultWarehouse();
                     if ($defaultWh) {
@@ -216,26 +213,6 @@ class ProductController extends Controller
                     }
                 }
 
-                /* Mirror the new qty into the SKU-level combinations table. The
-                 * catalog list and the Shopee push read product_option_combinations,
-                 * not product_option_value - without this mirror a mobile restock
-                 * updates one table but not the other, so the two copies drift.
-                 * Only touch combinations that map to EXACTLY this one option value:
-                 * a multi-option combination (e.g. Color+Size) owns its own stock
-                 * and must never be overwritten from a single choice.
-                 *
-                 * NO CATALOG PREFIX ON THESE TWO TABLES. They are VentaSync's
-                 * own (database/migrations/..._create_product_option_combinations_table),
-                 * not OpenCart's, so they carry no prefix - as the other
-                 * seventy-nine call sites in this application have always
-                 * written them. These three lines were the only ones that
-                 * did, which works on a database whose prefix is empty and
-                 * cannot work on live, where it is 0012_. So the mobile app
-                 * could not set the quantity of any product with variations
-                 * there: this whole branch runs only when one has them.
-                 * (Found 2026-09-09 while checking whether the assistant's
-                 * quantity tool could reuse this endpoint. It cannot, for
-                 * its own reasons, but the bug is real either way.) */
                 $linkedComboIds = DB::table('product_option_combination_values')
                     ->where('product_option_value_id', $povId)
                     ->pluck('combination_id');
@@ -256,7 +233,6 @@ class ProductController extends Controller
                 }
             }
 
-            // Auto-sum: set product quantity to total of option values
             DB::table($p . 'product')
                 ->where('product_id', $id)
                 ->update([
@@ -303,7 +279,6 @@ class ProductController extends Controller
                 );
             }
 
-            // Sync warehouse inventory for product without options
             if (class_exists(\Extensions\warehousing\Services\WarehouseStockService::class)) {
                 $defaultWh = \Extensions\warehousing\Services\WarehouseStockService::getDefaultWarehouse();
                 if ($defaultWh) {

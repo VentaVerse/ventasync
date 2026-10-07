@@ -4,12 +4,6 @@ namespace App\Services\Payouts;
 
 use App\Support\PayoutStatus as PayoutStatusAlias;
 
-/**
- * Every store's payouts at once (the owner, 2026-10-01): the panels on the
- * Payouts report, a store's Overview and the dashboard rail. Only stores
- * whose payouts this person may see, only stores that are switched on;
- * nothing here waits on a marketplace (PayoutBalances::kept).
- */
 class PayoutOverview
 {
     public function __construct(
@@ -19,12 +13,6 @@ class PayoutOverview
     ) {
     }
 
-    /**
-     * One card per store.
-     *
-     * @param  array<string, list<int|null>>|null  $only  channel => store ids, from a Store filter
-     * @return list<array<string, mixed>>
-     */
     public function cards(?object $user, ?array $only = null): array
     {
         $cards = [];
@@ -39,11 +27,7 @@ class PayoutOverview
                 'storeName' => (string) ($store->store_name ?: 'Store #' . $store->id),
                 'balance' => $balance,
                 'summary' => $this->attention->summary($channel->attention, (int) $store->id),
-                // The Payouts report, already run for this store (2026-10-02),
-                // or the store's Overview for someone who cannot open Reports.
                 'url' => $this->reportUrl($user, $channel, $store) ?? route($channel->pageRoute, ['store' => (int) $store->id]),
-                // Its unpaid orders: the same report, narrowed to the payout
-                // states an unpaid order is in.
                 'unpaid_url' => $this->reportUrl($user, $channel, $store, unpaid: true),
                 'report_url' => $this->reportUrl($user, $channel, $store),
             ];
@@ -52,11 +36,6 @@ class PayoutOverview
         return $cards;
     }
 
-    /**
-     * Reports > Payouts, run for one store, all time: opening it shows that
-     * store's report at once. Null when the Reports extension is off or this
-     * person cannot read reports, so no panel ever links to a door shut.
-     */
     public function reportUrl(?object $user, PayoutChannel $channel, object $store, bool $unpaid = false): ?string
     {
         if (! \Illuminate\Support\Facades\Route::has('ext.reports.payouts')

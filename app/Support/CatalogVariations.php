@@ -4,26 +4,10 @@ namespace App\Support;
 
 use Illuminate\Support\Facades\DB;
 
-/**
- * The variation a SKU names, as the catalog names it: "Color/Finish: Red",
- * "Size: M". Marketplaces send the value alone ("Red") or a string of their
- * own shape, and a packer reading "Red" under a guitar pedal does not know
- * whether that is the finish, the knob or the box. The catalog knows the
- * axis, so the fulfilment rows say it (polish, 2026-08-26).
- *
- * Resolved by SKU through the combinations table (multi-axis, each
- * combination row one SKU) and the option value table (single-axis, the
- * pre-combinations shape). Per-request memo, like CatalogImages.
- */
 final class CatalogVariations
 {
-    /** @var array<string, array<int, array{name: string, value: string}>|null> keyed by trimmed SKU */
     private static array $memo = [];
 
-    /**
-     * @param array<int, string> $skus
-     * @return array<string, array<int, array{name: string, value: string}>> sku => pairs, only for SKUs that resolved
-     */
     public static function forSkus(array $skus): array
     {
         $skus = array_values(array_unique(array_filter(array_map(fn ($s) => trim((string) $s), $skus), fn ($s) => $s !== '')));
@@ -33,7 +17,6 @@ final class CatalogVariations
             $langId = (int) config('catalog.default_language_id');
             $found = [];
 
-            // A combination's SKU: every axis it sits on, in option order.
             $combos = DB::table('product_option_combinations as c')
                 ->whereIn('c.sku', $wanted)
                 ->get(['c.id', 'c.sku']);
@@ -66,7 +49,6 @@ final class CatalogVariations
                 }
             }
 
-            // A single-axis option value's SKU (products never re-saved into combinations).
             $rest = array_values(array_diff($wanted, array_keys($found)));
             if ($rest) {
                 $povRows = DB::table($pfx . 'product_option_value as pov')
@@ -102,14 +84,6 @@ final class CatalogVariations
         return $out;
     }
 
-    /**
-     * The pairs to print for one order line: the catalog's when the SKU is
-     * known, else what can be read from the marketplace's own string
-     * ("Color Family:Red, Size:M" gives two named pairs; "Red" gives one
-     * value with no name). Never empty when $fallback has text.
-     *
-     * @return array<int, array{name: string, value: string}>
-     */
     public static function pairsFor(?string $sku, ?string $fallback = null): array
     {
         $sku = trim((string) $sku);
@@ -125,10 +99,6 @@ final class CatalogVariations
             return [];
         }
 
-        // Only a string that names its axes ("Color Family:Red, Size:M") is
-        // split into pairs. A bare string stays one value, verbatim: Shopee's
-        // "Graphite, US layout" may be two tiers or one value with a comma
-        // in it, and nothing here can tell which.
         if (!str_contains($text, ':')) {
             return [['name' => '', 'value' => $text]];
         }

@@ -15,11 +15,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * The status menu on a TikTok Shop store's Listings page: the tree, the two
- * switches that narrow it, the store's tab row it combines with, and the
- * store's item id on the product's own line.
- */
 class TiktokListingStatusMenuTest extends TestCase
 {
     use RefreshDatabase;
@@ -116,7 +111,6 @@ class TiktokListingStatusMenuTest extends TestCase
             ->assertOk()->assertSee('Listed but failed')->assertDontSee('Listed and fine')->assertSee('matches: Push failed', false);
     }
 
-    /** A retired eligibility address lands on its half, and the store's tab row still counts under that choice. */
     public function test_a_retired_eligibility_link_lands_on_its_half(): void
     {
         TikTokCategory::create(['id' => '900009', 'name' => 'Guitar Accessories', 'parent_id' => null, 'is_leaf' => true]);
@@ -130,8 +124,6 @@ class TiktokListingStatusMenuTest extends TestCase
         TikTokListing::query()->create(['product_id' => $unlisted]);
         $user = $this->manager();
 
-        // Both retired rungs belonged to Listed, so both land there: the live
-        // products, complete or not, and never the one that was never pushed.
         foreach (['listed_not_ready', 'listed_ready'] as $retired) {
             $this->actingAs($user)->get(route('ext.tiktok.products.index', ['sync_status' => $retired]))
                 ->assertOk()->assertSee('Listed without a category')->assertSee('Listed and complete')->assertDontSee('Not on TikTok yet');
@@ -145,12 +137,6 @@ class TiktokListingStatusMenuTest extends TestCase
             ->assertOk()->assertDontSee('Listed without a category');
     }
 
-    /**
-     * From the Listings page a ticked product moves into a group, from one
-     * group to another, and out of every group, and the page it was on is
-     * where the operator lands. Moving is a group permission: a listing
-     * manager without it sees no picker and is refused.
-     */
     public function test_a_ticked_product_moves_between_groups_from_the_listings_page(): void
     {
         $pid = $this->product('Movable pedal', 'TMV-1');
@@ -165,7 +151,6 @@ class TiktokListingStatusMenuTest extends TestCase
         $back = parse_url(route('ext.tiktok.products.index'), PHP_URL_PATH);
         $pivot = fn () => \Illuminate\Support\Facades\DB::table('tiktok_product_group_products')->where('product_id', $pid)->pluck('tiktok_product_group_id')->map(fn ($v) => (int) $v)->all();
 
-        // Without the group permission: no picker, and the move is refused with nothing changed.
         $this->actingAs($listingOnly)->get(route('ext.tiktok.products.index'))->assertOk()->assertDontSee('Move to group');
         $this->actingAs($listingOnly)->post(route('ext.tiktok.product-groups.move'), ['ids' => [$pid], 'group' => $groupA->id, '_return' => $back])->assertRedirect()->assertSessionHas('error');
         $this->assertSame([], $pivot());
@@ -176,12 +161,10 @@ class TiktokListingStatusMenuTest extends TestCase
             ->assertRedirect($back)->assertSessionHas('status', '1 product moved to ' . $groupA->name . '.');
         $this->assertSame([$groupA->id], $pivot());
 
-        // A product belongs to one group, so choosing another moves it there.
         $this->actingAs($manager)->post(route('ext.tiktok.product-groups.move'), ['ids' => [$pid], 'group' => $groupB->id, '_return' => $back])
             ->assertRedirect($back);
         $this->assertSame([$groupB->id], $pivot());
 
-        // Inside a group the same row can be taken straight out of it.
         $this->actingAs($manager)->get(route('ext.tiktok.products.index', ['group' => $groupB->id]))->assertOk()->assertSee('Remove from group')->assertSee('Manage group');
 
         $this->actingAs($manager)->post(route('ext.tiktok.product-groups.move'), ['ids' => [$pid], 'group' => 'none', '_return' => $back])
@@ -212,7 +195,6 @@ class TiktokListingStatusMenuTest extends TestCase
         $this->actingAs($manager)->get($page)->assertOk()->assertSee('Send group')
             ->assertSee('Send all 2 products in Fuzz to TikTok Shop on group settings, rather than their own?');
 
-        // Neither product has what TikTok Shop needs, so the group's own send refuses each one.
         $answer = $this->actingAs($manager)->postJson(route('ext.tiktok.product-groups.send_run_begin', ['id' => $group->id]))->assertOk()->json();
         $this->assertSame('done', $answer['run']['status']);
         $this->assertSame(2, $answer['run']['total']);

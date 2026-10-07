@@ -4,12 +4,8 @@
 
 @section('content')
 @php
-    // Reading needs view_api_clients|manage_api_clients; every write needs
-    // manage_api_clients. See routes/settings.php.
     $canManage = auth()->user()?->hasPermission('manage_settings/api_client') ?? false;
 
-    // Flashed for one request after create or rotate; the dialog opens with
-    // it. Any other time the dialog fetches the token when asked.
     $newToken = session('new_token');
 @endphp
 

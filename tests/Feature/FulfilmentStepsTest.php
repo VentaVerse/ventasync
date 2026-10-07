@@ -6,15 +6,6 @@ use App\Support\FulfilmentSteps;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
-/**
- * One vocabulary for the lifecycle, across four panels presented as one
- * surface.
- *
- * Lazada said "Cancellation" where Shopee said "Cancelled", for the same
- * step, in the same shift. The storefront's strip came out of a GROUP BY in
- * count order, so its one actionable step sat fourth, behind two terminal
- * states, where every other channel puts the work third.
- */
 class FulfilmentStepsTest extends TestCase
 {
     public function test_a_channels_own_keys_survive_and_only_the_words_are_shared(): void
@@ -24,8 +15,6 @@ class FulfilmentStepsTest extends TestCase
             'ALL' => 'all',
         ]);
 
-        // Lazada's filter value is untouched; this class has no business
-        // renaming a marketplace's own constants.
         $this->assertArrayHasKey('CANCELLATION', $tabs);
         $this->assertSame('Cancelled', $tabs['CANCELLATION']);
     }
@@ -46,11 +35,6 @@ class FulfilmentStepsTest extends TestCase
         );
     }
 
-    /**
-     * The storefront case. A store can add OpenCart statuses this map has
-     * never heard of, and an unknown status must not vanish from the strip
-     * or be filed under a step it does not belong to.
-     */
     public function test_an_unmapped_status_keeps_its_place_at_the_end_rather_than_disappearing(): void
     {
         $ordered = FulfilmentSteps::order([
@@ -91,13 +75,6 @@ class FulfilmentStepsTest extends TestCase
         $this->assertNull(FulfilmentSteps::stepFor('venta.orders', 'Nothing Knows This'));
     }
 
-    /**
-     * The storefront's strip is fixed now (the owner, 2026-08-28), so its
-     * statuses are sorted INTO steps rather than ordered along them. Every
-     * step is present at zero, the raw spelling survives so it can go back
-     * into a WHERE IN, and a status the map has never heard of is filed
-     * under Other rather than dropped.
-     */
     public function test_bucket_sorts_raw_statuses_into_every_step_with_zeros_kept(): void
     {
         $buckets = FulfilmentSteps::bucket('venta.orders', [
@@ -123,7 +100,6 @@ class FulfilmentStepsTest extends TestCase
         $this->assertSame(['Some Store Invented This'], $buckets['other']['statuses']);
     }
 
-    /** Unpaid is before the work, and Pending is unpaid, not To Pack. */
     public function test_the_storefront_places_pending_under_unpaid_and_shipped_under_shipping(): void
     {
         $this->assertSame('unpaid', FulfilmentSteps::stepFor('venta.orders', 'Pending'));
@@ -134,10 +110,6 @@ class FulfilmentStepsTest extends TestCase
         $this->assertSame('failed', FulfilmentSteps::stepFor('venta.orders', 'Returned'));
     }
 
-    /**
-     * The point of the class, asserted where it can actually be seen: no two
-     * channels may print different words for the same step.
-     */
     public function test_no_channel_writes_its_own_word_for_a_shared_step(): void
     {
         $services = [
@@ -156,8 +128,6 @@ class FulfilmentStepsTest extends TestCase
                 continue;
             }
 
-            // A literal label inside the tabs() call means somebody added a
-            // channel-private word back in.
             preg_match('/FulfilmentSteps::tabs\(\[(.*?)\]\)/s', $source, $m);
 
             foreach (['To Ship', 'Cancelled', 'Cancellation', 'Failed Delivery', 'Delivered'] as $word) {

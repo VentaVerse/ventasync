@@ -25,9 +25,6 @@
     <div class="fm-body">
         <div class="fm-col fm-col--main">
 
-            {{-- ---------------------------------------------------------
-                 General
-                 --------------------------------------------------------- --}}
             <section class="fm-section">
                 <div class="fm-section__head">
                     <h2 class="fm-section__title">General</h2>
@@ -52,11 +49,7 @@
                     </x-ui.field>
 
                     <x-ui.field label="Description" name="description" wide>
-                        {{-- Escaped, not raw: a textarea's contents are character
-                             data, so escaping is what makes the stored HTML
-                             round-trip intact instead of letting a description
-                             containing "</textarea>" break out of the control.
-                             Same fix catalog/products carries. --}}
+                        {{-- Escaped, not raw: a description containing </textarea> would break out of the control. --}}
                         <x-ui.textarea id="f-description" name="description" class="wysiwyg">{{ old('description', '') }}</x-ui.textarea>
                     </x-ui.field>
                 </div>
@@ -65,14 +58,9 @@
 
         <div class="fm-col fm-col--side">
 
-            {{-- Details --------------------------------------------------- --}}
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Details</h2></div>
                 <div class="fm-card__body">
-                    {{-- CategoryController@store validates status as
-                         `required|in:0,1`, so a bare checkbox (which submits
-                         nothing when off) would fail outright. The hidden 0
-                         in front of it is what makes a switch legal here. --}}
                     @php $statusOn = old('status', '1') === '1'; @endphp
                     <input type="hidden" name="status" value="0">
                     <label class="fm-switch">

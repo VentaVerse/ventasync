@@ -9,19 +9,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-/**
- * Import a Venta store item into the catalog (cleanup point 11, the owner
- * 2026-09-04) - the Big 3's #196 import, in Venta's shapes: one full
- * product read plus its variants become a real catalog product with
- * description, images and variations, linked to the store item and
- * arriving enabled, because it is already selling there.
- *
- * Venta variants carry only a display name and their own sku/price/qty -
- * no option axes - so variations reconstruct as a single "Variation"
- * axis, the same honest shape a structure-less source gets everywhere
- * else in this codebase. A SKU the catalog already holds rolls the whole
- * import back and says whose it is.
- */
 class VentaItemImport
 {
     public function import(VentaSetting $setting, string $importSku): array
@@ -58,8 +45,6 @@ class VentaItemImport
                     'sku' => $sku,
                     'quantity' => (int) ($item['quantity'] ?? 0),
                     'price' => (float) ($item['price'] ?? 0),
-                    /* Already selling on Venta - arriving disabled would
-                     * misstate reality (#197's rule). */
                     'status' => 1,
                     'image' => '',
                     'weight' => (float) ($item['weight'] ?? 0),
@@ -107,11 +92,6 @@ class VentaItemImport
         }
 
 
-        /* A product this application holds always has a code
-         * (the owner, 2026-09-09). The store is free to have none;
-         * the SKU is what every push sends and every link check
-         * searches by, so a blank one is minted from the
-         * product's own id and said out loud below. */
         $minted = \App\Support\Catalog\SkuFallback::fill((int) $productId);
 
         return [
@@ -123,7 +103,6 @@ class VentaItemImport
         ];
     }
 
-    /** Single "Variation" axis: Venta variants have no option structure. */
     private function writeVariations(int $productId, string $parentSku, array $variants): void
     {
         $values = [];
@@ -147,7 +126,6 @@ class VentaItemImport
             ]));
     }
 
-    /** @return list<string> public-disk relative paths, in the order given */
     private function downloadImages(array $urls, string $sku): array
     {
         $paths = [];
@@ -155,9 +133,6 @@ class VentaItemImport
         foreach (array_values($urls) as $i => $url) {
             $img = \App\Support\RemoteImage::fetch((string) $url);
             if ($img === null) {
-                // A photo is never a reason to fail an import - and an
-                // unfetchable URL (non-https, private address, redirect,
-                // non-image) is refused by the shared SSRF guard.
                 continue;
             }
             $rel = 'catalog/import/venta/' . $slug . '/' . $i . '.' . $img['ext'];

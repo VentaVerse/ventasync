@@ -13,13 +13,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * All Listings goes per-store (#201, the owner 2026-09-05). THIS STORE shows only
- * what this store carries; adding a main-catalogue product is the Add products
- * slide-over (Draft C): a capped catalogue search, add in place over JSON, the
- * full catalogue page one link away as the overflow. Remove from store is the
- * inverse - free, and it stops syncing.
- */
 class LazadaAddToStoreTest extends TestCase
 {
     use RefreshDatabase;
@@ -42,8 +35,6 @@ class LazadaAddToStoreTest extends TestCase
 
     private function manager(): User
     {
-        // Unique per call: some tests act as a manager twice, and
-        // user_groups.name is unique.
         $group = UserGroup::create(['name' => 'LZ add manager ' . uniqid()]);
         $group->permissions()->attach(
             Permission::whereIn('key', [
@@ -76,8 +67,6 @@ class LazadaAddToStoreTest extends TestCase
         return '/channels/lazada/' . $this->store->id . '/products';
     }
 
-    // ── This store ───────────────────────────────────────────────────
-
     public function test_this_store_shows_only_products_added_to_this_store(): void
     {
         $onStore = $this->seedProduct('On store widget', 'ON-1');
@@ -97,8 +86,6 @@ class LazadaAddToStoreTest extends TestCase
         $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
 
         $this->assertStringContainsString('No products on this store yet', $html);
-        // The empty state and the header both open the slide-over in place;
-        // no tab, no separate door.
         $this->assertStringContainsString('data-add-panel-open', $html);
         $this->assertStringContainsString('data-add-panel', $html, 'the panel markup rides the page for a manager');
         $this->assertStringNotContainsString('cc-worktab', $html, 'the two-tab treatment is gone');
@@ -115,8 +102,6 @@ class LazadaAddToStoreTest extends TestCase
         $this->assertStringNotContainsString('data-add-panel-open', $html);
         $this->assertStringNotContainsString('id="lazada-add-panel"', $html);
     }
-
-    // ── The panel's catalogue search ─────────────────────────────────
 
     public function test_catalogue_search_defaults_to_products_not_yet_on_this_store(): void
     {
@@ -171,8 +156,6 @@ class LazadaAddToStoreTest extends TestCase
         $this->assertCount(25, $r->json('items'));
     }
 
-    // ── Add ───────────────────────────────────────────────────────────
-
     public function test_add_to_store_over_json_puts_the_product_on_the_store(): void
     {
         $pid = $this->seedProduct('Catalogue only widget', 'OFF-1');
@@ -186,7 +169,6 @@ class LazadaAddToStoreTest extends TestCase
         $this->assertNotNull($row);
         $this->assertSame($this->store->id, (int) $row->lazada_setting_id, 'the row is stamped with this store');
 
-        // It now shows under This store.
         $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
         $this->assertStringContainsString('Catalogue only widget', $html);
     }
@@ -241,8 +223,6 @@ class LazadaAddToStoreTest extends TestCase
         $this->assertStringNotContainsString('cc-worktab', $html);
     }
 
-    // ── Remove from store ─────────────────────────────────────────────
-
     public function test_remove_from_store_takes_the_product_off_the_store_freely(): void
     {
         $pid = $this->seedProduct('Live widget', 'LIVE-1');
@@ -253,7 +233,6 @@ class LazadaAddToStoreTest extends TestCase
         $group = \Extensions\lazada\Models\LazadaProductGroup::create(['lazada_setting_id' => $this->store->id, 'name' => 'Group', 'lazada_category_id' => 1]);
         $listing->groups()->attach($group->id, ['product_id' => $pid]);
 
-        // Live on Lazada, in a group - and still no blocker (the owner, 2026-09-05).
         $this->actingAs($this->manager())
             ->from($this->base())
             ->post($this->base() . '/' . $pid . '/remove-from-store')
@@ -262,7 +241,6 @@ class LazadaAddToStoreTest extends TestCase
         $this->assertSame(0, LazadaProduct::withoutGlobalScope('lazadaStore')->where('id', $listing->id)->count(), 'the listing row is gone, so nothing is left to sync');
         $this->assertSame(0, DB::table('lazada_product_group_products')->where('lazada_product_id', $listing->id)->count(), 'its group membership went with it');
 
-        // It is back on the Add side, not on This store.
         $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
         $this->assertStringNotContainsString('Live widget', $html);
     }
@@ -286,15 +264,12 @@ class LazadaAddToStoreTest extends TestCase
         $pid = $this->seedProduct('Theirs', 'T-1');
         $theirs = LazadaProduct::create(['lazada_setting_id' => $other->id, 'product_id' => $pid]);
 
-        // Standing in Gearshipper, the other store's row is not findable.
         $this->actingAs($this->manager())
             ->post($this->base() . '/' . $pid . '/remove-from-store')
             ->assertNotFound();
 
         $this->assertSame(1, LazadaProduct::withoutGlobalScope('lazadaStore')->where('id', $theirs->id)->count());
     }
-
-    // ── The product group's own panel (ported back from Shopee) ───────
 
     private function group(string $name = 'Helmets'): \Extensions\lazada\Models\LazadaProductGroup
     {
@@ -334,8 +309,6 @@ class LazadaAddToStoreTest extends TestCase
         $this->seedProduct('Catalogue only widget', 'OFF-1');
         $this->inGroup($group, $grouped);
 
-        // Option 2 (the owner, 2026-09-05): the Master Catalog, minus what the
-        // group already holds, each row saying whether the store carries it.
         $r = $this->actingAs($this->manager())->getJson($this->groupBase($group->id) . '/products/search')->assertOk();
         $byName = collect($r->json('items'))->keyBy('name');
         $this->assertEqualsCanonicalizing(['On store free', 'Catalogue only widget'], $byName->keys()->all());
@@ -383,7 +356,6 @@ class LazadaAddToStoreTest extends TestCase
             ->assertOk()->assertJson(['added' => false]);
     }
 
-    /** Option 2 (the owner, 2026-09-05): a product the store does not carry is listed on it as it joins. */
     public function test_add_to_group_lists_a_catalogue_product_on_the_store_as_it_joins(): void
     {
         $group = $this->group();

@@ -34,12 +34,10 @@ class ShopeeCatalogOrderSync
             $shopeeStatus = $shopeeOrder->status ?? '';
             $statusId = $orderStatusMap[$shopeeStatus] ?? $returnStatusMap[$shopeeStatus] ?? 1;
 
-            // --- Customer name ---
             $buyerUsername = trim((string) ($raw['buyer_username'] ?? ($raw['buyer_user_name'] ?? '')));
             $firstname = $buyerUsername;
             $lastname = '';
 
-            // --- Shipping address ---
             $addr = $raw['recipient_address'] ?? $raw['shipping_address'] ?? [];
             if (!is_array($addr)) $addr = [];
 
@@ -53,7 +51,6 @@ class ShopeeCatalogOrderSync
             $shippingZone = mb_substr(trim((string) ($addr['state'] ?? ($addr['region'] ?? ''))), 0, 128);
             $telephone = mb_substr(trim((string) ($addr['phone'] ?? '')), 0, 32);
 
-            // --- Other fields ---
             $shippingMethod = trim((string) ($raw['shipping_carrier'] ?? ($raw['checkout_shipping_carrier'] ?? '')));
             $paymentMethod = trim((string) ($raw['payment_method'] ?? ''));
             $trackingNumber = trim((string) ($raw['tracking_no'] ?? ($raw['tracking_number'] ?? '')));
@@ -74,7 +71,6 @@ class ShopeeCatalogOrderSync
             $createdAt = $shopeeOrder->order_created_at ?? now();
             $updatedAt = $shopeeOrder->order_updated_at ?? now();
 
-            // --- Find or create catalog order ---
             $catalogOrder = null;
 
             if ($shopeeOrder->catalog_order_id) {
@@ -87,24 +83,14 @@ class ShopeeCatalogOrderSync
                     ->first();
             }
 
-            // Re-sync guard: once an order has been normalized (foreign_total
-            // is no longer NULL), its currency_value is a frozen, as-transacted
-            // rate. A later re-sync must not overwrite it with today's feed
-            // rate - that would desynchronize currency_value from the total
-            // and foreign_total that were already stored under the old rate.
-            // The order must also still be foreign today - if a feed ever
-            // re-reports this order as the default currency, the frozen rate
-            // must not be applied to what is now a default-currency amount.
+            // Once an order is normalized its currency_value is a frozen rate; a re-sync must not overwrite it
+            // with today's rate, nor apply it if the order is no longer foreign.
             $rate = $currency['rate'];
             $isDefault = $currency['is_default'];
             if ($catalogOrder && !$isDefault && $catalogOrder->foreign_total !== null) {
                 $rate = (float) $catalogOrder->currency_value;
             }
 
-            // Per-store reports (the owner, 2026-09-05): the core order carries
-            // its store on its own, name included, so reports read by store
-            // and a deleted store's sales keep the name they were sold under.
-            // Written on every resync, so a rename follows.
             $storeId = (int) $shopeeOrder->shopee_setting_id;
             $storeName = mb_substr((string) (\Extensions\shopee\Models\ShopeeSetting::query()->find($storeId)?->store_name ?? ''), 0, 64);
 
@@ -155,9 +141,6 @@ class ShopeeCatalogOrderSync
                 'shipping_cost'         => 0,
                 'shipping_code'         => '',
                 'comment'               => '',
-                // Placeholder - overwritten below once the real (foreign)
-                // subtotal is computed from line items, at which point it is
-                // converted to the default currency and foreign_total is set.
                 'total'                 => $apiTotal,
                 'extra_cost'            => 0,
                 'order_status_id'       => $statusId,
@@ -182,11 +165,6 @@ class ShopeeCatalogOrderSync
 
             if ($catalogOrder) {
                 $oldStatusId = (int) $catalogOrder->order_status_id;
-                // Override: the operator has manually finalised this order
-                // (e.g. Returned/Refunded after a verified return). Never let the
-                // sync change its status or move stock - preserve the current
-                // status so the status-change block below is a no-op. Other
-                // fields (tracking, totals, address) still update.
                 if ((int) ($catalogOrder->sync_override ?? 0) === 1) {
                     $statusId = $oldStatusId;
                     $orderData['order_status_id'] = $oldStatusId;
@@ -200,17 +178,12 @@ class ShopeeCatalogOrderSync
                 $catalogOrder = Order::create($orderData);
             }
 
-            // FCM notifications dispatched centrally by App\Observers\OrderObserver
-            // on Order::create / $catalogOrder->update() above.
-
-            // --- Sync products ---
             OrderProduct::where('order_id', $catalogOrder->order_id)->delete();
             OrderOption::where('order_id', $catalogOrder->order_id)->delete();
 
             $subTotal = 0;
             $shippingTotal = 0;
 
-            // Group Shopee line items by SKU
             $grouped = [];
             foreach ($shopeeOrder->products as $sp) {
                 $spRaw = is_array($sp->raw) ? $sp->raw : [];
@@ -238,24 +211,18 @@ class ShopeeCatalogOrderSync
             $pfx = (string) config('catalog.prefix');
 
             foreach ($grouped as $item) {
-                // Foreign (as-transacted, marketplace-currency) figures.
                 $price = $item['price'];
                 $qty = $item['quantity'];
                 $lineTotal = $price * $qty;
                 $subTotal += $lineTotal;
 
-                // Storage rule: price/total are ALWAYS the default currency;
-                // foreign_price/foreign_total hold the raw marketplace amount
-                // and must stay NULL (never 0.00) for a default-currency order.
                 $priceBase = \App\Services\OrderCurrencyService::toBase($price, $rate);
                 $lineTotalBase = \App\Services\OrderCurrencyService::toBase($lineTotal, $rate);
 
-                // Resolve catalog product_id via SKU
                 $resolvedProductId = 0;
                 $resolvedOptionValueId = 0;
                 $sellerSku = $item['sku'];
                 if ($sellerSku !== '') {
-                    // Try option value SKU match
                     $pov = DB::table($pfx . 'product_option_value')
                         ->where('sku', $sellerSku)
                         ->first();
@@ -264,7 +231,6 @@ class ShopeeCatalogOrderSync
                         $resolvedOptionValueId = (int) $pov->product_option_value_id;
                     }
 
-                    // Fallback: main product SKU
                     if ($resolvedProductId === 0) {
                         $prod = DB::table($pfx . 'product')
                             ->where('sku', $sellerSku)
@@ -275,7 +241,6 @@ class ShopeeCatalogOrderSync
                     }
                 }
 
-                // Fallback: resolve option value by variation name
                 if ($resolvedProductId > 0 && $resolvedOptionValueId === 0) {
                     $variation = trim($item['variation'] ?? '');
                     if ($variation !== '') {
@@ -283,9 +248,6 @@ class ShopeeCatalogOrderSync
                     }
                 }
 
-                // Cost at the time of sale, from the catalogue: the variation's own
-                // cost when it has an amount, else the parent's. One rule for every
-                // channel, in App\Support\LineCost.
                 $productCost = \App\Support\LineCost::resolve((int) $resolvedProductId, (int) $resolvedOptionValueId);
 
                 $op = OrderProduct::create([
@@ -301,13 +263,10 @@ class ShopeeCatalogOrderSync
                     'tax'           => 0,
                     'reward'        => 0,
                     'base_price'    => $priceBase,
-                    // Cost is looked up from the catalog (already PHP), not
-                    // from marketplace data - no conversion needed.
                     'cost'          => $productCost,
                     'supplier_id'   => 0,
                 ]);
 
-                // Sync variation as order option
                 if ($item['variation'] && trim($item['variation']) !== '') {
                     OrderOption::create([
                         'order_id'                => $catalogOrder->order_id,
@@ -321,34 +280,24 @@ class ShopeeCatalogOrderSync
                 }
             }
 
-            // --- Compute correct revenue total ---
-            // Revenue = item selling prices - seller-funded vouchers
-            // Platform vouchers (voucher_from_shopee, coins) do NOT reduce revenue
-            // Buyer-paid shipping is NOT revenue
             $feeData = is_array($shopeeOrder->fees) ? $shopeeOrder->fees : [];
             $orderIncome = $feeData['order_income'] ?? $feeData;
 
             $buyerPaidShipping = abs((float) ($orderIncome['buyer_paid_shipping_fee'] ?? 0));
             $voucherSeller = abs((float) ($orderIncome['voucher_from_seller'] ?? 0));
 
-            // Use escrow shipping data (Shopee products don't have per-item shipping)
             if ($buyerPaidShipping > 0 && $shippingTotal == 0) {
                 $shippingTotal = $buyerPaidShipping;
             }
 
-            // Foreign (as-transacted) revenue total.
             $total = $subTotal - $voucherSeller;
             $catalogOrder->update([
                 'total'         => \App\Services\OrderCurrencyService::toBase($total, $rate),
                 'foreign_total' => $isDefault ? null : round($total, \App\Services\OrderCurrencyService::MONEY_SCALE),
             ]);
 
-            // --- Sync order totals ---
-            // order_total has no foreign_* column - it always holds the
-            // default-currency figure, matching order.total.
             OrderTotal::where('order_id', $catalogOrder->order_id)->delete();
 
-            // The sale as Shopee reports it. order.total above stays the revenue figure the reports read.
             $sortOrder = 1;
             foreach (\Extensions\shopee\Services\ShopeeSaleLines::lines(is_array($orderIncome) ? $orderIncome : [], $subTotal, $shippingTotal) as $line) {
                 OrderTotal::create([
@@ -360,7 +309,6 @@ class ShopeeCatalogOrderSync
                 ]);
             }
 
-            // --- Add history if status changed ---
             if ($oldStatusId !== $statusId) {
                 OrderHistory::create([
                     'order_id'        => $catalogOrder->order_id,
@@ -381,43 +329,27 @@ class ShopeeCatalogOrderSync
                 }
             }
 
-            // --- Save catalog_order_id back ---
             $shopeeOrder->catalog_order_id = $catalogOrder->order_id;
             $shopeeOrder->saveQuietly();
 
-            /* The channel's fees land on the CORE order here, in the four
-               codes every report reads (MarketplaceFeeNormalizer). Outside
-               the transaction would be a second write to chase on failure;
-               inside it, an order and its fees arrive together or not at
-               all. Idempotent, so the re-sync on every status change
-               replaces the rows rather than adding to them. */
             app(\App\Services\Orders\MarketplaceFeeNormalizer::class)->forOrder((int) $catalogOrder->order_id);
 
         });
     }
 
-    /**
-     * Resolve a product_option_value_id by parsing the variation string and
-     * matching against option value names on the product.
-     * Handles formats like "Red", "Color Family:Black", "Color: Red, Size: M".
-     */
     private function resolveOptionByVariation(string $pfx, int $productId, string $variation): int
     {
         $langId = (int) config('catalog.default_language_id');
 
-        // Extract candidate value names from the variation string
-        // Split by comma first (handles "Color: Red, Size: M")
         $parts = array_map('trim', explode(',', $variation));
         $candidates = [];
         foreach ($parts as $part) {
-            // If it contains ":" or "Family:", take the part after the last ":"
             if (str_contains($part, ':')) {
                 $after = trim(substr($part, strrpos($part, ':') + 1));
                 if ($after !== '') {
                     $candidates[] = $after;
                 }
             }
-            // Also try the whole part as-is
             $candidates[] = $part;
         }
 

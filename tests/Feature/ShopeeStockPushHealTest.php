@@ -15,25 +15,14 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * Phase E of the channels rebuild (#184, card #190): the stock and price
- * pushes build from the LINK ROWS, skip what Shopee no longer has BY
- * NAME, parse the per-model failure_list Shopee has been sending all
- * along, and heal a model-level refusal by re-reading the models and
- * retrying once. Nothing is skipped silently, nothing is retried
- * silently, and a failed model can no longer be recorded as a success.
- */
 class ShopeeStockPushHealTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** POST answers by path; closures receive the body. */
     public array $postResponses = [];
 
-    /** GET answers by path. */
     public array $getResponses = [];
 
-    /** @var array<int, array{path: string, body: array}> */
     public array $sentPosts = [];
 
     protected function setUp(): void
@@ -87,7 +76,6 @@ class ShopeeStockPushHealTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    /** A product with three variation SKUs in product_option_value. */
     private function productWithVariations(array $skuQty): int
     {
         $pfx = (string) config('catalog.prefix');
@@ -137,21 +125,15 @@ class ShopeeStockPushHealTest extends TestCase
         $this->assertSame(['RR-3'], array_column($missing[$pid] ?? [], 'sku'));
         $this->assertStringContainsString('STRANGER', (string) DB::table(\App\Integrations\Listings\ListingVariations::STORE_SKUS)->where('product_id', $pid)->value('skus'), 'an unmatched model is still held');
 
-        // An unanswered read changes nothing.
         $this->getResponses['/api/v2/product/get_model_list'] = ['ok' => false, 'status' => 500, 'body' => ['error' => 'error', 'message' => 'down']];
         $this->assertArrayHasKey('error', $repair->forItem($auth, $pid, 900, ['rr-1', 'rr-2', 'rr-3']));
         $missing = \App\Integrations\Listings\ListingVariations::missing('shopee', $storeId, [$pid]);
         $this->assertSame(['RR-3'], array_column($missing[$pid] ?? [], 'sku'));
     }
 
-    /**
-     * A variation Shopee does not carry is not an error: the models that
-     * are on Shopee go up and the missing one is simply not asked of it.
-     */
     public function test_a_variation_missing_from_shopee_is_left_alone_and_the_rest_go_up(): void
     {
         $pid = $this->productWithVariations(['PRD-1PC' => 5, 'PRD-5PC' => 6, 'PRD-10PC' => 7]);
-        // Shopee holds only two of the three (the 1pc is not on Shopee).
         $five = ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 900, 'shopee_model_id' => 52, 'sku' => 'PRD-5PC']);
         ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 900, 'shopee_model_id' => 53, 'sku' => 'PRD-10PC']);
 
@@ -166,7 +148,6 @@ class ShopeeStockPushHealTest extends TestCase
         $this->assertTrue((bool) $five->fresh()->last_sync_ok);
     }
 
-    /** The other direction, and the cron: a model the catalogue lacks is left alone, and the rest still go up. */
     public function test_the_cron_leaves_a_model_the_catalogue_lacks_alone_and_pushes_the_rest(): void
     {
         $gone = $this->productWithVariations(['G-1' => 5]);
@@ -184,7 +165,6 @@ class ShopeeStockPushHealTest extends TestCase
         $this->assertTrue((bool) ShopeeProductLink::query()->where('product_id', $fine)->value('last_sync_ok'));
     }
 
-    /** failure_list: each link row wears its OWN model's verdict; a failed model is never a green row. */
     public function test_per_model_failures_are_recorded_per_link(): void
     {
         $pid = $this->productWithVariations(['A-1' => 5, 'A-2' => 6]);
@@ -205,11 +185,9 @@ class ShopeeStockPushHealTest extends TestCase
         $this->assertStringContainsString('promotion', (string) $bad->fresh()->last_sync_error_message);
     }
 
-    /** The model_id-is-mandatory incident: the push repairs, retries once, and says so. */
     public function test_a_model_level_refusal_heals_and_retries_once(): void
     {
         $pid = $this->productWithVariations(['B-1' => 5, 'B-2' => 6]);
-        // A stale parent-only link on what is now a model-level item.
         ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 902, 'shopee_model_id' => null, 'sku' => 'PAR']);
 
         $attempt = 0;
@@ -235,7 +213,6 @@ class ShopeeStockPushHealTest extends TestCase
         $flash = (string) session('status');
         $this->assertStringContainsString('repaired mid-push', $flash, 'the heal is reported, never silent');
 
-        // The links now match Shopee's shape, and the retry carried real model ids.
         $models = ShopeeProductLink::query()->where('product_id', $pid)->pluck('shopee_model_id')->map(fn ($v) => (int) $v)->sort()->values()->all();
         $this->assertSame([71, 72], $models);
         $calls = $this->stockCalls();
@@ -243,7 +220,6 @@ class ShopeeStockPushHealTest extends TestCase
         $this->assertSame([71, 72], array_column($calls[1]['body']['stock_list'], 'model_id'));
     }
 
-    /** A refusal that the repair cannot explain is reported, not retried forever. */
     public function test_a_refusal_without_a_model_cause_is_not_retried(): void
     {
         $pid = $this->productWithVariations(['C-1' => 5]);
@@ -261,7 +237,6 @@ class ShopeeStockPushHealTest extends TestCase
         $this->assertStringContainsString('Invalid access token', (string) session('error'));
     }
 
-    /** The listing page says how much of the catalogue stands on Shopee, and offers the repair. */
     public function test_the_listing_page_carries_coverage_and_the_reread_verb(): void
     {
         $pid = $this->productWithVariations(['E-1' => 5, 'E-2' => 6, 'E-3' => 7]);
@@ -285,18 +260,12 @@ class ShopeeStockPushHealTest extends TestCase
         $page = $this->actingAs($this->manager())
             ->get(route('ext.shopee.listings.edit', $pid))->assertOk();
 
-        /* The coverage figure and the sentence naming the missing side
-           were both reports about the live item, and both left the page
-           with the rest of the health surface on 2026-09-09 (the owner:
-           "Nothing about health"). What stayed is what you ACT with: the
-           Variations card, and the verb that sends the missing ones. */
         $page->assertDontSee('2 of 3 variations');
         $page->assertDontSee('In the catalogue but not on Shopee');
-        $page->assertSee('Not in your Master Catalog');  // Shopee's STRANGER model, flagged
-        $page->assertSee('Push missing variations');   // and the verb that fixes it
+        $page->assertSee('Not in your Master Catalog');
+        $page->assertSee('Push missing variations');
         $page->assertSee('Re-read variations from Shopee');
 
-        // The verb runs the same repair the pushes self-heal with.
         $this->actingAs($this->manager())
             ->post(route('ext.shopee.listings.reread_variations', $pid))
             ->assertRedirect();
@@ -304,7 +273,6 @@ class ShopeeStockPushHealTest extends TestCase
         $this->assertStringContainsString('STRANGER', (string) session('status'));
     }
 
-    /** Price keeps the listing's own rule on every model. */
     public function test_price_push_keeps_the_listing_rule(): void
     {
         $pid = $this->productWithVariations(['D-1' => 5, 'D-2' => 6]);
@@ -324,7 +292,6 @@ class ShopeeStockPushHealTest extends TestCase
         $this->assertSame([110.0, 110.0], array_map(fn ($m) => (float) $m['original_price'], $priceCalls[0]['body']['price_list']), 'base 100 + the listing\'s 10%');
     }
 
-    /** Push Price is its own automation (2026-09-07): the listing's rule, else the group's, else the catalog price. */
     public function test_the_price_cron_prices_by_the_listing_rule_then_the_group_then_the_catalog(): void
     {
         $a = $this->productWithVariations(['A-1' => 5]);
@@ -347,12 +314,6 @@ class ShopeeStockPushHealTest extends TestCase
         $this->assertSame([], array_filter($this->sentPosts, fn ($c) => $c['path'] === '/api/v2/product/update_stock'), 'the price row never sends stock');
     }
 
-    /**
-     * A variation deleted in the seller centre left a link Shopee refused on
-     * every run. Shopee's per-model "does not exist" drops that link; the
-     * variation is simply no longer on Shopee, which is not an error, and
-     * the rest of the product keeps its verdict.
-     */
     public function test_a_model_shopee_says_is_gone_is_dropped_and_the_rest_keeps_its_verdict(): void
     {
         $pid = $this->productWithVariations(['E-1' => 5, 'E-2' => 6]);
@@ -382,11 +343,6 @@ class ShopeeStockPushHealTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    /**
-     * Run now in steps (the owner, 2026-09-07): Push Stock walks its products ten
-     * per request, the page draws "Product 10 of 12", the job row is stamped
-     * when the run ends, and Stop keeps what was pushed.
-     */
     public function test_run_now_walks_push_stock_ten_products_per_step_and_stamps_the_job(): void
     {
         $pids = [];
@@ -419,31 +375,26 @@ class ShopeeStockPushHealTest extends TestCase
         $this->assertTrue((bool) $job->fresh()->last_run_ok);
         $this->assertNotNull($job->fresh()->last_run_at);
 
-        // A refused model counts as a failed product and the job ends red.
         $this->postResponses['/api/v2/product/update_stock'] = ['ok' => true, 'status' => 200, 'body' => ['error' => 'error_auth', 'message' => 'Invalid access token']];
         $again = $this->actingAs($user)->postJson(route('automations.run', $job->id))->assertOk()->json('run');
         $this->assertSame(10, $again['failed']);
         $this->actingAs($user)->postJson(route('automations.run_step', ['run' => $again['id']]))->assertOk()->assertJsonPath('run.status', 'done')->assertJsonPath('run.failed', 12);
         $this->assertFalse((bool) $job->fresh()->last_run_ok);
 
-        // Stop keeps what was pushed and stamps the job.
         $this->postResponses['/api/v2/product/update_stock'] = null;
         $third = $this->actingAs($user)->postJson(route('automations.run', $job->id))->assertOk()->json('run');
         $this->actingAs($user)->postJson(route('automations.run_stop', ['run' => $third['id']]))->assertOk()->assertJsonPath('run.status', 'stopped');
         $this->assertSame('Stopped after 10 products of 12: 10 ok.', \App\Services\AutomationRunner::outcome(\App\Models\AutomationRun::find($third['id'])));
 
-        // A job nobody can walk in steps runs whole and answers its outcome in one line.
         $whole = \App\Models\ScheduledJob::create([
             'integration' => 'shopee', 'display_name' => 'Say something', 'command' => 'inspire',
             'cadence_value' => 1, 'cadence_unit' => 'hour', 'enabled' => false, 'options' => [],
         ]);
         $this->actingAs($user)->postJson(route('automations.run', $whole->id))->assertOk()->assertJsonPath('done', true)->assertJsonPath('ok', true);
 
-        // Someone who cannot manage the channel cannot step its run.
         $this->actingAs($this->manager())->postJson(route('automations.run_step', ['run' => $third['id']]))->assertForbidden();
     }
 
-    /** Every push command on every channel can be walked, and the tab carries the strip. */
     public function test_every_push_command_is_steppable_and_the_tab_carries_the_strip(): void
     {
         foreach ([
@@ -461,11 +412,10 @@ class ShopeeStockPushHealTest extends TestCase
         $this->assertStringContainsString("@include('partials.automation-run-modal'", $tab);
         $this->assertStringContainsString('data-automation-run', $modal);
         $this->assertStringContainsString('data-ar-ok', $modal, 'one sentence and OK, for every automation');
-        $this->assertStringNotContainsString('data-of-strip', $tab, 'no bar on the Automations tab (the owner, 2026-09-07: unity)');
+        $this->assertStringNotContainsString('data-of-strip', $tab, 'no bar on the Automations tab (Maria, 2026-09-07: unity)');
         $this->assertStringContainsString("import './automation-run';", (string) file_get_contents(base_path('resources/js/app.js')));
     }
 
-    /** Sync Orders walks its phases one per request, so the bar is real and the console never reaches the page. */
     public function test_run_now_walks_sync_orders_one_phase_per_request(): void
     {
         $this->getResponses['/api/v2/order/get_order_list'] = ['ok' => true, 'status' => 200, 'body' => ['error' => '', 'response' => ['order_list' => [], 'more' => false]]];
@@ -490,7 +440,6 @@ class ShopeeStockPushHealTest extends TestCase
         $this->assertStringNotContainsString('===', implode(' ', $second->json('run.ledger')), 'the console never reaches the page');
     }
 
-    /** The one price rule on the button too (2026-09-07): no listing rule means the group's, never a skip. */
     public function test_the_price_button_prices_a_listing_without_a_rule_by_its_group(): void
     {
         $pid = $this->productWithVariations(['G-1' => 5]);
@@ -509,7 +458,6 @@ class ShopeeStockPushHealTest extends TestCase
         $this->assertStringNotContainsString('without a listing price rule', (string) session('status') . (string) session('error'));
     }
 
-    /** A product without variations starts from its listing's own Price, on the button, the bulk bar, the cron and Run now's step. */
     public function test_the_price_sender_starts_a_simple_product_from_its_own_price(): void
     {
         $pid = $this->productWithVariations([]);
@@ -536,7 +484,6 @@ class ShopeeStockPushHealTest extends TestCase
         $this->assertSame([550.0], $sent());
     }
 
-    /** A product with variations prices each one from the catalog; a Price left on its listing is ignored. */
     public function test_a_variation_product_ignores_a_stored_price(): void
     {
         $pid = $this->productWithVariations(['V-1' => 5, 'V-2' => 6]);

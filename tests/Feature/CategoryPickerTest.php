@@ -11,14 +11,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * THE CATEGORY PICKER'S TWO READS.
- *
- * One level of the tree, and the path down to a chosen category so a search
- * result opens every column along its way rather than stranding the seller.
- *
- * Nothing here calls a marketplace: the tree is already stored.
- */
 class CategoryPickerTest extends TestCase
 {
     use RefreshDatabase;
@@ -83,19 +75,12 @@ class CategoryPickerTest extends TestCase
         $this->assertTrue($body['items'][0]['leaf']);
     }
 
-    /**
-     * A search result opens the whole way down, each column already chosen.
-     * Landing on a category with no way back up is the thing this prevents.
-     */
     public function test_a_path_carries_every_column_along_its_way(): void
     {
         $body = $this->actingAs($this->reader())->getJson($this->url('category_path', ['id' => 111]))->assertOk()->json();
 
         $this->assertSame(['Hobbies & Collections', 'Musical Instruments', 'Guitars & Bass'], array_column($body['path'], 'name'));
 
-        /* A column for every level the path passes through: the roots that
-           hold the first step, then what sits under each chosen parent, down
-           to the one holding the leaf itself. */
         $this->assertCount(3, $body['levels']);
         $this->assertNull($body['levels'][0]['parent']);
         $this->assertSame(['Beauty', 'Hobbies & Collections'], array_column($body['levels'][0]['items'], 'name'));

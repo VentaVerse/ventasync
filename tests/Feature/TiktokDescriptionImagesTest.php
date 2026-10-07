@@ -21,10 +21,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
-/**
- * Pictures inside a description reach TikTok Shop as TikTok's own URLs,
- * with width and height, uploaded once per store and picture.
- */
 class TiktokDescriptionImagesTest extends TestCase
 {
     use RefreshDatabase;
@@ -57,7 +53,6 @@ class TiktokDescriptionImagesTest extends TestCase
         $this->picture('catalog/__tt-desc-a.png', 6, [255, 0, 0]);
         $this->picture('catalog/__tt-desc-b.png', 8, [0, 0, 255]);
 
-        // Each description picture TikTok takes comes back under its own URL.
         $this->callResponses[self::DESC_UPLOAD] = function (array $body): array {
             $n = count($this->callsFor(self::DESC_UPLOAD));
 

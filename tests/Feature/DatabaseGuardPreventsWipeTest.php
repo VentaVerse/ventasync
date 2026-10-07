@@ -7,29 +7,6 @@ use RuntimeException;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
-/**
- * Regression coverage for the DB_DATABASE `_test`-suffix guard (tests/bootstrap.php and
- * Tests\TestCase::setUp()).
- *
- * Background (task-0 fix round 1): the guard originally lived entirely inside
- * Tests\TestCase::setUp(), AFTER the call to parent::setUp(). That looked correct - the
- * exception did fire with the right message - but parent::setUp() (Illuminate\Foundation\
- * Testing\TestCase::setUp()) internally runs setUpTraits(), which for any class using
- * RefreshDatabase calls migrate:fresh -> db:wipe BEFORE control ever returns to our check.
- * A reviewer proved empirically that the guard only *detected* a misconfigured database
- * after it had already been wiped. Applied to this project, a stray/reverted DB_DATABASE
- * pointed at `ventasync` (44,172 real sandbox orders) would have been destroyed before the
- * exception could stop anything.
- *
- * This test proves prevention, not detection: it points a real RefreshDatabase test at a
- * disposable scratch database that is deliberately NOT `_test`-suffixed, pre-seeds it with a
- * `migrations` table (the exact table FreshCommand::handle() checks via
- * Migrator::repositoryExists() to decide whether to call db:wipe - see
- * vendor/laravel/framework/src/Illuminate/Database/Console/Migrations/FreshCommand.php) and a
- * marker table, runs the probe in a genuinely separate PHP process against that scratch
- * database, and then asserts BOTH tables are still there. If either guard layer regresses to
- * "detect after the fact", this test fails by finding the tables gone.
- */
 class DatabaseGuardPreventsWipeTest extends TestCase
 {
     private string $scratchDatabase;
@@ -97,9 +74,6 @@ class DatabaseGuardPreventsWipeTest extends TestCase
         $admin->exec("CREATE DATABASE `{$this->scratchDatabase}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
         $scoped = $this->scratchPdo();
-        // Mirrors just enough of Laravel's migration repository table for
-        // Migrator::repositoryExists() to return true, which is what makes
-        // FreshCommand call db:wipe in the first place.
         $scoped->exec(
             'CREATE TABLE migrations ('.
             'id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, '.
@@ -113,7 +87,6 @@ class DatabaseGuardPreventsWipeTest extends TestCase
         $scoped->exec("INSERT INTO marker_do_not_wipe (note) VALUES ('still here')");
     }
 
-    /** @return list<string> */
     private function scratchTables(): array
     {
         $stmt = $this->scratchPdo()->query('SHOW TABLES');

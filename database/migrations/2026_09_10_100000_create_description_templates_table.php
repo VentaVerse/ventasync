@@ -4,19 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Description templates (the owner, 2026-09-07): a named block of text a store
- * puts above or below a product's description, so a returns policy or a
- * warranty note lives in one place instead of on two thousand products.
- *
- * One table for every channel rather than five, because the shape is the
- * same everywhere and a template is not marketplace-specific: it is the
- * store's own words. The store is named by (integration, store_id), the
- * same pair the rest of the core uses for a store.
- *
- * A listing points at one for its prefix and one for its suffix; neither is
- * required, and None is the default.
- */
 return new class extends Migration
 {
     public function up(): void
@@ -33,9 +20,6 @@ return new class extends Migration
             });
         }
 
-        // One prefix and one suffix per listing, on every channel that has
-        // a listing table. Guarded so a tier that already has them is left
-        // alone, and so a channel added later can join by re-running this.
         foreach ([
             'shopee_listings', 'lazada_products', 'tiktok_listings',
             'venta_listings', 'woocommerce_listings',

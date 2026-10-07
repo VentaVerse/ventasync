@@ -8,13 +8,11 @@ use Illuminate\Support\Facades\DB;
 return new class extends Migration {
     public function up(): void
     {
-        // Add new JSON columns
         Schema::table('lazada_profiles', function (Blueprint $table) {
             $table->json('catalog_category_ids')->nullable()->after('name');
             $table->json('manufacturer_ids')->nullable()->after('catalog_category_ids');
         });
 
-        // Migrate existing single values into JSON arrays
         $profiles = DB::table('lazada_profiles')->get();
         foreach ($profiles as $p) {
             $catIds = $p->catalog_category_id ? json_encode([(int) $p->catalog_category_id]) : null;
@@ -25,7 +23,6 @@ return new class extends Migration {
             ]);
         }
 
-        // Drop old single-value columns
         Schema::table('lazada_profiles', function (Blueprint $table) {
             $table->dropColumn(['catalog_category_id', 'manufacturer_id']);
         });
@@ -38,7 +35,6 @@ return new class extends Migration {
             $table->unsignedInteger('manufacturer_id')->nullable()->after('catalog_category_id');
         });
 
-        // Migrate first value back
         $profiles = DB::table('lazada_profiles')->get();
         foreach ($profiles as $p) {
             $catIds = $p->catalog_category_ids ? json_decode($p->catalog_category_ids, true) : [];

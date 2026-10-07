@@ -9,14 +9,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-/**
- * Import a Lazada item into the core catalog (#196), Shopee's importer
- * in Lazada's anatomy: core fields map to the core - name, SKU, price,
- * stock, parcel, description, images, variations with their own SKUs -
- * Lazada-only details ride the product's lazada listing record and its
- * attribute rows, and the variant cache is filled from the same answer
- * so pushes work at once.
- */
 class LazadaItemImport
 {
     public function __construct(
@@ -26,7 +18,6 @@ class LazadaItemImport
     ) {
     }
 
-    /** @return array{ok: bool, product_id?: int, message: string} */
     public function import(object $setting, array $creds, string $itemId): array
     {
         try {
@@ -47,7 +38,6 @@ class LazadaItemImport
         $price = (float) (($first['special_price'] ?? 0) > 0 ? $first['special_price'] : ($first['price'] ?? 0));
         $qty = array_sum(array_map(fn ($s) => (int) ($s['quantity'] ?? 0), $skus));
 
-        // Variation axes ride each sku's saleProp map ({Color: Red, Size: S}).
         $axes = $this->axes($skus);
         $hasVariations = count($skus) > 1 && $axes !== [];
 
@@ -55,9 +45,6 @@ class LazadaItemImport
         $langId = (int) config('catalog.default_language_id');
 
         try {
-            /* Ready the moment it lands (the owner, 2026-09-07): the category's
-             * attribute template is read now, so readiness can check the answers
-             * the item brought. A template Lazada will not hand over changes nothing. */
             $categoryId = (int) ($data['primary_category'] ?? 0);
             if ($categoryId > 0 && ! \Extensions\lazada\Models\LazadaCategoryTemplate::query()->where('primary_category_id', $categoryId)->exists()) {
                 try {
@@ -72,7 +59,6 @@ class LazadaItemImport
                     'sku' => $hasVariations ? '' : $sku,
                     'quantity' => $qty,
                     'price' => $price,
-                    // Live on Lazada already; arriving disabled would misstate reality.
                     'status' => 1,
                     'image' => '',
                     'weight' => (float) ($first['package_weight'] ?? 0),
@@ -107,8 +93,6 @@ class LazadaItemImport
                     $this->writeVariations($productId, $skus, $axes, $itemId);
                 }
 
-                /* Lazada-only details ride the listing record + its
-                 * attribute rows - the fields the next Update is built from. */
                 $listing = LazadaProduct::create([
                     'product_id' => $productId,
                     'primary_category_id' => (int) ($data['primary_category'] ?? 0) ?: null,
@@ -128,8 +112,6 @@ class LazadaItemImport
                     ]);
                 }
 
-                /* The variant cache from the same answer, so a stock or
-                 * price push works the moment the import lands. */
                 $this->itemCache->fetchAndCacheVariants($listing, $setting, $this->client, 'lazada.product.item.get.import');
 
                 return $productId;
@@ -139,11 +121,6 @@ class LazadaItemImport
         }
 
 
-        /* A product this application holds always has a code
-         * (the owner, 2026-09-09). The store is free to have none;
-         * the SKU is what every push sends and every link check
-         * searches by, so a blank one is minted from the
-         * product's own id and said out loud below. */
         $minted = \App\Support\Catalog\SkuFallback::fill((int) $productId);
 
         return [
@@ -155,7 +132,6 @@ class LazadaItemImport
         ];
     }
 
-    /** @return list<string> up to two axis names, in first-seen order */
     private function axes(array $skus): array
     {
         $axes = [];
@@ -215,7 +191,6 @@ class LazadaItemImport
             ->saveAbsoluteOptions($productId, Request::create('/', 'POST', $data));
     }
 
-    /** @return list<string> public-disk relative paths, in the order given */
     private function downloadImages(array $urls, string $itemId, string $suffix = ''): array
     {
         $paths = [];
@@ -224,13 +199,9 @@ class LazadaItemImport
             if ($url === '' || ! preg_match('#^https://#i', $url)) {
                 continue;
             }
-            /* The shared SSRF guard (App\Support\RemoteImage,
-             * 2026-09-04): the URL is the channel's data, so it is
-             * https-only, resolved-and-checked against private ranges,
-             * and never allowed to redirect. */
             $img = \App\Support\RemoteImage::fetch($url);
             if ($img === null) {
-                continue; // a photo is never a reason to fail an import
+                continue;
             }
             $rel = 'catalog/import/lazada/' . $itemId . '/' . ($suffix !== '' ? $suffix . '-' : '') . $i . '.' . $img['ext'];
             Storage::disk('public')->put($rel, $img['body']);

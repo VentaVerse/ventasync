@@ -10,7 +10,6 @@ class OrderCurrencyServiceTest extends TestCase
 {
     public function test_to_base_multiplies_foreign_by_rate(): void
     {
-        // 78 USD at 61.61429452 PHP per USD
         $this->assertSame(4805.9150, OrderCurrencyService::toBase(78.0, 61.61429452));
     }
 
@@ -33,7 +32,6 @@ class OrderCurrencyServiceTest extends TestCase
 
     public function test_results_are_rounded_to_four_decimals(): void
     {
-        // 1/3 would otherwise carry float noise
         $this->assertSame(33.3333, OrderCurrencyService::toBase(1.0, 33.33333333));
     }
 

@@ -1,13 +1,5 @@
-/* Run now on the Automations tab (the owner, 2026-09-07): one shape for every
-   automation. A card with a loading state, then one sentence, success or
-   failure, and OK. The card is the moment: a large mark that turns from
-   a ring into a check or a cross, the job's name as the headline, the
-   one sentence and OK. The stepping underneath is invisible on purpose.
-   Tokens: --bl-*. */
-
 .ar-modal { padding: 28px 28px 24px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 
-/* The mark: one ring for every state. It spins while running, then holds a check or a cross. */
 .ar-modal__mark { position: relative; width: 56px; height: 56px; margin-bottom: 10px; display: grid; place-items: center; }
 .ar-modal__ring { position: absolute; inset: 0; border-radius: 50%; border: 3px solid var(--bl-chrome-2); border-top-color: var(--bl-brand); animation: ar-spin .9s linear infinite; }
 .ar-modal__ring[hidden] { display: none; }

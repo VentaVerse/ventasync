@@ -24,22 +24,6 @@ class VentaOrderSync
     private VentaSetting $setting;
     private bool $skipStockAdjust = false;
 
-    /**
-     * FEES ONLY: refresh what the storefront says about an order's money
-     * and touch nothing else.
-     *
-     * A full sync deletes and re-inserts every order LINE and looks each
-     * one's cost up from the catalogue AS IT IS TODAY. That is correct for
-     * a live order and catastrophic as a way to collect fees from a year
-     * of them: it would re-stamp a year of cost of goods at today's costs
-     * and move every profit figure in the system.
-     *
-     * So a run that only wants the fees says so, and the catalogue side of
-     * the sync is skipped entirely - the storefront's answer is stored,
-     * the fee rows are written onto the core order, and the lines, the
-     * costs, the statuses, the stock and the history are left exactly as
-     * they are.
-     */
     private bool $feesOnly = false;
 
     public function __construct(VentaClient $client, VentaSetting $setting)
@@ -61,10 +45,6 @@ class VentaOrderSync
         return $this;
     }
 
-    /**
-     * Pull orders from Venta into local venta_orders + core catalog tables.
-     */
-    /** How many pages the store said it holds on the last pull; the page-driven fetch reads it. */
     public ?int $lastTotalPages = null;
 
     public function pull(
@@ -83,10 +63,6 @@ class VentaOrderSync
         ]);
 
         try {
-            // Where the store places each status, refreshed beside the
-            // orders so a placement is never older than the status it is
-            // applied to (#167). A store that does not answer keeps the
-            // placements it last reported.
             $this->refreshPlacements();
 
             $sinceDate = $full ? null : ($since ?? $this->resolveSinceDate());
@@ -107,30 +83,13 @@ class VentaOrderSync
                 }
 
                 $orders = $result['body']['data'] ?? [];
-                /* THE PAGE COUNT IS AT THE TOP LEVEL, and reading it in the
-                 * wrong place stopped every order pull after 100 orders.
-                 *
-                 * The storefront returns a Laravel paginator straight from
-                 * response()->json(), which serialises as {data, current_page,
-                 * last_page, total, ...}. `meta` only appears when a
-                 * paginator is wrapped in a JsonResource collection, and
-                 * this endpoint does not wrap. So this read always found
-                 * nothing, fell back to 1, and the loop ended after the
-                 * first page - which is why a store with 158 orders since
-                 * February reported 100 (the owner, live, 2026-09-10). Our own
-                 * VentaListingMirror has read it correctly from the top
-                 * level all along, which is how one codebase came to hold
-                 * two readings of the same response.
-                 *
-                 * Both are accepted: if the storefront ever wraps, this
-                 * keeps working rather than silently truncating again. */
+                // The storefront returns a bare paginator, so last_page is top level (meta only if wrapped); accept both.
                 $body = $result['body'];
                 $lastPage = $body['meta']['last_page'] ?? $body['last_page'] ?? 1;
                 $this->lastTotalPages = (int) $lastPage;
 
                 foreach ($orders as $raw) {
                     try {
-                        // Fetch full order detail (list only returns summary)
                         $orderId = (int) ($raw['id'] ?? 0);
                         if ($orderId > 0) {
                             $detailResult = $this->client->getOrder($orderId);
@@ -151,7 +110,7 @@ class VentaOrderSync
                         }
                     }
 
-                    usleep(200000); // 200ms rate limit between detail fetches
+                    usleep(200000);
                 }
 
                 if ($onProgress) {
@@ -191,10 +150,6 @@ class VentaOrderSync
         return $log;
     }
 
-    /**
-     * Resolve the "since" date for order sync.
-     * sync_last_days (rolling window) takes priority over sync_orders_from (fixed date).
-     */
     private function resolveSinceDate(): ?string
     {
         if ($this->setting->sync_last_days && $this->setting->sync_last_days > 0) {
@@ -208,10 +163,6 @@ class VentaOrderSync
         return null;
     }
 
-    /**
-     * Build status map: venta_status_id → core order_status_id.
-     * Fallback chain: mapping table → name match → raw status ID.
-     */
     private function buildStatusMap(): array
     {
         $pfx = (string) config('catalog.prefix');
@@ -251,19 +202,6 @@ class VentaOrderSync
         return $ventaStatusId;
     }
 
-    /**
-     * Upsert a single order from the Venta API response.
-     *
-     * @return bool True if created, false if updated.
-     */
-    /**
-     * Re-read ONE order from the storefront and write it through the same
-     * upsert a pull uses. This is what moves a row the moment the ERP books
-     * or cancels a courier: the storefront changes the order's status as a
-     * side effect of the booking, and the ERP's row would otherwise sit in
-     * To Pack until the next scheduled pull. No sync log row, because a
-     * single re-read is part of the action that caused it, not a sync.
-     */
     public function pullOne(int $ventaOrderId): ?VentaOrder
     {
         $this->refreshPlacements();
@@ -294,17 +232,7 @@ class VentaOrderSync
         }
     }
 
-    /**
-     * The courier booking as the storefront reports it (#169), or nothing.
-     *
-     * Only when the payload carries the object: a storefront that does not
-     * yet send it must not blank what the ERP recorded from its own booking
-     * response. When it is there, it is the truth, blanks included, because
-     * a cancelled booking clears the columns on the storefront and the ERP
-     * has to follow.
-     *
-     * @return array<string, mixed>
-     */
+    // Only follow the payload when it carries the courier object; a storefront that omits it must not blank the ERP's booking.
     public static function courierFieldsFrom(array $raw): array
     {
         $courier = $raw['courier'] ?? null;
@@ -312,9 +240,6 @@ class VentaOrderSync
             return [];
         }
 
-        // A shipment recorded by hand on the storefront has no provider
-        // key; it has a courier name. It is filed under 'manual' so the row
-        // knows it has no waybill or timeline, and the name is what reads.
         $manual = (bool) ($courier['manual'] ?? false);
 
         return [
@@ -340,7 +265,6 @@ class VentaOrderSync
 
         $marketplaceSource = 'venta:' . $this->setting->id;
 
-        // Upsert into venta_orders (local mirror)
         $ventaOrder = VentaOrder::updateOrCreate(
             [
                 'venta_setting_id' => $this->setting->id,
@@ -352,8 +276,6 @@ class VentaOrderSync
                 'status_id'          => $ventaStatusId,
                 'customer_name'      => trim(($raw['contact']['name'] ?? '') ?: ($raw['customer']['name'] ?? '')),
                 'customer_email'     => $raw['contact']['email'] ?? ($raw['customer']['email'] ?? ''),
-                // The group the order was placed under, by name, as Venta
-                // sends it (#129). Null on orders Venta never captured it for.
                 'customer_group'     => self::customerGroupFrom($raw),
                 'total'              => (float) ($raw['totals']['total'] ?? 0),
                 'payment_method'     => $raw['payment_method'] ?? '',
@@ -368,7 +290,6 @@ class VentaOrderSync
 
         $wasCreated = $ventaOrder->wasRecentlyCreated;
 
-        // Sync order line items into venta_order_products
         VentaOrderProduct::where('venta_order_id', $ventaOrder->id)->delete();
         foreach (($raw['items'] ?? []) as $item) {
             VentaOrderProduct::create([
@@ -384,11 +305,6 @@ class VentaOrderSync
         }
 
         if ($this->feesOnly) {
-            /* The storefront's answer is stored above; all this run wants
-               from it is the money. The core order keeps its lines, its
-               costs, its status and its history. An order this ERP has
-               never seen is skipped rather than created: a fees run is not
-               a way to import orders. */
             if ($ventaOrder->catalog_order_id) {
                 app(\App\Services\Orders\MarketplaceFeeNormalizer::class)->forOrder((int) $ventaOrder->catalog_order_id);
             }
@@ -396,15 +312,11 @@ class VentaOrderSync
             return $wasCreated;
         }
 
-        // Now sync to core catalog order
         $this->syncToCatalog($ventaOrder, $raw, $coreStatusId, $marketplaceSource, $statusMap);
 
         return $wasCreated;
     }
 
-    /**
-     * Create or update the core catalog order from a VentaOrder.
-     */
     private function syncToCatalog(VentaOrder $ventaOrder, array $raw, int $coreStatusId, string $marketplaceSource, array $statusMap): void
     {
         $pfx = (string) config('catalog.prefix');
@@ -436,18 +348,10 @@ class VentaOrderSync
                 ->where('marketplace_order_id', $ventaOrderId)
                 ->first();
 
-            // Venta is the in-house storefront - no currency code is transacted
-            // in the payload, so it always settles in the ERP's default currency.
             $currencySvc = app(\App\Services\OrderCurrencyService::class);
             $currency = $currencySvc->resolve($currencySvc->defaultCode());
-            // Always the default currency today (rate=1, is_default=true), but
-            // kept structurally identical to the other four marketplace syncs
-            // so a future non-default settlement doesn't silently regress into
-            // the same "raw amount in a PHP column" corruption. The re-sync
-            // guard is the same as the other syncs: never clobber an
-            // already-normalized order's frozen rate with today's resolution,
-            // and never apply a frozen rate once the order is no longer
-            // foreign.
+            // Once an order is normalized its currency_value is a frozen rate; a re-sync must not overwrite it
+            // with today's rate, nor apply it if the order is no longer foreign.
             $rate = $currency['rate'];
             $isDefault = $currency['is_default'];
             if ($existing && !$isDefault && $existing->foreign_total !== null) {
@@ -463,10 +367,6 @@ class VentaOrderSync
                 'store_url'              => $this->setting->base_url,
                 'customer_id'            => 0,
                 'customer_group_id'      => 0,
-                // The group's NAME, on the core order row, which is where the
-                // margin report reads it for every storefront (#129). The id
-                // above stays 0: there is no customer table here to point at
-                // (#132), and the name is what the report needs.
                 'customer_group'         => self::customerGroupFrom($raw),
                 'firstname'              => $firstname,
                 'lastname'               => $lastname,
@@ -504,8 +404,6 @@ class VentaOrderSync
                 'shipping_address_format'=> '',
                 'shipping_custom_field'  => '',
                 'shipping_method'        => $raw['shipping_method'] ?? '',
-                // The buyer's shipping charge is stored as an order total line; the
-                // seller's shipping cost is entered on the order or reported as a fee.
                 'shipping_cost'          => 0,
                 'shipping_code'          => '',
                 'comment'                => $raw['comment'] ?? '',
@@ -533,8 +431,6 @@ class VentaOrderSync
                 'date_modified'          => isset($raw['updated_at']) ? \Carbon\Carbon::parse($raw['updated_at'])->format('Y-m-d H:i:s') : now()->toDateTimeString(),
             ];
 
-            // The storefront's own tracking page for the parcel; a payload that
-            // does not carry the field leaves the stored one alone.
             if (array_key_exists('tracking_link', $raw)) {
                 $orderData['tracking_url'] = \App\Models\Catalog\Order::cleanTrackingUrl($raw['tracking_link'] ?? null);
             }
@@ -542,15 +438,11 @@ class VentaOrderSync
             if ($existing) {
                 $coreOrderId = (int) $existing->order_id;
                 $oldStatusId = (int) $existing->order_status_id;
-                // Sync Override: operator manually finalised this order. Keep its
-                // current status in the DB write, and equalise $oldStatusId so the
-                // post-transaction status-change block (history/FCM/stock) no-ops.
                 if ((int) ($existing->sync_override ?? 0) === 1) {
                     $orderData['order_status_id'] = $oldStatusId;
                     $oldStatusId = $coreStatusId;
                 }
                 $orderData['date_added'] = $existing->date_added;
-                // A re-sync never changes the seller's shipping cost.
                 unset($orderData['shipping_cost']);
                 DB::table($pfx . 'order')
                     ->where('order_id', $coreOrderId)
@@ -561,7 +453,6 @@ class VentaOrderSync
                 $created = true;
             }
 
-            // Sync order products
             $items = $raw['items'] ?? [];
             DB::table($pfx . 'order_product')->where('order_id', $coreOrderId)->delete();
             DB::table($pfx . 'order_option')->where('order_id', $coreOrderId)->delete();
@@ -570,7 +461,6 @@ class VentaOrderSync
             foreach ($items as $item) {
                 $sku = trim($item['sku'] ?? '');
                 $qty = (int) ($item['quantity'] ?? 1);
-                // Foreign (as-transacted) figures - always PHP for Venta today.
                 $price = (float) ($item['price'] ?? 0);
                 $lineTotal = (float) ($item['total'] ?? ($price * $qty));
                 $subTotal += $lineTotal;
@@ -582,7 +472,6 @@ class VentaOrderSync
                 $resolvedOptionValueId = 0;
 
                 if ($sku !== '') {
-                    // Try option value SKU match first
                     $pov = DB::table($pfx . 'product_option_value')
                         ->where('sku', $sku)
                         ->first();
@@ -591,14 +480,12 @@ class VentaOrderSync
                         $resolvedOptionValueId = (int) $pov->product_option_value_id;
                     }
 
-                    // Try combination SKU match (multi-option products)
                     if ($resolvedProductId === 0) {
                         $combo = DB::table('product_option_combinations as poc')
                             ->where('poc.sku', $sku)
                             ->first(['poc.product_id', 'poc.id as combination_id']);
                         if ($combo) {
                             $resolvedProductId = (int) $combo->product_id;
-                            // Find a product_option_value_id linked to this combination
                             $comboValue = DB::table('product_option_combination_values')
                                 ->where('combination_id', $combo->combination_id)
                                 ->first(['product_option_value_id']);
@@ -608,7 +495,6 @@ class VentaOrderSync
                         }
                     }
 
-                    // Fallback: main product SKU
                     if ($resolvedProductId === 0) {
                         $prod = DB::table($pfx . 'product')
                             ->where('sku', $sku)
@@ -618,7 +504,6 @@ class VentaOrderSync
                         }
                     }
 
-                    // Fallback: venta_product_links
                     if ($resolvedProductId === 0) {
                         $link = DB::table('venta_product_links')
                             ->where('venta_setting_id', $this->setting->id)
@@ -630,9 +515,6 @@ class VentaOrderSync
                     }
                 }
 
-                // Cost at the time of sale, from the catalogue: the variation's own
-                // cost when it has an amount, else the parent's. One rule for every
-                // channel, in App\Support\LineCost.
                 $productCost = \App\Support\LineCost::resolve((int) $resolvedProductId, (int) $resolvedOptionValueId);
 
                 $opId = DB::table($pfx . 'order_product')->insertGetId([
@@ -647,12 +529,9 @@ class VentaOrderSync
                     'foreign_total' => $isDefault ? null : round($lineTotal, $moneyScale),
                     'tax'           => 0,
                     'reward'        => 0,
-                    // Cost is looked up from the catalog (already PHP), not
-                    // from marketplace data - no conversion needed.
                     'cost'          => $productCost,
                 ]);
 
-                // Add variant label as order option if present
                 $variantLabel = trim($item['variant_label'] ?? '');
                 if ($variantLabel !== '') {
                     DB::table($pfx . 'order_option')->insert([
@@ -667,8 +546,6 @@ class VentaOrderSync
                 }
             }
 
-            // The order's sale lines as the storefront reports them. Only this
-            // writer's rows are replaced; the normalized fee rows stay.
             DB::table($pfx . 'order_total')->where('order_id', $coreOrderId)
                 ->whereNotIn('code', array_column(\App\Services\Orders\MarketplaceFeeNormalizer::CODES, 0))->delete();
             $sortOrder = 1;
@@ -682,7 +559,6 @@ class VentaOrderSync
                 ]);
             }
 
-            // Add history if status changed or new
             if ($created || $oldStatusId !== $coreStatusId) {
                 DB::table($pfx . 'order_history')->insert([
                     'order_id'        => $coreOrderId,
@@ -695,22 +571,16 @@ class VentaOrderSync
                 ]);
             }
 
-            // Save catalog_order_id back to venta_orders
             $ventaOrder->update(['catalog_order_id' => $coreOrderId]);
 
-            /* The storefront's own fees land on the CORE order here, in the
-               four codes every report reads (MarketplaceFeeNormalizer).
-               After the totals above, which clear only their own codes. */
             app(\App\Services\Orders\MarketplaceFeeNormalizer::class)->forOrder($coreOrderId);
         });
 
-        // Post-transaction: activity log, status announcement, stock
         if ($coreOrderId && $oldStatusId !== $coreStatusId) {
             ActivityLogger::log('updated', 'Order', $coreOrderId, 'Venta #' . $ventaOrderId, [
                 'order_status_id' => [(string) $oldStatusId, (string) $coreStatusId],
             ], source: 'system');
 
-            // This sync writes the order table directly, which no observer sees.
             OrderStatusChanged::fire($coreOrderId, $oldStatusId, $coreStatusId);
 
             if (!$this->skipStockAdjust) {
@@ -729,11 +599,6 @@ class VentaOrderSync
         }
     }
 
-    /**
-     * The customer group name from Venta's order payload: a plain string
-     * on the order, or null when Venta never captured one (the migrated
-     * orders). Trimmed and capped to the column.
-     */
     public static function customerGroupFrom(array $raw): ?string
     {
         $group = $raw['customer_group'] ?? null;

@@ -2,21 +2,8 @@
 @section('title', $group->name . ' Products, ' . $setting->store_name)
 @section('breadcrumb', $group->name . ' Products')
 
-{{-- Leaves the .x-legacy content boundary, rebuilt on the token set.
-
-     Venta is multi-store. Every self-link, every form action and the
-     product-search endpoint carry the {store} segment this page arrived on,
-     and every POST carries the `_return` field VentaProductGroupController::
-     productsRedirect() reads to come back to the same filtered page. That
-     field used to be injected by an inline script at load; it is a real
-     hidden input now, which is the same value ($_SERVER request URI) without
-     depending on JavaScript having run. --}}
 @section('content')
 @php
-    // Read tier on this route is `view_venta|manage_venta`; every push, sync,
-    // link, unlink and remove below is `manage_venta`. Replaces a hardcoded
-    // `true`, which offered a read-only operator a dozen controls the routes
-    // would refuse.
     $canManageVenta = auth()->user()?->hasPermission('manage_venta/product_group') ?? false;
 
     $storeName = $setting->store_name ?: 'Unnamed store';
@@ -43,14 +30,6 @@
             {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product' : 'products' }} in this product group on {{ $storeName }}
         </p>
     </div>
-    {{-- Both of these ask about the whole product group, which is why they sit in the
-         header and not in the bulk bar: the bulk bar only exists once rows are
-         ticked, and "is anything out of step?" is a question you ask before
-         you know which rows to tick.
-
-         Check posts, because it writes. Unlinked is a GET, because it only
-         reads - it is the only way to see products Venta has that the ERP has
-         never heard of, which no per-product action can reach. --}}
     <div class="cc-head-actions">
         @if($canManageVenta)
             <form method="POST" action="{{ route('ext.venta.product-groups.check', [$setting->id, $group->id]) }}"
@@ -69,10 +48,6 @@
     </div>
 </div>
 
-{{-- One filter row. The old page put the same three controls in a card with a
-     Filter button; the two selects submit on change (data-autosubmit,
-     resources/js/list-filters.js) and Clear is a link, because it is
-     navigation and not an action. Every param name is unchanged. --}}
 <form method="GET" action="{{ $listUrl }}" class="x-filters">
     <x-ui.input type="search" name="q" class="x-filters__search"
                 value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search products in this product group" />
@@ -108,14 +83,6 @@
 </form>
 
 @if($canManageVenta)
-{{-- Bulk bar. It exists only once at least one row is ticked, which is why
-     the old page's standing accent-tinted strip of five buttons is gone. Each
-     action is still its own form posting `ids[]` to its own route; the module
-     injects the ticked ids into whichever form is submitted. Remove from product group
-     keeps the transparent danger treatment, not a solid red fill. --}}
-{{-- role="status" so the bar arriving is heard, not only seen. aria-live is
-     on the COUNT rather than the whole bar: the buttons do not change, and
-     re-reading their labels on every tick would be worse than silence. --}}
 @php
     $gf = ['_return' => $returnTo];
     $bulk = ['group' => true,
@@ -178,9 +145,6 @@
             $hasVentaId = !empty($p->venta_product_id) && !$isUnlinked;
             $failed = in_array($syncState, ['error', 'failed'], true);
 
-            // Parsed rather than cast: this comes off a query builder select,
-            // not an Eloquent model, so it arrives as a string and has no
-            // diffForHumans on it.
             $confirmedAt = ($p->last_confirmed_at ?? null)
                 ? \Illuminate\Support\Carbon::parse($p->last_confirmed_at)
                 : null;
@@ -193,10 +157,6 @@
             $pSku = (string) ($p->sku ?: ($p->model ?: ''));
             $isManual = in_array((int) $p->product_id, $manualIds, true);
 
-            // Built here rather than as a run of adjacent @if directives in the
-            // markup: Blade's directive pattern needs a non-word character
-            // before an @, so `@endif@if(` leaves the second directive as
-            // literal text in the page. Caught in the browser.
             $metaParts = [$pSku !== '' ? $pSku : 'No SKU'];
             if (!empty($p->manufacturer_name)) {
                 $metaParts[] = (string) $p->manufacturer_name;
@@ -209,10 +169,6 @@
         <tr>
             @if($canManageVenta)
             <td class="cc-col-check">
-                {{-- No name attribute: these boxes belong to no form. Each
-                     action is its own form and the module injects the ticked
-                     ids into whichever one is submitted, which is the
-                     pre-redesign wire unchanged. --}}
                 <input type="checkbox" class="cc-check" data-row-check value="{{ (string) $p->product_id }}"
                        x-model="selected" aria-label="Select product {{ $p->product_id }}">
             </td>
@@ -230,11 +186,6 @@
                     </div>
                     <div class="co-item__body">
                         <a class="x-row-link co-item__name" href="{{ route('products.edit', $p->product_id) }}">{{ $pName ?: 'Unnamed product' }}</a>
-                        {{-- SKU and manufacturer sit here rather than in
-                             columns of their own: thirteen fixed columns left
-                             the product name unreadable at 1440, which is the
-                             same measurement Lazada's rebuilt Listings table
-                             recorded. --}}
                         <span class="co-item__meta">{{ $meta }}</span>
 
                     </div>
@@ -264,13 +215,7 @@
             </td>
 
             <td class="cc-col-sync" data-label="Push">
-                {{-- FAILED IS TESTED BEFORE PUSHED, and the order is the whole
-                     point. This used to ask "does it have a Venta id?" first,
-                     so a row carrying an id read "Pushed" no matter what the
-                     status said, and the Failed badge could never render for
-                     any product that had one - which is nearly every product
-                     that can fail. A row states its most recent outcome, not
-                     the best outcome it has ever had. --}}
+                {{-- Test Failed before Pushed: a row with a Venta id would otherwise never show Failed. --}}
                 @if($isUnlinked)
                     <span class="x-cell-muted">Unlinked</span>
                 @elseif($failed)
@@ -281,17 +226,6 @@
                     <span class="x-cell-muted">Not yet</span>
                 @endif
 
-                {{-- The badge above states what the ERP BELIEVES. This line says
-                     how that belief was arrived at, and the difference is the
-                     whole reason this page could mislead: a green Pushed badge
-                     was written at push time and then never revisited, so a
-                     product deleted in Venta's admin kept it indefinitely.
-
-                     "Not checked" is not a warning. It is the ordinary state of
-                     a product nobody has asked about since it was pushed, and
-                     it is accurate far more often than not. It is here so the
-                     operator can tell a fact from a memory at a glance, and so
-                     that Check against the store has a visible effect. --}}
                 @if(! $isUnlinked)
                     @if($confirmedAt)
                         <span class="cc-checked" title="Last asked {{ $confirmedAt->toDayDateTimeString() }}">Checked {{ $confirmedAt->diffForHumans() }}</span>
@@ -307,15 +241,10 @@
 
             <td class="x-td-actions">
                 @if($canManageVenta)
-                {{-- The old row carried a hand-rolled dropdown built from
-                     inline styles and its own outside-click handler. Same
-                     branching, same routes, same confirm messages; the popup is
-                     <x-ui.menu> now, which Alpine drives. --}}
                 @php
                     $gf = ['_return' => $returnTo, 'ids[]' => $p->product_id];
                     $gRow = ($listingStates ?? [])[(int) $p->product_id] ?? null;
                     $menu = ['label' => "Product {$p->product_id} actions", 'store' => $storeName, 'catalog' => route('products.edit', $p->product_id)];
-                    // Every send from this page rides the GROUP's rule: Send asks the store first, then creates, updates or re-links.
                     if (!$hasVentaId) {
                         $menu['push'] = ['action' => route('ext.venta.product-groups.push', [$setting->id, $group->id]), 'label' => 'Send to ' . $storeName, 'fields' => $gf];
                         $menu['link'] = ['action' => route('ext.venta.product-groups.link', [$setting->id, $group->id, $p->product_id]), 'fields' => ['_return' => $returnTo]];
@@ -339,7 +268,6 @@
             </td>
         </tr>
         @if($variationCount > 0)
-            {{-- The variations as rows of this table, under the same headers (partials.channel-variation-rows). --}}
             @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManageVenta, 'trail' => ['cc-col-chanid', 'cc-col-stat', 'cc-col-sync', 'x-td-actions']])
         @endif
     @endforeach
@@ -349,9 +277,6 @@
 @endif
 
 @if($canManageVenta)
-{{-- Add one at a time. Same endpoints as before: a GET to search-products?q=
-     for the results, and one POST to addProducts carrying `ids[]`. The results
-     are built with createElement and textContent only. --}}
 <section class="fm-section cc-unmatched"
          data-group-manual-add
          data-group-id="{{ $group->id }}"
@@ -378,16 +303,7 @@
 </section>
 @endif
 
-{{-- Work-in-progress overlay. A push to Venta is a multi-second round trip and
-     the page has to say so, or the operator clicks again. Rides
-     components/modals.css's .modal-backdrop show/hide mechanics, the same
-     single `.active` class the confirm dialog and the orders pages use. --}}
 <div id="venta-group-progress" class="modal-backdrop">
-    {{-- A dialog, and one that speaks. This overlay covers the page for
-         several seconds while a marketplace call is in flight and carried no
-         role, no name and no live region, so the only signal that anything
-         was happening was the spinner - which is to say none at all for
-         anyone not looking at it. --}}
     <div class="modal co-modal co-modal--sm" role="dialog" aria-modal="true"
          aria-labelledby="venta-group-progress-title" aria-describedby="venta-group-progress-note">
         <div class="cc-progress" role="status" aria-live="polite">
@@ -400,5 +316,5 @@
     </div>
 </div>
 
-</div>{{-- /.cc-page --}}
+</div>
 @endsection

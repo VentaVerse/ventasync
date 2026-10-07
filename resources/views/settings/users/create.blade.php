@@ -62,9 +62,7 @@
                 </p>
 
                 <div class="fm-fields fm-fields--2">
-                    {{-- Never carries a value attribute, on create or on a
-                         validation redraw: a password box is the one control
-                         that must not repopulate from old(). --}}
+                    {{-- Never set a value attribute: a password box must not repopulate from old(). --}}
                     <x-ui.field label="Password" for="st-user-password" name="password" :required="true">
                         <x-ui.input type="password" id="st-user-password" name="password"
                                     required autocomplete="new-password" />

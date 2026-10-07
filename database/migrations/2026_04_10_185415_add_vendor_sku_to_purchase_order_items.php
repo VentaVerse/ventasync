@@ -6,11 +6,6 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Separate vendor SKU from ERP internal SKU.
-     * - sku: the ERP/internal product SKU (read-only reference)
-     * - vendor_sku: the supplier's part number (editable, goes on PO sent to vendor)
-     */
     public function up(): void
     {
         Schema::table('purchase_order_items', function (Blueprint $table) {

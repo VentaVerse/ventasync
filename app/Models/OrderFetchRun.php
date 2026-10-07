@@ -4,13 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-/**
- * One fetch of orders from one store: a window of dates, a place in the
- * store's pages, and the counts so far. Driven one page per request by
- * the orders page (App\Services\OrderFetchRunner), so no request is ever
- * long enough to hit the server's limit, and a run that stopped for any
- * reason continues from its place.
- */
 class OrderFetchRun extends Model
 {
     public const RUNNING = 'running';
@@ -28,7 +21,6 @@ class OrderFetchRun extends Model
         'date_to' => 'date',
     ];
 
-    /** The run the page can continue: the latest one for this store that did not finish. */
     public static function resumable(string $integration, ?int $storeId): ?self
     {
         return static::query()
@@ -44,7 +36,6 @@ class OrderFetchRun extends Model
         return $this->status === self::DONE;
     }
 
-    /** What the page draws: numbers, the last sentences, the words for the strip. */
     public function toState(): array
     {
         return [

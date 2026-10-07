@@ -1,38 +1,5 @@
-/* ============================================================
-   MARKETPLACE REVIEWS (`rv-`)
-   ============================================================
-
-   Two pages: the list of reviews pulled off Shopee and Lazada, and one
-   review's record. Both are on layouts.shell.
-
-   Decisions worth writing down:
-
-   - The platform chip and the sync-status chip are `x-ui.badge`, not
-     bespoke pills. Both vocabularies already exist (ui-controls.css
-     carries --shopee and --lazada; ChannelStatusTone carries the sync
-     states), and a second hand-rolled pill next to them would put three
-     colour systems on one row.
-
-   - The stars are the only place this file spends a colour of its own,
-     and it is --bl-attn-fill rather than a raw amber hex, because a rating is
-     the one figure on the page that is neither money nor a state.
-
-   - Nothing on the list is a standing destructive button. Fetch opens a
-     panel; Delete all is a menu item behind data-confirm; Push Selected
-     appears only once rows are ticked.
-
-   - Review text is customer-controlled and is rendered as TEXT, never
-     markup. `.rv-quote` sets the type; the escaping is Blade's.
-   ============================================================ */
-
-/* ------------------------------------------------------------------
-   Stars
-   ------------------------------------------------------------------ */
 .rv-stars { display: inline-flex; align-items: center; gap: 1px; line-height: 0; }
 .rv-star { color: var(--bl-rule-2); }
-/* The icon component renders fill="none" as a presentation attribute; a
-   CSS declaration outranks it, which is how a filled star is possible
-   without a second icon path. */
 .rv-star svg { fill: none; }
 .rv-star--on { color: var(--bl-attn-fill); }
 .rv-star--on svg { fill: currentColor; }
@@ -46,9 +13,6 @@
     color: var(--bl-ink-3);
 }
 
-/* ------------------------------------------------------------------
-   List
-   ------------------------------------------------------------------ */
 .rv-col-check { width: 34px; padding-left: var(--bl-space-3); padding-right: 0; }
 .rv-col-date  { width: 104px; }
 .rv-col-plat  { width: 116px; }
@@ -58,9 +22,6 @@
 
 .rv-check { width: 14px; height: 14px; accent-color: var(--bl-brand-deep); cursor: pointer; position: relative; z-index: 1; }
 
-/* The comment column is the one genuinely variable field, so it takes
-   whatever is left and truncates on one line rather than wrapping the
-   row to three. */
 .rv-snippet {
     display: block;
     max-width: 100%;
@@ -88,9 +49,6 @@
     font-family: var(--font-mono); font-size: 11px; color: var(--bl-ink-3);
 }
 
-/* The "N are waiting" strip. Says the thing and offers the one action
-   that answers it, instead of a standing button in the header that means
-   nothing when the count is zero. */
 .rv-nudge {
     display: flex;
     align-items: center;
@@ -106,8 +64,6 @@
     color: var(--bl-ink-2);
 }
 
-/* Bulk bar. Hidden until something is ticked, which is the only time a
-   bulk action means anything. */
 .rv-bulk {
     display: flex;
     align-items: center;
@@ -125,8 +81,6 @@
 .rv-bulk[hidden] { display: none; }
 .rv-bulk__count { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
-/* The fetch panel. An in-place disclosure rather than a modal: it is a
-   form about the list you are looking at, not a separate errand. */
 .rv-fetch {
     padding: var(--bl-space-4);
     margin-bottom: var(--bl-space-4);
@@ -140,15 +94,9 @@
 .rv-fetch__label { font-size: 11px; color: var(--bl-ink-3); }
 .rv-fetch__note { margin: var(--bl-space-3) 0 0; font-size: 12px; color: var(--bl-ink-3); max-width: 70ch; }
 
-/* Flash region. layouts.shell renders none of its own; these reuse the
-   od- note faces so a message here looks like a message anywhere else. */
 .rv-flash { margin-bottom: var(--bl-space-4); }
 .rv-flash:empty { display: none; }
 
-/* ------------------------------------------------------------------
-   Record page. Builds on the shared `od-` anatomy; only the pieces that
-   anatomy has no equivalent for live here.
-   ------------------------------------------------------------------ */
 .rv-quote {
     margin: 0;
     padding: var(--bl-space-4) var(--bl-space-5);
@@ -203,16 +151,9 @@
 }
 
 @media (max-width: 640px) {
-    /* The restacked row is a grid cell, not a table cell, so it has no
-       column width to truncate against: `.rv-snippet`'s nowrap and
-       `.x-cell-strong`'s ellipsis both stop constraining anything and the
-       longest comment simply pushed the page wider (measured 587px in a
-       390px frame). Below the breakpoint the comment wraps instead. */
     .rv-page .x-table tbody td { min-width: 0; overflow-wrap: anywhere; }
     .rv-snippet { white-space: normal; overflow: visible; text-overflow: clip; }
 
-    /* The tick box and the overflow menu are both meaningless as stacked
-       full-width rows; they sit on the row's own line instead. */
     .rv-page .x-table tbody tr { grid-template-columns: auto minmax(0, 1fr) auto; }
     .rv-page .x-table tbody td { grid-column: 2; }
     .rv-page .x-table tbody td.rv-col-check { grid-column: 1; grid-row: 1; padding-left: 0; }

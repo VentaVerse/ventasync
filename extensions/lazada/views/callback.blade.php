@@ -1,49 +1,13 @@
 @extends('layouts.standalone')
 @section('title', 'Lazada Authorisation')
 
-{{-- Round F Task 1 finding: this is NOT a bare redirect either, and it is a
-     different kind of page from Shopee's.
-
-     Lazada's callback does the token exchange server side, so by the time the
-     operator's browser lands here it has either worked or it has not. The page
-     is the record of that: what came back, whether the state matched, whether
-     it was saved, and the raw exchange for when it went wrong. It has no form,
-     no script and no CSRF, and it never had any. That function is untouched:
-     the same seven controller variables read the same way.
-
-     Its chrome had to change regardless, because it extended
-     layouts/app.blade.php, which Round F Task 4 deleted; left alone this page
-     would have 500'd the moment the layout went.
-
-     It does NOT go onto layouts.channel with the rest of the Lazada
-     workspace, and that is deliberate. The route is `lazada.callback`, not
-     `ext.lazada.callback`, because that exact string is registered in the
-     Lazada Open Platform console and compared byte for byte on every consent
-     round trip; and it carries no `auth` middleware so the answer from Lazada
-     is not lost behind a login redirect. layouts.channel resolves its
-     workspace from an `ext.<channel>.*` route name and abort(404)s when it
-     cannot, so putting this page there would 404 the one page that has to
-     work when everything else has gone wrong. It uses layouts.standalone,
-     which exists for exactly this: an external landing surface with no
-     sidebar and no assumption of a session.
-
-     Shopee's callback view is the opposite case and does go on
-     layouts.channel: it is rendered from ext.shopee.index, an authenticated
-     route inside the workspace.
-
-     What changed beyond the layout: the outcome was four unlabelled read-only
-     text inputs saying OK / MISMATCH / YES / NO, which reads as a form you
-     could edit and does not say what any of it means. It is a verdict at the
-     top and a set of facts under it now, and the two raw payloads are behind
-     disclosures because they are what you open when the verdict is bad. --}}
+{{-- The route name lazada.callback is registered with Lazada and has no auth middleware; keep both. --}}
 @section('content')
 @php
     $stateOk = isset($state_ok) && $state_ok;
     $wasSaved = isset($saved) && $saved;
     $tokenResult = is_array($token_result ?? null) ? $token_result : null;
 
-    // The one thing the operator needs to know, decided once here rather than
-    // left for them to assemble from four separate yes-or-no rows.
     [$verdict, $verdictTone, $verdictNote] = match (true) {
         $wasSaved => [
             'Connected',
@@ -72,9 +36,6 @@
 
     <header class="od-head">
         <div class="od-head__id">
-            {{-- Not .od-title: that class is mono with tabular figures
-                 because every other od- page titles itself with an order
-                 or return number. This title is prose. --}}
             <h1 class="x-page-title">Lazada authorisation</h1>
         </div>
     </header>

@@ -7,13 +7,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * The assistant's product search finds a product the way a person types it:
- * every word in any order, spaces and hyphens ignored, brand and variation
- * SKUs included, exact matches first, and the rest of a long list reachable
- * page by page. Asked for "ISO 8", the old search found nothing, because the
- * product is named "ISO-8".
- */
 class ProductSearchWordsTest extends TestCase
 {
     use RefreshDatabase;
@@ -34,7 +27,6 @@ class ProductSearchWordsTest extends TestCase
             'product_option_id' => 0, 'product_id' => $trs, 'option_id' => 0, 'option_value_id' => 0, 'sku' => 'flat-patch-trs-30',
             'quantity' => 0, 'subtract' => 1, 'price' => 0, 'price_prefix' => '+', 'points' => 0, 'points_prefix' => '+', 'weight' => 0, 'weight_prefix' => '+',
         ]);
-        // A long brand list, so ISO-8 is not on the first page of "Mosky".
         for ($i = 1; $i <= 30; $i++) {
             $this->product('mos-pedal-' . $i, 'MP' . $i, 'Mosky pedal number ' . $i, $this->mosky);
         }

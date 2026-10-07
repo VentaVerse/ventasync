@@ -6,14 +6,8 @@ use Extensions\lazada\Commands\LazadaPushPrice;
 use Extensions\lazada\Models\LazadaProduct;
 use Extensions\lazada\Models\LazadaSetting;
 
-/**
- * Push Stock and Push Price as steps for Run now (SteppableAutomation,
- * 2026-09-07): a unit is "storeId:productId", a step pushes its listings
- * through the same sender the buttons use.
- */
 final class LazadaPushSteps
 {
-    /** @return list<string> */
     public static function units(): array
     {
         $units = [];
@@ -33,7 +27,6 @@ final class LazadaPushSteps
         return $units;
     }
 
-    /** @param 'stock'|'price' $kind @param list<string> $units */
     public static function step(string $kind, array $units): array
     {
         $pfx = (string) config('catalog.prefix');

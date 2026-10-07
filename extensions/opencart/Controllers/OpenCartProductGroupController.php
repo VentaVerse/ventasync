@@ -17,11 +17,6 @@ class OpenCartProductGroupController extends Controller
 {
     private function store_(int $storeId): OpenCartSetting
     {
-        // Allow navigation into disabled stores so operators can finish
-        // configuring them after Add Store. Sync/cron paths use their
-        // own enabled-filtered lookups so disabled stores never reach
-        // the marketplace API; UI-only flows (index, edit, products
-        // list) just need the row to exist.
         return OpenCartSetting::findOrFail($storeId);
     }
 
@@ -33,7 +28,6 @@ class OpenCartProductGroupController extends Controller
 
         $groups = OpenCartProductGroup::where('opencart_setting_id', $store)->orderByDesc('id')->get();
 
-        // Product counts per group
         $productCounts = [];
         foreach ($groups as $g) {
             $productCounts[$g->id] = count($this->getMatchingProductIds($g));
@@ -178,13 +172,11 @@ class OpenCartProductGroupController extends Controller
 
         $products = $query->orderBy('p.product_id', 'desc')->paginate(50)->withQueryString();
 
-        // OC product links for push status
         $links = OpenCartProductLink::where('opencart_setting_id', $store)
             ->whereIn('product_id', $productIds)
             ->get()
             ->keyBy('product_id');
 
-        // Other OC store links
         $otherOcLinks = OpenCartProductLink::where('opencart_setting_id', '!=', $store)
             ->whereIn('product_id', $productIds)
             ->get()
@@ -195,7 +187,6 @@ class OpenCartProductGroupController extends Controller
             ->where('enabled', true)
             ->pluck('store_name', 'id');
 
-        // Marketplace sync status (fast local lookups)
         $shopeeLinked = DB::table('shopee_product_links')
             ->whereIn('product_id', $productIds)
             ->pluck('shopee_item_id', 'product_id');
@@ -242,7 +233,6 @@ class OpenCartProductGroupController extends Controller
 
         $client = new OpenCartClient($setting);
 
-        // Ping test
         $ping = $client->ping();
         if (!$ping['ok']) {
             return redirect()->route('ext.opencart.product-groups.products', [$store, $group])
@@ -273,7 +263,6 @@ class OpenCartProductGroupController extends Controller
         $existing = $g->groupProducts()->pluck('product_id')->toArray();
         $ids = array_values(array_diff($ids, $existing));
 
-        /* One product, one group (cleanup point 2). */
         $claim = \App\Integrations\OneGroupRule::claim('opencart_product_group_products', 'opencart_product_group_id', 'opencart_product_groups', 'opencart_setting_id', $g->id, $ids, array_map('intval', (array) $request->input('move_ids', [])));
 
         $added = 0;
@@ -330,9 +319,6 @@ class OpenCartProductGroupController extends Controller
             ->limit(50)
             ->get();
 
-        /* One product, one group (cleanup points 2+3): each result names
-         * the group that already owns it, so the picker can show it
-         * read-only with a Move here instead of a surprise refusal. */
         $owners = DB::table('opencart_product_group_products as pv')
             ->join('opencart_product_groups as g', 'g.id', '=', 'pv.opencart_product_group_id')
             ->whereIn('pv.product_id', $rows->pluck('product_id')->all() ?: [0])
@@ -350,9 +336,6 @@ class OpenCartProductGroupController extends Controller
         return response()->json(['items' => $rows->values()]);
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────
-
-    /** Pivot-only since the cleanup (point 2, the owner 2026-09-03). */
     private function getMatchingProductIds(OpenCartProductGroup $group): array
     {
         return $group->exists

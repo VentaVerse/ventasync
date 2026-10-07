@@ -1,23 +1,7 @@
 @php
-    /**
-     * Customer, shipping and payment. Identical on create and edit; the only
-     * difference is whether there is a record to read the current value from,
-     * which $o carries (an Order model, or null on create).
-     *
-     * Every name here is one OrderController::store()/update() reads. Nothing
-     * is invented and nothing the controller reads from these three groups is
-     * missing. Only `firstname` is validated `required`.
-     */
     $v = fn (string $field) => old($field, $o?->{$field});
 
-    // Same as shipping starts on for a new order (there is nothing to
-    // preserve) and off on an existing one, because an order that already
-    // carries a different payment address must not have it silently
-    // overwritten on the next save.
-    /* On edit the switch starts ON when the billing address is empty or is
-       the shipping address again, which is nearly every order: it used to
-       start off whenever an order existed, opening nine empty Bill-to inputs
-       on a page whose visitor came to set a status (critique, 2026-08-27). */
+    // An existing order with its own billing address must not have it overwritten on save.
     $sameDefault = $o === null;
     if ($o !== null) {
         $billing = array_map(fn ($k) => trim((string) ($o->{'payment_' . $k} ?? '')), ['firstname', 'lastname', 'address_1', 'city', 'postcode']);
@@ -87,9 +71,6 @@
         <h2 class="fm-section__title">Bill to</h2>
     </div>
 
-    {{-- The switch is not posted. It copies the nine shipping values into the
-         nine payment fields on submit, which is what the pre-redesign page
-         did with a bare checkbox and an inline script. --}}
     <label class="fm-switch">
         <input type="checkbox" class="fm-switch__input" id="of-same" @checked($sameDefault)>
         <span class="fm-switch__track" aria-hidden="true"></span>

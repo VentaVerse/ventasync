@@ -1,14 +1,3 @@
-{{-- A prefix or suffix template chooser on a listing page (the owner,
-     2026-09-07): the store's own words above or below the description.
-     None is the default. The + creates one without leaving the page.
-
-     Expected keys:
-       id       string  the select's id
-       label    string  "Prefix description" or "Suffix description"
-       name     string  the field name on the wire
-       selected ?int    the chosen template id
-       options  Collection of description templates (id, name)
-       canManage bool --}}
 <x-ui.field :label="$label" :for="$id" :name="$name" wide>
     <div class="dt-pick">
         <div class="x-select-wrap">

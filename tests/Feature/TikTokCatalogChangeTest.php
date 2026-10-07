@@ -13,11 +13,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * A TikTok Shop listing keeps its own copy of the catalog product: a later
- * catalog edit shows a Catalog change on the listing page and the Listings
- * table, and the comparison panel's Save or Ignore clears it.
- */
 class TikTokCatalogChangeTest extends TestCase
 {
     use RefreshDatabase;
@@ -130,8 +125,6 @@ class TikTokCatalogChangeTest extends TestCase
             'back' => '/channels',
             'listing' => ['title' => 'Plug v2'],
             'catalog' => ['title' => 'Not allowed'],
-        /* Save stays on the listing, carrying the way back: the one page
-           that can push what was just changed. */
         ])->assertRedirect(route('ext.tiktok.listings.edit', $pid) . '?back=' . urlencode('/channels'))
             ->assertSessionHas('status', 'Saved.');
 

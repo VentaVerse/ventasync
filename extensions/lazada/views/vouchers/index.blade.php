@@ -2,12 +2,6 @@
 @section('breadcrumb', 'Vouchers')
 @section('title', 'Lazada Vouchers')
 
-{{-- Seller vouchers (#153, quest 4). The list is fetched from Lazada on
-     every load and never cached; when Lazada does not answer, the page
-     says so instead of showing yesterday. Nothing is stored locally: a
-     voucher is the marketplace's own object and this page is a live
-     read plus pass-through create and deactivate. Lazada verifies this
-     surface in LIVE only (the sandbox has no voucher permission). --}}
 @section('content')
 @php
     $canManage = auth()->user()?->hasPermission('manage_lazada/voucher') ?? false;
@@ -70,8 +64,6 @@
             [$stateLabel, $stateTone] = $statusMap[$v['state']] ?? [$v['state'] !== '' ? ucfirst($v['state']) : 'Unknown', 'neutral'];
             $isPercent = str_contains(strtoupper((string) ($v['discount_type'] ?? '')), 'PERCENT');
             $canStop = $canManage && in_array($v['state'], ['not_start', 'upcoming', 'ongoing'], true);
-            // The same API call, but a voucher nobody has seen yet is
-            // cancelled, not ended: the verb tells the truth about the act.
             $notStarted = in_array($v['state'], ['not_start', 'upcoming'], true);
         @endphp
         <tr>
@@ -125,9 +117,6 @@
 @if($canManage)
 <form method="POST" action="{{ route('ext.lazada.vouchers.store') }}" class="fm-page">
     @csrf
-    {{-- Folded until asked for: creating is a deliberate act, and the
-         list is what this page is. It opens itself when a submit came
-         back with errors or old input, so nothing typed is hidden. --}}
     <details class="fm-card fm-card--fold" @if($errors->any() || old('_token')) open @endif>
         <summary class="fm-card__head fm-card__head--summary"><h2 class="fm-card__title">Create a voucher</h2><span class="fm-card__hint">Opens the form</span></summary>
         <div class="fm-card__body">

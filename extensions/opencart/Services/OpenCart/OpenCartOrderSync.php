@@ -24,20 +24,12 @@ class OpenCartOrderSync
         $this->setting = $setting;
     }
 
-    /**
-     * Disable stock adjustment during order import (e.g. initial setup).
-     */
     public function setSkipStockAdjust(bool $skip = true): self
     {
         $this->skipStockAdjust = $skip;
         return $this;
     }
 
-    /**
-     * Pull orders from OpenCart into the local catalog tables.
-     * Uses auto-increment IDs. Matches existing orders by marketplace_source + marketplace_order_id.
-     * Resolves product_id via SKU lookup. Maps order_status by name.
-     */
     public function pull(
         ?string $modifiedSince = null,
         int $startPage = 1,
@@ -64,7 +56,6 @@ class OpenCartOrderSync
             $errors = [];
             $total = 0;
 
-            // Pre-build order status name → id map from core catalog
             $statusMap = $this->buildStatusMap();
 
             do {
@@ -137,10 +128,6 @@ class OpenCartOrderSync
         return $log;
     }
 
-    /**
-     * Resolve the "since" date for order sync.
-     * sync_last_days (rolling window) takes priority over sync_orders_from (fixed date).
-     */
     private function resolveSinceDate(): ?string
     {
         if ($this->setting->sync_last_days && $this->setting->sync_last_days > 0) {
@@ -154,23 +141,17 @@ class OpenCartOrderSync
         return null;
     }
 
-    /**
-     * Build status maps for resolving OC status → core status.
-     * Returns ['by_id' => [oc_status_id => core_status_id], 'by_name' => [lowercase_name => core_status_id]]
-     */
     private function buildStatusMap(): array
     {
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        // 1. Per-store mapping table (highest priority)
         $idMap = [];
         $storeMap = OpenCartOrderStatusMap::where('opencart_setting_id', $this->setting->id)->get();
         foreach ($storeMap as $row) {
             $idMap[(int) $row->oc_status_id] = (int) $row->order_status_id;
         }
 
-        // 2. Name-based fallback from core order_status table
         $nameMap = [];
         $rows = DB::table($pfx . 'order_status')
             ->where('language_id', $langId)
@@ -183,18 +164,12 @@ class OpenCartOrderSync
         return ['by_id' => $idMap, 'by_name' => $nameMap];
     }
 
-    /**
-     * Resolve a core order_status_id from OC status data.
-     * Fallback chain: mapping table (by OC status ID) → name match → raw OC status ID.
-     */
     private function resolveOrderStatus(array $statusMap, int $ocStatusId, string $statusName): int
     {
-        // 1. Mapping table lookup by OC status ID
         if (isset($statusMap['by_id'][$ocStatusId])) {
             return $statusMap['by_id'][$ocStatusId];
         }
 
-        // 2. Name-based fallback
         if ($statusName !== '') {
             $key = strtolower(trim($statusName));
             if (isset($statusMap['by_name'][$key])) {
@@ -202,16 +177,9 @@ class OpenCartOrderSync
             }
         }
 
-        // 3. Raw OC status ID as last resort
         return $ocStatusId;
     }
 
-    /**
-     * Upsert a single order from OC API response.
-     * Auto-increments order_id. Links by marketplace_source + marketplace_order_id.
-     *
-     * @return bool True if created, false if updated.
-     */
     private function upsertOrder(array $raw, array $statusMap): bool
     {
         $pfx = (string) config('catalog.prefix');
@@ -220,7 +188,6 @@ class OpenCartOrderSync
             throw new \RuntimeException('Missing order_id');
         }
 
-        // Map order_status_id via mapping table → name match → raw OC ID
         $ocStatusId = (int) ($raw['order_status_id'] ?? 0);
         $statusName = trim($raw['order_status_name'] ?? '');
         $coreStatusId = $this->resolveOrderStatus($statusMap, $ocStatusId, $statusName);
@@ -232,8 +199,6 @@ class OpenCartOrderSync
         $marketplaceSource = 'opencart:' . $this->setting->id;
 
         DB::transaction(function () use ($raw, $pfx, $ocOrderId, $coreStatusId, $marketplaceSource, $statusMap, &$created, &$oldStatusId, &$coreOrderId) {
-            // Check if we already have this order via marketplace link (per-store)
-            // Also check legacy 'opencart' source for backwards compatibility
             $existing = DB::table($pfx . 'order')
                 ->where('marketplace_source', $marketplaceSource)
                 ->where('marketplace_order_id', (string) $ocOrderId)
@@ -246,17 +211,9 @@ class OpenCartOrderSync
                     ->first();
             }
 
-            // OpenCart sends "foreign per 1 default" (e.g. 0.021 USD per PHP);
-            // this ERP stores the inverse ("default per 1 foreign") everywhere else.
             $ocRate = (float) ($raw['currency_value'] ?? 1);
             $ocTotal = (float) ($raw['total'] ?? 0);
 
-            // Currency IDENTITY decides whether this order gets dual storage,
-            // not whether OC's own rate happens to be ~1.0 - a store operator
-            // can misconfigure OC's currency_value as 1 for a genuinely
-            // foreign currency, which would otherwise masquerade as the
-            // default currency (foreign_total left NULL, foreign figures
-            // written into total).
             $defaultCurrencyCode = app(\App\Services\OrderCurrencyService::class)->defaultCode();
             $ocCurrencyCode = trim((string) ($raw['currency_code'] ?? $defaultCurrencyCode));
             if ($ocCurrencyCode === '') {
@@ -321,13 +278,8 @@ class OpenCartOrderSync
                 'language_id'            => (int) ($raw['language_id'] ?? 0),
                 'currency_id'            => (int) ($raw['currency_id'] ?? 0),
                 'currency_code'          => $raw['currency_code'] ?? $defaultCurrencyCode,
-                // OpenCart sends "foreign per 1 default"; this ERP stores the inverse.
                 'currency_value'         => $ocRate > 0 ? round(1 / $ocRate, \App\Services\OrderCurrencyService::RATE_SCALE) : 1.0,
-                // 'total' above is already default-currency (OC convention); the
-                // as-transacted foreign amount is total * the ORIGINAL (pre-inversion)
-                // rate. Must stay NULL for a default-currency order (or a malformed
-                // non-positive rate) - Tasks 4/5's idempotence guard keys off
-                // foreign_total IS NULL; never write 0.00 where NULL belongs.
+                // foreign_total must stay NULL for a default-currency order; the re-sync guard keys off NULL.
                 'foreign_total'          => ($ocRate > 0 && !$isDefault)
                     ? round($ocTotal * $ocRate, \App\Services\OrderCurrencyService::MONEY_SCALE)
                     : null,
@@ -348,8 +300,6 @@ class OpenCartOrderSync
             if ($existing) {
                 $coreOrderId = (int) $existing->order_id;
                 $oldStatusId = (int) $existing->order_status_id;
-                // Sync Override: keep the manual status; equalise $oldStatusId so
-                // the post-transaction status-change blocks (history/FCM/stock) no-op.
                 if ((int) ($existing->sync_override ?? 0) === 1) {
                     $orderData['order_status_id'] = $oldStatusId;
                     $oldStatusId = $coreStatusId;
@@ -371,7 +321,6 @@ class OpenCartOrderSync
                 $created = true;
             }
 
-            // Sync order products - resolve product_id via SKU
             if (isset($raw['products']) && is_array($raw['products'])) {
                 DB::table($pfx . 'order_product')
                     ->where('order_id', $coreOrderId)
@@ -382,10 +331,8 @@ class OpenCartOrderSync
                     ->delete();
 
                 foreach ($raw['products'] as $p) {
-                    // Resolve product_id via SKU lookup on core product table
                     $coreProductId = $this->resolveProductBySku($pfx, $p);
 
-                    // Pre-resolve option values so we can use option cost
                     $resolvedOptions = [];
                     $firstMatchedPovId = 0;
                     if ($coreProductId > 0 && isset($p['options']) && is_array($p['options'])) {
@@ -423,8 +370,6 @@ class OpenCartOrderSync
                         }
                     }
 
-                    // One rule for every channel: the variation's own cost when it has
-                    // an amount, else the parent's (App\Support\LineCost).
                     $productCost = \App\Support\LineCost::resolve((int) $coreProductId, (int) ($firstMatchedPovId ?? 0));
 
                     $opId = DB::table($pfx . 'order_product')->insertGetId([
@@ -454,7 +399,6 @@ class OpenCartOrderSync
                 }
             }
 
-            // Sync order totals
             if (isset($raw['totals']) && is_array($raw['totals'])) {
                 DB::table($pfx . 'order_total')
                     ->where('order_id', $coreOrderId)
@@ -471,7 +415,6 @@ class OpenCartOrderSync
                 }
             }
 
-            // Sync order history (only on create)
             if (isset($raw['history']) && is_array($raw['history']) && $created) {
                 foreach ($raw['history'] as $h) {
                     $hOcStatusId = (int) ($h['order_status_id'] ?? 0);
@@ -497,13 +440,10 @@ class OpenCartOrderSync
             ], source: 'system');
         }
 
-        // This sync writes the order table directly, which no observer sees.
         if ($coreOrderId && $oldStatusId !== $coreStatusId) {
             OrderStatusChanged::fire($coreOrderId, $oldStatusId, $coreStatusId);
         }
 
-        // Adjust stock based on status transition (after transaction so products are committed)
-        // Skipped during initial import to avoid incorrect deductions from historical orders.
         if (!$this->skipStockAdjust && $coreOrderId && $oldStatusId !== $coreStatusId) {
             try {
                 $order = Order::where('order_id', $coreOrderId)->first();
@@ -521,13 +461,8 @@ class OpenCartOrderSync
         return $created;
     }
 
-    /**
-     * Resolve a core product_id from an order product row.
-     * Priority: opencart_product_links (by OC product_id) → SKU → name → 0.
-     */
     private function resolveProductBySku(string $pfx, array $p): int
     {
-        // Try by opencart_product_links (most reliable - maps OC product_id → local product_id)
         $ocProductId = (int) ($p['product_id'] ?? 0);
         if ($ocProductId > 0) {
             $link = DB::table('opencart_product_links')
@@ -540,7 +475,6 @@ class OpenCartOrderSync
             }
         }
 
-        // Try by model (OC often stores the SKU-like identifier in model)
         $model = trim($p['model'] ?? '');
         if ($model !== '') {
             $found = DB::table($pfx . 'product')
@@ -550,7 +484,6 @@ class OpenCartOrderSync
             if ($found) return (int) $found->product_id;
         }
 
-        // Try by name as last resort
         $name = trim($p['name'] ?? '');
         if ($name !== '') {
             $langId = (int) config('catalog.default_language_id');

@@ -6,15 +6,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Validator;
 
-/**
- * A rule's input: the arguments a door hands it, read the way a request is
- * read (validate, integer, boolean, filled and the rest), with no request
- * behind them. The partner API builds one from its request, an assistant's
- * tool from its arguments.
- */
 final class Input
 {
-    /** @param array<string, mixed> $data */
     public function __construct(private readonly array $data)
     {
     }
@@ -24,13 +17,11 @@ final class Input
         return new self($request->all());
     }
 
-    /** @return array<string, mixed> */
     public function all(): array
     {
         return $this->data;
     }
 
-    /** @return array<string, mixed> */
     public function validate(array $rules, array $messages = []): array
     {
         return Validator::make($this->data, $rules, $messages)->validate();
@@ -56,7 +47,6 @@ final class Input
         return filter_var($this->input($key, $default), FILTER_VALIDATE_BOOLEAN);
     }
 
-    /** @param string|list<string> $keys */
     public function has(string|array $keys): bool
     {
         return Arr::has($this->data, $keys);
@@ -69,7 +59,6 @@ final class Input
         return $value !== null && (is_bool($value) || is_array($value) || trim((string) $value) !== '');
     }
 
-    /** @param string|list<string> $keys @return array<string, mixed> */
     public function only(string|array $keys): array
     {
         $keys = is_array($keys) ? $keys : func_get_args();

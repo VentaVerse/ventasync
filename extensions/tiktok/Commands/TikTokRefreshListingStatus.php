@@ -6,11 +6,6 @@ use Extensions\tiktok\Models\TikTokSetting;
 use Extensions\tiktok\Services\TikTok\TikTokLiveListing;
 use Illuminate\Console\Command;
 
-/**
- * Refresh the listing status mirror: one walk of the shop, written onto
- * every listing row. Scheduled every 30 minutes (Automations) and run
- * by the Refresh button on the listings page.
- */
 class TikTokRefreshListingStatus extends Command
 {
     protected $signature = 'tiktok:refresh-listing-status';
@@ -25,7 +20,7 @@ class TikTokRefreshListingStatus extends Command
         foreach ($stores as $store) {
             $label = $store->store_name ?: ('#' . $store->id);
             $this->info("=== TikTok store: {$label} ===");
-            app()->instance('tiktok.route-store', $store); // bind: the model trait now scopes every query + stamps writes to THIS store
+            app()->instance('tiktok.route-store', $store);
             try {
                 $worst = max($worst, $this->handleStore($live, $store));
             } catch (\Throwable $e) {
@@ -53,11 +48,6 @@ class TikTokRefreshListingStatus extends Command
         }
 
 
-        /* The cron does what the button does (the owner, 2026-09-07): the
-         * statuses are re-read, THEN the links are checked. Before this
-         * the scheduled refresh only re-read statuses, so a failed link
-         * check was never revisited and a row wore a six-month-old
-         * refusal until somebody pressed Refresh by hand. */
         $checked = app(\Extensions\tiktok\Services\TikTok\TikTokLinkCheck::class)->runNext($c, (int) $store->id);
         $sheets = app(\Extensions\tiktok\Services\TikTok\TikTokSheetReads::class)->readMissing($c, app(\Extensions\tiktok\Services\TikTok\TikTokClient::class));
 

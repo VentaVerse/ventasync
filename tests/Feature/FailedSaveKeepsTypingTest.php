@@ -9,13 +9,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * A failed save returns what was typed (#185). The owner's live loss: add
- * a variation, Save, "SKU already exists" - and every typed row gone,
- * because the variations grid seeded from the database while the
- * scalars read old(). Done when: the form comes back with every typed
- * value intact and the reason beside the field that caused it.
- */
 class FailedSaveKeepsTypingTest extends TestCase
 {
     use RefreshDatabase;
@@ -78,8 +71,6 @@ class FailedSaveKeepsTypingTest extends TestCase
 
         $page = $this->actingAs($user)->get($editUrl)->assertOk()->getContent();
 
-        // The typed rows are back in the grid's seed - names, SKUs,
-        // quantities, prices, costs - exactly as typed, not the DB's state.
         $this->assertStringContainsString('"name":"5 pcs"', $page);
         $this->assertStringContainsString('"sku":"TAKEN-SKU"', $page);
         $this->assertStringContainsString('"quantity":"9"', $page);
@@ -120,7 +111,7 @@ class FailedSaveKeepsTypingTest extends TestCase
                 ['opt1' => 'Red', 'opt2' => 'S', 'sku' => 'KEEP-3', 'quantity' => '2', 'absolute_price' => '90', 'status' => '1'],
                 ['opt1' => 'Blue', 'opt2' => 'S', 'sku' => 'CB-2', 'quantity' => '3', 'absolute_price' => '95', 'status' => '1'],
             ],
-        ]))->assertSessionHasErrors('option_sku'); // KEEP-3 collides with the parent SKU
+        ]))->assertSessionHasErrors('option_sku');
 
         $page = $this->actingAs($user)->get($editUrl)->assertOk()->getContent();
         $this->assertStringContainsString('"opt1_name":"Blue"', $page);
@@ -131,9 +122,6 @@ class FailedSaveKeepsTypingTest extends TestCase
 
     public function test_a_successful_save_still_round_trips_through_the_database(): void
     {
-        /* The old-input branch must never eat the normal page: save valid
-         * variations for real, come back clean, and the grid seeds from
-         * what the database now holds. */
         $mine = $this->seedProduct('KEEP-4', 'Edited product');
         $user = $this->manager();
         $editUrl = route('products.edit', $mine);

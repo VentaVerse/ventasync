@@ -23,13 +23,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * A catalog delete forgets the product on every channel INSIDE VentaSync
- * and never calls a marketplace (the owner, 2026-09-07: "when I said delete
- * product from store, I meant delete it in the channel inside VentaSync,
- * not via API from the marketplace. That is coupling."). Every client
- * here is a tripwire: any call recorded fails the test.
- */
 class ProductDeleteReachesChannelsTest extends TestCase
 {
     use RefreshDatabase;
@@ -174,14 +167,11 @@ class ProductDeleteReachesChannelsTest extends TestCase
         $this->assertSame(0, TikTokListing::query()->where('product_id', $pid)->count());
         $this->assertSame([], $this->calls, 'no marketplace was called');
 
-        // The answer is visible on the page the delete returns to.
         $this->actingAs($this->manager())->withSession(['status' => $flash])->get(route('products.index'))->assertOk()->assertSee('remove it there when you want it gone');
     }
 
     public function test_a_disconnected_or_refusing_store_cannot_block_a_delete(): void
     {
-        // The store's auth is gone and the item is not on the sandbox: with
-        // the 2026-09-05 rule this kept the catalog row silently.
         ShopeeSetting::query()->update(['access_token' => '', 'refresh_token' => '']);
         $pid = $this->seedProduct('Blocked before', 'BL-1');
         ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 222, 'sku' => 'BL-1', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
@@ -269,7 +259,6 @@ class ProductDeleteReachesChannelsTest extends TestCase
         $this->assertSame([], $this->calls);
     }
 
-    /** A product with two variations, a combination, an image and a special. */
     private function furnishedProduct(string $sku): int
     {
         $pfx = (string) config('catalog.prefix');
@@ -303,13 +292,6 @@ class ProductDeleteReachesChannelsTest extends TestCase
         return $pid;
     }
 
-    /**
-     * Live, 2026-09-07: a deleted product's variations stayed behind, and
-     * the SKU rule refused a re-import as "already used by a variation of
-     * product #2767" when #2767 no longer existed. Everything the product
-     * owns goes with it now, and a stranded row never speaks for a product
-     * that is gone.
-     */
     public function test_a_delete_takes_the_variations_images_and_specials_with_it_and_a_stranded_row_holds_no_sku(): void
     {
         $pfx = (string) config('catalog.prefix');
@@ -323,7 +305,6 @@ class ProductDeleteReachesChannelsTest extends TestCase
         $this->assertSame(0, DB::table('product_option_combination_values')->count());
         $this->assertSame(0, DB::table($pfx . 'product_image')->where('product_id', $pid)->count());
 
-        // A row a delete from before left behind: the SKU rule ignores it.
         DB::table($pfx . 'product_option_value')->insert([
             'product_id' => 999999, 'product_option_id' => 1, 'option_id' => 1, 'option_value_id' => 1,
             'sku' => 'GHOST-1', 'quantity' => 2, 'subtract' => 1, 'price' => 0, 'price_prefix' => '+',
@@ -339,13 +320,11 @@ class ProductDeleteReachesChannelsTest extends TestCase
         }
         $this->assertSame([], $failures, 'a variation of a product that no longer exists holds no SKU');
 
-        // A living product's variation still does.
         $alive = $this->furnishedProduct('LIVE');
         (new \App\Rules\UniqueSku())->validate('sku', 'LIVE-red', function ($m) use (&$failures) { $failures[] = $m; });
         $this->assertCount(1, $failures);
         $this->assertStringContainsString('already used by a variation of "Furnished LIVE"', $failures[0]);
 
-        // The purge names the stranded rows, then removes them with --apply, and touches the living product not at all.
         $this->artisan('catalog:purge-orphan-rows')->expectsOutputToContain('#999999')->assertExitCode(0);
         $this->assertSame(1, DB::table($pfx . 'product_option_value')->where('product_id', 999999)->count());
         $this->artisan('catalog:purge-orphan-rows', ['--apply' => true])->expectsOutputToContain('Removed the rows of 1 deleted product(s).')->assertExitCode(0);

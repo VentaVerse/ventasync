@@ -4,16 +4,8 @@
 
 @section('content')
 @php
-    /* A failed save round-trips through old() (#189): without it, the
-     * validation redirect made url()->previous() the edit page itself and
-     * the search was lost exactly when the operator retries. */
     $backUrl = \App\Support\BackTo::safe(old('_return', $returnUrl ?? null), route('products.index'));
 
-    // Decimal columns come back at full scale (weight 0.25000000, price
-    // 499.0000). That is storage precision, not a figure a person reads, and
-    // it makes every numeric field on the page look like noise. Trailing
-    // zeros are dropped for display only; the value posted is numerically
-    // identical and every one of these validates as `nullable|numeric`.
     $trim = function ($v) {
         $s = (string) ($v ?? '0');
         if (!str_contains($s, '.')) return $s === '' ? '0' : $s;
@@ -22,18 +14,10 @@
     };
 
 
-    // Related actions contributed by installed extensions. Core knows nothing
-    // about which extensions are installed; IntegrationRegistry walks the
-    // ProductActionContributor implementations and aggregates their lists.
-    // Unchanged from the pre-redesign view apart from where they render: they
-    // are menu items now rather than a row of outline buttons beside the
-    // title, because a head that grows a button per installed extension is a
-    // head with no primary.
     $__productActions = app(\App\Integrations\IntegrationRegistry::class)
         ->productActions((int) $product->product_id);
     $__user = auth()->user();
 
-    // Per-location stock summary, when an extension supplies one.
     $__inventoryBreakdown = null;
     foreach (app(\App\Integrations\IntegrationRegistry::class)->productInventoryDetailContributors() as $__c) {
         $__line = $__c->inventoryBreakdownFor((int) $product->product_id);
@@ -102,9 +86,6 @@
                     @endif
                 @endforeach
                 <div class="x-menu__sep"></div>
-                {{-- Destroy is never a standing control: it sits behind the
-                     overflow menu and the shared confirm dialog, and drives a
-                     form that lives outside this one (forms cannot nest). --}}
                 <button type="button" class="x-menu__item x-menu__item--danger"
                         data-confirm="Delete {{ $product->name }}? This cannot be undone.{{ ($channelNote ?? '') !== '' ? ' ' . $channelNote : '' }}"
                         data-confirm-submit="product-delete-form">Delete product</button>
@@ -115,9 +96,6 @@
     <div class="fm-body">
         <div class="fm-col fm-col--main">
 
-            {{-- ---------------------------------------------------------
-                 General
-                 --------------------------------------------------------- --}}
             <section class="fm-section" aria-labelledby="sec-general">
                 <div class="fm-section__head">
                     <h2 class="fm-section__title" id="sec-general">General</h2>
@@ -143,10 +121,6 @@
                         </div>
                     </x-ui.field>
 
-                    {{-- Model retired from the form (the owner, 2026-09-04):
-                         no channel has the concept; the column lives on for
-                         OpenCart's native model and legacy rows. An absent
-                         field never blanks a stored value. --}}
                     <x-ui.field label="SKU" name="sku" :required="true"
                                 hint="How imports, stock pushes and link repair recognise this product.">
                         <x-ui.input id="f-sku" name="sku" class="fm-input--num" value="{{ old('sku', $product->sku) }}" required />
@@ -176,19 +150,12 @@
 
                     <x-ui.field label="Description" name="description" wide
                                 hint="Optional here. A marketplace with a minimum of its own says so when the listing is pushed.">
-                        {{-- Escaped, not {!! !!}: a textarea's contents are
-                             character data, so escaping is what makes stored
-                             HTML round-trip intact. The raw echo this view
-                             used before let a description containing
-                             "</textarea>" break out of the control. --}}
+                        {{-- Escaped, not raw: a description containing </textarea> would break out of the control. --}}
                         <x-ui.textarea id="f-description" name="description" class="wysiwyg">{{ old('description', $product->description) }}</x-ui.textarea>
                     </x-ui.field>
                 </div>
             </section>
 
-            {{-- ---------------------------------------------------------
-                 Pricing
-                 --------------------------------------------------------- --}}
             <section class="fm-section" aria-labelledby="sec-pricing">
                 <div class="fm-section__head">
                     <h2 class="fm-section__title" id="sec-pricing">Pricing</h2>
@@ -250,16 +217,10 @@
                 </div>
             </section>
 
-            {{-- ---------------------------------------------------------
-                 Media
-                 --------------------------------------------------------- --}}
             @include('catalog.products.partials.image_manager', ['pimToken' => '', 'pimProductId' => (int) $product->product_id])
 
             @include('catalog.products.partials.video_manager', ['pimToken' => '', 'pimProductId' => (int) $product->product_id])
 
-            {{-- ---------------------------------------------------------
-                 Variations
-                 --------------------------------------------------------- --}}
             <section class="fm-section" aria-labelledby="sec-variations">
                 <div class="fm-section__head">
                     <h2 class="fm-section__title" id="sec-variations">Variations</h2>
@@ -272,14 +233,9 @@
 
         <div class="fm-col fm-col--side">
 
-            {{-- Status ------------------------------------------------- --}}
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Status</h2></div>
                 <div class="fm-card__body">
-                    {{-- ProductController@update validates status as
-                         `required|in:0,1`. A bare checkbox submits nothing
-                         when off and would fail that rule, so the switch is
-                         backed by a hidden 0. --}}
                     @php $statusOn = old('status', (string) $product->status) === '1'; @endphp
                     <input type="hidden" name="status" value="0">
                     <label class="fm-switch">
@@ -294,7 +250,6 @@
                 </div>
             </div>
 
-            {{-- Inventory ---------------------------------------------- --}}
             <div class="fm-card">
                 <div class="fm-card__head">
                     <h2 class="fm-card__title">Inventory</h2>
@@ -319,7 +274,6 @@
                 </div>
             </div>
 
-            {{-- Shipping ----------------------------------------------- --}}
             @php
                 $parcelIncomplete = (float) ($product->weight ?? 0) <= 0
                     || (float) ($product->length ?? 0) <= 0
@@ -330,9 +284,6 @@
                 <div class="fm-card__head"><h2 class="fm-card__title">Shipping</h2></div>
                 <div class="fm-card__body">
                     @if($parcelIncomplete)
-                        {{-- Since 2026-09-04 the save itself requires these
-                             fields, so this note is the WHY over the refusal
-                             the form is about to make. --}}
                         <div class="fm-note fm-note--warn" role="status">
                             <div class="fm-note__body">This product is missing its weight or size. Fill these four fields and the channel pages stop flagging it.</div>
                         </div>

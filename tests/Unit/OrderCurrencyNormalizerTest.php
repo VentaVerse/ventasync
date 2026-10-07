@@ -15,7 +15,6 @@ class OrderCurrencyNormalizerTest extends TestCase
 
     public function test_default_currency_order_is_default_even_with_odd_rate(): void
     {
-        // Currency code wins over rate: a PHP order is never legacy.
         $this->assertSame(N::CLASS_DEFAULT, N::classify('PHP', 0.021, 'PHP'));
     }
 
@@ -31,23 +30,20 @@ class OrderCurrencyNormalizerTest extends TestCase
 
     public function test_classification_is_not_hardcoded_to_php(): void
     {
-        // If the default currency were USD, a PHP order would be the foreign one.
         $this->assertSame(N::CLASS_DEFAULT, N::classify('USD', 1.0, 'USD'));
         $this->assertSame(N::CLASS_LEGACY, N::classify('PHP', 47.598, 'USD'));
     }
 
     public function test_legacy_order_plan_inverts_rate_and_derives_foreign_total(): void
     {
-        // Order #8827: total 6602.08 PHP, legacy cv 0.02100927 (USD per PHP)
         $plan = N::planLegacyOrder(6602.08, 0.02100927);
 
-        $this->assertSame(138.7049, $plan['foreign_total']);      // 6602.08 x 0.02100927
-        $this->assertSame(47.59803649, $plan['currency_value']);  // 1 / 0.02100927
+        $this->assertSame(138.7049, $plan['foreign_total']);
+        $this->assertSame(47.59803649, $plan['currency_value']);
     }
 
     public function test_legacy_product_plan_uses_old_rate_before_inversion(): void
     {
-        // Order #8827 line: price 2790.00 PHP, qty 2, total 5580.00 PHP
         $plan = N::planLegacyProduct(2790.00, 5580.00, 0.02100927);
 
         $this->assertSame(58.6159, $plan['foreign_price']);
@@ -56,8 +52,6 @@ class OrderCurrencyNormalizerTest extends TestCase
 
     public function test_inverting_twice_would_not_round_trip(): void
     {
-        // Guards the ordering bug: applying the NEW rate instead of the OLD one
-        // produces a wildly different number, so the test pins the correct one.
         $plan = N::planLegacyProduct(2790.00, 5580.00, 0.02100927);
         $wrong = round(2790.00 * (1 / 0.02100927), 4);
 

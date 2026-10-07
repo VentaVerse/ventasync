@@ -1,22 +1,3 @@
-/*
- * Product vendor matrix (extensions/purchasing/views/products/vendors.blade.php).
- *
- * One product, every vendor who sells it, at what price, optionally per
- * variation. Entirely AJAX: nothing on the page posts a form.
- *
- * Two rules this module keeps:
- *
- *   1. No innerHTML, anywhere. Vendor names, variation labels and API error
- *      messages are all user-controlled strings; every one of them reaches
- *      the DOM through textContent or createTextNode. The version this
- *      replaces built rows by string-concatenating into innerHTML with a
- *      hand-rolled escaper.
- *
- *   2. No URL literals. Every endpoint arrives on a data- attribute written
- *      by route() in Blade. The per-row endpoints carry an __ID__ token this
- *      module substitutes, so even those keep their path from the router.
- */
-
 const ROW_ID_TOKEN = '__ID__';
 
 function csrf() {
@@ -71,10 +52,6 @@ export default function initProductVendors(root) {
         return rowUrlTemplate.replace(ROW_ID_TOKEN, encodeURIComponent(id));
     }
 
-    /* ---------------------------------------------------------------
-       Messages
-       --------------------------------------------------------------- */
-
     function say(message, kind) {
         if (!flash) return;
         flash.textContent = '';
@@ -93,10 +70,6 @@ export default function initProductVendors(root) {
     function apiError(res, fallback) {
         return (res.data && (res.data.error || res.data.message)) || fallback;
     }
-
-    /* ---------------------------------------------------------------
-       Vendor typeahead (simple mode and each option row)
-       --------------------------------------------------------------- */
 
     function vendorTypeahead(input, hidden, listEl, onPick) {
         if (!input || !hidden || !listEl) return;
@@ -158,10 +131,6 @@ export default function initProductVendors(root) {
         });
     }
 
-    /* ---------------------------------------------------------------
-       Existing rows: collapse, inline edit, save, remove
-       --------------------------------------------------------------- */
-
     function groupOf(node) {
         return node.closest('[data-po-mx-group]');
     }
@@ -171,7 +140,6 @@ export default function initProductVendors(root) {
         const rows = group.querySelectorAll('[data-po-mx-row]');
         const count = group.querySelector('[data-po-mx-count]');
         if (count) count.textContent = rows.length;
-        // A group with no rows left has nothing to show, so it goes.
         if (rows.length === 0) group.remove();
         retallyPage();
     }
@@ -192,7 +160,6 @@ export default function initProductVendors(root) {
     }
 
     if (list) {
-        // Collapse and expand.
         list.addEventListener('click', function (e) {
             const toggle = e.target.closest('[data-po-mx-toggle]');
             if (toggle) {
@@ -200,7 +167,6 @@ export default function initProductVendors(root) {
                 return;
             }
 
-            /* ---- save one row ---- */
             const save = e.target.closest('[data-po-mx-save]');
             if (save) {
                 const row = save.closest('[data-po-mx-row]');
@@ -231,7 +197,6 @@ export default function initProductVendors(root) {
                 return;
             }
 
-            /* ---- remove one row ---- */
             const removeRow = e.target.closest('[data-po-mx-remove-row]');
             if (removeRow) {
                 const row = removeRow.closest('[data-po-mx-row]');
@@ -251,7 +216,6 @@ export default function initProductVendors(root) {
                 return;
             }
 
-            /* ---- remove every row for a vendor ---- */
             const removeVendor = e.target.closest('[data-po-mx-remove-vendor]');
             if (removeVendor) {
                 const group = groupOf(removeVendor);
@@ -271,7 +235,6 @@ export default function initProductVendors(root) {
             }
         });
 
-        // Any edit in a row reveals that row's Save.
         list.addEventListener('input', function (e) {
             const row = e.target.closest('[data-po-mx-row]');
             if (!row) return;
@@ -286,10 +249,6 @@ export default function initProductVendors(root) {
             if (save) save.hidden = false;
         });
     }
-
-    /* ---------------------------------------------------------------
-       Simple add (a product with no variations)
-       --------------------------------------------------------------- */
 
     const addBtn = root.querySelector('[data-po-mx-add]');
     if (addBtn) {
@@ -327,11 +286,6 @@ export default function initProductVendors(root) {
                         say(apiError(res, 'That vendor could not be linked.'), 'fail');
                         return;
                     }
-                    // The server is the source of truth for what a row looks
-                    // like, so the page reloads rather than this module
-                    // guessing the rendered shape of a group it has never
-                    // seen. One request, and every figure on screen is the
-                    // stored one.
                     window.location.reload();
                 })
                 .catch(function () {
@@ -340,10 +294,6 @@ export default function initProductVendors(root) {
                 });
         });
     }
-
-    /* ---------------------------------------------------------------
-       Bulk add (a product with variations): one row per variation
-       --------------------------------------------------------------- */
 
     const optRows = root.querySelector('[data-po-mx-opt-rows]');
     if (optRows) {
@@ -364,7 +314,6 @@ export default function initProductVendors(root) {
                 }
                 row.appendChild(what);
 
-                // Vendor
                 const vendorCell = el('span', 'po-ta', { 'data-label': 'Vendor' });
                 const vendorInput = el('input', 'po-in', {
                     type: 'text', autocomplete: 'off', placeholder: 'Search vendors',
@@ -379,7 +328,6 @@ export default function initProductVendors(root) {
                 row.__vendor = vendorHidden;
                 row.__vendorInput = vendorInput;
 
-                // Currency
                 const curCell = el('span', '', { 'data-label': 'Currency' });
                 const cur = el('select', 'po-in', { 'aria-label': 'Currency for ' + ov.label });
                 currencies.forEach(function (code) {
@@ -393,7 +341,6 @@ export default function initProductVendors(root) {
                 row.appendChild(curCell);
                 row.__currency = cur;
 
-                // Min qty
                 const qtyCell = el('span', '', { 'data-label': 'Min qty' });
                 const qty = el('input', 'po-in po-in--num', {
                     type: 'number', min: '1', step: '1', value: '1',
@@ -403,7 +350,6 @@ export default function initProductVendors(root) {
                 row.appendChild(qtyCell);
                 row.__qty = qty;
 
-                // Vendor SKU, seeded with the variation's own SKU.
                 const skuCell = el('span', '', { 'data-label': 'Vendor SKU' });
                 const sku = el('input', 'po-in po-in--num', {
                     maxlength: '128', value: ov.sku || '',
@@ -413,7 +359,6 @@ export default function initProductVendors(root) {
                 row.appendChild(skuCell);
                 row.__sku = sku;
 
-                // Unit price
                 const priceCell = el('span', '', { 'data-label': 'Unit price' });
                 const price = el('input', 'po-in po-in--num', {
                     type: 'number', step: '0.0001', min: '0', value: '0',
@@ -434,7 +379,6 @@ export default function initProductVendors(root) {
             markVendorBreaks();
         }
 
-        /* A run of rows sharing a vendor reads as one block. */
         function markVendorBreaks() {
             let previous = null;
             optRows.querySelectorAll('[data-po-mx-opt-row]').forEach(function (row) {
@@ -504,9 +448,6 @@ export default function initProductVendors(root) {
 
                         const added = Array.isArray(res.data) ? res.data.length : 0;
                         if (added === 0) {
-                            // storeBulk skips a pairing that already exists,
-                            // so an empty response is "nothing new", not a
-                            // failure, and it must not read like one.
                             if (status) {
                                 status.textContent = 'Every one of those was already linked.';
                                 status.hidden = false;

@@ -6,23 +6,8 @@ use App\Integrations\Support\AutomationSettings;
 use App\Models\ScheduledJob;
 use Illuminate\Http\Request;
 
-/**
- * Edits scheduled_jobs rows from the per-integration "Automations" tab.
- *
- * The Automations tab is a Blade partial (`partials._automations_tab`)
- * embedded in each marketplace integration's settings page. Per-row
- * forms POST here to update cadence / enabled / options, or to fire a
- * one-off run via the "Run now" button.
- *
- * No new permissions: the tab inherits the parent integration's perm
- * gate (e.g. `manage_shopee`). Permission gating happens at the route
- * level via the perm: middleware alias.
- */
 class AutomationsController extends Controller
 {
-    /**
-     * Persist cadence + enabled + options for one job.
-     */
     public function update(Request $request, int $id)
     {
         $data = $request->validate([
@@ -35,17 +20,6 @@ class AutomationsController extends Controller
 
         $job = ScheduledJob::findOrFail($id);
 
-        // Permission gate — the route can't declare a single `perm:` key
-        // because each scheduled job belongs to a different integration
-        // (shopee/lazada/tiktok/…). Derive the required permission from
-        // the job's `integration` column and reject mismatched callers
-        // here. Matches EnsurePermission's redirect-with-flash shape so
-        // the UX is identical to other denied actions.
-        // The Automations tab lives on the integration's settings page, so
-        // the key that page is gated on is the one that may change its
-        // schedule. "manage_shopee" alone stopped matching anything once the
-        // keys became {tier}_{id}/{controller} (live fix 2026-08-26: the
-        // administrator was refused on every channel).
         if (!self::mayManage((string) $job->integration)) {
             return back()->with('error', "You don't have permission to do this action.");
         }
@@ -53,8 +27,6 @@ class AutomationsController extends Controller
         $job->cadence_unit  = (string) $data['cadence_unit'];
         $job->enabled       = $request->boolean('enabled');
 
-        // Merge known option keys back into the JSON. Anything the form
-        // didn't send is left intact.
         $options = is_array($job->options) ? $job->options : [];
         if ($request->filled('days')) {
             $options['days'] = (int) $data['days'];
@@ -70,15 +42,6 @@ class AutomationsController extends Controller
         return back()->with('status', "Automation saved: {$job->display_name}");
     }
 
-    /**
-     * Run one job now, by hand (the owner, 2026-09-06: "a run button for each
-     * one so I can manually run them without running a cron command or
-     * waiting for the cron"). The same command with the same arguments the
-     * scheduler would pass, run inside this request, its outcome stamped on
-     * the row exactly as a scheduled run stamps it, and its first lines
-     * shown back. A long sync takes as long as it takes; the page says so
-     * while it waits.
-     */
     public function run(Request $request, int $id)
     {
         $job = ScheduledJob::findOrFail($id);
@@ -90,10 +53,6 @@ class AutomationsController extends Controller
             @set_time_limit(900);
         }
 
-        // A command nobody registered (its extension is disabled, or the row
-        // is stale) is refused in one plain sentence, never a stack trace. A
-        // row may carry a positional argument ("venta:sync orders"); the
-        // command is the first word.
         $commandName = (string) strtok(trim((string) $job->command), ' ');
         if (! array_key_exists($commandName, \Illuminate\Support\Facades\Artisan::all())) {
             $job->forceFill(['last_run_at' => now(), 'last_run_ok' => false])->save();
@@ -101,10 +60,6 @@ class AutomationsController extends Controller
             return back()->with('error', 'Run failed: ' . $job->display_name . '. The command ' . $job->command . ' is not installed. Enable the extension that provides it, or remove this row.');
         }
 
-        /* Run now in steps (the owner, 2026-09-07): a command that names its units
-         * is walked ten at a time by the page, which draws "Product 10/200";
-         * the first step rides this request. Any other command runs whole,
-         * as before, and the page shows its outcome the same way. */
         $command = \Illuminate\Support\Facades\Artisan::all()[$commandName];
         if ($request->expectsJson() && $command instanceof \App\Integrations\Contracts\SteppableAutomation) {
             $runner = app(\App\Services\AutomationRunner::class);
@@ -115,8 +70,6 @@ class AutomationsController extends Controller
         }
 
         try {
-            // One command line, the shape the scheduler runs, so a positional
-            // argument and the row's options both reach the command.
             $code = \Illuminate\Support\Facades\Artisan::call(self::commandLine($job));
             $output = trim((string) \Illuminate\Support\Facades\Artisan::output());
             $ok = $code === 0;
@@ -131,9 +84,6 @@ class AutomationsController extends Controller
         $line = ($ok ? 'Ran ' : 'Run failed: ') . $job->display_name . ($said !== '' ? '. ' . $said : '.');
 
         if ($request->expectsJson()) {
-            /* The page shows the outcome, not the console (the owner, 2026-09-07:
-             * "=== --- ... user dont need to know that"). A failure keeps the
-             * last plain line the command said, the one that names the cause. */
             $plain = array_values(array_filter(array_map('trim', explode("\n", (string) $output)), fn ($l) => $l !== '' && ! preg_match('/^[=\-\s]+/', $l) && ! str_starts_with($l, '===')));
             $reason = $ok ? '' : ' ' . \Illuminate\Support\Str::limit((string) (end($plain) ?: ''), 160);
 
@@ -143,7 +93,6 @@ class AutomationsController extends Controller
         return back()->with($ok ? 'status' : 'error', $line);
     }
 
-    /** One more handful of units of a run the page is driving. */
     public function runStep(Request $request)
     {
         $run = $this->runFor($request);
@@ -167,7 +116,6 @@ class AutomationsController extends Controller
         return $this->runJson($this->runFor($request));
     }
 
-    /** The run named in the route, for someone who may manage its integration. Read by name: a scalar parameter would take the first route value. */
     private function runFor(Request $request): \App\Models\AutomationRun
     {
         $run = \App\Models\AutomationRun::query()->whereNotNull('scheduled_job_id')->findOrFail((int) $request->route('run'));
@@ -181,11 +129,6 @@ class AutomationsController extends Controller
         return response()->json(['ok' => true, 'run' => $run->toState(), 'outcome' => \App\Services\AutomationRunner::outcome($run)]);
     }
 
-    /**
-     * The row as one artisan line: "venta:sync orders --store=3", the same
-     * shape App\Console\Kernel hands the scheduler. Values are quoted so a
-     * date or a name with a space survives the parse.
-     */
     public static function commandLine(ScheduledJob $job): string
     {
         $line = trim((string) $job->command);
@@ -196,19 +139,6 @@ class AutomationsController extends Controller
         return $line;
     }
 
-    /**
-     * Batch update — the jobs list submits all rows in a single form.
-     *
-     * Per-row buttons made the Automations tab look like 7+ tiny forms
-     * stacked vertically. Folding them into one form lets the operator
-     * tweak everything (toggles, cadence, options) and commit once.
-     *
-     * Permission policy is the same as the single-row update: the
-     * required key is derived from each job's `integration` column. We
-     * deny the WHOLE batch if any row belongs to an integration the
-     * caller can't manage — partial commits would let a low-permission
-     * user smuggle authorized rows past the gate.
-     */
     public function batchUpdate(Request $request)
     {
         $data = $request->validate([
@@ -237,9 +167,6 @@ class AutomationsController extends Controller
 
         $saved = AutomationSettings::apply($jobs, $data['jobs'] ?? []);
 
-        // Sync-window columns live on each integration's Setting model.
-        // Empty string means "clear this window" (revert to the sync
-        // command's internal default); a positive integer means override.
         if ($hasWindows) {
             $settingClass = $this->settingClassFor((string) $integration);
             if ($settingClass) {
@@ -262,10 +189,6 @@ class AutomationsController extends Controller
         return back()->with('status', "Saved {$saved} automation" . ($saved === 1 ? '' : 's') . '.');
     }
 
-    /**
-     * Map an integration id to its Setting model class. Returns null
-     * for integrations that don't carry global sync-window columns.
-     */
     private function settingClassFor(string $integration): ?string
     {
         $map = [
@@ -277,12 +200,6 @@ class AutomationsController extends Controller
         return ($class && class_exists($class)) ? $class : null;
     }
 
-    // Run-now was removed intentionally: the same actions exist on the
-    // marketplace's Orders / Product Group pages with proper progress +
-    // result detail. The Automations tab is scoped to cadence + window
-    // config only; the scheduler is the only thing that fires jobs.
-
-    /** Whoever may manage the integration's settings page may set its schedule. */
     private static function mayManage(string $integration): bool
     {
         $user = auth()->user();

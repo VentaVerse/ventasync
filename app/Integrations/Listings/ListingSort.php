@@ -8,19 +8,10 @@ use Illuminate\Database\Query\Expression;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
-/**
- * The Sort menu of a store's Listings page and of a product group's page.
- *
- * A page names the columns it can sort by (see apply()); the menu offers
- * only those. The choice rides the `order` query parameter and is
- * remembered per page and per store for the session, so coming back to a
- * page keeps it. With nothing chosen, the newest additions come first.
- */
 final class ListingSort
 {
     public const DEFAULT = 'added_desc';
 
-    /** @var array<string, array{0: string, 1: string, 2: string}> option => [column key, direction, label] */
     private const OPTIONS = [
         'added_desc' => ['added', 'desc', 'Newest added here'],
         'added_asc' => ['added', 'asc', 'Oldest added here'],
@@ -40,10 +31,6 @@ final class ListingSort
         'sold_desc' => ['sold', 'desc', 'Best sellers, last 30 days'],
     ];
 
-    /**
-     * The option this request asks for, remembered for the page. An unknown
-     * value falls back to what was remembered, then to the default.
-     */
     public static function chosen(Request $request, string $page): string
     {
         $key = 'listing_sort.' . $page;
@@ -60,12 +47,6 @@ final class ListingSort
         return isset(self::OPTIONS[$remembered]) ? $remembered : self::DEFAULT;
     }
 
-    /**
-     * The menu's choices for a page that can sort by these column keys.
-     *
-     * @param  list<string>  $columns
-     * @return array<string, string> option => label
-     */
     public static function options(array $columns): array
     {
         $out = [];
@@ -78,14 +59,6 @@ final class ListingSort
         return $out;
     }
 
-    /**
-     * Order the query. $columns maps each column key the page supports to a
-     * column name, an Expression, or a Builder (a subquery); the product id
-     * breaks ties so two equal rows never swap places between pages. Rows
-     * with no value (never pushed, no date) sort last either way.
-     *
-     * @param  array<string, string|Expression|Builder>  $columns
-     */
     public static function apply(Builder $query, string $option, array $columns, string $productId = 'p.product_id'): Builder
     {
         [$column, $direction] = self::OPTIONS[$option] ?? self::OPTIONS[self::DEFAULT];
@@ -101,15 +74,6 @@ final class ListingSort
         return $query->orderBy($productId, $direction === 'asc' ? 'asc' : 'desc');
     }
 
-    /**
-     * Joins what the store-side columns read: this store's listing row as
-     * `sl` and the markup of the product's group on this store as `sg`. A
-     * product is in at most one group per store, so neither join can repeat
-     * a row.
-     *
-     * @param  array{table: string, store: string}  $listing  the store's listing table and its store column
-     * @param  array{pivot: string, table: string, key: string, store: string}  $group  the group pivot, group table, pivot's group column, group's store column
-     */
     public static function joinStore(Builder $query, int $storeId, array $listing, array $group, string $productId = 'p.product_id'): Builder
     {
         $query->leftJoin($listing['table'] . ' as sl', function ($join) use ($listing, $storeId, $productId) {
@@ -122,12 +86,6 @@ final class ListingSort
         return self::joinGroupMarkup($query, $storeId, $group, $productId);
     }
 
-    /**
-     * Joins the markup of the product's group on this store as `sg`, for a
-     * page whose query already carries the listing row.
-     *
-     * @param  array{pivot: string, table: string, key: string, store: string}  $group
-     */
     public static function joinGroupMarkup(Builder $query, int $storeId, array $group, string $productId = 'p.product_id'): Builder
     {
         $markup = DB::table($group['pivot'] . ' as sgp')
@@ -139,11 +97,6 @@ final class ListingSort
         return $query->leftJoinSub($markup, 'sg', 'sg.product_id', '=', $productId);
     }
 
-    /**
-     * Units of each product sold on one store in the last 30 days, counting
-     * only orders whose status counts as a sale; for ordering the product
-     * query aliased by $productId.
-     */
     public static function soldLast30Days(string $storeKey, string $productId = 'p.product_id'): Builder
     {
         $pfx = (string) config('catalog.prefix');
@@ -160,15 +113,6 @@ final class ListingSort
         return $sold;
     }
 
-    /**
-     * What the store sells a product at: the listing's own price when it has
-     * one and the product has no variations, else the catalog price; then
-     * the listing's rule, else the group's markup. The same arithmetic as
-     * each listing's priceFor, so the menu orders by the price the page shows.
-     *
-     * @param  string  $listing  alias of the store's listing row (price, markup_percent, markup_fixed)
-     * @param  string|null  $group  alias of the product's group row on this store, when joined
-     */
     public static function storePrice(string $listing, ?string $group = null, string $product = 'p'): Expression
     {
         $pfx = (string) config('catalog.prefix');

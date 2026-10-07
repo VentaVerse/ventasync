@@ -12,18 +12,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Save and Ignore for a listing's Catalog change panel, the same on every
- * channel. Save writes what was edited on either side: the listing always,
- * the catalog product when the user may edit it. Either one marks the
- * listing compared, which clears the button until the catalog changes again.
- */
 trait ComparesWithTheCatalog
 {
-    /** This store's listing of the product; a missing one is a 404. */
     abstract protected function catalogChangeListing(int $productId): Model;
 
-    /** Where Save and Ignore return when the page sent no way back. */
     abstract protected function catalogChangeFallback(int $productId): string;
 
     public function catalogChangeSave(Request $request, int $productId)
@@ -77,8 +69,6 @@ trait ComparesWithTheCatalog
                     $fields['photos'] = $decoded;
                 }
             }
-            /* A catalog product without a figure shows 0; a 0 is never
-             * written, so an untouched empty figure saves as it was. */
             foreach (['price', 'weight', 'length', 'width', 'height'] as $key) {
                 if (($c[$key] ?? null) !== null && $c[$key] !== '' && (float) $c[$key] > 0) {
                     $fields[$key] = (float) $c[$key];
@@ -96,8 +86,6 @@ trait ComparesWithTheCatalog
             $listing->{$cols['images']} = ListingImages::submitted($productId, $l['photos']);
         }
 
-        /* Price and parcel follow the catalog while blank; a value equal to
-         * the catalog's stays blank, so it keeps following. */
         $catalog = CatalogCopy::catalog([$productId])[$productId] ?? null;
         if ($catalog !== null) {
             $own = fn ($value, float $catalogValue) => ($value === null || $value === '' || abs((float) $value - $catalogValue) < 0.0005) ? null : (float) $value;
@@ -119,16 +107,10 @@ trait ComparesWithTheCatalog
         $listing->catalog_seen_at = CatalogCopy::seenAtFor($productId);
         $listing->save();
 
-        /* Save stays on the listing, the one page that can push what was
-           just changed and the one that shows what the listing is still
-           missing. The way back rides along so the page's own back link
-           still returns where the seller came from; the panel does not
-           reopen, because nothing sends it back. */
         return redirect()->to($this->backToListing($productId, $data['back'] ?? null))
             ->with('status', 'Saved.');
     }
 
-    /** The listing's own page, carrying the way back when the panel sent one. */
     private function backToListing(int $productId, ?string $back): string
     {
         $to = $this->catalogChangeFallback($productId);

@@ -2,8 +2,6 @@
     $cronLine = '* * * * * /usr/bin/php ' . base_path('artisan') . ' schedule:run >> /dev/null 2>&1';
 @endphp
 
-{{-- Nothing on this tab is saved, so it carries no form and no save bar.
-     It is one command an operator copies into their hosting panel once. --}}
 <div class="fm-body st-body--one">
     <div class="fm-col fm-col--main">
 

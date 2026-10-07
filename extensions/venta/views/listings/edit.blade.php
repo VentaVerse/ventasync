@@ -2,15 +2,6 @@
 @section('title', $setting->store_name . ' Listing')
 @section('breadcrumb', ($product->name ?? '') !== '' ? $product->name : 'Listing')
 
-{{-- The individual Venta listing page (#171), on the same anatomy as
-     Shopee's and TikTok's: the LIVE state at the top, read from the store
-     on this load; the record beneath it (price rule, content on this store),
-     which the next push from here uses; and provenance. Saving never writes
-     the catalogue product. Minus what the storefront has no notion of: no
-     category attribute tree, no courier list, no promotion object. --}}
-{{-- This page shows its own "Nothing was saved" note and marks the
-     offending fields, so the legacy bullet list stands down (critique
-     2026-09-08: one event was drawing two red boxes). --}}
 @section('own-errors', true)
 
 @section('content')
@@ -33,11 +24,6 @@
 
 <div class="fm-page">
 
-    {{-- The one thing a refused save must not do is refuse in silence. The
-         page marks the offending fields inline (x-ui.field draws each
-         message under its own control); this is the summary that says a
-         save was refused at all, and it is the surface the owner asked to keep
-         when the rest of the notes came off (2026-09-09). --}}
     <div class="fm-flash" role="status" aria-live="polite">
         @if($errors->any())
             <div class="fm-note fm-note--fail">
@@ -66,10 +52,6 @@
         </div>
     </div>
 
-    {{-- ── The strip: what the store says right now ───────────────
-         The one template (the owner, 2026-09-08, draft C). What only this store
-         has - the variations it holds, its meta fields - stays in its own
-         sections below. --}}
     @php
         $found = $onStore && $live && $live['state'] === 'found';
 
@@ -99,19 +81,6 @@
             : null;
     @endphp
 
-    {{-- HEALTH OFF (the owner, 2026-09-09): "What I want to see right
-         now are just fields to edit. Nothing about health." The state
-         word, the live figures, Last push and the accent are gone, and the
-         bar keeps only the verbs - what you can DO here, which is not a
-         report about the item. The notes went with them.
-
-         What survives is the required-field handling: the validation
-         summary above, the browser's own bubble on the required fields,
-         and the inline field errors.
-
-         Nothing was deleted from the system: the engine still computes
-         every one of these facts and the Listings index still shows them.
-         This page takes them back by passing health again. --}}
     <x-channel.listing-strip :channel="$storeName" :health="false" :linked="(bool) $onStore">
         @if($canManage && $setting->enabled && ($onStore || !$noSku))
             <x-slot:verbs>
@@ -137,10 +106,6 @@
 
     </x-channel.listing-strip>
 
-    {{-- The one template (the owner, 2026-09-08, draft C): main is what the
-         listing SAYS - Content, Category, Images, then what only this store
-         has - and rail is what it COSTS. No Discount: the storefront has no
-         sale price (card on the board). --}}
     <form id="listing-form" method="POST" action="{{ route('ext.venta.listings.update', [$setting->id, $product->product_id]) }}" data-guard-unsaved>
         <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
         @csrf
@@ -252,11 +217,6 @@
                 ])
 
                 @if($listing?->live_checked_at)
-                    {{-- Last push sent went with the owner's read on 2026-09-09;
-                         when and where from are figures on the strip, and
-                         what it sent is detail nobody was asking for here.
-                         When the store was last READ is not on the strip,
-                         so it stays. --}}
                     <p class="fm-section__note">Store status last read {{ $listing->live_checked_at->diffForHumans() }}.</p>
                 @endif
             </x-slot:rail>
@@ -279,8 +239,6 @@
 
 </div>
 
-{{-- The wait after a confirmed push, unlist or relist, through
-     resources/js/busy-overlay.js and the data-busy hooks above. --}}
 <div class="modal-backdrop" data-busy-overlay>
     <div class="modal co-modal co-modal--sm">
         <div class="co-progress">

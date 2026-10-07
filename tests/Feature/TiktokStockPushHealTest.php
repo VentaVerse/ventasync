@@ -15,20 +15,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * Phase F parity (#184): TikTok's stock and price pushes get the same
- * guarantees Shopee's have - skips named never silent, orphan map keys
- * never pushed wrong figures, the __single__ degradation heals with one
- * product read, per-SKU refusals become verdicts, and a failed batch can
- * no longer flash green.
- */
 class TiktokStockPushHealTest extends TestCase
 {
     use RefreshDatabase;
 
     public array $getProductAnswers = [];
 
-    /** @var array<int, array{method: string, product: string, skus: array}> */
     public array $calls = [];
 
     public array $updateAnswers = [];
@@ -93,7 +85,6 @@ class TiktokStockPushHealTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    /** A product whose combinations carry the given sku => qty pairs. */
     private function comboProduct(array $skuQty): int
     {
         $pfx = (string) config('catalog.prefix');
@@ -140,7 +131,6 @@ class TiktokStockPushHealTest extends TestCase
         TikTokListing::recordPush($pid, 'tt-rm', json_encode(['RM-1' => 's1', 'RM-2' => 's2', 'RM-3' => 's3']), 'listing');
         $this->assertSame([], $missing());
 
-        // A map the push did not answer with is not a read.
         TikTokListing::recordPush($pid, 'tt-rm', json_encode(['RM-1' => 's1']), 'listing', false);
         $this->assertSame([], $missing());
     }
@@ -150,13 +140,10 @@ class TiktokStockPushHealTest extends TestCase
         return array_values(array_filter($this->calls, fn ($c) => $c['method'] === 'inventory'));
     }
 
-    /** A variation TikTok Shop does not carry is not an error: the SKUs it has go up. */
     public function test_a_variation_missing_from_the_map_is_left_alone_and_the_rest_go_up(): void
     {
         $pid = $this->comboProduct(['TT-1' => 5, 'TT-2' => 8]);
         TikTokListing::create(['product_id' => $pid, 'tiktok_product_id' => 'tt-1', 'tiktok_sku_id' => json_encode(['TT-1' => 's1'])]);
-        // The heal will ask TikTok; it answers with the same single SKU, so
-        // TT-2 genuinely is not on TikTok Shop.
         $this->getProductAnswers['tt-1'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'data' => [
             'status' => 'ACTIVATE', 'title' => 'TT', 'skus' => [['id' => 's1', 'seller_sku' => 'TT-1', 'inventory' => []]],
         ]]];
@@ -169,7 +156,6 @@ class TiktokStockPushHealTest extends TestCase
         $this->assertCount(1, $this->inventoryCalls(), 'the SKU TikTok has goes up');
     }
 
-    /** An orphan map key (on TikTok Shop, gone from the catalogue) is left alone: never a zero, never a base price, never an error. */
     public function test_an_orphan_map_key_is_left_alone(): void
     {
         $pid = $this->comboProduct(['TT-1' => 5]);
@@ -186,7 +172,6 @@ class TiktokStockPushHealTest extends TestCase
         $this->assertStringNotContainsString('s9', json_encode($calls), 'the orphan is not asked of TikTok Shop');
     }
 
-    /** The __single__ degradation heals: one read, the real map, per-SKU figures. */
     public function test_a_single_key_map_on_a_variation_product_heals_first(): void
     {
         $pid = $this->comboProduct(['TT-1' => 5, 'TT-2' => 8]);
@@ -214,7 +199,6 @@ class TiktokStockPushHealTest extends TestCase
         $this->assertSame(['TT-1' => 's1', 'TT-2' => 's2'], $map, 'the repaired map is stored by seller SKU');
     }
 
-    /** A sku-shaped refusal heals once and retries once - never a loop. */
     public function test_a_sku_refusal_heals_and_retries_once(): void
     {
         $pid = $this->comboProduct(['TT-1' => 5]);
@@ -242,7 +226,6 @@ class TiktokStockPushHealTest extends TestCase
         $this->assertSame(['s-new'], array_column($calls[1]['skus'], 'id'), 'the retry carries the fresh id');
     }
 
-    /** The listing page says how much of the catalogue stands on TikTok Shop, and names the verb. */
     public function test_the_listing_page_carries_coverage_and_points_at_update(): void
     {
         $pid = $this->comboProduct(['TT-1' => 5, 'TT-2' => 8]);
@@ -254,17 +237,10 @@ class TiktokStockPushHealTest extends TestCase
         $page = $this->actingAs($this->manager())
             ->get(route('ext.tiktok.listings.edit', $pid))->assertOk();
 
-        /* The coverage figure and the sentence about it were both reports
-           on the live item, and both left the listing page with the rest
-           of the health surface on 2026-09-09 (the owner: "Nothing about
-           health"). The push behaviour they described is unchanged - an
-           update still carries every catalogue variation - and the heal
-           tests below are where that is actually proven. */
         $page->assertDontSee('1 of 2 variations');
         $page->assertDontSee('carries every catalogue variation, missing ones included');
     }
 
-    /** A failed group batch can no longer flash green. */
     public function test_a_failed_group_batch_does_not_flash_green(): void
     {
         $pid = $this->comboProduct(['TT-1' => 5]);
@@ -282,12 +258,10 @@ class TiktokStockPushHealTest extends TestCase
 
         $this->assertNull(session('status'), '0 ok must not wear the green tick');
         $this->assertStringContainsString('0 ok, 1 failed', (string) session('error'));
-        // And the failure leaves a durable trace on the pivot at last.
         $this->assertSame('error', $pivot->fresh()->sync_status);
         $this->assertStringContainsString('internal error', (string) $pivot->fresh()->push_error);
     }
 
-    /** The one price rule on the button too (2026-09-07): no listing rule means the group's, never the bare catalog price. */
     public function test_the_price_button_prices_a_product_without_a_listing_rule_by_its_group(): void
     {
         $pid = $this->comboProduct(['TP-1' => 5]);
@@ -301,7 +275,6 @@ class TiktokStockPushHealTest extends TestCase
 
         $calls = array_values(array_filter($this->calls, fn ($c) => $c['method'] === 'price'));
         $this->assertCount(1, $calls);
-        // The combination's own price (100 + 5) through the group's 20%.
         $this->assertSame('126', (string) $calls[0]['skus'][0]['price']['amount']);
     }
 }

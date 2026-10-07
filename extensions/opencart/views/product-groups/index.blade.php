@@ -2,16 +2,8 @@
 @section('title', $setting->store_name . ' Product Groups')
 @section('breadcrumb', 'Product Groups')
 
-{{-- Leaves the .x-legacy content boundary, rebuilt on the token set.
-
-     OpenCart is multi-store: every self-link on this page carries the {store}
-     segment it arrived on ($setting->id), and the store is named on the page
-     as well as in the breadcrumb, because the trail collapses to the leaf
-     alone below 768px. --}}
 @section('content')
 @php
-    // Read tier on this route is `view_opencart|manage_opencart`; create,
-    // update and destroy are `manage_opencart`. Replaces a hardcoded `true`.
     $canManageOpencart = auth()->user()?->hasPermission('manage_opencart/product_group') ?? false;
 
     $storeName = $setting->store_name ?: 'Unnamed store';
@@ -64,18 +56,11 @@
             </td>
             <td class="cc-col-count x-td-num" data-label="Products"><span class="x-num">{{ number_format($pCount) }}</span></td>
             <td class="x-td-actions">
-                {{-- The old row carried three standing buttons, one of them a
-                     solid red Delete, on every line. The row is the link to its
-                     products now, and the rest sit in the overflow. --}}
                 <x-ui.menu label="Product group {{ $g->name }} actions">
                     <a class="x-menu__item" href="{{ $productsUrl }}">Products in this product group</a>
                     @if($canManageOpencart)
                         <a class="x-menu__item" href="{{ route('ext.opencart.product-groups.edit', [$setting->id, $g->id]) }}">Edit product group</a>
                         <div class="x-menu__sep"></div>
-                        {{-- Destroy sits in the overflow behind the shared
-                             confirm dialog and drives a form outside this
-                             table, because a form cannot be nested inside a row
-                             that is itself a stretched link. --}}
                         <button type="button" class="x-menu__item x-menu__item--danger"
                                 data-confirm="Delete the product group {{ $g->name }} from {{ $storeName }}? Its product links go with it. Nothing changes in the catalog, and nothing already on the OpenCart store is touched."
                                 data-confirm-submit="ocpg-del-{{ $g->id }}">Delete product group</button>
@@ -96,5 +81,5 @@
     @endforeach
 @endif
 
-</div>{{-- /.cc-page --}}
+</div>
 @endsection

@@ -13,25 +13,14 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * Lazada parity for the live listing surfaces (2026-08-24): the listings
- * index wears the seller center's tabs answered by /products/get on every
- * load, uploaded rows show Lazada's live status (or "Not found on Lazada"
- * when a successful answer omits them), and the edit page opens with the
- * item's live state from /product/item/get. When Lazada does not answer,
- * every surface says so instead of substituting stale data.
- */
 class LazadaListingLiveTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** What the fake marketplace answers, keyed by api path. Closures get the params. */
     public array $getResponses = [];
 
-    /** @var array<int, array{path: string, params: array}> */
     public array $sentPosts = [];
 
-    /** Optional POST answers, keyed by api path; default stays the generic ok. */
     public array $postResponses = [];
 
     protected function setUp(): void
@@ -118,7 +107,6 @@ class LazadaListingLiveTest extends TestCase
         return $productId;
     }
 
-    /** /products/get answers: counts and ids per filter, plus sku lookups. */
     private function fakeProductsGet(array $idsByFilter, array $statusById = []): void
     {
         $this->getResponses['/products/get'] = function (array $params) use ($idsByFilter, $statusById) {
@@ -145,7 +133,6 @@ class LazadaListingLiveTest extends TestCase
 
     private int $optSeq = 700;
 
-    /** One catalog option with its values; returns value name => product_option_value_id. */
     private function addOption(int $pid, string $name, array $values, array $skus = []): array
     {
         $pfx = (string) config('catalog.prefix');
@@ -187,7 +174,6 @@ class LazadaListingLiveTest extends TestCase
         ]);
     }
 
-    /** @return list<array<string, mixed>> the SKU rows the payload carries */
     private function skusSent(LazadaProduct $listing): array
     {
         [$payload] = app(\Extensions\lazada\Services\Lazada\LazadaPushPayload::class)
@@ -203,11 +189,6 @@ class LazadaListingLiveTest extends TestCase
         ]]];
     }
 
-    /**
-     * An item already on Lazada keeps the variation type it was built with.
-     * QB-IC50 carries "Length" while its category's own type is color_family;
-     * sending color_family added a second dimension beside Length.
-     */
     public function test_an_update_sends_the_variation_type_the_item_already_has(): void
     {
         $pid = $this->productWithPicture('QB-IC50');
@@ -273,7 +254,6 @@ class LazadaListingLiveTest extends TestCase
     {
         $pid = $this->productWithPicture('QB-QUIET');
         $this->addOption($pid, 'Length', ['1ft', '3ft'], ['1ft' => 'QB-Q-1', '3ft' => 'QB-Q-3']);
-        // No /product/item/get answer: the fake refuses.
 
         try {
             $this->skusSent($this->listingOn($pid, '2712258176'));
@@ -284,7 +264,6 @@ class LazadaListingLiveTest extends TestCase
         $this->assertEmpty($this->sentPosts, 'nothing is sent');
     }
 
-    /** @return array{0: array, 1: array} the payload and the preview */
     private function payloadSent(LazadaProduct $listing): array
     {
         return app(\Extensions\lazada\Services\Lazada\LazadaPushPayload::class)
@@ -300,7 +279,6 @@ class LazadaListingLiveTest extends TestCase
         $this->getResponses['/product/item/get'] = ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => $data]];
     }
 
-    /** Two catalog options, first then second, one combination per value of the first. */
     private function twoOptionProduct(string $sku, string $first, array $firstValues, string $second, string $secondValue): int
     {
         $pid = $this->productWithPicture($sku);
@@ -454,7 +432,6 @@ class LazadaListingLiveTest extends TestCase
 
     public function test_a_standard_variation_type_is_never_renamed(): void
     {
-        // Lazada says the type is not seller-defined.
         $pid = $this->cableLengthProduct('QB-STD');
         $this->liveItem($this->lengthSkus('QB-STD'), [
             'variation1' => ['has_image' => 'false', 'name' => 'Length', 'options' => [], 'customize' => 'false'],
@@ -463,7 +440,6 @@ class LazadaListingLiveTest extends TestCase
         $this->assertArrayNotHasKey('variation', $payload['Request']['Product']);
         $this->assertSame([], $preview['variation_renames']);
 
-        // A category's own key stays itself even when the answer calls it custom.
         $colour = $this->productWithPicture('QB-CF');
         $this->addOption($colour, 'Colour', ['Black', 'Red'], ['Black' => 'QB-CF-B', 'Red' => 'QB-CF-R']);
         $this->liveItem([
@@ -475,7 +451,6 @@ class LazadaListingLiveTest extends TestCase
         $this->assertSame(['Black', 'Red'], array_column($payload['Request']['Product']['Skus']['Sku'], 'color_family'));
     }
 
-    /** The upload button on an item already on Lazada, with the item as it reads before and after. */
     private function pushRenameThroughTheButton(string $sku, array $after): int
     {
         $pid = $this->cableLengthProduct($sku);
@@ -531,7 +506,6 @@ class LazadaListingLiveTest extends TestCase
         $this->postResponses['/image/migrate'] = ['ok' => true, 'status' => 200, 'body' => [
             'code' => '0', 'data' => ['image' => ['url' => 'https://sg-live.slatic.net/p/fake.jpg']],
         ]];
-        // No variation object: custom cannot be told from standard.
         $this->liveItem($this->lengthSkus('QB-BLIND'));
 
         $this->actingAs($this->manager())->post(route('ext.lazada.products.upload', $pid))
@@ -566,12 +540,6 @@ class LazadaListingLiveTest extends TestCase
         $this->assertSame(['length'], $attributes->guessLazadaVariantKeysFromOptionName('Cable length'));
     }
 
-    /**
-     * The one listing shape (2026-09-07): a Lazada listing carries its own
-     * title and description like every other channel. An empty column
-     * follows the catalog product; a filled one wins at push time and the
-     * catalog is never touched.
-     */
     public function test_the_listing_keeps_its_own_words_and_the_push_sends_them(): void
     {
         $productId = $this->seedProduct('Catalog name', 'LZT-WORDS');
@@ -579,9 +547,6 @@ class LazadaListingLiveTest extends TestCase
 
         $page = $this->actingAs($this->manager())->get(route('ext.lazada.products.edit', $productId))->assertOk();
         $page->assertSee('Content on this channel');
-        /* The box is FILLED with the catalog's words now, not shown as a
-           greyed placeholder (the owner, 2026-09-07), so a few words can be
-           changed without retyping the rest. */
         $page->assertSee('value="Catalog name"', false);
 
         $this->actingAs($this->manager())
@@ -594,11 +559,9 @@ class LazadaListingLiveTest extends TestCase
         $this->assertSame('Lazada name', $listing->item_name);
         $this->assertSame('Lazada words', $listing->description);
 
-        // The catalog product keeps its own name.
         $pfx = (string) config('catalog.prefix');
         $this->assertSame('Catalog name', DB::table($pfx . 'product_description')->where('product_id', $productId)->value('name'));
 
-        // A listing needs a title; an emptied description is blank.
         $this->actingAs($this->manager())
             ->put(route('ext.lazada.products.update', $productId), [
                 'item_name' => '', 'description' => 'Lazada words',
@@ -616,11 +579,6 @@ class LazadaListingLiveTest extends TestCase
         $this->assertNull($listing->description);
     }
 
-    /**
-     * A variation's own price rides the listing form, so one Save keeps the
-     * whole page. A typed SKU or stock count is never saved: both always
-     * come from the catalog.
-     */
     public function test_one_save_keeps_the_variation_price_and_never_a_sku_or_stock(): void
     {
         $productId = $this->seedProduct('Variant product', 'LZT-VAR');
@@ -656,7 +614,6 @@ class LazadaListingLiveTest extends TestCase
         $this->assertCount(1, $skus);
         $this->assertEquals(550.0, (float) $skus[0]['price'], 'the listing price with 10 percent added');
 
-        // The stock and price sender, through the rule the automation and the buttons use.
         $listing->forceFill(['lazada_item_id' => '9001'])->save();
         \Extensions\lazada\Models\LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-OWNPRICE', 'sku_id' => 77]);
         $listings = LazadaProduct::query()->whereKey($listing->id)->get();
@@ -767,7 +724,6 @@ class LazadaListingLiveTest extends TestCase
         $this->assertEquals(100.0, (float) $skus['LZ-OVR-B']['price']);
     }
 
-    /** #149 (2026-08-26): the row menu opens the listing page, where the push button now lives; no one-click upload from the index. */
     public function test_the_row_menu_push_opens_the_listing_page_and_the_page_carries_the_push(): void
     {
         $productId = $this->seedProduct('One push product', 'LZT-ONEPUSH');
@@ -782,11 +738,6 @@ class LazadaListingLiveTest extends TestCase
         $page->assertSee('Save and push to Lazada');
     }
 
-    /**
-     * Since 2026-08-28 the strip and the chips read the MIRROR on the
-     * listing rows. A page view asks Lazada for nothing; the Refresh button
-     * and the 30-minute automation walk the shop and write the mirror.
-     */
     public function test_the_page_reads_the_mirror_and_asks_lazada_for_nothing(): void
     {
         $productId = $this->seedProduct('Mirrored product', 'LZT-MIR');
@@ -794,20 +745,13 @@ class LazadaListingLiveTest extends TestCase
             'product_id' => $productId, 'lazada_item_id' => '111',
             'live_status' => 'inactive', 'live_checked_at' => '2026-08-28 08:30:00',
         ]);
-        // No /products/get response registered: the page must not need one.
 
         $r = $this->actingAs($this->manager())->get(route('ext.lazada.products.index'));
 
         $r->assertOk();
-        // Per-store Listings (#201): the page is this store's own table, with
-        // Add products as the header's primary button (Draft C's slide-over)
-        // - the "Your catalogue / On Lazada / All products" framing and the
-        // two-tab treatment both retired.
         $r->assertSee('Add products');
         $r->assertSee('Pending QC');
         $r->assertSee('as of 08:30, Aug 28');
-        // Icon-only refresh and Repair links on the strip, the Shopee shape
-        // ported back (2026-09-05); the words live in the accessible name.
         $r->assertSee('Refresh from Lazada', false);
         $r->assertSee('Refresh from Lazada');
         $r->assertSee('lazada_tab=active', false);
@@ -815,7 +759,6 @@ class LazadaListingLiveTest extends TestCase
         $this->assertSame([], $this->sentPosts);
     }
 
-    /** A row a push just gave an item id has no status; the page asks Lazada once for it, then reads the mirror. */
     public function test_an_uploaded_row_never_checked_is_filled_on_first_view_and_only_once(): void
     {
         $productId = $this->seedProduct('Unchecked product', 'LZT-UNC');
@@ -844,7 +787,6 @@ class LazadaListingLiveTest extends TestCase
     {
         $productId = $this->seedProduct('Unchecked product', 'LZT-UNC');
         LazadaProduct::query()->create(['product_id' => $productId, 'lazada_item_id' => '111']);
-        // No /product/item/get registered: the fake refuses; the row stays blank rather than guessed.
 
         $r = $this->actingAs($this->manager())->get(route('ext.lazada.products.index'));
 
@@ -876,7 +818,6 @@ class LazadaListingLiveTest extends TestCase
         $ghost = $this->seedProduct('Refresh residue product', 'LZT-GHOST');
         LazadaProduct::query()->create(['product_id' => $ghost, 'lazada_item_id' => '424242']);
         $this->getResponses['/products/get'] = function (array $params) {
-            // The refresh walks with filter=all; the check that follows it (one button, 2026-09-07) walks by SKU.
             $products = [['item_id' => 111, 'status' => 'active', 'skus' => [['SellerSku' => 'LZT-A']]], ['item_id' => 222, 'status' => 'inactive', 'skus' => [['SellerSku' => 'LZT-OTHER']]]];
             return ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => ['total_products' => count($products), 'products' => $products]]];
         };
@@ -892,7 +833,6 @@ class LazadaListingLiveTest extends TestCase
 
         $page = $this->actingAs($this->manager())->get(route('ext.lazada.products.index'));
         $page->assertSee('Not found on Lazada');
-        // No row wears the bare "Listed" fallback; the menu's own Listed entry is not a badge.
         $page->assertDontSee('x-badge__label">Listed<', false);
     }
 
@@ -920,7 +860,6 @@ class LazadaListingLiveTest extends TestCase
     {
         $productId = $this->seedProduct('Still visible product', 'LZT-KEEP');
         LazadaProduct::query()->create(['product_id' => $productId, 'lazada_item_id' => '111', 'live_status' => 'active']);
-        // No /products/get response registered: the fake answers ok=false.
 
         $r = $this->actingAs($this->manager())->post(route('ext.lazada.products.refresh_status'));
 
@@ -928,7 +867,6 @@ class LazadaListingLiveTest extends TestCase
         $this->assertStringContainsString('Lazada did not answer', (string) session('error'));
         $this->assertSame('active', LazadaProduct::where('lazada_item_id', '111')->value('live_status'));
 
-        // And the page still paints from what it has.
         $page = $this->actingAs($this->manager())->get(route('ext.lazada.products.index'));
         $page->assertOk();
         $page->assertSee('Still visible product');
@@ -945,7 +883,6 @@ class LazadaListingLiveTest extends TestCase
         $this->assertSame('inactive', $listing->fresh()->live_status);
     }
 
-    /** The selection bar's Deactivate / Activate (the owner, 2026-08-28): one call per listing, one summary. */
     public function test_bulk_toggle_deactivates_the_selection_and_names_what_it_skipped(): void
     {
         $a = $this->seedProduct('Bulk A', 'LZT-BA');
@@ -984,10 +921,6 @@ class LazadaListingLiveTest extends TestCase
 
     public function test_a_group_page_tells_the_products_truth_not_its_own_memory(): void
     {
-        /* The one-truth port (2026-08-25), same disease the owner caught on
-         * Shopee's GP-180: this group's push failed, then the product went
-         * up elsewhere - the group page must read the LISTING record, with
-         * the group's failed attempt named as exactly that. */
         $productId = $this->seedProduct('Truthful group product', 'LZT-TRUTH');
         $listing = LazadaProduct::query()->create([
             'product_id' => $productId, 'lazada_item_id' => '990077',
@@ -1010,22 +943,10 @@ class LazadaListingLiveTest extends TestCase
         $r->assertSee('990077');
         $r->assertSee('Listed');
         $r->assertDontSee('>Failed<', false);
-        // The group page draws the error line from the listing row; this
-        // group's older attempt is not the product's story once the listing
-        // pushed, so no red line is drawn (the amber readiness line is another matter).
         $r->assertDontSee('<tr class="cc-err-row">', false);
         $r->assertDontSee('Special characters');
     }
 
-    /**
-     * A group push builds with the group's category and attribute values
-     * WITHOUT them ever touching the listing's rows (#104). The old
-     * implementation overwrote the rows and restored them after the build;
-     * a crash between the two corrupted the listing permanently. Now the
-     * overrides ride the builder in memory: the wire carries the listing's
-     * own values with the group filling its blanks, and the database
-     * keeps the listing's own.
-     */
     public function test_a_group_push_sends_the_listings_own_values_and_fills_its_blanks_from_the_group(): void
     {
         $productId = $this->seedProduct('Group-dressed product', 'GRP-DRESS');
@@ -1035,7 +956,6 @@ class LazadaListingLiveTest extends TestCase
         $listing = LazadaProduct::query()->create([
             'product_id' => $productId, 'primary_category_id' => 111,
         ]);
-        // markup_fixed is deliberately not mass-assignable; seed it directly.
         $listing->forceFill(['markup_fixed' => 5])->save();
         \Extensions\lazada\Models\LazadaProductAttribute::create([
             'lazada_product_id' => $listing->id, 'attribute_key' => 'material', 'value' => 'Maple',
@@ -1052,24 +972,18 @@ class LazadaListingLiveTest extends TestCase
         \Extensions\lazada\Models\LazadaProductGroupAttribute::create([
             'lazada_product_group_id' => $group->id, 'attribute_key' => 'material', 'value' => 'Rosewood',
         ]);
-        // An answer only the group gives fills the listing's blank.
         \Extensions\lazada\Models\LazadaProductGroupAttribute::create([
             'lazada_product_group_id' => $group->id, 'attribute_key' => 'warranty_type', 'value' => 'No Warranty',
         ]);
-        // The LISTING's category has a cached template with no questions, so
-        // the mandatory gate passes and the build reaches the wire.
         \Extensions\lazada\Models\LazadaCategoryTemplate::create([
             'region' => 'ph', 'primary_category_id' => 111,
             'template_body' => ['data' => ['attributes' => []]], 'fetched_at' => now(),
         ]);
 
-        // The image inlink migration gets a real-shaped answer, so the
-        // push reaches /product/create.
         $this->postResponses['/image/migrate'] = ['ok' => true, 'status' => 200, 'body' => [
             'code' => '0', 'data' => ['image' => ['url' => 'https://sg-live.slatic.net/p/fake.jpg']],
         ]];
 
-        // An earlier refusal on the listing's line: the group push's success replaces it.
         $states = app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class);
         $states->recordOutcome($productId, 'Upload refused: an earlier refusal');
         $this->assertNotNull($states->errors([$productId])[$productId]);
@@ -1099,7 +1013,6 @@ class LazadaListingLiveTest extends TestCase
             "the group's answer is sent, never written into the listing");
     }
 
-    /** A picture on the public disk, linked the way the description editor links it. */
     private function descriptionPicture(string $path): string
     {
         $canvas = imagecreatetruecolor(12, 12);
@@ -1110,14 +1023,12 @@ class LazadaListingLiveTest extends TestCase
         return asset('storage/' . $path);
     }
 
-    /** A fresh public disk and a public catalog address, before any picture is written. */
     private function onAPublicCatalog(): void
     {
         \Illuminate\Support\Facades\Storage::fake('public');
         config(['catalog.public_url' => 'https://shop.example.com']);
     }
 
-    /** A product on Lazada whose catalog description, and so its listing's copy, is the given HTML. */
     private function productDescribedAs(string $sku, string $html): int
     {
         $pid = $this->colourProduct($sku);
@@ -1128,7 +1039,6 @@ class LazadaListingLiveTest extends TestCase
         return $pid;
     }
 
-    /** Lazada's image migrate: a picture whose address names a refused file is refused, every other one is given a link named after it. */
     private function migrateAnswers(array $refused = []): void
     {
         $this->postResponses['/image/migrate'] = function (array $params) use ($refused) {
@@ -1146,7 +1056,6 @@ class LazadaListingLiveTest extends TestCase
         };
     }
 
-    /** @return list<string> every address sent to /image/migrate */
     private function migratedUrls(): array
     {
         return collect($this->sentPosts)->where('path', '/image/migrate')
@@ -1154,7 +1063,6 @@ class LazadaListingLiveTest extends TestCase
             ->values()->all();
     }
 
-    /** @return array<string, mixed> the Attributes of the nth update sent */
     private function updateAttributes(int $nth = 0): array
     {
         $update = collect($this->sentPosts)->where('path', '/product/update')->values()->get($nth);
@@ -1255,12 +1163,8 @@ class LazadaListingLiveTest extends TestCase
 
     public function test_readiness_names_gaps_on_the_index(): void
     {
-        /* #101, Lazada half: the index answers "can this upload succeed"
-         * before anything is pressed, and a bulk upload over an unready
-         * selection refuses to start, naming what each needs. */
         $productId = $this->seedProduct('Unready lazada product', 'LZT-UNREADY');
         $listing = LazadaProduct::query()->create(['product_id' => $productId]);
-        // The store has fetched its categories: the gap is this listing's own (with none fetched the upload stops earlier, StoreSetupTest).
         \Extensions\lazada\Models\LazadaCategory::create(['category_id' => 222, 'name' => 'Pedals', 'leaf' => true, 'var' => false, 'parent_id' => null, 'level' => 0]);
 
         $r = $this->actingAs($this->manager())->get(route('ext.lazada.products.index'));
@@ -1268,8 +1172,6 @@ class LazadaListingLiveTest extends TestCase
         $r->assertSee('cc-err-row--warn', false);
         $r->assertSee('Needs details:');
         $r->assertSee('a Lazada category');
-        // No multi-tick push on the Listings page (the owner, 2026-09-06): many
-        // products go up from a product group's page.
         $r->assertDontSee('bulk/upload');
     }
 
@@ -1278,7 +1180,6 @@ class LazadaListingLiveTest extends TestCase
         $productId = $this->seedProduct('Toggle product', 'LZT-TOG');
         $listing = LazadaProduct::query()->create(['product_id' => $productId, 'lazada_item_id' => '990077']);
 
-        // Deactivate: the documented endpoint, ItemId mandatory.
         $r = $this->actingAs($this->manager())
             ->post(route('ext.lazada.listings.toggle', $listing->product_id), ['action' => 'deactivate']);
         $sent = collect($this->sentPosts)->firstWhere('path', '/product/deactivate');
@@ -1287,10 +1188,6 @@ class LazadaListingLiveTest extends TestCase
         $this->assertSame(990077, (int) $payload['Request']['Product']['ItemId']);
         $r->assertSessionHas('status');
 
-        // Activate: /product/update, carrying the attributes and the SKUs
-        // Lazada itself just returned. It no longer depends on cached
-        // variant rows, so a listing whose variants were never cached is
-        // still switchable; Lazada is the one that names its SKUs.
         $this->sentPosts = [];
         $this->getResponses['/product/item/get'] = ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => [
             'item_id' => 990077,
@@ -1326,50 +1223,24 @@ class LazadaListingLiveTest extends TestCase
             ->get(route('ext.lazada.products.edit', $listing->product_id));
 
         $r->assertOk();
-        /* The strip used to head the page with "On Lazada right now" and
-           the live figures. Health came off every listing page on
-           2026-09-09 (the owner: "just fields to edit. Nothing about health"),
-           so what is pinned here is what the page is FOR - the record it
-           edits - and the read still writing through to the mirror, which
-           is what the Listings index shows. */
         $r->assertDontSee('On Lazada right now');
         $r->assertSee('LZT-LIVE');
         $this->assertSame('active', LazadaProduct::query()->where('lazada_item_id', '990077')->value('live_status'));
     }
 
-    /**
-     * The sentence went with the health surface on 2026-09-09. The
-     * BEHAVIOUR it existed to guarantee did not: a page that could not
-     * read the item opens on the record anyway and substitutes nothing for
-     * what it does not know.
-     */
     public function test_the_edit_page_opens_on_the_record_when_lazada_does_not_answer(): void
     {
         $productId = $this->seedProduct('Unreachable product', 'LZT-DOWN');
         $listing = LazadaProduct::query()->create(['product_id' => $productId, 'lazada_item_id' => '990077']);
-        // No /product/item/get response registered: the fake answers ok=false.
 
         $r = $this->actingAs($this->manager())
             ->get(route('ext.lazada.products.edit', $listing->product_id));
 
         $r->assertOk();
         $r->assertDontSee('Lazada did not answer');
-        // Nothing was invented in place of the answer it never got.
         $this->assertNull(LazadaProduct::query()->where('lazada_item_id', '990077')->value('live_status'));
     }
 
-    /**
-     * Reactivating a live listing (the owner, live, 2026-09-01). /product/update
-     * is not a patch endpoint: it validates the Product node it is given, so
-     * a status-only payload came back
-     *
-     *     E001: Parameter Attributes is mandatory
-     *
-     * on a product that was already uploaded and merely switched off. The
-     * attributes now travel with the call, read back from Lazada rather than
-     * rebuilt from the ERP, so pressing Activate changes the status and
-     * nothing else.
-     */
     public function test_activate_carries_the_listings_own_attributes_back_to_lazada(): void
     {
         $productId = $this->seedProduct('Valeton GP-200', 'GP200');
@@ -1403,14 +1274,11 @@ class LazadaListingLiveTest extends TestCase
         $payload = json_decode($update['params']['payload'], true);
         $product = $payload['Request']['Product'];
 
-        // The thing the marketplace refused without.
         $this->assertArrayHasKey('Attributes', $product);
         $this->assertSame('Valeton GP-200 as Lazada holds it', $product['Attributes']['name']);
         $this->assertSame('Valeton', $product['Attributes']['brand']);
         $this->assertArrayNotHasKey('short_description', $product['Attributes'], 'empty values are not sent back');
 
-        // Exactly one thing changes, and price and stock ride along untouched
-        // so a status flip cannot blank them.
         $sku = $product['Skus']['Sku'][0];
         $this->assertSame('active', $sku['Status']);
         $this->assertSame(7785126563, $sku['SkuId']);
@@ -1443,7 +1311,6 @@ class LazadaListingLiveTest extends TestCase
         $this->assertSame('inactive', $listing->fresh()->live_status, 'the mirror is not moved on a refusal');
     }
 
-    /** Deactivate is a real endpoint and stays a one-field call. */
     public function test_deactivate_still_sends_only_the_item_id(): void
     {
         $productId = $this->seedProduct('Valeton GP-5', 'GP5');
@@ -1470,7 +1337,6 @@ class LazadaListingLiveTest extends TestCase
         return (int) LazadaSetting::defaultStore()->id;
     }
 
-    /** A Red, Blue and Green product on an item already on Lazada, ready for the upload button. */
     private function colourProduct(string $sku): int
     {
         $pid = $this->productWithPicture($sku);
@@ -1487,7 +1353,6 @@ class LazadaListingLiveTest extends TestCase
         return $pid;
     }
 
-    /** The item as Lazada reads it: Red, Blue and Green are SKU ids 1, 2 and 3, each with its status. */
     private function liveColours(string $sku, array $statuses = [], string $itemStatus = 'active'): void
     {
         $skus = [];
@@ -1510,7 +1375,6 @@ class LazadaListingLiveTest extends TestCase
         return $this->actingAs($this->manager())->post(route('ext.lazada.products.upload', $pid))->assertRedirect();
     }
 
-    /** @return array<string, array<string, mixed>> the update's SKU rows by seller SKU */
     private function updateSkus(): array
     {
         $update = collect($this->sentPosts)->firstWhere('path', '/product/update');
@@ -1519,7 +1383,6 @@ class LazadaListingLiveTest extends TestCase
         return collect(json_decode($update['params']['payload'], true)['Request']['Product']['Skus']['Sku'])->keyBy('SellerSku')->all();
     }
 
-    /** @return list<array> every /product/deactivate payload sent */
     private function deactivations(): array
     {
         return collect($this->sentPosts)->where('path', '/product/deactivate')
@@ -1649,7 +1512,6 @@ class LazadaListingLiveTest extends TestCase
         $this->assertSame(['active', 'active'], array_column($skus, 'Status'));
     }
 
-    /** The clean-up returns a copy equal to its group's value to blank, and leaves the listing's own alone. */
     public function test_the_follow_migration_clears_only_copies_equal_to_the_group(): void
     {
         $copied = $this->seedProduct('Copied listing', 'LZ-COPY');

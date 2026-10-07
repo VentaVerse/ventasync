@@ -15,11 +15,6 @@ use Illuminate\Support\Facades\DB;
 use Tests\Support\MakesCoreOrders;
 use Tests\TestCase;
 
-/**
- * Hard delete of a store (the owner, 2026-09-05): the typed name confirms,
- * one transaction empties everything the store owns, the other stores
- * and the core orders are untouched.
- */
 class StoreDeleteTest extends TestCase
 {
     use RefreshDatabase;
@@ -48,7 +43,6 @@ class StoreDeleteTest extends TestCase
         return User::factory()->create(['user_group_id' => $g->id]);
     }
 
-    /** Every table carrying the store column, from the schema itself, so a new table cannot be forgotten. */
     private function assertNoRowsLeft(string $column, int $id): void
     {
         $tables = collect(DB::select(
@@ -156,8 +150,6 @@ class StoreDeleteTest extends TestCase
             ->assertSessionHasErrors('confirm_name');
         $this->assertDatabaseHas('shopee_settings', ['id' => $store->id]);
 
-        // A write from the view tier is sent back with a flash, the way the
-        // permission middleware refuses every write.
         $this->actingAs($this->user('view'))
             ->from(route('ext.shopee.settings.show', ['store' => $store->id]))
             ->post('/channels/shopee/' . $store->id . '/delete', ['confirm_name' => 'Outlet'])

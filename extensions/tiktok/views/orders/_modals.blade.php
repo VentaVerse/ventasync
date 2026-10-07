@@ -1,10 +1,3 @@
-{{-- TikTok order modals: ship, tracking.
-
-     Extracted from orders/_panel.blade.php when the order DETAIL page became
-     the second surface that needs it. Every id below is queried by
-     resources/js/pages/tiktok-orders.js and must not change, which is exactly
-     why there is one copy of this markup rather than one per page: two copies
-     of a contract the module reads by id is how the two drift. --}}
 <div id="ttTrackingModal" class="modal-backdrop">
     <div class="modal co-modal co-modal--md">
         <div class="modal-header co-modal__head">
@@ -21,12 +14,6 @@
     </div>
 </div>
 
-{{-- Ship modal. Opened by a row's Ship order button (.btnTtShip), which
-     is the only marketplace write on this page: the dialog shows the
-     parcel from the row's own template (components/fulfilment/parcel),
-     says what TikTok is told, and its Ship order submits the row's form.
-     Every id below is queried by resources/js/pages/tiktok-orders.js and
-     must not change. --}}
 <div id="ttShipModal" class="modal-backdrop">
     <div class="modal co-modal">
         <div class="modal-header co-modal__head">

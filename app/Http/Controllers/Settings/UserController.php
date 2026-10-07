@@ -101,13 +101,10 @@ class UserController extends Controller
     {
         $user = User::findOrFail((int)$id);
 
-        // avoid deleting yourself accidentally (simple safety)
         if (auth()->check() && auth()->id() === $user->id) {
             return redirect()->route('users.index')->with('error', 'You cannot delete your own account');
         }
 
-        // Protect administrators: Administrator accounts cannot be deleted.
-        // If someone resigns, change their user group first, then delete.
         $adminGroupId = UserGroup::where('name', 'Administrator')->value('id');
         if ($adminGroupId && (int) $user->user_group_id === (int) $adminGroupId) {
             return redirect()->route('users.index')

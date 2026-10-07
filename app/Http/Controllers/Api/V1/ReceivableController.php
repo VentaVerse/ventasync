@@ -8,11 +8,6 @@ use App\Support\Api\Refused;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-/**
- * Accounts receivable: reading on orders:read, recording a customer's
- * payment on orders:write. The app door runs the same two under the
- * permissions the Accounts receivable page needs.
- */
 class ReceivableController extends Controller
 {
     public function index(Request $request): JsonResponse
@@ -31,7 +26,6 @@ class ReceivableController extends Controller
         return response()->json($result, $result['preview'] ? 200 : 201);
     }
 
-    /** A shared rule's answer as JSON, or its refusal with its status. */
     private function run(\Closure $rule, int $status = 200): JsonResponse
     {
         try {

@@ -1,10 +1,3 @@
-{{-- Lazada logistics trace modal.
-
-     Extracted from orders/_panel.blade.php when the order DETAIL page became
-     the second surface that needs it. Every id below is queried by
-     resources/js/pages/lazada-orders.js and must not change, which is exactly
-     why there is one copy of this markup rather than one per page: two copies
-     of a contract the module reads by id is how the two drift. --}}
 <div id="lzLogisticsModal" class="modal-backdrop">
     <div class="modal co-modal co-modal--lg">
         <div class="modal-header co-modal__head">

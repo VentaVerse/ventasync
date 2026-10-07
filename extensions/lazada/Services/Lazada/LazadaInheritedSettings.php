@@ -6,19 +6,8 @@ use Extensions\lazada\Models\LazadaProduct;
 use Extensions\lazada\Models\LazadaProductGroup;
 use Illuminate\Support\Facades\DB;
 
-/**
- * A group is a preset the product inherits (the owner, 2026-09-05), the
- * Shopee shape on Lazada: wherever a listing's own category or brand is
- * blank, its group's stands in, on every push and in readiness alike.
- * The price rule is not inherited: a group's markup rides only a group
- * push.
- */
 final class LazadaInheritedSettings
 {
-    /**
-     * @param list<int> $productIds
-     * @return array<int, array{group_id:int, group_name:string, category_id:?int, brand_id:?int, brand_name:?string}>
-     */
     public function forProducts(array $productIds): array
     {
         $productIds = array_values(array_unique(array_map('intval', $productIds)));
@@ -26,7 +15,6 @@ final class LazadaInheritedSettings
             return [];
         }
 
-        // This store's groups, named outright: the pivot carries no store.
         $rows = DB::table('lazada_product_group_products as pv')
             ->joinSub(LazadaProductGroup::query()->forStore(\Extensions\lazada\Models\LazadaSetting::defaultStore())->select(['id', 'name', 'lazada_category_id', 'brand_id', 'brand_name_override', 'markup_fixed', 'markup_percent']), 'g', 'g.id', '=', 'pv.lazada_product_group_id')
             ->whereIn('pv.product_id', $productIds)
@@ -37,7 +25,7 @@ final class LazadaInheritedSettings
         foreach ($rows as $row) {
             $pid = (int) $row->product_id;
             if (isset($out[$pid])) {
-                continue; // one product, one group; the oldest membership wins
+                continue;
             }
             $out[$pid] = [
                 'group_id' => (int) $row->group_id,
@@ -50,9 +38,6 @@ final class LazadaInheritedSettings
                 'attributes' => [],
             ];
         }
-        /* The group's attribute answers ride along (the owner, 2026-09-06, the
-         * Ready column): the group push sends them over the listing's, so
-         * readiness counts an attribute answered when either has it. */
         $groupIds = array_values(array_unique(array_map(fn ($g) => $g['group_id'], $out)));
         if ($groupIds !== []) {
             $answers = \Extensions\lazada\Models\LazadaProductGroupAttribute::query()->whereIn('lazada_product_group_id', $groupIds)
@@ -65,11 +50,6 @@ final class LazadaInheritedSettings
         return $out;
     }
 
-    /**
-     * The listing with its blanks filled, as an in-memory copy never saved.
-     *
-     * @return array{listing: LazadaProduct, inherited: array<string,string>}
-     */
     public function fill(LazadaProduct $listing, ?array $group): array
     {
         $copy = clone $listing;

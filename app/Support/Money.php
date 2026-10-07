@@ -4,44 +4,13 @@ namespace App\Support;
 
 use App\Models\Currency;
 
-/**
- * Single funnel for every money render in the UI.
- *
- * Deliberately mirrors OpenCart's `system/library/cart/currency.php::format()`
- * - one function every money value passes through, so a bare, unlabelled
- * number can never reach the page again. That ambiguity (which currency is
- * this number in?) is what let opposite-direction conversion bugs hide on
- * the order detail page for months. From here on, a bare `number_format()`
- * call on a money value in a Blade view is a review defect - use `base()` /
- * `foreign()` here, or the `<x-money>` component for the on-page dual
- * (PHP + as-transacted foreign) presentation.
- *
- * `currencies` has a single `symbol` column - no `symbol_left`/`symbol_right`
- * split and no per-currency `decimal_place` the way OpenCart's table has.
- * Every configured currency here is prefixed, 2-decimal. Do not add those
- * columns; nothing in this codebase needs anything more exotic than
- * PHP/USD/CNY-style "symbol immediately before the number".
- */
 class Money
 {
     private static ?string $defaultSymbolCache = null;
 
     private static ?string $defaultCodeCache = null;
 
-    /**
-     * Parse a money value that arrived as marketplace data into a float.
-     *
-     * Marketplace finance APIs - Lazada's /finance/transaction/details/get
-     * above all - return amounts as strings WITH a thousands separator, e.g.
-     * "-2,251.57". A bare (float) cast stops at the comma and reads that as
-     * -2, silently dropping the thousands: a fee that crossed 1,000 was
-     * truncated to one or two pesos, which understated fees and overstated
-     * profit on every large order. Strip the grouping commas (and any stray
-     * whitespace) before casting so an inbound money string always parses in
-     * full. These feeds use comma-thousands / dot-decimal (PH), so a comma is
-     * always a group separator here, never the decimal mark. Numeric inputs
-     * (int/float) and null pass straight through.
-     */
+    // Marketplace amounts carry thousands commas ("-2,251.57"); strip them before casting or fees truncate.
     public static function parse(mixed $value): float
     {
         if (is_int($value) || is_float($value)) {
@@ -51,14 +20,8 @@ class Money
         return (float) str_replace([',', ' '], '', (string) ($value ?? ''));
     }
 
-    /** @var array<string, string|null> currency code (uppercased) => symbol, or null if unconfigured */
     private static array $symbolCache = [];
 
-    /**
-     * The default (base/PHP) currency's symbol, resolved from the
-     * `currencies` table - never hardcoded, so a future re-basing of the
-     * default currency does not require touching every view.
-     */
     public static function defaultSymbol(): string
     {
         if (self::$defaultSymbolCache !== null) {
@@ -70,11 +33,6 @@ class Money
         return self::$defaultSymbolCache = $symbol !== null ? (string) $symbol : '₱';
     }
 
-    /**
-     * The default currency's code, resolved from the `currencies` table and
-     * cached for the request - <x-money> calls this once per row on list
-     * pages (orders index, dashboard), so it must not re-query per row.
-     */
     public static function defaultCode(): string
     {
         if (self::$defaultCodeCache !== null) {
@@ -86,11 +44,6 @@ class Money
         return self::$defaultCodeCache = $code !== null ? (string) $code : 'PHP';
     }
 
-    /**
-     * Symbol for an arbitrary currency code, or null if that code isn't
-     * configured in `currencies` (e.g. a marketplace order carrying a code
-     * nobody has set up locally yet).
-     */
     private static function lookupSymbol(string $code): ?string
     {
         $code = strtoupper($code);
@@ -104,7 +57,6 @@ class Money
         return self::$symbolCache[$code] = $symbol !== null ? (string) $symbol : null;
     }
 
-    /** Public symbol lookup, falling back to the code itself when unconfigured. */
     public static function symbolFor(?string $code): string
     {
         if (!$code) {
@@ -114,7 +66,6 @@ class Money
         return self::lookupSymbol($code) ?? strtoupper($code);
     }
 
-    /** Clears the request-lifetime symbol cache. Test use only. */
     public static function flushCache(): void
     {
         self::$defaultSymbolCache = null;
@@ -122,11 +73,6 @@ class Money
         self::$symbolCache = [];
     }
 
-    /**
-     * Format an amount already in the default (PHP) currency: "₱1,234.56",
-     * or "-₱1,234.56" for a loss/negative figure - the sign sits before the
-     * symbol, matching how every accounting figure in this app reads.
-     */
     public static function base(float $amount): string
     {
         $sign = $amount < 0 ? '-' : '';
@@ -134,18 +80,6 @@ class Money
         return $sign . self::defaultSymbol() . number_format(abs($amount), 2);
     }
 
-    /**
-     * Abbreviated default-currency figure for an AXIS TICK and nothing else:
-     * "₱0" / "₱750" / "₱12.5K" / "₱4.2M".
-     *
-     * Exists so a chart's value scale can resolve its symbol here rather
-     * than in a Blade - a view that calls defaultSymbol() and assembles its
-     * own string is how a hardcoded "₱" gets back in, and the view sweep
-     * rejects it for that reason. Never use this for a figure a person acts
-     * on: an abbreviated amount has thrown away the pesos, and every such
-     * figure on a page belongs in base(). Charts abbreviate the scale and
-     * spell the value out in full in the tooltip and the table beside it.
-     */
     public static function compactAxis(float $amount): string
     {
         $sign = $amount < 0 ? '-' : '';
@@ -165,12 +99,6 @@ class Money
         return $sign . $symbol . number_format($abs, 0);
     }
 
-    /**
-     * Format an amount in a named foreign currency: "$1,234.56" when the
-     * code is configured, or "XYZ 1,234.56" (space-separated) when it
-     * isn't - an unresolved raw code reads better with a separator than
-     * jammed against the number.
-     */
     public static function foreign(float $amount, string $code): string
     {
         $sign = $amount < 0 ? '-' : '';
@@ -182,13 +110,6 @@ class Money
             : $sign . strtoupper($code) . ' ' . $formatted;
     }
 
-    /**
-     * Plain-text dual representation for non-HTML contexts (activity log
-     * entries, exports, CLI output): "₱308,071.47 ($5,000.00)", or just the
-     * base figure when there's no foreign amount to show. The on-page
-     * two-line presentation lives in <x-money> - it needs markup this
-     * method deliberately does not produce.
-     */
     public static function dual(float $php, ?float $foreign, ?string $foreignCode): string
     {
         $base = self::base($php);

@@ -14,24 +14,14 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * The individual listing page (quest 1, 2026-08-24): one product on Shopee,
- * shown the way the seller center shows it. The live half is fetched from
- * the marketplace on every load and NEVER substituted with stale data; the
- * record half edits the listing's own settings and its own copy of the
- * catalog product's content.
- */
 class ShopeeListingPageTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** Where a test's pictures live on the public disk, and what tearDown removes. */
     private const TEST_IMAGE_DIR = 'catalog/__shopee-listing-page-test';
 
-    /** @var array<int, array{path: string, body: array}> */
     private array $sentPayloads = [];
 
-    /** What the fake marketplace answers per GET path. */
     public array $getResponses = [];
 
     protected function setUp(): void
@@ -88,12 +78,6 @@ class ShopeeListingPageTest extends TestCase
         $this->sentPayloads[] = ['path' => $path, 'body' => $body];
     }
 
-    /**
-     * Warming a brand list (the owner, 2026-09-05): a first-time list is read
-     * one page per request so the page can show progress; the search then
-     * answers from the cache, and a category read to the end answers at
-     * once.
-     */
     public function test_a_brand_list_is_warmed_one_page_at_a_time_and_then_served_from_the_cache(): void
     {
         \Illuminate\Support\Facades\Cache::flush();
@@ -120,7 +104,6 @@ class ShopeeListingPageTest extends TestCase
         $this->assertTrue($second['complete']);
         $this->assertSame(3, $second['read']);
 
-        // Read to the end: the next warm answers at once, no call to Shopee.
         $this->getResponses['/api/v2/product/get_brand_list'] = ['ok' => false, 'status' => 500, 'body' => ['message' => 'must not be called']];
         $again = $this->actingAs($user)->getJson(route('ext.shopee.products.brandsForCategory', ['category_id' => 100013, 'warm' => 1, 'offset' => 0]))
             ->assertOk()->json();
@@ -184,11 +167,6 @@ class ShopeeListingPageTest extends TestCase
         return ['ok' => true, 'status' => 200, 'body' => ['response' => ['item_list' => [$item]]]];
     }
 
-    /**
-     * The one listing shape (2026-09-07): every channel's listing page says
-     * which of the catalog's images go up. Shopee takes nine; a tenth is
-     * shown as held back rather than quietly dropped.
-     */
     public function test_the_page_names_the_images_that_go_up_and_marks_what_stays_behind(): void
     {
         $productId = $this->seedProduct();
@@ -202,38 +180,11 @@ class ShopeeListingPageTest extends TestCase
         $page = $this->actingAs($this->manager())->get(route('ext.shopee.listings.edit', $productId))->assertOk();
         $page->assertSee('Images that go up');
 
-        /* HOW MANY SHOPEE TAKES IS NOT WRITTEN DOWN. Only Shopee knows it and
-           it changes without telling anyone, so every picture that is on goes
-           up and Shopee's own refusal is what the seller reads. The page
-           offers the way to answer it: each picture can be held back without
-           being removed. */
         $page->assertDontSee('images go up');
         $page->assertDontSee('held back');
         $page->assertSee('data-images-off', false);
     }
 
-    /**
-     * WHAT IS MISSING IS A LINK TO WHERE IT IS FIXED.
-     *
-     * The note used to name a SKU and then say "set what is missing and
-     * save" - on a page with no SKU field, because the SKU belongs to the
-     * catalog product. The owner, 2026-09-09: "Its a reminder that looks like
-     * it doesnt belong and it doesnt really teach the user."
-     */
-    /**
-     * THE LISTING PAGE SHOWS NO HEALTH AT ALL (the owner, 2026-09-09).
-     *
-     * "The more we edit the listing page, the more I hate it... What I
-     * want to see right now are just fields to edit. Nothing about health.
-     * We focus on the product edit."
-     *
-     * So the state word, the live figures, Last push, the channel accent
-     * and every note - the readiness warning included - are off this page.
-     * They are not deleted from the system: the engine still computes them
-     * and the Listings index still shows them. This pins the page's own
-     * silence so it is a decision on the record rather than a regression,
-     * and it is Shopee only, "for now" in his words.
-     */
     public function test_the_listing_page_reports_nothing_about_health(): void
     {
         $pfx = (string) config('catalog.prefix');
@@ -255,18 +206,10 @@ class ShopeeListingPageTest extends TestCase
         $this->assertStringContainsString('cl-strip--quiet', $html,
             'The bar keeps the verbs and loses the channel accent: a coloured bar reads as a status banner even when it says nothing.');
 
-        /* What he asked to KEEP: the required-field handling. The category
-           still declares what it wants picked, and Save no longer waves it
-           through. */
         $this->assertStringContainsString('data-combo-required="Pick a Shopee category from the list."', $html);
         $this->assertStringNotContainsString('formnovalidate', $html);
     }
 
-    /**
-     * The product group leads the page as the listing's template: the one
-     * group it is in on this store is picked, and a listing with no rule of
-     * its own shows the group's rule in its fields.
-     */
     public function test_the_band_picks_the_group_and_the_fields_show_what_it_gives(): void
     {
         $productId = $this->seedProduct();
@@ -287,11 +230,6 @@ class ShopeeListingPageTest extends TestCase
             "the group's rule is the value in effect");
     }
 
-    /**
-     * The listing arranges its own pictures. It keeps its own copy, so an
-     * arrangement is stored as sent, even one equal to the catalog's, and
-     * an emptied one sends the catalog's.
-     */
     public function test_the_listing_keeps_its_own_arrangement_and_an_emptied_one_sends_the_catalogs(): void
     {
         $productId = $this->seedProduct();
@@ -299,7 +237,6 @@ class ShopeeListingPageTest extends TestCase
         $paths = $this->seedRealImages($productId, 3);
         $user = $this->manager();
 
-        // The catalog's own order, saved, is the listing's own copy.
         $this->actingAs($user)->post(route('ext.shopee.listings.update', $productId), [
             'shopee_category_id' => 100013, 'logistic_ids' => [8003],
             'image_order' => json_encode($paths),
@@ -307,7 +244,6 @@ class ShopeeListingPageTest extends TestCase
         $listing = ShopeeListing::query()->where('product_id', $productId)->firstOrFail();
         $this->assertSame($paths, $listing->image_order, 'The listing keeps its own copy, even one equal to the catalog.');
 
-        // A different order is the listing's own, and the push reads it.
         $reversed = array_reverse($paths);
         $this->actingAs($user)->post(route('ext.shopee.listings.update', $productId), [
             'shopee_category_id' => 100013, 'logistic_ids' => [8003],
@@ -321,19 +257,14 @@ class ShopeeListingPageTest extends TestCase
             'The push sends the arrangement, not the catalog order.'
         );
 
-        // A save that does not carry the field at all leaves it alone: the
-        // input is invisible, so silence is not an instruction to clear it.
         $this->actingAs($user)->post(route('ext.shopee.listings.update', $productId), [
             'shopee_category_id' => 100013, 'logistic_ids' => [8003],
         ]);
         $this->assertSame($reversed, $listing->fresh()->image_order);
 
-        // And the page hands the arrangement back in the input, so a save
-        // from a page whose script never arrived keeps it too.
         $this->actingAs($user)->get(route('ext.shopee.listings.edit', $productId))
             ->assertSee('name="image_order" value="' . e(json_encode($reversed)), false);
 
-        // Emptying it sends the catalog's pictures again.
         $this->actingAs($user)->post(route('ext.shopee.listings.update', $productId), [
             'shopee_category_id' => 100013, 'logistic_ids' => [8003],
             'image_order' => '[]',
@@ -341,7 +272,6 @@ class ShopeeListingPageTest extends TestCase
         $this->assertNull($listing->fresh()->image_order);
     }
 
-    /** A hidden input is client input, and this one ends in a file read. */
     public function test_an_arrangement_takes_only_paths_the_library_actually_holds(): void
     {
         $productId = $this->seedProduct();
@@ -367,7 +297,6 @@ class ShopeeListingPageTest extends TestCase
         );
     }
 
-    /** The page shows the arrangement, ranked, with what stays behind said. */
     public function test_the_page_draws_the_arrangement_and_offers_the_library(): void
     {
         $productId = $this->seedProduct();
@@ -383,18 +312,10 @@ class ShopeeListingPageTest extends TestCase
         $page->assertSee('data-listing-images', false);
         $page->assertSee('Add from library');
         $page->assertSee('data-path="' . end($paths) . '"', false);
-        // Every picture is on until the seller says otherwise.
         $page->assertDontSee('lc-images__item--held', false);
         $page->assertSee('data-images-off', false);
     }
 
-    /**
-     * The picture the operator arranged is the picture that goes up
-     * (critique 2026-09-08). Push update carried every other field and no
-     * image block at all, so an arrangement made on this page went up from
-     * a GROUP push and was dropped by the page's own push, under a green
-     * flash saying it had gone.
-     */
     public function test_push_update_sends_the_listings_own_pictures_in_its_own_order(): void
     {
         $productId = $this->seedProduct();
@@ -408,8 +329,6 @@ class ShopeeListingPageTest extends TestCase
         ]);
         $this->getResponses['/api/v2/product/get_item_base_info'] = $this->baseInfoAnswer();
 
-        /* The uploader is the real one; it answers with an id per file it
-           can read, so the payload proves the ORDER as well as the count. */
         $seen = [];
         \Illuminate\Support\Facades\Http::fake(function ($request) use (&$seen) {
             $seen[] = $request->url();
@@ -433,12 +352,6 @@ class ShopeeListingPageTest extends TestCase
         $this->assertCount(3, $seen, 'Every picture is uploaded before the update names it.');
     }
 
-    /**
-     * One verb, three calls. Shopee's update_item carries no price and no
-     * stock, so a send that stopped there left both figures behind on the
-     * live item while the flash said it had gone. Send makes the other two
-     * calls itself, because the API's shape is ours to absorb.
-     */
     public function test_send_carries_the_price_and_the_stock_not_only_the_content(): void
     {
         $productId = $this->seedProduct();
@@ -461,7 +374,6 @@ class ShopeeListingPageTest extends TestCase
         $this->assertContains('/api/v2/product/update_stock', $paths, 'the stock goes with it');
     }
 
-    /** A save keeps the way back to the search, so Cancel still returns to it. */
     public function test_a_save_keeps_the_way_back_to_the_search(): void
     {
         $productId = $this->seedProduct();
@@ -472,10 +384,6 @@ class ShopeeListingPageTest extends TestCase
             ->assertRedirect(route('ext.shopee.listings.edit', [$productId, 'back' => $back]));
     }
 
-    /**
-     * Save and push on a live listing saves, updates the live item and
-     * returns to the search it came from, the way Lazada always has.
-     */
     public function test_save_and_push_updates_a_live_listing_and_returns_to_the_search(): void
     {
         $productId = $this->seedProduct();
@@ -498,17 +406,11 @@ class ShopeeListingPageTest extends TestCase
         $this->assertNotNull(collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/update_item'), 'Save and push reaches update_item.');
     }
 
-    /**
-     * A listing that carries its own pictures answers the image gap itself.
-     * It used to be told it needed "a product image on the catalog product"
-     * with nine pictures on screen above the sentence.
-     */
     public function test_a_listing_with_its_own_pictures_is_not_asked_for_a_catalog_image(): void
     {
         $productId = $this->seedProduct();
         $pfx = (string) config('catalog.prefix');
         $paths = $this->seedRealImages($productId, 2);
-        // The catalog product itself carries none.
         DB::table($pfx . 'product')->where('product_id', $productId)->update(['image' => '']);
 
         $readiness = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class);
@@ -525,21 +427,9 @@ class ShopeeListingPageTest extends TestCase
         $this->assertNotContains('a product image on the catalog product', $after);
     }
 
-    /**
-     * Seeds images the library actually holds - acceptable() asks the disk,
-     * so a made-up path is not a fixture, it is a rejection.
-     *
-     * @return list<string>
-     */
     private function seedRealImages(int $productId, int $count): array
     {
         $pfx = (string) config('catalog.prefix');
-        /* Real files on the real public disk, not a faked one: two things
-           read them and they read them differently. acceptable() asks
-           Storage, and the uploader resolves storage_path() and opens the
-           file. A fake disk satisfies the first and silently fails the
-           second, which is exactly the bug this fixture has to be able to
-           catch. tearDown takes the folder away again. */
         $disk = \Illuminate\Support\Facades\Storage::disk('public');
         $paths = [];
         for ($i = 1; $i <= $count; $i++) {
@@ -566,10 +456,6 @@ class ShopeeListingPageTest extends TestCase
             ->get(route('ext.shopee.listings.edit', $productId));
 
         $r->assertOk();
-        /* The strip used to answer this in words. Health came off the page
-           on 2026-09-09 (see test_the_listing_page_reports_nothing_about_health),
-           so what is pinned here is what remains true: the page opens, and
-           it offers no verb that acts on an item the store does not have. */
         $r->assertDontSee('Stock on Shopee');
         $r->assertDontSee('Delist from Shopee');
     }
@@ -596,7 +482,6 @@ class ShopeeListingPageTest extends TestCase
         $this->assertSame('The catalog wording.', $listing->description, 'A new listing starts as a copy of the catalog.');
         $this->assertNull($listing->weight);
 
-        // Emptying the description on a listing that exists clears its own copy.
         $this->actingAs($user)->post(route('ext.shopee.listings.update', $productId), [
             'shopee_category_id' => 100013,
             'logistic_ids' => [8003],
@@ -605,7 +490,6 @@ class ShopeeListingPageTest extends TestCase
         $this->assertNull($listing->fresh()->description);
         $this->assertSame('A Shopee-only title', $listing->fresh()->item_name, 'A save without the title leaves it alone.');
 
-        // A title sent blank is refused, and the listing keeps its own.
         $this->actingAs($user)->post(route('ext.shopee.listings.update', $productId), [
             'shopee_category_id' => 100013,
             'logistic_ids' => [8003],
@@ -627,10 +511,7 @@ class ShopeeListingPageTest extends TestCase
             ->get(route('ext.shopee.listings.edit', $productId));
 
         $r->assertOk();
-        // The state word left with the rest of the health surface; the
-        // verbs that act on a live item stayed, and so did the write-through.
         $r->assertSee('Delist from Shopee');
-        // And what it read is written to the mirror, so the lists agree at once.
         $this->assertSame('NORMAL', ShopeeProductLink::query()->where('shopee_item_id', 990077)->value('live_status'));
     }
 
@@ -647,9 +528,6 @@ class ShopeeListingPageTest extends TestCase
             ->get(route('ext.shopee.listings.edit', $productId));
 
         $r->assertOk();
-        /* The sentence went with the health surface. The BEHAVIOUR it
-           existed to guarantee did not: a page that could not read the item
-           offers no verb that acts on it, rather than substituting a guess. */
         $r->assertDontSee('Delist from Shopee');
     }
 
@@ -670,7 +548,6 @@ class ShopeeListingPageTest extends TestCase
         $r->assertSessionHas('status');
     }
 
-    /** get_item_list answers: counts per status, and one page of ids. */
     private function fakeItemList(array $idsByStatus): void
     {
         $this->getResponses['/api/v2/product/get_item_list'] = function (array $q) use ($idsByStatus) {
@@ -699,11 +576,6 @@ class ShopeeListingPageTest extends TestCase
         $this->assertEmpty($this->sentPayloads);
     }
 
-    /**
-     * Since 2026-08-28 the strip and the chips read the MIRROR on the link
-     * rows. A page view asks Shopee for nothing; the Refresh button and the
-     * 30-minute automation walk the shop and write the mirror.
-     */
     public function test_the_page_reads_the_mirror_and_asks_shopee_for_nothing(): void
     {
         $productId = $this->seedProduct();
@@ -711,25 +583,16 @@ class ShopeeListingPageTest extends TestCase
             'product_id' => $productId, 'shopee_item_id' => 111, 'sku' => 'LSTP-SKU-1',
             'live_status' => 'UNLIST', 'live_checked_at' => '2026-08-28 08:30:00',
         ]);
-        // No get_item_list or get_item_base_info registered: the page must not need them.
 
         $r = $this->actingAs($this->manager())->get(route('ext.shopee.products.index'));
 
         $r->assertOk();
-        // The status menu's "All" is this store's own list, and Shopee's
-        // buckets are the tab row above the table. The catalogue framing
-        // stays gone.
         $r->assertSee('lss__label">All<', false);
         $r->assertSee('class="x-segment-bar"', false);
         $r->assertSee('<span>All</span>', false);
-        $r->assertDontSee('x-segment-group__k', false); // no "Your catalogue" / "On Shopee" labels
-        /* The tab row says "All", this store's own list, never "All
-           products", which framed the page as the whole catalogue. The left
-           menu's own total is allowed to say it: there it counts the store. */
+        $r->assertDontSee('x-segment-group__k', false);
         $r->assertDontSee('<span>All products</span>', false);
         $r->assertSee('as of 08:30, Aug 28');
-        // Icon-only since the cleanup (2026-09-03); the words live in the
-        // accessible name.
         $r->assertSee('Refresh from Shopee', false);
         $r->assertSee('Refresh from Shopee');
         $r->assertSee('shopee_tab=unlisted', false);
@@ -738,7 +601,6 @@ class ShopeeListingPageTest extends TestCase
         $this->assertEmpty($this->sentPayloads);
     }
 
-    /** A link a push just created has no status; the page asks Shopee once for those rows only, then reads the mirror. */
     public function test_a_link_never_checked_is_filled_on_first_view_and_only_once(): void
     {
         $productId = $this->seedProduct();
@@ -764,7 +626,6 @@ class ShopeeListingPageTest extends TestCase
     {
         $productId = $this->seedProduct();
         ShopeeProductLink::query()->create(['product_id' => $productId, 'shopee_item_id' => 111, 'sku' => 'LSTP-SKU-1']);
-        // No get_item_base_info registered: the fake refuses; the row stays blank rather than guessed.
 
         $r = $this->actingAs($this->manager())->get(route('ext.shopee.products.index'));
 
@@ -814,7 +675,6 @@ class ShopeeListingPageTest extends TestCase
         ShopeeProductLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 111, 'sku' => 'LSTP-SKU-1', 'live_status' => 'NORMAL',
         ]);
-        // No get_item_list response registered: the fake answers ok=false.
 
         $r = $this->actingAs($this->manager())->post(route('ext.shopee.products.refresh_status'));
 
@@ -861,7 +721,6 @@ class ShopeeListingPageTest extends TestCase
         $this->assertSame('UNLIST', ShopeeProductLink::where('shopee_item_id', 990077)->value('live_status'));
     }
 
-    /** The selection bar's Unlist / Relist (the owner, 2026-08-28): one unlist_item call for the whole selection. */
     public function test_bulk_toggle_unlists_the_selection_in_one_call_and_names_what_it_skipped(): void
     {
         $a = $this->seedProduct();
@@ -908,7 +767,6 @@ class ShopeeListingPageTest extends TestCase
             'product_id' => $productId,
             'shopee_category_id' => 100013, 'logistic_ids' => [8003],
             'item_name' => 'A Shopee-only title',
-            // description left null: the catalog's wording goes.
         ]);
 
         $r = $this->actingAs($this->manager())
@@ -933,13 +791,6 @@ class ShopeeListingPageTest extends TestCase
         $this->assertNotNull($listing->last_pushed_at);
     }
 
-    /**
-     * the owner, 2026-09-13: the templates chosen on the listing page reached
-     * Shopee from the first push and from a group push, but Push update on
-     * the listing page sent the bare words. tshirt 4565's live description
-     * carried neither its prefix nor its suffix. Every door reads the same
-     * composer now.
-     */
     public function test_push_update_wraps_the_description_in_the_stores_templates(): void
     {
         $productId = $this->seedProduct();
@@ -966,7 +817,6 @@ class ShopeeListingPageTest extends TestCase
             'Prefix, the listing\'s own words, suffix: the same composition every other push sends.');
     }
 
-    /** The live item for the description tests, in the shape Shopee holds it. */
     private function liveItemWithDescription(string $type, array $fields): void
     {
         $this->getResponses['/api/v2/product/get_item_base_info'] = ['ok' => true, 'status' => 200, 'body' => ['response' => ['item_list' => [[
@@ -990,13 +840,6 @@ class ShopeeListingPageTest extends TestCase
         return $productId;
     }
 
-    /**
-     * An item saved by Seller Center's rich editor holds an extended
-     * description, a list of text and image fields. Shopee refuses a plain
-     * description onto it, so the update answers in that shape. The
-     * description is ours: the listing's words, line breaks kept, and the
-     * store's own image fields are not kept.
-     */
     public function test_push_update_writes_an_extended_description_in_its_own_shape(): void
     {
         $productId = $this->listingWithWords("Qable IC50\n\nAn instrument cable");
@@ -1020,7 +863,6 @@ class ShopeeListingPageTest extends TestCase
             'The store\'s own image field is replaced by our description.');
     }
 
-    /** A listing copied from a catalog description that carries two library pictures. */
     private function catalogDescriptionWithTwoPictures(): int
     {
         $productId = $this->seedProduct();
@@ -1045,13 +887,6 @@ class ShopeeListingPageTest extends TestCase
         return $productId;
     }
 
-    /**
-     * Fakes media_space upload_image: each call answers the next id, except
-     * the calls listed in $refused, which Shopee refuses.
-     *
-     * @param  list<int>  $refused  1-based call numbers
-     * @return \ArrayObject<int, string>  the multipart body of every upload
-     */
     private function fakeUploads(array $refused = []): \ArrayObject
     {
         $bodies = new \ArrayObject();
@@ -1249,10 +1084,6 @@ class ShopeeListingPageTest extends TestCase
 
     public function test_the_category_picker_endpoints_answer_to_the_products_key(): void
     {
-        // The push form and listing page's combobox search under THEIR OWN
-        // permission key: an operator with shopee/product but no
-        // shopee/product_group must not need the group key to pick a
-        // category.
         $this->actingAs($this->userWith(['view_shopee/product']))
             ->get(route('ext.shopee.products.searchCategories', ['q' => 'guitar']))
             ->assertOk()
@@ -1261,10 +1092,6 @@ class ShopeeListingPageTest extends TestCase
 
     public function test_a_check_stamps_the_product_not_the_page_it_ran_from(): void
     {
-        /* Stage 2 of the one-truth repointing: "checked 37 minutes ago" is
-         * a fact about the PRODUCT. It lands on the listing record - where
-         * every group page and the Listings page read it - and the pivot's
-         * per-group copy stops being written. */
         $productId = $this->seedProduct();
         ShopeeProductLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1',
@@ -1276,7 +1103,6 @@ class ShopeeListingPageTest extends TestCase
         DB::table('shopee_product_group_products')->insert([
             'shopee_product_group_id' => $group->id, 'product_id' => $productId,
         ]);
-        // The batch prefill confirms the item alive.
         $this->getResponses['/api/v2/product/get_item_base_info'] = $this->baseInfoAnswer();
 
         $this->actingAs($this->userWith([
@@ -1295,11 +1121,6 @@ class ShopeeListingPageTest extends TestCase
             'The per-group copy of the checked fact must no longer be written.');
     }
 
-    /**
-     * The workbench check (Phase F, #184): the group page's sweep with no
-     * group anywhere in sight, on the shared ShopeeLinkCheck. It also
-     * replaced Match Shopee IDs, which could only fill in blanks.
-     */
     public function test_the_workbench_check_needs_no_group(): void
     {
         $productId = $this->seedProduct();
@@ -1321,7 +1142,6 @@ class ShopeeListingPageTest extends TestCase
         $this->seedProduct();
         $html = $this->actingAs($this->manager())
             ->get(route('ext.shopee.products.index'))->assertOk()->getContent();
-        // Refresh folds the check in (2026-09-07); the bar offers Link IDs through the same route.
         $this->assertStringContainsString('Link IDs', $html);
         $this->assertStringContainsString('Refresh from Shopee', $html);
         $this->assertStringNotContainsString('Repair links', $html);
@@ -1331,10 +1151,7 @@ class ShopeeListingPageTest extends TestCase
 
     public function test_the_row_menu_push_asks_before_publishing(): void
     {
-        // Critique P1: the index kebab's one-click push published a live
-        // listing with no confirmation while its neighbours asked.
         $productId = $this->seedProduct();
-        // A catch-all group brings the unlinked product into the index's scope.
         \Extensions\shopee\Models\ShopeeProductGroup::create([
             'name' => 'Confirm scope',
             'shopee_category_id' => 100013, 'logistic_ids' => [8003],
@@ -1347,30 +1164,17 @@ class ShopeeListingPageTest extends TestCase
         $this->getResponses['/api/v2/product/get_item_base_info'] =
             ['ok' => true, 'status' => 200, 'body' => ['response' => ['item_list' => []]]];
 
-        /* The one-editor merge (2026-09-03) settled #149's concern the
-           other way around: the row pushes directly ONLY when readiness
-           says Shopee would accept it, and then it asks first - the very
-           confirmation this critique wanted. The listing above is ready
-           (its category's sheet is seeded empty), so the row must offer
-           the confirmed direct push. */
         \Extensions\shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 100013], ['attributes' => []]);
 
         $this->actingAs($this->manager())
             ->get(route('ext.shopee.products.index'))
             ->assertSee(route('ext.shopee.products.push_direct', $productId), false)
-            // The ask is the review MODAL now (cleanup 7+9): the form
-            // carries the review endpoint and shows what goes up before
-            // it goes; without JS it still pushes natively.
             ->assertSee('data-push-review="' . route('ext.shopee.products.push_review', $productId) . '"', false);
     }
 
     public function test_an_unready_rows_push_leads_into_the_listing_editor(): void
     {
-        /* The other half of the merge: no settings at all means no direct
-           push - the same words lead into the editor, which names what is
-           missing (proper error handling, the owner 2026-09-03). */
         $productId = $this->seedProduct();
-        // On the store (#201) with a blank record - exactly what Add products leaves behind.
         \Extensions\shopee\Models\ShopeeListing::create(['product_id' => $productId]);
         \Extensions\shopee\Models\ShopeeProductGroup::create([
             'name' => 'Unready scope',
@@ -1388,8 +1192,6 @@ class ShopeeListingPageTest extends TestCase
 
     public function test_the_item_id_links_to_the_live_listing(): void
     {
-        // Critique P2: the operator's terminal goal is the live marketplace
-        // page; the id is now the door to it.
         $productId = $this->seedProduct();
         ShopeeProductLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1',
@@ -1403,9 +1205,6 @@ class ShopeeListingPageTest extends TestCase
 
     public function test_a_view_only_operator_reads_the_page_without_verbs(): void
     {
-        // Every screen serves two permission worlds: the view tier reads
-        // the same page with every field disabled and no verbs, instead
-        // of a 403 from a menu that offered the link (critique 2026-08-25).
         $productId = $this->seedProduct();
 
         $r = $this->actingAs($this->userWith(['view_shopee/product']))
@@ -1417,7 +1216,6 @@ class ShopeeListingPageTest extends TestCase
         $r->assertDontSee('Save listing');
     }
 
-    /** Live, 2026-09-07: "Reading brands from Shopee... 100 so far" never moved. A page that adds nothing ends the warm. */
     public function test_a_page_that_repeats_the_brands_already_read_ends_the_warm(): void
     {
         \Illuminate\Support\Facades\Cache::flush();
@@ -1427,7 +1225,7 @@ class ShopeeListingPageTest extends TestCase
 
             return ['ok' => true, 'status' => 200, 'body' => ['response' => [
                 'brand_list' => [['brand_id' => 21, 'original_brand_name' => 'Boss'], ['brand_id' => 22, 'original_brand_name' => 'Ibanez']],
-                'has_next_page' => true, // Shopee keeps saying so, whatever the offset
+                'has_next_page' => true,
                 'next_offset' => (int) ($q['offset'] ?? 0) + 100,
             ]]];
         };
@@ -1446,7 +1244,6 @@ class ShopeeListingPageTest extends TestCase
         $this->assertSame(2, $calls, 'read to the end, the warm never asks Shopee again');
     }
 
-    /** Both brand pickers (Edit Listing, the group form) warm through the one endpoint, and the page stops on a stalled count too. */
     public function test_both_brand_pickers_warm_through_the_one_endpoint_and_the_page_guards_a_stall(): void
     {
         $this->assertStringContainsString('data-combo-warm', (string) file_get_contents(base_path('extensions/shopee/views/listings/edit.blade.php')));
@@ -1456,7 +1253,6 @@ class ShopeeListingPageTest extends TestCase
         $this->assertStringContainsString('stalls >= 3', $js);
         $this->assertStringContainsString('kept sending the same page', $js);
     }
-    /** A row is named by this store's own title, the catalog's name when it has none, and the search finds it by that title. */
     public function test_a_row_shows_the_stores_own_title_and_the_search_finds_it(): void
     {
         $pfx = (string) config('catalog.prefix');
@@ -1491,7 +1287,6 @@ class ShopeeListingPageTest extends TestCase
         }
     }
 
-    /** A variation SKU on the catalog product, which makes it a product with variations. */
     private function giveVariations(int $productId): void
     {
         DB::table('product_option_combinations')->insert([

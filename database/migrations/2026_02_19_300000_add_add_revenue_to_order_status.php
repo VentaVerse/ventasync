@@ -18,7 +18,6 @@ return new class extends Migration
             });
         }
 
-        // Seed: Delivered (9) and Completed (10) add to revenue by default
         DB::table($table)->whereIn('order_status_id', [9, 10])->update(['add_revenue' => 1]);
     }
 

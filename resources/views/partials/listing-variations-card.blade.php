@@ -1,16 +1,3 @@
-{{--
-    A listing's variations, on every channel's listing page: the catalog's
-    enabled variations, whether the store carries each one yet, and a
-    switch that decides whether this store sells it. A variation switched
-    off in the catalog is not listed here.
-
-    Expected keys:
-      title            the card's heading, "Variations on <store>"
-      storeName        the channel or store's name, for the words
-      variationRows    from ListingVariations::cardData
-      variationExtras  from ListingVariations::cardData
-      canManage        bool
---}}
 @php
     $rows = $variationRows ?? [];
     $extras = $variationExtras ?? [];

@@ -23,13 +23,11 @@ class DeviceTokenController extends Controller
             'user_id'  => $request->user()->id,
             'platform' => $request->input('platform', $device->platform ?? 'android'),
         ]);
-        // A phone that does not say what it is keeps what it said before.
         foreach (['device_name', 'os_version', 'app_version'] as $field) {
             if ($request->filled($field)) {
                 $device->{$field} = $request->input($field);
             }
         }
-        // Registering again is the phone checking in.
         $device->touch();
 
         return response()->json(['message' => 'Token registered.']);
@@ -41,7 +39,6 @@ class DeviceTokenController extends Controller
             'token' => 'required|string',
         ]);
 
-        // A person signs out their own phone, never someone else's.
         DeviceToken::where('token', $request->token)->where('user_id', $request->user()->id)->delete();
 
         return response()->json(['message' => 'Token removed.']);

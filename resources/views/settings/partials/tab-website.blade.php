@@ -1,17 +1,8 @@
 @php
-    // AppServiceProvider::boot() sets mail.from.address from `from_email`,
-    // and MailConfigServiceProvider (registered after it in config/app.php)
-    // overwrites that with `mail_from_address` whenever the Mail tab has one.
-    // So `from_email` is the fallback sender, not a second independent
-    // address, and the hint says exactly that instead of leaving an operator
-    // to discover the precedence by sending a test message.
     $mailOverrides = ! empty($setting->mail_from_address);
     $retention = old('activity_log_retention_days', $setting->activity_log_retention_days ?? 90);
 
-    // Built here and passed with :hint so the component escapes it exactly
-    // once. `hint="{{ ... }}"` would escape into the attribute AND again on
-    // render, which is the double-encode Breadcrumbs::leaf() already had to
-    // undo once in this codebase.
+    // Pass the hint via :hint so it is escaped once; hint="{{ }}" double-encodes.
     $fromHint = $mailOverrides
         ? 'The Mail page sets a From address (' . $setting->mail_from_address . '), which takes precedence over this one.'
         : 'Mail this system sends comes from here, unless the Mail page sets a From address.';
@@ -75,10 +66,6 @@
                     </x-ui.field>
                 @endforeach
 
-                {{-- The logo is fitted inside its box with its shape kept, so
-                     only the tighter of the two numbers can bind. The height is
-                     the one worth choosing; the width a mark may use is the room
-                     its column has. --}}
                 @foreach([
                     \App\Services\Media\BrandImage::NAV => 'Sidebar logo height (px)',
                     \App\Services\Media\BrandImage::LOGIN => 'Sign-in logo height (px)',
@@ -98,18 +85,7 @@
             <div class="fm-section__head">
                 <h2 class="fm-section__title">Branding</h2>
             </div>
-            {{-- Each upload sits with the thing it would replace. They were
-                 split apart into a side card, which put the logo you are
-                 about to overwrite in a different column from the button
-                 that overwrites it. The file input still drives the image
-                 above it by id through data-image-preview, so picking a file
-                 previews it in place. --}}
             <div class="fm-fields fm-fields--2">
-                {{-- The hint is written into the slot rather than passed as
-                     the prop, only so it keeps its old position: the prop
-                     renders after the slot, which would put the sentence
-                     under the preview where it reads as a caption for the
-                     image. Same markup either way. --}}
                 <x-ui.field label="Logo" for="st-logo" name="logo" wide>
                     <div class="st-file">
                         <label class="st-file__btn" for="st-logo">Choose file</label>
@@ -121,9 +97,6 @@
                     </div>
                     <div class="fm-hint">Shown in the sidebar and on the login screen. Up to 2 MB.</div>
                     <p class="st-file__error" id="st-logo-error" role="status" hidden></p>
-                    {{-- Only what was uploaded is shown. With nothing uploaded
-                         the box stays out of the way until a file is picked,
-                         when the preview brings it back. --}}
                     <div class="st-brandnow" @unless($setting->logo_path) hidden @endunless>
                         <img class="st-brand__logo" id="st-logo-img" alt="Logo"
                              src="{{ $setting->logo_path ? asset('storage/'.$setting->logo_path) : '' }}">

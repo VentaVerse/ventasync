@@ -1,20 +1,3 @@
-/* ============================================================
- * THE CATEGORY PICKER.
- *
- * The field shows the path and opens the picker. Nothing is typed into it,
- * so nothing half-typed can be mistaken for a choice.
- *
- * Inside, a column per level, every one of them open, scrolling sideways
- * when the tree is deep. A DEPTH IS NEVER ASSUMED: a column appears
- * whenever the row picked says something sits below it, and the walk stops
- * at a leaf. Shopee reaches five levels and Lazada six, so a fixed count
- * would strand most of Lazada's catalogue.
- *
- * Nothing is chosen until Confirm. Cancel puts back whatever the field held.
- *
- * Everything is written with textContent and element properties, never
- * innerHTML: a category name is somebody else's data.
- * ============================================================ */
 (function () {
     'use strict';
 
@@ -42,8 +25,6 @@
         const clear = root.querySelector('[data-ctp-clear]');
         const refresh = root.querySelector('[data-ctp-refresh]');
 
-        /* What the field holds, and what the open picker is considering.
-           They meet only on Confirm. */
         let saved = { id: valueField.value ? Number(valueField.value) : null, text: fieldText.textContent };
         let levels = [];
         let draft = [];
@@ -65,18 +46,11 @@
                 .then(function (r) { return r.ok ? r.json() : Promise.reject(new Error(String(r.status))); });
         }
 
-        /* Required means required on both presses. A blank category used to
-           save silently while the asterisk promised otherwise, so the browser
-           is asked to refuse with its own bubble. */
         function holdToAccount() {
             if (!requiredWord) return;
             open.setCustomValidity(valueField.value ? '' : requiredWord);
         }
 
-        /* Anything that depends on the category watches the hidden field for
-           a change: Lazada reads the category's attribute template, TikTok
-           narrows its brand list. Setting a value in script fires nothing on
-           its own, so the change is announced. */
         function commit(id, text) {
             const next = id ? String(id) : '';
             const changed = valueField.value !== next;
@@ -95,7 +69,6 @@
 
         function drawDraft() {
             if (picked) picked.textContent = draftText();
-            // Only the end of a branch can be sent, so only a leaf is confirmable.
             confirm.disabled = !(draft.length && draft[draft.length - 1].leaf);
         }
 
@@ -174,7 +147,6 @@
                 .catch(function () { note('That level could not be loaded.'); });
         }
 
-        /** Open every column along a category's path, each one chosen. */
         function openAt(id) {
             return get(pathUrl + '?id=' + encodeURIComponent(id)).then(function (data) {
                 const path = data.path || [];
@@ -218,8 +190,6 @@
         open.addEventListener('click', openPicker);
 
         cancel.addEventListener('click', function () {
-            /* Put back what the field holds, so a wandering press changes
-               nothing. */
             draft = [];
             levels = [];
             loaded = false;
@@ -250,8 +220,6 @@
             if (e.key === 'Escape' && modal.classList.contains('active')) cancel.click();
         });
 
-        /* Search fills the tree rather than replacing it: choosing a result
-           opens every column along its path, already chosen. */
         function closeResults() {
             results.textContent = '';
             results.hidden = true;
@@ -286,7 +254,6 @@
             results.hidden = false;
         }
 
-        /** Every leaf already loaded whose name carries the words typed. */
         function filterLoaded(q) {
             const needle = q.toLowerCase();
             const seen = {};
@@ -304,7 +271,6 @@
         }
 
         if (search) {
-            // The picker sits inside a page form on some channels.
             search.addEventListener('keydown', function (e) {
                 if (e.key === 'Enter') e.preventDefault();
             });
@@ -324,8 +290,6 @@
                     get(searchUrl + '?q=' + encodeURIComponent(q))
                         .then(function (data) {
                             const raws = data.items || data.categories || data || [];
-                            /* Each channel's search answers in its own words,
-                               so the shapes are read here and nowhere else. */
                             showFound(raws.map(function (raw) {
                                 return {
                                     id: Number(raw.id !== undefined ? raw.id : raw.category_id),
@@ -339,9 +303,6 @@
             });
         }
 
-        /* Re-read the channel's categories, then throw away every column so
-           the picker asks again. A manage-tier POST, so it is only in the
-           markup for that tier. */
         if (refresh) {
             refresh.addEventListener('click', function () {
                 const restore = refresh.textContent;

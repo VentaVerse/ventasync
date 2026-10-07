@@ -30,7 +30,6 @@ class VentaApiLog extends Model
         try {
             static::create($data);
         } catch (\Throwable $e) {
-            // Never let logging break the main flow
         }
     }
 }

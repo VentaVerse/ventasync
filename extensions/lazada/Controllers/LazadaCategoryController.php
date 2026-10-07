@@ -22,7 +22,6 @@ class LazadaCategoryController extends Controller
             $query->where(function ($sub) use ($q) {
                 $sub->where('name', 'like', '%' . $q . '%');
 
-                // Numeric search on category_id
                 if (ctype_digit($q)) {
                     $sub->orWhere('category_id', (int)$q);
                 }
@@ -48,7 +47,6 @@ class LazadaCategoryController extends Controller
             return redirect()->route('ext.lazada.categories.index')->with('error', 'Missing Lazada settings. Please configure Region, App Key, and App Secret first.');
         }
 
-        // Base params required by Lazada signing.
         $timestamp = (string)round(microtime(true) * 1000);
         $params = [
             'app_key' => (string)$creds['app_key'],
@@ -62,7 +60,6 @@ class LazadaCategoryController extends Controller
         $result = $client->get((string)$setting->region, $apiPath, $params);
         $body = $result['body'] ?? null;
 
-        // Lazada returns categories under `data`.
         $nodes = [];
         if (is_array($body)) {
             if (isset($body['data']) && is_array($body['data'])) {
@@ -77,7 +74,6 @@ class LazadaCategoryController extends Controller
             return redirect()->route('ext.lazada.categories.index')->with('error', 'Fetch failed: ' . $msg);
         }
 
-        // Flatten tree and replace the local cache.
         $rows = [];
         $this->flattenTree($nodes, $rows, null, 0);
 
@@ -85,7 +81,6 @@ class LazadaCategoryController extends Controller
             return redirect()->route('ext.lazada.categories.index')->with('error', 'Fetch returned no categories. Existing category cache was not modified.');
         }
 
-        // Ensure IDs restart from 1 after refresh (without using ALTER TABLE inside a transaction).
         $i = 1;
         foreach ($rows as &$r) {
             $r['id'] = $i++;
@@ -94,10 +89,8 @@ class LazadaCategoryController extends Controller
 
 
         DB::transaction(function () use ($rows) {
-            // We intentionally clear the cache only AFTER a successful API fetch.
-            // Use delete() (not truncate) to keep this operation transactional.
+            // Clear the cache only after a successful fetch, so a failed call keeps the old categories.
             DB::table('lazada_categories')->delete();
-            // Chunk inserts to avoid max packet issues.
             $chunks = array_chunk($rows, 1000);
             foreach ($chunks as $chunk) {
                 DB::table('lazada_categories')->insert($chunk);

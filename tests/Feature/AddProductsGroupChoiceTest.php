@@ -12,12 +12,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * The Add products window asks which product group the products go into.
- * The product lands in that group, leaving any other group on the same
- * store; a group of another store is refused; and the window opens on the
- * group the Listings page is standing in.
- */
 class AddProductsGroupChoiceTest extends TestCase
 {
     use RefreshDatabase;
@@ -70,7 +64,6 @@ class AddProductsGroupChoiceTest extends TestCase
             ->assertOk();
     }
 
-    /** @return list<int> the groups holding the product */
     private function holdingGroups(): array
     {
         return DB::table('shopee_product_group_products')->where('product_id', $this->productId)->pluck('shopee_product_group_id')->map(fn ($v) => (int) $v)->all();

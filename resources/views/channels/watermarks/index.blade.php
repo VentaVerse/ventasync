@@ -18,7 +18,6 @@
 </form>
 
 @if($templates->count() === 0)
-    {{-- An empty state answers, it does not assign homework (2026-09-09). --}}
     <x-ui.empty title="{{ $q !== '' ? 'Nothing matches that' : 'No watermark templates yet' }}">
         @if($canManage)
             <x-slot:action>
@@ -43,7 +42,6 @@
             @foreach($templates as $t)
                 <tr>
                     <td data-label="Mark">
-                        {{-- On a chequer, or a white logo on white looks like nothing at all. --}}
                         <span class="wm-chip"><img src="{{ $t->markUrl() }}" alt="" loading="lazy"></span>
                     </td>
                     <td data-label="Name">

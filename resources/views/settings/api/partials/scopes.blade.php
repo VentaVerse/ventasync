@@ -1,18 +1,3 @@
-{{--
-    The API scope matrix, shared by create and edit.
-
-    One radio group per resource, named `scopes[{resource}]`, posting a
-    level: none, read, or write. Write posts both abilities, because the
-    scope middleware checks each ability on its own and a token that can
-    change something it cannot read is never what anyone meant.
-    ApiClientController@resolveScopes turns the level into abilities and
-    drops any level the catalog does not offer for that resource.
-
-    Expects:
-      $scopes  ApiScopeRegistry::all(), keyed by resource
-      $current array of "resource:action" strings already granted (edit
-               page), or [] on create
---}}
 @php
     $current = $current ?? [];
     $levels = ['none' => 'None', 'read' => 'Read', 'write' => 'Read & write'];
@@ -35,8 +20,6 @@
             $offersWrite = in_array('write', $meta['actions'], true);
             $offered = $offersWrite ? $levels : array_slice($levels, 0, 2, true);
 
-            // An edit page shows what the token holds; a failed save shows
-            // what was posted. A legacy write-only grant reads as Read & write.
             $held = in_array("$key:write", $current, true) && $offersWrite
                 ? 'write'
                 : (in_array("$key:read", $current, true) ? 'read' : 'none');

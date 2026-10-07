@@ -101,11 +101,6 @@ class VentaSync extends Command implements \App\Integrations\Contracts\Steppable
         $this->info('  Orders: ' . (empty($parts) ? '0 records' : implode(', ', $parts)));
     }
 
-    /**
-     * Run now walks this sync one store per request (SteppableAutomation,
-     * 2026-09-07): the bar moves per store, and the page never shows the
-     * console. The job's store (its options) is the only store.
-     */
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
         $stores = VentaSetting::query()->where('enabled', true);

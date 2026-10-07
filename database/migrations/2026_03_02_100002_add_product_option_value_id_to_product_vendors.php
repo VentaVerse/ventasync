@@ -11,7 +11,6 @@ return new class extends Migration
         Schema::table('product_vendors', function (Blueprint $table) {
             $table->integer('product_option_value_id')->nullable()->after('product_id');
 
-            // Replace old unique with new one that includes option value
             $table->dropUnique(['product_id', 'vendor_id']);
             $table->unique(['product_id', 'vendor_id', 'product_option_value_id'], 'pv_product_vendor_option_unique');
         });

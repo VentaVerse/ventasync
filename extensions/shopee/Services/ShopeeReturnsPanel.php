@@ -6,23 +6,8 @@ use Extensions\shopee\Models\ShopeeReturn;
 use Extensions\shopee\Models\ShopeeSetting;
 use Illuminate\Http\Request;
 
-/**
- * Assembles the view data for the Shopee returns list: filters, tab counts
- * and pagination.
- *
- * The exact counterpart of ShopeeOrdersPanel, and extracted for the same
- * reason. Returns used to be reachable only as its own seller-centre page,
- * so the "Returns and refunds" link on the fulfilment hub threw the operator
- * out of the hub and into the channel workspace - a different shell, with a
- * different sidebar, from a link that looked like every other filter beside
- * it. A service plus a partial lets one returns list render in both places,
- * which is what the orders list already does.
- *
- * Lifted from ShopeeOrderController@returns without a logic change.
- */
 class ShopeeReturnsPanel
 {
-    /** @param ?int $storeId Multi-store S4 (#194): the hub tab's store; see ShopeeOrdersPanel. */
     public function build(Request $request, ?int $storeId = null): array
     {
         $settingRaw = $storeId !== null
@@ -42,28 +27,10 @@ class ShopeeReturnsPanel
             'opened_to'   => ['nullable', 'date', 'after_or_equal:opened_from'],
         ]);
 
-        /* ONE FIELD, NOT FOUR.
-         *
-         * This row carried a box each for return number, order number and
-         * buyer, and product search would have made a fourth. The scene that
-         * decides it is the one in the critique: a customer is on the phone,
-         * and the agent has whatever the customer just said - a return
-         * number, an order number, their own name, or "the flat patch cable".
-         * Four labelled boxes ask the agent to classify that before they can
-         * type it, and classifying it is the part they cannot do.
-         *
-         * So one box matches any of them. The cost is that the field no
-         * longer names what it searches, which the placeholder carries
-         * instead. */
         $find = trim((string) ($filters['q'] ?? ''));
         $openedFrom  = trim((string) ($filters['opened_from'] ?? ''));
         $openedTo    = trim((string) ($filters['opened_to'] ?? ''));
 
-        /* Which end of the list you are looking at. The orders panel has had
-           this and returns had not, so a returns list could only ever be read
-           newest-touched-first - and "touched" moves every time a sync writes
-           the row, which is not an order anyone asked for. Opened is the
-           column an operator actually thinks in. */
         $sortKey = strtolower((string) $request->query('sort', ''));
         $allowedSort = ['opened_desc', 'opened_asc', 'updated_desc', 'updated_asc'];
         if (!in_array($sortKey, $allowedSort, true)) {
@@ -85,17 +52,6 @@ class ShopeeReturnsPanel
             'CLOSED'    => ['CLOSED', 'CANCELLED'],
         ];
 
-        /* A TAB NAMES WHAT ITS ROWS SAY.
-         *
-         * These were written independently of the row labels in
-         * ChannelStatusTone, and the two drifted: the tab "Rejected /
-         * Cancelled" held rows reading "Closed", and "Under review" held rows
-         * reading "Requested" while the rows that DO say "Under review"
-         * (JUDGING) sat under "Disputed". Filtering by a word returned rows
-         * that never used it.
-         *
-         * Each tab now takes the wording of the states it groups. Keys are
-         * untouched - they are the wire, and no URL changes. */
         $tabs = [
             'ALL'       => 'All',
             'REQUESTED' => 'Requested',
@@ -126,9 +82,6 @@ class ShopeeReturnsPanel
                 $w->where('return_sn', 'like', $like)
                     ->orWhere('order_sn', 'like', $like)
 
-                    /* The buyer and the products live on the order, not on
-                       the return, so these reach through the relation. Both
-                       raw spellings, because Shopee has used each. */
                     ->orWhereHas('order', function ($o) use ($like) {
                         $o->where('raw->buyer_username', 'like', $like)
                             ->orWhere('raw->buyer_user_name', 'like', $like);
@@ -139,20 +92,10 @@ class ShopeeReturnsPanel
                             ->orWhere('variation', 'like', $like);
                     })
 
-                    /* And the return's own items, which is the only path for
-                       a return whose order was never synced - there the
-                       relation is null and the two whereHas above match
-                       nothing. The trade-off is that this searches a JSON
-                       blob, so a very short numeric term can hit an id or a
-                       price rather than a product. A term worth typing at a
-                       phone desk is a name or a code, and those do not
-                       collide. */
                     ->orWhere('items', 'like', $like);
             });
         }
 
-        /* Opened, not synced. whereDate so the operator's To date includes
-           the whole of that day rather than stopping at midnight. */
         if ($openedFrom !== '') {
             $query->whereDate('return_created_at', '>=', $openedFrom);
         }
@@ -175,8 +118,6 @@ class ShopeeReturnsPanel
             default        => $returns->orderByDesc('return_updated_at'),
         };
 
-        // A stable tiebreak, so two returns sharing a timestamp do not swap
-        // places between pages.
         $returns = $returns
             ->orderByDesc('id')
             ->paginate($perPage)

@@ -6,11 +6,6 @@ use App\Services\Sales\CustomerLedger;
 use App\Services\Sales\Receivables;
 use App\Support\Api\Input;
 
-/**
- * Accounts receivable as an application reads it: the tracked orders, what
- * was paid on each and what is still owed, with the totals by age and by
- * customer. The partner API, the app and the assistant all run this.
- */
 final class ReceivableReads
 {
     public function __construct(private readonly Receivables $receivables)
@@ -41,7 +36,6 @@ final class ReceivableReads
         return [
             'state' => $state,
             'totals' => $this->receivables->totals($rows),
-            // Oldest first: the order a payment is applied in.
             'rows' => $shown->take($limit)->values()->all(),
             'rows_total' => $shown->count(),
             'methods' => Receivables::METHODS,

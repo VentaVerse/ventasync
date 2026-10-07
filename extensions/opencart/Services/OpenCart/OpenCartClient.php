@@ -26,11 +26,6 @@ class OpenCartClient
             ]);
     }
 
-    /**
-     * Build the full URL for an OpenCart API route.
-     * Uses the catalog (frontend) entry point — no admin login required.
-     * e.g. https://store.example.com/index.php?route=api/erp/products&page=1
-     */
     private function url(string $route, array $params = []): string
     {
         $base = rtrim($this->setting->base_url, '/');
@@ -40,9 +35,6 @@ class OpenCartClient
         return $base . '/index.php?' . http_build_query($params);
     }
 
-    /**
-     * Perform a GET request to the OpenCart API.
-     */
     public function get(string $route, array $params = []): array
     {
         try {
@@ -67,9 +59,6 @@ class OpenCartClient
         }
     }
 
-    /**
-     * Perform a POST request to the OpenCart API.
-     */
     public function post(string $route, array $data = [], array $queryParams = []): array
     {
         try {
@@ -93,8 +82,6 @@ class OpenCartClient
             ];
         }
     }
-
-    // --- Convenience Methods ---
 
     public function ping(): array
     {

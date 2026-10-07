@@ -1,21 +1,7 @@
-/* The desk tools toggle.
-   -------------------------------------------------------------------
-   A phone-only control. Above the width where the order table stops being a
-   table there is no toggle and nothing folds - the fetch bar and the filter
-   row render as they always have, and this file contributes one hidden
-   button.
-
-   Below it, both bands start folded and this is what brings them back. It
-   sits where they used to start, so the page still reads in the same order:
-   what you can do to the list, then which list, then the list.
-   ------------------------------------------------------------------- */
-
 .x-desk-toggle {
     display: none;
 }
 
-/* Folded bands. Only ever set by the module, and only below the phone
-   breakpoint, so a desk never reaches this state. */
 .is-desk-folded [data-desk-tool] {
     display: none;
 }
@@ -43,8 +29,6 @@
 
     .x-desk-toggle:hover { color: var(--bl-ink); }
 
-    /* The chevron is the only thing that moves, so the control reads as one
-       thing opening rather than as a button that changed its mind. */
     .x-desk-toggle__mark {
         flex: none;
         font-size: 11px;

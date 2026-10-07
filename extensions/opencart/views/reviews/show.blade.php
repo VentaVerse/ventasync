@@ -6,21 +6,15 @@
 @php
     use App\Support\ChannelStatusTone;
 
-    // Push and skip both sit behind `perm:manage_reviews`; the Venta push
-    // sits behind its own tier in extensions/venta/routes/web.php. Both
-    // replace a hardcoded `true`, which rendered every control for a
-    // read-tier operator and only turned them away on submit.
     $user = auth()->user();
     $canManage = $user?->hasPermission('manage_opencart/review') ?? false;
     $canManageVenta = $user?->hasPermission('manage_opencart/review') ?? false;
 
-    // The controller refuses a push or a skip in any other state.
     $ocOpen = in_array($review->oc_sync_status, ['pending', 'error'], true);
     $ventaStatus = $review->venta_sync_status ?? 'pending';
     $ventaOpen = in_array($ventaStatus, ['pending', 'error'], true)
         && Route::has('ext.venta.reviews.push')
         && $canManageVenta;
-    // WooCommerce's push (stage 4, 2026-09-06) sits behind its own tier.
     $wcStatus = $review->woocommerce_sync_status ?? 'pending';
     $wcOpen = in_array($wcStatus, ['pending', 'error'], true)
         && Route::has('ext.woocommerce.reviews.push')
@@ -42,9 +36,6 @@
 
     <header class="od-head">
         <div class="od-head__id">
-            {{-- Not `.od-title`: that face is mono because every other record
-                 on this anatomy is fronted by an identifier. This one is a
-                 person's name. --}}
             <h1 class="x-page-title">{{ $author }}</h1>
             @include('ext-opencart::reviews.partials.stars', ['rating' => $review->rating, 'size' => 15])
             <x-ui.badge :tone="ChannelStatusTone::toneFor('opencart.reviews', $review->oc_sync_status)">{{ ChannelStatusTone::labelFor('opencart.reviews', $review->oc_sync_status) }}</x-ui.badge>
@@ -99,10 +90,7 @@
                 <div class="od-section__head">
                     <h2 class="od-section__title">What they wrote</h2>
                 </div>
-                {{-- Customer-controlled text. Rendered through Blade's echo,
-                     which escapes it, and never through any raw output: this
-                     string arrives from Shopee and Lazada and is exactly the
-                     kind of value that must never become markup. --}}
+                {{-- Customer-written text: keep it escaped, never raw. --}}
                 <p class="rv-quote @unless($review->comment) rv-quote--empty @endunless">{{ $review->comment ?: 'They left a rating but no words.' }}</p>
             </section>
 
@@ -301,9 +289,6 @@
         </div>
     </div>
 
-    {{-- Out of band: a <form> cannot live inside the menu panel or beside
-         the header's primary button, and each is rendered only in the state
-         its controller accepts. --}}
     @if($canManage && $ocOpen)
         <form id="rv-push" method="POST" action="{{ route('ext.opencart.reviews.push', $review->id) }}" class="x-sr">@csrf</form>
         <form id="rv-skip" method="POST" action="{{ route('ext.opencart.reviews.skip', $review->id) }}" class="x-sr">@csrf</form>

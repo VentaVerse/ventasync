@@ -1,6 +1,3 @@
-{{-- One listing-state cell for any channel: the words and tones come from
-     ListingState, so no page can disagree with another. Expects $state
-     (App\Integrations\Listings\ListingState or null) and $listingUrl. --}}
 @php $st = $state ?? null; @endphp
 @if($st === null)
     <x-ui.badge tone="neutral">Not listed</x-ui.badge>
@@ -8,7 +5,6 @@
     <x-ui.badge tone="neutral" title="Press Refresh from the store to read its status">{{ $st->label() }}</x-ui.badge>
 @elseif($st->state === \App\Integrations\Listings\ListingState::NOT_LISTED)
     <x-ui.badge :tone="$st->tone()">{{ $st->label() }}</x-ui.badge>
-    {{-- Whether a push would pass is the Ready column's (partials.channel-ready). --}}
     @if($st->reasons)
         <x-ui.hint label="What the store said">{{ implode(' ', $st->reasons) }}</x-ui.hint>
     @endif

@@ -9,33 +9,12 @@ use Extensions\shopee\Models\ShopeeItemCache;
 use Extensions\shopee\Models\ShopeeProductLink;
 use Illuminate\Support\Facades\DB;
 
-/**
- * A variation switched off for this store stops selling on its Shopee item.
- *
- * Shopee lets a seller mark one model unavailable only on CNSC and KRSC
- * shops, so the model of a switched-off variation is deleted (delete_model).
- * A variation sold here that the item lacks is added through the add path,
- * ShopeeVariationPush::pushMissingModels, as a new model with no sales
- * history. Models are matched to the catalog's variations by model_sku; a
- * model whose SKU the catalog does not switch off is never touched.
- *
- * An item always keeps one model. When every model it holds is switched
- * off, the last one is deleted only after a variation sold here was added
- * in its place. Every refusal comes back as one line for the listing's
- * error, so the listing never reads fine while a variation is still live.
- */
 final class ShopeeVariationSwitches
 {
     public function __construct(private readonly ShopeeVariationPush $variations)
     {
     }
 
-    /**
-     * The item's models, read once for the rename and this step to share.
-     * Null when the product has no variations: there is nothing to read.
-     *
-     * @return null|array{ok: bool, reason: string, response: array}
-     */
     public function readFor(ShopeeClient $client, array $auth, int $itemId, int $productId): ?array
     {
         if (! DB::table('product_option_combinations')->where('product_id', $productId)->exists()) {
@@ -45,13 +24,6 @@ final class ShopeeVariationSwitches
         return $this->variations->readModels($client, $auth, $itemId);
     }
 
-    /**
-     * The read as it stands after a rename Shopee accepted, so an option
-     * appended afterwards is sent beside the new names, not the old ones.
-     *
-     * @param array{ok: bool, message: string, payload: ?array} $plan
-     * @param array{ok: bool, message: string} $applied
-     */
     public static function renamed(?array $read, array $plan, array $applied): ?array
     {
         $payload = $plan['payload'] ?? null;
@@ -84,13 +56,6 @@ final class ShopeeVariationSwitches
         return $read;
     }
 
-    /**
-     * Bring the item's models in line with what this store sells.
-     *
-     * @param null|array{ok: bool, reason: string, response: array} $read
-     * @param \Closure(float): float $priceFor the listing's price rule, for a model added
-     * @return array{removed: list<string>, added: list<string>, failure: ?string}
-     */
     public function follow(ShopeeClient $client, array $auth, int $itemId, int $productId, ?array $read, \Closure $priceFor, ?\Closure $uploadImageId = null): array
     {
         $result = ['removed' => [], 'added' => [], 'failure' => null];
@@ -119,7 +84,6 @@ final class ShopeeVariationSwitches
             (array) ($read['response']['model'] ?? []),
             fn ($m) => is_array($m) && (int) ($m['model_id'] ?? 0) > 0
         ));
-        // An item without models has none to remove; the add button gives it its first.
         if ($models === []) {
             return $result;
         }
@@ -148,8 +112,6 @@ final class ShopeeVariationSwitches
             }
         }
 
-        // The variations sold here that the item lacks, added only to an item
-        // whose models carry the catalog's SKUs: any other is not ours to read.
         $catalog = [];
         foreach (PushLedger::erpVariationSkus([$productId], (string) config('catalog.prefix'))[$productId] ?? [] as $sku) {
             $catalog[$this->key($sku)] = true;
@@ -202,7 +164,6 @@ final class ShopeeVariationSwitches
         return $result;
     }
 
-    /** The sentences an update adds to its result, or an empty string. */
     public static function note(array $result): string
     {
         $parts = [];
@@ -219,7 +180,6 @@ final class ShopeeVariationSwitches
         return implode(' ', $parts);
     }
 
-    /** @return ?string null when Shopee deleted the model, its reason otherwise */
     private function deleteModel(ShopeeClient $client, array $auth, int $itemId, int $modelId): ?string
     {
         $path = '/api/v2/product/delete_model';
@@ -250,13 +210,6 @@ final class ShopeeVariationSwitches
             : null;
     }
 
-    /**
-     * The link and cache rows of a deleted model go, and the SKUs the item
-     * now holds are remembered. A model just added is linked by the repair
-     * every add uses, which reads its new id from Shopee.
-     *
-     * @param list<string> $addedSkus
-     */
     private function remember(array $auth, int $productId, int $itemId, array $models, array $gone, array $addedSkus): void
     {
         if ($gone !== []) {
@@ -286,12 +239,6 @@ final class ShopeeVariationSwitches
         }
     }
 
-    /**
-     * Whether the item may still hold a switched-off variation: it was last
-     * read holding one, or it was never read.
-     *
-     * @param array<string, true> $hidden
-     */
     private function mayHoldAny(int $storeId, int $productId, array $hidden): bool
     {
         if ($hidden === []) {
@@ -312,7 +259,6 @@ final class ShopeeVariationSwitches
         return false;
     }
 
-    /** @return array<string, string> each catalog variation's name and SKU, by lowercase SKU */
     private function labels(int $productId): array
     {
         $out = [];
@@ -345,7 +291,6 @@ final class ShopeeVariationSwitches
         return strtolower(trim((string) $sku));
     }
 
-    /** A reason without its closing full stop, so it can sit inside a sentence. */
     private function bare(string $text): string
     {
         return rtrim(trim($text), '.');

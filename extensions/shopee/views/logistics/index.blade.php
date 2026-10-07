@@ -3,12 +3,8 @@
 
 @section('title', 'Shopee Logistics Channels')
 
-{{-- Leaves the .x-legacy content boundary, rebuilt on the token set. --}}
 @section('content')
 @php
-    // Read tier is `view_shopee|manage_shopee`; the fetch POST is
-    // `manage_shopee` only. Replaces a hardcoded `true` that offered every
-    // read-only operator a button the route would 403.
     $canManageShopee = auth()->user()?->hasPermission('manage_shopee/logistics') ?? false;
 
     $enabledCount = $channels->filter(fn ($c) => $c->enabled || $c->force_enable)->count();
@@ -67,11 +63,6 @@
             $hasWeight = !empty($wl) && ($wl['item_max_weight'] ?? 0) > 0;
             $hasDim = !empty($dim) && ($dim['length'] ?? 0) > 0;
 
-            // Three states, one tone each. Accent is spent on "Shopee is
-            // forcing this one on" and on plain Enabled because those are
-            // the couriers an order can actually ship with; Disabled is
-            // neutral, not danger - a switched-off courier is a setting,
-            // not a fault.
             if ($ch->force_enable) {
                 $statusTone = 'info';
                 $statusLabel = 'Always on';
@@ -130,5 +121,5 @@
 </x-ui.table>
 @endif
 
-</div>{{-- /.cc-page --}}
+</div>
 @endsection

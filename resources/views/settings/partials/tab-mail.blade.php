@@ -23,10 +23,6 @@
                 </x-ui.field>
             </div>
 
-            {{-- Toggled by the select above. `hidden` plus the matching
-                 `[hidden]` rule in pages/settings.css, because a class that
-                 sets `display: grid` out-specifies the user agent's own
-                 [hidden] rule and the block would never actually hide. --}}
             <div class="fm-fields fm-fields--2 st-smtp" id="st-smtp" @if(! $isSmtp) hidden @endif>
                 <x-ui.field label="Host" for="st-mail-host" name="mail_host">
                     <x-ui.input id="st-mail-host" name="mail_host" maxlength="190" placeholder="smtp.example.com" :readonly="$ro"
@@ -46,10 +42,6 @@
 
                 <x-ui.field label="Password" for="st-mail-pass" name="mail_password"
                             :hint="$hasStoredPassword ? 'A password is stored. Leave this blank to keep it.' : 'Nothing stored yet.'">
-                    {{-- Never prefilled, and never echoed: the column is
-                         `encrypted` cast, the field posts blank, and
-                         update() unsets an empty value so the stored one
-                         survives. Clearing is an explicit separate action. --}}
                     <x-ui.input type="password" id="st-mail-pass" name="mail_password" maxlength="190"
                                 autocomplete="new-password" value="" :readonly="$ro" />
                     @if($hasStoredPassword && ! $ro)
@@ -101,11 +93,6 @@
         <div class="fm-card">
             <div class="fm-card__head"><h2 class="fm-card__title">Send a test</h2></div>
             <div class="fm-card__body">
-                {{-- A plain field and button, not a nested form: this page's
-                     one <form> posts to settings.update, and a form cannot
-                     contain another. The button posts JSON to
-                     settings.mail.test and writes the reply below with
-                     textContent, never innerHTML. --}}
                 <label class="fm-label" for="st-test-to">Send to</label>
                 <x-ui.input type="email" id="st-test-to" class="st-test__to"
                             value="{{ auth()->user()->email ?? '' }}" placeholder="you@example.com" />

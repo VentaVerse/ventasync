@@ -3,11 +3,6 @@
 
 @section('content')
 @php
-    // Unlike products (documented gap: view_products never reaches the
-    // permissions table on a fresh install), view_categories and
-    // manage_categories are real, distinct route-middleware tiers here
-    // (routes/catalog.php), so the manage check is a genuine permission
-    // read rather than a hardcoded true.
     $canManageCategories = auth()->user()?->hasPermission('manage_catalog/category') ?? false;
 
     $hasFilters = $q !== '';
@@ -38,8 +33,6 @@
         <input type="hidden" name="action" x-ref="bulkAction" value="">
     </form>
 
-    {{-- Only enable/disable exist here: CategoryController@bulkAction accepts
-         nothing else. No bulk delete control is invented for this bar. --}}
     <div class="cat-bulkbar" x-show="selected.length > 0" x-cloak>
         <span class="cat-bulkbar__count"><span class="x-num" x-text="selected.length"></span> selected</span>
         <div class="cat-bulkbar__actions">

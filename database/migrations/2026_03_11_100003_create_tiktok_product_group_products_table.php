@@ -11,9 +11,9 @@ return new class extends Migration
         Schema::create('tiktok_product_group_products', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('tiktok_product_group_id');
-            $table->unsignedBigInteger('product_id'); // ERP product_id
-            $table->string('tiktok_product_id')->nullable(); // Filled after push
-            $table->string('sync_status')->default('pending'); // pending, pushed, error
+            $table->unsignedBigInteger('product_id');
+            $table->string('tiktok_product_id')->nullable();
+            $table->string('sync_status')->default('pending');
             $table->timestamp('last_pushed_at')->nullable();
             $table->text('push_error')->nullable();
 

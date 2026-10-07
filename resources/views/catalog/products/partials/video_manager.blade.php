@@ -1,7 +1,4 @@
 @php
-    /* The product's one video. The form carries three fields: the stored
-       path, the name it was uploaded under, and the seller's answer on AI.
-       A refused save hands back what was staged, the same way the pictures do. */
     $pvSaved = $productVideo ?? null;
     $pvPath = (string) old('video_path', $pvSaved['path'] ?? '');
     $pvName = (string) old('video_name', $pvSaved['name'] ?? '');

@@ -12,12 +12,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * A store listing keeps its own copy of the catalog product. A later
- * catalog edit shows a Catalog change instead of reaching the listing, and
- * the comparison panel's Save or Ignore clears it until the catalog moves
- * again. Pinned on Lazada; every channel runs the same shared code.
- */
 class CatalogChangeTest extends TestCase
 {
     use RefreshDatabase;
@@ -72,7 +66,6 @@ class CatalogChangeTest extends TestCase
         return $id;
     }
 
-    /** A catalog edit, made a minute after the listing was compared. */
     private function editCatalog(int $productId, array $words = [], array $product = []): void
     {
         $pfx = (string) config('catalog.prefix');
@@ -163,9 +156,6 @@ class CatalogChangeTest extends TestCase
                 'price' => '150', 'weight' => '0.05', 'length' => '2', 'width' => '2', 'height' => '1',
             ],
             'catalog' => ['title' => 'Plug, catalog name', 'description' => '<p>Catalog words.</p>', 'description_edited' => '0', 'price' => '150'],
-        /* Save stays on the listing, carrying the way back: the one page
-           that can push what was just changed, and the one that shows what
-           the listing is still missing. */
         ])->assertRedirect(route('ext.lazada.products.edit', $pid) . '?back=' . urlencode('/channels'))
             ->assertSessionHas('status', 'Saved.');
 
@@ -180,11 +170,6 @@ class CatalogChangeTest extends TestCase
         $this->assertSame([], $listing->catalogChange());
     }
 
-    /**
-     * A listing's sizes are whole centimetres. Filling its boxes with a
-     * catalog size like 2.5 made the browser refuse Save; they now hold only
-     * the listing's own figures, the catalog's shown as the placeholder.
-     */
     public function test_a_catalog_size_with_decimals_or_a_missing_weight_never_blocks_save(): void
     {
         $pid = $this->product('Plug', '<p>Words.</p>');
@@ -231,7 +216,6 @@ class CatalogChangeTest extends TestCase
         $this->assertSame('Plug v2', LazadaProduct::query()->where('product_id', $pid)->value('item_name'));
     }
 
-    /** The image library opened from the panel (a photo tile, an editor's picture button) sits above it, and hands focus back when it closes. */
     public function test_the_image_library_opens_above_the_comparison_panel(): void
     {
         $css = (string) file_get_contents(base_path('resources/css/blotter.css'));

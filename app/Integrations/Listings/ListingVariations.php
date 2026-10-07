@@ -6,29 +6,12 @@ use App\Integrations\Push\PushLedger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Which of a product's variations a store sells.
- *
- * Two switches decide it. The catalog's own switch on a variation turns it
- * off everywhere: no listing shows it and no store is sent or synced it. A
- * listing's switch turns an enabled variation off on that one store. Every
- * push, every stock and price sync and every listing page asks here, so a
- * variation that is off is never sent.
- *
- * A variation the store sells but its own item does not hold is named on
- * the listing (missing()), from the SKUs last read from the store
- * (remember()), and never stops the others being sent. Switching it off for
- * the store takes it off the listing at once.
- *
- * Variations are known by SKU, as they are on every store.
- */
 final class ListingVariations
 {
     public const TABLE = 'listing_variation_offs';
 
     public const STORE_SKUS = 'listing_store_skus';
 
-    /** Validation rules for the card's fields, for a listing save to merge. */
     public static function rules(): array
     {
         return [
@@ -38,7 +21,6 @@ final class ListingVariations
         ];
     }
 
-    /** @return array<int, array<string, true>> lowercase SKUs the catalog switched off, per product */
     public static function offInCatalog(array $productIds): array
     {
         $out = [];
@@ -53,7 +35,6 @@ final class ListingVariations
         return $out;
     }
 
-    /** @return array<int, array<string, true>> lowercase SKUs switched off on this store, per product */
     public static function offOnStore(string $channel, int $storeId, array $productIds): array
     {
         $out = [];
@@ -67,7 +48,6 @@ final class ListingVariations
         return $out;
     }
 
-    /** @return array<int, array<string, true>> every SKU this store must not be sent or synced, per product */
     public static function hidden(string $channel, int $storeId, array $productIds): array
     {
         $out = self::offInCatalog($productIds);
@@ -78,7 +58,6 @@ final class ListingVariations
         return $out;
     }
 
-    /** Whether a variation is sold on the store the $hidden map was read for. A blank SKU is left to the push's own SKU rule. */
     public static function allows(array $hidden, int $productId, ?string $sku): bool
     {
         $k = self::key($sku);
@@ -86,7 +65,6 @@ final class ListingVariations
         return $k === '' || ! isset($hidden[$productId][$k]);
     }
 
-    /** @return array<int, list<string>> the catalog's variation SKUs this store sells, per product */
     public static function sold(string $channel, int $storeId, array $productIds, ?string $pfx = null): array
     {
         $all = PushLedger::erpVariationSkus($productIds, $pfx ?? (string) config('catalog.prefix'));
@@ -98,10 +76,6 @@ final class ListingVariations
         return $all;
     }
 
-    /**
-     * Whether every variation of a product with variations is off on this
-     * store. A push stops there rather than send the product without them.
-     */
     public static function noneSold(string $channel, int $storeId, int $productId): bool
     {
         $all = PushLedger::erpVariationSkus([$productId], (string) config('catalog.prefix'))[$productId] ?? [];
@@ -109,19 +83,11 @@ final class ListingVariations
         return $all !== [] && (self::sold($channel, $storeId, [$productId])[$productId] ?? []) === [];
     }
 
-    /** The refusal a push gives when noneSold() holds. */
     public static function noneSoldMessage(string $storeName): string
     {
         return 'Every variation of this product is switched off for ' . $storeName . '. Switch at least one on, then push.';
     }
 
-    /**
-     * The SKUs a store's item holds for a product, as just read from the
-     * store. Call it only with a read that succeeded: an empty list says the
-     * item holds no variations, not that the store could not be asked.
-     *
-     * @param  iterable<string|null>  $skus
-     */
     public static function remember(string $channel, int $storeId, int $productId, iterable $skus): void
     {
         $clean = [];
@@ -138,13 +104,6 @@ final class ListingVariations
         );
     }
 
-    /**
-     * The variations this store sells that its own item does not hold, per
-     * product, from the SKUs last remembered for it. A product whose store
-     * was never read is left out: not knowing is not a gap.
-     *
-     * @return array<int, list<array{sku: string, name: string}>>
-     */
     public static function missing(string $channel, int $storeId, array $productIds): array
     {
         $productIds = array_values(array_unique(array_map('intval', $productIds)));
@@ -189,23 +148,12 @@ final class ListingVariations
         return $out;
     }
 
-    /**
-     * The products whose item on this store has been read: the only ones
-     * missing() can name, so a store-wide error filter starts from these.
-     *
-     * @return list<int>
-     */
     public static function readProducts(string $channel, int $storeId): array
     {
         return DB::table(self::STORE_SKUS)->where('channel', $channel)->where('store_id', $storeId)
             ->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
     }
 
-    /**
-     * The line a listing carries while missing() holds for it.
-     *
-     * @param  list<array{sku: string, name: string}>  $missing
-     */
     public static function missingMessage(string $storeName, array $missing): string
     {
         $parts = array_map(fn ($m) => $m['name'] !== '' ? $m['name'] . ' (' . $m['sku'] . ')' : $m['sku'], $missing);
@@ -213,7 +161,6 @@ final class ListingVariations
         return 'Not on ' . $storeName . ': ' . implode(', ', $parts) . '.';
     }
 
-    /** A listing's error and its missing-variation line, both kept: neither hides the other. */
     public static function withMissing(?string $error, ?string $missingLine): ?string
     {
         $parts = array_values(array_filter([trim((string) $error), trim((string) $missingLine)], fn ($p) => $p !== ''));
@@ -221,12 +168,6 @@ final class ListingVariations
         return $parts === [] ? null : implode(' ', $parts);
     }
 
-    /**
-     * What the listing page's Variations card draws.
-     *
-     * @param  list<string>|null  $storeSkus  the SKUs the store holds for this product, or null when it was not asked
-     * @return array{variationRows: list<array{sku: string, name: string, on: bool, onStore: ?bool}>, variationExtras: list<string>}
-     */
     public static function cardData(string $channel, int $storeId, int $productId, ?array $storeSkus): array
     {
         $pfx = (string) config('catalog.prefix');
@@ -287,8 +228,6 @@ final class ListingVariations
             ];
         }
 
-        // The product's own SKU and model are the parent, never a variation,
-        // however a store's rows happen to carry them.
         $parent = [];
         $product = DB::table($pfx . 'product')->where('product_id', $productId)->first(['sku', 'model']);
         foreach ([$product->sku ?? '', $product->model ?? ''] as $own) {
@@ -308,7 +247,6 @@ final class ListingVariations
         return ['variationRows' => $rows, 'variationExtras' => array_values($extras)];
     }
 
-    /** @return list<string>|null the SKUs ticked on, or null when the form did not carry the card */
     public static function submitted(Request $request): ?array
     {
         if (! $request->boolean('variations_listed')) {
@@ -318,13 +256,6 @@ final class ListingVariations
         return array_values(array_filter(array_map(fn ($s) => trim((string) $s), (array) $request->input('variations_on', []))));
     }
 
-    /**
-     * Keep the store's switches for the variations the card showed: the
-     * catalog's enabled ones. A variation the catalog has switched off was
-     * not on the card, so its store switch is left as it was.
-     *
-     * @param  list<string>  $onSkus
-     */
     public static function save(string $channel, int $storeId, int $productId, array $onSkus): void
     {
         $on = array_flip(array_map(fn ($s) => self::key($s), $onSkus));
@@ -358,7 +289,6 @@ final class ListingVariations
         });
     }
 
-    /** A variation the catalog deleted leaves no switch behind on any store. */
     public static function forget(int $productId, array $skus): void
     {
         $keys = array_values(array_filter(array_map(fn ($s) => self::key($s), $skus)));
@@ -367,7 +297,6 @@ final class ListingVariations
         }
     }
 
-    /** A product the catalog deleted leaves no switch behind. */
     public static function forgetProducts(array $productIds): void
     {
         DB::table(self::TABLE)->whereIn('product_id', $productIds ?: [0])->delete();

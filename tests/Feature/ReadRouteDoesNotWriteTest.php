@@ -11,23 +11,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * A read route does not change what it reports.
- *
- * extensions/shopee/routes/web.php states the contract in its own words:
- * "Read routes (display-only, no DB write, no marketplace API write): gated by
- * view_shopee|manage_shopee". The product-group products page broke it. Inside
- * that GET handler it back-filled pivot rows from the links table, so an
- * operator holding only view_shopee mutated the database by looking at a page,
- * with no banner and no audit entry.
- *
- * The back-fill was kept for the manage tier for a while, as a convenience.
- * Stage 2 of the one-truth repointing (2026-08-25) removed it outright: the
- * page displays the links table itself, so there is nothing left to adopt
- * FOR, and the contract now holds for every tier - loading this page writes
- * nothing, whoever loads it. ShopeePushStatusTest pins the removal at the
- * source level; this proves it at the wire.
- */
 class ReadRouteDoesNotWriteTest extends TestCase
 {
     use RefreshDatabase;
@@ -56,10 +39,6 @@ class ReadRouteDoesNotWriteTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    /**
-     * A pivot with no item id, a link that could fill it, and a product the
-     * group actually matches. This is the exact state the back-fill acts on.
-     */
     private function seedAdoptableRow(): int
     {
         $pfx = (string) config('catalog.prefix');
@@ -71,13 +50,10 @@ class ReadRouteDoesNotWriteTest extends TestCase
             'quantity' => 5,
             'price' => 100,
             'status' => 1,
-            // Both are NOT NULL with no default on this schema.
             'date_added' => now(),
             'date_modified' => now(),
         ]);
 
-        // The listing query inner-joins product_description, so a product
-        // with no name row never appears and the back-fill never sees it.
         DB::table($pfx.'product_description')->insert([
             'product_id' => self::PRODUCT,
             'language_id' => (int) config('catalog.default_language_id'),
@@ -124,7 +100,6 @@ class ReadRouteDoesNotWriteTest extends TestCase
             ->first();
     }
 
-    /** The defect. Looking at a page must not be a write. */
     public function test_the_read_tier_does_not_mutate_rows_by_loading_the_page(): void
     {
         $groupId = $this->seedAdoptableRow();
@@ -141,12 +116,6 @@ class ReadRouteDoesNotWriteTest extends TestCase
             'A view-only operator changed a row status by loading a read route.');
     }
 
-    /**
-     * And the manage tier writes nothing either. The adoption convenience
-     * is obsolete: the page displays the link's own item id (that is what
-     * the operator sees on this exact seeded state), so patching a pivot
-     * copy on load would be a write in service of nothing.
-     */
     public function test_the_manage_tier_does_not_write_on_load_either(): void
     {
         $groupId = $this->seedAdoptableRow();
@@ -155,7 +124,6 @@ class ReadRouteDoesNotWriteTest extends TestCase
             ->get(route('ext.shopee.product-groups.products', ['id' => $groupId]));
 
         $r->assertOk();
-        // The truth still shows: the page reads the link directly.
         $r->assertSee(self::ITEM);
 
         $row = $this->pivot($groupId);

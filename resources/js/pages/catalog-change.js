@@ -1,13 +1,3 @@
-/* THE CATALOG CHANGE PANEL on a listing page (partials/catalog-change-panel).
- *
- * It opens from the page head's button, and is already open when the page
- * was reached from the Listings table. Photos are removed from a lineup or
- * added from the media library; a Save that changes the catalog product
- * asks first, through the page's own confirm dialog.
- *
- * SECURITY. New tiles are cloned from a <template> and filled with
- * setAttribute and textContent; nothing is parsed as markup.
- */
 (function () {
     function init() {
         var panel = document.querySelector('[data-lcx-panel]');

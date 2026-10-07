@@ -1,84 +1,8 @@
-/* ============================================================
-   VentaSync v2.3 interface bundle
-
-   v2.2 was "The Blotter": hairline rules on near-white, tabular
-   figures, and colour permitted only to mean state. It was coherent
-   and it was too quiet. Held up against the admin products the owner
-   actually wants to be compared to, it read as unfinished rather
-   than as restrained, and a stock Bootstrap build of the same screen
-   was indistinguishable from it at arm's length. That is the note
-   this revision answers.
-
-   What changed, and only this:
-
-   1. MATERIAL. Structure now comes from raised sheets on a tinted
-      ground rather than from hairlines on near-white. Generous
-      corners, two elevations, soft shadows.
-
-   2. COLOUR. There is now a second use for it. STATE keeps its own
-      tokens and its old meanings exactly (amber needs a person,
-      green is settled, red is trouble). IDENTITY is new: five
-      accents that say which measure or which channel you are looking
-      at. The two sets never mix, and identity colour is always
-      paired with the written label, so nothing is carried by hue.
-
-   3. SPACE. Roughly a fifth more of it, everywhere.
-
-   What did NOT change: the information design. Same figures, same
-   hierarchy, same words, same tabular numerals, same one primary
-   action per screen. This is a change of material, not of meaning.
-   ============================================================ */
-
 @import 'tailwindcss';
 
-/* ============================================================
-   THE CASCADE, DECLARED.
-
-   Three rules written this month landed in a file that could not win and
-   did nothing at all: the phone reflow for order tables, .x-btn--sm (so
-   every "small" button in the application rendered at the medium size),
-   and the channel accent on an active tab. Each looked right in the
-   source. None of them errored. They lost on layer precedence, silently,
-   which is the one failure mode CSS gives no signal for.
-
-   The cause: the page vocabularies below are imported UNLAYERED, and an
-   unlayered rule beats every layered one no matter how specific the
-   layered one is. So blotter-components - the file whose whole job is to
-   dress those vocabularies - could never override them, and three
-   separate comments in this codebase document the workaround rather than
-   the rule.
-
-   Declaring the order makes precedence a thing you can read instead of a
-   thing you discover. Later layers win:
-
-     theme, base       Tailwind's own, untouched
-     components        blotter-components / -pages / -extensions
-     vocabulary        the page vocabularies imported below
-     app               cross-cutting rules that must win over both, which
-                       today means channel identity
-     utilities         Tailwind utilities, last so a utility class still
-                       does what a utility class promises
-
-   vocabulary sits ABOVE components deliberately: several vocabularies
-   already rely on outranking it (segment.css's sub-tab strip,
-   channel-settings' pill fills, marketplace-common's reflow), and
-   inverting that today would silently undo them. What changes is that
-   there is now a layer ABOVE both for a rule that has to win.
-   ============================================================ */
+/* Page vocabularies are unlayered and would beat any layered rule; this declared order sets precedence. */
 @layer theme, base, components, vocabulary, app, utilities;
 
-/* Page and component vocabularies. Their structure predates the Blotter
-   shell (it was designed against real content, and keeping it was cheaper
-   and more faithful than re-guessing it), but as of 2026-08-18 they speak
-   Blotter tokens natively: the v2.2 alias bridge that used to translate for
-   them is deleted, and no stylesheet may reference a token outside this
-   file's vocabulary. FoundationTest's undeclared-property check enforces it.
-
-   Imported BEFORE blotter-components / pages / extensions on purpose: at
-   equal specificity the later rule wins, so anything this project has
-   deliberately restyled keeps its Blotter version and only the untouched
-   remainder comes through here. Every vocabulary that gets re-authored
-   properly should be deleted from this list. */
 @import './pages/channel-settings.css' layer(vocabulary);
 @import './pages/dashboard.css' layer(vocabulary);
 @import './pages/channel-catalog.css' layer(vocabulary);
@@ -144,20 +68,9 @@
 @import './blotter-pages.css';
 @import './blotter-extensions.css';
 
-/* Blade lives outside Tailwind's default source detection once a view sits
-   in an extension folder, so both roots are declared explicitly. */
 @source '../views';
 @source '../../extensions/**/views';
 
-/* ------------------------------------------------------------
-   Faces
-
-   Archivo carries a width axis (62-125%), which is why the column
-   headers can be condensed and the body text normal from a single
-   file. JetBrains Mono is reserved for SKUs, order references and
-   locations, where telling 0 from O is real work rather than a
-   costume for looking technical.
-   ------------------------------------------------------------ */
 @font-face {
     font-family: 'Archivo';
     font-style: normal;
@@ -188,51 +101,20 @@
     src: url('../fonts/JetBrainsMono.woff2') format('woff2');
 }
 
-/* ------------------------------------------------------------
-   Palette
-
-   Held in plain custom properties rather than directly in @theme so
-   the existing theme switch (data-theme on <html>, set before first
-   paint by partials/theme-boot) can swap them at runtime. @theme
-   below points Tailwind's utilities at these.
-
-   Light is the working default: the physical scene is a fluorescent
-   back office in daylight and a bright warehouse floor seen on a
-   phone. Dark is a real second theme for evening reconciliation, not
-   an inverted copy.
-   ------------------------------------------------------------ */
 :root {
-    /* Surfaces. Cool near-white rather than warm bond paper: it holds more
-       contrast against the ink, and it stops the neutrals carrying a beige
-       cast that dark mode then has to undo. */
     --bl-paper: #eef2f8;
     --bl-sheet: #ffffff;
     --bl-chrome: #f5f8fc;
     --bl-chrome-2: #e7ecf4;
 
-    /* Ink is the logo's navy, not a neutral black. Every rule and every
-       figure inherits a trace of the brand without anything being tinted. */
     --bl-ink: #0b1228;
     --bl-ink-2: #4a5468;
     --bl-ink-3: #5f6b85;
     --bl-rule: #eaeef5;
     --bl-rule-2: #dfe5ee;
-    /* A CONTROL boundary, not a container hairline.
-       WCAG 1.4.11 asks 3:1 of the edge that tells you where an input is.
-       --bl-rule-2 gives 1.29 in light and 1.51 in dark, so a text field, a
-       date picker and a select were all outlined in something nearly
-       invisible. Container hairlines keep rule-2: they separate regions,
-       they do not delimit anything operable. */
     --bl-field-edge: #79879f;
     --bl-alert-link: #17708a;
 
-    /* State. Unchanged in meaning, slightly more chromatic so it still
-       reads at a glance on a brighter ground. Each one clears 4.5:1 on
-       white as text; the fills clear 3:1 as marks. */
-    /* Tuned against the surface it lands on, not against white. As #a35f05
-       it measured 5.00:1 on pure white and 4.45:1 on the faintly tinted
-       ground a badge actually sits on - under AA by 0.05, and "Pending" is
-       the state a seller most needs to spot. */
     --bl-attn: #9e5c05;
     --bl-attn-fill: #c77a0a;
     --bl-attn-wash: #fdf6ea;
@@ -241,66 +123,15 @@
     --bl-bad-wash: #fdeeec;
     --bl-cool: #2563a5;
 
-    /* Brand. Cyan means "you can act on this": focus, the active row, the
-       period in progress. Lime is reserved for the mark itself and is never
-       allowed to carry meaning, because a colour that means two things
-       means neither. */
     --bl-brand: #4fb9d4;
     --bl-brand-deep: #1c7f9b;
     --bl-lime: #c2ec42;
 
-    /* THE CHANNEL'S OWN COLOUR.
-    
-       Declared here as the neutral and overridden per channel by an inline
-       style: layouts/channel.blade.php publishes the channel a page belongs
-       to, and each .fh-card on the fulfilment hub publishes its own. The
-       values come from the accent every integration already declares on its
-       IntegrationCard, computed into three forms by App\Support\ChannelAccent.
-    
-         --ch       the brand hex, for marks nothing is read against
-         --ch-deep  darkened until white text clears 4.5:1, for filled
-                    surfaces carrying a label
-         --ch-cta   --ch-deep, unless the channel cannot be told apart from
-                    the alert red, in which case the neutral. Only the
-                    filled primary button takes this one: it is the sole
-                    place the channel's colour lands on something shaped
-                    and weighted like the destructive button in a dialog
-         --ch-lift  lightened until it clears the DARK theme's sheet, because
-                    a colour dark enough to hold white text disappears there
-    
-       Stated in CSS rather than left to the markup so this file carries the
-       contract, and so a surface that asks for one outside a channel gets a
-       deliberate neutral rather than nothing. Every rule that reads them also
-       names its own fallback; this is the belt to that pair of braces. */
     --ch: var(--bl-brand-deep);
     --ch-deep: var(--bl-ink);
     --ch-cta: var(--bl-ink);
     --ch-lift: var(--bl-ink);
 
-    /* ACCENTS. New in v2.3.
-
-       The v2.2 rule was that colour means state and nothing else, which is
-       why almost nothing on a page was coloured. That reads as restraint up
-       close and as "unfinished" across the room, which is the note this
-       revamp is answering.
-
-       These five are for IDENTITY, not state: they say which measure you
-       are looking at, and they are always paired with the written label, so
-       nothing is carried by hue alone. State keeps its own tokens above and
-       they never mix. */
-    /* Every accent below carries WHITE TEXT on a metric block, so each one
-       is chosen against that requirement rather than for its own sake.
-
-       The first version was picked for distinguishability and never checked:
-       white on the light cyan stop measured 2.28:1 and on the light green
-       stop 1.92:1, against the 4.5:1 that 12px text needs. Four of the five
-       cards failed AA and two failed even the 3:1 large-text floor. Amber was
-       the only compliant one, and only because white obviously could not sit
-       on it, so it had already been switched to ink.
-
-       Each pair is now solved: the light stop clears 4.6:1 and the deep stop
-       7:1, which keeps a visible gradient rather than collapsing the two into
-       one flat colour. Verified by computation, not by eye. */
     --bl-a-cyan: #156176;    --bl-a-cyan-2: #367e90;
     --bl-a-violet: #5345c3;  --bl-a-violet-2: #7467ca;
     --bl-a-amber: #d98207;   --bl-a-amber-2: #f5b74b;
@@ -308,44 +139,23 @@
     --bl-a-rose: #d4426a;    --bl-a-rose-2: #f4789a;
     --bl-a-indigo: #3b4dbf;  --bl-a-indigo-2: #5f6ec9;
 
-    /* Navigation chrome. The sidebar carries the identity so the work
-       surface can stay white and keep its contrast. */
     --bl-side-bg: #0b1228;
     --bl-side-ink: #97a4bd;
     --bl-side-hover: #16203c;
     --bl-side-active: #1d2a4d;
     --bl-side-rule: #1b2542;
 
-    /* MATERIALS. Rewritten in v2.3.
-
-       v2.2 spent its edges on hairline rules and kept exactly one
-       elevation. The references this revamp answers do the opposite: the
-       card edge is a soft shadow, corners are generous, and the ground is
-       tinted so white reads as raised rather than as more page.
-
-       Two elevations now, not one. --bl-lift is the resting card;
-       --bl-lift-2 is for a surface that is deliberately louder than the
-       cards around it, which on the dashboard means the figures at the top.
-       A third would mean nothing, so there is no third. */
     --bl-r-panel: 16px;
     --bl-r-ctrl: 11px;
     --bl-r-dot: 4px;
     --bl-r-pill: 999px;
     --bl-lift: 0 1px 2px rgba(19, 26, 43, .04), 0 10px 28px -14px rgba(19, 26, 43, .22);
     --bl-lift-2: 0 2px 6px rgba(19, 26, 43, .06), 0 22px 44px -22px rgba(19, 26, 43, .34);
-    /* What sits behind a dialog. A token per theme, because mixing --bl-ink
-       (near-white in the dark theme) made every picker and confirm go
-       milky there (critique, 2026-08-27). */
     --bl-scrim: rgba(11, 18, 40, .45);
 
-    /* Washes the state set above was missing. Mixed from the sheet so they
-       track the theme without needing a dark override. */
     --bl-brand-wash: color-mix(in srgb, var(--bl-brand) 12%, var(--bl-sheet));
     --bl-good-wash: color-mix(in srgb, var(--bl-good) 12%, var(--bl-sheet));
 
-    /* Rhythm and control metrics, promoted from the retired bridge with the
-       same values. The spacing scale is a system: 7 is kept even while no
-       rule asks for it, because a scale with a hole invites ad-hoc pixels. */
     --bl-motion-fast: .12s ease;
     --bl-motion-base: .18s ease;
     --bl-space-1: 4px;
@@ -359,56 +169,19 @@
     --bl-control-h: 32px;
     --bl-control-h-sm: 26px;
 
-    /* The page gutter.
-
-       Sections here are full-bleed by design: a band, a strip and a table
-       all run edge to edge so the columns can line up down the page. But
-       full-bleed is about the RULE reaching the edge, not the text. Without
-       a gutter the first column presses against the sidebar and the last
-       one against the window, which is what "0 today" and a timestamp
-       ending in a stray digit were doing.
-
-       One token, so every full-bleed row and every outer table cell keeps
-       the same distance from the edge. */
-    /* The hint bubble inverts against the page so it reads as an overlay
-       and not as another panel. */
     --bl-tip-bg: #0b1228;
     --bl-tip-ink: #f2f5fa;
 
     --bl-page-gutter: 30px;
 
-    /* The content region's ceiling. On an ultrawide the columns drift
-       apart until the eye travels further than the data deserves; capped
-       and centered, the page reads the same at 1600px and at 3440px.
-       1600 is v1's own line (.content-inner, layout/content.css before
-       the rebuild) - the owner ran the business at that width for years and
-       chose it over Venta's 1440. The chrome (sidebar, topbar) still
-       spans the window; only the work surface is capped. */
     --bl-content-max: 1600px;
 
-    /* Sections used to carry the gutter themselves, which meant every new
-       section was a fresh chance to forget it, and bridged pages that this
-       project never wrote could not carry it at all. The content region
-       owns it now. --bl-gutter is re-declared as zero inside that region
-       (see .x-content below) so every rule that already asks for it
-       resolves to nothing rather than doubling. */
     --bl-gutter: var(--bl-page-gutter);
 
-    /* A section's OWN horizontal padding, which is a different thing from
-       the page edge and must not be the same token. Overloading one value
-       for both is what stripped the padding off the dashboard's side rail
-       and the channel overview's cells the moment the page gutter moved to
-       the container. Zero at page level (the container already inset the
-       page); a rail or a cell opts back in. */
     --bl-pad: 20px;
 
-    /* How far a column's content sits from the divider beside it. Separate
-       from --bl-pad because it applies to ONE side of a column, not to a
-       section's own box. */
     --bl-col-pad: 20px;
 
-    /* Column labels. Sentence case at normal width: the wide-tracked
-       uppercase micro-cap was the single most dating detail in the build. */
     --bl-lab-size: 11.5px;
     --bl-lab-track: 0.005em;
     --bl-lab-case: none;
@@ -420,8 +193,6 @@
     --bl-tip-bg: #e8edf6;
     --bl-tip-ink: #0b1228;
 
-    /* Accents lighten in dark so they stay legible as fills carrying white
-       text and as text on the panel. Same five identities, same order. */
     --bl-a-cyan: #4fb9d4;    --bl-a-cyan-2: #7fd3e6;
     --bl-a-violet: #8a7bf0;  --bl-a-violet-2: #a99dff;
     --bl-a-amber: #f5b74b;   --bl-a-amber-2: #ffd28a;
@@ -453,8 +224,6 @@
     --bl-brand-deep: #8fd9ea;
     --bl-lime: #c2ec42;
 
-    /* In dark the sidebar goes deeper than the page rather than lighter,
-       so the chrome still reads as chrome and not as another panel. */
     --bl-side-bg: #060a14;
     --bl-side-ink: #8592ab;
     --bl-side-hover: #121b30;
@@ -467,14 +236,7 @@
 }
 
 @theme {
-    /* NO --spacing-gutter token here, deliberately.
-       Declaring one makes Tailwind emit .px-gutter as a UTILITY, and utilities
-       cascade after components, so it silently beat the .px-gutter rule in the
-       components layer below. Two fixes landed months apart - one to give the
-       topbar its padding, one to stop the page gutter doubling inside
-       .x-content - and the second was defeated by the first without either
-       being wrong on its own. The single definition lives with the other
-       gutter rules instead. */
+    /* Do not declare --spacing-gutter: Tailwind would emit a .px-gutter utility that beats the components-layer rule. */
 
     --color-paper: var(--bl-paper);
     --color-sheet: var(--bl-sheet);
@@ -510,9 +272,6 @@
     --radius-panel: var(--bl-r-panel);
 }
 
-/* ------------------------------------------------------------
-   Base
-   ------------------------------------------------------------ */
 @layer base {
     html {
         background: var(--bl-paper);
@@ -527,43 +286,22 @@
         -webkit-font-smoothing: antialiased;
     }
 
-    /* Every figure in this interface aligns on its decimal. */
     table,
     .bl-num {
         font-variant-numeric: tabular-nums;
     }
 
-    /* Cyan, because focus is the clearest case of "you can act on this".
-       Amber stays reserved for "this needs you", which is a different
-       sentence and must not be said by the same colour. */
-    /* --bl-brand-deep, not --bl-brand. #4fb9d4 measures 2.03:1 on the light
-       ground - a ring nobody can see is not a ring. The pair member is
-       redefined per theme (#1c7f9b light, #8fd9ea dark) and clears 4:1 in
-       both. This was fixed once inside .fh-scope and left broken everywhere
-       else, which is why the guard now reads THIS rule too. */
     :focus-visible {
         outline: 2px solid var(--bl-brand-deep);
         outline-offset: 1px;
     }
 
-    /* Alpine paints after first paint; without this, every collapsed group
-       and closed menu flashes open on load. */
     [x-cloak] {
         display: none !important;
     }
 }
 
-/* ------------------------------------------------------------
-   Ledger primitives
-
-   These earn a component class rather than a utility string because
-   each one is a rule about meaning, not a bundle of spacing. A state
-   token is a square plus a word; a band cell is a figure that links
-   somewhere. Repeating those as utilities across 100 views is how
-   the meaning drifts.
-   ------------------------------------------------------------ */
 @layer components {
-    /* Column label: condensed, uppercase, quiet. */
     .bl-label {
         font-size: var(--bl-lab-size);
         font-stretch: var(--bl-lab-stretch);
@@ -573,16 +311,12 @@
         color: var(--bl-ink-3);
     }
 
-    /* The trading band: equal ruled cells, no cards, no shadows. */
     .bl-band {
         display: grid;
         border-block: 1px solid var(--bl-rule-2);
         background: var(--bl-sheet);
     }
 
-    /* A cell in a full-bleed row. Its padding is the space between column
-       dividers, not the page edge, so it is a literal; the outer cells add
-       the page gutter on top further down. */
     .bl-cell {
         display: flex;
         flex-direction: column;
@@ -601,8 +335,6 @@
         background: color-mix(in srgb, var(--bl-brand) 5%, var(--bl-sheet));
     }
 
-    /* Fluid so a seven-figure peso amount cannot push the band past the
-       viewport at 1280 or 1440, which is where an ERP is actually read. */
     .bl-figure {
         font-size: clamp(24px, 2.1vw, 34px);
         line-height: 1.02;
@@ -618,8 +350,6 @@
         letter-spacing: -0.01em;
     }
 
-    /* Ledger table. Rules do the separating; there is no zebra striping,
-       because a coloured row would have to mean something. */
     .bl-table {
         width: 100%;
         border-collapse: collapse;
@@ -656,16 +386,10 @@
         font-weight: 550;
     }
 
-    /* Wide tables scroll inside their own container so the page never does. */
     .bl-scroll {
         overflow-x: auto;
     }
 
-    /* One chart column, one SVG. A single stretched SVG would scale its bars
-       to the container, so a five-year range would draw five wide slabs;
-       per-column SVGs let the row cap how wide a bar can get. The height
-       comes from the data and travels as a geometry attribute, never as an
-       inline style. */
     .bl-col {
         flex: 1 1 0;
         max-width: 20px;
@@ -677,14 +401,10 @@
         fill: var(--bl-ink);
     }
 
-    /* The period in progress. Amber because it is the one column still
-       moving, which is a state, not decoration. */
     .bl-col-now rect {
         fill: var(--bl-attn-fill);
     }
 
-    /* State token: a solid square and a word. Never a pill, never a
-       tinted capsule, and the word is never carried by colour alone. */
     .bl-state {
         display: inline-flex;
         align-items: center;
@@ -711,17 +431,12 @@
     .bl-state-off { color: var(--bl-ink-3); }
     .bl-state-off i { background: var(--bl-rule-2); }
 
-    /* Channel swatch: the one place a brand colour is allowed, and only
-       ever as identity next to the written name. */
     .bl-swatch {
         display: inline-block;
         width: 9px;
         height: 9px;
         flex: none;
         vertical-align: baseline;
-        /* Every swatch carries a hairline ring. Channel colours come from the
-           marketplaces themselves, and some of them (TikTok's #111) vanish
-           against their own theme's ground without it. */
         box-shadow: 0 0 0 1px var(--bl-rule-2);
     }
 
@@ -760,9 +475,6 @@
         font-size: 12px;
     }
 
-    /* Inputs. A field is a ruled slot on the sheet, not a rounded pill: the
-       same hairline that separates a table row separates a value from its
-       label. */
     .bl-input {
         width: 100%;
         padding: 6px 10px;
@@ -793,8 +505,6 @@
         color: var(--bl-ink-3);
     }
 
-    /* Row selection. Square, ink, no custom control: a checkbox that looks
-       like a checkbox is the one affordance nobody has to learn. */
     .bl-check {
         width: 14px;
         height: 14px;
@@ -802,8 +512,6 @@
         cursor: pointer;
     }
 
-    /* Sortable column header. The arrow only appears on the sorted column,
-       so the header row does not read as six controls competing. */
     .bl-sort {
         display: inline-flex;
         align-items: center;
@@ -816,8 +524,6 @@
         color: var(--bl-ink);
     }
 
-    /* Product thumbnail. Fixed square so a ragged set of source images
-       cannot make the rows different heights. */
     .bl-thumb {
         position: relative;
         display: grid;
@@ -832,16 +538,12 @@
         color: var(--bl-ink-3);
     }
 
-    /* A variation's thumb, one step down from its parent's. */
     .bl-thumb--sm {
         width: 26px;
         height: 26px;
         font-size: 8px;
     }
 
-    /* The image sits over its own placeholder rather than beside it, so
-       thumb-fallback.js can remove a broken one and the placeholder is
-       already in place underneath. */
     .bl-thumb img {
         position: absolute;
         inset: 0;
@@ -850,9 +552,6 @@
         object-fit: cover;
     }
 
-    /* A box with no photo shows the shipped placeholder; the word "None"
-       stays for a screen reader only. While a photo is in the box the
-       placeholder goes, so a transparent photo never shows it through. */
     .bl-thumb {
         font-size: 0;
         background-image: url('/images/brand/no-image.svg');
@@ -872,20 +571,11 @@
         color: var(--bl-ink-2);
     }
 
-    /* Panel heading. Deliberately small: on an operate surface the data is
-       the headline and the heading is a label for it. */
     .bl-panel-head {
         display: flex;
         align-items: baseline;
-        /* Wraps, so a head carrying a control wide enough to crowd its own
-           heading drops the control to a second line instead of pushing the
-           panel sideways. Nothing relies on the two staying on one line; the
-           min-height below is what keeps two heads level. */
         flex-wrap: wrap;
         gap: 10px;
-        /* A floor, so a heading carrying a trailing link is not half a pixel
-           taller than one that does not. Two headings side by side must put
-           their cards on the same line. */
         min-height: 2rem;
         padding-block: 15px 9px;
         padding-left: var(--bl-pad-l, 0px);
@@ -898,16 +588,6 @@
         font-weight: 650;
     }
 
-    /* ------------------------------------------------------------
-       Shared confirm dialog.
-
-       partials/confirm-modal is one dialog for the whole application and
-       resources/js/confirm-modal.js binds it by id, toggling .active on the
-       backdrop and swapping x-btn--danger / x-btn--primary on the confirm
-       control. Those class names are the contract, so the Blotter dresses
-       them rather than forking the partial and the behaviour with it. Red
-       here keeps meaning "this removes something".
-       ------------------------------------------------------------ */
     .modal-backdrop {
         position: fixed;
         inset: 0;
@@ -923,9 +603,6 @@
         display: flex;
     }
 
-    /* A dialog opened from another sits above it: the image library and
-       the confirm dialog over a slide-over panel, which waits underneath
-       as it was left. */
     .modal-backdrop[data-ilp-modal],
     #x-confirm-modal {
         z-index: 70;
@@ -976,13 +653,7 @@
         padding: 14px 0 16px;
         font-size: 13.5px;
         color: var(--bl-ink-2);
-        /* The message is set as textContent, deliberately: it can carry a
-           product name and a name is not ours to trust as markup. pre-line
-           is what lets that plain text hold the count and the list of what
-           is about to be deleted on their own lines. */
         white-space: pre-line;
-        /* A long list stays inside the dialog rather than growing it past
-           the viewport on a phone. */
         max-height: 46vh;
         overflow-y: auto;
     }
@@ -999,11 +670,6 @@
         gap: 8px;
     }
 
-    /* The bypass block. Off-screen until focused, then a real control at
-       the top-left of the viewport - not display:none, which would take it
-       out of the tab order and defeat the entire point. It carries the same
-       focus ring as everything else, and z-index above the sticky header it
-       jumps out of. */
     .x-skip {
         position: fixed;
         top: var(--bl-space-2);
@@ -1021,16 +687,10 @@
         transition: transform var(--bl-motion-fast);
     }
 
-    /* :focus, not :focus-visible. A skip link is reached by Tab and by
-       nothing else, so there is no mouse case to suppress, and
-       :focus-visible would leave it hidden for anything that moves focus
-       programmatically. */
     .x-skip:focus {
         transform: translateY(0);
     }
 
-    /* The content region takes focus from the skip link but must never
-       show a ring for it: it is a landmark, not a control. */
     .x-content:focus {
         outline: none;
     }
@@ -1040,15 +700,6 @@
         align-items: center;
         gap: 6px;
         padding: 6px 13px;
-        /* --bl-field-edge, not --bl-rule-2. A control's boundary has to
-           reach 3:1 against the surface behind it (WCAG 1.4.11), and a
-           secondary button is a white fill on a near-white chrome, so the
-           border is the ONLY thing that says a control is there. At
-           --bl-rule-2 it measured 1.13:1 light and 1.63:1 dark across 62
-           buttons on a single fulfilment page. This is the same token the
-           inputs and the fold triggers already use, where it measures 3.23
-           and 3.75. --bl-rule-2 stays what it is: a rule between things,
-           not the edge of a control. */
         border: 1px solid var(--bl-field-edge);
         border-radius: var(--bl-r-ctrl);
         background: var(--bl-sheet);
@@ -1059,10 +710,6 @@
         cursor: pointer;
     }
 
-    /* A disabled button LOOKS disabled. The pager's Previous on page one of
-       one rendered pixel-identical to the live Next beside it - flagged in
-       two critiques running. Not display:none, because a pager that loses
-       buttons as you reach its ends jumps around under the cursor. */
     .x-btn:disabled {
         opacity: .45;
         cursor: default;
@@ -1075,11 +722,6 @@
         color: var(--bl-paper);
     }
 
-    /* Destructive controls come in two weights, because they do two
-       different jobs. An inline Remove sits among ordinary controls and
-       must not outshout the page's primary action, so it is outlined. The
-       confirm dialog's own button IS the destructive act, and it is filled.
-       A page covered in solid red buttons teaches people to ignore red. */
     .x-btn--danger {
         border-color: var(--bl-bad);
         background: var(--bl-sheet);
@@ -1097,12 +739,6 @@
     }
 }
 
-/* ------------------------------------------------------------
-   Motion: one authored moment, on the band, at page load. Anything
-   the operator triggers themselves is instant, because a person
-   waiting on an animation to read a figure is a person being made
-   to wait for nothing.
-   ------------------------------------------------------------ */
 @media (prefers-reduced-motion: no-preference) {
     .bl-band > .bl-cell {
         animation: bl-cell-in 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) both;
@@ -1124,21 +760,7 @@
     }
 }
 
-/* ============================================================
-   2026 materials
-
-   The rendition the owner chose: same layout, same rules about meaning,
-   current materials. Corners were tokenised in place above; this block
-   handles the two things that need to know WHICH surface they are on.
-
-   Elevation is spent, deliberately, on exactly two categories: things
-   that genuinely float over the page (menus, dropdowns, dialogs), and
-   the one primary action per screen. A dense operational page where
-   every panel is lifted is the bought-template look wearing a shadow.
-   ============================================================ */
 @layer components {
-    /* Large surfaces take the panel radius. Everything else keeps the
-       control radius it inherited. */
     .fm-card,
     .od-card,
     .x-hub__card,
@@ -1161,22 +783,17 @@
         border-radius: var(--bl-r-panel);
     }
 
-    /* Off the page, so lifted. */
     .x-menu__panel,
     .fm-ta__list,
     .modal {
         box-shadow: var(--bl-lift);
     }
 
-    /* The primary action, and only the primary action. */
     .bl-btn-primary,
     .x-btn--primary {
         box-shadow: var(--bl-lift);
     }
 
-    /* State marks and channel swatches get the faintest rounding. They stay
-       square in character: a circle would read as a status light from a
-       different design language. */
     .bl-state i,
     .bl-swatch,
     .x-badge__dot,
@@ -1184,17 +801,12 @@
         border-radius: var(--bl-r-dot);
     }
 
-    /* The period still in progress, on any chart. Cyan rather than amber:
-       "this is now" is not "this needs you". */
     .bl-col-now rect {
         fill: var(--bl-brand);
     }
 }
 
 @layer components {
-    /* The outer columns of a full-bleed table keep the page gutter, so a
-       first cell never presses against the sidebar and a last cell never
-       runs into the window. The rule still reaches both edges. */
     .bl-table th:first-child,
     .bl-table td:first-child,
     .x-table th:first-child,
@@ -1213,9 +825,6 @@
         padding-right: var(--bl-pad);
     }
 
-    /* Same for the band, the channel strip and the fulfilment cards: the
-       outer cell's own padding is the gutter, the inner ones stay tight so
-       the columns keep their rhythm. */
     .bl-band > :first-child,
     .strip > :first-child,
     .x-fh-strip > :first-child,
@@ -1230,18 +839,12 @@
         padding-right: var(--bl-pad);
     }
 
-    /* Narrow screens have no sidebar to clear and much less width to give
-       away, so the gutter tightens rather than eating the content. */
     @media (max-width: 700px) {
         :root { --bl-page-gutter: 16px; }
     }
 }
 
 @layer components {
-    /* A page heading that sits straight in the content area, with no
-       wrapper to carry padding for it. The settings hub does exactly this,
-       which is how "Settings" ended up flush against the sidebar. Zeroed
-       again wherever a container already provides the gutter. */
     .x-page-title,
     .x-page-sub {
         padding-inline: var(--bl-pad);
@@ -1258,33 +861,12 @@
 }
 
 @layer components {
-    /* One name for the page gutter, so a view never has to pick a number.
-       Every ad-hoc px-4.5 / px-5 / px-7 in a Blotter view was a chance for
-       two sections to disagree about where the page edge is. */
-    /* --bl-gutter, not --bl-pad-l/r. --bl-gutter is the page edge: it is
-       var(--bl-page-gutter) at root and redeclared to 0 inside .x-content,
-       which is what stops a view that asks for the gutter from being inset
-       twice once the content region already paid it. --bl-pad-l/r are a
-       COLUMN's inset from a divider, they are only ever defined on
-       .x-content, and asking for them here gave the topbar zero padding and
-       every in-content section a doubled 60px. */
     .px-gutter { padding-inline: var(--bl-gutter); }
     .pl-gutter { padding-left: var(--bl-pad); }
     .pr-gutter { padding-right: var(--bl-pad); }
 }
 
 @layer components {
-    /* Collapsible nav group.
-
-       A height transition needs a height, and a list of links does not have
-       one until it is open. The 0fr to 1fr grid row gives the browser both
-       ends of the animation without anyone measuring anything, so the group
-       expands and collapses smoothly in both directions. */
-    /* No transition until the page has painted once. A collapse that
-       animates on load reads as the nav collapsing and re-opening itself
-       every time you click a child, which is exactly what it looked like.
-       The class is added on the frame after load, so the first paint is
-       static and every interaction after it animates. */
     .bl-collapse {
         display: grid;
         grid-template-rows: 0fr;
@@ -1301,22 +883,12 @@
         min-height: 0;
     }
 
-    /* Breathing room under an open group only. Left on the inner element it
-       survived the clip and every closed group kept a 4px ghost, which read
-       as uneven spacing down the sidebar. */
     .bl-collapse.is-open .bl-collapse__inner { padding-bottom: 4px; }
 
     @media (prefers-reduced-motion: reduce) {
         .bl-collapse { transition: none; }
     }
 
-    /* ------------------------------------------------------------
-       Gutter corrections found by the page audit
-
-       Panels that sit straight in the content region rather than inside a
-       page wrapper were reaching the edge on their own. Margin rather than
-       padding, so the panel's border stays inside the gutter with it.
-       ------------------------------------------------------------ */
     .x-cmdbar,
     .st-cron,
     .st-facts,
@@ -1326,11 +898,6 @@
         margin-inline: var(--bl-gutter);
     }
 
-    /* Bridged channel pages have their own page wrapper and no padding of
-       their own; this is where their gutter comes from. A notice is not
-       among them: --bl-pad is 0 inside .x-content, so it set a notice's
-       own side padding to nothing, the icon sat on the border and the
-       close covered the end of the first line. */
     .x-content > .cc-page,
     .x-content > .co-page,
     .x-content > .fm-section,
@@ -1338,20 +905,12 @@
         padding-inline: var(--bl-pad);
     }
 
-    /* A panel already inset by the rule above must not be inset twice. */
     .cc-page .x-cmdbar,
     .co-page .x-cmdbar,
     .x-content > .cc-page .st-cron {
         margin-inline: 0;
     }
 
-    /* The dashboard's channel strip, on the same terms as the band: the row
-       bleeds, the outer cells carry the gutter. */
-    /* The sub-tab strip under a marketplace tab (To Pack / To Arrange
-       Shipment / To Handover) is rendered bare, with no segment-bar wrapper
-       to carry the gutter for it, so it takes its own. Only appears on the
-       To Ship and Failed Delivery tabs, which is why a page audit of default
-       tabs never saw it. */
     .x-segment--sub { margin-inline: var(--bl-gutter); }
     .x-segment-bar .x-segment--sub { margin-inline: 0; }
 
@@ -1361,60 +920,24 @@
 }
 
 @layer components {
-    /* ============================================================
-       The page gutter, in one place.
-
-       Every page on this shell is inset by the same amount, whatever it
-       renders: tabs, search fields, cards, tables, bands, bridged legacy
-       vocabularies this project never wrote. Nothing has to opt in.
-
-       Zeroing --bl-gutter here is what makes that safe. Sections written
-       earlier still say padding: 14px var(--bl-pad); inside this region
-       that now resolves to 14px 0, so the container's gutter is the only
-       one and nothing is inset twice.
-       ============================================================ */
     .x-content {
-        /* Centered under the ceiling; auto margins absorb the ultrawide
-           surplus equally on a flex item, exactly as Venta's .v-content
-           does. Sticky bars (.fm-bar) are laid out inside the region, so
-           they cap and center with it for free. */
         max-width: var(--bl-content-max);
         margin-inline: auto;
         padding-inline: var(--bl-page-gutter);
         --bl-gutter: 0px;
         --bl-pad: 0px;
-        /* Per-side, because a column's two edges are not the same thing. */
         --bl-pad-l: 0px;
         --bl-pad-r: 0px;
     }
 
-    /* Columns in a split.
-
-       A column has two different kinds of edge and they need different
-       treatment: the side facing the page edge is the container's job and
-       must stay at zero, while the side facing the divider between columns
-       needs holding off it. Padding the whole column (which is what
-       --bl-pad: 18px on the rail did) gets the second right and the first
-       wrong, so the rail's figures sat 46px from the window while the table
-       above them sat at 28.
-
-       Stated once, so the next split gets it without anyone remembering. */
-    /* Padding the column itself insets its SURFACES too: the orders table
-       stopped 18px short of the divider and left a strip of page showing
-       through. The column instead publishes how much padding its sections
-       should take on each side, so the white reaches the divider and only
-       the text is held off it. */
     .bl-split > :first-child { --bl-pad-r: var(--bl-col-pad); }
     .bl-split > :last-child { --bl-pad-l: var(--bl-col-pad); }
 
     @media (max-width: 1279px) {
-        /* Stacked: there is no divider, so there is nothing to hold off. */
         .bl-split > :first-child,
         .bl-split > :last-child { --bl-pad-l: 0px; --bl-pad-r: 0px; }
     }
 
-    /* The three places that ADD to a cell's own padding rather than
-       replacing it, so they keep working under either model. */
     .bl-table th:first-child,
     .bl-table td:first-child,
     .x-table th:first-child,
@@ -1442,9 +965,6 @@
 }
 
 @layer components {
-    /* Row actions shown inline rather than folded into a menu. The column
-       takes only the width its buttons need (width: 1% plus nowrap is the
-       shrink-to-fit idiom), so the columns beside it keep the rest. */
     .bl-col-actions {
         width: 1%;
         white-space: nowrap;
@@ -1459,16 +979,6 @@
 }
 
 @layer components {
-    /* A rail card. The table in the column beside it is bounded by its own
-       rules, so a block of loose figures next to it reads as unfinished. A
-       hairline box, no shadow: the panel language this world already uses.
-       Held off the divider by the column's own padding token, and ending at
-       the page gutter like everything else. */
-    /* Card spacing rides on the siblings rather than on `gap`, because the
-       stack's first child is a heading and a heading must NOT take the card
-       gap: its own bottom padding is its spacing, exactly as on the table
-       heading in the column beside it. With `gap` the two columns started
-       13px out of step. */
     .bl-rail-stack {
         display: flex;
         flex-direction: column;
@@ -1479,27 +989,10 @@
     .bl-rail-stack > .bl-panel-head { padding-block: 4px 8px; }
     .bl-rail-stack > .bl-panel-head + * { margin-top: 0; }
 
-    /* ------------------------------------------------------------
-       SEGMENTED CONTROL
-
-       One choice with N positions: the chart range on the dashboard today.
-       It reads as one object rather than N, which is the whole reason it
-       exists - seven separately bordered chips of seven different widths beside
-       a heading is a row of debris, and the same seven joined is a control.
-
-       The separator is a 1px inset shadow rather than a border, so no item
-       changes width when it becomes the selected one and the row never shifts
-       under the pointer. The container clips, so the first and last positions
-       take the outer radius without either of them being told which end it is
-       on - it stays correct when a range is added or removed.
-       ------------------------------------------------------------ */
     .bl-seg {
         display: flex;
         margin-left: auto;
         max-width: 100%;
-        /* Below the width where every position fits, the control scrolls
-           inside itself rather than the page scrolling sideways. Same rule the
-           tables follow: what you own has to stay reachable. */
         overflow-x: auto;
         scrollbar-width: none;
         border: 1px solid var(--bl-rule-2);
@@ -1525,10 +1018,6 @@
 
     .bl-seg__item:hover { background: var(--bl-chrome); color: var(--bl-ink); }
 
-    /* The selected position, in the same ink the page uses for a primary
-       action. It keeps its separator suppressed on both sides so the fill
-       reads as one solid block rather than a block with a seam down its
-       edge. */
     .bl-seg__item.is-on {
         background: var(--bl-ink);
         color: var(--bl-paper);
@@ -1540,9 +1029,6 @@
 
     .bl-seg__item.is-on:hover { background: var(--bl-ink); color: var(--bl-paper); }
 
-    /* A range is a one-handed tap on the warehouse floor as often as a click
-       at a desk. Gated on the input device, matching how the rest of the
-       suite raises its targets. */
     @media (pointer: coarse) {
         .bl-seg__item {
             padding-block: 11px;
@@ -1552,26 +1038,6 @@
         }
     }
 
-    /* ============================================================
-       THE FOUNDATION PRIMITIVES
-
-       One definition of each thing a page is built out of, aliased onto every
-       name that already means it. Written 2026-08-10 after measuring the
-       application: 22 class-prefix families in the views, but only fm- and od-
-       ever defined a card or a head - the other ten are thin page-specific
-       layers riding on shared bones. So this is deduplication, not a redesign.
-       .fm-section and .od-section were already byte-identical.
-
-       The decomposition is deliberate: a SHEET is a surface, and how its
-       children stack is the page's own business. Folding both into one rule
-       would have forced every page onto one internal rhythm and turned a safe
-       dedupe into a layout rewrite. One surface, many arrangements.
-
-       Values are the ones from the pages the owner approved: the channel Overview,
-       the fulfilment summary and the dashboard.
-       ============================================================ */
-
-    /* A raised sheet. The thing a reader sees as "a panel on this page". */
     .bl-sheet,
     .fm-section,
     .od-section,
@@ -1584,8 +1050,6 @@
         box-shadow: var(--bl-lift);
     }
 
-    /* A lighter container INSIDE a sheet: a tighter radius, a stronger rule,
-       no lift, because a shadow inside a shadow reads as a mistake. */
     .bl-inset,
     .fm-card,
     .od-card {
@@ -1595,8 +1059,6 @@
         overflow: hidden;
     }
 
-    /* Nesting is guarded rather than forbidden: a sheet inside a sheet, or
-       inside an inset, goes flat. A card inside a card is always wrong. */
     .bl-sheet .bl-sheet,
     .bl-inset .bl-sheet,
     .fm-card .fm-section,
@@ -1608,12 +1070,6 @@
         box-shadow: none;
     }
 
-    /* A sheet's head, on a hairline.
-
-       Packed left with the action pushed right by its own margin, rather than
-       space-between across the whole row: with space-between a title and its
-       note ended up at opposite ends of an 800px card, reading as two
-       unrelated labels. This shape serves both cases at once. */
     .bl-sheet__head {
         display: flex;
         flex-wrap: wrap;
@@ -1638,29 +1094,8 @@
         color: var(--bl-ink-3);
     }
 
-    /* Anything trailing in a head is an action and belongs at the far edge. */
     .bl-sheet__head > .bl-sheet__action { margin-left: auto; }
 
-    /* A PAGE HEAD: the title block, and the page's one most-needed action.
-
-       Four implementations agreed on the shape and disagreed on the action.
-       .x-overview-head used justify-content: space-between and .x-list-head
-       used nothing, which is why a channel's Connect button sat at the right
-       edge while Warehousing's New transfer floated next to its own title.
-
-       The action is placed by pushing the TITLE BLOCK's right margin, not by
-       space-between and not by a rule on the last child:
-
-       - space-between distributes ALL children, so a head with a title and
-         two actions spreads the actions apart instead of grouping them.
-       - :last-child was tried before and is recorded in blotter-components.css
-         as a bug: a head with one child is both its first and its last, so a
-         lone element got treated as an action. Position cannot be inferred
-         from source order.
-
-       first-child is safe in the single-child case - an auto margin on the
-       only element just absorbs the free space - and correct with any number
-       of actions after it. */
     .bl-head,
     .x-list-head,
     .x-overview-head,
@@ -1672,8 +1107,6 @@
         min-width: 0;
     }
 
-    /* The page-level heads carry the vertical inset. .fm-head does not: it
-       sits inside a form page's own wrapper, which already provides it. */
     .bl-head,
     .x-list-head,
     .x-overview-head {
@@ -1687,9 +1120,6 @@
         margin-right: auto;
     }
 
-    /* A rail is context, so it speaks at the smaller size the order page's
-       sections already use. Two columns read differently should not be
-       typeset identically. */
     .bl-sheet--rail { padding: 15px 20px 16px; }
     .bl-sheet--rail .bl-sheet__head { padding-bottom: 9px; margin-bottom: 12px; }
     .bl-sheet--rail .bl-sheet__title { font-size: 13px; font-weight: 650; }
@@ -1719,18 +1149,6 @@
 }
 
 @layer components {
-    /* ============================================================
-       Blocks are cards.
-
-       These sections used to be full-bleed rows: a rule along the top and
-       bottom, running edge to edge. Now that the content region owns the
-       page gutter, a row with no left or right border reads as cut off at
-       both ends, which is what it looked like beside the bordered Stock and
-       Purchasing panels.
-
-       Stated once, for every block that carries data, so a new one inherits
-       the treatment instead of needing to remember it.
-       ============================================================ */
     .bl-band,
     .bl-strip,
     .bl-scroll,
@@ -1745,7 +1163,6 @@
         overflow: hidden;
     }
 
-    /* Their own edge rules would now double the card's border. */
     .bl-band,
     .x-fh-strip,
     .x-health,
@@ -1758,8 +1175,6 @@
         overflow-x: auto;
     }
 
-    /* A table inside a card must not draw its own top rule over the card's,
-       and its last row must not draw a rule across the card's bottom edge. */
     .bl-scroll > .bl-table > thead > tr > th,
     .x-table-wrap > .x-table > thead > tr > th {
         border-top: 0;
@@ -1770,8 +1185,6 @@
         border-bottom: 0;
     }
 
-    /* Cards stacked in a column need air between them; flush-stacked cards
-       read as one block with stray lines through it. */
     .bl-band,
     .bl-strip,
     .bl-scroll,
@@ -1783,30 +1196,12 @@
         margin-bottom: 14px;
     }
 
-    /* A label belongs to the card under it, so it sits closer to it than to
-       whatever came before. */
     .bl-panel-head,
     .x-fh-sec__head {
         padding-block: 4px 8px;
     }
 }
 
-/* ============================================================
-   v2.3 SURFACE UPGRADE
-
-   v2.2 built its structure out of hairline rules on a near-white
-   ground: correct, dense, and read as unfinished from across a room.
-   This block changes the material without touching a single view.
-
-   Every data container becomes a raised sheet: generous corner, soft
-   shadow, and a border that is now almost invisible and there only to
-   hold the edge when the shadow is suppressed (print, forced-colours,
-   a low-contrast display). The ground beneath them is tinted, which is
-   what makes white read as raised rather than as more page.
-
-   Written as one additive block rather than by editing forty rules,
-   so the whole change can be read in one place and reverted in one.
-   ============================================================ */
 @layer components {
     .bl-band,
     .bl-strip,
@@ -1851,24 +1246,17 @@
         background: var(--bl-sheet);
     }
 
-    /* A table inside a bounded sheet must not draw its own outer rules, or
-       the card gets a double edge at top and bottom. */
     .x-table-wrap > .x-table > thead > tr > th,
     .bl-scroll > .bl-table > thead > tr > th { border-top: 0; }
     .x-table-wrap > .x-table > tbody > tr:last-child > td,
     .bl-scroll > .bl-table > tbody > tr:last-child > td { border-bottom: 0; }
 
-    /* Section heads sat on a rule because there was nothing else to
-       separate them. On a raised sheet the sheet does that job, so the
-       rule goes and the space stays. */
     .fm-section__head,
     .od-section__head {
         border-bottom: 0;
         padding-bottom: 2px;
     }
 
-    /* Controls take the same corner as the sheets they sit on. 6px inside
-       a 16px card reads as two different products. */
     .x-input,
     .x-select,
     .x-textarea,
@@ -1882,8 +1270,6 @@
         border-radius: var(--bl-r-ctrl);
     }
 
-    /* Status marks become pills. A 2px-cornered rectangle is the single
-       most dating detail left on a row. */
     .x-badge,
     .bl-badge,
     .x-segment__count,
@@ -1891,20 +1277,14 @@
         border-radius: var(--bl-r-pill);
     }
 
-    /* The one surface that is deliberately louder than the cards around
-       it: the figures a seller opens the page to read. */
     .bl-band { box-shadow: var(--bl-lift-2); }
 
-    /* Menus and dialogs already floated; they now float on the same two
-       materials as everything else rather than on their own. */
     .x-menu__panel,
     .x-palette__panel,
     .fm-pick__drop,
     .fm-ta__list,
     .modal { box-shadow: var(--bl-lift-2); }
 
-    /* Forced colours and print get the border back, since neither renders
-       a shadow and the edge is load-bearing. */
     @media (forced-colors: active), print {
         .bl-band, .bl-strip, .bl-scroll, .bl-charts, .bl-panel,
         .x-table-wrap, .fm-card, .od-card, .x-hub__card {
@@ -1914,24 +1294,6 @@
     }
 }
 
-/* ============================================================
-   v2.3 METRIC BLOCKS
-
-   The headline figures are the one place this interface raises its
-   voice. Filled saturated colour, white figures, one drawn icon each.
-   the owner picked this over the quieter variants against CoreUI Pro, so
-   it is the brief, not a flourish.
-
-   Colour here is IDENTITY, never state: it says which measure you are
-   reading. The written label sits beside it in every case, so a
-   colour-blind operator loses nothing. State keeps amber/green/red
-   and never appears on a block's fill.
-
-   ZERO. A saturated block shouting "0" reads as an alarm or a fault,
-   and on a quiet Sunday morning most of these ARE zero. A block with
-   nothing in it drops to a tint of its own hue with ink figures: the
-   measure keeps its identity, absence looks like absence.
-   ============================================================ */
 @layer components {
     .bl-stats {
         display: grid;
@@ -1961,9 +1323,6 @@
     a.bl-stat:hover { transform: translateY(-2px); box-shadow: var(--bl-lift-2), 0 0 0 1px rgba(255,255,255,.28) inset; }
     a.bl-stat:focus-visible { outline: 2px solid var(--bl-sheet); outline-offset: 2px; }
 
-    /* Two soft rounds of the block's own light, which is what stops a
-       flat rectangle of colour reading as a swatch. Behind the content,
-       never over it. */
     .bl-stat::before,
     .bl-stat::after {
         content: '';
@@ -2016,7 +1375,6 @@
 
     .bl-stat__d svg { flex: none; }
 
-    /* Identity fills. */
     .bl-stat--cyan   { --st-fill: linear-gradient(135deg, var(--bl-a-cyan-2), var(--bl-a-cyan)); }
     .bl-stat--violet { --st-fill: linear-gradient(135deg, var(--bl-a-violet-2), var(--bl-a-violet)); }
     .bl-stat--amber  { --st-fill: linear-gradient(135deg, var(--bl-a-amber-2), var(--bl-a-amber)); }
@@ -2024,9 +1382,6 @@
     .bl-stat--rose   { --st-fill: linear-gradient(135deg, var(--bl-a-rose-2), var(--bl-a-rose)); }
     .bl-stat--indigo { --st-fill: linear-gradient(135deg, var(--bl-a-indigo-2), var(--bl-a-indigo)); }
 
-    /* Amber is the one fill white cannot sit on at 4.5:1, so its label,
-       figure and delta take the ink they would have on paper. The block
-       keeps its identity; the text keeps its contrast. */
     .bl-stat--amber { color: #2c1c02; }
     .bl-stat--amber .bl-stat__k { color: rgba(44, 28, 2, .82); }
     .bl-stat--amber .bl-stat__d { color: rgba(44, 28, 2, .78); }
@@ -2034,29 +1389,12 @@
     .bl-stat--amber::before { background: rgba(255, 255, 255, .22); }
     .bl-stat--amber::after  { background: rgba(255, 255, 255, .16); }
 
-    /* The zero rule is gone, on the owner's call.
-       
-       It dropped a block with nothing in it to a white sheet, on the
-       reasoning that a saturated card shouting "0" reads as a fault. In
-       practice it read as two of the five cards being unfinished, because
-       "no orders yet today" is the normal state of a morning and the row
-       looked broken for most of the working day. A row of five that agree
-       beats a rule that is right in the abstract. */
-
     @media (prefers-reduced-motion: reduce) {
         .bl-stat { transition: none; }
         a.bl-stat:hover { transform: none; }
     }
 }
 
-/* ============================================================
-   v2.3 CHANNEL CHIPS + DONUT
-
-   A channel used to be a 9px square beside a name. It now carries a
-   rounded chip in the channel's own colour with its initial, which is
-   what makes a row of channels scannable at a glance rather than a
-   list of near-identical words.
-   ============================================================ */
 @layer components {
     .bl-chans {
         display: grid;
@@ -2081,12 +1419,6 @@
 
     a.bl-chan:hover { border-color: var(--bl-rule-2); }
 
-    /* The card stopped being one link on 2026-09-09 (#240): each fact goes
-       where it belongs, so each fact that goes anywhere is its own link.
-       They must still read as the plain lines they were - a card of four
-       blue underlined phrases is worse than the card that led nowhere - so
-       the link colour is the text colour and the underline waits for the
-       pointer. */
     .bl-chan__go {
         color: inherit;
         text-decoration: none;
@@ -2108,11 +1440,6 @@
         font-weight: 700;
     }
 
-    /* The truncation is stated here rather than left to a utility class in
-       the markup, because "reconnect needed, the access token expired" is
-       the longest string any channel can carry and it pushed the chip 14px
-       past the window at 900px. A rule the component owns cannot be
-       dropped by an edit to the view. */
     .bl-chan__body { flex: 1 1 auto; min-width: 0; overflow: hidden; }
 
     .bl-chan__n,
@@ -2130,24 +1457,9 @@
     .bl-chan__qv { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
     .bl-chan__qv--attn { color: var(--bl-attn); }
     .bl-chan__ql { font-size: 11px; color: var(--bl-ink-3); }
-
-    /* .bl-donut / .bl-legend lived here and were never used: the ring that
-       shipped is .bl-ring / .bl-share. Deleted rather than left as dead
-       weight carrying the same padding bug as the rules below. */
 }
 
-/* ============================================================
-   v2.3 RESPONSIVE REPAIRS
-
-   Found by the inspection round, not by reading the code.
-   ============================================================ */
 @layer components {
-    /* A channel strip that clips is a channel you own and cannot reach.
-       x-fh-strip is a flex row with overflow:hidden, so a sixth channel
-       (Shop B, on this database) rendered 328px past the right
-       edge of its own box and was invisible at every width. It scrolls
-       now; the radius still clips the corners because overflow-x on one
-       axis is enough to establish the clip. */
     .x-fh-strip {
         overflow-x: auto;
         overflow-y: hidden;
@@ -2156,45 +1468,16 @@
 
     .x-fh-strip > .x-fh-card { flex: none; }
 
-    /* 820, not 640: the channel shell's bar holds a search field, a
-       three-way theme switch, a breadcrumb and an account, and it was
-       still 6px over the window at 768. It takes a second line rather
-       than running off the edge. */
     @media (max-width: 820px) {
         .x-topbar { flex-wrap: wrap; row-gap: 8px; }
         .x-topbar__right { flex: 1 1 100%; justify-content: flex-end; }
     }
 
     @media (max-width: 640px) {
-        /* Two plots side by side is 160px each on a phone, which is not a
-           chart. They stack, and the axis labels stop overflowing with
-           them. */
         .bl-charts { grid-template-columns: minmax(0, 1fr); }
     }
 }
 
-/* ============================================================
-   v2.3 CHARTS
-
-   v2.2 drew one narrow SVG per column, which kept every bar the
-   same width at any range but could only ever be bars. Beside the
-   filled metric blocks they became the oldest thing on the page.
-
-   An area now, drawn as ONE path across the series. The stroke keeps
-   its weight under the non-uniform stretch through
-   vector-effect="non-scaling-stroke", which is what lets a fixed
-   140px plot hold its shape from 1600 down to 390 without the line
-   fattening at one end.
-
-   No circle marks the endpoint: under preserveAspectRatio="none" a
-   circle renders as a lopsided ellipse. A vertical rule to the axis
-   says "here is now" and distorts gracefully, because it is already
-   a straight line.
-
-   Readings still come from hovering, through one transparent rect
-   per point carrying a <title>, and every figure is also in the
-   table below, so nothing is reachable only by hover.
-   ============================================================ */
 @layer components {
     .bl-plot { display: block; width: 100%; height: 140px; }
 
@@ -2204,10 +1487,6 @@
     .bl-plot__now  { stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
     .bl-plot__hit  { fill: transparent; }
 
-    /* Dates on the page rather than behind a hover. The native <title>
-       tooltip waits about a second before it shows, so a reading that only
-       lived there felt broken; the axis now answers "which day" without any
-       pointer at all, and the tooltip is left to answer "how much". */
     .bl-axis {
         display: flex;
         justify-content: space-between;
@@ -2222,26 +1501,11 @@
     .bl-axis > span:first-child { text-align: left; }
     .bl-axis > span:last-child { text-align: right; }
 
-    /* Eight ticks of "Sep 2023" need about 420px of label before any gap
-       between them, so on a phone the row ran past the card and the last one -
-       the tick that says where the series ENDS - was the one clipped off.
-
-       Thinned to every other tick instead, with the last always kept. The axis
-       cannot scroll the way a table does: it would slide independently of the
-       plot above it and put the labels under the wrong part of the line.
-       Dropping ticks costs a reader nothing, because the reading itself comes
-       from touching the plot. */
     @media (max-width: 640px) {
         .bl-axis > span:nth-child(even):not(:last-child) { display: none; }
     }
     .bl-plot__hit:hover { fill: color-mix(in srgb, var(--bl-ink) 6%, transparent); }
 
-    /* Money and count are the two series this dashboard plots, and they
-       keep the identity colours the blocks above them use, so a reader
-       joins the figure to its plot without a legend. */
-    /* Two series in one frame. Revenue keeps the fill because it is the
-       figure the page is opened for; orders ride over it as a line so
-       neither hides the other. */
     .bl-plot--dual { height: 190px; }
 
     .bl-trace {
@@ -2259,9 +1523,6 @@
     .bl-plot__from { stop-color: var(--bl-a-cyan); stop-opacity: .30; }
     .bl-plot__to   { stop-color: var(--bl-a-cyan); stop-opacity: 0; }
 
-    /* The key is also the scale disclosure: each series names its own peak,
-       because the two are drawn against different maxima and a reader who
-       assumes one shared axis would read the crossings as meaning something. */
     .bl-key {
         display: flex;
         flex-wrap: wrap;
@@ -2278,13 +1539,6 @@
     .bl-key__count { fill: var(--bl-a-violet); }
     .bl-key__peak { color: var(--bl-ink-3); font-weight: 500; font-variant-numeric: tabular-nums; }
 
-    /* THE READING.
-
-       Everything below exists because a native <title> waits about a second
-       before it appears and no attribute or rule shortens that. The guide,
-       the two dots and the readout are moved by plot-readout.js on
-       pointermove; nothing here animates, because the whole point is that
-       the figure is there the instant the pointer is. */
     .bl-plotcard { position: relative; }
     .bl-plotwrap { position: relative; }
 
@@ -2333,8 +1587,6 @@
         font-size: 12px;
         line-height: 1.4;
         white-space: nowrap;
-        /* Centred on the guide; the script clamps it to the card so a
-           reading near either end does not hang off the edge. */
         translate: -50% 0;
     }
 
@@ -2351,20 +1603,8 @@
     .bl-readout__k--money { background: var(--bl-a-cyan); }
     .bl-readout__k--count { background: var(--bl-a-violet); }
 
-    /* The hit rects were only ever a home for the <title>. They keep it for
-       assistive technology and stop painting a hover wash, which now
-       competes with the guide. */
     .bl-plot--dual .bl-plot__hit:hover { fill: transparent; }
 
-    /* The wipe-in is gone. It ran 620ms from the left, which on a chart
-       read as the recent days arriving late - the exact opposite of what a
-       trend line is for. A dashboard's figures should be there on arrival;
-       motion belongs on things a person operates, not on the data they came
-       to read. .bl-plot__reveal stays as a hook and paints immediately. */
-
-    /* Fallback slice colours, for a channel with no brand hue of its own.
-       Identity accents, so the ring belongs to the same system as the
-       blocks at the top of the page. */
     .bl-slice-0 { stroke: var(--bl-a-cyan); }
     .bl-slice-1 { stroke: var(--bl-a-violet); }
     .bl-slice-2 { stroke: var(--bl-a-green); }
@@ -2385,13 +1625,8 @@
     .bl-ring__k { fill: var(--bl-ink-3); font-size: 11px; }
     .bl-ring__s { fill: var(--bl-ink-3); font-size: 10.5px; }
 
-    /* The channel name replaces the word "orders" while reading, so it takes
-       the weight that word did not need. */
     .bl-ring.is-reading .bl-ring__k { fill: var(--bl-ink-2); font-weight: 650; }
 
-    /* Which arc you are on, without moving anything: the others step back
-       rather than the hovered one growing, so the ring keeps its geometry
-       and nothing reflows under the pointer. */
     .bl-ring__seg { transition: opacity .12s; cursor: default; }
     .bl-ring.is-reading .bl-ring__seg { opacity: .32; }
     .bl-ring.is-reading .bl-ring__seg:hover { opacity: 1; }
@@ -2400,26 +1635,8 @@
         .bl-ring__seg { transition: none; }
     }
 
-    /* The ring beside its own table rather than stacked above it. Stacked,
-       the section ran 774px tall to state six numbers, and the ring used
-       24% of the width it was given. */
-    /* The swatch now rides in the table's Channel cell instead of in a
-       legend beside it, which is what removed six duplicated names and six
-       duplicated counts. It sits on the row it describes, so matching a ring
-       segment to a revenue figure is one glance rather than two lists. */
-    /* display:inline-block explicitly, because Tailwind's preflight sets
-       `svg { display: block }`. The legend's swatches never showed this
-       because they were flex children; in a table cell the same element
-       stacked above the channel name instead of sitting beside it. */
     .bl-tsw { display: inline-block; margin-right: 8px; vertical-align: -1px; }
 
-    /* The ring sits beside the table it explains, on the same side as the
-       swatch column. Centred vertically so the height it does not need is
-       shared above and below rather than pooling underneath. */
-    /* The card is the whole pairing. .bl-scroll is in the raised-sheet list,
-       so without this the table half sat on white while the ring floated on
-       the bare ground - the same split-card mistake this section already made
-       once, in the other direction. */
     .bl-split-ring {
         display: grid;
         grid-template-columns: minmax(0, 1fr);
@@ -2455,14 +1672,6 @@
     .bl-ring__v { fill: var(--bl-ink); font-size: 26px; font-weight: 700; }
     .bl-ring__k { fill: var(--bl-ink-3); font-size: 11px; }
 
-    /* The ring beside its own table rather than stacked above it. Stacked,
-       the section ran 774px tall to state six numbers, and the ring used
-       24% of the width it was given. */
-    /* The CARD is the whole breakdown, not the table half of it. The records
-       column carries .bl-scroll for its horizontal overflow, and .bl-scroll
-       is in the raised-sheet list, so without this the table sat on a white
-       card while the ring beside it floated on the bare ground: two halves
-       of one thing looking like two different things. */
     .bl-breakdown {
         display: grid;
         grid-template-columns: minmax(0, 1fr);
@@ -2487,10 +1696,6 @@
 
     .bl-breakdown__ring { padding: 14px 0 18px; }
 
-    /* --bl-col-pad, NOT --bl-pad. .x-content declares --bl-pad as 0px, and a
-       var() fallback only applies when the variable is UNDEFINED: a variable
-       set to zero is a value and it wins. `var(--bl-pad, 20px)` therefore
-       resolved to 0 and the legend sat flush against the card edge. */
     .bl-share { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; padding: 0 var(--bl-col-pad) 4px; }
 
     .bl-share__row {
@@ -2512,39 +1717,10 @@
     .bl-share__n { color: var(--bl-ink-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     a.bl-share__row:hover .bl-share__n { color: var(--bl-ink); }
 
-    /* The count, not the percentage: the table beside this already prints
-       share, and printing it twice 170px apart was the section saying the
-       same thing three times. */
     .bl-share__v { margin-left: auto; color: var(--bl-ink-3); font-variant-numeric: tabular-nums; }
 }
 
-/* ============================================================
-   TOUCH AND MOTION
-
-   Two findings from the dashboard audit, fixed at the system layer so
-   every page inherits them rather than the dashboard alone.
-   ============================================================ */
 @layer components {
-    /* A coarse pointer is a finger, and a finger is not 31px wide. The
-       sidebar links, the theme switch and the hint buttons all cleared the
-       24px WCAG floor and none of them reached the 44px that a warehouse
-       floor actually needs one-handed.
-
-       Gated on pointer: coarse rather than on width, because the constraint
-       is the input device, not the window. A 390px browser on a desktop
-       keeps the tighter rhythm; a tablet at 1024px gets the bigger targets. */
-    /* The floor is not a phone concern.
-       ------------------------------------------------------------------
-       The uplift below is gated on pointer: coarse, which left the row
-       kebab at a measured 14x14 on the desk against the 24x24 floor
-       (WCAG 2.5.8) - and the desk is where most orders are worked. It
-       shows up on the storefront rows, where the kebab is icon-only and
-       so has nothing but its glyph to size it; the channels whose
-       triggers carry a word were already past the floor by accident of
-       their label.
-
-       A mouse is precise, not infinitely precise. The coarse block still
-       goes further, because a finger needs more than a mouse does. */
     .x-menu__trigger {
         min-width: 24px;
         min-height: 24px;
@@ -2566,15 +1742,6 @@
             min-height: 44px;
         }
 
-        /* The four controls this block was missing, and they are the ones a
-           listing page is actually operated with: the row overflow menu's
-           trigger and its items, the row checkbox, and the small button
-           variant. Measured on a phone at 390px, the kebab and the checkbox
-           were both 14x14 - under even WCAG 2.2 AA 2.5.8's 24px floor, on the
-           page fulfilment staff use one-handed in a warehouse.
-
-           The checkbox is sized in pages/channel-catalog.css, whose layer
-           wins over this one. */
         .x-menu__trigger,
         .x-btn--sm {
             min-width: 44px;
@@ -2587,10 +1754,6 @@
             align-items: center;
         }
 
-        /* The + beside Product group, Manage group and Clear: each measured
-           19 to 22px tall on a phone. The checkbox and a notice's close
-           carry their own coarse rules beside their sizes, in the layers
-           that set them. */
         .lsm-group__add {
             min-width: 44px;
             min-height: 44px;
@@ -2604,16 +1767,6 @@
         }
     }
 
-    /* WCAG 2.2 AA 2.5.8 asks 24x24 of every control that is not an inline
-       link inside a sentence. The order page's sync-override toggle measured
-       34x20 and its inline edit control 39x19: both are deliberate actions
-       with consequences, and neither is exempt. Stated on the components so
-       every page inherits it rather than the order page alone.
-
-       The badge label used to be in this list. A badge is not a control, and
-       a 24px-tall inline label beside an 8px dot centred on that height put
-       the dot a few pixels below the word (the Channels board's "Connected",
-       2026-08-26). */
     .od-switch,
     .od-edit {
         min-height: 24px;
@@ -2626,9 +1779,6 @@
         min-width: 24px;
     }
 
-    /* The hint's circle stays 16px because it is a mark, not a button face.
-       Its HIT AREA grows instead, through a pseudo-element that reaches the
-       44px a finger needs without moving a pixel of the layout. */
     .bl-hint__btn { position: relative; }
 
     .bl-hint__btn::after {
@@ -2641,17 +1791,6 @@
         transform: translate(-50%, -50%);
     }
 
-    /* REDUCED MOTION, stated once for the whole bundle.
-
-       Individual rules were guarded as they were written, which meant the
-       answer depended on remembering. This covers what is left: the card
-       lift, the nav collapse, the hint bubble, the ring's fade.
-
-       Not a global `* { animation: none }` kill. Transitions collapse to a
-       duration a person cannot perceive as movement while state changes
-       still happen instantly and nothing loses its hover, focus or open
-       feedback - which is what the setting asks for, rather than a page
-       where nothing responds. */
     @media (prefers-reduced-motion: reduce) {
         .bl-stat,
         .bl-collapse,
@@ -2671,24 +1810,6 @@
     }
 }
 
-/* ============================================================
-   THE SIDE RAIL FOLLOWS YOU DOWN THE PAGE
-
-   On an order and on a product, the left column is the work - line
-   items, variations, totals, history - and the right rail is the
-   context you keep glancing back at: who the customer is, what is
-   paid, where it ships, what the product costs. Scrolling the work
-   used to scroll that context off the top, so an operator halfway
-   down a long order had to scroll back up to check an address.
-
-   Sticky rather than fixed: the rail scrolls with the page until its
-   top reaches the offset, then holds. It never covers anything and it
-   never leaves its column.
-
-   Only where the rail exists as a column of its own. Below 1001px the
-   two columns stack, and a rail pinned to the viewport in a stacked
-   layout would sit on top of the content it is meant to accompany.
-   ============================================================ */
 @layer components {
     @media (min-width: 1001px) {
         .od-col--side,
@@ -2696,39 +1817,16 @@
         .cw-col--side {
             position: sticky;
             top: var(--bl-page-gutter);
-            /* Its own scroll when the context is taller than the screen,
-               so a long rail stays reachable rather than being clipped at
-               the fold. overscroll-behavior stops a flick inside the rail
-               from carrying on into the page behind it. */
             max-height: calc(100dvh - (var(--bl-page-gutter) * 2));
             overflow-y: auto;
             overscroll-behavior: contain;
-            /* The scrollbar only appears when it is earning its keep. */
             scrollbar-width: thin;
         }
 
-        /* A sticky element inside a grid needs the track to start at the
-           top rather than stretch, which all three of these grids already do
-           through align-items: start. Stated here so a later change to any
-           of them cannot silently break the rail. */
         .od-body,
         .fm-body,
         .cw-body { align-items: start; }
 
-        /* A RAIL THAT SETS AS WELL AS REPORTS IS TOO TALL TO HOLD IN ONE BOX.
-
-           The rule above gives a tall rail its own scroll, which is right
-           while the rail is context you glance at. Once it carries settings
-           too - Shopee's Price rule and Discount moved into it on
-           2026-09-08 - its content passes 1100px, the box is capped near
-           940px, and the cards at the bottom (Product group, Last push) sit
-           below the clip at EVERY page scroll position, with no scrollbar
-           gutter, no fade and nothing to say they exist. Last push is the
-           answer to "why did this listing go up like this", so hiding it is
-           expensive exactly when it is needed.
-
-           So: this rail scrolls with the page, and only the group that is
-           worth following stays pinned. .fm-pin marks that group. */
         .fm-col--side--flow {
             position: static;
             max-height: none;
@@ -2745,17 +1843,6 @@
     }
 }
 
-/* THE VARIATION ROWS UNDER A PRODUCT.
-   ------------------------------------------------------------------
-   Subordinate, not a peer: a variation is part of the product above it, and
-   a list where both read at the same weight is a list of 60 things rather
-   than 50 products with some detail. The rule between a product and its own
-   variations is dropped so the group reads as one block, and the indent is
-   on the CONTENT rather than the cell so the checkbox and id columns stay in
-   their tracks.
-
-   No hover lift and no row link: these are not separate records to open. The
-   product above is the thing you edit, and it already carries the link. */
 @layer components {
     .bl-varrow > td {
         border-top: 0;
@@ -2766,10 +1853,6 @@
 
     .bl-varrow:last-of-type > td { padding-bottom: 9px; }
 
-    /* A ticked product and its variations read as one block
-       (js/pages/row-picked.js). While any product is ticked, the block is
-       one large tick box: its links and buttons stand down, and the block
-       under the pointer shows faintly what a click will tick. */
     .bl-table > tbody > tr.is-picked,
     .bl-table tbody tr.is-picked > td,
     .bl-table tbody tr.is-picked:hover > td {
@@ -2789,7 +1872,6 @@
 
     .bl-varrow__body { padding-left: 22px; }
 
-    /* One step quieter than the product's own name, which stays semibold. */
     .bl-varrow__body > span:last-child > span:first-child {
         font-size: 13px;
         color: var(--bl-ink-2);

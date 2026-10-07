@@ -14,20 +14,10 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * TikTok stock and variations on one resolver (parity 2026-08-26). The
- * cron and the group page used to read product_option_value alone, one
- * SKU per option value of the FIRST axis, so a two-axis product went up
- * as half of itself and every stock tick wrote the wrong figure: the
- * same drift that oversold on Lazada. Combinations come first now, the
- * pivot map is keyed by seller SKU, and a legacy map keyed by
- * option_value_id still resolves until the next push rewrites it.
- */
 class TiktokStockPushTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @var array<int, array{method: string, path: string, body: array}> */
     private array $sentCalls = [];
 
     public array $callResponses = [];
@@ -51,7 +41,6 @@ class TiktokStockPushTest extends TestCase
             'expires_at' => now()->addDays(3),
         ]);
 
-        // A real picture on disk: the push refuses a product without one.
         $dir = public_path('storage/catalog');
         if (!is_dir($dir)) {
             mkdir($dir, 0775, true);
@@ -118,11 +107,6 @@ class TiktokStockPushTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    /**
-     * Colour x Size: four combinations with their own SKUs and quantities,
-     * and one option value row per axis value (the single-axis table).
-     * @return array{product_id: int, ovIds: array<string, int>}
-     */
     private function seedTwoAxisProduct(): array
     {
         $pfx = (string) config('catalog.prefix');
@@ -203,14 +187,6 @@ class TiktokStockPushTest extends TestCase
         $this->assertSame(['s1' => 1, 's2' => 2, 's3' => 3, 's4' => 4], $byId->all());
     }
 
-    /**
-     * A push from before the seller-sku map (keyed by the Colour axis's
-     * option_value_ids) is re-read from the shop and rebuilt by seller SKU
-     * before anything is sent; every combination then pushes its own
-     * figure. It used to push the axis rows' 99s through the legacy keys,
-     * which the all-or-nothing rule (2026-09-07) no longer allows: a map
-     * that cannot prove the sets match is repaired first.
-     */
     public function test_a_legacy_map_keyed_by_option_value_id_is_rebuilt_by_seller_sku_before_the_push(): void
     {
         ['product_id' => $productId, 'ovIds' => $ovIds] = $this->seedTwoAxisProduct();
@@ -296,7 +272,6 @@ class TiktokStockPushTest extends TestCase
         );
     }
 
-    /** Push Price is its own automation (2026-09-07): the listing's rule, else the group's, else the catalog price. */
     public function test_the_price_cron_prices_by_the_listing_rule_then_the_group(): void
     {
         ['product_id' => $productId] = $this->seedTwoAxisProduct();
@@ -315,7 +290,6 @@ class TiktokStockPushTest extends TestCase
         $this->assertSame(['s1' => '1210', 's2' => '1320', 's3' => '1430', 's4' => '1540'], $byId->all(), 'the group\'s 10% on each combination');
         $this->assertSame([], $this->callsFor('POST', '/product/202309/products/tt-9/inventory/update'), 'the price row never sends stock');
 
-        // The listing's own rule wins over the group's.
         (new \Extensions\tiktok\Models\TikTokListing())->forceFill(['product_id' => $productId, 'markup_percent' => 0, 'markup_fixed' => 50])->save();
         $this->artisan('tiktok:push-price')->assertExitCode(0);
         $calls = $this->callsFor('POST', '/product/202309/products/tt-9/prices/update');
@@ -324,7 +298,6 @@ class TiktokStockPushTest extends TestCase
         $this->assertSame(['s1' => '1150', 's2' => '1250', 's3' => '1350', 's4' => '1450'], $byId->all());
     }
 
-    /** The price push starts a product without variations from its listing's own Price; a product with variations never does. */
     public function test_the_price_cron_starts_a_simple_product_from_the_listings_own_price(): void
     {
         $pfx = (string) config('catalog.prefix');
@@ -357,7 +330,6 @@ class TiktokStockPushTest extends TestCase
         $this->assertSame(['s1' => '1210', 's2' => '1320', 's3' => '1430', 's4' => '1540'], $byId->all(), 'each variation from the catalog, the stored Price ignored');
     }
 
-    /** A group's rule is the same sum as a listing's own, rounded the same, so the page's figure and the push agree. */
     public function test_a_groups_rule_is_the_same_sum_as_a_listings(): void
     {
         foreach ([[7.5, null, 123.45], [-10, -5, 1000.0], [null, 50, 99.99], [12.345, 0.555, 10.0]] as [$pct, $fixed, $base]) {
@@ -367,7 +339,6 @@ class TiktokStockPushTest extends TestCase
         }
     }
 
-    /** The pivot carries no store: another store's group never prices or presets this store's product, bound or not. */
     public function test_another_stores_group_never_reaches_this_store(): void
     {
         $main = TikTokSetting::query()->orderBy('id')->first();
@@ -391,7 +362,6 @@ class TiktokStockPushTest extends TestCase
 
     private const SKU_IDS = ['TTV-Red-S' => 's1', 'TTV-Red-M' => 's2', 'TTV-Black-S' => 's3', 'TTV-Black-M' => 's4'];
 
-    /** Category 900001 defines one variation type of its own, Specification. */
     private function categoryWithSpecification(): void
     {
         \Extensions\tiktok\Models\TikTokCategoryTemplate::query()->create([
@@ -400,11 +370,6 @@ class TiktokStockPushTest extends TestCase
         ]);
     }
 
-    /**
-     * The item as TikTok Shop holds it: every combination under its own SKU
-     * id, the colour and the size under the types given as
-     * [type id, type name, [catalog value => [value id, value name on the shop]]].
-     */
     private function liveItem(string $ttId, array $colour, ?array $size, array $skuIds = self::SKU_IDS): array
     {
         $skus = [];
@@ -437,7 +402,6 @@ class TiktokStockPushTest extends TestCase
             ->post(route('ext.tiktok.product-groups.updateProduct', $pivot->tiktok_product_group_id), ['ids' => [$pivot->product_id]]);
     }
 
-    /** @return array<string, array> the SKUs the one edit sent, by seller SKU */
     private function editedSkus(string $ttId): array
     {
         $puts = $this->callsFor('PUT', '/product/202309/products/' . $ttId);
@@ -446,7 +410,6 @@ class TiktokStockPushTest extends TestCase
         return collect($puts[0]['body']['skus'])->keyBy('seller_sku')->all();
     }
 
-    /** A type the seller named takes the catalog's option name and value names; every SKU keeps its own id. */
     public function test_an_update_renames_a_type_the_seller_named_and_keeps_every_sku(): void
     {
         ['product_id' => $productId] = $this->seedTwoAxisProduct();
@@ -465,7 +428,6 @@ class TiktokStockPushTest extends TestCase
         $this->assertSame('pushed', $pivot->fresh()->sync_status);
     }
 
-    /** A type the category defines keeps the store's name: it goes up by its own id. */
     public function test_an_update_keeps_the_name_of_a_type_the_category_defines(): void
     {
         ['product_id' => $productId] = $this->seedTwoAxisProduct();
@@ -507,12 +469,6 @@ class TiktokStockPushTest extends TestCase
         }
     }
 
-    /**
-     * A rename gives the types new ids. An answer that lists no SKUs has the
-     * item read again, and the map on the pivot and the listing follows it:
-     * a stale id and a missing one are both put right, and the next stock
-     * push reaches every SKU.
-     */
     public function test_the_stored_map_follows_the_item_after_a_rename(): void
     {
         ['product_id' => $productId] = $this->seedTwoAxisProduct();
@@ -546,7 +502,6 @@ class TiktokStockPushTest extends TestCase
         $this->assertSame(['s1' => 1, 's2' => 2, 's3' => 3, 's4' => 4], collect($stock[0]['body']['skus'])->keyBy('id')->map(fn ($s) => $s['inventory'][0]['quantity'])->all());
     }
 
-    /** The listing page's update is the other door, and renames the same way. */
     public function test_the_listing_page_update_renames_the_same_way(): void
     {
         ['product_id' => $productId] = $this->seedTwoAxisProduct();
@@ -568,12 +523,6 @@ class TiktokStockPushTest extends TestCase
         $this->assertSame(self::SKU_IDS, json_decode((string) \Extensions\tiktok\Models\TikTokListing::where('product_id', $productId)->value('tiktok_sku_id'), true));
     }
 
-    /**
-     * Types that cannot be paired with the options skip the rename, not the
-     * update: the SKUs the item holds keep its own variations, the rest of
-     * the update goes up, and the reason is the row's error line. New
-     * variations that could only be placed by a guess are left off.
-     */
     public function test_a_rename_that_cannot_be_paired_is_skipped_and_the_update_goes_through(): void
     {
         ['product_id' => $productId] = $this->seedTwoAxisProduct();
@@ -597,7 +546,6 @@ class TiktokStockPushTest extends TestCase
         $this->assertNull(\Extensions\tiktok\Models\TikTokListing::where('product_id', $productId)->value('last_push_error'), 'the update succeeded, so the row carries no error');
     }
 
-    /** TikTok refusing the rename is sent once more under the item's own names, and says so. */
     public function test_a_rename_tiktok_refuses_is_sent_again_under_the_items_own_names(): void
     {
         ['product_id' => $productId] = $this->seedTwoAxisProduct();
@@ -628,7 +576,6 @@ class TiktokStockPushTest extends TestCase
         $this->assertSame(self::SKU_IDS, json_decode((string) $pivot->fresh()->tiktok_sku_id, true));
     }
 
-    /** An edit overwrites every variation it sends, so an item that cannot be read is not edited at all. */
     public function test_an_item_that_cannot_be_read_is_not_edited(): void
     {
         ['product_id' => $productId] = $this->seedTwoAxisProduct();
@@ -647,7 +594,6 @@ class TiktokStockPushTest extends TestCase
         );
     }
 
-    /** A new item goes up as it always has: the catalog's names, and no read of the shop first. */
     public function test_a_new_item_is_created_as_before_without_reading_the_shop(): void
     {
         ['product_id' => $productId] = $this->seedTwoAxisProduct();
@@ -669,13 +615,6 @@ class TiktokStockPushTest extends TestCase
         $this->assertSame(self::SKU_IDS, json_decode((string) TikTokProductGroupProduct::where('product_id', $productId)->value('tiktok_sku_id'), true));
     }
 
-    /**
-     * Live, 2026-09-07: "Data too long for column 'tiktok_sku_id'" stopped
-     * every TikTok stock push. The map repair writes every seller SKU TikTok
-     * holds (nineteen-digit ids), and the group pivot's column was a
-     * varchar(255) while the listing's was TEXT. The pivot keeps the whole
-     * map now, however many SKUs the shop holds.
-     */
     public function test_the_heal_keeps_a_sku_map_longer_than_255_characters_on_the_group_pivot(): void
     {
         ['product_id' => $productId] = $this->seedTwoAxisProduct();
@@ -683,17 +622,14 @@ class TiktokStockPushTest extends TestCase
         $pivot = TikTokProductGroupProduct::create([
             'tiktok_product_group_id' => $group->id, 'product_id' => $productId,
             'tiktok_product_id' => 'tt-7', 'sync_status' => 'pushed', 'last_pushed_at' => now(),
-            'tiktok_sku_id' => null, // an empty map: the push reads the product first
+            'tiktok_sku_id' => null,
         ]);
-        // The shop holds the four catalog SKUs and eight more the catalog never had.
         $skus = [];
         foreach (['TTV-Red-S', 'TTV-Red-M', 'TTV-Black-S', 'TTV-Black-M', 'TTV-Red-L', 'TTV-Red-XL', 'TTV-Black-L', 'TTV-Black-XL', 'TTV-Blue-S', 'TTV-Blue-M', 'TTV-Blue-L', 'TTV-Blue-XL'] as $i => $sellerSku) {
             $skus[] = ['id' => '17290000000000' . str_pad((string) ($i + 1), 5, '0', STR_PAD_LEFT), 'seller_sku' => $sellerSku, 'price' => ['sale_price' => '1000'], 'inventory' => [['quantity' => 1]]];
         }
         $this->callResponses['GET /product/202309/products/tt-7'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success', 'data' => ['id' => 'tt-7', 'status' => 'ACTIVATE', 'title' => 'Wide', 'skus' => $skus]]];
 
-        // The map is repaired and kept whole; the eight SKUs the catalog
-        // does not have are left alone and the four it does go up.
         $this->artisan('tiktok:push-stock')->assertExitCode(0);
 
         $stored = (string) $pivot->fresh()->tiktok_sku_id;

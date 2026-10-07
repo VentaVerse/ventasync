@@ -6,12 +6,6 @@ use App\Support\RemoteImage;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * The importers' shared image fetcher is an SSRF guard (2026-09-04,
- * from the security review): the URL is the CHANNEL's data, so it must
- * never reach anything but a public https host, and never follow a
- * redirect that could hop inside after the check.
- */
 class RemoteImageTest extends TestCase
 {
     public function test_only_public_https_urls_are_fetched(): void
@@ -29,8 +23,6 @@ class RemoteImageTest extends TestCase
 
     public function test_a_redirect_is_followed_only_to_a_public_host(): void
     {
-        // One fake: Laravel keeps every stub registered and the first match
-        // wins, so a catch-all first would shadow the specific ones.
         Http::fake([
             'cf.shopee.ph/private.jpg' => Http::response('', 302, ['Location' => 'https://10.0.0.5/steal']),
             'cf.shopee.ph/again.jpg' => Http::response('', 302, ['Location' => 'https://cf.shopee.ph/again.jpg']),
@@ -40,13 +32,10 @@ class RemoteImageTest extends TestCase
 
         $this->assertNull(RemoteImage::fetch('https://cf.shopee.ph/private.jpg'), 'a hop into a private address is refused');
 
-        // A CDN's hop to a sibling host is followed, with the same check on
-        // the new host (TikTok's pictures never arrived, 2026-09-07).
         $got = RemoteImage::fetch('https://p16-oec-va.tiktokcdn.com/a.jpg');
         $this->assertNotNull($got, 'the public hop is followed');
         $this->assertSame('jpg', $got['ext'], 'the bytes say JPEG even when the header says octet-stream');
 
-        // Endless hops stop.
         $this->assertNull(RemoteImage::fetch('https://cf.shopee.ph/again.jpg'));
     }
 

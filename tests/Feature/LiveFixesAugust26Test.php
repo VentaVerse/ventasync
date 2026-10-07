@@ -15,13 +15,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * The five things the owner found on live the day v2 went up (2026-08-26):
- * a variation with no picture shows nothing in the fulfilment list; every
- * healthy Shopee shop said "Sign-in expires soon" all day; the administrator
- * could not save an automation schedule; order payments had no permission
- * row; settings pages had no trail back to Settings.
- */
 class LiveFixesAugust26Test extends TestCase
 {
     use RefreshDatabase;
@@ -39,8 +32,6 @@ class LiveFixesAugust26Test extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalogue');
     }
-
-    // ── 1. A variation without its own picture shows the product's ──
 
     public function test_a_variation_sku_falls_back_to_the_product_picture(): void
     {
@@ -66,8 +57,6 @@ class LiveFixesAugust26Test extends TestCase
         $this->assertNull(CatalogImages::urlFor(''));
     }
 
-    // ── 2. The sign-in expiry is the refresh token's, not the access token's ──
-
     public function test_the_sign_in_expiry_reads_the_refresh_token_not_the_four_hour_access_token(): void
     {
         $row = (object) [
@@ -77,15 +66,12 @@ class LiveFixesAugust26Test extends TestCase
         ];
         $this->assertEqualsWithDelta(29, now()->diffInDays(ChannelWorkspace::signInExpiry($row, false)), 0.01);
 
-        // A refresh token whose end is not recorded: not tracked, never "soon".
         $row->refresh_expires_at = null;
         $this->assertNull(ChannelWorkspace::signInExpiry($row, false));
 
-        // No refresh token at all: the access token's end is the sign-in's end.
         $row->refresh_token = null;
         $this->assertEqualsWithDelta(3, now()->diffInHours(ChannelWorkspace::signInExpiry($row, false)), 0.01);
 
-        // Sandbox reads the sandbox columns.
         $sandbox = (object) ['sandbox_refresh_token' => 'r', 'sandbox_refresh_expires_at' => now()->addDays(10)->toDateTimeString(), 'sandbox_expires_at' => now()->addHours(1)->toDateTimeString()];
         $this->assertEqualsWithDelta(10, now()->diffInDays(ChannelWorkspace::signInExpiry($sandbox, true)), 0.01);
 
@@ -126,8 +112,6 @@ class LiveFixesAugust26Test extends TestCase
         }
     }
 
-    // ── 3. Whoever may manage a channel's settings may set its schedule ──
-
     public function test_the_settings_key_saves_an_automation_schedule(): void
     {
         $job = ScheduledJob::create([
@@ -152,8 +136,6 @@ class LiveFixesAugust26Test extends TestCase
         $this->assertNotSame(9, (int) $job->fresh()->cadence_value);
     }
 
-    // ── 4. Order payments are a permission of their own ──
-
     public function test_order_payments_carry_their_own_keys_and_the_administrator_holds_them(): void
     {
         $this->assertTrue(Permission::where('key', 'view_sales/order_payment')->exists());
@@ -170,8 +152,6 @@ class LiveFixesAugust26Test extends TestCase
         $books = $this->userWith(['view_sales/order', 'view_sales/order_payment']);
         $this->actingAs($books)->get(route('orders.payments_report'))->assertOk();
     }
-
-    // ── 5. Every settings page carries the trail back ──
 
     public function test_settings_pages_carry_a_trail_back_to_settings(): void
     {
@@ -206,7 +186,6 @@ class LiveFixesAugust26Test extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    /** the owner, 2026-09-06: Run now on every automation row runs the job inside the request and stamps the row like a scheduled run. */
     public function test_run_now_runs_the_job_by_hand_and_stamps_the_row(): void
     {
         $job = \App\Models\ScheduledJob::create([
@@ -225,7 +204,6 @@ class LiveFixesAugust26Test extends TestCase
         $this->assertNotNull($job->last_run_at);
         $this->assertTrue($job->last_run_ok);
 
-        // A command that does not exist is a failed run, said as one.
         $broken = \App\Models\ScheduledJob::create([
             'integration' => 'shopee', 'display_name' => 'Broken job', 'command' => 'no:such-command',
             'cadence_value' => 1, 'cadence_unit' => 'hour', 'enabled' => false, 'options' => [],
@@ -233,7 +211,6 @@ class LiveFixesAugust26Test extends TestCase
         $this->actingAs($manager)->post(route('automations.run', $broken->id))->assertRedirect()->assertSessionHas('error');
         $this->assertFalse($broken->fresh()->last_run_ok);
 
-        // The page carries the button and the run form; a viewer is refused.
         $this->actingAs($this->userWith(['view_shopee/settings']))->post(route('automations.run', $job->id))->assertRedirect()->assertSessionHas('error');
     }
 }

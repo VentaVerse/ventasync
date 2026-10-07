@@ -4,11 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * The Mobile app extension's own tables: each person's app settings, the
- * statuses each person is told about, the pushes waiting to go out, the
- * stock lines already reported low, and the sender's bookmark.
- */
 return new class extends Migration
 {
     public function up(): void
@@ -55,7 +50,6 @@ return new class extends Migration
         if (! Schema::hasTable('mobileapp_low_stock')) {
             Schema::create('mobileapp_low_stock', function (Blueprint $table) {
                 $table->unsignedInteger('product_id');
-                // The variation's name, which survives a rebuild of its rows; empty for the product itself.
                 $table->string('variation', 191)->default('');
                 $table->timestamp('created_at')->nullable();
                 $table->primary(['product_id', 'variation']);

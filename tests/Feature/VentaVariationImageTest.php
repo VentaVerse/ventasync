@@ -8,11 +8,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * A Venta variation push carries the variation's image (#193). Venta's
- * sync endpoint accepted variants.*.image all along; the ERP payload
- * simply never carried it, so every variation wore the product photo.
- */
 class VentaVariationImageTest extends TestCase
 {
     use RefreshDatabase;

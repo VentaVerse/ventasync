@@ -16,7 +16,6 @@ class ShopeePushStock extends Command implements \App\Integrations\Contracts\Ste
 
     protected $description = 'Push ERP product quantities to Shopee for all linked products';
 
-    /** Multi-store S3 (#194): each enabled store pushes its own links. */
     public function handle(ShopeeClient $client): int
     {
         $stores = ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get();
@@ -62,11 +61,6 @@ class ShopeePushStock extends Command implements \App\Integrations\Contracts\Ste
 
         $pfx = (string) config('catalog.prefix');
 
-        /* The shared sender (Phase E, #184, #190): link-driven plan, skip
-         * ledger, per-model failure_list verdicts, and the one-shot model
-         * repair - the same path the buttons walk, so the cron can no
-         * longer drift from the UI. Disabled products are dropped first,
-         * as before. */
         $enabledIds = DB::table($pfx . 'product')
             ->whereIn('product_id', $links->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->all())
             ->where('status', 1)
@@ -85,14 +79,12 @@ class ShopeePushStock extends Command implements \App\Integrations\Contracts\Ste
         $ledger = \Extensions\shopee\Services\Shopee\ShopeeStockPricePush::ledgerClause($results);
         $this->info("Done. Success: {$totalOk}, Failed: {$totalErr}, Skipped: {$totalSkipped}." . $ledger);
 
-        // Stamp sync timestamp on this store (independent of API logging)
         $store->forceFill(['last_stock_push_at' => now()])->save();
 
         return $totalErr > 0 ? 1 : 0;
     }
 
 
-    /** Run now walks this push ten products per request (SteppableAutomation, 2026-09-07). */
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
         return ['label' => 'products', 'units' => \Extensions\shopee\Services\Shopee\ShopeePushSteps::units()];

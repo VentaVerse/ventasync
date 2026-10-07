@@ -1,14 +1,3 @@
-{{-- Shopee order modals: ship method, loading overlay, tracking.
-
-     Extracted from orders/_panel.blade.php when the order DETAIL page became
-     the second surface that needs them. Every id below is queried by
-     resources/js/pages/shopee-orders.js and must not change, which is
-     exactly why there is one copy of this markup rather than one per page:
-     two copies of a contract the module reads by id is how the two drift.
-
-     Step two starts hidden via the .sp-hidden class (the same toggle the
-     module uses for every step transition), not an inline style, so the
-     initial state and every later state share one mechanism. --}}
 <div id="spShipModal" class="modal-backdrop">
     <div class="modal co-modal">
         <div class="modal-header co-modal__head">
@@ -17,12 +6,8 @@
         </div>
         <div class="co-modal__meta">Order <strong id="spShipOrderSn"></strong></div>
 
-        {{-- The parcel: filled by the module from the row's own template
-             (components/fulfilment/parcel) when the dialog opens from a
-             list; stays hidden on the order detail page, which has no row. --}}
         <div id="spShipParcel" class="sp-hidden"></div>
 
-        {{-- Step 1: Choose shipping type --}}
         <div id="shipStep1">
             <p class="co-modal__prompt">How will this order be shipped?</p>
             <div class="co-modal__choices">
@@ -37,7 +22,6 @@
             </div>
         </div>
 
-        {{-- Step 2: Address/branch selection --}}
         <div id="shipStep2" class="sp-hidden">
             <div id="shipStep2Loading" class="co-modal__loading">
                 <span class="co-spinner" aria-hidden="true"></span>
@@ -59,7 +43,6 @@
     </div>
 </div>
 
-{{-- Loading overlay --}}
 <div id="spLoadingOverlay" class="modal-backdrop">
     <div class="modal co-modal co-modal--sm">
         <div class="co-progress">
@@ -72,7 +55,6 @@
     </div>
 </div>
 
-{{-- Tracking modal --}}
 <div id="spTrackingModal" class="modal-backdrop">
     <div class="modal co-modal co-modal--md">
         <div class="modal-header co-modal__head">

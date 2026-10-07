@@ -9,13 +9,6 @@ use Extensions\shopee\Models\ShopeeSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * One product, one group (cleanup point 2, the owner 2026-09-03): every
- * membership write goes through OneGroupRule::claim, which holds
- * products another group owns - naming the owner - unless the operator
- * explicitly said Move here. These pins hold the rule's three verdicts
- * and the store scoping that keeps two shops from blocking each other.
- */
 class OneGroupRuleTest extends TestCase
 {
     use RefreshDatabase;

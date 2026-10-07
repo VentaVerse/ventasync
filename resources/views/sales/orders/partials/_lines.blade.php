@@ -1,17 +1,3 @@
-{{--
-    The line item editor.
-
-    The rows are built by resources/js/pages/order-form.js, because a line is
-    added, repriced and removed without a round trip. Everything below is the
-    frame it renders into: the head row, the empty row it puts back when the
-    last line goes, the totals foot, and the hidden `total` field.
-
-    The price column is in the ORDER currency, which is what the controller
-    reads. When the order currency is not the default, each line and the total
-    also show the default-currency figure, because both are stored (price /
-    total and foreign_price / foreign_total) and an operator should be able to
-    see the pair before saving it.
---}}
 <section class="fm-section">
     <div class="fm-section__head">
         <h2 class="fm-section__title">Products</h2>

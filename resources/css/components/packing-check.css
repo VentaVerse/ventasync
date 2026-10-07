@@ -1,8 +1,3 @@
-/* The packing check: a count per product before booking. Built on the
-   page's own modal; only the lines and their count fields are new. */
-
-/* Blurred, so the order list behind (and its quantities) cannot be read
-   while the packer types the count. */
 .pc-backdrop {
     z-index: 65;
     background: rgba(0, 0, 0, .45);

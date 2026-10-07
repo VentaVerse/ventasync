@@ -5,29 +5,12 @@ namespace Extensions\tiktok\Services\TikTok;
 use Extensions\tiktok\Models\TikTokListing;
 use Extensions\tiktok\Models\TikTokProductGroupProduct;
 
-/**
- * Make the SKU-id map match what TikTok Shop actually holds (Phase F,
- * #184): one product read, then the map follows the answer - every
- * seller SKU mapped to its id, keys TikTok no longer returns pruned,
- * and the __single__ degradation (a whole variation product hanging off
- * its first SKU) repaired as a side effect. Written to the listing row
- * AND every group pivot for the product, so no surface keeps a stale
- * copy.
- *
- * This is TikTok's ShopeeModelLinkRepair, and it is cheaper: one
- * getProduct answers with the complete seller_sku -> id map.
- *
- * Honesty rule: an unanswered read changes nothing.
- */
 class TikTokSkuMapRepair
 {
     public function __construct(private readonly TikTokLiveListing $live)
     {
     }
 
-    /**
-     * @return array{mapped: int, map: array<string, string>}|array{error: string}
-     */
     public function forProduct(array $c, int $productId, string $tiktokProductId): array
     {
         $answer = $this->live->fetch($tiktokProductId, $c);
@@ -45,7 +28,6 @@ class TikTokSkuMapRepair
             if ($sellerSku !== '') {
                 $map[$sellerSku] = $id;
             } elseif ($map === [] && count($answer['live']['skus']) === 1) {
-                // A genuinely single-SKU product keeps the __single__ shape.
                 $map['__single__'] = $id;
             }
         }

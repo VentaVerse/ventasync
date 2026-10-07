@@ -3,17 +3,8 @@
 
 @section('title', 'Lazada Brands')
 
-{{-- Leaves the .x-legacy content boundary, rebuilt on the token set and the
-     x-ui components, the same exit Shopee's four catalog interiors took in
-     Round C Task 1. Brands is the surface Lazada carries where Shopee carries
-     Logistics, so it lands on the same cc- grammar. --}}
 @section('content')
 @php
-    // Read tier is `view_lazada|manage_lazada` (extensions/lazada/routes/web.php);
-    // the fetch POST is `manage_lazada` only. This flag decides whether the
-    // page OFFERS the fetch, nothing more - the route middleware is the real
-    // gate. It replaces a hardcoded `true`, which showed every read-only
-    // operator a button the route would refuse.
     $canManageLazada = auth()->user()?->hasPermission('manage_lazada/brand') ?? false;
 
     $q = (string) ($q ?? '');
@@ -32,11 +23,6 @@
 </div>
 
 @if($canManageLazada)
-{{-- One command bar, the grammar the Orders and Returns pages already use for
-     controls that talk to the marketplace. The bar states what the button does
-     rather than leaving the operator to guess whether it merges or replaces:
-     the controller pages through Lazada's whole brand list and upserts by
-     brand id and region. --}}
 <div class="x-cmdbar">
     <form method="POST" action="{{ route('ext.lazada.brands.fetch') }}" class="x-cmdbar__row">
         @csrf
@@ -48,10 +34,6 @@
 </div>
 @endif
 
-{{-- One filter row. The old page put the search field, its Search button and a
-     Fetch All Brands button of identical weight on one line inside a card, so
-     a search and a call to Lazada read as the same kind of act. The machine
-     action now sits in the bar above; this row is only the search. --}}
 <form method="GET" action="{{ route('ext.lazada.brands.index') }}" class="x-filters">
     <x-ui.input type="search" name="q" class="x-filters__search"
                 value="{{ $q }}" placeholder="Brand name or ID" aria-label="Search brands by name or ID" />
@@ -93,11 +75,8 @@
     @endforeach
 </x-ui.table>
 
-{{-- Previous and Next, not a numbered strip. Lazada's brand list runs to tens
-     of thousands of rows for some regions and page 884 is not a destination
-     anyone navigates to; the search box above is how you find a brand. --}}
 <x-ui.pager :paginator="$brands" />
 @endif
 
-</div>{{-- /.cc-page --}}
+</div>
 @endsection

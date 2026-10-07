@@ -8,14 +8,6 @@ use Extensions\shopee\Services\Shopee\ShopeeItemCreate;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * The #184 decomposition: four surfaces (push form, row push, index
- * bulk, group send) each carried their own copy of the image upload
- * loop and two controllers held duplicate private uploadImage helpers.
- * ShopeeItemCreate is now the one copy. These pins hold the two
- * deliberate behavior changes the merge made, and keep the dead
- * copies from growing back.
- */
 class ShopeeItemCreateTest extends TestCase
 {
     use RefreshDatabase;
@@ -36,11 +28,6 @@ class ShopeeItemCreateTest extends TestCase
 
     public function test_a_200_wearing_a_body_error_is_a_refusal_not_a_silent_skip(): void
     {
-        /* Shopee answers HTTP 200 with the refusal in the body. The two
-         * controller copies checked only $response->ok(), counted this a
-         * success, found no image_id, and moved on without a word - the
-         * operator's push then failed later with "No images were
-         * uploaded successfully" and no reason. */
         Http::fake(['*' => Http::response(['error' => 'error_auth', 'message' => 'Invalid access_token.'], 200)]);
 
         $img = $this->tempImage();
@@ -59,9 +46,6 @@ class ShopeeItemCreateTest extends TestCase
 
     public function test_add_item_treats_a_200_wearing_a_body_error_as_the_refusal_it_is_and_logs_it_so(): void
     {
-        /* the owner, 2026-09-06: two of thirty pushes came back "Shopee accepted
-         * the push but returned no item id" with nothing in the API log,
-         * because add_item read only the HTTP status. */
         Http::fake(['*' => Http::response(['error' => 'error_param', 'message' => 'item_sku is duplicated.', 'response' => null], 200)]);
 
         $r = app(ShopeeItemCreate::class)->addItem(app(ShopeeClient::class), self::AUTH, ['item_name' => 'x'], 'shopee.products.add_item.test');
@@ -88,9 +72,6 @@ class ShopeeItemCreateTest extends TestCase
 
     public function test_every_upload_is_logged_even_from_the_batch_paths(): void
     {
-        /* The bulk and group loops used to upload without writing
-         * ShopeeApiLog, so a failed batch upload left no evidence. The
-         * shared loop logs unconditionally. */
         Http::fake(['*' => Http::response(['response' => ['image_info' => ['image_id' => 'img-1']]], 200)]);
 
         $img = $this->tempImage();

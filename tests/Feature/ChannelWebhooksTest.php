@@ -12,14 +12,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * Webhooks (Phase E, #184): one public endpoint, each channel's own
- * signature scheme, an inbox that keeps everything - verified deliveries
- * are applied by webhooks:process a minute later, refused ones stay as
- * evidence with signature_ok = false and are never acted on. v1 handlers
- * write only MIRRORS: an order push is recorded, never applied, because
- * status transitions carry stock movements that belong to the sync path.
- */
 class ChannelWebhooksTest extends TestCase
 {
     use RefreshDatabase;
@@ -51,7 +43,6 @@ class ChannelWebhooksTest extends TestCase
         return [$body, $sig, $url];
     }
 
-    /** A signed Shopee item push lands in the inbox and refreshes the mirror on processing. */
     public function test_a_signed_item_push_refreshes_the_mirror(): void
     {
         $link = ShopeeProductLink::create(['product_id' => 11, 'shopee_item_id' => 700, 'shopee_model_id' => 7001, 'sku' => 'WH-1', 'live_status' => 'NORMAL', 'live_checked_at' => now()->subHour()]);
@@ -75,18 +66,12 @@ class ChannelWebhooksTest extends TestCase
         $this->assertStringContainsString('mirror -> BANNED', (string) $event->outcome);
     }
 
-    /**
-     * Multi-store S5 (#194): a push names its shop, and the mirror write
-     * stays inside that store - the same item id linked under another
-     * store keeps the status it had.
-     */
     public function test_a_push_touches_only_the_store_its_shop_id_names(): void
     {
         $two = ShopeeSetting::query()->create(['mode' => 'live', 'store_name' => 'Outlet', 'partner_id' => '1', 'partner_key' => 'k2', 'shop_id' => '9', 'access_token' => 't', 'refresh_token' => 'r']);
         $mine = ShopeeProductLink::create(['shopee_setting_id' => $two->id, 'product_id' => 21, 'shopee_item_id' => 700, 'sku' => 'WH-2', 'live_status' => 'NORMAL']);
         $other = ShopeeProductLink::create(['product_id' => 22, 'shopee_item_id' => 700, 'sku' => 'WH-3', 'live_status' => 'NORMAL']);
 
-        // Signed with store TWO's partner key, naming store two's shop.
         $body = json_encode(['code' => 5, 'shop_id' => 9, 'data' => ['item_id' => 700, 'item_status' => 'BANNED']]);
         $url = route('channels.webhooks.receive', ['channel' => 'shopee']);
         $sig = hash_hmac('sha256', $url . '|' . $body, 'k2');
@@ -104,7 +89,6 @@ class ChannelWebhooksTest extends TestCase
             "the other store's link keeps its status - the push named shop 9, not this one");
     }
 
-    /** A delivery that fails the signature is kept as evidence, answered 401, and never applied. */
     public function test_an_unsigned_delivery_is_kept_but_never_applied(): void
     {
         $link = ShopeeProductLink::create(['product_id' => 12, 'shopee_item_id' => 701, 'shopee_model_id' => 7002, 'sku' => 'WH-2', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
@@ -124,7 +108,6 @@ class ChannelWebhooksTest extends TestCase
         $this->assertNull($event->fresh()->processed_at);
     }
 
-    /** A channel with no receiver answers 404 and stores nothing. */
     public function test_an_unknown_channel_is_a_plain_404(): void
     {
         $this->call('POST', '/webhooks/lazada', [], [], [], ['CONTENT_TYPE' => 'application/json'], '{}')
@@ -132,7 +115,6 @@ class ChannelWebhooksTest extends TestCase
         $this->assertSame(0, ChannelWebhookEvent::query()->count());
     }
 
-    /** An order push is recorded with an honest outcome and touches no order row. */
     public function test_an_order_push_is_recorded_never_applied(): void
     {
         [$body, $sig, $url] = $this->shopeeSigned(['code' => 3, 'shop_id' => 2, 'data' => ['ordersn' => '2209XYZ', 'status' => 'SHIPPED']]);
@@ -147,7 +129,6 @@ class ChannelWebhooksTest extends TestCase
         $this->assertStringContainsString('the next order sync applies it', $outcome);
     }
 
-    /** TikTok's scheme: HMAC-SHA256(app_secret, app_key + body); a product push refreshes its mirror. */
     public function test_a_signed_tiktok_product_push_refreshes_the_mirror(): void
     {
         $pfx = (string) config('catalog.prefix');

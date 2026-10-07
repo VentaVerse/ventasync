@@ -4,10 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Settings > Fulfilment: ask the packer to count each item before booking.
- * Off until someone switches it on.
- */
 return new class extends Migration
 {
     public function up(): void

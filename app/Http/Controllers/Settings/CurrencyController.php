@@ -120,10 +120,6 @@ class CurrencyController extends Controller
         return redirect()->route('currencies.index')->with('status', 'Currency deleted.');
     }
 
-    /**
-     * Fetch rates from frankfurter.app. Shared by button + cron.
-     * Returns [success, message].
-     */
     private function fetchAndUpdateRates(): array
     {
         $base = Currency::where('is_default', 1)->first();
@@ -161,7 +157,6 @@ class CurrencyController extends Controller
                 continue;
             }
 
-            // API returns: 1 base = X foreign → invert to: 1 foreign = X base
             $erpRate = round(1 / $rates[$code], 8);
             Currency::where('code', $code)->update(['exchange_rate' => $erpRate]);
             $updated++;

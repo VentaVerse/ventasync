@@ -1,17 +1,3 @@
-/* Description templates (the owner, 2026-09-07).
- *
- * Two jobs, one file:
- *   1. The templates page: New and Edit open one modal, which posts to store
- *      or, with _method=PUT, to update.
- *   2. The + beside a prefix or suffix dropdown on a listing page: the same
- *      modal, posted over fetch so the page is never left. The new template
- *      joins both dropdowns and is selected in the one that asked for it,
- *      and is announced as a "dtp:created" event for the description
- *      preview (description-preview.js).
- *
- * Markup: resources/views/channels/description-templates/index.blade.php and
- * partials/channel-description-pick.blade.php.
- */
 (function () {
     function csrf() {
         var m = document.querySelector('meta[name="csrf-token"]');
@@ -21,9 +7,6 @@
     function open(modal) { modal.classList.add('active'); }
     function close(modal) { modal.classList.remove('active'); }
 
-    /* The body field may be a Summernote editor. Read and write it through
-       the editor so the display stays in sync; an empty editor returns
-       "<p><br></p>", which is treated as empty. */
     function editor(el) {
         return (window.jQuery && jQuery(el).data('summernote')) ? jQuery(el) : null;
     }
@@ -38,7 +21,6 @@
         return rich.summernote('isEmpty') ? '' : rich.summernote('code');
     }
 
-    /* ── The templates page ─────────────────────────────────────────── */
     function initPage() {
         var modal = document.querySelector('[data-dt-modal]');
         if (!modal) return;
@@ -72,7 +54,6 @@
         });
     }
 
-    /* ── The + on a listing page ────────────────────────────────────── */
     function initPick() {
         var modal = document.querySelector('[data-dtp-modal]');
         if (!modal) return;
@@ -81,7 +62,7 @@
         var body = modal.querySelector('[data-dtp-body]');
         var save = modal.querySelector('[data-dtp-save]');
         var error = modal.querySelector('[data-dtp-error]');
-        var asking = null;   // the select that opened it
+        var asking = null;
 
         document.addEventListener('click', function (e) {
             var add = e.target.closest('[data-dtp-add]');
@@ -111,7 +92,6 @@
                       error.textContent = 'That template was not saved. Check the name and try again.';
                       return;
                   }
-                  // Both dropdowns learn it; the one that asked selects it.
                   Array.prototype.forEach.call(document.querySelectorAll('[data-dtp-select]'), function (select) {
                       var option = document.createElement('option');
                       option.value = String(answer.data.id);

@@ -1,35 +1,3 @@
-/**
- * Venta orders page: book a courier, record a shipment by hand, tracking
- * (#168).
- *
- * The storefront owns the courier integration; the ERP asks it who can
- * carry a parcel, what that courier lets a booking choose, what the
- * booking will cost, and then books. Every courier answer comes through
- * the storefront, the way a Shopee booking comes through Shopee: the ERP
- * never speaks to QuadX or SPX itself. The flow is Shopee's ship modal in
- * shape, so a packer who knows one knows the other:
- *
- *   1. Book courier -> the modal asks the storefront which couriers will
- *      take this address. One button per courier, with the cheapest fee
- *      where the courier quoted one; a refusal shows its reason and cannot
- *      be pressed. Under the list, "another courier, by hand".
- *   2. Choose one -> the storefront's own second step, in its own order:
- *      Ships from (the store's saved pickup addresses), Service, Parcel
- *      (a size off the courier's list; the courier prices it, so no
- *      dimensions), Pickup slot when the courier offers slots, Insure,
- *      You pay shipping. The quote for exactly those choices is fetched
- *      at once and again on every change, and shown as a small ledger:
- *      shipping, insurance, total.
- *   3. Book -> the modal closes, the overlay says "Booking with QuadX",
- *      then "Getting the waybill" while the label is polled, the waybill
- *      opens in a new tab and the page reloads into To Handover. A
- *      refusal lowers the overlay and reopens the options with the
- *      storefront's own sentence.
- *
- * Every URL comes off the button that opened the modal, not from a path
- * assembled here, so the routes file can move without this file knowing.
- * Nothing is written with innerHTML: every node is built and given text.
- */
 document.addEventListener('DOMContentLoaded', function () {
     var page = document.getElementById('venta-orders-page');
     if (!page) return;
@@ -37,9 +5,6 @@ document.addEventListener('DOMContentLoaded', function () {
     initBookModal();
     initTrackingModal();
 
-    /* ------------------------------------------------------------------
-       Shared helpers.
-       ------------------------------------------------------------------ */
     function showModal(el) { if (el) el.classList.add('active'); }
     function hideModal(el) { if (el) el.classList.remove('active'); }
     function hide(el) { if (el) el.classList.add('vt-hidden'); }
@@ -101,9 +66,6 @@ document.addEventListener('DOMContentLoaded', function () {
         return sym + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    // The names a packer reads for the storefront's courier keys. Mirrors
-    // Extensions\venta\Services\Venta\VentaCouriers; an unknown key reads as
-    // itself in capitals rather than blank.
     var COURIER_NAMES = { spx: 'SPX Express', quadx: 'QuadX', lbc: 'LBC' };
     function courierName(key, given) {
         if (given) return given;
@@ -111,8 +73,6 @@ document.addEventListener('DOMContentLoaded', function () {
         return COURIER_NAMES[key] || key.toUpperCase();
     }
 
-    // The storefront's own sentence for a refusal, by kind, so the courier's
-    // raw text is never printed beside a button.
     var REFUSALS = {
         destination: 'Does not deliver to this address',
         origin: 'Does not collect from the pickup address',
@@ -124,15 +84,8 @@ document.addEventListener('DOMContentLoaded', function () {
         unreachable: 'Could not be reached'
     };
 
-    // Fill a select from a [{value, label}] list, choosing a default.
-    // Returns whether there was anything to offer.
     function fillSelect(select, options, chosen, placeholder) {
         clear(select);
-        /* With a placeholder there is NO preselected answer (the owner,
-           2026-09-03: the packer booked a Small parcel because Small was
-           the default - a default here is a decision nobody made). The
-           placeholder is unpickable-by-accident: Confirm refuses until a
-           real choice replaces it. */
         if (placeholder) {
             var ph = new Option(placeholder, '');
             ph.selected = true;
@@ -146,14 +99,6 @@ document.addEventListener('DOMContentLoaded', function () {
         return (options || []).length > 0;
     }
 
-    /* ------------------------------------------------------------------
-       Book a courier.
-       ------------------------------------------------------------------ */
-    /* The parcel the dialog shows: the row renders it in a <template
-       data-parcel-for="..."> beside its button (one copy of the markup,
-       components/fulfilment/parcel), and the dialog clones that node in.
-       No fetch and no HTML strings: the content is DOM the server already
-       escaped. Opened where no row carries a template, the slot stays hidden. */
     function fillParcel(container, key, hiddenClass) {
         if (!container) return;
         while (container.firstChild) container.removeChild(container.firstChild);
@@ -203,8 +148,6 @@ document.addEventListener('DOMContentLoaded', function () {
         var backBtn = document.getElementById('btnVtBookBack');
         var confirmBtn = document.getElementById('btnVtBookConfirm');
 
-        // The third way out: a courier the store does not integrate with,
-        // recorded by hand. Its own pane, its own confirm, no waybill.
         var manualPane = document.getElementById('vtBookManual');
         var manualCourierEl = document.getElementById('vtManualCourier');
         var manualTrackingEl = document.getElementById('vtManualTracking');
@@ -219,8 +162,8 @@ document.addEventListener('DOMContentLoaded', function () {
         var courier = '';
         var courierLabel = '';
         var couriersInfo = {};
-        var addresses = null;      // null until read once per page
-        var manualCouriers = null; // null until read once per page
+        var addresses = null;
+        var manualCouriers = null;
         var quoteSeq = 0;
         var quoteTimer = null;
 
@@ -259,14 +202,6 @@ document.addEventListener('DOMContentLoaded', function () {
             setQuote(null, 'Asking');
         }
 
-        // One button per courier. A courier that refused is drawn but inert,
-        // with the refusal under its name, because "SPX will not go there"
-        // is an answer and hiding it would leave the packer guessing why the
-        // list is short.
-        /* The by-hand card: the same shape as a courier's, last in the list.
-           It is the answer when every courier refused, when none is set up,
-           and when a rider is simply at the door, so it is offered in all
-           three cases rather than only under a list that has entries. */
         function appendManualCard() {
             var btn = document.createElement('button');
             btn.type = 'button';
@@ -320,8 +255,6 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
-        // The storefront's second step for this courier: its lists, its
-        // defaults, the store's addresses, its slots, then the quote.
         function chooseCourier(key) {
             var info = couriersInfo[key] || {};
             courier = key;
@@ -332,11 +265,6 @@ document.addEventListener('DOMContentLoaded', function () {
             hide(errorEl);
 
             var d = info.defaults || {};
-            /* The schedule and the parcel are the two choices a wrong
-               default has already cost real bookings; each starts at
-               "Choose one" and Confirm refuses until it is answered.
-               Payment keeps its default - it is store policy, not a
-               per-parcel judgement. */
             if (fillSelect(serviceEl, info.service_types, null, 'Choose a schedule…')) show(serviceWrap); else hide(serviceWrap);
             if (fillSelect(parcelEl, info.parcel_options, null, 'Choose a parcel size…')) show(parcelWrap); else hide(parcelWrap);
             if (fillSelect(paymentEl, info.shipping_payment_options, d.shipping_payment)) show(paymentWrap); else hide(paymentWrap);
@@ -346,9 +274,6 @@ document.addEventListener('DOMContentLoaded', function () {
             quote();
         }
 
-        // Where the parcel leaves from, read once per page. The default
-        // address is chosen; a store with one address, or none the API
-        // lists, shows no choice and the store's default applies.
         function loadAddresses() {
             if (addresses !== null) { applyAddresses(); return; }
             getJson(urls.addresses)
@@ -369,8 +294,6 @@ document.addEventListener('DOMContentLoaded', function () {
             show(addressWrap);
         }
 
-        // Slots only for couriers that offer them (SPX). An empty answer is
-        // the normal case for the others and hides the field.
         function loadSlots() {
             hide(slotWrap);
             clear(slotEl);
@@ -380,10 +303,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 .then(function (data) {
                     var slots = (data && data.ok && Array.isArray(data.slots)) ? data.slots : [];
                     if (slots.length === 0) return;
-                    /* When slots exist, the pickup is a decision like the
-                       parcel: the rider may already have come this morning,
-                       and no cutoff rule can know that. "Choose one" first;
-                       drop-off stays a real option a person picks. */
                     clear(slotEl);
                     var ph = new Option('Choose a pickup…', UNCHOSEN_SLOT);
                     ph.selected = true;
@@ -392,14 +311,11 @@ document.addEventListener('DOMContentLoaded', function () {
                     slots.forEach(function (s) { slotEl.appendChild(new Option(s.label, s.value)); });
                     show(slotWrap);
                 })
-                .catch(function () { /* no slots is a valid state */ });
+                .catch(function () { });
         }
 
         var UNCHOSEN_SLOT = '__choose__';
 
-        /* Which required choices still say "Choose one" - the same list
-           gates the quote (no price for a parcel nobody picked) and the
-           Confirm (no booking either). */
         function unanswered() {
             var missing = [];
             if (!serviceWrap.classList.contains('vt-hidden') && serviceEl.value === '') missing.push({ el: serviceEl, name: 'the schedule' });
@@ -419,8 +335,6 @@ document.addEventListener('DOMContentLoaded', function () {
             return opts;
         }
 
-        // The ledger. A null quote with a message is the waiting or failed
-        // state; a quote is the courier's own figures.
         function setQuote(q, message) {
             hide(quoteNote);
             if (!q) {
@@ -440,14 +354,11 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
-        // Asked through the storefront, which asks the courier, for exactly
-        // the choices on screen. Debounced, and answers that arrive out of
-        // order are dropped, so the ledger always describes what is shown.
         function quote() {
             if (quoteTimer) clearTimeout(quoteTimer);
             var missing = unanswered();
             if (missing.length > 0) {
-                ++quoteSeq; // drop any answer already in flight
+                ++quoteSeq;
                 setQuote(null, 'Choose ' + missing.map(function (m) { return m.name; }).join(' and ') + ' to see the price.');
                 return;
             }
@@ -490,10 +401,6 @@ document.addEventListener('DOMContentLoaded', function () {
             hide(step2);
         });
 
-        // Poll for the waybill after a booking. The storefront's own
-        // create-then-poll couriers (SPX) can take a few seconds to hand
-        // back a printable label; twenty tries three seconds apart is the
-        // same patience Shopee's AWB poll has.
         function waitForWaybill(awbUrl) {
             var attempts = 0;
             var max = 20;
@@ -531,9 +438,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         confirmBtn.addEventListener('click', function () {
-            /* THE GATE (the owner, 2026-09-03): an unanswered "Choose one" is
-               refused here, by name, before anything is sent - a wrong
-               booking costs a repack and a rider. */
             [serviceEl, parcelEl, slotEl].forEach(function (el) { el.classList.remove('vt-book__select--missing'); });
             var missing = unanswered();
             if (missing.length > 0) {
@@ -552,9 +456,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 .then(function (res) {
                     var d = res.data || {};
                     if (!d.ok) {
-                        // Back to the options with the storefront's own
-                        // sentence, so something can be changed and tried
-                        // again without starting over.
                         hideModal(overlay);
                         confirmBtn.disabled = false;
                         showError(d.message || 'The storefront could not book this parcel.');
@@ -573,10 +474,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
         });
 
-        /* --- By hand ---------------------------------------------------- */
-
-        // The store's own courier list, read once per page: it changes
-        // when someone edits Settings, not between two bookings.
         function loadManualCouriers() {
             if (manualCouriers !== null) return;
             getJson(urls.couriers)
@@ -636,7 +533,6 @@ document.addEventListener('DOMContentLoaded', function () {
                         showModal(modal);
                         return;
                     }
-                    // Nothing to print: the row moves to To Handover on reload.
                     location.reload();
                 })
                 .catch(function () {
@@ -648,9 +544,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
         });
 
-        /* --- Open ------------------------------------------------------- */
-
-        // Delegated, so it keeps working for rows added by anything later.
         document.addEventListener('click', function (e) {
             var btn = e.target.closest ? e.target.closest('.btnVentaBook') : null;
             if (!btn) return;
@@ -692,10 +585,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    /* ------------------------------------------------------------------
-       Tracking: the courier's timeline as the storefront reports it, in
-       the same {status, at} shape for every courier.
-       ------------------------------------------------------------------ */
     function initTrackingModal() {
         var modal = document.getElementById('vtTrackingModal');
         var body = document.getElementById('vtTrackingBody');
@@ -754,10 +643,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 body.appendChild(wrap);
             }
 
-            // The links come from the courier by way of the storefront: two
-            // parties this page does not control. Only a web URL becomes a
-            // link; anything else (a javascript: scheme, a bare string) is
-            // dropped rather than rendered.
             var links = res.links || {};
             var linkKeys = Object.keys(links).filter(function (k) {
                 return /^https?:\/\//i.test(String(links[k] || ''));

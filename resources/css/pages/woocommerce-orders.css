@@ -1,19 +1,3 @@
-/* WooCommerce Orders, per store.
-   -------------------------------------------------------------------
-   The columns and the order band come from venta-orders.css (the `vt-`
-   widths) and components/channel-orders.css (`co-`). What is here is this
-   channel's own: the in-row status form that mirrors WooCommerce's order
-   screen (a status, a tracking number, Update), and the bounded select in
-   the selection bar that carries its bulk "Change status to".
-
-   No fulfilment strip on this page (the owner, 2026-09-06): WooCommerce has no
-   fulfilment steps, so the status filter is a select and the row's verb is
-   the status itself.
-   ------------------------------------------------------------------- */
-
-/* Select | tracking | Update on one line where the column allows, wrapping
-   as three short controls where it does not. The select is sized to its
-   longest word ("Pending payment") so the seven options never truncate. */
 .wc-status-form {
     display: flex;
     flex-wrap: wrap;
@@ -25,8 +9,6 @@
 .wc-status-form .x-select-wrap .x-input { min-width: 11.5em; }
 .wc-status-form > .x-input { flex: 1 1 8em; min-width: 8em; max-width: 12em; }
 
-/* The bulk status select sits inside the sticky bar at the bar's control
-   height, no wider than its longest option. */
 .x-selectbar__select { flex: 0 0 auto; }
 .x-selectbar__select .x-input { min-width: 11.5em; }
 
@@ -38,11 +20,6 @@
     .x-selectbar__select { flex: 1 1 100%; }
 }
 
-/* The column cut is this page's own. The Venta widths give Actions 4%, one
-   overflow trigger; here Actions holds the status form, so it takes the
-   share Tracking and Products can spare. Sums to 100, so nothing pools and
-   the table never grows past its container (measured: the Venta cut pushed
-   this page to 1536px on a 1440px viewport). */
 #woocommerce-orders-page .vt-col-products { width: 25%; }
 #woocommerce-orders-page .vt-col-qty      { width: 4%; }
 #woocommerce-orders-page .vt-col-price    { width: 7%; }
@@ -53,15 +30,9 @@
 #woocommerce-orders-page .vt-col-date     { width: 11%; }
 #woocommerce-orders-page .vt-col-act      { width: 17%; }
 
-/* The selection bar carries one more control than Venta's; let it wrap
-   rather than push the page wide when the viewport is narrower than the
-   run of buttons. */
 #woocommerce-orders-page .x-selectbar { flex-wrap: wrap; }
 #woocommerce-orders-page .x-selectbar__actions { flex-wrap: wrap; }
 
-/* The Venta ranges hide Payment, then Tracking, as the viewport narrows,
-   but their cell rules are scoped to Venta's page id while the header
-   rules are not. Without these the header vanished and the cell stayed. */
 @media (min-width: 901px) and (max-width: 1100px) {
     #woocommerce-orders-page .x-table td[data-label="Payment"] { display: none; }
 }

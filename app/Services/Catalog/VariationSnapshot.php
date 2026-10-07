@@ -4,18 +4,8 @@ namespace App\Services\Catalog;
 
 use Illuminate\Support\Facades\DB;
 
-/**
- * A product's variations as they stand, in the exact shape the product form
- * posts them to VariationWriter. Saving it back unchanged writes back what
- * was there: each row carries its SKU, stock, price, cost parts, picture and
- * status, so the rebuild has nothing to default.
- *
- * An edit that changes one variation reads this, changes that one row, and
- * saves the whole set, which is how the Edit page saves as well.
- */
 final class VariationSnapshot
 {
-    /** @return array<string, mixed>|null  null for a product without variations */
     public function wire(int $productId): ?array
     {
         $pfx = (string) config('catalog.prefix');
@@ -73,7 +63,6 @@ final class VariationSnapshot
             ];
         }
 
-        // Two types: the first is the one made first, as the form orders them.
         [$first, $second] = [(int) $types[0]->product_option_id, (int) $types[1]->product_option_id];
         $valueByPov = $values->keyBy('product_option_value_id');
 

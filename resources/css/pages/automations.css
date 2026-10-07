@@ -1,20 +1,3 @@
-/* ============================================================
-   Universal Automations tab — scheduled-job control surface.
-   Embedded inside each integration settings page (Shopee, Lazada, ...).
-
-   Design model: a settings list, not a stack of mini-cards. Each
-   scheduled job is rendered as ONE compact horizontal row inside
-   a thin card. The whole row fits on a single line on wide
-   viewports (~56px tall when no extra fields), wrapping its
-   right-side action cluster onto a second line only when space
-   is tight. There are no internal section dividers — the outer
-   border + a left accent rail are the only chrome.
-
-   Scoping: every class is namespaced under .automations-* /
-   .automation-* so this file cannot collide with .btn, .input,
-   .badge, .tabs, etc.
-   ============================================================ */
-
 .automations-tab {
     --auto-surface: var(--bl-sheet, #ffffff);
     --auto-surface-2: #f8fafc;
@@ -37,12 +20,6 @@
     gap: 8px;
 }
 
-/* -------- List & row (table-style) --------
-   All jobs live inside a single bordered container with hairline row
-   dividers — no per-row card chrome, no gaps between rows. Each row
-   is a tight flex line so the name sits immediately next to the
-   cadence pill; toggle status is the row's left accent rail. */
-
 .automations-list {
     background: var(--auto-surface);
     border: 1px solid var(--auto-border);
@@ -64,8 +41,6 @@
     border-top: none;
 }
 
-/* Left accent rail signals enabled/disabled state without taking
-   horizontal space. */
 .automation-row::before {
     content: "";
     position: absolute;
@@ -89,8 +64,6 @@
 .automation-row:hover {
     background: var(--auto-surface-2);
 }
-
-/* -------- Toggle (far-left status indicator) -------- */
 
 .automation-toggle {
     display: inline-flex;
@@ -144,13 +117,7 @@
     box-shadow: 0 0 0 3px var(--auto-accent-glow);
 }
 
-/* -------- Identity block (name + command) -------- */
-
 .automation-ident {
-    /* Fixed width so the cadence pill in the NEXT column aligns
-       vertically across every row — the user complaint was that long
-       names pushed cadence away from the name. With a fixed ident
-       width the cadence column always starts at the same x. */
     width: 240px;
     flex: 0 0 240px;
     min-width: 0;
@@ -213,8 +180,6 @@
     border: none;
     padding: 0;
 }
-
-/* -------- Controls cluster (cadence + optional days) -------- */
 
 .automation-controls {
     display: inline-flex;
@@ -285,10 +250,6 @@
     box-shadow: none;
 }
 
-/* Top-of-tab "Sync windows" block. Two short forms (orders + returns
-   look-back) live in their own card above the jobs list — completely
-   detached from per-job cadence so they read as a different concept.
-   Each form is a single horizontal line with a window pill + Save. */
 .automations-windows {
     background: var(--auto-surface);
     border: 1px solid var(--auto-border);
@@ -328,11 +289,6 @@
     gap: 8px;
 }
 
-/* Lookback window pill (`--days` / `--days-returns`). Uses a tinted
-   neutral background to clearly distinguish from the cadence pill
-   (which is white). The prefix ("Look back" / "Returns") and the
-   trailing "days" suffix turn this into a sentence-style control so
-   it reads as its own concept, not part of cadence. */
 .automation-window {
     display: inline-flex;
     align-items: stretch;
@@ -401,11 +357,6 @@
     box-shadow: none;
 }
 
-/* -------- Last-run + Save cluster -------- */
-/* Sits immediately after the cadence pill (no margin-left:auto push) so
-   the whole row reads as a tight left-clustered sentence:
-   [toggle] [name] [cadence] [last run] [Save]  ←──── empty space ────→ */
-
 .automation-actions {
     display: inline-flex;
     align-items: center;
@@ -446,8 +397,6 @@
     line-height: 1.4;
 }
 
-/* Buttons — keep the small variant, but ensure consistent height
-   with the inline controls so nothing jiggles on the row. */
 .automation-row .btn.small {
     height: 30px;
     padding: 0 12px;
@@ -472,10 +421,6 @@
     color: var(--auto-text-strong);
 }
 
-/* -------- Responsive -------- */
-
-/* Medium screens: keep the row shape, but let the action cluster
-   wrap underneath if the row gets cramped. Identity still leads. */
 @media (max-width: 900px) {
     .automation-actions {
         margin-left: 0;

@@ -15,12 +15,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use ReflectionMethod;
 use Tests\TestCase;
 
-/**
- * #129, 2026-08-26. Venta sends the customer group the order was placed
- * under, by name. The sync writes that name onto the core order row and
- * the Venta mirror, a re-sync updates it, and the order page shows it.
- * No group entity, no mapping.
- */
 class VentaCustomerGroupTest extends TestCase
 {
     use RefreshDatabase;
@@ -52,12 +46,9 @@ class VentaCustomerGroupTest extends TestCase
         $this->assertSame(0, (int) $order->customer_group_id, 'the id stays 0: nothing here to point at (#132)');
         $this->assertSame('Reseller', VentaOrder::where('venta_order_id', 777001)->value('customer_group'));
 
-        // The backfill is a re-sync: an order synced before Venta sent the
-        // group takes the name on its next pass.
         $this->upsert($sync, ['customer_group' => 'Wholesale'] + $raw);
         $this->assertSame('Wholesale', $order->fresh()->customer_group);
 
-        // Venta never captured one: null, never a guess.
         $this->upsert($sync, ['id' => 777002, 'order_number' => 2002, 'status' => 'pending', 'status_id' => 1, 'totals' => ['total' => 1], 'items' => [], 'customer_group' => null]);
         $this->assertNull(Order::where('marketplace_order_id', '777002')->value('customer_group'));
     }

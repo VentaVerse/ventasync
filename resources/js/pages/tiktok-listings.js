@@ -1,6 +1,3 @@
-/* TikTok Shop listings page (#156): the same module Shopee's and Lazada's
-   listings pages ride (channel-listings.js), bound to this page's own
-   overlay and words. */
 import { initChannelListings } from './channel-listings';
 
 document.addEventListener('DOMContentLoaded', function () {

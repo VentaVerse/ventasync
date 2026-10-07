@@ -1,14 +1,4 @@
 @php
-    // Contract identical to ext-shopee::orders._panel, ext-lazada::orders.
-    // _panel and ext-tiktok::orders._panel, with one addition this channel
-    // needs: a store. $panelBaseUrl is the caller's own route
-    // (/venta/{store}/orders in the seller center, /channels/fulfilment on
-    // the fulfilment hub) and $panelHiddenParams are context params the
-    // caller always wants kept (channel=venta:2 on the hub, nothing on the
-    // seller center, where the store rides in the URI path instead). Query
-    // strings go through Arr::query() rather than http_build_query() so the
-    // encoding matches byte for byte what this page produced before the
-    // panel existed (RFC 3986: spaces as %20, not +).
     $panelHiddenParams = $panelHiddenParams ?? [];
 
     $panelSelfUrl = function (array $params = [], array $except = []) use ($panelBaseUrl, $panelHiddenParams) {
@@ -23,23 +13,6 @@
         return $query === [] ? $panelBaseUrl : $panelBaseUrl . '?' . \Illuminate\Support\Arr::query($query);
     };
 
-    // Which store this panel is showing is NOT said here. On the seller
-    // center the sidebar head and the breadcrumb already name it; on the
-    // fulfilment hub the panel wrapper in resources/views/channels/
-    // orders.blade.php names it once for whichever channel is open, so the
-    // line is written in one place rather than copied into every multi-store
-    // channel's partial.
-    //
-    // Presentation shaping the panel needs in every context it renders in.
-    // Each line coalesces, so a caller that already defined the value (the
-    // seller center computes $canManageVentaOrders and $vtScopeLabel itself,
-    // because it reads them before this include for its own deck and for the
-    // ltrim whitespace mirror) keeps its own.
-    //
-    // The page is visible to view_venta_orders holders; Fetch and both
-    // delete paths render only for the manage tier. The route middleware
-    // (perm:manage_venta_orders on every write POST) is the real gate; this
-    // flag only stops the panel offering controls that would 403.
     $canManageVentaOrders = $canManageVentaOrders
         ?? (auth()->user()?->hasPermission('manage_venta/order') ?? false);
 
@@ -47,9 +20,6 @@
         || auth()->user()?->hasPermission('manage_sales/order'));
 
     $vtQ = (string) ($filters['q'] ?? '');
-    /* The service exposes this as per_page, not perPage. Read under the
-       wrong name it fell through ?? to 10, so the control reported 10 while
-       the list paginated by 50. */
     $vtImages = $vtImages ?? [];
     $vtPerPage = (int) ($per_page ?? 10);
     $vtPlacedFrom = (string) ($filters['placed_from'] ?? '');
@@ -57,77 +27,36 @@
     $vtStatus = (string) ($filters['status'] ?? '');
     $vtHasFilters = $vtQ !== '' || $vtStatus !== '' || $vtPlacedFrom !== '' || $vtPlacedTo !== '';
 
-    // The fixed strip, the same contract the three marketplace panels
-    // read: $tabs (key => label), $active_tab, $tab_counts, and the To Ship
-    // sub step. Defaults match Shopee's so the hub can render this panel
-    // with no query string at all and land on To Ship, To Pack.
     $tabs = $tabs ?? [];
     $active_tab = strtoupper((string) ($active_tab ?? 'TO_SHIP'));
     $tab_counts = $tab_counts ?? [];
     $pending_sub_counts = $pending_sub_counts ?? [];
     $pendingSub = $pending_subtab ?? request()->query('pending_sub', 'to_pack');
 
-    // A status name is a word, not a constant, on this channel: see the
-    // OrderStatusTone note in the table below.
-    /* Through the shared label class, like every other channel. This ran
-       ucwords() over the storefront's raw string, which is how "In Transit
-       to Manila" and the American "Canceled" reached the filter strip. An
-       unmapped status still degrades to sentence case rather than shouting,
-       so a status the storefront invents tomorrow reads as words. */
     $vtStatusLabel = fn (string $s) => $s !== ''
         ? \App\Support\ChannelStatusTone::labelFor('venta.orders', $s)
         : 'No status';
 
-    // What the list is scoped to, in the words the strip uses: the sub
-    // step on To Ship, the tab elsewhere, nothing on All. A status alias
-    // narrows further and names itself.
     $vtScopeStep = $vtStatus !== ''
         ? $vtStatusLabel($vtStatus)
         : ($active_tab === 'TO_SHIP'
             ? (['to_pack' => 'To Pack', 'to_handover' => 'To Handover'][$pendingSub] ?? 'To Ship')
             : ($active_tab === 'ALL' ? null : ($tabs[$active_tab] ?? null)));
 
-    // Sort links flip the direction of the column already sorted and start
-    // ascending on any other, which is what the legacy header links did.
-    // They go through $panelSelfUrl, so every other filter the operator has
-    // set (and the caller's own context params) survives a sort.
     $vtSortUrl = fn (string $col) => $panelSelfUrl(
         ['sort' => $col, 'dir' => ($sort === $col && $dir === 'asc') ? 'desc' : 'asc'],
         ['page']
     );
 @endphp
 @if($canManageVentaOrders)
-{{-- One command bar, the same grammar as the three marketplace channels':
-     every child of the row ends in a box exactly --control-h tall and the
-     row is bottom aligned, so the date inputs and the button share a
-     baseline and a top edge. --}}
 @endif
 
-{{-- The same fixed strip the three marketplace panels carry (the owner,
-     2026-08-28): every step is always there, at zero when nothing sits in
-     it, in the shared lifecycle order, with To Ship split into To Pack and
-     To Handover underneath. The strip used to be whatever statuses the
-     store had sent, so it changed shape from store to store and a step
-     with nothing in it did not exist. Counts ride along as muted mono
-     numbers on every item rather than only on some: a count that appears
-     on some tabs and not others reads as an alert rather than a figure. --}}
-{{-- Phone only. The fetch bar and the filter row are a desk's tools, not
-     a bench's - measured at 443px of the 887px a packer scrolled past before
-     the first order - so below the table's restack width they start folded
-     behind this and one tap brings them back. Nothing is removed and nothing
-     moves; above that width this button does not exist. --}}
 <button type="button" class="x-desk-toggle" data-desk-toggle aria-expanded="true">
     <span data-desk-label>Find, dates and sync</span>
     <span class="x-desk-toggle__mark" aria-hidden="true">&#9662;</span>
 </button>
 
 <div class="x-segment-bar">
-    {{-- Navigation, not an ARIA tablist. Each item is a link that loads a
-     filtered page, and role="tablist" promises children with role="tab"
-     controlling panels that switch in place - so a screen reader
-     announced a tab list containing no tabs, on the control a
-     fulfilment worker uses most. A nav landmark with aria-current is
-     what a set of filter links actually is. --}}
     <nav class="x-segment" aria-label="Order status">
         @foreach($tabs as $vtKey => $vtLabel)
             @php
@@ -135,11 +64,6 @@
                 $vtIsActive = $active_tab === $vtKey;
                 $vtCount = $tab_counts[$vtKey] ?? null;
             @endphp
-            {{-- A tab with nothing in it stays clickable, as on Shopee: a
-                 count is a number the last sync produced, and going to the
-                 tab is how an operator checks whether that is still true.
-                 The status alias is dropped on a tab change, since it named
-                 a status inside the tab the reader is leaving. --}}
             <a href="{{ $panelSelfUrl(['tab' => $vtKey], ['page', 'pending_sub', 'status']) }}"
                class="x-segment__item {{ $vtIsActive ? 'is-active' : '' }}"
                @if($vtIsActive) aria-current="true" @endif>
@@ -156,22 +80,14 @@
     @php
         $vtPendingNav = ['to_pack' => 'To Pack', 'to_handover' => 'To Handover'];
     @endphp
-    {{-- The one tab with two working steps, the same sub row Shopee, Lazada
-         and TikTok carry. It drops the trough so it cannot be mistaken for
-         a peer of the row above it. --}}
     <div class="x-segment x-segment--sub" aria-label="To Ship step">
         @foreach($vtPendingNav as $vtSubKey => $vtSubLabel)
             @php
                 $vtSubActive = ($pendingSub === $vtSubKey) || ($pendingSub === '' && $vtSubKey === 'to_pack');
                 $vtSubCount = $pending_sub_counts[$vtSubKey] ?? null;
             @endphp
-            {{-- A sub step keeps its href at zero: To Pack drains into To
-                 Handover over a morning, and a zero here is a moment in
-                 that loop rather than a settled state. --}}
             <a href="{{ $panelSelfUrl(['tab' => 'TO_SHIP', 'pending_sub' => $vtSubKey], ['page', 'status']) }}"
                class="x-segment__item {{ $vtSubActive ? 'is-active' : '' }}"
-               {{-- "step", not "page": both strips describe the same URL,
-                     and the sub level is a step inside the tab above it. --}}
                @if($vtSubActive) aria-current="step" @endif>
                 <span>{{ $vtSubLabel }}</span>
                 @if($vtSubCount !== null)
@@ -182,26 +98,15 @@
     </div>
 @endif
 
-{{-- One filter row. Search was its own card form on the legacy page, sitting
-     under a second card holding the status badges; both are one job. --}}
 @php
-    /* What the Filters button admits to. */
     $vtActiveFilters = 0;
     if (($vtPlacedFrom ?? '') !== '') { $vtActiveFilters++; }
     if (($vtPlacedTo ?? '') !== '') { $vtActiveFilters++; }
     if ($vtPerPage !== 10) { $vtActiveFilters++; }
 @endphp
 
-{{-- One toolbar, after the tabs: choose the queue, then narrow it. Same
-     fold as the other channels, so nobody relearns the toolbar crossing
-     between them. --}}
 <div class="x-toolbar">
-<form method="GET" action="{{ $panelBaseUrl }}" class="x-filters" data-desk-tool id="orders-filter">{{-- The caller's context params, kept across every filter change. The loop
-     is written tight against its own lines because Blade eats the newline
-     after @endforeach: laid out conventionally, a caller passing no params
-     (the seller center) still moved the next input onto the form's own
-     line, which is a rendered difference this page's extraction proof does
-     not allow. --}}
+<form method="GET" action="{{ $panelBaseUrl }}" class="x-filters" data-desk-tool id="orders-filter">
 @foreach($panelHiddenParams as $panelHiddenKey => $panelHiddenValue)    <input type="hidden" name="{{ $panelHiddenKey }}" value="{{ $panelHiddenValue }}">
 @endforeach    <input type="hidden" name="tab" value="{{ $active_tab }}">
     @if($active_tab === 'TO_SHIP')
@@ -213,19 +118,11 @@
     <input type="hidden" name="sort" value="{{ $sort }}">
     <input type="hidden" name="dir" value="{{ $dir }}">
 
-    {{-- The same shape every other fulfilment list carries. "Customer"
-         rather than "buyer" because that is what this person is on your own
-         storefront, but the field does the same job and matches the same
-         four things. Tracking stays in the list: on a storefront the courier
-         reference is often all a caller has. --}}
     <x-ui.input type="search" name="q" class="x-filters__find"
                 value="{{ $vtQ }}"
                 placeholder="Order no, buyer, product or tracking"
                 aria-label="Find an order by order number, buyer, product or tracking" />
 
-    {{-- Folded, with a count of what is set. Search stays out: it is the
-         control used most. A fold that hides an ACTIVE filter would be worse
-         than no fold, which is what the count is for. --}}
     <x-ui.foldout label="Filters" :count="$vtActiveFilters ?: null">
         <span class="x-filters__group">
             <span class="x-filters__group-label">Show orders placed</span>
@@ -253,8 +150,6 @@
 </form>
 
 @if($canManageVentaOrders)
-    {{-- The marketplace pull, folded. Used a few times a day, never per
-         order, and it sat above every row on every page load. --}}
     <x-ui.foldout label="Sync" class="x-toolbar__sync"
                   hint="Pulls orders from this storefront for the dates below.">
         <div class="x-cmdbar x-cmdbar--folded">
@@ -291,37 +186,13 @@
         if ($vtHasFilters) {
             $vtEmptyDesc = 'Nothing matches those filters. Clear them to see the full list.';
         } elseif ($active_tab !== 'ALL' && $vtScopeStep) {
-            // An empty step on a store that has orders is not "nothing has
-            // been synced": with the strip fixed, To Pack is empty most of
-            // the day on a quiet store, and telling the packer to fetch
-            // orders would have them re-pulling a store that is up to date.
-            // Same wording as Shopee's, naming the step being looked at.
             $vtEmptyDesc = 'No orders in ' . $vtScopeStep . ' right now.';
         } else {
-            // The empty state names the way forward the reader actually has.
-            // Telling a read-only operator to use a command bar their
-            // permission tier never renders is an instruction they cannot
-            // follow.
             $vtEmptyDesc = $canManageVentaOrders
                 ? 'Nothing has been synced yet. Pick a date range above and fetch orders from this store.'
                 : 'Nothing has been synced yet. Someone with permission to sync orders needs to pull them from this store first.';
         }
 
-        /* Whether the list the operator is looking at is narrowed - read off
-         * the panel's STATE, not off the URL.
-         *
-         * This used to be derived from the query string alone, which is only
-         * true for a panel whose unfiltered view is also its default. Shopee
-         * orders defaults its tab to PENDING and TikTok to TO_SHIP, so
-         * landing on either carries no query parameters at all: the check
-         * said "not filtered", the way out was suppressed, and the operator
-         * stood on "No orders in To Pack right now" with one order sitting in
-         * To Handover and nothing pointing at it. The one case where they are
-         * most stuck was the one case with no exit.
-         *
-         * page is excluded because paging is not narrowing, tab=ALL because
-         * that is the unnarrowed state, and the hidden params because they
-         * identify the panel rather than filter it. */
         $emptyFiltered = (isset($active_tab) && strtoupper((string) $active_tab) !== 'ALL')
             || collect(request()->except(array_merge(array_keys($panelHiddenParams ?? []), ['page'])))
             ->filter(fn ($v, $k) => $v !== null && $v !== '' && !($k === 'tab' && $v === 'ALL'))
@@ -336,23 +207,6 @@
     </x-ui.empty>
 @else
 @if($canManageVentaOrders)
-{{-- SELECTION, on the shared bar every other channel now uses.
-     This page invented the selection model and then kept its own copy of it
-     while the pattern was generalised, so the storefront - the one channel
-     where the seller controls fulfilment end to end - had checkboxes whose
-     only destination was Delete. It gets the same two print sheets as the
-     marketplaces, and keeps the delete it already had.
-
-     ONE FORM, THREE BUTTONS, because a checkbox can only belong to one form.
-     The form posts the pick list; the other two carry formaction. The delete
-     keeps its own confirmation and the prints need none - which works because
-     the dialog now follows the button that was pressed rather than the form
-     it sits in.
-
-     At rest the bar offers the select-all box and nothing else: the
-     destructive button only exists once the operator has said what it would
-     act on, and the count sits beside it so the number about to go is never
-     off screen from the control that removes them. --}}
 <div data-order-selection>
     <x-ui.selectbar :step="$vtScopeStep">
         <form method="POST" action="{{ route('fulfilment.print.pick', ['channel' => 'venta']) }}"
@@ -362,10 +216,6 @@
             <x-ui.button type="submit" variant="secondary" size="sm" formtarget="_blank"
                          formaction="{{ route('fulfilment.print.packing', ['channel' => 'venta']) }}">Print packing lists</x-ui.button>
             <x-ui.hint label="About these two lists">One pick list for the whole selection, with lines consolidated by SKU so three of the same item is one trip to the shelf. Packing lists are one per order, nothing consolidated, to go in the parcel.</x-ui.hint>
-            {{-- Detached from the productive run on purpose. The last
-                 control in this bar is where the other three channels put
-                 Pack and print, so the muscle memory that ends a selection
-                 with a confident click must not land on a delete. --}}
             <span class="x-selectbar__split"></span>
             <x-ui.button type="submit" variant="danger" size="sm"
                          formaction="{{ route('ext.venta.orders.bulk_delete', $storeId) }}"
@@ -376,17 +226,6 @@
 @endif
 <x-ui.table caption="{{ 'Storefront orders' . ($vtScopeStep ? ' in ' . $vtScopeStep : '') }}" class="x-table--stack">
     <x-slot:head>
-        {{-- The legacy column format the other three channels settled on: one
-             row per item so Qty and Price align in their own columns, and the
-             order-level facts (amount, payment, tracking, status, date,
-             actions) rowspan beside the item rows. Customer, order number and
-             the sales-order reference ride in a band above each order.
-
-             The legacy page put a sort link on nine headers, including four
-             fields that are now band facts rather than columns. Sorting stays
-             on the headers that survived, which are the ones a person sorts a
-             fulfilment list by; the controller still accepts every value it
-             ever did. --}}
         <tr>
             <th scope="col" class="vt-col-products">Products</th>
             <th scope="col" class="vt-col-qty">Qty</th>
@@ -435,51 +274,22 @@
             $vtCreated = $o->order_created_at ? $o->order_created_at->format('Y-m-d H:i') : null;
 
             $vtItems = $o->products ? $o->products->all() : [];
-            // Legacy shape: an order with no recorded items still renders one
-            // empty item row under its band, rather than a band with nothing
-            // attached to it.
             $vtRows = $vtItems !== [] ? $vtItems : [null];
             $vtLineCount = count($vtRows);
             $vtItemCount = count($vtItems);
 
-            // App\Support\OrderStatusTone, not ChannelStatusTone. What
-            // venta_orders.status holds is the storefront's own status NAME,
-            // and VentaOrderSync::buildStatusMap() resolves it by matching
-            // that name against this ERP's order_status table. It is the same
-            // open, admin-editable vocabulary the core Orders list carries,
-            // not a closed set of marketplace constants like Shopee's or
-            // TikTok's, so enumerating it in ChannelStatusTone would be
-            // inventing a fixed list for something an admin renames from
-            // Settings. Anything unrecognised reads neutral, which is
-            // OrderStatusTone's deliberate behaviour rather than a gap.
-            /* The tone from the same class as the label. This called
-               OrderStatusTone, whose warning list knows "ready to ship" but
-               not this storefront's "Start Pickup" or "In Transit to
-               Manila", so the two statuses that most need a colour rendered
-               neutral grey. */
             $vtTone = \App\Support\ChannelStatusTone::toneFor('venta.orders', $vtStatusRaw);
 
-            // Which step the row is on decides which fulfilment controls it
-            // offers, the same rule the three marketplace rows follow: book
-            // on To Pack only, waybill and tracking once a courier holds it.
-            // The step is the storefront's placement of the status, through
-            // the same map the strip above is built from.
             $vtStep = \Extensions\venta\Services\Venta\VentaStatusPlacements::stepFor((int) $storeId, $vtStatusRaw);
             $vtIsToPack = $vtStep === 'to_pack';
             $vtIsToHandover = $vtStep === 'to_handover';
             $vtBooked = $o->isBooked();
             $vtCourierNo = trim((string) ($o->courier_tracking_number ?? ''));
-            // A hand-recorded shipment names its courier itself; an
-            // integrated one is named by its provider key.
             $vtIsManual = $o->isManualShipment();
             $vtCourierName = $vtIsManual && trim((string) $o->courier_name) !== ''
                 ? trim((string) $o->courier_name)
                 : \Extensions\venta\Services\Venta\VentaCouriers::name((string) ($o->courier_provider ?? ''));
 
-            // The parcel the booking dialog shows for this row (see the
-            // template beside the Book courier button). No courier yet on
-            // To Pack, which is what the dialog is for; the city is enough
-            // of the address to tell two orders apart.
             $vtAddr = is_array($o->shipping_address) ? $o->shipping_address : [];
             $vtParcel = \App\Support\Fulfilment\PackedParcel::fromItems(array_map(function ($it) use ($vtImages) {
                 $img = trim((string) ($vtImages[trim((string) ($it->sku ?? ''))] ?? ''));
@@ -531,12 +341,6 @@
         <tr class="co-itemrow {{ $vtIdx === $vtLineCount - 1 ? 'co-itemrow--last' : '' }}">
             <td class="vt-col-products" data-label="Products">
                 <div class="co-item">
-                    {{-- The same picture the marketplace rows carry. A packer
-                         identifies what to pull off the shelf by looking at
-                         it, and this was the one channel of four that showed
-                         nothing. The storefront's payload has no image, so it
-                         is resolved from the catalog these products were
-                         pushed to the storefront from. --}}
                     @php
                         $vtImg = trim((string) ($vtImages[trim((string) ($vtItem?->sku ?? ''))] ?? ''));
                     @endphp
@@ -585,11 +389,6 @@
             </td>
 
             <td class="vt-col-track" rowspan="{{ $vtLineCount }}" data-label="Tracking">
-                {{-- The courier booking first, when the ERP knows one: the
-                     courier's name over its tracking number, the way the
-                     marketplace rows print a carrier over a waybill number.
-                     The storefront's own tracking field is the fallback,
-                     and the same value when the storefront copied it. --}}
                 @if($vtCourierNo !== '')
                     <span class="co-ship__note">{{ $vtCourierName }}</span>
                     <span class="co-ship__no">{{ $vtCourierNo }}</span>
@@ -616,11 +415,6 @@
 
             <td class="vt-col-act" rowspan="{{ $vtLineCount }}">
                 @if(!$canManageVentaOrders)
-                    {{-- A read-only operator opens the sales order from the
-                         reference in the band above. The one thing they may
-                         still do to a booked row is print its waybill: a
-                         stored PDF is read-only, and the person at the
-                         handover shelf is often not the person who books. --}}
                     @if($vtBooked)
                         <x-ui.button size="sm" :href="route('ext.venta.orders.awb', [$storeId, $o->id])"
                                      target="_blank" rel="noopener">Print waybill</x-ui.button>
@@ -629,12 +423,6 @@
                     @endif
                 @else
                 <div class="co-actions co-actions--wrap">
-                    {{-- The step's own verb first, in the slot the three
-                         marketplaces use for theirs (#168). Book on To Pack;
-                         once a courier holds the parcel, its waybill, its
-                         tracking, and the way to give it back. Every one a
-                         secondary button, so a screen of rows has no wall of
-                         colour; the accent is spent on the status badge. --}}
                     @if($vtIsToPack)
                         <x-ui.button type="button" variant="secondary" size="sm" class="btnVentaBook"
                                      data-pc-channel="venta" data-pc-order="{{ $o->id }}"
@@ -650,10 +438,6 @@
                         <template data-parcel-for="{{ $o->id }}"><x-fulfilment.parcel :parcel="$vtParcel" /></template>
                     @endif
 
-                    {{-- A shipment recorded by hand has no waybill to print
-                         and no timeline to track: the courier's name and
-                         the number are on the row, and that is all there
-                         is. Its way back is Clear shipment. --}}
                     @if(($vtIsToHandover || $vtBooked) && !$vtIsManual)
                         <x-ui.button size="sm" :href="route('ext.venta.orders.awb', [$storeId, $o->id])"
                                      target="_blank" rel="noopener">Print waybill</x-ui.button>
@@ -677,38 +461,14 @@
                         </form>
                     @endif
 
-                    {{-- The productive control, in the slot the other three
-                         channels use for one. A row that ended in Delete
-                         where Shopee, Lazada and TikTok end in Print taught
-                         the opposite of the gesture they teach, and a packer
-                         crossing between them all morning is the person who
-                         pays for that.
-
-                         Packing list, not pick list: a pick list consolidates
-                         a whole selection by SKU so three of an item is one
-                         trip to the shelf, which for a single order is just a
-                         packing list under another name. The shared route
-                         takes ids[], so one order is a selection of one. --}}
                     <form method="POST" class="x-docs"
                           action="{{ route('fulfilment.print.packing', ['channel' => 'venta']) }}"
                           target="_blank">
                         @csrf
                         <input type="hidden" name="ids[]" value="{{ $o->id }}">
-                        {{-- No "Print" group label here, unlike the Lazada
-                             row. That label groups three documents; this is
-                             one, and this column is 85px against Lazada's
-                             276px, so the label only pushed the link onto a
-                             second line. The link text is word-for-word the
-                             one Lazada uses, which is the part that has to
-                             match. --}}
                         <button type="submit" class="x-doc">Packing list</button>
                     </form>
 
-                    {{-- Delete is the only other write this page offers a row,
-                         and it is destructive, so it never stands as a button
-                         of its own: it lives behind an overflow trigger that
-                         appears on hover or focus, or in the selection bar
-                         above once rows are picked. --}}
                     <x-ui.menu label="Order {{ $vtNumber }} actions">
                         <button type="button" class="x-menu__item x-menu__item--danger"
                                 data-confirm="Delete order {{ $vtNumber }} from this store? The sales order it created is not affected."
@@ -727,12 +487,9 @@
         @endforeach
     @endforeach
 </x-ui.table>
-</div>{{-- /selection --}}
+</div>
 
 <x-ui.pager :paginator="$orders" />
 @endif
 
-{{-- The book, tracking and loading modals the row buttons above open.
-     One copy of the markup, in orders/_modals.blade.php, so the seller
-     centre and the hub cannot drift apart. --}}
 @include('ext-venta::orders._modals')

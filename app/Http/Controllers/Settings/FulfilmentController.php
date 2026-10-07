@@ -9,9 +9,6 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
-/**
- * Settings > Fulfilment: how the packing team works, for every store.
- */
 class FulfilmentController extends Controller
 {
     public function edit(): View

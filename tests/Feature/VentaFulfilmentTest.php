@@ -15,14 +15,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * Courier fulfilment of a storefront order, run from the ERP (#168).
- *
- * The storefront owns the courier; the ERP asks, books, records what came
- * back, and re-reads the order so the row lands in the step the storefront
- * put it in. Everything here is faked at the HTTP boundary: the storefront's
- * ERP API is a contract, and the contract is what is asserted.
- */
 class VentaFulfilmentTest extends TestCase
 {
     use RefreshDatabase;
@@ -40,17 +32,11 @@ class VentaFulfilmentTest extends TestCase
         $this->app->register(VentaExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
 
-        // A stray real call would hit a host that does not exist; better a
-        // loud failure at the boundary than a slow timeout.
         Http::preventStrayRequests();
 
-        // Every single-order re-read first asks the store where it places
-        // its statuses (#167); a test that cares stubs this itself, the rest
-        // get a store with nothing placed.
         Http::fake([self::BASE . '/api/v1/order-statuses' => fn () => Http::response(['data' => $this->statusRows])]);
     }
 
-    /** What the store says about its statuses; a test that cares sets it. */
     private array $statusRows = [];
 
     protected function tearDown(): void
@@ -65,7 +51,6 @@ class VentaFulfilmentTest extends TestCase
         parent::tearDown();
     }
 
-    /** @var array<string, User> one user per permission set per test; group names are unique */
     private array $users = [];
 
     private function userWith(array $keys): User
@@ -122,7 +107,6 @@ class VentaFulfilmentTest extends TestCase
         ], $extra));
     }
 
-    /** The storefront's answer to GET orders/{id} after a write moved the order. */
     private function orderPayload(string $status, array $courier = null): array
     {
         $raw = [
@@ -166,11 +150,8 @@ class VentaFulfilmentTest extends TestCase
         $this->assertSame('SPX0001', $order->courier_tracking_number);
         $this->assertSame('booked', $order->courier_status);
         $this->assertNotNull($order->courier_booked_at);
-        // The re-read moved the row: To Handover without waiting for the cron.
         $this->assertSame('Order Being Shipped', $order->status);
 
-        // Only what the packer set went to the storefront; blanks were left
-        // to the storefront's own per-courier defaults.
         Http::assertSent(function ($request) {
             if (! str_ends_with($request->url(), '/book-courier')) {
                 return false;
@@ -212,8 +193,6 @@ class VentaFulfilmentTest extends TestCase
             ->postJson(route('ext.venta.orders.book', [$store->id, $order->id]), ['courier' => 'spx'])
             ->assertForbidden();
 
-        // A plain form post is turned away with a flash, the way every
-        // other write is for the wrong tier (see LazadaBulkPackTest).
         $this->actingAs($this->viewer())
             ->post(route('ext.venta.orders.cancel_booking', [$store->id, $order->id]))
             ->assertRedirect()
@@ -255,7 +234,6 @@ class VentaFulfilmentTest extends TestCase
             self::BASE . '/api/v1/orders/700001/label*' => Http::response('%PDF-1.4 fake', 200, ['Content-Type' => 'application/pdf']),
         ]);
 
-        // The modal polls as JSON first: ready means the file is cached.
         $this->actingAs($this->packer())
             ->getJson(route('ext.venta.orders.awb', [$store->id, $order->id]))
             ->assertOk()
@@ -265,7 +243,6 @@ class VentaFulfilmentTest extends TestCase
         $response->assertOk();
         $this->assertSame('application/pdf', $response->headers->get('Content-Type'));
 
-        // Two ERP requests, one storefront call.
         Http::assertSentCount(1);
     }
 
@@ -286,8 +263,6 @@ class VentaFulfilmentTest extends TestCase
 
     public function test_an_order_the_erp_has_no_booking_for_is_still_asked_about_at_the_store(): void
     {
-        // Booked from the storefront admin, or not at all: the store knows,
-        // the ERP does not until #169, so the store is asked and answers.
         $store = $this->store();
         $order = $this->order($store, 'Order Processed');
 
@@ -335,7 +310,6 @@ class VentaFulfilmentTest extends TestCase
             ->assertJsonPath('status', 'in_transit')
             ->assertJsonCount(2, 'timeline');
 
-        // The mirror's courier status followed the storefront's refresh.
         $this->assertSame('in_transit', $order->fresh()->courier_status);
     }
 
@@ -355,7 +329,6 @@ class VentaFulfilmentTest extends TestCase
             ->assertOk()->getContent();
 
         $this->assertStringContainsString('btnVentaBook', $pack);
-        // The row carries its parcel for the booking dialog (2026-08-29).
         $this->assertStringContainsString('data-parcel-for=', $pack);
         $this->assertStringContainsString('id="vtBookParcel"', $pack);
         $this->assertStringContainsString(route('ext.venta.orders.book', [$store->id, $toPack->id]), $pack);
@@ -374,7 +347,6 @@ class VentaFulfilmentTest extends TestCase
         $this->assertStringContainsString('SPX0002', $handover);
         $this->assertStringNotContainsString('btnVentaBook', $handover);
 
-        // A viewer can still print a booked parcel's waybill, nothing else.
         $viewer = $this->actingAs($this->viewer())
             ->get(route('ext.venta.orders.index', [$store->id, 'tab' => 'TO_SHIP', 'pending_sub' => 'to_handover']))
             ->assertOk()->getContent();
@@ -430,8 +402,6 @@ class VentaFulfilmentTest extends TestCase
                 && $body['comment'] === 'Rider took it at 3pm' && ! array_key_exists('courier_name', $body);
         });
 
-        // The row: the courier's name and number, Clear shipment, and no
-        // waybill or tracking, because a hand-recorded shipment has neither.
         $html = $this->actingAs($this->packer())
             ->get(route('ext.venta.orders.index', [$store->id, 'tab' => 'TO_SHIP', 'pending_sub' => 'to_handover']))
             ->assertOk()->getContent();
@@ -505,8 +475,6 @@ class VentaFulfilmentTest extends TestCase
             ->assertJsonPath('couriers.quadx.defaults.service', 'next_day')
             ->json();
 
-        // Same day pickup leads (the owner, 2026-09-04); the default schedule
-        // stays next_day - order is presentation, the default is policy.
         $this->assertSame(['same_day_pickup', 'next_day'], array_column($json['couriers']['quadx']['service_types'], 'value'));
         $this->assertContains('box', array_column($json['couriers']['quadx']['parcel_options'], 'value'));
         $this->assertSame('cash', $json['couriers']['quadx']['shipping_payment_options'][0]['value']);
@@ -615,8 +583,6 @@ class VentaFulfilmentTest extends TestCase
         $store = $this->store();
         $order = $this->order($store, 'Order Processed');
 
-        // The store calls its handover status something the ERP's name list
-        // has never heard of, and says where it sits.
         $this->statusRows = [
             ['id' => 35, 'name' => 'Order Processed', 'placement' => 'to_pack'],
             ['id' => 77, 'name' => 'Rider Booked', 'placement' => 'to_handover'],
@@ -635,8 +601,6 @@ class VentaFulfilmentTest extends TestCase
 
         $this->assertStringContainsString('so it is in To Handover', (string) session('status'));
 
-        // The row is in To Handover on the strip, by the store's placement,
-        // not by any name the ERP knows.
         $html = $this->actingAs($this->packer())
             ->get(route('ext.venta.orders.index', [$store->id, 'tab' => 'TO_SHIP', 'pending_sub' => 'to_handover']))
             ->assertOk()->getContent();
@@ -685,7 +649,6 @@ class VentaFulfilmentTest extends TestCase
         $this->assertSame('for_pickup', $row->courier_status);
         $this->assertSame('Order Being Shipped', $row->status);
 
-        // A payload without the object leaves the ERP's own record alone.
         Http::fake([
             self::BASE . '/api/v1/orders/700001' => Http::response($this->orderPayload('Order Being Shipped')),
         ]);

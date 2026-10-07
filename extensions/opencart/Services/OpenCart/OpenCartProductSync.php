@@ -13,16 +13,12 @@ class OpenCartProductSync
     private OpenCartClient $client;
     private OpenCartSetting $setting;
 
-    /** @var array<int,int> oc_category_id → core category_id */
     private array $categoryMap = [];
 
-    /** @var array<int,int> oc_manufacturer_id → core manufacturer_id */
     private array $manufacturerMap = [];
 
-    /** @var array<int,int> oc_option_id → core option_id */
     private array $optionMap = [];
 
-    /** @var array<int,int> oc_option_value_id → core option_value_id */
     private array $optionValueMap = [];
 
     public function __construct(OpenCartClient $client, OpenCartSetting $setting)
@@ -51,16 +47,11 @@ class OpenCartProductSync
         $this->optionValueMap = $map;
     }
 
-    /**
-     * Auto-build category, manufacturer, and option maps from OC API + local DB.
-     * Called automatically when maps are empty (e.g. individual sync from UI).
-     */
     private function autoPopulateMaps(): void
     {
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        // Categories: OC API → match by name in local DB
         if (empty($this->categoryMap)) {
             $result = $this->client->getCategories();
             if ($result['ok']) {
@@ -82,7 +73,6 @@ class OpenCartProductSync
             }
         }
 
-        // Manufacturers: OC API → match by name in local DB
         if (empty($this->manufacturerMap)) {
             $result = $this->client->getManufacturers();
             if ($result['ok']) {
@@ -103,7 +93,6 @@ class OpenCartProductSync
             }
         }
 
-        // Options + Option Values: OC API → match by name in local DB
         if (empty($this->optionMap)) {
             $result = $this->client->getOptions();
             if ($result['ok']) {
@@ -124,7 +113,6 @@ class OpenCartProductSync
                     if ($local) {
                         $this->optionMap[$ocOptionId] = (int) $local;
 
-                        // Map option values by name within this option
                         $values = $opt['values'] ?? [];
                         foreach ($values as $val) {
                             $ocValueId = (int) ($val['option_value_id'] ?? 0);
@@ -157,13 +145,8 @@ class OpenCartProductSync
         ]);
     }
 
-    /**
-     * Pull products from OpenCart into the local catalog tables.
-     * Uses SKU-based matching — auto-increments IDs.
-     */
     public function pull(?string $modifiedSince = null, bool $full = false, ?int $productId = null): OpenCartSyncLog
     {
-        // Auto-build maps if not provided (e.g. individual sync from UI)
         $this->autoPopulateMaps();
         $log = OpenCartSyncLog::create([
             'opencart_setting_id' => $this->setting->id,
@@ -214,7 +197,6 @@ class OpenCartProductSync
                 $hasMore = $page <= ($pagination['total_pages'] ?? 0);
             } while ($hasMore);
 
-            // Don't update last sync timestamp when importing a single product
             if (!$productId) {
                 $this->setting->update(['last_product_sync_at' => now()]);
             }
@@ -240,13 +222,6 @@ class OpenCartProductSync
         return $log;
     }
 
-    /**
-     * Push product changes from Laravel to OpenCart.
-     * Products WITH a link → bulk update.
-     * Products WITHOUT a link → create individually, save link.
-     *
-     * @return array{updated: int, created: int, failed: int, errors: array}
-     */
     public function push(array $productIds): array
     {
         $pfx = (string) config('catalog.prefix');
@@ -256,7 +231,6 @@ class OpenCartProductSync
         $failed = 0;
         $errors = [];
 
-        // Get existing links for this store
         $links = OpenCartProductLink::where('opencart_setting_id', $this->setting->id)
             ->whereIn('product_id', $productIds)
             ->get()
@@ -273,13 +247,11 @@ class OpenCartProductSync
             }
         }
 
-        // -- Bulk update existing products --
-        // Track products that failed update (deleted from OC) so we can re-create them
         $staleLinks = [];
 
         foreach (array_chunk($toUpdate, 50) as $chunk) {
             $products = [];
-            $chunkMap = []; // oc_product_id => laravel product_id
+            $chunkMap = [];
 
             foreach ($chunk as $pid) {
                 $product = DB::table($pfx . 'product')
@@ -302,7 +274,6 @@ class OpenCartProductSync
                 $link = $links->get($pid);
                 $ocPid = (int) $link->oc_product_id;
 
-                // Resolve manufacturer name for image folder
                 $mfgName = '';
                 if ((int) $product->manufacturer_id > 0) {
                     $mfg = DB::table($pfx . 'manufacturer')
@@ -329,7 +300,6 @@ class OpenCartProductSync
                     'manufacturer_name' => $mfgName,
                 ];
 
-                // Main image — base64-encode
                 if (!empty($product->image)) {
                     $encoded = $this->encodeImage($product->image);
                     if ($encoded) {
@@ -338,7 +308,6 @@ class OpenCartProductSync
                     }
                 }
 
-                // Additional images
                 $addlImages = DB::table($pfx . 'product_image')
                     ->where('product_id', (int) $pid)
                     ->orderBy('sort_order')
@@ -361,7 +330,6 @@ class OpenCartProductSync
                     $productData['images'] = $imagesPayload;
                 }
 
-                // Include options so new/updated variants are synced
                 $options = $this->buildOptionsPayload((int) $pid, $pfx, $langId);
                 if (!empty($options)) {
                     $productData['options'] = $options;
@@ -375,7 +343,6 @@ class OpenCartProductSync
                 $resp = $this->client->bulkUpdateProducts($products);
 
                 if (empty($resp['ok'])) {
-                    // API call failed entirely — treat all as stale
                     Log::warning('OpenCart bulk update failed, queueing for re-create', [
                         'store' => $this->setting->id,
                         'status' => $resp['status'] ?? 0,
@@ -388,7 +355,6 @@ class OpenCartProductSync
                             if (!empty($r['success'])) {
                                 $updated++;
                             } else {
-                                // Product not found in OC — stale link, queue for re-create
                                 $ocPid = (int) ($r['product_id'] ?? 0);
                                 if ($ocPid > 0 && isset($chunkMap[$ocPid])) {
                                     $staleLinks[] = $chunkMap[$ocPid];
@@ -398,14 +364,12 @@ class OpenCartProductSync
                             }
                         }
                     } else {
-                        // Response OK but no data — treat all as stale
                         $staleLinks = array_merge($staleLinks, array_values($chunkMap));
                     }
                 }
             }
         }
 
-        // Remove stale links and add to create queue
         if (!empty($staleLinks)) {
             OpenCartProductLink::where('opencart_setting_id', $this->setting->id)
                 ->whereIn('product_id', $staleLinks)
@@ -413,9 +377,7 @@ class OpenCartProductSync
             $toCreate = array_merge($toCreate, $staleLinks);
         }
 
-        // -- Create new products one by one --
         foreach ($toCreate as $pid) {
-            // Skip disabled products
             $createStatus = DB::table($pfx . 'product')->where('product_id', (int) $pid)->value('status');
             if ((int) $createStatus === 0) {
                 $failed++;
@@ -465,10 +427,6 @@ class OpenCartProductSync
         return compact('updated', 'created', 'failed', 'errors');
     }
 
-    /**
-     * Build the full payload for creating a product in OC.
-     * Resolves manufacturer name, category name paths, option names, etc.
-     */
     private function buildCreatePayload(int $productId, string $pfx, int $langId): ?array
     {
         $product = DB::table($pfx . 'product')
@@ -513,7 +471,6 @@ class OpenCartProductSync
             'tag'              => $desc->tag ?? '',
         ];
 
-        // Manufacturer name
         if ((int) $product->manufacturer_id > 0) {
             $mfg = DB::table($pfx . 'manufacturer')
                 ->where('manufacturer_id', (int) $product->manufacturer_id)
@@ -523,7 +480,6 @@ class OpenCartProductSync
             }
         }
 
-        // Category name paths (e.g. "Guitars > Electric Guitars")
         $catIds = DB::table($pfx . 'product_to_category')
             ->where('product_id', $productId)
             ->pluck('category_id');
@@ -539,7 +495,6 @@ class OpenCartProductSync
             $payload['category_names'] = $categoryNames;
         }
 
-        // Main image — base64-encode if file exists
         if (!empty($product->image)) {
             $encoded = $this->encodeImage($product->image);
             if ($encoded) {
@@ -548,7 +503,6 @@ class OpenCartProductSync
             }
         }
 
-        // Additional images
         $images = DB::table($pfx . 'product_image')
             ->where('product_id', $productId)
             ->orderBy('sort_order')
@@ -571,7 +525,6 @@ class OpenCartProductSync
             $payload['images'] = $imagesPayload;
         }
 
-        // Specials
         $specials = DB::table($pfx . 'product_special')
             ->where('product_id', $productId)
             ->get();
@@ -586,7 +539,6 @@ class OpenCartProductSync
             ])->toArray();
         }
 
-        // Options with names
         $optionsPayload = $this->buildOptionsPayload($productId, $pfx, $langId);
         if (!empty($optionsPayload)) {
             $payload['options'] = $optionsPayload;
@@ -595,12 +547,8 @@ class OpenCartProductSync
         return $payload;
     }
 
-    /**
-     * Build the options payload for a product (used by both create and update).
-     */
     private function buildOptionsPayload(int $productId, string $pfx, int $langId): array
     {
-        // Get base product price for back-calculating +/- from absolute
         $basePrice = (float) DB::table($pfx . 'product')->where('product_id', $productId)->value('price');
 
         $productOptions = DB::table($pfx . 'product_option AS po')
@@ -638,7 +586,6 @@ class OpenCartProductSync
                 'type'        => $po->type,
                 'required'    => (int) $po->required,
                 'values'      => $values->map(function ($v) use ($basePrice) {
-                    // Translate absolute price/cost to +/- for OpenCart
                     $absPrice = (float) ($v->absolute_price ?? $basePrice);
                     $priceDelta = $absPrice - $basePrice;
 
@@ -668,9 +615,6 @@ class OpenCartProductSync
         return $optionsPayload;
     }
 
-    /**
-     * Base64-encode an image from Laravel's public storage disk.
-     */
     private function encodeImage(string $path): ?string
     {
         if ($path === '') return null;
@@ -684,10 +628,6 @@ class OpenCartProductSync
         return base64_encode($contents);
     }
 
-    /**
-     * Build a full category path string like "Guitars > Electric Guitars"
-     * by walking the category_path table from root to leaf.
-     */
     private function buildCategoryPath(int $categoryId, string $pfx, int $langId): string
     {
         $rows = DB::table($pfx . 'category_path AS cp')
@@ -702,12 +642,6 @@ class OpenCartProductSync
         return $rows->implode(' > ');
     }
 
-    /**
-     * Upsert a single product from OC API response.
-     * Matches by SKU. Auto-increments IDs.
-     *
-     * @return bool True if created, false if updated.
-     */
     private function upsertProduct(array $raw): bool
     {
         $pfx = (string) config('catalog.prefix');
@@ -718,7 +652,6 @@ class OpenCartProductSync
         $coreProductId = null;
         $linkedToOtherStore = false;
 
-        // Remap manufacturer_id
         $ocMfgId = (int) ($raw['manufacturer_id'] ?? 0);
         $coreMfgId = ($ocMfgId > 0 && isset($this->manufacturerMap[$ocMfgId]))
             ? $this->manufacturerMap[$ocMfgId]
@@ -757,7 +690,6 @@ class OpenCartProductSync
                 'date_modified'   => (isset($raw['date_modified']) && $raw['date_modified'] !== '0000-00-00 00:00:00') ? $raw['date_modified'] : now()->toDateTimeString(),
             ];
 
-            // SKU-based matching, then fallback to opencart_product_links
             $existing = null;
             if ($sku !== '') {
                 $existing = DB::table($pfx . 'product')
@@ -780,9 +712,6 @@ class OpenCartProductSync
             if ($existing) {
                 $coreProductId = (int) $existing->product_id;
 
-                // Check if this product is already linked to a DIFFERENT store.
-                // If so, only create the link — don't overwrite product data,
-                // as quantities/prices may differ between stores.
                 $existingLink = OpenCartProductLink::where('product_id', $coreProductId)
                     ->where('opencart_setting_id', '!=', $this->setting->id)
                     ->exists();
@@ -801,7 +730,6 @@ class OpenCartProductSync
             }
         });
 
-        // Save product link for this store
         OpenCartProductLink::updateOrCreate(
             [
                 'opencart_setting_id' => $this->setting->id,
@@ -813,12 +741,10 @@ class OpenCartProductSync
             ]
         );
 
-        // If product is linked to another store, skip sub-table updates to avoid overwriting
         if ($linkedToOtherStore) {
             return false;
         }
 
-        // Sub-tables
         $this->syncSubTable('product_description', $coreProductId, function () use ($pfx, $langId, $coreProductId, $raw) {
             DB::table($pfx . 'product_description')->updateOrInsert(
                 ['product_id' => $coreProductId, 'language_id' => $langId],
@@ -842,7 +768,7 @@ class OpenCartProductSync
 
             foreach ($raw['categories'] as $ocCatId) {
                 $coreCatId = $this->categoryMap[(int) $ocCatId] ?? null;
-                if ($coreCatId === null) continue; // skip unmapped categories
+                if ($coreCatId === null) continue;
 
                 DB::table($pfx . 'product_to_category')->insert([
                     'product_id'  => $coreProductId,
@@ -879,14 +805,11 @@ class OpenCartProductSync
                 ->where('product_id', $coreProductId)
                 ->delete();
 
-            // Build a map from OC product_option_id to new core product_option_id
-            // We need to look up the freshly-inserted product_option rows
             $poMap = [];
             $corePos = DB::table($pfx . 'product_option')
                 ->where('product_id', $coreProductId)
                 ->get();
 
-            // Match by option_id to build a lookup
             foreach ($corePos as $cpo) {
                 $poMap[(int) $cpo->option_id] = (int) $cpo->product_option_id;
             }
@@ -902,7 +825,6 @@ class OpenCartProductSync
 
                 $corePoId = $poMap[$coreOptionId] ?? 0;
 
-                // Compute absolute price from base + modifier
                 $basePrice    = (float) ($raw['price'] ?? 0);
                 $ovPrice      = (float) ($ov['price'] ?? 0);
                 $ovPrefix     = $ov['price_prefix'] ?? '+';
@@ -927,7 +849,6 @@ class OpenCartProductSync
             }
         });
 
-        // Sync product_option_combinations from freshly-inserted POV rows
         $this->syncCombinationsFromPov($coreProductId);
 
         $this->syncSubTable('product_special', $coreProductId, function () use ($pfx, $coreProductId, $raw) {
@@ -968,11 +889,6 @@ class OpenCartProductSync
         return $created;
     }
 
-    /**
-     * Push only product quantities from the ERP to OpenCart.
-     * Sends quantity + option_value quantities via bulk_update without touching other fields.
-     */
-    /** @param list<int> $onlyProductIds a subset of the store's links, for a step; empty means every link */
     public function pushQuantities(array $onlyProductIds = []): OpenCartSyncLog
     {
         $log = OpenCartSyncLog::create([
@@ -990,7 +906,6 @@ class OpenCartProductSync
             $failed = 0;
             $errors = [];
 
-            // Get all product links for this store
             $links = OpenCartProductLink::where('opencart_setting_id', $this->setting->id)
                 ->when($onlyProductIds !== [], fn ($q) => $q->whereIn('product_id', $onlyProductIds))
                 ->get();
@@ -1004,7 +919,6 @@ class OpenCartProductSync
                 return $log;
             }
 
-            // Batch-fetch local product quantities (only enabled products)
             $localProductIds = $links->pluck('product_id')->unique()->toArray();
             $localQty = DB::table($pfx . 'product')
                 ->whereIn('product_id', $localProductIds)
@@ -1012,7 +926,6 @@ class OpenCartProductSync
                 ->pluck('quantity', 'product_id')
                 ->toArray();
 
-            // Batch-fetch option value quantities with names for matching
             $langId = (int) config('catalog.default_language_id');
             $optionValues = DB::table($pfx . 'product_option_value as pov')
                 ->leftJoin($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
@@ -1023,7 +936,6 @@ class OpenCartProductSync
                 ->get(['pov.product_id', 'pov.product_option_value_id', 'pov.sku', 'pov.quantity', 'ovd.name as option_value_name'])
                 ->groupBy('product_id');
 
-            // Build bulk update payloads in chunks of 50
             foreach ($links->chunk(50) as $chunk) {
                 $products = [];
 
@@ -1039,7 +951,6 @@ class OpenCartProductSync
                         'quantity'   => (int) $localQty[$pid],
                     ];
 
-                    // Include option value quantities (matched by name or SKU in OC)
                     $ovRows = $optionValues->get($pid);
                     if ($ovRows && $ovRows->count() > 0) {
                         $ovPayload = [];
@@ -1109,15 +1020,6 @@ class OpenCartProductSync
         return $log;
     }
 
-    /**
-     * Push only product prices to OpenCart, the "Push Price" automation
-     * (2026-09-07: the old stock-and-price row sent quantities
-     * only; price is its own row now, on every channel). The catalog
-     * price as it is, one bulk update per fifty links; a variation goes
-     * as OpenCart's own +/- on the base, back-calculated from an absolute
-     * price when the catalog carries one, exactly as a full push sends it.
-     */
-    /** @param list<int> $onlyProductIds a subset of the store's links, for a step; empty means every link */
     public function pushPrices(array $onlyProductIds = []): OpenCartSyncLog
     {
         $log = OpenCartSyncLog::create([
@@ -1239,10 +1141,6 @@ class OpenCartProductSync
         return $log;
     }
 
-    /**
-     * Pull only product quantities from OpenCart into the ERP.
-     * Updates product.quantity and product_option_value.quantity without touching other fields.
-     */
     public function pullQuantities(): OpenCartSyncLog
     {
         $log = OpenCartSyncLog::create([
@@ -1262,7 +1160,6 @@ class OpenCartProductSync
             $failed = 0;
             $errors = [];
 
-            // Build OC product_id → local product_id map from product links
             $linkMap = OpenCartProductLink::where('opencart_setting_id', $this->setting->id)
                 ->pluck('product_id', 'oc_product_id')
                 ->toArray();
@@ -1282,7 +1179,6 @@ class OpenCartProductSync
                         $ocProductId = (int) ($raw['product_id'] ?? 0);
                         $coreProductId = $linkMap[$ocProductId] ?? null;
 
-                        // Fallback: match by SKU if no link exists
                         if (!$coreProductId) {
                             $sku = trim($raw['sku'] ?? '');
                             if ($sku !== '') {
@@ -1296,12 +1192,10 @@ class OpenCartProductSync
                             continue;
                         }
 
-                        // Update main product quantity
                         DB::table($pfx . 'product')
                             ->where('product_id', $coreProductId)
                             ->update(['quantity' => (int) ($raw['quantity'] ?? 0)]);
 
-                        // Update option value quantities (match by SKU)
                         if (isset($raw['option_values']) && is_array($raw['option_values'])) {
                             foreach ($raw['option_values'] as $ov) {
                                 $ovSku = trim($ov['sku'] ?? '');
@@ -1361,16 +1255,11 @@ class OpenCartProductSync
         }
     }
 
-    /**
-     * After pulling POV rows from OpenCart, create/update combination rows.
-     * For 1-option products: 1 combo per POV. For 2-option: Cartesian product.
-     */
     private function syncCombinationsFromPov(int $productId): void
     {
         try {
             $pfx = config('catalog.prefix');
 
-            // Delete existing combinations for this product
             DB::table('product_option_combination_values')
                 ->whereIn('combination_id', function ($q) use ($productId) {
                     $q->select('id')->from('product_option_combinations')->where('product_id', $productId);
@@ -1378,7 +1267,6 @@ class OpenCartProductSync
                 ->delete();
             DB::table('product_option_combinations')->where('product_id', $productId)->delete();
 
-            // Get all POV rows grouped by product_option_id
             $povRows = DB::table($pfx . 'product_option_value')
                 ->where('product_id', $productId)
                 ->orderBy('product_option_id')
@@ -1391,7 +1279,6 @@ class OpenCartProductSync
             $now = now();
 
             if ($groupCount === 1) {
-                // 1-option: 1 combo per POV
                 $sortOrder = 0;
                 foreach ($povRows as $pov) {
                     $comboId = DB::table('product_option_combinations')->insertGetId([
@@ -1411,7 +1298,6 @@ class OpenCartProductSync
                     ]);
                 }
             } elseif ($groupCount >= 2) {
-                // 2-option: Cartesian product of first two groups
                 $groups = $grouped->values();
                 $group1 = $groups[0];
                 $group2 = $groups[1];
@@ -1420,7 +1306,6 @@ class OpenCartProductSync
 
                 foreach ($group1 as $pov1) {
                     foreach ($group2 as $pov2) {
-                        // Combination price = base + delta1 + delta2
                         $delta1 = ($pov1->price_prefix ?? '+') === '+' ? (float) $pov1->price : -(float) $pov1->price;
                         $delta2 = ($pov2->price_prefix ?? '+') === '+' ? (float) $pov2->price : -(float) $pov2->price;
                         $comboPrice = $basePrice + $delta1 + $delta2;

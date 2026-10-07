@@ -1,34 +1,6 @@
-/* ============================================================
-   PETTY CASH (layouts.shell)
-
-   Two pages: the ledger and the settings screen.
-
-   Petty cash is a money ledger before it is anything else, so the
-   whole page is built around one rule: every figure is monospaced
-   with tabular figures and right-aligned, so a column of amounts
-   lines up on the decimal and a wrong order of magnitude is visible
-   without reading a single digit. Every one of those figures comes
-   out of App\Support\Money, never a bare number_format.
-
-   Colour has one job here: the sign of money. A balance that has
-   gone negative is --bl-bad and nothing else on the page is. Credit
-   and expense are told apart by a leading + or - and by where the
-   entry sits, not by two competing hues, because on a page where
-   half the rows are one type and half the other, colouring both
-   leaves the eye nothing to land on.
-   ============================================================ */
-
 .pc-flash { display: grid; gap: var(--bl-space-2); }
 .pc-flash:not(:empty) { margin-bottom: var(--bl-space-4); }
 
-/* ------------------------------------------------------------------
-   Balances
-
-   Not a uniform card stack. The viewer's own balance (or, for an
-   admin, the whole float) is the number the page exists to answer,
-   so it spans and outweighs the rest; individual staff balances are
-   a quiet strip beneath it.
-   ------------------------------------------------------------------ */
 .pc-top {
     display: grid;
     grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
@@ -73,13 +45,6 @@
     color: var(--bl-ink-3);
 }
 
-/* Per-person balances.
-
-   Deliberately NOT a second card beside the first. Two boxes of equal
-   chrome would say the float and one person's share matter equally,
-   and with three people on the list the second box is mostly empty
-   air. This is a quiet reference list on the page's own ground: no
-   border, no fill, just the names and their figures. */
 .pc-people {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(150px, max-content));
@@ -112,15 +77,6 @@
 
 .pc-person__v.is-neg { color: var(--bl-bad); }
 
-/* ------------------------------------------------------------------
-   The entry editor
-
-   One panel, two modes (new entry, edit an existing one), opened in
-   place above the ledger rather than in an overlay. It replaces a
-   hand-rolled modal: an overlay that dims the ledger is exactly the
-   wrong thing here, because the number you are about to change is
-   the one you were just reading.
-   ------------------------------------------------------------------ */
 .pc-editor {
     padding: var(--bl-space-5);
     margin-bottom: var(--bl-space-5);
@@ -157,11 +113,6 @@
 
 .pc-editor__close:hover { color: var(--bl-ink); }
 
-/* Cancel is a <button> here, not a link, because it closes a panel
-   rather than navigating. .fm-cancel only styles colour and size, so on
-   a button the UA border and fill survive and it reads as a second
-   outlined button beside the primary, which is the mixed grammar this
-   design system does not use. */
 button.fm-cancel {
     background: none;
     border: 0;
@@ -171,9 +122,6 @@ button.fm-cancel {
     cursor: pointer;
 }
 
-/* Two full-width textareas at the shared 120px minimum turn a
-   seven-field panel into a wall of empty boxes. Here they are notes on
-   an entry, not the entry, so they state a shorter minimum. */
 .pc-editor textarea.x-input { min-height: 64px; }
 
 .pc-fields {
@@ -192,9 +140,6 @@ button.fm-cancel {
     margin-top: var(--bl-space-4);
 }
 
-/* Credit or expense. A segmented pair rather than two radios: there
-   are exactly two, they are mutually exclusive, and which one is
-   chosen changes the rest of the form. */
 .pc-kind { display: inline-flex; padding: 2px; background: var(--bl-chrome); border-radius: var(--bl-r-ctrl); }
 
 .pc-kind__opt { position: relative; }
@@ -231,10 +176,6 @@ button.fm-cancel {
     outline-offset: 1px;
 }
 
-/* Date range filter. Two bare date inputs side by side read as raw
-   browser chrome: both show the same placeholder and neither says which
-   end of the range it is. The pair becomes one bordered control with
-   the words inside it. */
 .pc-dates {
     display: inline-flex;
     align-items: center;
@@ -269,17 +210,10 @@ button.fm-cancel {
 .pc-dates__in::-webkit-calendar-picker-indicator { opacity: .5; cursor: pointer; }
 .pc-dates__in:hover::-webkit-calendar-picker-indicator { opacity: 1; }
 
-/* The native calendar glyph is drawn dark and stays dark on the dark
-   theme, where it all but disappears against the surface. The whole
-   theme is applied as data-theme on <html> (base/tokens.css), so the
-   same selector shape flips it. */
 :root[data-theme="dark"] .pc-dates__in::-webkit-calendar-picker-indicator {
     filter: invert(1);
 }
 
-/* ------------------------------------------------------------------
-   The ledger
-   ------------------------------------------------------------------ */
 .pc-col-date    { width: 108px; }
 .pc-col-kind    { width: 96px; }
 .pc-col-who     { width: 150px; }
@@ -295,8 +229,6 @@ button.fm-cancel {
     white-space: nowrap;
 }
 
-/* The sign is the whole story on an amount column, so it is carried
-   by the figure itself rather than by a second badge. */
 .pc-amt__sign { color: var(--bl-ink-3); }
 
 .pc-bal {
@@ -309,12 +241,6 @@ button.fm-cancel {
 
 .pc-bal.is-neg { color: var(--bl-bad); }
 
-/* Fix round, Minor 6: this cell used to render &mdash;, an em dash the
-   suite's own guard could not see because it only matched the raw
-   character, not the entity. The round's own standard for "nothing to
-   show here" elsewhere (reports fees/inventory tables, rp-dash) is a
-   muted en dash, not an em dash; matched here rather than reusing pc-bal's
-   own colour so an empty balance never reads like a real figure. */
 .pc-dash { color: var(--bl-ink-3); }
 
 .pc-desc {
@@ -328,13 +254,6 @@ button.fm-cancel {
 
 .pc-desc--none { color: var(--bl-ink-3); }
 
-/* Row-level edit disclosure lives outside the table (see the ledger
-   markup): a <details> inside a <td> would restack badly and a form
-   inside a row cannot be nested at all. */
-
-/* ------------------------------------------------------------------
-   Settings
-   ------------------------------------------------------------------ */
 .pc-settings {
     display: flex;
     flex-direction: column;
@@ -371,8 +290,6 @@ button.fm-cancel {
 
 .pc-panel__body { padding: var(--bl-space-5); }
 
-/* A role is one choice out of two per person, so the list is rows of
-   name plus control, not a table with a header that says "User". */
 .pc-roles { display: grid; gap: 0; }
 
 .pc-role {
@@ -386,9 +303,6 @@ button.fm-cancel {
 .pc-role + .pc-role { border-top: 1px solid var(--bl-rule); }
 .pc-role__who { font-size: 13px; color: var(--bl-ink); overflow-wrap: anywhere; }
 
-/* Categories: name, order, status, save. Each row is its own form,
-   attached with the form= attribute because a <form> cannot be a
-   child of <tr>. */
 .pc-cats__head,
 .pc-cat {
     display: grid;
@@ -410,10 +324,6 @@ button.fm-cancel {
 
 .pc-cat__name { font-size: 13px; color: var(--bl-ink); overflow-wrap: anywhere; }
 
-/* The `hidden` attribute is only a UA display rule and .x-btn sets
-   display: inline-flex, which out-specifies it. Without this opt-out
-   the per-row Save never hides and the reveal-on-change does nothing.
-   Exactly the trap that cost Round D Task 1 a round. */
 .pc-cat [data-pc-cat-save][hidden] { display: none; }
 
 .pc-add {
@@ -435,9 +345,6 @@ button.fm-cancel {
 .pc-cat:focus-within .x-menu__trigger,
 .pc-panel__head .x-menu__trigger { opacity: 1; }
 
-/* ------------------------------------------------------------------
-   Responsive
-   ------------------------------------------------------------------ */
 @media (max-width: 900px) {
     .pc-top { grid-template-columns: minmax(0, 1fr); }
     .pc-people { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }

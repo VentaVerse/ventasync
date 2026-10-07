@@ -4,10 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Whether Claude and ChatGPT may sign in to /mcp with OAuth. Off until the
- * owner turns it on under AI Tools; off, they carry a read-only key.
- */
 return new class extends Migration
 {
     public function up(): void

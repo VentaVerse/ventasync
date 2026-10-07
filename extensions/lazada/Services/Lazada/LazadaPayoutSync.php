@@ -7,56 +7,28 @@ use Carbon\Carbon;
 use Extensions\lazada\Models\LazadaOrder;
 use Extensions\lazada\Models\LazadaSetting;
 
-/**
- * Which delivered Lazada orders have been paid out (the owner, 2026-10-01).
- *
- * An order is Paid when Lazada credits its sale to the seller: an "Item
- * Price Credit" finance line (transaction type 13), dated by its transaction
- * date (App\Support\PayoutStatus). Lazada lists finance lines by date range,
- * under 180 days a request and 500 a page, so this reads the sales credits
- * from the oldest order still waiting and matches them by order number.
- *
- * It used to read the payout statements and mark every waiting order
- * updated before the latest paid one: an order credited on 6 Aug showed Paid
- * on 3 Aug, and one with no credit at all showed Paid the day after it was
- * delivered. It also left out "confirmed", the status most finished Lazada
- * orders end in. It runs as its own hourly job now.
- *
- * Writes only payout_status and paid_at. Never stock, never the order.
- */
 class LazadaPayoutSync
 {
-    /** The statuses an order can be paid out in. */
     public const PAYABLE_STATUSES = ['delivered', 'confirmed', 'completed'];
 
-    /** Lazada refuses a range of 180 days or more. */
     private const WINDOW_DAYS = 179;
 
     private const PAGE_SIZE = 500;
 
-    /** Sales credits only (Item Price Credit). */
     private const SALES_CREDIT = '13';
 
     private const MAX_PAGES_PER_WINDOW = 100;
 
     private const PATH = '/finance/transaction/details/get';
 
-    /** Older orders looked up per run. */
     private const MAX_OLD_CHECKS = 40;
 
-    /** An old order found nothing for is looked up again after this long. */
     private const OLD_CHECK_TTL = 30 * 86400;
 
     public function __construct(private readonly LazadaClient $client)
     {
     }
 
-    /**
-     * How a store's Payouts page reads Lazada orders (App\Services\Payouts\
-     * PayoutAttention).
-     *
-     * @return array<string, mixed>
-     */
     public static function attention(): array
     {
         return [
@@ -71,12 +43,6 @@ class LazadaPayoutSync
         ];
     }
 
-    /**
-     * @param  (callable(string): void)|null  $say  progress lines, for a console
-     * @param  bool  $recheck  read the orders already Paid too: the statement match this
-     *                         replaced marked orders Paid that Lazada never credited
-     * @return array{ok: bool, message: string, waiting: int, requests: int, paid: int, releasing: int, no_payout: int}
-     */
     public function sync(LazadaSetting $store, int $days, ?callable $say = null, bool $recheck = false): array
     {
         $say ??= static function (string $line): void {};
@@ -90,10 +56,6 @@ class LazadaPayoutSync
 
         $payable = LazadaOrder::query()->where('lazada_setting_id', $store->id)->whereIn('status', self::PAYABLE_STATUSES);
 
-        // An order past the look-back is looked up on its own before it is
-        // ever called No payout found (2026-10-02: three orders from 2021-2023,
-        // paid within days back then, reached VentaSync this year and were
-        // stamped without a look).
         $out['paid'] += $this->checkOldOrders($store, $setting, $creds, $days, $out['requests']);
         $out['no_payout'] = PayoutStatus::retireOlderThan($payable, $days);
 
@@ -112,7 +74,7 @@ class LazadaPayoutSync
         }
 
         $byOrderId = $waiting->keyBy(fn ($o) => (string) $o->order_id);
-        $creditedOn = [];   // order id => the day its sale was credited
+        $creditedOn = [];
         $start = Carbon::createFromTimestamp((int) $waiting->min(fn ($o) => $o->order_created_at?->getTimestamp() ?? time()))->subDay()->startOfDay();
         $end = now()->addDay()->startOfDay();
 
@@ -153,8 +115,6 @@ class LazadaPayoutSync
                 ]);
                 $out['paid']++;
             } elseif ($out['ok']) {
-                // Only a full read says "not yet". This also takes back a Paid
-                // the old statement match gave an order Lazada never credited.
                 LazadaOrder::query()->whereKey($order->id)->update(['payout_status' => PayoutStatus::RELEASING, 'paid_at' => null]);
                 $out['releasing']++;
             }
@@ -169,17 +129,6 @@ class LazadaPayoutSync
         return $out;
     }
 
-    /**
-     * One page of sales credits, or why Lazada refused.
-     *
-     * @return list<array<string, mixed>>|string
-     */
-    /**
-     * Look up, one order at a time, delivered orders past the look-back that
-     * are not Paid: the order's own finance lines over the year after it was
-     * placed. Its Item Price Credit makes it Paid, dated by that line. Each
-     * is looked up once a month at most. Returns how many were found paid.
-     */
     private function checkOldOrders(LazadaSetting $store, object $setting, array $creds, int $days, int &$requests): int
     {
         $old = LazadaOrder::query()
@@ -205,7 +154,7 @@ class LazadaPayoutSync
                 $lines = $this->linesForOrder($setting, $creds, (string) $o->order_id, $from, $from->copy()->addDays(self::WINDOW_DAYS - 1)->min(now()));
                 $requests++;
                 if (is_string($lines)) {
-                    break; // looked up again next month; nothing is guessed meanwhile
+                    break;
                 }
                 foreach ($lines as $line) {
                     if (($line['fee_name'] ?? '') === 'Item Price Credit' && ($day = $this->day((string) ($line['transaction_date'] ?? '')))) {
@@ -225,11 +174,6 @@ class LazadaPayoutSync
         return $paid;
     }
 
-    /**
-     * Every finance line of one order in a window, or why Lazada refused.
-     *
-     * @return list<array<string, mixed>>|string
-     */
     private function linesForOrder(object $setting, array $creds, string $orderId, Carbon $from, Carbon $to): array|string
     {
         $params = [
@@ -286,7 +230,6 @@ class LazadaPayoutSync
         return is_array($data) ? array_values(array_filter($data, 'is_array')) : [];
     }
 
-    /** "06 Aug 2026", the shape Lazada writes a transaction date in. */
     private function day(string $value): ?Carbon
     {
         $value = trim($value);

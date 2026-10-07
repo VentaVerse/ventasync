@@ -6,15 +6,8 @@ use Extensions\tiktok\Models\TikTokReturn;
 use Extensions\tiktok\Models\TikTokSetting;
 use Illuminate\Http\Request;
 
-/**
- * Assembles the view data for the TikTok returns list (#156): filters,
- * tab counts and pagination. The counterpart of LazadaReturnsPanel and
- * ShopeeReturnsPanel, for the same reason: one returns list renders in
- * the channel workspace and in place on the fulfilment hub.
- */
 class TikTokReturnsPanel
 {
-    /** TikTok's return statuses grouped into the tabs a person thinks in. */
     public const TAB_STATUSES = [
         'PENDING' => ['RETURN_OR_REFUND_REQUEST_PENDING'],
         'RETURNING' => ['AWAITING_BUYER_SHIP', 'BUYER_SHIPPED_ITEM', 'RETURN_OR_REFUND_REQUEST_SUCCESS'],
@@ -32,7 +25,6 @@ class TikTokReturnsPanel
         'CANCELLED' => 'Cancelled by buyer',
     ];
 
-    /** TikTok's words -> the seller center's, with a badge tone. */
     public const STATUS_MAP = [
         'RETURN_OR_REFUND_REQUEST_PENDING' => ['Waiting for your answer', 'warning'],
         'REFUND_OR_RETURN_REQUEST_REJECT' => ['Rejected', 'neutral'],
@@ -56,8 +48,6 @@ class TikTokReturnsPanel
             ? TikTokSetting::query()->find($storeId)
             : TikTokSetting::defaultStore();
         if ($storeId !== null && $setting !== null) {
-            // The hub page is storeless; bind the tab's store so the global
-            // scope narrows every return read and route() fills its {store}.
             app()->instance('tiktok.route-store', $setting);
             \Illuminate\Support\Facades\URL::defaults(['store' => (int) $setting->id]);
         }
@@ -130,8 +120,6 @@ class TikTokReturnsPanel
         $erpMap = $orderIds->isEmpty() ? collect() : \DB::table('tiktok_orders')
             ->whereIn('order_id', $orderIds->all())
             ->whereNotNull('catalog_order_id')
-            // Raw DB::table bypasses the BelongsToTikTokStore global scope, so
-            // narrow to the bound store by hand on a store page.
             ->when(app()->bound('tiktok.route-store'), fn ($q) => $q->where('tiktok_setting_id', app('tiktok.route-store')->id))
             ->pluck('catalog_order_id', 'order_id');
 

@@ -40,45 +40,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * Round C, Task 1: Shopee's five remaining workspace interiors (Listings,
- * Product Groups, Categories, Logistics, Settings) rebuilt on the shared
- * anatomies and out of the .x-legacy boundary.
- *
- * What this suite is actually for, in order of how much it would hurt to
- * lose:
- *
- *   1. The OAuth regression guard. /shopee is Shopee's registered redirect
- *      URI. ShopeeController::index() reads ?code= and ?shop_id= off that
- *      request and exchanges them for a token before the view renders. A
- *      redesign of the view cannot break it, and the only way to know is to
- *      drive the real request under Http::fake and assert the exchange went
- *      out on the wire with the right URL, method and body.
- *   2. Permission gating in both directions. These five views replaced a
- *      hardcoded `$canManageShopee = true` with the real permission check,
- *      so a read-tier operator must now see the pages and NOT the write
- *      controls, and the routes behind those controls must still 403.
- *   3. The settings save round trip, field by field, against the exact
- *      census ShopeeController::save() validates.
- *   4. That every page renders at all, outside the legacy boundary.
- */
 class WorkspaceInteriorsTest extends TestCase
 {
     use RefreshDatabase;
 
-    /**
-     * Idempotent extension setup, the same shape ChannelWorkspaceTest and
-     * LazadaWorkspaceTest use: install() is updateOrCreate(), enable() is a
-     * plain update, and $this->app->register() returns the already-registered
-     * provider rather than double-booting one.
-     *
-     * refreshNameLookups() is load-bearing. Registering the provider loads
-     * Shopee's routes into the RouteCollection, but the separate name-lookup
-     * table that route() and Route::has() read is only rebuilt on demand.
-     * Without this call every route() in these five views throws, and the
-     * render tests would fail for a reason that has nothing to do with the
-     * views.
-     */
     protected function setUp(): void
     {
         parent::setUp();
@@ -86,15 +51,8 @@ class WorkspaceInteriorsTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
-        // Task 2 brought Lazada's five interiors onto the same anatomies, so
-        // both extensions are booted here and the name lookups are rebuilt
-        // once, after both have loaded their routes.
         $manager->install('lazada');
         $manager->enable('lazada');
-        // Task 3 brought the remaining eleven interiors onto the same
-        // anatomies: TikTok's three, and the two multi-store channels' four
-        // each. All five extensions boot here and the name lookups are rebuilt
-        // once, after every one of them has loaded its routes.
         $manager->install('tiktok');
         $manager->enable('tiktok');
         $manager->install('venta');
@@ -111,12 +69,6 @@ class WorkspaceInteriorsTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
     }
 
-    /**
-     * Real read tier: view_shopee and nothing else. This is a permission the
-     * extension manifest genuinely seeds (extensions/shopee/extension.json),
-     * unlike core's view_orders, so this operator is reachable on a live
-     * database and the read-tier branch of these views is not dead code.
-     */
     private function viewer(): User
     {
         $group = UserGroup::create(['name' => 'Interiors Viewer']);
@@ -127,7 +79,6 @@ class WorkspaceInteriorsTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    /** Real manage tier: manage_shopee, which every write route demands. */
     private function manager(): User
     {
         $group = UserGroup::create(['name' => 'Interiors Manager']);
@@ -138,7 +89,6 @@ class WorkspaceInteriorsTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    /** Holds no Shopee permission at all. */
     private function outsider(): User
     {
         $group = UserGroup::create(['name' => 'Interiors Outsider']);
@@ -146,18 +96,8 @@ class WorkspaceInteriorsTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    /**
-     * App\Http\Middleware\EnsurePermission does NOT 403 an HTML caller. It
-     * redirects (to the referer, else /dashboard) and flashes the denial into
-     * session('error'), which layouts render. Asserting a 403 here would be
-     * asserting against a middleware this app does not have, so the shape
-     * checked is the real one, and the flashed error is checked too - a bare
-     * assertRedirect() would also pass on a successful POST.
-     */
     private function assertDenied(\Illuminate\Testing\TestResponse $response, string $context): void
     {
-        // A denied PAGE LOAD renders the 403 page in words the user can
-        // read; a denied WRITE redirects back with the flash. Both count.
         if ($response->getStatusCode() === 403) {
             $response->assertSee('You are not allowed to access this page');
 
@@ -169,11 +109,8 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertTrue(true, $context);
     }
 
-    /** @return array<string, string> route name => url */
     private function interiorUrls(): array
     {
-        // Multi-store S4 (#194): {store} needs a store to name, even for
-        // the guest and no-permission walks that seed nothing else.
         if (ShopeeSetting::query()->count() === 0) {
             $this->seedSetting();
         }
@@ -187,11 +124,6 @@ class WorkspaceInteriorsTest extends TestCase
         ];
     }
 
-    /**
-     * Enough of a settings row that the Connection tab renders every branch:
-     * a live mode with credentials present, so the masked-field and
-     * token-state paths are exercised rather than skipped.
-     */
     private function seedSetting(array $overrides = []): ShopeeSetting
     {
         return ShopeeSetting::create(array_merge([
@@ -204,10 +136,6 @@ class WorkspaceInteriorsTest extends TestCase
             'api_log_mode' => 'all',
         ], $overrides));
     }
-
-    /* =================================================================
-       1. Render
-       ================================================================= */
 
     public function test_every_interior_renders_for_the_manage_tier(): void
     {
@@ -229,15 +157,6 @@ class WorkspaceInteriorsTest extends TestCase
         }
     }
 
-    /**
-     * The point of the whole task. `.x-legacy` was applied by
-     * layouts/channel.blade.php as the DEFAULT of @yield('content-class'),
-     * carried by any page that had not opted out. Fix round 5 retired the
-     * boundary entirely: the default is now '' and the per-view opt-outs
-     * that used to override it are gone as redundant. This still asserts the
-     * rendered <main> carries no legacy class, now proving the boundary is
-     * unreachable rather than that this page happened to opt out.
-     */
     public function test_no_interior_still_carries_the_legacy_boundary(): void
     {
         $this->seedSetting();
@@ -251,10 +170,6 @@ class WorkspaceInteriorsTest extends TestCase
                 $html,
                 "{$label} is still inside the .x-legacy content boundary."
             );
-            /* The literal changed 2026-09-03: channel pages render in the
-               blotter shell's own <main>, whose class list carries the
-               flex sizing. The pin is the same - an x-content region with
-               no legacy class on it. */
             $this->assertStringContainsString(
                 'class="x-content min-w-0 flex-1',
                 $html,
@@ -310,12 +225,6 @@ class WorkspaceInteriorsTest extends TestCase
             ->assertSee('Pedals &amp; Effects', false);
     }
 
-    /**
-     * Channel-sourced strings reach these pages straight from the
-     * marketplace and from the catalog. Blade escapes them; this proves
-     * it, because the redesign moved every one of these values into new
-     * markup and an @{!! !!} slip anywhere would be a stored XSS.
-     */
     public function test_channel_sourced_names_are_escaped(): void
     {
         $this->seedSetting();
@@ -336,11 +245,7 @@ class WorkspaceInteriorsTest extends TestCase
 
         ShopeeProductGroup::create(['name' => '<b>bold group</b>']);
 
-        // M-5: Listings and Settings (log-row) previously had no payload
-        // seeded at all, so they proved nothing either way.
         $xssProduct = $this->seedCatalogProduct('<svg onload=alert(4)>', 'CS-XSS-1');
-        // Listings is this store's own list since #201: on the store, or the
-        // payload never reaches the page at all.
         \Extensions\shopee\Models\ShopeeListing::create(['product_id' => $xssProduct]);
         ShopeeApiLog::create([
             'method' => 'GET', 'api_path' => '/api/v2/<i>alert(5)</i>',
@@ -359,17 +264,10 @@ class WorkspaceInteriorsTest extends TestCase
         ] as $url => [$raw, $escaped]) {
             $html = $this->actingAs($user)->get($url)->assertOk()->getContent();
 
-            // Never as raw markup...
             $this->assertStringNotContainsString($raw, $html, "Unescaped output on {$url}");
-            // ...but genuinely rendered as text, not merely absent from the
-            // page entirely (which would also satisfy the check above).
             $this->assertStringContainsString($escaped, $html, "Payload never reached {$url} at all");
         }
     }
-
-    /* =================================================================
-       2. Gating, both directions
-       ================================================================= */
 
     public function test_an_operator_with_no_shopee_permission_is_refused_every_interior(): void
     {
@@ -387,19 +285,9 @@ class WorkspaceInteriorsTest extends TestCase
         }
     }
 
-    /**
-     * The read tier is a real, reachable tier now that these views ask the
-     * permission system instead of hardcoding true. It must not be offered
-     * controls the routes will refuse.
-     */
     public function test_the_read_tier_is_not_offered_write_controls(): void
     {
         $this->seedSetting();
-        // M-2: the Delete-all-logs form only renders when there is something
-        // to delete, so without a seeded log the assertDontSee() below on
-        // clear_api_logs would pass for a manager too - proving nothing
-        // about the read tier specifically. A row makes the control exist
-        // for whoever is allowed to see it.
         ShopeeApiLog::create([
             'method' => 'GET', 'api_path' => '/api/v2/shop/get_shop_info',
             'auth_required' => true, 'status_code' => 200, 'response_time_ms' => 10,
@@ -418,11 +306,6 @@ class WorkspaceInteriorsTest extends TestCase
 
         $listings = $this->actingAs($user)->get(route('ext.shopee.products.index'))->assertOk();
 
-        // The settings page is deliberately different from the four lists.
-        // A read-tier operator is meant to be able to READ the credentials
-        // page, so the fields still render - every one of them disabled, the
-        // same treatment the status-mapping selects already carried. What
-        // disappears is every control that writes.
         $settings = $this->actingAs($user)->get(route('ext.shopee.settings.show'))->assertOk();
         $settings->assertDontSee(route('ext.shopee.toggle_mode'), false);
         $settings->assertDontSee(route('ext.shopee.token_get'), false);
@@ -466,8 +349,6 @@ class WorkspaceInteriorsTest extends TestCase
         $this->actingAs($user)->get(route('ext.shopee.products.index'))
             ->assertOk();
 
-        // The import page is stateless (2026-09-04): blank until Fetch,
-        // so what the manage tier is offered here is the Fetch control.
         $this->actingAs($user)->get(route('ext.shopee.products.import'))
             ->assertOk()
             ->assertSee('Fetch from Shopee');
@@ -478,11 +359,6 @@ class WorkspaceInteriorsTest extends TestCase
             ->assertSee(route('ext.shopee.token_get'), false);
     }
 
-    /**
-     * The UI hiding a control is a courtesy; the middleware is the gate.
-     * Every write route the five views drive must refuse a read-tier
-     * operator on its own.
-     */
     public function test_the_write_routes_refuse_the_read_tier_on_their_own(): void
     {
         $this->seedSetting();
@@ -511,18 +387,9 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertDenied($this->actingAs($user)->delete(route('ext.shopee.clear_api_logs')), 'clear logs');
         $this->assertDenied($this->actingAs($user)->get(route('ext.shopee.product-groups.create')), 'group create');
 
-        // Nothing was written by any of the refused calls.
         $this->assertSame('live', ShopeeSetting::query()->first()->mode);
     }
 
-    /**
-     * Mutation proof for one gate. If the read tier were silently sufficient
-     * for a write - which is exactly what a copy-paste of the wrong
-     * middleware string produces - this assertion would pass with a 302
-     * instead of a 403, so the test is only meaningful because the manage
-     * tier is separately shown to succeed on the same route with the same
-     * payload.
-     */
     public function test_the_save_gate_separates_the_two_tiers_on_one_route(): void
     {
         $this->seedSetting();
@@ -543,15 +410,6 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertSame(111222, (int) ShopeeSetting::query()->first()->partner_id);
     }
 
-    /* =================================================================
-       3. Settings save round trip, the full validated census
-       ================================================================= */
-
-    /**
-     * ShopeeController::save() validates exactly eleven names: env plus five
-     * live and five sandbox fields. Both halves are posted here, each with
-     * the env that selects it, and every column is read back.
-     */
     public function test_the_settings_save_round_trips_every_validated_field(): void
     {
         $this->seedSetting(['mode' => 'sandbox', 'partner_id' => null, 'partner_key' => null, 'shop_id' => null, 'access_token' => null, 'region' => null]);
@@ -591,19 +449,10 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertSame('the-sandbox-partner-key', decrypt($row->sandbox_partner_key));
         $this->assertSame('the-sandbox-access-token', decrypt($row->sandbox_access_token));
 
-        // The live half survived the sandbox save untouched. This is the
-        // whole reason the form carries a hidden `env`.
         $this->assertSame(200999, (int) $row->partner_id);
         $this->assertSame('the-live-partner-key', decrypt($row->partner_key));
     }
 
-    /**
-     * The masked-credential contract. resources/js/credential-mask.js blanks
-     * an untouched •••••••• field before the form posts, and the controller
-     * reads a blank as "keep what is stored". A save that omits the secrets
-     * must therefore leave them exactly as they were, or every operator who
-     * changes only the region wipes their own partner key.
-     */
     public function test_a_save_that_omits_the_masked_secrets_keeps_them(): void
     {
         $this->seedSetting();
@@ -623,8 +472,6 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertSame('live-access-token', decrypt($row->access_token));
         $this->assertSame(200123, (int) $row->partner_id);
         $this->assertSame(900456, (int) $row->shop_id);
-        // Region is a dropdown, so a blank there is the explicit "Not set"
-        // choice and DOES overwrite. This asserts the chosen value landed.
         $this->assertSame('sg', $row->region);
     }
 
@@ -649,43 +496,18 @@ class WorkspaceInteriorsTest extends TestCase
         $this->seedSetting(['api_log_mode' => 'all']);
         $user = $this->manager();
 
-        // Back to the Logs tab of THIS store's settings page (2026-09-05),
-        // not the storeless landing that bounced onto Connection.
         $this->actingAs($user)
             ->post(route('ext.shopee.api_log_mode'), ['mode' => 'errors'])
             ->assertRedirect(route('ext.shopee.settings.show', ['store' => ShopeeSetting::query()->first()->id, 'tab' => 'logs']));
 
         $this->assertSame('errors', ShopeeSetting::query()->first()->api_log_mode);
 
-        // A word that is not a mode is refused, and the setting stands.
         $this->actingAs($user)
             ->post(route('ext.shopee.api_log_mode'), ['mode' => 'loud'])
             ->assertSessionHasErrors('mode');
         $this->assertSame('errors', ShopeeSetting::query()->first()->api_log_mode);
     }
 
-    /* =================================================================
-       4. THE OAUTH REGRESSION GUARD
-       ================================================================= */
-
-    /**
-     * /shopee is the URL registered as this install's redirect URI at the
-     * Shopee Open Platform. Shopee sends the merchant's browser back to it
-     * with ?code=&shop_id=, and ShopeeController::index() exchanges the code
-     * for a token before rendering anything.
-     *
-     * This drives that exact request and pins the wire it produced:
-     *
-     *   - one POST to the live host's /api/v2/auth/token/get
-     *   - partner_id, timestamp and sign in the query string
-     *   - code, shop_id and partner_id in the JSON body
-     *   - the returned access and refresh tokens persisted, encrypted
-     *   - a redirect back to the bare settings URL, so a page refresh
-     *     cannot replay a one-time-use code
-     *
-     * If a future change to the settings view (or to this route's
-     * middleware) ever stops that exchange from firing, this fails.
-     */
     public function test_the_oauth_callback_still_exchanges_the_code_on_this_url(): void
     {
         Http::fake([
@@ -730,13 +552,6 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertNotNull($row->expires_at);
     }
 
-    /**
-     * The sandbox half of the same contract: the callback writes to the
-     * sandbox columns and calls the sandbox host, never the live ones. A
-     * redesign that quietly read $setting->partner_id instead of the
-     * env-aware helper would spill sandbox tokens into production columns
-     * and this is what catches it.
-     */
     public function test_the_oauth_callback_stays_inside_the_active_environment(): void
     {
         Http::fake([
@@ -771,11 +586,6 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertSame('live-access-token', decrypt($row->access_token), 'A sandbox callback overwrote the live token.');
     }
 
-    /**
-     * No code, no shop_id: the page is just the settings page and nothing is
-     * sent to Shopee. Without this the guard above could pass while the
-     * controller fired an exchange on every ordinary page load.
-     */
     public function test_a_plain_settings_visit_calls_shopee_at_all(): void
     {
         Http::fake();
@@ -787,20 +597,6 @@ class WorkspaceInteriorsTest extends TestCase
         Http::assertNothingSent();
     }
 
-    /**
-     * The redirect URI is displayed so it can be copied into the Shopee
-     * console, and it must never be a settable field. A `name` on that input
-     * would post it back into save(), which does not validate it and would
-     * silently ignore it, leaving an operator who edited the box believing
-     * they had changed something.
-     */
-    /**
-     * M-1: the original version of this test asserted the redirect URI
-     * appeared ANYWHERE on the page, which the sidebar's own link to
-     * ext.shopee.index also satisfies - deleting the actual display left it
-     * green. Mirrors TikTok's shape: pins the exact readonly, nameless
-     * input(s) that carry it, both the live and sandbox copies.
-     */
     public function test_the_redirect_uri_is_shown_but_not_submittable(): void
     {
         $this->seedSetting();
@@ -813,7 +609,6 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertStringContainsString(e($redirect), $html);
         $this->assertSame(2, substr_count($html, 'value="'.e($redirect).'"'));
 
-        // Every element carrying that value is readonly and has no name.
         preg_match_all('/<input[^>]*value="'.preg_quote(e($redirect), '/').'"[^>]*>/', $html, $matches);
         $this->assertCount(2, $matches[0]);
         foreach ($matches[0] as $tag) {
@@ -825,11 +620,6 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertStringNotContainsString('name="sandbox_redirect_uri"', $html);
     }
 
-    /**
-     * The three OAuth controls the settings view is not allowed to change.
-     * Asserted as markup, because "the route exists" is not the same claim
-     * as "the page still offers it".
-     */
     public function test_the_settings_page_still_carries_every_oauth_control(): void
     {
         $this->seedSetting();
@@ -837,7 +627,6 @@ class WorkspaceInteriorsTest extends TestCase
         $html = $this->actingAs($this->manager())
             ->get(route('ext.shopee.settings.show'))->assertOk()->getContent();
 
-        // The link names WHICH store is consenting (S4b, #194).
         $this->assertStringContainsString('href="'.e(route('ext.shopee.authorize', ['store' => ShopeeSetting::query()->value('id')])).'"', $html);
         $this->assertStringContainsString('rel="noopener"', $html);
         $this->assertStringContainsString('action="'.e(route('ext.shopee.token_get')).'"', $html);
@@ -845,12 +634,6 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertStringContainsString('name="code"', $html);
     }
 
-    /**
-     * Every field name ShopeeController::save() validates has to exist in the
-     * markup, or the redesign has quietly dropped a credential an operator
-     * can no longer set. Both environments, because only one is visible at a
-     * time but both are rendered.
-     */
     public function test_the_settings_page_carries_the_whole_field_census(): void
     {
         $this->seedSetting();
@@ -872,19 +655,10 @@ class WorkspaceInteriorsTest extends TestCase
             );
         }
 
-        // Both status-map surfaces, one key from each.
         $this->assertStringContainsString('name="map[READY_TO_SHIP]"', $html);
         $this->assertStringContainsString('name="map[REFUND_PAID]"', $html);
     }
 
-    /**
-     * I-2: the field census above proves both env forms exist, but not that
-     * each carries the RIGHT hidden env value. A hidden `env` flipped from
-     * `sandbox` to `live` on the sandbox credential form would survive it,
-     * and every "sandbox" save would silently overwrite production
-     * credentials instead. This pins each save form's hidden env to the
-     * credential fields that live inside it.
-     */
     public function test_each_shopee_credential_form_carries_its_own_env_value(): void
     {
         $this->seedSetting();
@@ -910,12 +684,6 @@ class WorkspaceInteriorsTest extends TestCase
             'The sandbox credential form carried the live env value, which would overwrite production on save.');
     }
 
-    /**
-     * Stored credentials render as a mask, never as the secret itself. The
-     * redesign moved all ten of these inputs, so this is worth pinning: a
-     * value="{{ $setting->partner_key }}" typo would put an encrypted, or
-     * worse a decrypted, key into the HTML source.
-     */
     public function test_stored_secrets_never_reach_the_page_source(): void
     {
         $this->seedSetting([
@@ -956,25 +724,6 @@ class WorkspaceInteriorsTest extends TestCase
             ->assertSee('action="'.e(route('ext.shopee.clear_api_logs')).'"', false);
     }
 
-    /* =================================================================
-       5. LAZADA (Round C, Task 2)
-
-       The same five interiors, one channel over: Listings, Product Groups,
-       Categories, Brands (where Shopee has Logistics) and Settings.
-
-       The OAuth story differs, and the difference is the reason this block
-       does not simply mirror the Shopee one. Shopee's settings page IS its
-       registered redirect URI, so its guard has to drive ?code= through the
-       page itself. Lazada redirects to a separate, permanently exempt
-       /lazada/callback route that this task did not touch. What the settings
-       view CAN break is the set of controls that reach those surfaces: the
-       readonly redirect display (which must name the callback route and must
-       never be submittable), the two authorize links (the sandbox one
-       carrying ?sandbox=1, which is what picks the sandbox app key), and the
-       hidden `sandbox` flags on the exchange and refresh forms. Those are
-       what is pinned here.
-       ================================================================= */
-
     private function lazadaViewer(): User
     {
         $group = UserGroup::create(['name' => 'Lazada Interiors Viewer']);
@@ -995,11 +744,8 @@ class WorkspaceInteriorsTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    /** @return array<string, string> label => url */
     private function lazadaInteriorUrls(): array
     {
-        // Multi-store (the owner 2026-09-05): {store} needs a store to name, even
-        // for the guest and no-permission walks that seed nothing else.
         if (LazadaSetting::query()->count() === 0) {
             $this->seedLazadaSetting();
         }
@@ -1013,11 +759,6 @@ class WorkspaceInteriorsTest extends TestCase
         ];
     }
 
-    /**
-     * Enough of a settings row that the Connection tab renders every branch:
-     * live mode with credentials present, so the masked-field and token-state
-     * paths are exercised rather than skipped.
-     */
     private function seedLazadaSetting(array $overrides = []): LazadaSetting
     {
         return LazadaSetting::create(array_merge([
@@ -1029,8 +770,6 @@ class WorkspaceInteriorsTest extends TestCase
             'api_log_mode' => 'all',
         ], $overrides));
     }
-
-    /* ---- render ---------------------------------------------------- */
 
     public function test_every_lazada_interior_renders_for_the_manage_tier(): void
     {
@@ -1052,11 +791,6 @@ class WorkspaceInteriorsTest extends TestCase
         }
     }
 
-    /**
-     * The point of the whole task, Lazada's half. See the Shopee version of
-     * this test for the boundary's retirement in fix round 5: the layout's
-     * default content-class is now '' and the per-view opt-outs are gone.
-     */
     public function test_no_lazada_interior_still_carries_the_legacy_boundary(): void
     {
         $this->seedLazadaSetting();
@@ -1126,21 +860,12 @@ class WorkspaceInteriorsTest extends TestCase
             ->assertOk()
             ->assertSee('Pedals &amp; Effects', false);
 
-        // The listing's catalog product does not exist. Since 2026-09-05 a
-        // catalog delete removes the listing with it, so the page carries no
-        // queue for such rows any more: it renders, and says nothing of them.
         $this->actingAs($user)->get(route('ext.lazada.products.index'))
             ->assertOk()
             ->assertDontSee('778899')
             ->assertDontSee('deleted catalog product');
     }
 
-    /**
-     * Channel-sourced strings reach these pages straight from the marketplace
-     * and from the catalog. Blade escapes them; this proves it, because the
-     * redesign moved every one of these values into new markup and an
-     * unescaped slip anywhere would be a stored XSS.
-     */
     public function test_lazada_channel_sourced_names_are_escaped(): void
     {
         $this->seedLazadaSetting();
@@ -1179,8 +904,6 @@ class WorkspaceInteriorsTest extends TestCase
         }
     }
 
-    /* ---- gating, both directions ----------------------------------- */
-
     public function test_an_operator_with_no_lazada_permission_is_refused_every_interior(): void
     {
         $user = $this->outsider();
@@ -1197,27 +920,18 @@ class WorkspaceInteriorsTest extends TestCase
         }
     }
 
-    /**
-     * A Shopee viewer is an outsider to Lazada and the other way round. The
-     * five views ask for their own channel's permission, so holding the wrong
-     * channel's manage tier must not open these pages.
-     */
     public function test_the_other_channels_manage_tier_opens_nothing_here(): void
     {
         $this->seedLazadaSetting();
         $this->seedSetting();
 
-        // One user each, created outside the loops: UserGroup names are
-        // unique, so building a fresh manager per iteration collides.
         $shopeeManager = $this->manager();
         $lazadaManager = $this->lazadaManager();
 
-        // Shopee's manager, on Lazada's pages.
         foreach ($this->lazadaInteriorUrls() as $label => $url) {
             $this->assertDenied($this->actingAs($shopeeManager)->get($url), 'shopee manager on lazada '.$label);
         }
 
-        // And the reverse, so this is not asserting a one-way accident.
         foreach ($this->interiorUrls() as $label => $url) {
             $this->assertDenied($this->actingAs($lazadaManager)->get($url), 'lazada manager on shopee '.$label);
         }
@@ -1243,10 +957,6 @@ class WorkspaceInteriorsTest extends TestCase
         $listings->assertDontSee(route('ext.lazada.products.edit', ['productId' => 1]), false);
         $listings->assertDontSee(route('ext.lazada.products.import_one'), false);
 
-        // The settings page is deliberately different from the four lists. A
-        // read-tier operator is meant to be able to READ the credentials page,
-        // so the fields still render, every one of them disabled. What
-        // disappears is every control that writes.
         $settings = $this->actingAs($user)->get(route('ext.lazada.index'))->assertOk();
         $settings->assertDontSee(route('ext.lazada.toggle_mode'), false);
         $settings->assertDontSee(route('ext.lazada.token_create'), false);
@@ -1287,7 +997,6 @@ class WorkspaceInteriorsTest extends TestCase
         $this->actingAs($user)->get(route('ext.lazada.products.index'))
             ->assertOk();
 
-        // The import page is stateless (2026-09-04): blank until Fetch.
         $this->actingAs($user)->get(route('ext.lazada.products.import'))
             ->assertOk()
             ->assertSee('Fetch from Lazada');
@@ -1298,11 +1007,6 @@ class WorkspaceInteriorsTest extends TestCase
             ->assertSee(route('ext.lazada.token_create'), false);
     }
 
-    /**
-     * The UI hiding a control is a courtesy; the middleware is the gate. Every
-     * write route the five Lazada views drive must refuse a read-tier operator
-     * on its own.
-     */
     public function test_the_lazada_write_routes_refuse_the_read_tier_on_their_own(): void
     {
         $this->seedLazadaSetting();
@@ -1332,25 +1036,11 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertDenied($this->actingAs($user)->delete(route('ext.lazada.clear_api_logs')), 'clear logs');
         $this->assertDenied($this->actingAs($user)->get(route('ext.lazada.product-groups.create')), 'group create');
         $this->assertDenied($this->actingAs($user)->get(route('ext.lazada.products.edit', ['productId' => 1])), 'listing create');
-        // The authorize link is the one write surface that lives outside the
-        // /channels prefix, so it is asserted separately.
         $this->assertDenied($this->actingAs($user)->get(route('ext.lazada.authorize')), 'authorize');
 
-        // Nothing was written by any of the refused calls.
         $this->assertSame('live', LazadaSetting::query()->first()->mode);
     }
 
-    /**
-     * Mutation proof for one gate. If the read tier were silently sufficient
-     * for a write, which is exactly what a copy-paste of the wrong middleware
-     * string produces, this would pass on the denial half alone; it is only
-     * meaningful because the manage tier is separately shown to succeed on the
-     * SAME route with the SAME payload and change the SAME column.
-     *
-     * Proven by mutation: relaxing /lazada/save to
-     * `perm:view_lazada|manage_lazada` makes this fail on the viewer half, and
-     * the mutation was reverted.
-     */
     public function test_the_lazada_save_gate_separates_the_two_tiers_on_one_route(): void
     {
         $this->seedLazadaSetting();
@@ -1373,23 +1063,6 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertSame('sg', LazadaSetting::query()->first()->region);
     }
 
-    /* ---- settings save round trip ---------------------------------- */
-
-    /**
-     * The riskiest form on the riskiest page. LazadaController::save()
-     * validates exactly six names: env, the shared region, and two credentials
-     * per environment. Both halves are posted here, each with the env that
-     * selects it, and every column is read back.
-     *
-     * The two things that would be silently wrong if the rebuilt form got them
-     * wrong, and that this pins:
-     *
-     *   - `region` is ONE field name in both forms, because the controller
-     *     writes one shared column. A sandbox form posting `sandbox_region`
-     *     would validate fine and save nothing.
-     *   - the hidden `env` is what stops a sandbox save from wiping the live
-     *     credentials, and it also sets `mode`.
-     */
     public function test_the_lazada_settings_save_round_trips_every_validated_field(): void
     {
         $this->seedLazadaSetting([
@@ -1422,23 +1095,12 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertSame('200777', (string) $row->sandbox_app_key);
         $this->assertSame('the-sandbox-app-secret', decrypt($row->sandbox_app_secret));
 
-        // Region is shared, so the sandbox save moved it. That is the
-        // documented behaviour and the reason the sandbox form's hint says so.
         $this->assertSame('sg', $row->region);
 
-        // The live credentials survived the sandbox save untouched. This is
-        // the whole reason the form carries a hidden `env`.
         $this->assertSame('100777', (string) $row->app_key);
         $this->assertSame('the-live-app-secret', decrypt($row->app_secret));
     }
 
-    /**
-     * The masked-credential contract. resources/js/credential-mask.js blanks
-     * an untouched •••••••• field before the form posts, and the controller
-     * reads a blank as "keep what is stored". A save that omits the secret
-     * must therefore leave it exactly as it was, or every operator who changes
-     * only the region wipes their own app secret.
-     */
     public function test_a_lazada_save_that_omits_the_masked_secret_keeps_it(): void
     {
         $this->seedLazadaSetting();
@@ -1454,8 +1116,6 @@ class WorkspaceInteriorsTest extends TestCase
         $row = LazadaSetting::query()->first();
         $this->assertSame('live-app-secret', decrypt($row->app_secret));
         $this->assertSame('100123', (string) $row->app_key);
-        // Region is a dropdown, so a blank there is the explicit "Not set"
-        // choice and DOES overwrite. This asserts the chosen value landed.
         $this->assertSame('vn', $row->region);
     }
 
@@ -1487,19 +1147,6 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertSame('errors', LazadaSetting::query()->first()->api_log_mode);
     }
 
-    /* ---- the OAuth surfaces this view is not allowed to change ------ */
-
-    /**
-     * The redirect URI is displayed so it can be copied into the Lazada
-     * console. Two claims, both of which a redesign could break silently:
-     *
-     *   - it is the CALLBACK route, not this page. Lazada compares the string
-     *     byte for byte, and pointing the box at the settings URL would send
-     *     an operator to register a URL that never receives a code.
-     *   - it has no `name`, so it is never posted. save() does not validate a
-     *     redirect field and would ignore it, leaving an operator who edited
-     *     the box believing they had changed something.
-     */
     public function test_the_lazada_redirect_uri_is_the_callback_and_is_not_submittable(): void
     {
         $this->seedLazadaSetting();
@@ -1514,17 +1161,6 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertStringNotContainsString('name="sandbox_redirect_uri"', $html);
     }
 
-    /**
-     * The OAuth controls the settings view is not allowed to change, asserted
-     * as markup, because "the route exists" is not the same claim as "the page
-     * still offers it".
-     *
-     * The sandbox authorize link is the sharp one. redirectToAuth() reads
-     * ?sandbox=1 off the query to decide which app key it sends, so a rebuilt
-     * link that dropped the parameter would quietly authorise the PRODUCTION
-     * app from a button labelled sandbox, and nothing would look wrong until a
-     * live shop started answering test calls.
-     */
     public function test_the_lazada_settings_page_still_carries_every_oauth_control(): void
     {
         $setting = $this->seedLazadaSetting();
@@ -1532,10 +1168,6 @@ class WorkspaceInteriorsTest extends TestCase
         $html = $this->actingAs($this->lazadaManager())
             ->get(route('ext.lazada.index'))->assertOk()->getContent();
 
-        // The link names WHICH store is consenting (multi-store, the owner
-        // 2026-09-05): the OAuth route stays storeless, so the store rides
-        // a ?store= query the settings page passes, and the sandbox link
-        // adds ?sandbox=1 alongside it.
         $this->assertStringContainsString('href="'.e(route('ext.lazada.authorize', ['store' => $setting->id])).'"', $html);
         $this->assertStringContainsString('href="'.e(route('ext.lazada.authorize', ['store' => $setting->id, 'sandbox' => 1])).'"', $html);
         $this->assertStringContainsString('rel="noopener"', $html);
@@ -1544,7 +1176,6 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertStringContainsString('action="'.e(route('ext.lazada.sandbox_token_save')).'"', $html);
         $this->assertStringContainsString('name="code"', $html);
 
-        // Both sandbox forms carry the hidden flag the controller branches on.
         $this->assertSame(
             2,
             substr_count($html, '<input type="hidden" name="sandbox" value="1">'),
@@ -1552,12 +1183,6 @@ class WorkspaceInteriorsTest extends TestCase
         );
     }
 
-    /**
-     * Every field name a Lazada settings write validates has to exist in the
-     * markup, or the redesign has quietly dropped something an operator can no
-     * longer set. Both environments, because only one is visible at a time but
-     * both are rendered.
-     */
     public function test_the_lazada_settings_page_carries_the_whole_field_census(): void
     {
         $this->seedLazadaSetting();
@@ -1566,11 +1191,8 @@ class WorkspaceInteriorsTest extends TestCase
             ->get(route('ext.lazada.index'))->assertOk()->getContent();
 
         foreach ([
-            // save()
             'env', 'region', 'app_key', 'app_secret', 'sandbox_app_key', 'sandbox_app_secret',
-            // toggleMode(), tokenCreate(), saveSandboxToken(), purgeRaw()
             'mode', 'code', 'sandbox', 'sandbox_access_token', 'expires_in_days', 'days',
-            // explorerRun()
             'method', 'api_path', 'auth_required', 'params_json', 'params_json_pretty',
         ] as $field) {
             $this->assertStringContainsString(
@@ -1580,20 +1202,12 @@ class WorkspaceInteriorsTest extends TestCase
             );
         }
 
-        // `region` is deliberately the same name in both environment forms.
         $this->assertSame(2, substr_count($html, 'name="region"'), 'Both environment forms must post the shared region field.');
 
-        // Both status-map surfaces, one key from each.
         $this->assertStringContainsString('name="map[ready_to_ship]"', $html);
         $this->assertStringContainsString('name="map[refund_paid]"', $html);
     }
 
-    /**
-     * I-2: same gap as Shopee's. The field census proves both env forms
-     * exist, not that each carries the right hidden env value. `region` is
-     * deliberately shared between the two forms, so `app_key` versus
-     * `sandbox_app_key` is what tells them apart.
-     */
     public function test_each_lazada_credential_form_carries_its_own_env_value(): void
     {
         $this->seedLazadaSetting();
@@ -1619,12 +1233,6 @@ class WorkspaceInteriorsTest extends TestCase
             'The sandbox credential form carried the live env value, which would overwrite production on save.');
     }
 
-    /**
-     * Stored credentials render as a mask, never as the secret itself. The
-     * redesign moved all four of these inputs, so this is worth pinning: a
-     * value="{{ $setting->app_secret }}" typo would put an encrypted, or worse
-     * a decrypted, secret into the HTML source.
-     */
     public function test_stored_lazada_secrets_never_reach_the_page_source(): void
     {
         $this->seedLazadaSetting([
@@ -1665,19 +1273,9 @@ class WorkspaceInteriorsTest extends TestCase
             ->assertSee('action="'.e(route('ext.lazada.clear_api_logs')).'"', false);
     }
 
-    /**
-     * The listings page kept its sortable header, which the old view drove
-     * with the same sort/dir pair. Two things are pinned: the header link
-     * carries both parameters, and the filter form carries them as hidden
-     * fields so submitting a filter does not silently reset the sort.
-     */
     public function test_the_lazada_listings_page_keeps_its_sort_contract(): void
     {
         $this->seedLazadaSetting();
-        // The sortable header only exists when there are rows to sort; an
-        // empty list renders the empty state and no <thead> at all. The
-        // table is the catalogue since Phase C (#184), so the row that
-        // makes the header exist is a real catalog product.
         $pid = $this->seedCatalogProduct('Sortable Strings', 'SORT-1');
         LazadaProduct::create(['product_id' => $pid, 'lazada_item_id' => '551122']);
         $user = $this->lazadaManager();
@@ -1686,46 +1284,12 @@ class WorkspaceInteriorsTest extends TestCase
             ->get(route('ext.lazada.products.index', ['sort' => 'quantity', 'dir' => 'asc']))
             ->assertOk()->getContent();
 
-        // Clicking the column already sorted ascending flips it to descending.
         $this->assertStringContainsString('sort=quantity&amp;dir=desc', $html);
-        // The filter form does not carry the heading's sort, so the Sort
-        // menu's choice is never outranked by a heading pressed earlier.
         $this->assertStringNotContainsString('name="sort" value="quantity"', $html);
     }
 
-    /* =================================================================
-       ROUND C, TASK 3 - TikTok, Venta and OpenCart
-       -----------------------------------------------------------------
-       The remaining eleven interiors. Three of them are TikTok's, which
-       is single-shop and OAuth-authenticated like Shopee and Lazada; the
-       other eight belong to the two MULTI-STORE channels, and that is
-       what most of what follows is really about.
-
-       On a multi-store channel every one of these pages is scoped to one
-       store by a {store} path segment, and the danger is not that a page
-       fails to render but that it renders the right thing while acting
-       on the wrong row. So the store-scoped assertions here are not
-       "does the page mention the store": they are
-
-         - every self-link on the page carries the store it arrived on,
-           and never the other store's id;
-         - the store is NAMED in the rendered content, not only in the
-           breadcrumb, because the trail collapses to the leaf below
-           768px;
-         - a save posted for store 1 changes store 1's row and leaves
-           store 2's row byte-identical. Both halves are asserted, which
-           is the only way that claim means anything.
-       ================================================================= */
-
-    // ------------------------------------------------------------------
-    // Fixtures
-    // ------------------------------------------------------------------
-
-    /** An operator holding one channel's view tier and nothing else. */
     private function tierUser(string $label, array $permissions): User
     {
-        // Unique per call: several tests below build the same tier twice, and
-        // user_groups.name is unique.
         $group = UserGroup::create(['name' => $label.' '.uniqid('', true)]);
         $group->permissions()->attach(
             Permission::whereIn('key', $permissions)->pluck('id')->all()
@@ -1741,11 +1305,6 @@ class WorkspaceInteriorsTest extends TestCase
     private function opencartViewer(): User { return $this->tierUser('OpenCart Viewer', ['view_opencart/settings', 'view_opencart/product_group', 'view_opencart/dashboard']); }
     private function opencartManager(): User { return $this->tierUser('OpenCart Manager', ['manage_opencart/settings', 'manage_opencart/product_group', 'manage_opencart/dashboard']); }
 
-    /**
-     * Enough of a TikTok settings row that the Connection tab renders every
-     * branch: live mode with credentials and a shop, so the masked-field,
-     * token-state and shop-facts paths are exercised rather than skipped.
-     */
     private function seedTiktokSetting(array $overrides = []): TikTokSetting
     {
         $setting = new TikTokSetting();
@@ -1756,7 +1315,7 @@ class WorkspaceInteriorsTest extends TestCase
             'access_token' => encrypt('live-access-token'),
             'shop_id' => '7495',
             'shop_cipher' => 'TTP_cipher_abc',
-            'shop_name' => 'example TikTok',
+            'shop_name' => 'Acme TikTok',
             'region' => 'ph',
             'api_log_mode' => 'all',
         ], $overrides));
@@ -1765,13 +1324,6 @@ class WorkspaceInteriorsTest extends TestCase
         return $setting;
     }
 
-    /**
-     * TWO stores per multi-store channel, always. One store cannot prove a
-     * store-scoped claim: a page that ignored the segment entirely would
-     * still pass every assertion against a single row.
-     *
-     * @return array{0:int,1:int} the two store ids, in creation order
-     */
     private function seedVentaStores(): array
     {
         $one = VentaSetting::create([
@@ -1799,7 +1351,6 @@ class WorkspaceInteriorsTest extends TestCase
         return [$one->id, $two->id];
     }
 
-    /** @return array{0:int,1:int} */
     private function seedOpencartStores(): array
     {
         $one = OpenCartSetting::create([
@@ -1825,7 +1376,6 @@ class WorkspaceInteriorsTest extends TestCase
         return [$one->id, $two->id];
     }
 
-    /** One catalog product, enough for a group's Products page to have a row. */
     private function seedCatalogProduct(string $name, string $sku): int
     {
         $prefix = (string) config('catalog.prefix');
@@ -1846,7 +1396,6 @@ class WorkspaceInteriorsTest extends TestCase
         return $id;
     }
 
-    /** @return array<string, string> label => url */
     private function tiktokInteriorUrls(): array
     {
         return [
@@ -1856,7 +1405,6 @@ class WorkspaceInteriorsTest extends TestCase
         ];
     }
 
-    /** @return array<string, string> label => url, all scoped to $store */
     private function ventaInteriorUrls(int $store, int $group): array
     {
         return [
@@ -1867,7 +1415,6 @@ class WorkspaceInteriorsTest extends TestCase
         ];
     }
 
-    /** @return array<string, string> */
     private function opencartInteriorUrls(int $store, int $group): array
     {
         return [
@@ -1878,17 +1425,6 @@ class WorkspaceInteriorsTest extends TestCase
         ];
     }
 
-    /**
-     * The page's OWN markup, with the shared region in front of it removed.
-     *
-     * partials/legacy-page-contract.blade.php renders inside <main>, ahead of
-     * @yield('content'): flashes, validation errors, and the layout banners
-     * every enabled integration contributes. On a multi-store channel those
-     * banners legitimately name and link OTHER stores, because they are the
-     * whole workspace's warnings and not this page's. Asserting store scoping
-     * against the raw <main> would therefore fail on markup this task does not
-     * own, so the region is cut at its last element, the flash container.
-     */
     private function pageContent(string $html, string $label): string
     {
         preg_match('/<main\b[^>]*class="x-content[^"]*"[^>]*>(.*?)<\/main>/s', $html, $main);
@@ -1902,11 +1438,6 @@ class WorkspaceInteriorsTest extends TestCase
         return substr($inside, $at + strlen($marker));
     }
 
-    /**
-     * The rendered <main>, which is where the boundary class used to live.
-     * The layout's default content-class is now '' (fix round 5), so this
-     * proves the class is unreachable, not merely opted out per view.
-     */
     private function assertBoundaryDropped(string $html, string $label): void
     {
         $this->assertStringNotContainsString(
@@ -1920,10 +1451,6 @@ class WorkspaceInteriorsTest extends TestCase
             "{$label} did not render the shared content region."
         );
     }
-
-    /* =================================================================
-       TIKTOK
-       ================================================================= */
 
     public function test_every_tiktok_interior_renders_for_both_tiers(): void
     {
@@ -1972,7 +1499,6 @@ class WorkspaceInteriorsTest extends TestCase
         $categories = $this->actingAs($user)->get(route('ext.tiktok.categories.index'))->assertOk();
         $categories->assertSee('Guitar Pedals');
         $categories->assertSee('600123');
-        // The permission list is joined for reading, not printed as a raw array.
         $categories->assertSee('AVAILABLE, INVITE_ONLY');
 
         $groups = $this->actingAs($user)->get(route('ext.tiktok.product-groups.index'))->assertOk();
@@ -2043,13 +1569,8 @@ class WorkspaceInteriorsTest extends TestCase
         $groups->assertDontSee(route('ext.tiktok.product-groups.create'), false);
         $groups->assertDontSee('Delete group');
 
-        // The settings page is deliberately different from the two lists: a
-        // read-tier operator can READ the credentials page, so the fields
-        // render, every one of them disabled. What disappears is every control
-        // that writes.
         $settings = $this->actingAs($user)->get(route('ext.tiktok.index'))->assertOk();
 
-        // Every route whose whole surface disappears for a reader.
         foreach ([
             'ext.tiktok.toggle_mode', 'ext.tiktok.token_get',
             'ext.tiktok.token_refresh', 'ext.tiktok.shops', 'ext.tiktok.authorize',
@@ -2059,10 +1580,6 @@ class WorkspaceInteriorsTest extends TestCase
             $settings->assertDontSee(route($name), false);
         }
 
-        // The credential save and the status-map save are different: their
-        // FORMS still render, because they are what wraps the disabled fields
-        // a reader is meant to be able to read. What must be gone is the
-        // submit control, so that is what is asserted.
         $settings->assertDontSee('Save production settings');
         $settings->assertDontSee('Save sandbox settings');
         $settings->assertDontSee('Save order mapping');
@@ -2081,8 +1598,6 @@ class WorkspaceInteriorsTest extends TestCase
     public function test_the_tiktok_manage_tier_is_offered_those_same_controls(): void
     {
         $this->seedTiktokSetting();
-        // The Delete-all-logs form only exists when there is something to
-        // delete, which is the pre-redesign rule kept unchanged.
         TikTokApiLog::create([
             'method' => 'GET', 'api_path' => '/authorization/202309/shops',
             'auth_required' => true, 'request_params' => [],
@@ -2099,8 +1614,6 @@ class WorkspaceInteriorsTest extends TestCase
         $settings = $this->actingAs($user)->get(route('ext.tiktok.index'))->assertOk();
         foreach ([
             'ext.tiktok.toggle_mode', 'ext.tiktok.save', 'ext.tiktok.token_get',
-            // The shop is fetched by the setup popup's step since 2026-09-06
-            // (ext.tiktok.setup_step), not by a Fetch shop button of its own.
             'ext.tiktok.token_refresh', 'ext.tiktok.authorize',
             'ext.tiktok.explorer_run', 'ext.tiktok.packs_run',
             'ext.tiktok.api_log_mode', 'ext.tiktok.clear_api_logs', 'ext.tiktok.purge_raw',
@@ -2125,13 +1638,6 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertDenied($this->actingAs($user)->get(route('ext.tiktok.product-groups.create')), 'product-groups.create');
     }
 
-    /**
-     * The whole census TikTokController::save() reads, per environment, and
-     * nothing it does not read. Two things are pinned that a redesign is
-     * likeliest to break silently: the production form must carry `env=live`
-     * and the sandbox form `env=sandbox`, because the controller chooses which
-     * pair of columns to write from that one hidden field.
-     */
     public function test_the_tiktok_settings_page_carries_the_whole_field_census(): void
     {
         $this->seedTiktokSetting();
@@ -2159,55 +1665,29 @@ class WorkspaceInteriorsTest extends TestCase
             $this->assertStringContainsString($needle, $html, "The settings page lost {$needle}.");
         }
 
-        // Exactly one env=live form and one env=sandbox form. A second copy of
-        // either would give the page two credential saves for one environment.
         $this->assertSame(1, substr_count($html, 'name="env" value="live"'));
         $this->assertSame(1, substr_count($html, 'name="env" value="sandbox"'));
     }
 
-    /**
-     * The OAuth surfaces, which are contracts registered at the TikTok Shop
-     * Partner Center.
-     *
-     * The most important assertion here is the negative one. Lazada's sandbox
-     * authorize link carries `?sandbox=1` because its controller reads that
-     * query param; TikTok's does NOT, because redirectToAuth() reads the stored
-     * `mode` column instead. Adding one would be inventing a parameter nothing
-     * reads, and it is exactly the kind of thing a person porting Lazada's page
-     * onto TikTok would add for consistency.
-     */
     public function test_the_tiktok_settings_page_still_carries_every_oauth_control(): void
     {
         $setting = $this->seedTiktokSetting();
         $html = $this->actingAs($this->tiktokManager())->get(route('ext.tiktok.index'))->assertOk()->getContent();
 
-        // The link names WHICH store is consenting (multi-store). TikTok's
-        // authorize route stays storeless, so the store rides as ?store=.
         $authorize = route('ext.tiktok.authorize', ['store' => $setting->id]);
 
-        // Two authorize links, one per environment panel, both carrying the
-        // store param and nothing else - sandbox is read from the stored mode.
         $this->assertSame(2, substr_count($html, 'href="'.e($authorize).'"'));
         $this->assertStringNotContainsString($authorize.'?sandbox', $html);
         $this->assertStringNotContainsString(e($authorize).'?sandbox', $html);
         $this->assertStringContainsString('rel="noopener"', $html);
 
-        // No hidden environment flag on the exchange or the refresh: both read
-        // the stored mode, so a `sandbox` field here would be dead weight that
-        // a later reader would take for a contract.
         $this->assertStringNotContainsString('name="sandbox"', $html);
 
         $this->assertStringContainsString(route('ext.tiktok.token_get'), $html);
         $this->assertStringContainsString(route('ext.tiktok.token_refresh'), $html);
-        // The shop rides the setup popup (Set up the store) since 2026-09-06.
         $this->assertStringContainsString('/setup/shop', $html);
     }
 
-    /**
-     * The redirect URI is shown so it can be copied into the Partner Center,
-     * and must never be posted back as a settable field. Both copies (live and
-     * sandbox) are readonly and carry no name.
-     */
     public function test_the_tiktok_redirect_uri_is_shown_but_not_submittable(): void
     {
         $this->seedTiktokSetting();
@@ -2218,7 +1698,6 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertStringContainsString(e($redirect), $html);
         $this->assertSame(2, substr_count($html, 'value="'.e($redirect).'"'));
 
-        // Every element carrying that value is readonly and has no name.
         preg_match_all('/<input[^>]*value="'.preg_quote(e($redirect), '/').'"[^>]*>/', $html, $matches);
         $this->assertCount(2, $matches[0]);
         foreach ($matches[0] as $tag) {
@@ -2253,7 +1732,6 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertSame('sandbox', $setting->mode);
         $this->assertSame('new-sandbox-key', $setting->sandbox_app_key);
         $this->assertSame('new-sandbox-secret', decrypt($setting->sandbox_app_secret));
-        // The live half survived a sandbox save.
         $this->assertSame('new-live-key', $setting->app_key);
     }
 
@@ -2272,11 +1750,6 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertSame('live-app-secret', decrypt($setting->app_secret));
     }
 
-    /**
-     * I-5: the form has never carried a region field (getShops() writes it),
-     * so every production save used to null it out. save() now leaves it
-     * alone when the form does not carry it, the same as app_key/app_secret.
-     */
     public function test_a_tiktok_production_save_preserves_the_stored_region(): void
     {
         $this->seedTiktokSetting(['region' => 'ph']);
@@ -2303,12 +1776,6 @@ class WorkspaceInteriorsTest extends TestCase
         }
     }
 
-    /**
-     * I-4: the shared switch (channel-settings.js) POSTs JSON on every
-     * channel; #200 turned the switch into a three-way mode saved by a
-     * plain POST that redirects back to the Logs panel. Mirrors Shopee's
-     * and Lazada's identical assertion.
-     */
     public function test_the_tiktok_log_mode_control_saves_and_returns_to_the_panel(): void
     {
         $this->seedTiktokSetting(['api_log_mode' => 'all']);
@@ -2325,10 +1792,6 @@ class WorkspaceInteriorsTest extends TestCase
 
         $this->assertSame('all', TikTokSetting::query()->first()->api_log_mode);
     }
-
-    /* =================================================================
-       VENTA - store-scoped
-       ================================================================= */
 
     public function test_every_venta_interior_renders_for_both_tiers(): void
     {
@@ -2354,13 +1817,6 @@ class WorkspaceInteriorsTest extends TestCase
         }
     }
 
-    /**
-     * The multi-store claim, stated as an assertion rather than a hope.
-     *
-     * Rendering store 2's pages must never emit store 1's id in a self-link,
-     * and vice versa. A page that dropped the segment and fell back to "the
-     * first store" would render fine and fail here.
-     */
     public function test_every_venta_self_link_carries_the_store_it_arrived_on(): void
     {
         [$one, $two] = $this->seedVentaStores();
@@ -2371,17 +1827,11 @@ class WorkspaceInteriorsTest extends TestCase
             $html = $this->actingAs($user)->get($url)->assertOk()->getContent();
             $content = $this->pageContent($html, "Venta {$label}");
 
-            // Never store 1, on any page.
             $this->assertStringNotContainsString('/channels/venta/'.$one.'/', $content,
                 "Venta {$label} for store {$two} leaked a link to store {$one}.");
             $this->assertStringNotContainsString('name="store_id" value="'.$one.'"', $content,
                 "Venta {$label} for store {$two} posts store {$one}'s id.");
 
-            // Always store 2, by whichever mechanism that page uses. The three
-            // list pages put the store in the path; the settings page's forms
-            // post to unscoped URLs and carry the store as a hidden field, so
-            // asserting a path segment there would be asserting against a
-            // mechanism it does not use.
             if ($label === 'settings') {
                 $this->assertStringContainsString('name="store_id" value="'.$two.'"', $content,
                     'Venta settings does not post the store it was asked for.');
@@ -2394,11 +1844,6 @@ class WorkspaceInteriorsTest extends TestCase
         }
     }
 
-    /**
-     * The store has to be NAMED in the page body, not only in the breadcrumb.
-     * Below 768px the trail collapses to its leaf, so an operator with two
-     * stores open in two tabs would have nothing on screen telling them apart.
-     */
     public function test_every_venta_interior_names_its_store_in_the_content(): void
     {
         [, $two] = $this->seedVentaStores();
@@ -2455,21 +1900,6 @@ class WorkspaceInteriorsTest extends TestCase
         $products->assertDontSee(route('ext.venta.product-groups.push', [$one, $group->id]), false);
         $products->assertDontSee(route('ext.venta.product-groups.addProducts', [$one, $group->id]), false);
 
-        // The orphan report: the mirror of the page above. That one lists what
-        // the ERP holds and asks whether Venta still has it; this lists what
-        // Venta holds and asks whether the ERP knows about it.
-        //
-        // Asserted on the READ tier deliberately, and it lives in the read
-        // route group for the same reason. It was written into the writes
-        // group first, which 302'd this operator away from it - wrong, because
-        // noticing that the two sides have drifted is precisely what a
-        // view-only operator does, and the report neither adopts nor deletes
-        // anything. A page that only reads belongs to whoever may read.
-        //
-        // Faked at the HTTP boundary rather than left to hit a real host. The
-        // seeded store has a placeholder base_url, so an unfaked run would
-        // spend the client's full timeout failing, and it would prove the
-        // error path only by accident.
         \Illuminate\Support\Facades\Http::fake([
             '*' => \Illuminate\Support\Facades\Http::response(['data' => [
                 ['id' => 901, 'sku' => 'ORPHAN-1', 'name' => 'Made in Venta directly'],
@@ -2481,7 +1911,6 @@ class WorkspaceInteriorsTest extends TestCase
             ->assertOk()
             ->assertSee('ORPHAN-1')
             ->assertSee('Made in Venta directly')
-            // Read-only: there is no control here that adopts or deletes.
             ->assertDontSee('Adopt')
             ->assertDontSee(route('ext.venta.product-groups.check', [$one, $group->id]), false);
 
@@ -2496,19 +1925,11 @@ class WorkspaceInteriorsTest extends TestCase
             $settings->assertDontSee($url, false);
         }
 
-        // ext.venta.save is the exception, and deliberately so: its FORM is
-        // what wraps the disabled connection fields a reader is meant to be
-        // able to read. The submit control is what must be gone.
         $settings->assertDontSee('Save connection');
         $settings->assertDontSee('Test connection');
         $settings->assertDontSee('Delete store');
-        // Asserted as the form action, not as a bare URL: /channels/venta/3
-        // is a PREFIX of every other store-scoped URI on this channel, so
-        // assertDontSee on it alone could never pass.
         $settings->assertDontSee('action="'.e(route('ext.venta.destroy', $one)).'"', false);
 
-        // The credential fields still render, disabled, so a reader can see
-        // what is configured. The token value itself is NOT sent.
         $html = $settings->getContent();
         foreach (['store_name', 'base_url', 'api_token', 'warehouse_id', 'sync_last_days', 'sync_orders_from', 'enabled'] as $field) {
             $this->assertMatchesRegularExpression(
@@ -2525,8 +1946,6 @@ class WorkspaceInteriorsTest extends TestCase
     {
         [$one] = $this->seedVentaStores();
         $group = VentaProductGroup::create(['venta_setting_id' => $one, 'name' => 'Pedals']);
-        // The Delete-all-logs form only exists when there is something to
-        // delete, which is the pre-redesign rule kept unchanged.
         VentaApiLog::create([
             'venta_setting_id' => $one, 'method' => 'GET', 'endpoint' => '/api/orders',
             'status_code' => 200, 'response_time_ms' => 12, 'ok' => true,
@@ -2582,15 +2001,6 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertDenied($this->actingAs($user)->post(route('ext.venta.product-groups.push', [$one, $group->id])), 'product-groups.push');
     }
 
-    /**
-     * THE store-scoped save round trip.
-     *
-     * Both halves are asserted, which is the only thing that makes this claim
-     * mean anything: store 1's row changed to exactly what was posted, and
-     * store 2's row is byte-identical to what it was seeded with. Without the
-     * second half, a save() that ignored `store_id` and wrote the first row it
-     * found would pass.
-     */
     public function test_a_venta_save_for_one_store_leaves_the_other_store_untouched(): void
     {
         [$one, $two] = $this->seedVentaStores();
@@ -2618,7 +2028,6 @@ class WorkspaceInteriorsTest extends TestCase
             'enabled' => '1',
         ])->assertRedirect(route('ext.venta.settings.show', ['store' => $one]));
 
-        // Every column the controller writes, read back.
         $saved = VentaSetting::findOrFail($one);
         $this->assertSame('Gear Depot Renamed', $saved->store_name);
         $this->assertSame('#aabbcc', $saved->brand_color);
@@ -2629,7 +2038,6 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertSame('2026-01-15', $saved->sync_orders_from->format('Y-m-d'));
         $this->assertTrue((bool) $saved->enabled);
 
-        // The other store, untouched.
         $after = VentaSetting::findOrFail($two);
         $this->assertSame($beforeTwo['store_name'], $after->store_name);
         $this->assertSame($beforeTwo['base_url'], $after->base_url);
@@ -2640,19 +2048,6 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertSame($beforeTwo['brand_color'], $after->brand_color);
     }
 
-    /**
-     * I-1: the blank-keeps-stored branch. The credential field is masked in
-     * the form (always sent empty), so a save that does not retype the token
-     * must not wipe it - that would make every unrelated field edit
-     * (renaming the store, changing the sync window) destroy the connection.
-     */
-    /*
-     * These asserted a redirect to ext.venta.index, which encoded the defect
-     * rather than the contract: that route is a legacy fallback that bounces
-     * to the FIRST store by id, so saving Shop B landed the operator on
-     * Shop A's settings - another live shop's credentials, with nothing
-     * on screen saying it had moved. A save returns to the store it saved.
-     */
     public function test_a_venta_save_with_a_blank_token_keeps_the_stored_one(): void
     {
         [$one] = $this->seedVentaStores();
@@ -2682,11 +2077,6 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertSame('venta-token-one-replaced', VentaSetting::findOrFail($one)->api_token);
     }
 
-    /**
-     * A brand new store (no store_id yet, no stored token to fall back on)
-     * must still refuse to save without a token - the blank-keeps-stored
-     * branch only applies once something is actually stored to keep.
-     */
     public function test_a_new_venta_store_still_requires_the_api_token(): void
     {
         $this->actingAs($this->ventaManager())->post(route('ext.venta.save'), [
@@ -2709,12 +2099,6 @@ class WorkspaceInteriorsTest extends TestCase
         }
     }
 
-    /**
-     * The enabled checkbox has NO hidden companion field, deliberately.
-     * VentaController::save() reads $request->has('enabled'), so a hidden 0 in
-     * front of the box would make every store permanently enabled - the box
-     * could never be unticked again.
-     */
     public function test_the_venta_enabled_switch_can_actually_be_turned_off(): void
     {
         [$one] = $this->seedVentaStores();
@@ -2729,7 +2113,6 @@ class WorkspaceInteriorsTest extends TestCase
             'store_id' => $one,
             'base_url' => 'https://one.venta.test',
             'api_token' => 'venta-token-one',
-            // `enabled` deliberately absent, which is what an unticked box posts.
         ])->assertRedirect();
 
         $this->assertFalse((bool) VentaSetting::findOrFail($one)->enabled);
@@ -2799,19 +2182,11 @@ class WorkspaceInteriorsTest extends TestCase
         $settings = $this->actingAs($user)->get(route('ext.venta.settings.show', ['store' => $one]))->assertOk();
         $settings->assertSee('Awaiting pickup');
         $settings->assertSee('/api/orders');
-        // The Automations tab, not the copy-paste cron commands it replaced.
-        //
-        // This used to assert that the page printed `venta:sync orders
-        // --store=N` for the operator to paste into a hosting panel by hand.
-        // Venta's jobs are scheduled_jobs rows now, the same as every other
-        // channel's, so the page shows the job and its cadence and the ERP
-        // knows when it last ran.
         $settings->assertSee('Sync Orders');
         $settings->assertSee('Push Stock');
         $settings->assertSee('Push Price');
         $settings->assertSee('Push Reviews');
 
-        // Server setup belongs in the install guide, not on the page.
         $settings->assertDontSee('schedule:run');
     }
 
@@ -2842,10 +2217,6 @@ class WorkspaceInteriorsTest extends TestCase
             $this->assertStringNotContainsString('<img src=x onerror=', $html, "Unescaped output on {$url}");
         }
     }
-
-    /* =================================================================
-       OPENCART - store-scoped
-       ================================================================= */
 
     public function test_every_opencart_interior_renders_for_both_tiers(): void
     {
@@ -2886,19 +2257,11 @@ class WorkspaceInteriorsTest extends TestCase
             $this->assertStringNotContainsString('name="store_id" value="'.$one.'"', $content,
                 "OpenCart {$label} for store {$two} posts store {$one}'s id.");
 
-            // Same split as Venta: OpenCart's settings forms all post to
-            // unscoped URLs and carry the store as a hidden field.
             if ($label === 'settings') {
                 $this->assertStringContainsString('name="store_id" value="'.$two.'"', $content,
                     'OpenCart settings does not post the store it was asked for.');
                 $this->assertStringContainsString('data-store-id="'.$two.'"', $content,
                     'OpenCart settings does not scope its AJAX calls to the store it was asked for.');
-                // This asserted that the page printed `--store=N` in a cron
-                // command for the operator to paste by hand. Those commands
-                // are gone: the jobs are scheduled_jobs rows now. The intent
-                // was store scoping, so that is what is checked, and against
-                // the rows themselves rather than a string that happens to
-                // contain a number.
                 preg_match_all('/name="jobs\[(\d+)\]/', $content, $rendered);
 
                 $this->assertNotEmpty($rendered[1],
@@ -2987,26 +2350,17 @@ class WorkspaceInteriorsTest extends TestCase
             $settings->assertDontSee($url, false);
         }
 
-        // ext.opencart.sync has the same prefix hazard the destroy route has:
-        // /channels/opencart/sync is a PREFIX of
-        // /channels/opencart/sync-date, whose form legitimately renders for
-        // a reader around the disabled window fields. Asserted as the attribute
-        // the module actually reads, which is empty for a reader.
         $settings->assertSee('data-sync-url=""', false);
         $settings->assertSee('data-push-url=""', false);
         $settings->assertSee('data-verify-url=""', false);
         $settings->assertSee('data-test-url=""', false);
 
-        // Three saves keep their FORMS, because those forms are what wrap the
-        // disabled fields a reader is meant to be able to read. Their submit
-        // controls are what must be gone.
         $settings->assertDontSee('Save connection');
         $settings->assertDontSee('Save the window');
         $settings->assertDontSee('Save review setting');
         $settings->assertDontSee('Test connection');
         $settings->assertDontSee('Delete store');
         $settings->assertDontSee('action="'.e(route('ext.opencart.destroy', $one)).'"', false);
-        // The whole first-import tab is manage-only, tab strip included.
         $settings->assertDontSee('First import');
 
         $html = $settings->getContent();
@@ -3077,7 +2431,6 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertDenied($this->actingAs($user)->get(route('ext.opencart.product-groups.create', $one)), 'product-groups.create');
     }
 
-    /** The OpenCart half of the store-scoped save claim. Both stores asserted. */
     public function test_an_opencart_save_for_one_store_leaves_the_other_store_untouched(): void
     {
         [$one, $two] = $this->seedOpencartStores();
@@ -3119,9 +2472,6 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertSame($beforeTwo['sync_last_days'], $after->sync_last_days);
     }
 
-    /**
-     * I-1: the blank-keeps-stored branch, OpenCart side. Mirrors Venta's.
-     */
     public function test_an_opencart_save_with_a_blank_key_keeps_the_stored_one(): void
     {
         [$one] = $this->seedOpencartStores();
@@ -3173,10 +2523,6 @@ class WorkspaceInteriorsTest extends TestCase
         }
     }
 
-    /**
-     * Same reasoning as Venta's: saveReviewSettings() and save() both read
-     * $request->has(), so neither switch may carry a hidden companion field.
-     */
     public function test_the_opencart_switches_can_actually_be_turned_off(): void
     {
         [$one] = $this->seedOpencartStores();
@@ -3247,10 +2593,6 @@ class WorkspaceInteriorsTest extends TestCase
 
         $settings = $this->actingAs($user)->get(route('ext.opencart.settings.show', ['store' => $one]))->assertOk();
         $settings->assertSee('Complete');
-        // The Automations tab, not the copy-paste cron commands it replaced.
-        // OpenCart's jobs are scheduled_jobs rows now, the same as every other
-        // channel's, so the page shows each job and its cadence and the ERP
-        // knows when it last ran.
         $settings->assertSee('Sync Orders');
         $settings->assertSee('Push Stock');
         $settings->assertSee('Push Price');
@@ -3287,23 +2629,6 @@ class WorkspaceInteriorsTest extends TestCase
         }
     }
 
-    /* =================================================================
-       CROSS-CHANNEL
-       ================================================================= */
-
-    /**
-     * Holding one channel's manage tier opens nothing on the others. The
-     * cheapest way for a gate to be wrong is for it to be checked against the
-     * wrong channel's permission key.
-     *
-     * I-3: this matrix originally covered only the TikTok/Venta/OpenCart
-     * triangle; test_the_other_channels_manage_tier_opens_nothing_here()
-     * separately covers Shopee<->Lazada. Neither combination ever put
-     * Shopee's manager against TikTok/Venta/OpenCart (or the reverse), so a
-     * route gate that accidentally accepted `manage_tiktok` alongside
-     * `manage_shopee` on a Shopee read group could survive the whole suite.
-     * Shopee is folded into this matrix to close that gap.
-     */
     public function test_one_channels_manage_tier_opens_nothing_on_the_others(): void
     {
         $this->seedSetting();
@@ -3333,15 +2658,6 @@ class WorkspaceInteriorsTest extends TestCase
         }
     }
 
-    /**
-     * ONE GATE, PROVEN.
-     *
-     * /venta/save is the riskiest write on this task's eleven pages: it is
-     * store-scoped, it rotates a credential, and it is reachable from a page a
-     * read-tier operator can open. This test is the one the mutation proof was
-     * run against - relaxing the route's own middleware to accept either tier
-     * must make the viewer half of this fail.
-     */
     public function test_the_venta_save_gate_separates_the_two_tiers_on_one_route(): void
     {
         [$one] = $this->seedVentaStores();
@@ -3353,41 +2669,18 @@ class WorkspaceInteriorsTest extends TestCase
             'api_token' => 'gate-token',
         ];
 
-        // The read tier is refused, and nothing moved.
         $this->assertDenied(
             $this->actingAs($this->ventaViewer())->post(route('ext.venta.save'), $payload),
             'venta save, viewer'
         );
         $this->assertSame('Gear Depot', VentaSetting::findOrFail($one)->store_name);
 
-        // The manage tier goes through, and the row really changed.
         $this->actingAs($this->ventaManager())->post(route('ext.venta.save'), $payload)->assertRedirect();
         $this->assertSame('Renamed By Test', VentaSetting::findOrFail($one)->store_name);
     }
 
-    /* =================================================================
-       LAYOUT BANNERS ARE SCOPED TO THE CHANNEL YOU ARE STANDING IN
-       ================================================================= */
-
-    /**
-     * A channel that contributes no banners of its own must show none, not
-     * every other channel's.
-     *
-     * partials/legacy-page-contract.blade.php decides which banners belong on
-     * a page by asking which channel the page is in. It used to answer that
-     * from the map of banner CONTRIBUTORS, so a channel that contributes no
-     * banners - Venta, OpenCart, Shopify, Pedallion, and any integration
-     * added tomorrow, since the contributor interface is opt-in - looked
-     * exactly like "not in a channel at all" and fell through to showing
-     * everybody's. The owner found TikTok's expired-token alert sitting on top of
-     * Venta and OpenCart pages.
-     *
-     * This is pinned per channel rather than as one loop so a failure names
-     * the channel that regressed.
-     */
     public function test_a_channel_that_contributes_no_banners_shows_no_other_channels_banners(): void
     {
-        // An expired TikTok token, which is the one banner in play here.
         $this->seedTiktokSetting(['expires_at' => now()->subWeeks(2)]);
 
         [$ventaStore] = $this->seedVentaStores();
@@ -3407,11 +2700,6 @@ class WorkspaceInteriorsTest extends TestCase
         }
     }
 
-    /**
-     * The other half of the same rule, so a fix cannot pass by suppressing
-     * every banner everywhere: the channel that OWNS the warning still shows
-     * it on its own pages.
-     */
     public function test_a_channel_still_shows_its_own_banner(): void
     {
         $this->seedTiktokSetting(['expires_at' => now()->subWeeks(2)]);

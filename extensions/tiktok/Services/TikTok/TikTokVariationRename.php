@@ -4,36 +4,8 @@ namespace Extensions\tiktok\Services\TikTok;
 
 use Illuminate\Support\Str;
 
-/**
- * The variation names an update sends for an item already on TikTok Shop.
- *
- * The catalog names the variations. Each variation type the item carries
- * is paired with one of the product's options, then:
- *   - a type the seller named goes up under the option's name, with the
- *     catalog's value names (TikTok gives it a new id);
- *   - a type the category defines keeps its own id, so its own name, and
- *     takes the catalog's value names as before;
- *   - a type whose name already matches is sent by id, nothing renamed.
- *
- * Every SKU the item holds goes up with its own id, so a rename never
- * deletes and re-creates a variation.
- *
- * Pairing takes proof only: the same name, the same split of the SKUs the
- * item and the product share, or the one type left once every other is
- * paired. When the rename cannot be made, it is skipped and the reason
- * given: every SKU the item holds keeps its variations as TikTok holds
- * them, and a new SKU goes up only where its values can be placed under
- * the item's types without a guess.
- */
 final class TikTokVariationRename
 {
-    /**
-     * @param list<array> $skus      the SKUs the builder made, sales_attributes named by the catalog
-     * @param list<array> $liveSkus  the item's SKUs: id, seller_sku, sales_attributes [{id, name, value_id, value_name}]
-     * @param \Closure    $builtIn   fn (): ?list<string>, the sales attribute ids the category defines; null when unknown
-     * @param ?string     $skip      a reason to keep the item's variation names; null lets the rename run
-     * @return array{skus: list<array>, renamed: bool, skipped: ?string}
-     */
     public function shape(array $skus, array $liveSkus, \Closure $builtIn, ?string $skip = null): array
     {
         $liveById = [];
@@ -50,8 +22,6 @@ final class TikTokVariationRename
             }
         }
 
-        // Each SKU keeps its own id: the stored one while the item holds it, else the one under its seller SKU.
-        // An id the item no longer holds is dropped, so the SKU is created rather than refused.
         foreach ($skus as $i => $sku) {
             $id = trim((string) ($sku['id'] ?? ''));
             if ($id !== '' && isset($liveById[$id])) {
@@ -64,7 +34,6 @@ final class TikTokVariationRename
             }
         }
 
-        // The item's variation types in its own order, and what each SKU holds under them.
         $types = [];
         $typeIndex = [];
         $held = [];
@@ -106,7 +75,6 @@ final class TikTokVariationRename
             }
         }
 
-        // A type the seller named takes the option's name; one the category defines keeps its own.
         $renames = [];
         if ($skip === null) {
             $builtInIds = null;
@@ -159,18 +127,10 @@ final class TikTokVariationRename
         return ['skus' => array_values($skus), 'renamed' => $renamed, 'skipped' => null];
     }
 
-    /**
-     * The rename skipped: every SKU the item holds keeps its variations as
-     * TikTok holds them. A new SKU goes up only when every type is paired,
-     * its values under those types; otherwise it is left off and counted.
-     *
-     * @return array{skus: list<array>, renamed: false, skipped: string}
-     */
     private function kept(array $skus, array $types, array $held, array $pairs, array $valueIds, string $skip): array
     {
         $placeable = count($pairs) === count($types) && count($pairs) === count((array) ($skus[0]['sales_attributes'] ?? []));
 
-        // The item's value for each catalog value, from the SKUs both sides share.
         $valueMap = [];
         foreach ($skus as $sku) {
             $id = (string) ($sku['id'] ?? '');
@@ -223,20 +183,10 @@ final class TikTokVariationRename
         return ['skus' => $out, 'renamed' => false, 'skipped' => $skip];
     }
 
-    /**
-     * Option index => type index, for every pair that can be proven.
-     *
-     * @param list<array> $skus
-     * @param list<string> $axes
-     * @param list<array{id: string, name: string}> $types
-     * @param array<string, array<int, array{id: string, name: string}>> $held live SKU id => [type index => value]
-     * @return array<int, int>
-     */
     private function pair(array $skus, array $axes, array $types, array $held): array
     {
         $pairs = [];
 
-        // The same name.
         foreach ($axes as $axis => $name) {
             $same = array_keys(array_filter($types, fn ($t) => strcasecmp($t['name'], $name) === 0));
             if (count($same) === 1 && !in_array($same[0], $pairs, true)) {
@@ -244,7 +194,6 @@ final class TikTokVariationRename
             }
         }
 
-        // The same split: on every SKU both sides share, this option's values and this type's values go one to one.
         $shared = [];
         foreach ($skus as $i => $sku) {
             $id = trim((string) ($sku['id'] ?? ''));
@@ -290,7 +239,6 @@ final class TikTokVariationRename
                     break;
                 }
             }
-            // The last type left belongs to the last option left.
             if (!$progress && count($openAxes) === 1 && count($openTypes) === 1) {
                 $pairs[$openAxes[0]] = $openTypes[0];
                 $progress = true;

@@ -7,23 +7,6 @@ use Extensions\venta\Models\VentaProductLink;
 use Extensions\venta\Models\VentaSetting;
 use Illuminate\Support\Facades\DB;
 
-/**
- * One product to one Venta store: what is sent, how the link is kept
- * honest, and what the store says it holds (#171).
- *
- * Extracted from VentaProductGroupController::pushProducts so the listing
- * page and the group push send the same payload and reconcile the same
- * way. The group push keeps its per-group bookkeeping (sync status on the
- * pivots, the summary sentence); this owns the part that talks to the
- * store about one product.
- *
- * RECONCILE FIRST, ACT SECOND. Nothing here decides from the local link
- * row alone: a link is the ERP's memory and is wrong in both directions
- * often enough. The store is asked whether it has the product under any
- * of its SKUs, the link is made to agree, and only then is a create or an
- * update sent. Absence of an answer is not an answer: only an explicit
- * 404 from a reachable store may mean the product is gone.
- */
 class VentaProductPush
 {
     public function __construct(
@@ -37,9 +20,6 @@ class VentaProductPush
         return new self($setting, new VentaClient($setting));
     }
 
-    // ── The catalogue side ──────────────────────────────────────────────
-
-    /** The catalogue product as the push reads it, or null. */
     public function product(int $productId): ?object
     {
         $pfx = (string) config('catalog.prefix');
@@ -59,17 +39,11 @@ class VentaProductPush
             ]);
     }
 
-    /** The SKU the store knows this product by: sku first, model as the fallback. */
     public static function skuOf(object $prod): string
     {
         return trim((string) ($prod->sku ?: $prod->model ?: ''));
     }
 
-    /**
-     * The SKUs this product could be known by on the store, best first.
-     *
-     * @return list<string>
-     */
     public function candidateSkus(int $productId): array
     {
         $pfx = (string) config('catalog.prefix');
@@ -90,20 +64,6 @@ class VentaProductPush
         return $skus;
     }
 
-    /**
-     * What the store is sent for this product.
-     *
-     * $overrides is the listing's own content (name, description,
-     * meta_title, meta_description), each replacing the catalogue's value
-     * only when present. $priceFor runs the price the product starts from
-     * (VentaListing::startFor), and every variation's price, through the
-     * listing's rule; without it that price goes as it is. The parcel is
-     * the listing's own figures, each blank one the catalogue's.
-     *
-     * Never overridden: sku. Reconcile matches by it.
-     *
-     * @param  array<string, string>  $overrides
-     */
     public function payload(object $prod, array $overrides = [], ?callable $priceFor = null, ?int $categoryId = null): array
     {
         $pid = (int) $prod->product_id;
@@ -139,28 +99,10 @@ class VentaProductPush
             }
         }
 
-        // The brand goes as a name; the store finds or creates it.
         if (! empty($prod->brand_name)) {
             $data['brand_name'] = $prod->brand_name;
         }
 
-        /* THE STORE'S OWN CATEGORY, PICKED ON THE PRODUCT GROUP (VENT2-13).
-         *
-         * This used to send the catalog's category NAMES and let the store
-         * find or create them, which is the opposite of the rule settled on
-         * 2026-09-05: core categories are internal, every channel fetches
-         * the store's own, and a group picks one from that list. The group
-         * screen has asked for a category since it was built and nothing
-         * ever read it - so a seller chose one, saved it, and the store put
-         * the product wherever the catalog's own words happened to land.
-         *
-         * WooCommerce is the shape this follows: the listing's or the
-         * group's category id, an empty list for the listing's own "None",
-         * or nothing at all. Nothing at all leaves the store's own
-         * placement alone, which is the honest answer when neither has
-         * said otherwise - safer than inventing categories on the store
-         * from an internal taxonomy nobody there has agreed to. The store
-         * reads a list, category_ids. */
         if ($categoryId) {
             $data['category_ids'] = [$categoryId];
         } elseif ($categoryId === 0) {
@@ -180,24 +122,12 @@ class VentaProductPush
         return $data;
     }
 
-    /**
-     * Every variation with its own SKU, stock and price through the rule.
-     * Combinations first (multi-axis products), single option values as
-     * the fallback, exactly as the group push has always built them.
-     *
-     * @return list<array<string, mixed>>
-     */
     private function variants(object $prod, string $sku, callable $price, float $weight): array
     {
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $pid = (int) $prod->product_id;
 
-        /* The variation's own image rides the push (#193) - Venta's sync
-         * endpoint has accepted variants.*.image all along; the payload
-         * simply never carried it, so every variation wore the product
-         * photo. A variation without one falls back to the product image
-         * rather than pushing blank, exactly the storefront's own rule. */
         $fallbackImage = trim((string) ($prod->image ?? '')) !== '' ? self::imageUrl((string) $prod->image) : null;
         $variantImage = fn (?string $path) => trim((string) $path) !== '' ? self::imageUrl((string) $path) : $fallbackImage;
 
@@ -206,10 +136,6 @@ class VentaProductPush
             ->orderBy('poc.sort_order')
             ->get();
 
-        /* A variation this store does not sell still goes up, switched
-         * off: the store hides it and keeps it, so switching it back on
-         * returns the same variant with its history. Leaving it out would
-         * delete it, since the store rebuilds its variants from the list. */
         $hidden = \App\Integrations\Listings\ListingVariations::hidden('venta', (int) $this->setting->id, [$pid]);
 
         if ($combos->isNotEmpty()) {
@@ -290,8 +216,6 @@ class VentaProductPush
                 'cost'        => $variantCost,
                 'quantity'    => (int) $ov->variant_qty,
                 'weight'      => $weight,
-                // Legacy single-axis rows (no combination rows) keep no
-                // per-variation image; the product image stands in.
                 'image'       => $variantImage(null),
                 'status'      => \App\Integrations\Listings\ListingVariations::allows($hidden, $pid, (string) ($ov->variant_sku ?? '')),
             ];
@@ -300,24 +224,6 @@ class VentaProductPush
         return $variants;
     }
 
-    /**
-     * The payload for an update, with the variation type and its values
-     * named as the catalog names them.
-     *
-     * The store rebuilds its variation types from option_name and name on
-     * every update and keeps each variant on its own SKU, so sending the
-     * catalog's words renames in place and every variant stays attached.
-     *
-     * All or nothing: the names change only when every variant sent has a
-     * catalog name to take. A partial rename would leave the store with two
-     * types for one product, so anything short of that sends the payload as
-     * it was built. A product with two or more variation types keeps its
-     * payload too, because the store holds one type per variant from this
-     * endpoint.
-     *
-     * @param  array<string, mixed>  $data  a payload() result
-     * @return array<string, mixed>
-     */
     public function withCatalogNames(object $prod, array $data): array
     {
         if (empty($data['variants']) || ! is_array($data['variants'])) {
@@ -342,14 +248,6 @@ class VentaProductPush
         return $data;
     }
 
-    /**
-     * Each combination's catalog option and value name, keyed by the SKU the
-     * payload sends it under. Empty when the product has no combinations,
-     * more than one variation type, or a combination without exactly one
-     * named value.
-     *
-     * @return array<string, array{option_name: string, name: string}>
-     */
     private function catalogVariationNames(object $prod): array
     {
         $pfx = (string) config('catalog.prefix');
@@ -399,17 +297,6 @@ class VentaProductPush
         return $names;
     }
 
-    /**
-     * The pictures this store is sent, in the order it is sent them.
-     *
-     * The listing's OWN arrangement wins when it has one, and the catalog
-     * product's gallery stands in when it does not - the same rule the
-     * Content fields keep, and the same rule on all five channels since
-     * VENT2-131. The listing is read for THIS store, never the first one
-     * found, because two stores of the same channel arrange their own.
-     *
-     * @return list<string> absolute image URLs, main image first (the one list every channel reads)
-     */
     public function images(int $productId): array
     {
         $marking = VentaListing::query()->where('venta_setting_id', $this->setting->id)->where('product_id', $productId)
@@ -425,7 +312,6 @@ class VentaProductPush
         return array_map([\App\Support\Catalog\ProductImages::class, 'url'], \App\Services\Media\ImageCache::pushPaths($paths));
     }
 
-    /** @return ?array<int, mixed> this store's listing's own arrangement, or null to follow the catalog */
     private function ownImageOrder(int $productId): ?array
     {
         return VentaListing::query()
@@ -434,23 +320,11 @@ class VentaProductPush
             ->value('image_order');
     }
 
-    /** The public URL of a picture's push copy, which is what the store fetches. */
     public static function imageUrl(string $path): string
     {
         return \App\Services\Media\ImageCache::publicUrl(\App\Services\Media\ImageCache::path($path, \App\Services\Media\ImageCache::PUSH) ?? $path);
     }
 
-    // ── The store side ──────────────────────────────────────────────────
-
-    /**
-     * Ask the store what is true and make the local link agree.
-     *
-     * Returns one of: confirmed, adopted, repointed, lost, new, blocked,
-     * unreachable. See VentaProductGroupController's original docblock
-     * for what each means; the meanings are unchanged.
-     *
-     * @return array{state: string, venta_id: int|null, sku: string|null, message: string|null}
-     */
     public function reconcileLink(int $productId): array
     {
         $store = (int) $this->setting->id;
@@ -523,12 +397,6 @@ class VentaProductPush
         ];
     }
 
-    /**
-     * Point an ERP product at a store product, or say who is in the way.
-     * The conflicting link is never taken over.
-     *
-     * @return string|null null when linked, or the reason it could not be
-     */
     public function linkProductTo(int $productId, $ventaProductId, ?string $sku): ?string
     {
         $store = (int) $this->setting->id;
@@ -551,16 +419,6 @@ class VentaProductPush
         return null;
     }
 
-    /**
-     * Push one product: reconcile, then create or update, then record.
-     *
-     * @param  array<string, string>  $overrides  the listing's content
-     * @return array{
-     *   ok: bool, state: string, message: string, venta_id: int|null,
-     *   images: array{sent: int, stored: int, reasons: array<string, int>},
-     *   payload: array<string, mixed>
-     * }
-     */
     public function push(int $productId, array $overrides = [], ?callable $priceFor = null, ?int $categoryId = null): array
     {
         $prod = $this->product($productId);
@@ -572,8 +430,6 @@ class VentaProductPush
             return self::outcome(false, 'failed', \App\Integrations\Listings\ListingVariations::noneSoldMessage((string) $this->setting->store_name));
         }
 
-        /* THE GATE (the owner, 2026-09-06): the one readiness computation the
-         * Ready column shows is the one this push refuses through. */
         $readiness = VentaListingReadiness::forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => []];
         if (! $readiness['ready']) {
             return self::outcome(false, 'failed', \App\Integrations\Listings\CatalogGaps::refusal($readiness));
@@ -618,13 +474,6 @@ class VentaProductPush
         return self::outcome(true, 'created','Created on ' . $this->setting->store_name . '.', $ventaId, self::imageVerdict($result), $data);
     }
 
-    /**
-     * Keep the variation SKUs the store's item holds, as just read from it.
-     * A product without variations in the catalog has nothing to keep, and
-     * the product's own SKU and model are never a variation.
-     *
-     * @param  iterable<string|null>  $skus
-     */
     public function rememberHeld(int $productId, iterable $skus): void
     {
         $pfx = (string) config('catalog.prefix');
@@ -643,7 +492,6 @@ class VentaProductPush
         \App\Integrations\Listings\ListingVariations::remember('venta', (int) $this->setting->id, $productId, $held);
     }
 
-    /** The variants a push's answer names; an answer that says nothing about them keeps what was known. */
     private function rememberAnswer(int $productId, array $result): void
     {
         $body = $result['body'] ?? [];
@@ -655,15 +503,6 @@ class VentaProductPush
         }
     }
 
-    /**
-     * What the store holds for this product right now, read fresh.
-     *
-     * @return array{
-     *   state: string, message: string|null, venta_id: int|null, sku: string|null,
-     *   status: string|null, name: string, price: float|null, quantity: int|null,
-     *   images: int, variants: list<array{sku: string, name: string, price: float|null, quantity: int|null, active: bool}>
-     * }
-     */
     public function read(int $productId): array
     {
         $none = ['state' => 'missing', 'message' => null, 'venta_id' => null, 'sku' => null,
@@ -722,12 +561,6 @@ class VentaProductPush
         return $none;
     }
 
-    /**
-     * Turn the product on or off on the store. The status field is the
-     * storefront's own is_active; nothing else about the product moves.
-     *
-     * @return array{ok: bool, message: string}
-     */
     public function setActive(int $productId, bool $active): array
     {
         $skus = $this->candidateSkus($productId);
@@ -745,12 +578,6 @@ class VentaProductPush
             : 'Unlisted on ' . $this->setting->store_name . '. Buyers stop seeing it; it can be relisted at any time.'];
     }
 
-    // ── Reading the store's answers ─────────────────────────────────────
-
-    /**
-     * The store's refusal, in words the operator can act on. Two refusals
-     * have their own sentence; anything else is the store's own text.
-     */
     public static function failureText(array $result, string $sku): string
     {
         $body = $result['body'] ?? [];
@@ -778,12 +605,6 @@ class VentaProductPush
         return $raw ?: 'The store did not answer.';
     }
 
-    /**
-     * The per-image verdict the store returns with every push: what it
-     * kept, and each refusal's reason, grouped.
-     *
-     * @return array{sent: int, stored: int, reasons: array<string, int>}
-     */
     public static function imageVerdict(array $result): array
     {
         $body = $result['body'] ?? [];
@@ -811,7 +632,6 @@ class VentaProductPush
         return ['sent' => $keptCount + count($failedList), 'stored' => $keptCount, 'reasons' => $reasons];
     }
 
-    /** One sentence about the images, or nothing when nothing was sent. */
     public static function imagesSentence(array $images): string
     {
         $sent = (int) ($images['sent'] ?? 0);

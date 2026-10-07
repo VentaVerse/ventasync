@@ -62,7 +62,6 @@ class OrderController extends Controller
         $defaultCode = Money::defaultCode();
 
         $orders->getCollection()->transform(function ($order) use ($ocStoreNames, $defaultCode) {
-            // Resolve first product image
             $firstProduct = $order->products()->first();
             $productImage = null;
             if ($firstProduct && $firstProduct->product_id > 0) {
@@ -102,12 +101,6 @@ class OrderController extends Controller
         return response()->json($this->showPayload(Order::where('order_id', (int) $id)->firstOrFail()));
     }
 
-    /**
-     * An order as the show endpoint draws it, which is also what a
-     * fulfilment action hands back after it acts.
-     *
-     * @return array<string, mixed>
-     */
     private function showPayload(Order $order): array
     {
         $products = $order->products()->with('options')->get();
@@ -117,7 +110,6 @@ class OrderController extends Controller
             ->orderByDesc('date_added')
             ->get();
 
-        // Resolve product images from catalog
         $productImages = $this->resolveProductImages($products);
 
         $ocStoreNames = class_exists(\Extensions\opencart\Models\OpenCartSetting::class)
@@ -193,11 +185,6 @@ class OrderController extends Controller
         return response()->json(['message' => 'Order status updated.']);
     }
 
-    /**
-     * A manual order leaves with its courier and tracking number: both are
-     * recorded and the status moves in one step, as the web's status change
-     * moves it, so stock, history and the push follow as they always do.
-     */
     public function ship(Request $request, $id)
     {
         $pfx = (string) config('catalog.prefix');
@@ -232,11 +219,6 @@ class OrderController extends Controller
         return AppFulfilment::ok('Shipped.', $this->showPayload($order->fresh()));
     }
 
-    /**
-     * Move an order to a status the way the web's status change does: the
-     * history line, the stock, the activity log; the push follows from
-     * App\Observers\OrderObserver on the update.
-     */
     private function changeStatus(Order $order, int $newStatusId, string $comment): void
     {
         $oldStatusId = (int) $order->order_status_id;
@@ -272,10 +254,6 @@ class OrderController extends Controller
         );
     }
 
-    /**
-     * A manual order is to pack until it has a tracking number. An order
-     * from a store ships through that store's own screen.
-     */
     private static function fulfilment(Order $order): array
     {
         if ((string) ($order->marketplace_source ?? '') !== '') {
@@ -319,15 +297,13 @@ class OrderController extends Controller
                 ->count();
         }
 
-        // Venta pending counts per store
         $ventaPending = [];
         if (Schema::hasTable('venta_orders') && Schema::hasTable('venta_settings')) {
             $enabledStoreIds = DB::table('venta_settings')
                 ->where('enabled', true)
                 ->pluck('id');
 
-            // Statuses that map to a core "pending" or "processing" status
-            $pendingCoreIds = $pendingStatuses; // reuse from above
+            $pendingCoreIds = $pendingStatuses;
 
             if ($enabledStoreIds->isNotEmpty()) {
                 $pendingVentaStatuses = DB::table('venta_order_status_map')
@@ -347,7 +323,6 @@ class OrderController extends Controller
                             ->whereIn('status', $mappedStatuses)
                             ->count();
                     } else {
-                        // Fallback: count orders with status containing "pending" or "processing"
                         $ventaPending[(string) $storeId] = DB::table('venta_orders')
                             ->where('venta_setting_id', $storeId)
                             ->where(function ($q) {
@@ -366,17 +341,14 @@ class OrderController extends Controller
             'shopee_pending' => $shopeePending,
             'tiktok_pending' => $tiktokPending,
             'venta_pending'  => (object) $ventaPending,
-            // The same waiting counts per enabled store, keyed by store id.
             'lazada_pending_by_store' => $this->waitingByStore('lazada_orders', 'lazada_settings', 'lazada_setting_id', ['pending', 'repacked']),
             'shopee_pending_by_store' => $this->waitingByStore('shopee_orders', 'shopee_settings', 'shopee_setting_id', ['READY_TO_SHIP']),
             'tiktok_pending_by_store' => $this->waitingByStore('tiktok_orders', 'tiktok_settings', 'tiktok_setting_id', ['AWAITING_SHIPMENT']),
-            // The sidebar's Fulfilment count for this person, per store.
             'to_pack_by_channel' => (object) $toPack,
             'to_pack_total' => array_sum($toPack),
         ]);
     }
 
-    /** @param array<int, string> $statuses */
     private function waitingByStore(string $orders, string $stores, string $column, array $statuses): object
     {
         if (! Schema::hasTable($orders) || ! Schema::hasTable($stores)) {
@@ -401,11 +373,6 @@ class OrderController extends Controller
         return response()->json($statuses);
     }
 
-    /**
-     * The store an order came from, as the channel numbers it: "venta:3"
-     * names it in the source, a Shopee, Lazada or TikTok order carries it
-     * in store_id. Null for an order entered in VentaSync.
-     */
     private static function storeIdOf(string $source, $storeId): ?int
     {
         if ($source === '') {
@@ -418,9 +385,6 @@ class OrderController extends Controller
         return $storeId !== null ? (int) $storeId : null;
     }
 
-    /**
-     * Resolve "opencart:1" → "Store Name" or return the source as-is.
-     */
     private static function resolveSourceLabel(string $source, array $ocStoreNames): string
     {
         if (preg_match('/^opencart:(\d+)$/', $source, $m)) {
@@ -430,9 +394,6 @@ class OrderController extends Controller
         return $source;
     }
 
-    /**
-     * Build order_product_id → full image URL map.
-     */
     private function resolveProductImages($orderProducts): array
     {
         $productIds = $orderProducts

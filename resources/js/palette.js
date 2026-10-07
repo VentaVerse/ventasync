@@ -1,17 +1,3 @@
-/**
- * Command palette (Cmd+K / Ctrl+K). Two data sources feed one flat,
- * keyboard-navigable list:
- *
- *   - "Pages": the permission-filtered route list rendered server side into
- *     the component's `entries` argument (see components/ui/palette.blade.php),
- *     filtered client side against the same lowercase label+keywords
- *     haystack shape <x-ui.hub> already uses, so the product has one search
- *     vocabulary rather than two that drift.
- *   - "Orders"/"Products": record lookups fetched from /palette/search,
- *     debounced so the endpoint is not hit on every keystroke.
- *
- * Registered as an Alpine.data factory in app.js, before Alpine.start().
- */
 export default function ventasyncPalette(entries) {
     return {
         entries,
@@ -33,9 +19,6 @@ export default function ventasyncPalette(entries) {
             return this.entries.filter((e) => e.hay.includes(term));
         },
 
-        // Flat, ordered view of every navigable result (pages, then orders,
-        // then products) so arrow-key movement and Enter work across all
-        // three groups as a single list, matching what is on screen.
         items() {
             const routeItems = this.routes().map((r) => ({ url: r.url }));
             const orderItems = this.records.orders.map((o) => ({ url: o.url }));
@@ -92,10 +75,6 @@ export default function ventasyncPalette(entries) {
             }
         },
 
-        // Called on every keystroke. The stale-result clear on a
-        // sub-2-character query is immediate; the network call itself is
-        // debounced at 200ms so a fast typist does not fire a request per
-        // keystroke.
         search() {
             this.idx = 0;
             clearTimeout(this._timer);

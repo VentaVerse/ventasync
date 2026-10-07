@@ -7,7 +7,6 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Keep Administrator group fully privileged as new permissions are added.
         $adminId = DB::table('user_groups')->where('name', 'Administrator')->value('id');
         if (!$adminId) {
             return;
@@ -24,6 +23,5 @@ return new class extends Migration
 
     public function down(): void
     {
-        // no-op
     }
 };

@@ -7,23 +7,10 @@ use App\Models\DescriptionTemplate;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 
-/**
- * Description templates for one store (the owner, 2026-09-07): a named block of
- * the store's own words that a listing puts above or below the product's
- * description. Written once here, pointed at from the listing, changed in
- * one place for every listing that uses it.
- *
- * One base for every channel; each extension subclasses it with two lines so
- * the permission catalogue keys the page on that channel (shopee/description_
- * template, lazada/description_template, and so on) rather than on one
- * cross-channel key an operator with a single channel should not hold.
- */
 abstract class DescriptionTemplateController extends Controller
 {
-    /** The channel this subclass serves: 'shopee', 'lazada', ... */
     abstract protected function integration(): string;
 
-    /** The store the request is acting for, bound by the channel's own middleware. */
     protected function storeId(): int
     {
         $key = $this->integration() . '.route-store';
@@ -31,7 +18,6 @@ abstract class DescriptionTemplateController extends Controller
             return (int) app($key)->id;
         }
 
-        // A channel whose middleware leaves the segment in place (Venta).
         return (int) (request()->route('store') ?? 0);
     }
 
@@ -42,15 +28,10 @@ abstract class DescriptionTemplateController extends Controller
 
     public function index()
     {
-        /* The page is handed finished URLs rather than building them from a
-         * channel name, so nothing on it is a dynamic route() call. */
         $ch = $this->integration();
         $store = $this->storeId();
 
         return view('channels.description-templates.index', [
-            // The browser tab reads "Shopee Description Templates", as its
-            // Catalog siblings read "Shopee Product Groups".
-            // Shopee descriptions are plain text, so its templates use a plain field.
             'richText' => $ch !== 'shopee',
             'channelName' => app(\App\Integrations\IntegrationRegistry::class)->resolveMarketplaceSourceLabel($ch)
                 ?? \Illuminate\Support\Str::headline($ch),
@@ -63,7 +44,6 @@ abstract class DescriptionTemplateController extends Controller
                 'destroy_url' => route('ext.' . $ch . '.description-templates.destroy', ['store' => $store, 'template' => $t->id]),
             ]),
             'canManage' => $this->canManage(),
-            // The media library for the rich editor, only for someone who may browse it.
             'browseUrl' => $ch !== 'shopee' && (auth()->user()?->hasPermission('view_catalog/product_image') ?? false)
                 ? route('products.images.browse')
                 : null,
@@ -82,9 +62,6 @@ abstract class DescriptionTemplateController extends Controller
         ]);
         ActivityLogger::log('created', 'Description Template', $template->id, $template->name);
 
-        // The + on a listing page posts here and expects the new row back, so
-        // the dropdown can take it without a page load. The body is the
-        // stored, cleaned one, which the description preview shows.
         if ($request->expectsJson()) {
             return response()->json([
                 'ok' => true,
@@ -114,13 +91,9 @@ abstract class DescriptionTemplateController extends Controller
         $row->delete();
         ActivityLogger::log('deleted', 'Description Template', $template, $name);
 
-        /* A listing still pointing at it simply carries nothing: bodyOf()
-         * answers with an empty string for an id that no longer resolves,
-         * so no push ever sends another template's words. */
         return $this->backToIndex('Template "' . e($name) . '" deleted.');
     }
 
-    /** @return array{name: string, body: ?string} */
     private function validated(Request $request): array
     {
         abort_unless($this->canManage(), 403);
@@ -131,10 +104,6 @@ abstract class DescriptionTemplateController extends Controller
         ]);
     }
 
-    /**
-     * Normalises a template body: sanitised HTML, or plain text for Shopee.
-     * An empty editor value is stored as an empty string.
-     */
     private function body(?string $body): string
     {
         if ($this->integration() === 'shopee') {
@@ -144,7 +113,6 @@ abstract class DescriptionTemplateController extends Controller
         return \App\Support\Catalog\DescriptionText::isBlank($body) ? '' : trim(\App\Support\Catalog\DescriptionHtml::store($body));
     }
 
-    /** A template of THIS store, or a 404. One store never edits another's. */
     private function ownRow(int $id): DescriptionTemplate
     {
         return DescriptionTemplate::query()
@@ -154,7 +122,6 @@ abstract class DescriptionTemplateController extends Controller
             ->firstOrFail();
     }
 
-    /** The one place a return trip to this page is built. */
     private function backToIndex(string $status)
     {
         return redirect()

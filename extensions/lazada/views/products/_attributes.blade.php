@@ -1,16 +1,3 @@
-{{-- The Lazada attribute sheet for one listing: one row per question the
-     category asks, with the listing's saved answer, the group's default and
-     the catalogue's suggestion. Rendered inline by products/form and as the
-     body of LazadaProductController::fetchAttributesAjax()'s answer when the
-     operator picks a category, so its markup is that endpoint's contract.
-
-     The inputs carry no form attribute: the sheet sits INSIDE #lazada-listing
-     and submits with Save listing and Save and push (2026-09-06).
-
-     Rows keyed `brand` are skipped: the brand is the form's own control. Rows
-     the catalogue answers by itself (name, description, model) are asked only
-     when a custom value was saved for them. --}}
-
 <div class="gf-attrs">
     @foreach($attributes as $attribute)
         @php
@@ -21,11 +8,6 @@
             $suggestion = $suggested[$key] ?? null;
             $rawSaved = $saved[$key] ?? '';
         @endphp
-        {{-- A row the catalogue answers by itself is not
-             shown as a question. It reappears only when a
-             custom value was saved for it, so an override
-             someone already typed stays visible and
-             editable rather than silently applying. --}}
         @continue(\Extensions\lazada\Services\Lazada\LazadaAttributes::isAutoFilledAttributeKey($key)
             && (trim((string) $rawSaved) === '' || str_starts_with((string) $rawSaved, '__map:')))
         @php
@@ -37,9 +19,6 @@
             $isSelect = is_array($options) && count($options) > 0;
             $controlId = 'lz-attr-' . \Illuminate\Support\Str::slug($key, '-');
 
-            // A suggestion that is not one of the choices
-            // would be silently rejected by Lazada, so it
-            // is not pre-selected.
             if ($isSelect && $suggestion !== null) {
                 $suggestionIsAChoice = false;
                 foreach ($options as $option) {
@@ -65,10 +44,6 @@
             <div class="gf-attr__label">
                 <label class="gf-attr__name" for="{{ $controlId }}">
                     @php
-                        /* Lazada's template names some attributes by their
-                           raw key (__images__, wh_handling). A key is not a
-                           label: it is spelled out in words for the operator,
-                           and the raw key stays in the hidden input. */
                         $attrName = (string) $attribute['name'];
                         $attrWords = preg_match('/^[a-z0-9_]+$/i', $attrName) && str_contains($attrName, '_')
                             ? ucfirst(str_replace('_', ' ', trim($attrName, '_')))
@@ -123,7 +98,6 @@
                             </div>
                         </div>
 
-                        {{-- The only control in this row that submits. --}}
                         <input type="hidden" name="attributes[{{ $key }}]" data-attr-value value="{{ $isMapped ? $rawSaved : $value }}">
 
                         <div class="gf-attr__resolved" data-attr-resolved @unless($isMapped) hidden @endunless>
@@ -141,10 +115,8 @@
                 @endif
 
                 @if(isset($errors) && $errors->has('attributes.' . $key))
-                    {{-- Lazada's own sentence about this row, from the last refused push. --}}
                     <div class="gf-attr__error">{{ $errors->first('attributes.' . $key) }}</div>
                 @elseif(!empty($attribute['required']) && trim((string) $value) === '' && trim((string) $rawSaved) === '')
-                    {{-- Said before the push, not only after Lazada refuses. --}}
                     <div class="gf-attr__need">Required before a push.</div>
                 @endif
             </div>

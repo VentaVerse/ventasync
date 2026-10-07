@@ -10,12 +10,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('lazada_product_group_products', function (Blueprint $table) {
-            // Rename old column
             $table->renameColumn('lazada_profile_id', 'lazada_product_group_id');
         });
 
         Schema::table('lazada_product_group_products', function (Blueprint $table) {
-            // Add catalog product_id for direct product assignment
             $table->unsignedInteger('product_id')->nullable()->after('lazada_product_id');
             $table->string('sync_status', 20)->default('pending')->after('product_id');
             $table->timestamp('last_pushed_at')->nullable()->after('sync_status');
@@ -24,7 +22,6 @@ return new class extends Migration
             $table->index('product_id');
         });
 
-        // Backfill product_id from lazada_products table
         DB::statement('
             UPDATE lazada_product_group_products AS gp
             JOIN lazada_products AS lp ON lp.id = gp.lazada_product_id
@@ -32,7 +29,6 @@ return new class extends Migration
             WHERE lp.product_id IS NOT NULL
         ');
 
-        // Mark synced items (those with lazada_item_id) as pushed
         DB::statement('
             UPDATE lazada_product_group_products AS gp
             JOIN lazada_products AS lp ON lp.id = gp.lazada_product_id

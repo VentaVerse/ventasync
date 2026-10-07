@@ -1,14 +1,3 @@
-{{-- The Add-store modal on the Channels board (the owner, 2026-09-04; the page was renamed from Integrations on 2026-09-06).
-     Pick a channel, answer the fewest questions - a name always, plus
-     whatever that channel's row cannot exist without - and a store is
-     created; credentials are filled on its settings page afterwards. The
-     channel list and each channel's fields come from the cards'
-     AddStoreAction, so a channel appears here the moment it declares one.
-
-     A channel's logo is its extension's own images/logo.png, published by
-     App\Extensions\ExtensionImages. Until one exists the tile shows the
-     channel's initial; channel-add.js hides a broken image so no
-     broken-image glyph ever shows. --}}
 <div class="modal-backdrop" id="add-store-modal" data-add-store-modal @if(request()->boolean('add')) data-add-store-auto="1" @endif>
     <div class="modal cs-addmodal" role="dialog" aria-modal="true" aria-labelledby="add-store-title">
         <div class="cs-addmodal__head">
@@ -18,7 +7,6 @@
             </button>
         </div>
 
-        {{-- Step 1: which channel. --}}
         <div class="cs-addmodal__body" data-add-step="channel">
             <p class="cs-addmodal__lead">Which channel is this store on?</p>
             <div class="cs-chgrid">
@@ -34,8 +22,6 @@
             </div>
         </div>
 
-        {{-- Step 2: the fewest questions, one form per channel, revealed by
-             the pick above. --}}
         @foreach($addable as $c)
             <form method="POST" action="{{ $c['route'] }}" class="cs-addmodal__body" data-add-form="{{ $c['id'] }}" data-slow-action hidden>
                 @csrf

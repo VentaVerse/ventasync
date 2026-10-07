@@ -1,9 +1,3 @@
-/* ============================================================
-   The push-review modal (cleanup 7+9, approved from the
-   2026-09-03 draft). Feedback without teleport: what goes up,
-   shown before it goes; the bulk state leads with the verdict
-   and groups blockers by gap, one fix each.
-   ============================================================ */
 @layer components {
     .pr-scrim {
         position: fixed;
@@ -131,16 +125,9 @@
     .pr-gap__fix .x-input { max-width: 220px; }
     .pr-gap--hard { background: var(--bl-attn-wash, var(--bl-paper)); }
 
-    /* The category fixer (2026-09-05): a search with its results dropped
-       under it, the chosen category named beside, Apply to all. The
-       products the gap covers are listed under the fix so the one-by-one
-       route stays one click away. */
     .pr-cat { align-items: flex-start; }
     .pr-cat__field { position: relative; flex: 1 1 240px; min-width: 0; }
     .pr-cat__field .x-input { max-width: none; width: 100%; }
-    /* A portal on the body, placed by the script at the field's screen
-       position: inside the modal's scrolling body an overflow container
-       clipped it at its edge, whatever its z-index. Above the modal (61). */
     .pr-cat__results {
         position: fixed;
         z-index: 70;

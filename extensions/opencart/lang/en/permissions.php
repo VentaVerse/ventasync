@@ -1,7 +1,5 @@
 <?php
 
-// Permission labels use the RESOURCE name only. The tier (View vs Manage) is
-// communicated by the segmented pill UI on the user-group edit screen.
 return [
     'view_opencart' => [
         'label'       => 'OpenCart',

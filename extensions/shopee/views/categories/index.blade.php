@@ -3,17 +3,8 @@
 
 @section('title', 'Shopee Categories')
 
-{{-- Leaves the .x-legacy content boundary, the same exit Orders, Returns and
-     the order detail page already took: the page is rebuilt directly on the
-     token set and the x-ui components, so it no longer needs the wrapper
-     that re-pins twelve custom properties to their legacy values. --}}
 @section('content')
 @php
-    // Read tier is `view_shopee|manage_shopee` (see the extension's
-    // routes/web.php); the fetch POST is `manage_shopee` only. This flag
-    // decides whether the page OFFERS the fetch, nothing more - the route
-    // middleware is the real gate. It replaces a hardcoded `true`, which
-    // showed every read-only operator a button that 403s.
     $canManageShopee = auth()->user()?->hasPermission('manage_shopee/category') ?? false;
 
     $q = (string) ($q ?? '');
@@ -32,12 +23,6 @@
 </div>
 
 @if($canManageShopee)
-{{-- One command bar, the same grammar the Orders and Returns pages use for
-     the controls that talk to the marketplace: every control is
-     --control-h tall so they share one baseline, and the bar states plainly
-     what the button does rather than leaving the operator to guess whether
-     it replaces or merges. It replaces: the controller truncates
-     shopee_categories inside a transaction and re-inserts the tree. --}}
 <div class="x-cmdbar">
     <form method="POST" action="{{ route('ext.shopee.categories.fetch') }}" class="x-cmdbar__row">
         @csrf
@@ -49,11 +34,6 @@
 </div>
 @endif
 
-{{-- One filter row. The old page had a card holding a single search box, a
-     Search button and a Reset button of identical weight side by side; the
-     row here keeps the button (a form with a text field and no submit does
-     not submit on Enter per the HTML spec) and demotes Reset to the link it
-     always was, since it is navigation and not an action. --}}
 <form method="GET" action="{{ route('ext.shopee.categories.index') }}" class="x-filters">
     <x-ui.input type="search" name="q" class="x-filters__search"
                 value="{{ $q }}" placeholder="Category name or ID" aria-label="Search categories by name or ID" />
@@ -91,9 +71,6 @@
         <tr>
             <td class="cc-col-chanid" data-label="Category ID"><span class="x-num">{{ $c->category_id }}</span></td>
             <td data-label="Name">
-                {{-- Depth is drawn by indentation, not by repeating a dash
-                     per level the way the old view did. The figure is still
-                     printed in its own column for anyone who needs to count. --}}
                 <span class="cc-tree" data-level="{{ min($level, 5) }}">
                     <a class="x-row-link" href="{{ $attrUrl }}">{{ $c->name }}</a>
                 </span>
@@ -125,5 +102,5 @@
 <x-ui.pager :paginator="$categories" />
 @endif
 
-</div>{{-- /.cc-page --}}
+</div>
 @endsection

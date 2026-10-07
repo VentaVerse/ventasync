@@ -10,7 +10,6 @@ return new class extends Migration
     {
         $p = config('catalog.prefix');
 
-        // ── order ──
         if (!Schema::hasTable($p.'order')) {
             Schema::create($p.'order', function (Blueprint $t) {
                 $t->integer('order_id')->autoIncrement();
@@ -101,7 +100,6 @@ return new class extends Migration
             });
         }
 
-        // ── order_history ──
         if (!Schema::hasTable($p.'order_history')) {
             Schema::create($p.'order_history', function (Blueprint $t) {
                 $t->integer('order_history_id')->autoIncrement();
@@ -120,7 +118,6 @@ return new class extends Migration
             });
         }
 
-        // ── order_product ──
         if (!Schema::hasTable($p.'order_product')) {
             Schema::create($p.'order_product', function (Blueprint $t) {
                 $t->integer('order_product_id')->autoIncrement();
@@ -143,7 +140,6 @@ return new class extends Migration
             });
         }
 
-        // ── order_option ──
         if (!Schema::hasTable($p.'order_option')) {
             Schema::create($p.'order_option', function (Blueprint $t) {
                 $t->integer('order_option_id')->autoIncrement();
@@ -162,7 +158,6 @@ return new class extends Migration
             });
         }
 
-        // ── order_total ──
         if (!Schema::hasTable($p.'order_total')) {
             Schema::create($p.'order_total', function (Blueprint $t) {
                 $t->integer('order_total_id')->autoIncrement();
@@ -179,6 +174,5 @@ return new class extends Migration
 
     public function down(): void
     {
-        // Intentionally not dropping catalog tables.
     }
 };

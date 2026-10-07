@@ -5,19 +5,6 @@ namespace Tests\Feature;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
-/**
- * A missing SKU is only an error on a row somebody is making.
- *
- * The grid used to mark every blank SKU red and refuse the save, so a product
- * imported without variation SKUs could not be saved AT ALL: open it to
- * change one price and five fields nobody touched hold the form hostage, on a
- * rule the server never applied when the record was written. On a
- * six-by-eight product that is 48 SKUs invented before you can fix a typo.
- *
- * It also contradicted the rest of the form, where SKU is deliberately
- * optional. A row that ARRIVED blank keeps its right to be blank; a row being
- * created now does not, because that is the moment an operator can supply one.
- */
 class VariationLegacySkuTest extends TestCase
 {
     private function source(): string
@@ -29,11 +16,9 @@ class VariationLegacySkuTest extends TestCase
     {
         $source = $this->source();
 
-        // Both bootstrap paths stamp it: single-axis values and combinations.
         $this->assertSame(2, substr_count($source, 'legacyBlankSku: !String('),
             'both the value and the combination loaders must record provenance');
 
-        // And it reaches the input the validator reads.
         $this->assertStringContainsString("skuOne.dataset.legacyBlank = '1'", $source);
         $this->assertStringContainsString("skuCombo.dataset.legacyBlank = '1'", $source);
     }
@@ -52,10 +37,6 @@ class VariationLegacySkuTest extends TestCase
         $this->assertStringContainsString('will not map to a marketplace listing', $source);
     }
 
-    /**
-     * The flag must not survive the operator typing a SKU, or the row would
-     * keep its exemption forever.
-     */
     public function test_typing_a_sku_ends_the_exemption(): void
     {
         $source = $this->source();
@@ -67,13 +48,6 @@ class VariationLegacySkuTest extends TestCase
         $this->assertStringContainsString("&& !(skuInput.value || '').trim();", $source);
     }
 
-    /**
-     * requestSubmit() does NOTHING while the form is already firing
-     * submission events, and one of this listener's exits is synchronous -
-     * it runs inside the very handler calling it. That path silently stopped
-     * submitting when this moved off form.submit(), and only became
-     * reachable once legacy rows could pass validation.
-     */
     public function test_the_resubmit_leaves_the_current_dispatch_first(): void
     {
         $this->assertStringContainsString(
@@ -83,10 +57,6 @@ class VariationLegacySkuTest extends TestCase
         );
     }
 
-    /**
-     * Every shape-changing control in this section asks now, not just the one
-     * that destroys nothing.
-     */
     public function test_all_three_shape_changing_controls_confirm(): void
     {
         $source = $this->source();
@@ -102,8 +72,6 @@ class VariationLegacySkuTest extends TestCase
             );
         }
 
-        // The destructive ones name the count; a generic warning cannot tell
-        // a mistake from a decision.
         $this->assertStringContainsString("' rows'", $source);
         $this->assertStringContainsString("' other combinations are'", $source);
     }

@@ -25,9 +25,6 @@
     <div class="fm-body">
         <div class="fm-col fm-col--main">
 
-            {{-- ---------------------------------------------------------
-                 General
-                 --------------------------------------------------------- --}}
             <section class="fm-section">
                 <div class="fm-section__head">
                     <h2 class="fm-section__title">General</h2>
@@ -43,7 +40,6 @@
 
         <div class="fm-col fm-col--side">
 
-            {{-- Details --------------------------------------------------- --}}
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Details</h2></div>
                 <div class="fm-card__body">

@@ -11,13 +11,6 @@ use Illuminate\Support\Facades\DB;
 
 class OrderStockService
 {
-    /**
-     * Adjust product stock when an order transitions between statuses.
-     *
-     * @param Order $order
-     * @param int   $oldStatusId  Previous status (0 = new order)
-     * @param int   $newStatusId  New status
-     */
     public static function adjustStock(Order $order, int $oldStatusId, int $newStatusId): void
     {
         if ($oldStatusId === $newStatusId) {
@@ -37,12 +30,10 @@ class OrderStockService
             $newSubtract = $newStatus ? (int) $newStatus->subtract_stock : 0;
         }
 
-        // No change in subtract behaviour
         if ($oldSubtract === $newSubtract) {
             return;
         }
 
-        // Direction: deduct (-1) when entering a subtract status, restore (+1) when leaving
         $direction = ($oldSubtract === 0 && $newSubtract === 1) ? -1 : 1;
         $type = $direction === -1 ? 'deduct' : 'restore';
         $source = StockHistoryLogger::sourceFromOrder($order->marketplace_source ?? '');
@@ -56,10 +47,8 @@ class OrderStockService
         };
         $orderLabel = 'Order #' . $order->order_id . ($sourceLabel !== '' ? " ($sourceLabel)" : '');
 
-        // Ensure fresh relationship data (products may have just been inserted)
         $order->load('products.options');
 
-        // Resolve default warehouse once for all line items (null if extension not installed)
         $defaultWarehouse = self::resolveDefaultWarehouse();
 
         foreach ($order->products as $orderProduct) {
@@ -69,11 +58,9 @@ class OrderStockService
 
             if ($optionValue && (int) $optionValue->subtract) {
                 $ovQtyBefore = (int) $optionValue->quantity;
-                // Option-level stock: adjust the specific option value
                 $optionValue->quantity = $optionValue->quantity + ($direction * $orderProduct->quantity);
                 $optionValue->save();
 
-                // Also sync the combination quantity to stay in sync with product_option_value
                 DB::table('product_option_combination_values as cv')
                     ->join('product_option_combinations as c', 'c.id', '=', 'cv.combination_id')
                     ->where('cv.product_option_value_id', $optionValue->product_option_value_id)
@@ -91,7 +78,6 @@ class OrderStockService
                     note: "$orderLabel: {$type}ed {$orderProduct->quantity} (option)",
                 );
 
-                // Sync warehouse inventory for this option value
                 self::syncWarehouseInventory(
                     $defaultWarehouse,
                     (int) $optionValue->product_id,
@@ -102,7 +88,6 @@ class OrderStockService
 
             if ($product && (int) $product->subtract) {
                 $pQtyBefore = (int) $product->quantity;
-                // Product-level stock: always adjust main product total
                 $product->quantity = $product->quantity + ($direction * $orderProduct->quantity);
                 $product->save();
 
@@ -117,7 +102,6 @@ class OrderStockService
                     note: "$orderLabel: {$type}ed {$orderProduct->quantity}",
                 );
 
-                // Sync warehouse inventory for product-level (only for products without options)
                 if (!$optionValue) {
                     self::syncWarehouseInventory(
                         $defaultWarehouse,
@@ -130,9 +114,6 @@ class OrderStockService
         }
     }
 
-    /**
-     * Resolve the default warehouse (null if warehousing extension is not installed).
-     */
     private static function resolveDefaultWarehouse(): ?object
     {
         if (!class_exists(\Extensions\warehousing\Services\WarehouseStockService::class)) {
@@ -142,11 +123,6 @@ class OrderStockService
         return \Extensions\warehousing\Services\WarehouseStockService::getDefaultWarehouse();
     }
 
-    /**
-     * Sync warehouse inventory for a product/option-value after an order stock adjustment.
-     * Directly increments/decrements the warehouse_inventory row without calling
-     * syncProductTotal() — OrderStockService already manages catalog quantities.
-     */
     private static function syncWarehouseInventory(?object $warehouse, int $productId, int $povId, int $delta): void
     {
         if (!$warehouse || $delta === 0) {
@@ -166,16 +142,12 @@ class OrderStockService
         }
     }
 
-    /**
-     * Resolve the catalog Product and ProductOptionValue for an order product.
-     */
     private static function resolve($orderProduct): array
     {
         $product = null;
         $optionValue = null;
         $sku = trim((string) $orderProduct->model);
 
-        // --- Try direct IDs from OrderOption ---
         $orderOption = $orderProduct->options->first();
         if ($orderOption && $orderOption->product_option_value_id > 0) {
             $optionValue = ProductOptionValue::where('product_option_value_id', $orderOption->product_option_value_id)->first();
@@ -184,16 +156,10 @@ class OrderStockService
             }
         }
 
-        // --- Try direct product_id on order product ---
         if (!$product && $orderProduct->product_id > 0) {
             $product = Product::where('product_id', $orderProduct->product_id)->first();
         }
 
-        // --- Marketplace SKU lookup via the integration registry ---
-        // Each marketplace extension that maintains its own SKU↔catalog map
-        // (Lazada has seller_sku → LazadaProductVariant → catalog product) can
-        // implement Contracts\SkuResolver and contribute here. Core no longer
-        // imports the marketplace's models directly.
         if (!$product && $sku !== '') {
             foreach (app(IntegrationRegistry::class)->skuResolvers() as $resolver) {
                 $resolved = $resolver->resolveCatalogProduct($sku);
@@ -209,16 +175,12 @@ class OrderStockService
                 }
             }
 
-            // Final fallback: match directly against catalog product sku/model
             if (!$product) {
                 $product = Product::where('sku', $sku)->first()
                     ?? Product::where('model', $sku)->first();
             }
         }
 
-        // --- Match option value by SKU on the product ---
-        // If we found the product but not the option value, try matching
-        // the seller SKU against product_option_value.sku
         if ($product && !$optionValue && $sku !== '') {
             $optionValue = ProductOptionValue::where('product_id', $product->product_id)
                 ->where('sku', $sku)

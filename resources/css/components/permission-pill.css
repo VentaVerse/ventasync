@@ -1,59 +1,12 @@
-/* ============================================================
-   PERMISSION PILL, segmented radiogroup
-   ------------------------------------------------------------
-   The permission editor on the user-group create/edit pages.
-   Each row carries a 2- or 3-segment pill that maps to the tiers
-   exposed by App\Services\PermissionHierarchy::tiersOf().
-
-   States:
-     Off     neither view_X nor manage_X submitted
-     View    only view_X submitted   (3-segment pills only)
-     Manage  only manage_X submitted (implies view at query layer)
-
-   Class names are frozen: resources/js/permission-pill.js queries
-   every one of them by name, and the hidden inputs they wrap are
-   the security model's wire format. This file only repaints.
-
-   Colour has exactly ONE job on this page: naming the tier.
-     Off     neutral   (--bl-ink-2)
-     View    --bl-cool
-     Manage  --bl-brand-deep
-   Nothing else here is coloured. Group headers, counters, stats,
-   search and the empty state are all neutrals, so a green pill
-   means "full control" and cannot be confused with brand chrome
-   or with a button.
-
-   Every value is a token, so light and dark are the same rules.
-   Previously this file was ~40 hardcoded light-mode hex values
-   with a #39ff14 focus ring inherited from the retired neon skin;
-   on layouts.shell that rendered as a white slab in dark mode.
-   ============================================================ */
-
 #perm-picker-v2 {
-    /* The sticky offset the area heads pin at. This default matches the
-       one-line toolbar; permission-pill.js overwrites it with the
-       toolbar's REAL rendered height, because the toolbar wraps taller at
-       tablet widths and a constant put every pinned head underneath it. */
     --permv2-toolbar-h: 59px;
 
-    /* Local aliases. Scoped to the picker so the tier language cannot
-       leak into anything else, and so a palette change to
-       base/tokens.css repaints this file for free. */
     --pill-h: 30px;
     --pill-radius: 999px;
 
     --pill-track: var(--bl-chrome);
     --pill-track-border: var(--bl-rule);
     --pill-text: var(--bl-ink-2);
-    /* Same value as before (#FFFFFF), now the token every other solid-
-       colour surface in this app already uses for its label: primary
-       buttons (ui-controls.css), switches (form-page.css, order-detail.css),
-       badges (layout/shell.css). Not really "accent" text here - it sits on
-       three different thumb colours (off/view/manage) - but it is this
-       system's one token for "readable label on a saturated surface", and
-       the light-mode value it carries is the same #FFFFFF this file always
-       rendered. Contrast unchanged: 5.35:1 / 6.36:1 / 5.55:1 against the
-       three thumbs. */
     --pill-text-active: #fff;
 
     --thumb-off: var(--bl-ink-2);
@@ -63,25 +16,10 @@
     font-family: inherit;
 }
 
-/* NO .x-app IN THIS SELECTOR, and the reason is worth keeping.
-
-   It used to read `:root[data-theme="dark"] .x-app #perm-picker-v2`, and
-   .x-app is emitted by exactly two layouts - standalone and channel. Every
-   user-group view extends layouts.blotter, whose body class is `bl-app`. So
-   the rule never matched on the only page that uses this component, the
-   token stayed #fff, and the ACTIVE segment - the one thing on the row that
-   says what access the group has - rendered white on a pale thumb.
-
-   Measured as shipped: 1.58:1 on manage, 2.45:1 on view, 2.16:1 on off, at
-   11px. The comment below claimed 7.05 / 6.94 / 8.50. A stated ratio nobody
-   re-measured, on a rule that could not fire. */
 :root[data-theme="dark"] #perm-picker-v2 {
-    /* Every thumb colour is a light value on the dark theme, so the
-       active segment's label flips to near-black rather than white. */
     --pill-text-active: var(--bl-paper);
 }
 
-/* ----------------------------- TOOLBAR ----------------------------- */
 .permv2-toolbar {
     position: sticky;
     top: -1px;
@@ -115,8 +53,6 @@
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
-    /* Was --bl-ink-2 on --bl-chrome: 4.20:1 at 12px, under the 4.5 AA floor.
-       The page's one text-contrast failure, in light theme only. */
     color: var(--bl-ink);
     background: var(--bl-chrome);
     border: 1px solid var(--bl-rule);
@@ -243,7 +179,6 @@
     line-height: 1.4;
 }
 
-/* Search field */
 .permv2-search-wrap {
     grid-column: 1 / -1;
     position: relative;
@@ -279,35 +214,20 @@
 }
 .permv2-search-icon svg { width: 100%; height: 100%; stroke: currentColor; fill: none; stroke-width: 2; }
 
-/* Inline footnote sits under the toolbar */
 
 
 
 
-
-/* ----------------------------- GROUP ----------------------------- */
 .permv2-group {
     background: var(--bl-sheet);
     border: 1px solid var(--bl-rule);
     border-radius: var(--bl-r-ctrl);
     margin-bottom: var(--bl-space-3);
-    /* NOT overflow:hidden. That makes this box a scroll container, and a
-       sticky child positions against its nearest scrolling ancestor - so
-       the head would stick inside a box that never scrolls, which is to
-       say not at all. overflow:clip clips the same corners without
-       becoming one. */
+    /* Not overflow:hidden. That makes a scroll container and the sticky head would never stick; clip does not. */
     overflow: clip;
 }
 
 .permv2-group-head {
-    /* The area name is the only thing that tells eight rows called "Order"
-       apart, and it used to scroll away after the first few rows. The
-       offset clears the sticky toolbar above it - MEASURED, not assumed:
-       a hardcoded 59px was right only at desktop widths, and the moment
-       the toolbar wrapped taller (641-1024px) every pinned head slid
-       23px underneath it, slicing the one label that disambiguates eight
-       rows called "Orders". permission-pill.js keeps the variable equal
-       to the toolbar's real rendered height. */
     position: sticky;
     top: var(--permv2-toolbar-h, 59px);
     z-index: 3;
@@ -343,8 +263,6 @@
     outline-offset: -2px;
 }
 
-/* The area's own Off / View / Manage, one click instead of seven. Quiet on
-   purpose: these are shortcuts beside the heading, not the page's subject. */
 .permv2-group-set {
     display: inline-flex;
     gap: 2px;
@@ -421,38 +339,19 @@
 .permv2-stat[data-kind="manage"] .permv2-stat-pip { background: var(--thumb-manage); }
 .permv2-stat[data-kind="view"] .permv2-stat-pip { background: var(--thumb-view); }
 .permv2-stat-pip { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-/* A ZERO IS QUIETER, NOT FAINTER.
-   ------------------------------------------------------------------
-   This was opacity: .45, and on 11px text that measured 1.85:1 in light
-   and 2.17:1 in dark - the dimmest text on the page, on the group that
-   most needs orienting, at less than half the AA floor. Opacity cannot
-   fix it either: walked from .45 to 1.0, only full opacity clears 4.5:1
-   in both themes (light reaches just 4.10 at .90).
-
-   So the de-emphasis moves off the text and onto the pip, which carries
-   no information a reader has to decode. A granted section shows a
-   coloured dot and darker figures; an empty one shows a grey dot and the
-   same figures a shade lighter. The hierarchy survives and the reading
-   does too. */
 .permv2-stat[data-zero="0"] { color: var(--bl-ink-2); }
 .permv2-stat[data-zero="1"] .permv2-stat-pip { background: var(--bl-rule-2); }
 
-/* Group body */
 .permv2-group-body { display: block; }
 .permv2-group[data-collapsed="1"] .permv2-group-body { display: none; }
 
-/* Subgroup header inside a group */
-
-
-
-
-/* Parent (group itself) row, at the very top of a flat group */
 
 
 
 
 
-/* ----------------------------- ROW ----------------------------- */
+
+
 .permv2-row {
     display: grid;
     grid-template-columns: 1fr auto;
@@ -462,9 +361,6 @@
     border-bottom: 1px solid var(--bl-rule);
     transition: background var(--bl-motion-fast);
 }
-/* Both sticky layers - toolbar and the group's own head - float above the
-   rows. Without this a row scrolled to by keyboard or filter arrives under
-   them, sliced in half. */
 .permv2-row { scroll-margin-top: calc(var(--permv2-toolbar-h, 59px) + 51px); }
 .permv2-row:last-child { border-bottom: none; }
 .permv2-row:hover { background: var(--bl-chrome-2); }
@@ -498,7 +394,6 @@
     line-height: 1.4;
 }
 
-/* ----------------------------- THE PILL ----------------------------- */
 .permv2-pill {
     position: relative;
     display: inline-flex;
@@ -514,7 +409,6 @@
 .permv2-pill[data-segments="2"] { width: 142px; }
 .permv2-pill[data-segments="3"] { width: 204px; }
 
-/* Sliding thumb, translateX driven by data-state */
 .permv2-pill-thumb {
     position: absolute;
     top: 3px;
@@ -530,17 +424,12 @@
 
 .permv2-pill[data-segments="2"][data-state="off"]    .permv2-pill-thumb { transform: translateX(0); background: var(--thumb-off); }
 .permv2-pill[data-segments="2"][data-state="manage"] .permv2-pill-thumb { transform: translateX(100%); background: var(--thumb-manage); }
-/* A 2-segment pill whose second slot is "view" (a read-only-only
-   resource). The thumb glides to the same far-right position but takes
-   the View colour, so the tier language stays the same as a 3-segment
-   pill instead of a read grant looking like full control. */
 .permv2-pill[data-segments="2"][data-state="view"]   .permv2-pill-thumb { transform: translateX(100%); background: var(--thumb-view); }
 
 .permv2-pill[data-segments="3"][data-state="off"]    .permv2-pill-thumb { transform: translateX(0); background: var(--thumb-off); }
 .permv2-pill[data-segments="3"][data-state="view"]   .permv2-pill-thumb { transform: translateX(100%); background: var(--thumb-view); }
 .permv2-pill[data-segments="3"][data-state="manage"] .permv2-pill-thumb { transform: translateX(200%); background: var(--thumb-manage); }
 
-/* Segment buttons */
 .permv2-pill-seg {
     appearance: none;
     background: transparent;
@@ -568,7 +457,6 @@
 }
 .permv2-pill:focus-within { border-color: var(--bl-rule-2); }
 
-/* Per-segment icon glyph */
 .permv2-pill-seg svg {
     width: 11px;
     height: 11px;
@@ -585,7 +473,6 @@
     .permv2-chev { transition: none; }
 }
 
-/* ----------------------------- EMPTY STATE (search) ----------------------------- */
 .permv2-empty {
     display: none;
     padding: var(--bl-space-8) var(--bl-space-5);
@@ -602,7 +489,6 @@
 
 
 
-/* ----------------------------- RESPONSIVE ----------------------------- */
 @media (max-width: 1024px) {
     .permv2-toolbar {
         grid-template-columns: 1fr;
@@ -629,19 +515,9 @@
     .permv2-pill-seg { font-size: 10px; padding: 0 var(--bl-space-1); gap: 3px; }
     .permv2-group-title { font-size: 11px; }
 
-    /* The group header's manage/view tallies would push the header
-       wider than a 390px frame next to a long domain name. The pills
-       below still carry the same information per row. */
     .permv2-group-stats { display: none; }
 }
 
-
-/* ------------------- ELEVATED, NOTES, MACHINE AREAS ------------------- */
-
-/* No warning styling of any kind. The consequential rows' extra sentence
-   renders as ordinary description text - a fact, like "8 actions" - per
-   the owner's ruling: a permission does what its name says, and the admin
-   owns the decision. */
 
 .permv2-group-note {
     display: block;
@@ -655,22 +531,13 @@
     white-space: normal;
 }
 
-/* Machine areas sit last and open closed; the muted head says "this is not
-   part of the web interface" before the note has to. */
 .permv2-group[data-machine="1"] .permv2-group-head { background: var(--bl-chrome-2); }
 .permv2-group[data-machine="1"] .permv2-group-title-text { color: var(--bl-ink-2); }
 
 @media (max-width: 640px) {
-    /* Two stacked sticky layers eat a phone viewport. The toolbar stays;
-       the heads scroll with their groups. */
     .permv2-group-head { position: static; }
     .permv2-row { scroll-margin-top: 76px; }
 
-    /* THE TITLE OWNS THE ROW; THE CLUSTER WRAPS UNDER IT. Side by side on
-       a phone, a collapsed machine area rendered "Mobile app access" as
-       the single letter "M" with its note wrapping one word per line in
-       the sliver the cluster left over. Screenshot-confirmed, then fixed
-       by giving the head one column. */
     .permv2-group-head {
         grid-template-columns: 1fr;
         padding-right: 0;
@@ -680,9 +547,6 @@
         margin: 0 var(--bl-space-3) var(--bl-space-2) 0;
     }
 
-    /* The title and its note sit side by side on desktop (flex row); on a
-       phone the note steals the row and the title ellipsised down to one
-       letter. Stack them. */
     .permv2-group-title {
         flex-direction: column;
         align-items: flex-start;

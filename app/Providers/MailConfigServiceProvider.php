@@ -64,7 +64,6 @@ class MailConfigServiceProvider extends ServiceProvider
                 $config->set('mail.from.name', $setting->mail_from_name);
             }
         } catch (Throwable $e) {
-            // Never block boot — fall back to .env values.
         }
     }
 

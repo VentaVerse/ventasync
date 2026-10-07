@@ -8,11 +8,9 @@ class TikTokCategory extends Model
 {
     protected $table = 'tiktok_categories';
 
-    // String PK, not auto-increment
     protected $keyType = 'string';
     public $incrementing = false;
 
-    // Cache table — no timestamps
     public $timestamps = false;
 
     protected $fillable = [

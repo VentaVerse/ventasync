@@ -4,29 +4,6 @@ namespace Tests\Feature;
 
 use Tests\TestCase;
 
-/**
- * Checking is a question, not a push, and an unanswered question is not a no.
- *
- * Three things are pinned here.
- *
- * FIRST, and most important: reconcileLink may only conclude that a product is
- * gone when Venta SAYS it is gone. The first draft tested nothing but
- * $result['ok'], which is false for a 404 and equally false for a dead socket,
- * a 500, or an expired token. A store that was merely unreachable therefore
- * read as a store that had deleted its entire catalog, and the 'lost' branch
- * deletes links. One outage would have wiped every link in the group and
- * reported it as tidy housekeeping. Only an explicit 404 counts.
- *
- * SECOND: the page distinguishes what it has checked from what it believes.
- * Every status on this page was written at push time and never revisited, so
- * "Pushed" meant "a push once succeeded", which is a claim about the past
- * wearing the clothes of a claim about the present. last_confirmed_at is the
- * timestamp of the last time anybody actually asked.
- *
- * THIRD: the check reports findings and never pushes. It is the read half of
- * the pair; Send is the write half. If checking ever starts writing to Venta,
- * the confirm dialog that promises it will not becomes a lie.
- */
 class VentaCheckAndOrphansTest extends TestCase
 {
     private const CONTROLLER = 'extensions/venta/Controllers/VentaProductGroupController.php';
@@ -42,8 +19,6 @@ class VentaCheckAndOrphansTest extends TestCase
 
     private function methodBody(string $method, ?string $file = null): string
     {
-        /* reconcileLink moved into VentaProductPush (30675106); its callers
-         * pass the service file. pushProducts is still the controller's. */
         $source = $this->source($file ?? self::CONTROLLER);
 
         if (! preg_match('/\n    (?:public|private) function '.$method.'\(/', $source, $m, PREG_OFFSET_CAPTURE)) {
@@ -57,8 +32,6 @@ class VentaCheckAndOrphansTest extends TestCase
 
         return substr($source, $start, $next - $start);
     }
-
-    // ── Silence is not an answer ─────────────────────────────────────
 
     public function test_only_a_404_may_mean_the_product_is_gone(): void
     {
@@ -77,7 +50,6 @@ class VentaCheckAndOrphansTest extends TestCase
             'The unreachable verdict is gone, so a failed lookup falls through to lost or new '
             .'and something gets concluded from no evidence.');
 
-        // The guard has to come BEFORE the branch that deletes.
         $unreachableAt = strpos($body, "'state' => 'unreachable'");
         $lostAt = strpos($body, "'state' => 'lost'");
 
@@ -97,11 +69,6 @@ class VentaCheckAndOrphansTest extends TestCase
             .'product that already exists.');
     }
 
-    /**
-     * And nothing is written about a product Venta did not answer for. The
-     * previous row text stays, which is honest: it was a belief before the
-     * check and it is still a belief after it.
-     */
     public function test_an_unreachable_product_keeps_its_previous_row(): void
     {
         $body = $this->methodBody('run', self::CHECK);
@@ -113,8 +80,6 @@ class VentaCheckAndOrphansTest extends TestCase
             .'being recorded as a finding.'
         );
     }
-
-    // ── Checked versus believed ──────────────────────────────────────
 
     public function test_the_check_records_when_it_asked(): void
     {
@@ -146,8 +111,6 @@ class VentaCheckAndOrphansTest extends TestCase
             .'renders as never checked.');
     }
 
-    // ── The check does not push ──────────────────────────────────────
-
     public function test_checking_never_writes_to_venta(): void
     {
         $body = $this->methodBody('run', self::CHECK);
@@ -169,8 +132,6 @@ class VentaCheckAndOrphansTest extends TestCase
         $this->assertStringContainsString('not checked this time', $body,
             'The check stops early without saying so, so unchecked products look confirmed.');
     }
-
-    // ── The orphan report ────────────────────────────────────────────
 
     public function test_the_orphan_report_only_reads(): void
     {
@@ -197,11 +158,6 @@ class VentaCheckAndOrphansTest extends TestCase
             'The view never surfaces truncation, so a cut-off list looks complete.');
     }
 
-    /**
-     * An orphan is decided by id, not by name similarity. Matching on a name
-     * that merely looks alike is a guess, and this page exists to remove
-     * guessing rather than to add a friendlier kind of it.
-     */
     public function test_an_orphan_is_decided_by_the_link_table(): void
     {
         $body = $this->methodBody('orphans');

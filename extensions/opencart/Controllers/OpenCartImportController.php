@@ -11,20 +11,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-/**
- * The Import page (cleanup point 11, the owner 2026-09-04): OpenCart joins
- * the other channels - its own page under the Catalog menu holding the
- * scan and the queue, Import / Link / Dismiss per row, store-scoped.
- * The api/erp store module this queue reads from ships in this repo
- * (upload-this-to-opencart/), so the shapes are certain.
- */
 class OpenCartImportController extends Controller
 {
-    /**
-     * The Import page, stateless (the owner, 2026-09-04): nothing about the
-     * store's products is saved - blank until Fetch reads the store live
-     * through its api/erp module, rows exist only in the render.
-     */
     public function importPage(Request $request, int $store)
     {
         $setting = OpenCartSetting::findOrFail($store);
@@ -43,13 +31,6 @@ class OpenCartImportController extends Controller
         ]);
     }
 
-    /**
-     * Read the store live and keep only products the catalog cannot
-     * place - SKU (or model, OpenCart's habitual SKU field) unknown and
-     * no link row. Pure read.
-     *
-     * @return array{0: ?array{found: int, rows: list<array>}, 1: ?string}
-     */
     private function fetchUnmatched(OpenCartSetting $setting): array
     {
         if (! $setting->enabled) {
@@ -101,7 +82,6 @@ class OpenCartImportController extends Controller
         return [['found' => $found, 'rows' => $rows], null];
     }
 
-    /** Import one fetched product, re-read live by its id. */
     public function importOne(Request $request, int $store, OpenCartItemImport $import)
     {
         $data = $request->validate(['ref' => 'required|integer|min:1']);
@@ -112,7 +92,6 @@ class OpenCartImportController extends Controller
         return redirect()->back()->with($r['ok'] ? 'status' : 'error', $r['message']);
     }
 
-    /** Import selected: every ticked row, each in its own transaction. */
     public function importSelected(Request $request, int $store, OpenCartItemImport $import)
     {
         $data = $request->validate(['refs' => 'required|array|min:1', 'refs.*' => 'integer|min:1']);
@@ -135,7 +114,6 @@ class OpenCartImportController extends Controller
         return redirect()->back()->with($line['tone'], $line['message']);
     }
 
-    /** Link a fetched product to a catalog product it already is. */
     public function linkItem(Request $request, int $store)
     {
         OpenCartSetting::findOrFail($store);
@@ -158,7 +136,6 @@ class OpenCartImportController extends Controller
         return redirect()->back()->with('status', 'Linked OpenCart product #' . $data['ref'] . ' to catalog product #' . $data['product_id'] . '.');
     }
 
-    /** The Link typeahead's catalog search, same JSON every channel serves. */
     public function searchCatalog(Request $request, int $store)
     {
         OpenCartSetting::findOrFail($store);

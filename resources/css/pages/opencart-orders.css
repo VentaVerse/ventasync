@@ -1,52 +1,11 @@
-/* OpenCart Orders, per storefront.
-   -------------------------------------------------------------------
-   The shared anatomy this page is drawn on lives in the co- vocabulary in
-   blotter-components.css: the order band, the item rows, the money and
-   status cells and the mobile restack are the same picture every other
-   channel draws, so they are the same rules rather than a copy of them.
-
-   What is here is OpenCart's own and takes an `oc-` prefix, the same one
-   pages/channel-settings.css uses for that channel's settings screen; the
-   two share no class name.
-
-   This channel's rows are core catalog orders - the OpenCart sync writes
-   straight into the ERP's own order tables - so the list is narrower than a
-   marketplace one: no courier, no waybill, no ship-by deadline, and no write
-   route at all on this surface. Fewer columns, more room for the product
-   titles, which is the field an operator actually reads here.
-
-   RESTORED. This file and its Pedallion twin were the two page vocabularies
-   that the legacy bundle's retirement deleted without porting - they were
-   imported through app.css rather than blotter.css, so they went out with it
-   while the other channels' files were carried across. For the months
-   between, both channels rendered their order tables with no column widths
-   at all. The guard that should have caught it named this file by path and
-   read it with file_get_contents, which returns false for a file that is not
-   there, and false contains no forbidden string - so the guard passed on
-   nothing. It asserts the file exists now.
-   ------------------------------------------------------------------- */
-
-/* Products | Qty | Price | Total | Status | Date | Actions, with the order
-   facts banded above each order's item rows. Percentages summing to 100.
-
-   The legacy table carried a Store column whose value was identical on every
-   row, because this page IS one store. The sidebar head, the breadcrumb and
-   (on the fulfilment hub) the panel's own store line all name it, so the
-   column is gone and its width went to Products. */
 .oc-col-products { width: 40%; }
 .oc-col-qty      { width: 5%; }
 .oc-col-price    { width: 11%; }
 .oc-col-total    { width: 13%; }
 .oc-col-status   { width: 15%; }
 .oc-col-date     { width: 12%; }
-/* Actions holds one overflow trigger, a 24px square: Edit and Delete both
-   sit behind it, and the way into an order is its number in the band. */
 .oc-col-act      { width: 4%; }
 
-/* The marketplace order number an OpenCart order was imported under. It is a
-   reference, not the identity of the row (the ERP order number in the band
-   is that), so it reads one step quieter and in mono, because it is a code
-   compared character by character against another system. */
 .oc-ext {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
@@ -55,22 +14,11 @@
     overflow-wrap: anywhere;
 }
 
-/* ------------------------------------------------------------------
-   Responsive
-   ------------------------------------------------------------------ */
-
-/* Seven columns fit further down than nine do, so this page only needs help
-   in the narrow band just above the restack. Price is the field to drop: it
-   is the per-line unit figure, and the order total beside it, which is what
-   the desk actually reconciles against, stays. */
 @media (min-width: 641px) and (max-width: 820px) {
     .oc-col-price { display: none; }
     #opencart-orders-page .x-table td[data-label="Price"] { display: none; }
 }
 
-/* Once the row restacks there are no columns left to align on, so a
-   right-aligned figure just floats away from its own label. Same rule and
-   the same scoping as the other channels' page files carry. */
 @media (max-width: 700px) {
     #opencart-orders-page .x-table tbody td.x-td-num { text-align: left; }
 }

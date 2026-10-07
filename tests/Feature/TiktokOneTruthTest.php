@@ -13,19 +13,10 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * TikTok's one-truth port (2026-08-25). TikTok has no listings table -
- * the group pivot rows are the only record - so whether a product is ON
- * TikTok is DERIVED across every group's rows: any pivot holding the id
- * answers for the product, latest push first, and the provenance names
- * which group's push made it true. This group's own failed attempt is
- * told as exactly that, beside the truth, never instead of it.
- */
 class TiktokOneTruthTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** The store every store-scoped TikTok route in this file names. */
     private TikTokSetting $tiktokStore;
 
     protected function setUp(): void
@@ -39,8 +30,6 @@ class TiktokOneTruthTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalogue');
 
-        // Multi-store (the owner 2026-09-05): every TikTok page is store-scoped, so
-        // a store must exist for ResolveTikTokStore to bind the {store} segment.
         $this->tiktokStore = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
@@ -78,12 +67,6 @@ class TiktokOneTruthTest extends TestCase
 
     public function test_a_group_page_tells_the_products_truth_beyond_its_own_attempt(): void
     {
-        /* Reshaped 2026-09-04 (one product, one group): the dual-membership
-           scenario this pinned is illegal now, but the truth it guarded
-           survives - the group page must show the PRODUCT's real listed
-           state even when the group's own last attempt failed. Here the
-           listing record carries the truth (pushed from another door,
-           provenance recorded), while the one group holds a failed try. */
         $productId = $this->seedProduct();
 
         $groupB = TikTokProductGroup::create(['name' => 'Truth group B', 'tiktok_category_id' => '900001']);
@@ -103,11 +86,9 @@ class TiktokOneTruthTest extends TestCase
             ->get(route('ext.tiktok.product-groups.products', ['store' => $this->tiktokStore->id, 'id' => $groupB->id]));
 
         $r->assertOk();
-        // Group B shows the PRODUCT's truth: listed, with the real id and provenance.
         $r->assertSee('tt-990077');
         $r->assertSee('Listed');
         $r->assertDontSee('>Failed<', false);
-        // Readiness is the shared line above a row, never a column of its own.
         $r->assertDontSee('cc-col-ready', false);
     }
 }

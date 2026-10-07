@@ -5,11 +5,6 @@ namespace Tests\Unit;
 use App\Support\Fulfilment\CourierTally;
 use PHPUnit\Framework\TestCase;
 
-/**
- * The handover queue split by courier, and the filter that split drives.
- * The count on a pill and the rows under it must be the same set by
- * construction, and the names must be the ones a packer reads off a parcel.
- */
 class CourierTallyTest extends TestCase
 {
     public function test_lazadas_two_leg_string_becomes_the_delivery_carrier(): void

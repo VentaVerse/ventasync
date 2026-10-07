@@ -31,7 +31,6 @@ class OpenCartPushReviews extends Command
             return 1;
         }
 
-        // Get all pending reviews that have a resolved product_id
         $pendingReviews = MarketplaceReview::query()
             ->whereIn('oc_sync_status', ['pending', 'error'])
             ->whereNotNull('product_id')
@@ -53,7 +52,6 @@ class OpenCartPushReviews extends Command
 
             $client = new OpenCartClient($setting);
 
-            // Ping check
             $ping = $client->ping();
             if (!($ping['ok'] ?? false)) {
                 $this->warn("  Cannot reach store, skipping.");
@@ -65,7 +63,6 @@ class OpenCartPushReviews extends Command
             $skipped = 0;
             $errors = 0;
 
-            // Build product link map for this store: product_id => oc_product_id
             $linkMap = OpenCartProductLink::query()
                 ->where('opencart_setting_id', $setting->id)
                 ->pluck('oc_product_id', 'product_id')
@@ -74,13 +71,11 @@ class OpenCartPushReviews extends Command
             foreach ($pendingReviews as $review) {
                 $ocProductId = $linkMap[$review->product_id] ?? null;
 
-                // Skip if already pushed by a previous store in this run
                 if (!in_array($review->oc_sync_status, ['pending', 'error'])) {
                     continue;
                 }
 
                 if (!$ocProductId) {
-                    // Product not linked to this OC store -- skip silently
                     $skipped++;
                     continue;
                 }

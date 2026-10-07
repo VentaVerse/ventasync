@@ -46,15 +46,6 @@ class SetOrderCurrencyRate extends Command
             return self::FAILURE;
         }
 
-        // This command exists to repair LOST-RATE orders only: currency_value
-        // was hardcoded to 1 by the pre-fix write path, so the row's money
-        // columns are the raw foreign amount masquerading as PHP. A
-        // legacy-convention order (currency_value already a real fraction
-        // like 0.02100927) has money that is ALREADY correctly in PHP -
-        // running it through toBase() a second time would inflate it by the
-        // rate all over again. Refuse anything whose currency_value isn't the
-        // default rate; those orders belong to orders:currency-normalize, not
-        // this command.
         if (!OrderCurrencyService::isDefaultRate((float) $order->currency_value)) {
             $this->error("Order {$orderId} has currency_value={$order->currency_value}, not 1 - this is not a lost-rate order. It already carries a real exchange rate (legacy convention) and must not be run through this command. Use orders:currency-normalize instead.");
             return self::FAILURE;
@@ -106,10 +97,8 @@ class SetOrderCurrencyRate extends Command
                 DB::table($pfx.'order_product')
                     ->where('order_product_id', $op->order_product_id)
                     ->update([
-                        // Existing foreign values are preserved as as-transacted...
                         'foreign_price' => round((float) $op->price, OrderCurrencyService::MONEY_SCALE),
                         'foreign_total' => round((float) $op->total, OrderCurrencyService::MONEY_SCALE),
-                        // ...and the authoritative columns become default currency.
                         'price'         => OrderCurrencyService::toBase((float) $op->price, $rate),
                         'total'         => OrderCurrencyService::toBase((float) $op->total, $rate),
                         'cost'          => OrderCurrencyService::toBase((float) $op->cost, $rate),

@@ -16,39 +16,22 @@ return new class extends Migration
 
     public function up(): void
     {
-        /**
-         * Rename existing "listing(s)" tables -> "product" tables.
-         * This is idempotent: it only renames when FROM exists and TO does not.
-         */
-
-        // Parent table (handle both possible singular/plural naming)
         $this->renameTableIfNeeded('lazada_listings', 'lazada_products');
         $this->renameTableIfNeeded('lazada_listing',  'lazada_products');
 
-        // Child tables (your actual names are singular: lazada_listing_*)
         $this->renameTableIfNeeded('lazada_listing_attributes', 'lazada_product_attributes');
         $this->renameTableIfNeeded('lazada_listing_variants',   'lazada_product_variants');
 
-        // Fallbacks if some environments used plural: lazada_listings_*
         $this->renameTableIfNeeded('lazada_listings_attributes', 'lazada_product_attributes');
         $this->renameTableIfNeeded('lazada_listings_variants',   'lazada_product_variants');
 
-        // If the new parent table doesn't exist, nothing else to do.
         $parentTable = 'lazada_products';
         if (!Schema::hasTable($parentTable)) {
             return;
         }
 
-        // Determine parent PK column (default to "id" if not detected)
         $parentPk = $this->getPrimaryKeyColumn($parentTable) ?: 'id';
 
-        /**
-         * Rebind foreign keys on child tables' lazada_listing_id column
-         * to point to lazada_products.<pk>.
-         *
-         * NOTE: We keep the child column name as lazada_listing_id for compatibility,
-         * and only adjust constraints.
-         */
         $this->rebindForeignKeyToParent(
             childTable: 'lazada_product_attributes',
             childColumn: 'lazada_listing_id',
@@ -66,11 +49,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        /**
-         * Reverse: product tables -> listing tables (best-effort).
-         * Also rebind foreign keys back to lazada_listings if it exists.
-         */
-
         $listingsParent = 'lazada_listings';
         if (Schema::hasTable($listingsParent)) {
             $parentPk = $this->getPrimaryKeyColumn($listingsParent) ?: 'id';
@@ -90,13 +68,11 @@ return new class extends Migration
             );
         }
 
-        // Rename back (idempotent)
         $this->renameTableIfNeeded('lazada_products', 'lazada_listings');
 
         $this->renameTableIfNeeded('lazada_product_attributes', 'lazada_listing_attributes');
         $this->renameTableIfNeeded('lazada_product_variants',   'lazada_listing_variants');
 
-        // Fallback reverses if needed
         $this->renameTableIfNeeded('lazada_product_attributes', 'lazada_listings_attributes');
         $this->renameTableIfNeeded('lazada_product_variants',   'lazada_listings_variants');
     }
@@ -108,10 +84,6 @@ return new class extends Migration
         }
     }
 
-    /**
-     * Drops any existing FK constraint(s) on childTable.childColumn (if present),
-     * then adds a new FK to parentTable.parentColumn.
-     */
     private function rebindForeignKeyToParent(
         string $childTable,
         string $childColumn,
@@ -128,16 +100,13 @@ return new class extends Migration
             return;
         }
 
-        // Drop existing FK(s) on this column (robust even with non-standard names)
         $fkNames = $this->getForeignKeyConstraintNames($childTable, $childColumn);
         foreach ($fkNames as $fkName) {
             DB::statement("ALTER TABLE `{$childTable}` DROP FOREIGN KEY `{$fkName}`");
         }
 
-        // Add new FK (use a deterministic name)
         $newFkName = $this->makeFkName($childTable, $childColumn, $parentTable);
 
-        // Avoid duplicates
         if ($this->foreignKeyNameExists($childTable, $newFkName)) {
             return;
         }
@@ -215,7 +184,6 @@ return new class extends Migration
 
     private function makeFkName(string $childTable, string $childColumn, string $parentTable): string
     {
-        // MySQL identifier limit is 64 chars; keep some buffer
         $base = "fk_{$childTable}_{$childColumn}_to_{$parentTable}";
         return substr($base, 0, 60);
     }

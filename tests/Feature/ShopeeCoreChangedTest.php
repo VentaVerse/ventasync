@@ -15,12 +15,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * A catalog edit reaches no marketplace and no listing on its own: the
- * listing keeps its own copy, and its Catalog change button is where the
- * two are compared (ShopeeCatalogChangeTest). What this pins is the notes
- * the listing page and the group page no longer carry.
- */
 class ShopeeCoreChangedTest extends TestCase
 {
     use RefreshDatabase;
@@ -97,13 +91,6 @@ class ShopeeCoreChangedTest extends TestCase
         return $productId;
     }
 
-    /**
-     * The staleness note left the listing page with the rest of the health
-     * surface on 2026-09-09 (the owner: "Nothing about health"). The FACT is
-     * unchanged - the engine still computes drift and the Listings index
-     * still shows it - so this pins the page's silence rather than
-     * pretending the question stopped mattering.
-     */
     public function test_the_listing_page_no_longer_notes_a_catalog_change(): void
     {
         $productId = $this->seedProduct(now()->subHour());
@@ -139,7 +126,6 @@ class ShopeeCoreChangedTest extends TestCase
             ->assertDontSee('The catalog product changed');
     }
 
-    /** An overridden title or description carries no note about the catalog. */
     public function test_an_overridden_field_has_no_catalog_note(): void
     {
         $productId = $this->seedProduct(now()->subHour());
@@ -155,7 +141,6 @@ class ShopeeCoreChangedTest extends TestCase
         $r->assertOk();
         $r->assertDontSee('The catalog now says');
         $r->assertDontSee("The catalog's description now differs", false);
-        // The operator's wording is untouched in the field itself.
         $r->assertSee('My Shopee-safe rewrite');
     }
 
@@ -181,11 +166,6 @@ class ShopeeCoreChangedTest extends TestCase
             ->get(route('ext.shopee.product-groups.products', $group->id));
 
         $r->assertOk();
-        /* The column says errors only since 2026-09-07 (the owner: "Change last
-         * sync to Error. No error - None. With error put the error."), so the
-         * group row no longer carries the staleness note. Nor does the
-         * listing page since 2026-09-09; the drift itself is unchanged and
-         * the Listings index is where it is read. */
         $r->assertDontSee('catalog changed since');
     }
 }

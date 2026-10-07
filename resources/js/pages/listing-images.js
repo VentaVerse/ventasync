@@ -1,21 +1,3 @@
-/* The "Images that go up" card on a listing page, when the listing may
- * arrange its own pictures (the owner, 2026-09-08: "make this draggable to
- * arrange, and can open up media library").
- *
- * Three jobs:
- *   1. arrange - drag a tile with a pointer, or focus one, press the space
- *      bar and use the arrow keys. The order in the list IS the order the
- *      push sends. A tile turned off greys out; how many a store takes is
- *      arrangement changes rather than at page load only;
- *   2. drop a picture from this listing, and add one from the image
- *      library (partials/image-library-pick);
- *   3. submit it. One hidden input carries the paths as JSON. Empty means
- *      what an empty Content field means: this listing follows the catalog
- *      product, so an arrangement that matches the catalog's own submits
- *      as empty and the listing keeps following it.
- *
- * Markup: partials/channel-images-card.blade.php.
- */
 (function () {
     var card = null;
     var list = null;
@@ -40,8 +22,6 @@
         return true;
     }
 
-    /* Every visible fact about the list is derived from its order, so one
-       function answers for all of them and nothing can drift apart. */
     function refresh() {
         var items = Array.prototype.slice.call(list.children);
         var focused = document.activeElement && document.activeElement.closest
@@ -53,15 +33,12 @@
             var held = li.hasAttribute('data-off');
             li.classList.toggle('lc-images__item--held', held);
             li.setAttribute('aria-label', 'Picture ' + (i + 1) + ' of ' + items.length + (held ? ', off' : ''));
-            // One tab stop for the list: the focused tile, or the first.
             li.setAttribute('tabindex', li === (focused || items[0]) ? '0' : '-1');
             var drop = li.querySelector('[data-images-drop]');
             if (drop) drop.setAttribute('aria-label', 'Remove picture ' + (i + 1) + ' from this listing');
         });
 
         if (offInput) {
-            /* Off is a list of paths, the same shape the arrangement uses.
-               Empty means nothing is held back. */
             var offNow = [];
             items.forEach(function (li) {
                 if (li.hasAttribute('data-off')) offNow.push(li.getAttribute('data-path'));
@@ -77,16 +54,8 @@
         var next = paths.length === 0 || sameAsCatalog(paths) ? '' : JSON.stringify(paths);
         if (next !== input.value) {
             input.value = next;
-            /* A value a script writes fires nothing on its own, and the
-               page's unsaved-changes guard is listening. Without this, an
-               arrangement made entirely from the keyboard left the page
-               without a word. */
             input.dispatchEvent(new Event('input', { bubbles: true }));
         }
-        /* The Follow the catalog button appearing is the whole signal that
-           this listing has an order of its own; it used to be a sentence as
-           well, and the owner took it out (2026-09-09) on both the card and the
-           template, so no channel inherits it. */
         if (resetBtn) resetBtn.hidden = input.value === '';
     }
 
@@ -94,21 +63,6 @@
         if (say) say.textContent = text;
     }
 
-    /* ── Arranging with a pointer ─────────────────────────────────────
-     *
-     * Hold a picture and it lifts under the cursor; the rest of the line
-     * scooches to open a gap where it will land. Nothing SWAPS - a picture
-     * dragged from ninth place to second pushes everything between them
-     * along by one, which is what the operator means by moving it there
-     * (the owner, 2026-09-08).
-     *
-     * Nothing is reordered in the DOM until the drop. During the drag every
-     * tile is where it always was and is only TRANSFORMED to the slot it
-     * would occupy, measured once when the drag begins. So there is no
-     * reflow mid-gesture, the arithmetic is the same on a wrapped grid as
-     * on one row, and letting go is the only moment the list actually
-     * changes.
-     */
     var drag = null;
     var HOLD_MS = 220;
     var hold = null;
@@ -120,9 +74,6 @@
         });
     }
 
-    /* Where a tile sits once the dragged one has been pulled out of place
-       and dropped back in at `to`: everything between the two closes up
-       behind it. */
     function slotFor(i, from, to) {
         if (i === from) return to;
         if (from < to && i > from && i <= to) return i - 1;
@@ -140,11 +91,6 @@
         }
     }
 
-    /* The slot the dragged picture is over. Its own centre against the slot
-       boxes: by the time the centre is inside a neighbour the two pictures
-       overlap by more than half, which is the point where a person has
-       decided. Pure border contact fires after eight pixels of travel and
-       makes the whole line flicker. */
     function slotUnder(cx, cy) {
         for (var i = 0; i < drag.slots.length; i++) {
             var s = drag.slots[i];
@@ -171,7 +117,7 @@
 
         list.classList.add('is-arranging');
         li.classList.add('is-dragging');
-        try { li.setPointerCapture(e.pointerId); } catch (err) { /* older engines */ }
+        try { li.setPointerCapture(e.pointerId); } catch (err) { }
         announce('Picture ' + (drag.from + 1) + ' picked up.');
     }
 
@@ -198,7 +144,6 @@
         list.classList.remove('is-arranging');
 
         if (d.to !== d.from) {
-            // The only moment the list itself changes.
             var after = d.items[d.to > d.from ? d.to : d.to - 1] || null;
             list.insertBefore(d.li, d.to > d.from ? (after ? after.nextSibling : null) : d.items[d.to]);
             refresh();
@@ -212,7 +157,6 @@
     function onPointerDown(e) {
         var li = e.target.closest ? e.target.closest('.lc-images__item') : null;
         if (!li || li.parentNode !== list) return;
-        // A press on a verb is a press, never the start of a drag.
         if (e.target.closest('[data-images-drop]') || e.target.closest('[data-images-off]')) return;
         if (e.pointerType === 'mouse' && e.button !== 0) return;
 
@@ -221,9 +165,6 @@
             return;
         }
 
-        /* On touch the browser owns the gesture until we know it is a drag
-           and not a scroll: a hold with the finger still. Moving first is a
-           scroll and this bows out. */
         hold = {
             li: li, e: { clientX: e.clientX, clientY: e.clientY, pointerId: e.pointerId, pointerType: e.pointerType },
             timer: window.setTimeout(function () {
@@ -248,7 +189,6 @@
             return;
         }
         if (!drag) return;
-        // The page must not pan while a picture is being carried across it.
         if (e.cancelable) e.preventDefault();
         follow(e);
     }
@@ -258,7 +198,6 @@
         end();
     }
 
-    /* ── Arranging from the keyboard ────────────────────────────────── */
     var grabbed = null;
 
     function onKeyDown(e) {
@@ -296,8 +235,6 @@
         if (!back && !forward) return;
         e.preventDefault();
 
-        // Grabbed: the arrows move the PICTURE. Otherwise they move FOCUS,
-        // which is what a one-tab-stop list owes the keyboard.
         var sibling = back ? li.previousElementSibling : li.nextElementSibling;
         if (!sibling) return;
         if (grabbed === li) {
@@ -329,7 +266,6 @@
         }
     }
 
-    /** The eye, open or struck through. Built, never innerHTML'd from data. */
     function eyeIcon(isOff) {
         var ns = 'http://www.w3.org/2000/svg';
         var svg = document.createElementNS(ns, 'svg');
@@ -360,7 +296,6 @@
         return svg;
     }
 
-    /** Hold a picture back, or send it again. Off is not gone. */
     function toggleOff(li) {
         var isOff = li.hasAttribute('data-off');
         if (isOff) {
@@ -381,7 +316,6 @@
         return Array.prototype.indexOf.call(list.children, li);
     }
 
-    /* ── Dropping and adding ────────────────────────────────────────── */
     function tile(path, url) {
         var li = document.createElement('li');
         li.className = 'lc-images__item';
@@ -443,11 +377,6 @@
         return added;
     }
 
-    /* The library picker lives in resources/js/pages/image-library.js:
-       the watermark form needs the same browse, folders and search, and a
-       second copy of a hundred and fifty lines is how two pickers drift
-       apart. This card asks for as many pictures as the operator ticks. */
-
     function init() {
         card = document.querySelector('[data-listing-images]');
         if (!card) return;
@@ -494,7 +423,6 @@
         var addBtn = card.querySelector('[data-images-add]');
         if (addBtn && window.ImageLibrary && document.querySelector('[data-ilp-modal]')) {
             addBtn.addEventListener('click', function () {
-                // The picker edits this lineup in place: what is in it opens highlighted.
                 window.ImageLibrary.open(null, {
                     selected: pathsNow(),
                     onToggle: function (file, on) {
@@ -507,7 +435,6 @@
                             return el.getAttribute('data-path') === file.path;
                         });
                         if (li) {
-                            // Quietly: focus stays in the open picker.
                             if (grabbed === li) grabbed = null;
                             li.remove();
                             refresh();
@@ -517,8 +444,6 @@
                 });
             });
         } else if (addBtn) {
-            // No picker on the page: a button that opens nothing is worse
-            // than no button.
             addBtn.hidden = true;
         }
 

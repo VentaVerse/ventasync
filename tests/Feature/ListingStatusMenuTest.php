@@ -13,12 +13,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * The menu down the left of a store's Listings page: the whole store, then
- * the store's product groups, then two filters that narrow whichever group
- * is chosen. Pinned on Lazada; every channel builds it through the same
- * StatusMenu.
- */
 class ListingStatusMenuTest extends TestCase
 {
     use RefreshDatabase;
@@ -65,7 +59,6 @@ class ListingStatusMenuTest extends TestCase
         return $id;
     }
 
-    /** @return array{listedOk: int, listedFailed: int, notListed: int} */
     private function store(): array
     {
         $listedOk = $this->product('Listed and fine', 'MN-1');
@@ -137,9 +130,6 @@ class ListingStatusMenuTest extends TestCase
         $this->assertSame('Push failed', $menu['label']);
         $this->assertTrue($menu['flags'][0]['on'], 'an old error link switches Push failed on');
 
-        /* The whole store sits apart from the list, because it is not a
-           group: it is what you see when none is chosen. The groups
-           themselves read biggest first, so the eye lands on the work. */
         $this->assertSame(StatusMenu::EVERYTHING, $menu['everything']['label']);
         $this->assertSame(10, $menu['everything']['count']);
 
@@ -149,9 +139,6 @@ class ListingStatusMenuTest extends TestCase
         );
         $this->assertSame([6, 2, 2], array_column($menu['groups'], 'count'));
 
-        /* The leftovers sit at the bottom whatever their number: they are
-           what the groups above did not claim, not a group competing for
-           size. Give them the biggest count and they still come last. */
         $big = StatusMenu::build([
             'url' => fn (array $p) => '/listings?' . http_build_query($p),
             'query' => [], 'sync' => 'all', 'failed' => false, 'change' => false,
@@ -175,9 +162,6 @@ class ListingStatusMenuTest extends TestCase
         $this->assertStringContainsString('failed=1', $mosky['url'], 'the switch stays on when the rail moves');
         $this->assertStringContainsString('group=4', $mosky['url']);
 
-        /* Choosing a group opens it on All, whichever tab was open before:
-           a new group is a new list, and landing on Live inside it hid the
-           products that are not up yet. */
         $onLive = StatusMenu::build([
             'url' => fn (array $p) => '/listings?' . http_build_query($p),
             'query' => ['sync_status' => 'uploaded', 'group' => '4', 'q' => 'cable'],
@@ -190,14 +174,12 @@ class ListingStatusMenuTest extends TestCase
         $this->assertStringNotContainsString('sync_status', $onLive['everything']['url'], 'All products opens on All');
         $this->assertStringContainsString('q=cable', $onLive['groups'][0]['url'], 'the search still rides along');
 
-        // Where it stands moved to the segment, and it names the store.
         $this->assertSame(['All', 'Not live on Lazada', 'Live on Lazada'], array_column($menu['stand'], 'label'));
         $this->assertSame([10, 4, 6], array_column($menu['stand'], 'count'));
         $this->assertStringContainsString('sync_status=uploaded', $menu['stand'][2]['url']);
         $this->assertStringNotContainsString('failed=1', $menu['flags'][0]['url'], 'pressing an on switch turns it off');
     }
 
-    /** A retired eligibility address lands on the half it belonged to, never nowhere. */
     public function test_a_retired_eligibility_link_folds_onto_its_half(): void
     {
         $this->assertSame('uploaded', StatusMenu::stand('listed_ready'));
@@ -211,7 +193,6 @@ class ListingStatusMenuTest extends TestCase
             ->assertOk()->assertSee('Listed and fine')->assertDontSee('Not on Lazada yet');
     }
 
-    /** The rail narrows to one group, and the segment then splits that group. */
     public function test_a_group_narrows_the_list_and_the_segment_splits_it(): void
     {
         $ids = $this->store();
@@ -224,8 +205,6 @@ class ListingStatusMenuTest extends TestCase
         ]);
         $user = $this->manager();
 
-        /* On All products a row names its group, and the name opens that
-           group on All. Inside a group every row is in it, so none says so. */
         $all = $this->actingAs($user)->get(route('ext.lazada.products.index', ['sync_status' => 'uploaded']))->assertOk();
         $all->assertSee('Product group: Cables');
         $this->assertMatchesRegularExpression('/<a class="co-item__var" href="[^"]*group=' . $group->id . '"[^>]*>Product group: Cables<\/a>/', $all->getContent());
@@ -235,21 +214,13 @@ class ListingStatusMenuTest extends TestCase
         $page->assertSee('Listed and fine')->assertDontSee('Not on Lazada yet')->assertSee('Cables');
         $page->assertDontSee('Product group: ');
 
-        // The products no group claims are their own place, never dropped.
         $this->actingAs($user)->get(route('ext.lazada.products.index', ['group' => 'none']))
             ->assertOk()->assertSee('Not on Lazada yet')->assertDontSee('Listed and fine');
 
-        // The store's own tabs still sit above the table, apart from the rail.
         $this->actingAs($user)->get(route('ext.lazada.products.index', ['group' => $group->id, 'lazada_tab' => 'inactive']))
             ->assertOk()->assertSee('class="x-segment-bar"', false);
     }
 
-    /**
-     * From the Listings page a ticked product moves into a group, from one
-     * group to another, and out of every group, and the page it was on is
-     * where the operator lands. Moving is a group permission: a listing
-     * manager without it sees no picker and is refused.
-     */
     public function test_a_ticked_product_moves_between_groups_from_the_listings_page(): void
     {
         $ids = $this->store();
@@ -264,7 +235,6 @@ class ListingStatusMenuTest extends TestCase
         $back = parse_url(route('ext.lazada.products.index'), PHP_URL_PATH);
         $pivot = fn () => \Illuminate\Support\Facades\DB::table('lazada_product_group_products')->where('product_id', $pid)->pluck('lazada_product_group_id')->map(fn ($v) => (int) $v)->all();
 
-        // Without the group permission: no picker, and the move is refused with nothing changed.
         $this->actingAs($listingOnly)->get(route('ext.lazada.products.index'))->assertOk()->assertDontSee('Move to group');
         $this->actingAs($listingOnly)->post(route('ext.lazada.product-groups.move'), ['ids' => [$pid], 'group' => $groupA->id, '_return' => $back])->assertRedirect()->assertSessionHas('error');
         $this->assertSame([], $pivot());
@@ -275,12 +245,10 @@ class ListingStatusMenuTest extends TestCase
             ->assertRedirect($back)->assertSessionHas('status', '1 product moved to ' . $groupA->name . '.');
         $this->assertSame([$groupA->id], $pivot());
 
-        // A product belongs to one group, so choosing another moves it there.
         $this->actingAs($manager)->post(route('ext.lazada.product-groups.move'), ['ids' => [$pid], 'group' => $groupB->id, '_return' => $back])
             ->assertRedirect($back);
         $this->assertSame([$groupB->id], $pivot());
 
-        // Inside a group the same row can be taken straight out of it.
         $this->actingAs($manager)->get(route('ext.lazada.products.index', ['group' => $groupB->id]))->assertOk()->assertSee('Remove from group')->assertSee('Manage group');
 
         $this->actingAs($manager)->post(route('ext.lazada.product-groups.move'), ['ids' => [$pid], 'group' => 'none', '_return' => $back])
@@ -291,7 +259,6 @@ class ListingStatusMenuTest extends TestCase
     public function test_a_whole_group_sends_as_a_run_from_the_listings_page(): void
     {
         $ids = $this->store();
-        // No category yet, so the group's own send refuses before touching anything.
         $group = \Extensions\lazada\Models\LazadaProductGroup::create(['name' => 'Fuzz']);
         \Extensions\lazada\Models\LazadaProductGroupProduct::create([
             'lazada_product_group_id' => $group->id, 'product_id' => $ids['notListed'],

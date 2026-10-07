@@ -1,39 +1,3 @@
-/*
- * Product create/edit form: manufacturer + category typeahead, the
- * manufacturer name prefix on the product name, and the "pick a real
- * manufacturer" submit guard.
- *
- * Why this file exists at all. All of this behaviour used to live in an
- * inline <script> at the bottom of resources/views/layouts/app.blade.php,
- * which was a protected file and, more to the point, stopped being the layout
- * these pages use. Moving catalog/products/create + edit onto layouts.shell
- * would have silently dropped the manufacturer lookup, the category picker
- * and the submit guard, so the behaviour was ported here as a real module
- * bundled through app.js (which every layout loads). layouts/app.blade.php
- * has since been deleted outright (Round F Task 4), so this module is now the
- * only definition of any of it.
- *
- * It is scoped to [data-product-form], which originally also kept it from
- * double-binding against layouts.app's inline copy on a legacy page carrying
- * the same element ids. No such page exists any more; the scoping stays
- * because it is still what keeps the module inert on every other page.
- *
- * Three deliberate changes from the inline original, all noted in the task
- * report:
- *   1. Chips are built with createElement/textContent. The original did
- *      `chip.innerHTML = name + '<input ...>'` with a category name straight
- *      off the API, which is raw innerHTML with user-controlled data.
- *   2. The dropdown, its empty state and the chips carry `fm-` classes
- *      instead of the legacy `.typeahead-list` / `.tag-chip` ones, whose
- *      colours are raw blue hex with no dark-theme value.
- *   3. Endpoints come off data- attributes on the form rather than being
- *      Blade-interpolated, because this is a real JS file now.
- *
- * Everything else - the debounce, the id-normalising map over the API
- * response, the mousedown-not-click selection, the hidden-input contract
- * (manufacturer_id, category_ids[]) - is the original logic unchanged.
- */
-
 function setupTypeahead(opts) {
     const input = document.getElementById(opts.inputId);
     const hidden = opts.hiddenId ? document.getElementById(opts.hiddenId) : null;
@@ -50,9 +14,6 @@ function setupTypeahead(opts) {
     function showList() { list.style.display = 'block'; }
     function hideList() { list.style.display = 'none'; }
 
-    // Typing invalidates a previous pick: the hidden id goes back to 0 until
-    // something is chosen from the list again. This is what makes the submit
-    // guard below meaningful.
     if (!isMulti) {
         input.addEventListener('input', function () { hidden.value = '0'; });
     }
@@ -130,8 +91,6 @@ function setupTypeahead(opts) {
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.textContent = displayLabel;
-            // mousedown, not click: the input's blur would tear the list down
-            // before a click ever landed.
             btn.addEventListener('mousedown', function (e) {
                 e.preventDefault();
                 if (isMulti) {
@@ -204,24 +163,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
     const manufacturerStoreUrl = form.dataset.manufacturerStoreUrl || '';
 
-    /* THE MANUFACTURER IS NO LONGER GLUED TO THE PRODUCT NAME.
-     *
-     * Picking a manufacturer used to chop its name off the front of the name
-     * field, park it in a grey prefix chip, and paste it back on submit. Two
-     * costs, both paid every time:
-     *
-     *   - the field lied. It showed "T-Shirt" while the record said
-     *     "Pedallion T-Shirt", so what you read was never what you were
-     *     saving, and a name that merely happened to start with the
-     *     manufacturer's letters got silently truncated.
-     *   - changing manufacturer rewrote the product's name as a side effect
-     *     of a different field.
-     *
-     * The name is now whatever is typed in the name box, and nothing else
-     * edits it. Existing names are untouched: they already contain whatever
-     * they contain, and now they are shown in full.
-     */
-
     setupTypeahead({
         inputId: 'manufacturer_search',
         hiddenId: 'manufacturer_id',
@@ -231,8 +172,6 @@ document.addEventListener('DOMContentLoaded', function () {
             const nameField = document.getElementById('product_name');
             if (nameField && !(nameField.value || '').trim()) nameField.focus();
         },
-        // Nothing matched, so offer to create it inline rather than making
-        // the operator leave a half-filled product form.
         onEmpty: function (query, api) {
             if (!manufacturerStoreUrl) return null;
 
@@ -285,39 +224,6 @@ document.addEventListener('DOMContentLoaded', function () {
         hiddenName: 'category_ids[]',
     });
 
-    /* THE MANUFACTURER GUARD IS RETIRED.
-     *
-     * It hard-blocked submit whenever manufacturer_id was 0, and its own
-     * comment gave the only reason: "the image library is organised by
-     * manufacturer folder, so a product with manufacturer 0 has nowhere for
-     * its pictures to live." That is no longer true. The library opens at the
-     * root, uploads land in whatever folder is open, and the two endpoints
-     * that ever filed by manufacturer have no callers.
-     *
-     * The comment also admitted the rest: manufacturer_id is nullable in the
-     * controller. So the guard enforced a rule the server did not have, for a
-     * reason that has since been deleted - and it did it without a Required
-     * marker, so the field looked optional right up until the save was
-     * refused.
-     *
-     * It was also bypassable, which is what made it worse than useless. On a
-     * product with variations the options module submits through
-     * form.submit(), which does not fire the submit event, so this listener
-     * never ran: the form showed "Choose a manufacturer from the list" in red
-     * AND saved anyway, in the same click. An error and a success for one
-     * action is the fastest way to teach an operator to distrust every
-     * message on the page.
-     *
-     * The typeahead itself stays. Choosing a manufacturer is still useful;
-     * being unable to save without one was not.
-     */
-
-    // ---- Cost preview ---------------------------------------------------
-    // cost = cost_amount + (cost_percentage / 100 * price) + cost_additional
-    // is recomputed server-side on save (ProductController::store/update), so
-    // this is a preview of what the server will store, not the value that
-    // gets stored. Profit/margin/markup are read-only figures and submit
-    // nothing.
     const priceEl = document.getElementById('product_price');
     const amtEl = document.getElementById('cost_amount');
     const pctEl = document.getElementById('cost_percentage');
@@ -341,9 +247,6 @@ document.addEventListener('DOMContentLoaded', function () {
             const c = parseFloat(pctEl.value) || 0;
             const d = parseFloat(addEl.value) || 0;
             const cost = a + (c / 100 * p) + d;
-            // Four decimals is the column's storage scale, not something a
-            // person reads: 159.9500 in a box beside 120 and 15 reads as a
-            // different kind of number. Trailing zeros go.
             outEl.value = cost.toFixed(4).replace(/\.?0+$/, '') || '0';
 
             const profit = p - cost;
@@ -356,10 +259,6 @@ document.addEventListener('DOMContentLoaded', function () {
         [priceEl, amtEl, pctEl, addEl].forEach(function (el) { el.addEventListener('input', calc); });
         calc();
 
-        // ---- Cost override ------------------------------------------------
-        // Cost normally arrives from a received purchase order. Editing it by
-        // hand is allowed but has to be asked for, so the three inputs start
-        // readonly and this unlocks them behind the shared confirm dialog.
         const overrideBtn = document.getElementById('cost-override-btn');
         const lockNote = document.getElementById('cost-lock-note');
         const costFields = [amtEl, pctEl, addEl];

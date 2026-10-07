@@ -6,11 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Shopee return_sn values are alphanumeric (e.g. "2606300ENWS2606"), not numeric.
-     * The column was created as bigint, which truncates the value and fails the insert
-     * under strict SQL mode. Change it to varchar to match order_sn.
-     */
+    // Shopee return_sn is alphanumeric, so the column must be a string, not a bigint.
     public function up(): void
     {
         if (!Schema::hasTable('shopee_returns')) {
@@ -24,6 +20,5 @@ return new class extends Migration
 
     public function down(): void
     {
-        // Not reverting: bigint cannot safely hold alphanumeric return_sn values.
     }
 };

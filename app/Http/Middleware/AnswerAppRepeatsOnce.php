@@ -8,15 +8,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * A write from the app that carries an Idempotency-Key is done once. The
- * phone sends the same key again when it lost the reply, and cannot know
- * whether the first try landed; the second request gets the first answer
- * instead of recording a payment or moving stock a second time.
- *
- * Only a successful answer is kept. A refusal or a failure is forgotten,
- * so sending again tries again. A write without the header is untouched.
- */
 class AnswerAppRepeatsOnce
 {
     public const HEADER = 'Idempotency-Key';

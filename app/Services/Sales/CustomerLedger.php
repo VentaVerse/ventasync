@@ -5,24 +5,12 @@ namespace App\Services\Sales;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Customers as the orders know them. There is no customer list: a customer
- * is the name, email and phone written on each order, by whichever store
- * took it. Orders are grouped into one customer by email, else phone, else
- * the exact name; a detail a marketplace masked (it holds "*") identifies
- * nobody and is ignored.
- *
- * A customer is named by a key ("email:ana@example.com", "phone:9171234567",
- * "name:salfini"), which the search hands out and the history takes back.
- */
 final class CustomerLedger
 {
     public const MAX_KEYS = 10;
 
-    /** The order's phone with the usual separators taken out, so digits match digits. */
     private const PHONE_DIGITS = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(o.telephone,''),' ',''),'-',''),'(',''),')',''),'+',''),'.','')";
 
-    /** @return list<array<string, mixed>> customers matching the words, most recent first */
     public function search(string $search, int $limit = 25): array
     {
         $search = trim($search);
@@ -52,13 +40,6 @@ final class CustomerLedger
         return $this->summarise($orders)->take($limit)->values()->all();
     }
 
-    /**
-     * One customer's orders, and every purchase of every product: when, how
-     * many, the price paid, the cost, the margin, and today's catalog price.
-     *
-     * @param  list<string>  $keys  one or more customer keys to read as one
-     * @return array<string, mixed>
-     */
     public function history(array $keys, ?string $from = null, ?string $to = null): array
     {
         $pfx = (string) config('catalog.prefix');
@@ -89,8 +70,6 @@ final class CustomerLedger
             ->get(['o.order_id', 'o.firstname', 'o.lastname', 'o.email', 'o.telephone', 'o.customer_group', 'o.marketplace_source',
                 'o.store_id', 'o.store_name', 'o.order_status_id', 'o.date_added', 'o.marketplace_order_id', 'os.name as status']);
 
-        // A phone or name key can catch another customer's order; keep only
-        // orders whose own identity is one of the keys asked for.
         $orders = $orders->filter(fn ($o) => in_array($this->identity($o), $keys, true))->values();
 
         $counted = $this->countedStatuses();
@@ -168,12 +147,6 @@ final class CustomerLedger
         ];
     }
 
-    /**
-     * The store an order came from, by its store key and its channel as
-     * well as its name: one shop name can be a store on several channels.
-     *
-     * @return array{key: string, channel: string, name: string}
-     */
     private function storeRef(object $order): array
     {
         $source = (string) ($order->marketplace_source ?? '');
@@ -191,10 +164,8 @@ final class CustomerLedger
         ];
     }
 
-    /** @var array<string, string> channel id => its name */
     private array $channelNames = [];
 
-    /** The key an order's customer is known by, or null when every detail is masked or blank. */
     public function identity(object $order): ?string
     {
         $email = mb_strtolower(trim((string) ($order->email ?? '')));
@@ -216,7 +187,6 @@ final class CustomerLedger
         return null;
     }
 
-    /** Orders grouped into customers, the most recent buyer first. */
     private function summarise(Collection $orders): Collection
     {
         $counted = $this->countedStatuses();
@@ -247,7 +217,6 @@ final class CustomerLedger
             ->sortByDesc('last_order');
     }
 
-    /** @return list<int> the statuses whose orders count as sales */
     private function countedStatuses(): array
     {
         return DB::table((string) config('catalog.prefix') . 'order_status')->where('add_revenue', 1)

@@ -5,12 +5,6 @@ namespace Extensions\venta\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/**
- * One product's record on one Venta store (#171): its price rule, its
- * content on that store, the status mirror, and the provenance of the
- * last push from the listing page. See the venta_listings migration for
- * the contract and what is deliberately not stored here.
- */
 class VentaListing extends Model
 {
     use \App\Integrations\Listings\KeepsItsOwnCopy;
@@ -55,7 +49,6 @@ class VentaListing extends Model
         return $this->belongsTo(VentaSetting::class, 'venta_setting_id');
     }
 
-    /** The price this listing sells at: its rule added to the price it starts from (see startFor). */
     public function priceFor(float $startPrice): float
     {
         return round(
@@ -66,23 +59,11 @@ class VentaListing extends Model
         );
     }
 
-    /**
-     * Where the price rule starts for the product itself: the listing's own
-     * Price when set and the product has no variations, else the catalog
-     * price. Each variation always starts from its catalog price.
-     */
     public static function startFor(?self $listing, float $corePrice, bool $hasVariations): float
     {
         return ! $hasVariations && $listing && $listing->price !== null ? (float) $listing->price : $corePrice;
     }
 
-    /**
-     * The catalog products among these that sell in variations, as the push
-     * builds them: combinations, else single-axis values.
-     *
-     * @param  list<int>  $productIds
-     * @return list<int>
-     */
     public static function withVariations(array $productIds): array
     {
         $ids = array_values(array_unique(array_map('intval', $productIds)));
@@ -96,12 +77,6 @@ class VentaListing extends Model
         ))));
     }
 
-    /**
-     * The parcel every push sends: each of the listing's own figures, else
-     * the catalog's. Weight in kg, the sides in cm.
-     *
-     * @return array{weight: float, length: float, width: float, height: float}
-     */
     public static function parcelFor(?self $listing, object $catalog): array
     {
         return [
@@ -117,12 +92,6 @@ class VentaListing extends Model
         return $this->markup_percent !== null || $this->markup_fixed !== null;
     }
 
-    /**
-     * The price every push sends: the listing's own rule, else its group's
-     * markup, else no markup, run on the price it starts from (startFor).
-     *
-     * @return \Closure(float): float
-     */
     public static function ruleFor(?self $listing, ?object $group): \Closure
     {
         return function (float $base) use ($listing, $group): float {
@@ -137,11 +106,6 @@ class VentaListing extends Model
         };
     }
 
-    /**
-     * The category every push sends: the listing's own, else its group's.
-     * 0 is the listing's own "None", sent as no category at all; null
-     * leaves the store's placement alone.
-     */
     public static function categoryFor(?self $listing, ?object $group): ?int
     {
         if ($listing && $listing->venta_category_id !== null) {
@@ -151,13 +115,6 @@ class VentaListing extends Model
         return ((int) ($group->venta_category_id ?? 0)) ?: null;
     }
 
-    /**
-     * The content this listing sends in place of the catalogue's. Only the
-     * fields the operator set; an unset one is not in the array at all, so
-     * the catalogue's value goes.
-     *
-     * @return array<string, string>
-     */
     public function overrides(): array
     {
         return array_filter([
@@ -168,7 +125,6 @@ class VentaListing extends Model
         ], fn ($v) => $v !== null && trim((string) $v) !== '');
     }
 
-    /** The mirror, written through by a push, a toggle, or the page's own read. */
     public function mirror(?string $status, ?float $price = null, ?int $quantity = null): void
     {
         $this->forceFill([
@@ -178,12 +134,6 @@ class VentaListing extends Model
             'live_quantity' => $quantity,
         ])->save();
     }
-    /**
-     * This listing's own words, the title and description half of
-     * overrides() (App\Integrations\Listings\ListingContent).
-     *
-     * @return array{title: ?string, description: ?string}
-     */
     public function contentOverrides(): array
     {
         return ['title' => $this->name, 'description' => $this->description];

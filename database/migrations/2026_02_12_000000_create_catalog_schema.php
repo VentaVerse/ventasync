@@ -11,7 +11,6 @@ return new class extends Migration
     {
         $p = config('catalog.prefix');
 
-        // CATEGORY
         Schema::create($p.'category', function (Blueprint $table) {
             $table->integer('category_id')->autoIncrement();
             $table->string('image',255)->nullable();
@@ -48,7 +47,6 @@ return new class extends Migration
             $table->primary(['category_id','path_id']);
         });
 
-        // MANUFACTURER
         Schema::create($p.'manufacturer', function (Blueprint $table) {
             $table->integer('manufacturer_id')->autoIncrement();
             $table->string('name',64);
@@ -56,7 +54,6 @@ return new class extends Migration
             $table->integer('sort_order')->default(0);
         });
 
-        // OPTION
         Schema::create($p.'option', function (Blueprint $table) {
             $table->integer('option_id')->autoIncrement();
             $table->string('type',32);
@@ -89,7 +86,6 @@ return new class extends Migration
             $table->index('option_id');
         });
 
-        // PRODUCT
         Schema::create($p.'product', function (Blueprint $table) {
             $table->integer('product_id')->autoIncrement();
 
@@ -112,8 +108,6 @@ $table->tinyInteger('shipping')->default(1);
 $table->integer('points')->default(0);
             $table->integer('tax_class_id')->default(0);
 
-            // FIX: strict MariaDB/MySQL rejects '0000-00-00' default
-            // We keep it compatible by allowing NULL (your app can treat NULL as "not set")
             $table->date('date_available')->nullable();
 
             $table->decimal('weight',15,8)->default(0);
@@ -154,7 +148,6 @@ $table->integer('points')->default(0);
             $table->index('name');
         });
 
-        // Fulltext index (works on MyISAM/InnoDB depending on config; MariaDB supports it)
         DB::statement("ALTER TABLE `{$p}product_description` ADD FULLTEXT KEY `related_generator` (`name`,`description`)");
 
         Schema::create($p.'product_to_category', function (Blueprint $table) {

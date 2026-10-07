@@ -5,14 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @php
-        // AppServiceProvider shares $appSetting with every view; the login
-        // controller's own $setting is not always populated, and
-        // config('app.name') is still the scaffold default on a fresh
-        // install. Prefer the record the rest of the app reads.
         $company = $appSetting->company_name
             ?? ($setting->company_name ?? null)
             ?: 'VentaSync';
-        // The sign-in screen's own copy, fitted to the box Settings gives it.
         $logo = \App\Services\Media\BrandImage::show($appSetting->logo_path ?? null, \App\Services\Media\BrandImage::LOGIN);
         $favicon = !empty($appSetting->favicon_path ?? null)
             ? asset('storage/' . $appSetting->favicon_path)
@@ -34,9 +29,6 @@
     <div class="auth__card">
         <h1 class="auth__title">Sign in</h1>
 
-        {{-- One message, naming the problem. The controller returns a single
-             failure for a bad username or a bad password deliberately, so the
-             form never confirms which half was right. --}}
         @if ($errors->any())
             <p class="auth__error">{{ $errors->first() }}</p>
         @endif

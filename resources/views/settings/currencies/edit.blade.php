@@ -4,8 +4,6 @@
 
 @section('content')
 @php
-    // Never hardcoded: whichever currency carries is_default in the
-    // `currencies` table is what a rate is expressed in.
     $defaultCode = \App\Support\Money::defaultCode();
     $isDefault = (bool) $currency->is_default;
     $rate = rtrim(rtrim(number_format((float) $currency->exchange_rate, 8, '.', ''), '0'), '.');
@@ -46,9 +44,6 @@
         @unless($isDefault)
         <div class="fm-head__actions">
             <x-ui.menu label="{{ $currency->code }} actions">
-                {{-- Destroy sits behind the overflow menu and the shared confirm
-                     dialog, driving a form outside this one. The default
-                     currency has no delete at all: the controller refuses it. --}}
                 <button type="button" class="x-menu__item x-menu__item--danger"
                         data-confirm="Delete {{ $currency->code }}? This cannot be undone."
                         data-confirm-submit="st-cur-delete-form">Delete currency</button>
@@ -115,9 +110,6 @@
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">How it is used</h2></div>
                 <div class="fm-card__body">
-                    {{-- status is validated `required|in:0,1`, so the switch is
-                         backed by a hidden 0; a bare checkbox submits nothing
-                         when off and would fail that rule. --}}
                     @php $statusOn = old('status', (string) $currency->status) === '1'; @endphp
                     <input type="hidden" name="status" value="0">
                     <label class="fm-switch">
@@ -130,8 +122,6 @@
                     </label>
                     @error('status')<div class="fm-error">{{ $message }}</div>@enderror
 
-                    {{-- is_default is `nullable|boolean`, so a bare checkbox is
-                         correct: absent reads as false. --}}
                     <label class="fm-switch">
                         <input type="checkbox" class="fm-switch__input" name="is_default" value="1" @checked(old('is_default', $currency->is_default))>
                         <span class="fm-switch__track" aria-hidden="true"></span>

@@ -9,17 +9,10 @@ use Extensions\lazada\Models\LazadaProductVariant;
 use Extensions\lazada\Models\LazadaSetting;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Lazada's half of the catalog delete (ProductRemover, 2026-09-07): every
- * local row for the product goes; the item on Lazada stays. Nothing is
- * sent and nothing can refuse.
- */
 final class LazadaProductRemover
 {
-    /** Mirror statuses that mean the item is already gone there. */
     private const GONE = ['DELETED', 'MISSING', 'NOT_FOUND'];
 
-    /** @see \App\Integrations\Contracts\ProductRemover::productPresence */
     public function presence(array $productIds): array
     {
         $rows = LazadaProduct::query()->whereIn('product_id', $productIds)
@@ -43,7 +36,6 @@ final class LazadaProductRemover
         return $out;
     }
 
-    /** @see \App\Integrations\Contracts\ProductRemover::removeProduct */
     public function remove(int $productId): array
     {
         $rows = LazadaProduct::query()->where('product_id', $productId)->get();
@@ -70,7 +62,6 @@ final class LazadaProductRemover
         return array_keys($stays);
     }
 
-    /** @see \App\Integrations\Contracts\ProductRemover::strandedProductIds */
     public function stranded(): array
     {
         $pfx = (string) config('catalog.prefix');
@@ -85,7 +76,6 @@ final class LazadaProductRemover
         return array_values(array_unique($ids));
     }
 
-    /** @return array<int, string> */
     private function stores($ids): array
     {
         return LazadaSetting::query()->whereIn('id', collect($ids)->filter()->unique()->all())

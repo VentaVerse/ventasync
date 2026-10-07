@@ -4,11 +4,6 @@ namespace Tests\Feature;
 
 use Tests\TestCase;
 
-/**
- * A record page keeps its commit buttons in one place: the pinned bar at
- * the lower right, drawn by one component so the order cannot drift. The
- * note, Cancel, the secondary buttons, then the one primary, last.
- */
 class FormBarTest extends TestCase
 {
     private function read(string $relative): string

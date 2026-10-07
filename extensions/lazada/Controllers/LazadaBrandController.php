@@ -59,7 +59,6 @@ class LazadaBrandController extends Controller
         while (true) {
             $guard++;
             if ($guard > 5000) {
-                // Safety guard against infinite loops.
                 break;
             }
 
@@ -83,7 +82,6 @@ class LazadaBrandController extends Controller
 
             $rows = $this->extractBrandRows($body);
 
-            // Best-effort total count helps us avoid stopping early when Lazada returns partial pages.
             $total = null;
             if (is_array($body)) {
                 $d = $body['data'] ?? $body;
@@ -96,10 +94,9 @@ class LazadaBrandController extends Controller
             }
 
             if (empty($rows)) {
-                // If we have an expected total and haven't reached it yet, retry a few times instead of stopping early.
                 if ($expectedTotal !== null && $startRow < $expectedTotal && $emptyTries < 3) {
                     $emptyTries++;
-                    usleep(250000); // 250ms
+                    usleep(250000);
                     continue;
                 }
                 break;
@@ -122,15 +119,13 @@ class LazadaBrandController extends Controller
                 ];
             }
 
-            // Lazada paging: startRow is zero-based offset.
-            // If we received fewer than the page size, we are done.
+            // Lazada pages brands by a zero-based startRow offset, not a page number.
             if ($expectedTotal !== null) {
                 $startRow += $pageSize;
                 if ($startRow >= $expectedTotal) {
                     break;
                 }
             } else {
-                // Fallback heuristic.
                 if (count($rows) < $pageSize) {
                     break;
                 }
@@ -145,7 +140,6 @@ class LazadaBrandController extends Controller
         $allRows = array_values($brandsById);
 
         DB::transaction(function () use ($region, $allRows) {
-            // Clear cache only after successful fetch. Use delete() for transactional safety.
             DB::table('lazada_brands')->where('region', $region)->delete();
             foreach (array_chunk($allRows, 1000) as $chunk) {
                 DB::table('lazada_brands')->insert($chunk);

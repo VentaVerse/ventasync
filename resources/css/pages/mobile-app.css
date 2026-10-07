@@ -1,12 +1,3 @@
-/* ============================================================
-   Mobile app settings (extension: mobileapp).
-
-   One list of users. Each row folds open to that person's status ticks,
-   the low stock tick and their phones. The App sign-in and Pushes
-   switches sit on the row but outside the fold, so flipping one never
-   opens or closes the row.
-   ============================================================ */
-
 .mb-ok { color: var(--bl-good); }
 .mb-bad { color: var(--bl-bad); }
 
@@ -15,7 +6,6 @@
 .mb-sub--bad { color: var(--bl-bad); }
 .mb-none { margin: 0; font-size: 13px; color: var(--bl-ink-3); }
 
-/* ---- Rows ---- */
 .mb-people {
     display: flex;
     flex-direction: column;
@@ -57,13 +47,11 @@
 .mb-person__sw { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .mb-switch { justify-content: flex-end; }
 
-/* App sign-in off: the person gets nothing, so Pushes reads as off too. */
 .mb-person__switch:has(.mb-sign-in:not(:checked)) .mb-person__sw--pushes {
     opacity: 0.4;
     pointer-events: none;
 }
 
-/* ---- The fold ---- */
 .mb-person__body {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -144,6 +132,4 @@
     .mb-checks { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 var(--bl-space-3); }
 }
 
-/* The settings form and the Automations section are siblings on one page:
-   the form steps out of the layout so both sit in the page's own column. */
 .mb-form { display: contents; }

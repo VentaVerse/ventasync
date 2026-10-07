@@ -7,33 +7,10 @@ use Extensions\shopee\Models\ShopeeItemCache;
 use Extensions\shopee\Models\ShopeeProductLink;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Variations ride the push (found by the owner on the first QAS push,
- * 2026-08-24: the GP-200 went up flat, its Red and Black never left).
- *
- * After add_item creates the parent, init_tier_variation gives it its
- * tier structure: one or two tiers built from the product's option axes,
- * and one model per combination carrying the combination's OWN sku,
- * stock and price (through whatever price rule the push is running on).
- * Shopee answers with the model ids, which become the model-level links
- * and cache rows the price/stock syncs and reconcile already expect.
- */
 class ShopeeVariationPush
 {
-    /* Shopee refuses an item whose dearest variation costs more than five
-     * times its cheapest, promotion prices included - the #2062 refusal:
-     * "The price ratio of the most expensive to cheapest variation
-     * exceeds 5. Please adjust the prices." Knowable from our own prices
-     * before the item exists, so it is checked there (#192). */
     private const PRICE_RATIO_LIMIT = 5.0;
 
-    /**
-     * What Shopee will knowably refuse about this product's variations,
-     * checked BEFORE the parent item is created (#192): a parent that
-     * goes up and then loses its variations is a half-listed item
-     * selling the wrong thing. Null means nothing knowable stands in the
-     * way (including "no variations at all").
-     */
     public function refusalFor(int $productId, \Closure $priceFor, int $storeId = 0): ?string
     {
         $pfx = (string) config('catalog.prefix');
@@ -43,8 +20,6 @@ class ShopeeVariationPush
         if ($all->isEmpty()) {
             return null;
         }
-        // Only the variations this store sells count, so switching the dear
-        // one off on Shopee is how a spread Shopee refuses is answered.
         $hidden = \App\Integrations\Listings\ListingVariations::hidden('shopee', $storeId, [$productId]);
         $combos = $all->filter(fn ($c) => \App\Integrations\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
         if ($combos->isEmpty()) {
@@ -75,30 +50,6 @@ class ShopeeVariationPush
         return null;
     }
 
-    /**
-     * Add the catalogue's missing variations to an ALREADY-LISTED item
-     * (Phase F, #184). The owner's daily loop - add a variation in the ERP,
-     * then unlink and re-match hoping it sticks - becomes one push:
-     *
-     *   1. read what Shopee holds (one get_model_list);
-     *   2. find the catalogue combinations Shopee is missing, by SKU;
-     *   3. extend the tier structure by APPENDING options only - existing
-     *      options keep their positions, so existing models keep their
-     *      meaning (update_tier_variation);
-     *   4. add_model for the new combinations, priced by the push's rule.
-     *
-     * Anything that cannot be done safely blind is refused in plain words
-     * before any write: a tier-count mismatch, a price spread past
-     * Shopee's 5x rule (existing models included), an unanswered read.
-     * A flat item (no models yet) ships its whole structure through the
-     * existing init path instead.
-     *
-     * A caller that has already read the item passes that read (readModels())
-     * so the item is not asked twice.
-     *
-     * @param null|array{ok: bool, reason: string, response: array} $read
-     * @return array{ok: bool, message: string, added: int}
-     */
     public function pushMissingModels(ShopeeClient $client, array $auth, int $itemId, int $productId, \Closure $priceFor, ?\Closure $uploadImageId = null, ?array $read = null): array
     {
         if ($read !== null) {
@@ -121,7 +72,6 @@ class ShopeeVariationPush
         $shopeeModels = (array) ($resp['model'] ?? []);
         $shopeeTiers = (array) ($resp['tier_variation'] ?? []);
 
-        // A flat item gains its first variations through the init path.
         if (empty($shopeeModels)) {
             $r = $this->pushForProduct($client, $auth, $itemId, $productId, $priceFor, $uploadImageId);
             if ($r === null) {
@@ -133,7 +83,6 @@ class ShopeeVariationPush
                 : $r['message'], 'added' => $r['ok'] ? (int) $r['models'] : 0];
         }
 
-        // The catalogue's side: combinations, axes, and each combo's values.
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $combos = DB::table('product_option_combinations')
@@ -171,7 +120,7 @@ class ShopeeVariationPush
             ->whereIn('cv.combination_id', $combos->pluck('id')->all())
             ->orderBy('pov.product_option_id')
             ->get(['cv.combination_id', 'pov.product_option_id', 'ovd.name as value_name']);
-        $comboValues = []; // combination_id => list of value names in axis order
+        $comboValues = [];
         $axisSet = [];
         foreach ($values as $v) {
             $comboValues[(int) $v->combination_id][(int) $v->product_option_id] =
@@ -186,9 +135,6 @@ class ShopeeVariationPush
                 . ' tier' . (count($shopeeTiers) === 1 ? '' : 's') . '. Restructuring a live listing is not safe to do blind - adjust it in Seller Centre, then press Re-read variations.', 'added' => 0];
         }
 
-        /* The 5x rule holds across the WHOLE item, existing models
-         * included - adding a cheap variation next to a dear one is
-         * exactly how the spread breaks. */
         $parentPrice = (float) (DB::table($pfx . 'product')->where('product_id', $productId)->value('price') ?? 0);
         $prices = [];
         foreach ($shopeeModels as $m) {
@@ -211,9 +157,6 @@ class ShopeeVariationPush
                 . ' across the whole item), and Shopee refuses that spread. Adjust the prices, then push.', 'added' => 0];
         }
 
-        /* Place each missing combination on the tiers, appending options
-         * where a value is new. Existing entries pass through VERBATIM so
-         * nothing already live moves. */
         $newTiers = array_values(array_map(fn ($t) => [
             'name' => (string) ($t['name'] ?? 'Variation'),
             'option_list' => array_values((array) ($t['option_list'] ?? [])),
@@ -307,14 +250,6 @@ class ShopeeVariationPush
         ];
     }
 
-    /**
-     * One get_model_list read of an item, in the shape every step of an
-     * update shares: the rename, the store's variation switches and the add
-     * path all work from it. A failed read carries Shopee's reason in plain
-     * words and an empty response.
-     *
-     * @return array{ok: bool, reason: string, response: array}
-     */
     public function readModels(ShopeeClient $client, array $auth, int $itemId): array
     {
         try {
@@ -335,13 +270,6 @@ class ShopeeVariationPush
         return ['ok' => true, 'reason' => '', 'response' => is_array($body['response'] ?? null) ? $body['response'] : []];
     }
 
-    /**
-     * Remove a just-created item whose variations were refused (#192):
-     * delete it at Shopee and take this push's link and cache rows with
-     * it, so nothing half-listed stays up and nothing here claims it is.
-     * Returns false when Shopee would not delete - the caller must then
-     * say the half-listed item is still standing.
-     */
     public function undoCreate(ShopeeClient $client, array $auth, int $productId, int $itemId): bool
     {
         $path = '/api/v2/product/delete_item';
@@ -359,18 +287,6 @@ class ShopeeVariationPush
 
         $ok = ($result['ok'] ?? false) && (($result['body']['error'] ?? '') === '' || ($result['body']['error'] ?? null) === null);
 
-        /* THE LINK GOES ONLY WHEN THE ITEM IS ACTUALLY GONE.
-         *
-         * delete_item answering ok was taken as proof, and it is not: an
-         * item that survives the call - refused for a reason the body does
-         * not carry, unlisted rather than removed, deleted late - left a
-         * live item on Shopee with nothing here pointing at it. That is
-         * the state that makes the next push create a second one, and on a
-         * product with no SKU nothing can ever find it again (the owner,
-         * 2026-09-09). So the shop is asked, and a link is dropped only on
-         * an answer that says the item is not there. Shopee not answering
-         * keeps the link: a link to an item that is gone is a smaller
-         * wrong than a duplicate nobody can see. */
         if ($ok && $this->itemIsGone($client, $auth, $itemId)) {
             ShopeeProductLink::query()->where('product_id', $productId)->where('shopee_item_id', $itemId)->delete();
             ShopeeItemCache::query()->where('shopee_item_id', $itemId)->delete();
@@ -379,11 +295,7 @@ class ShopeeVariationPush
         return $ok;
     }
 
-    /**
-     * Did the delete really take? Only a definitive answer counts: the
-     * shop not answering, or answering with an error of its own, proves
-     * nothing and must not be read as absence.
-     */
+    // Only a definitive answer counts: a shop that does not answer, or errors, is not proof the item is gone.
     private function itemIsGone(ShopeeClient $client, array $auth, int $itemId): bool
     {
         try {
@@ -401,7 +313,6 @@ class ShopeeVariationPush
         $err = strtolower((string) ($body['error'] ?? ''));
 
         if ($err !== '') {
-            // Only an error that NAMES the item as missing is an answer.
             return str_contains($err, 'not_found') || str_contains($err, 'not_exist');
         }
 
@@ -415,16 +326,9 @@ class ShopeeVariationPush
             }
         }
 
-        // A successful answer that does not hold the item: the shop has none.
         return true;
     }
 
-    /**
-     * @param \Closure(float): float $priceFor the push's price rule
-     * @param null|\Closure(string): ?string $uploadImageId local image path -> Shopee image_id
-     * @return null|array{ok: bool, message: string, models: int}
-     *         null when the product has no combinations (nothing to do)
-     */
     public function pushForProduct(
         ShopeeClient $client,
         array $auth,
@@ -449,10 +353,6 @@ class ShopeeVariationPush
 
         $path = '/api/v2/product/init_tier_variation';
 
-        /* Shopee asks for a pause between creating an item and giving it
-         * tiers ("wait at least 5 seconds... processing may be delayed").
-         * Attempt immediately - the sandbox usually takes it - and only
-         * pay the wait when Shopee refuses. */
         $result = null;
         for ($attempt = 1; $attempt <= 3; $attempt++) {
             try {
@@ -493,10 +393,6 @@ class ShopeeVariationPush
             return ['ok' => false, 'message' => $msg, 'models' => 0];
         }
 
-        // Shopee's answer names each model's id: store the model-level
-        // links and cache rows the syncs and reconcile expect. The
-        // parent-level link goes - a tiered item's stock and price live on
-        // its models, exactly as the reconcile sweep stores them.
         $answered = (($result['body'] ?? [])['response']['model'] ?? []);
         $skuToModel = [];
         foreach ($answered as $m) {
@@ -541,12 +437,6 @@ class ShopeeVariationPush
         return ['ok' => true, 'message' => '', 'models' => count($built['models']), 'stored_links' => $stored];
     }
 
-    /**
-     * The tier structure and models, from the product's combinations.
-     *
-     * @return null|array null = no combinations; ['refused' => reason]
-     *         when the structure cannot go to Shopee as it stands.
-     */
     private function build(int $productId, \Closure $priceFor, ?\Closure $uploadImageId, int $storeId = 0): ?array
     {
         $pfx = (string) config('catalog.prefix');
@@ -587,9 +477,8 @@ class ShopeeVariationPush
                 'ovd.name as value_name', 'od.name as option_name',
             ]);
 
-        // Axes in stable order, each with its ordered distinct options.
-        $axes = [];      // product_option_id => ['name' => ..., 'options' => [pov_id => ['name' =>, 'index' =>]]]
-        $comboTiers = []; // combination_id => [product_option_id => pov_id]
+        $axes = [];
+        $comboTiers = [];
         foreach ($values as $v) {
             $axisId = (int) $v->product_option_id;
             if (!isset($axes[$axisId])) {
@@ -617,14 +506,10 @@ class ShopeeVariationPush
 
         $axisIds = array_keys($axes);
 
-        // The parent's name, for the cache rows.
         $itemName = html_entity_decode((string) (DB::table($pfx . 'product_description')
             ->where('product_id', $productId)->where('language_id', $langId)
             ->value('name') ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-        // First-tier option images: the combination's own picture (only the
-        // first tier may carry images on Shopee). Best effort - a failed
-        // upload just means a plain option.
         $firstAxisImages = [];
         if ($uploadImageId !== null) {
             foreach ($combos as $combo) {
@@ -665,15 +550,11 @@ class ShopeeVariationPush
             foreach ($axisIds as $axisId) {
                 $povId = $comboTiers[(int) $combo->id][$axisId] ?? null;
                 if ($povId === null) {
-                    // A combination missing a value for an axis cannot be
-                    // placed in the grid; skip it rather than mis-list it.
                     continue 2;
                 }
                 $tierIndex[] = $axes[$axisId]['options'][$povId]['index'];
             }
 
-            // The combination's own price through the push's rule; a
-            // combination without one falls back to the parent's.
             $corePrice = (float) $combo->absolute_price > 0 ? (float) $combo->absolute_price : $parentPrice;
             $sku = trim((string) ($combo->sku ?? ''));
 

@@ -5,28 +5,6 @@ namespace Tests\Feature;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
-/**
- * Regression coverage for the DB::prohibitDestructiveCommands() guard added in
- * app/Providers/AppServiceProvider.php:41-42 (commit 6861d58c), which is a DIFFERENT guard
- * from the one tests/Feature/DatabaseGuardPreventsWipeTest.php covers.
- *
- * That other test proves tests/bootstrap.php + Tests\TestCase::setUp() stop PHPUnit's own
- * RefreshDatabase from wiping a misconfigured schema. It says nothing about a bare
- * `php artisan migrate:fresh` run from a shell -- which is exactly what wiped the sandbox
- * (44,172 orders) on 2026-08-05. That path never goes through PHPUnit at all, so this
- * guard was added directly in AppServiceProvider::boot(), read from `.env` on every request
- * and every Artisan invocation, the same as production.
- *
- * This process (running against ventasync_test, per phpunit.xml) is exactly where that
- * guard is INACTIVE, since ventasync_test ends in `_test`. A naive assertion made from
- * inside this process would never exercise the "shaped like production" branch. So this
- * test spawns a genuinely separate PHP process (see
- * tests/Feature/Support/DestructiveCommandGuardProbe.php) that boots the real application --
- * the same code path `php artisan <anything>` takes -- with DB_DATABASE overridden to a name
- * that does not end in `_test`, and reads back the framework's own bookkeeping: the static
- * `$prohibitedFromRunning` property that Illuminate\Console\Prohibitable exposes on each
- * guarded command class.
- */
 class DestructiveCommandGuardTest extends TestCase
 {
     public function test_destructive_commands_are_prohibited_against_a_non_test_database(): void
@@ -79,13 +57,8 @@ class DestructiveCommandGuardTest extends TestCase
         );
     }
 
-    /**
-     * @return array<string, string>
-     */
     private function runProbe(): array
     {
-        // Sanity: this process must itself be pointed at a real `_test` schema before we
-        // hand its name to the subprocess as the "safe to actually migrate" target.
         $realTestDatabase = (string) config('database.connections.'.config('database.default').'.database');
         $this->assertTrue(
             str_ends_with($realTestDatabase, '_test'),

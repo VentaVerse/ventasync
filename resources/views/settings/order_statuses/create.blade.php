@@ -46,11 +46,6 @@
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">What it does</h2></div>
                 <div class="fm-card__body">
-                    {{-- OrderStatusController@store reads these with
-                         $request->has(), so a hidden 0 companion would make
-                         has() true on every save and pin both flags on. A bare
-                         checkbox, which submits nothing when off, is the only
-                         correct control here. --}}
                     <label class="fm-switch">
                         <input type="checkbox" class="fm-switch__input" name="subtract_stock" value="1" @checked(old('subtract_stock'))>
                         <span class="fm-switch__track" aria-hidden="true"></span>

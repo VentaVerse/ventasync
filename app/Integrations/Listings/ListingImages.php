@@ -7,42 +7,8 @@ use App\Services\Media\ImageCache;
 use App\Services\Media\StampedImages;
 use App\Support\Catalog\ProductImages;
 
-/**
- * THE ARRANGEABLE "IMAGES THAT GO UP" CARD, READ AND WRITTEN IN ONE PLACE.
- *
- * The card itself has been shared since 2026-09-08
- * (partials/channel-images-card). What was not shared was the handful of
- * lines on either side of it: what a controller must hand the card, and
- * what it may believe when the card is submitted back. Shopee grew both
- * first, and copying them into four more controllers is how five channels
- * end up arranging pictures four different ways.
- *
- * So both halves live here, and every channel calls the same two methods.
- *
- * A listing keeps its own photos, copied from the catalog when it is made
- * (CatalogCopy). An empty arrangement sends the catalog's.
- */
 final class ListingImages
 {
-    /**
-     * What the card needs, ready to spread into a view's data.
-     *
-     * A refused save hands back what was ARRANGED rather than what is
-     * stored, the same way a refused save hands back typed words; the
-     * hidden input comes back as a JSON string, which is why old() is
-     * decoded here rather than trusted as an array.
-     *
-     * The tiles show each picture as it goes up, marked by the listing's
-     * watermark template (or its product group's), so what the card shows
-     * is what the buyer sees; each tile still submits the unmarked path.
-     *
-     * @param  ?array<int, mixed>  $stored  the listing's own arrangement, or null to follow the catalog
-     * @param  ?object  $listing  the listing row, for its watermark choice
-     * @param  ?int  $groupTemplateId  the template the listing's product group lends
-     * @param  string  $integration  the channel, half of the store's name
-     * @param  int  $storeId  the store whose watermark templates this page offers
-     * @return array<string, mixed>
-     */
     public static function cardData(int $productId, ?array $stored, ?object $listing, ?int $groupTemplateId, string $integration, int $storeId): array
     {
         $submitted = null;
@@ -60,7 +26,6 @@ final class ListingImages
         $paths = ProductImages::paths($productId, $submitted ?? $stored);
         $template = WatermarkTemplate::resolve($templateId, $groupTemplateId, $integration, $storeId);
         $stamper = app(StampedImages::class);
-        // A marked tile is stamped on its preview copy as the page draws it, so opening a listing writes nothing.
         $shown = function (string $path, int $i) use ($template, $allImages, $stamper): string {
             if ($template !== null && ($i === 0 || $allImages)) {
                 $bytes = $stamper->bytes($path, $template, ImageCache::PREVIEW);
@@ -80,8 +45,6 @@ final class ListingImages
             'watermarkTemplateId' => $templateId,
             'watermarkAllImages' => $allImages,
             'watermarkLent' => WatermarkTemplate::nameOf($groupTemplateId, $integration, $storeId),
-            /* The pictures this listing holds back, so a tile can show itself
-               off and come back with one press. */
             'imagesOff' => (function () use ($listing, $refused) {
                 $off = $refused ? old('image_off') : ($listing->image_off ?? null);
                 $off = is_string($off) ? json_decode($off, true) : $off;
@@ -91,11 +54,6 @@ final class ListingImages
         ];
     }
 
-    /**
-     * A listing's watermark choice as submitted, ready to store.
-     *
-     * @return array{watermark_template_id: ?int, watermark_all_images: bool}
-     */
     public static function submittedWatermark(\Illuminate\Http\Request $request, string $integration, int $storeId): array
     {
         return [
@@ -104,28 +62,11 @@ final class ListingImages
         ];
     }
 
-    /**
-     * The pictures this listing holds back, as submitted.
-     *
-     * Off is not gone: the path stays in the arrangement and comes back with
-     * one press. Every path is checked against the library, like the
-     * arrangement itself, because a hidden input is client input.
-     *
-     * @return ?array<int, string>
-     */
     public static function submittedOff(int $productId, ?string $json): ?array
     {
         return self::submitted($productId, $json);
     }
 
-    /**
-     * The pictures that actually go up: the arrangement, less the ones held
-     * back. HOW MANY A STORE TAKES IS NOT KNOWN HERE and never should be: the
-     * store answers, and the seller turns some off and sends again.
-     *
-     * @param  list<string>  $paths
-     * @return list<string>
-     */
     public static function sending(array $paths, ?object $listing): array
     {
         $off = $listing->image_off ?? null;
@@ -137,16 +78,6 @@ final class ListingImages
         return array_values(array_filter($paths, fn (string $p) => ! in_array($p, $off, true)));
     }
 
-    /**
-     * What a submitted arrangement is worth.
-     *
-     * Every path is checked against the library on disk before it is
-     * stored: a hidden input is client input, and this one ends up in a
-     * file read at push time. An empty or unparseable list is null.
-     *
-     * @param  ?string  $json  the hidden input's value, verbatim
-     * @return ?array<int, string>
-     */
     public static function submitted(int $productId, ?string $json): ?array
     {
         $decoded = json_decode((string) $json, true);

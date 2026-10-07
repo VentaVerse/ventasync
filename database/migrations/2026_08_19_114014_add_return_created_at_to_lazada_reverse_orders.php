@@ -5,26 +5,6 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * When Lazada opened the return, as opposed to when this ERP first saw it.
- *
- * The returns list had no date filter because there was no honest column to
- * filter on: the table carried only created_at and updated_at, which are row
- * timestamps and move when a sync touches the row. Shopee's equivalent table
- * has had return_created_at from the start, so the two returns screens could
- * not offer the same From and To.
- *
- * The value was already arriving and being dropped - Lazada sends
- * return_order_line_gmt_create on each reverse order line, a Unix timestamp,
- * inside the payload this table stores whole in raw. So this lifts it into a
- * column and backfills every existing row from the raw already on disk,
- * rather than asking the operator to re-sync a history to get a filter.
- *
- * Nullable, because a row whose raw predates that field or arrived malformed
- * gets no date rather than a wrong one. The list treats null as "unknown"
- * and a From/To filter excludes it, which is the correct answer to "opened in
- * this range" when the opening date is not known.
- */
 return new class extends Migration
 {
     public function up(): void
@@ -34,9 +14,6 @@ return new class extends Migration
             $table->index(['region', 'return_created_at']);
         });
 
-        // Backfill in chunks: raw is a JSON blob per row, so this reads and
-        // writes rather than doing it in SQL, and chunking keeps a large
-        // history from being held in memory at once.
         DB::table('lazada_reverse_orders')
             ->select('id', 'raw')
             ->orderBy('id')
@@ -47,9 +24,6 @@ return new class extends Migration
                         continue;
                     }
 
-                    // Take the earliest line: a reverse order can carry
-                    // several lines and the return was opened when the first
-                    // of them was.
                     $stamps = [];
                     foreach ((array) ($raw['reverse_order_lines'] ?? []) as $line) {
                         $ts = $line['return_order_line_gmt_create'] ?? null;

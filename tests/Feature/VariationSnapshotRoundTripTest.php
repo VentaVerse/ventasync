@@ -8,12 +8,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * Saving a product's variations back exactly as VariationSnapshot reads them
- * changes nothing: every SKU, stock figure, price, cost part, picture and
- * status survives, and no stock movement is logged. An edit that changes one
- * variation relies on this for all the others.
- */
 class VariationSnapshotRoundTripTest extends TestCase
 {
     use RefreshDatabase;
@@ -34,7 +28,6 @@ class VariationSnapshotRoundTripTest extends TestCase
         return $id;
     }
 
-    /** What a save may not change, by variation SKU. */
     private function state(int $productId): array
     {
         $p = (string) config('catalog.prefix');

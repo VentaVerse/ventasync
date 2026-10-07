@@ -7,21 +7,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Laravel\Sanctum\Contracts\HasApiTokens as HasApiTokensContract;
 use Laravel\Sanctum\HasApiTokens;
 
-/**
- * A 3rd-party application granted scoped API access to the ERP.
- *
- * Owns Sanctum tokens whose abilities encode granted "resource:action"
- * scopes (see config/api_scopes.php). Auth resolves $request->user() to an
- * ApiClient for external API calls; route access is enforced by the
- * `scope` middleware via tokenCan().
- */
 class ApiClient extends Model implements HasApiTokensContract
 {
     use HasApiTokens;
 
     protected $fillable = ['name', 'description', 'active', 'created_by', 'mcp_enabled', 'assistant', 'allowed_ips', 'calls_per_minute'];
 
-    /** The readable copy of the current token never leaves in an array or JSON dump. */
     protected $hidden = ['token_secret'];
 
     protected $casts = [
@@ -33,11 +24,6 @@ class ApiClient extends Model implements HasApiTokensContract
         'last_used_at'     => 'datetime',
     ];
 
-    /**
-     * Whether a request from this address may use the application. An
-     * empty list means anywhere; entries may be single addresses or CIDR
-     * ranges. Applies to the API and to MCP alike.
-     */
     public function allowsIp(?string $ip): bool
     {
         $list = array_values(array_filter((array) ($this->allowed_ips ?? []), 'is_string'));
@@ -51,10 +37,6 @@ class ApiClient extends Model implements HasApiTokensContract
         return \Symfony\Component\HttpFoundation\IpUtils::checkIp($ip, $list);
     }
 
-    /**
-     * Whether the current token (or, with no token in play, any token)
-     * carries a scope. The MCP tools ask this before they run.
-     */
     public function hasScope(string $scope): bool
     {
         $token = $this->currentAccessToken();
@@ -65,10 +47,6 @@ class ApiClient extends Model implements HasApiTokensContract
         return in_array($scope, $this->grantedScopes(), true) || in_array('*', $this->grantedScopes(), true);
     }
 
-    /**
-     * Issue a token and keep an encrypted copy of it, so it can be viewed
-     * again. Returns the plaintext.
-     */
     public function issueViewableToken(array $abilities, ?\DateTimeInterface $expiresAt): string
     {
         $plain = $this->createToken($this->name, $abilities, $expiresAt)->plainTextToken;
@@ -78,10 +56,6 @@ class ApiClient extends Model implements HasApiTokensContract
         return $plain;
     }
 
-    /**
-     * The current token in plaintext, or null when none is kept or the kept
-     * copy no longer matches a live token of this application.
-     */
     public function viewableToken(): ?string
     {
         $plain = $this->token_secret;
@@ -102,7 +76,6 @@ class ApiClient extends Model implements HasApiTokensContract
         return $this->hasMany(ApiRequestLog::class);
     }
 
-    /** All scopes currently granted across this client's active tokens. */
     public function grantedScopes(): array
     {
         return $this->tokens()

@@ -7,15 +7,6 @@ use Extensions\tiktok\Models\TikTokSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * Multi-store TikTok (the owner 2026-09-05): the same conversion Lazada went
- * through, held to the same bar. TikTok's data tables carried no store key -
- * orders were unique on (region, order_id) and a listing was unique on
- * product_id ALONE, so a product could list on one store only. This pass adds
- * tiktok_setting_id to the four per-seller tables and re-aims the unique keys
- * at the store. Mirrors LazadaMultistoreTest section for section. See memory
- * lazada-tables-lacked-store-key.
- */
 class TikTokMultistoreTest extends TestCase
 {
     use RefreshDatabase;
@@ -30,8 +21,6 @@ class TikTokMultistoreTest extends TestCase
         $this->app->register(\Extensions\tiktok\TiktokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
     }
-
-    // ── The ground ───────────────────────────────────────────────────
 
     public function test_default_store_is_the_first_enabled_row(): void
     {
@@ -74,8 +63,6 @@ class TikTokMultistoreTest extends TestCase
             . implode(', ', $offenders));
     }
 
-    // ── The data carries the store ───────────────────────────────────
-
     public function test_a_write_that_names_no_store_lands_on_the_default(): void
     {
         $store = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
@@ -112,8 +99,6 @@ class TikTokMultistoreTest extends TestCase
             'a bound store must see only its own rows through a plain query');
         app()->forgetInstance('tiktok.route-store');
     }
-
-    // ── The surfaces carry the store ─────────────────────────────────
 
     public function test_a_store_page_lives_under_its_store_and_an_unknown_store_is_404(): void
     {
@@ -167,11 +152,6 @@ class TikTokMultistoreTest extends TestCase
         $r->assertRedirect(route('ext.tiktok.index', ['store' => $outlet->id]));
     }
 
-    /**
-     * The state gate + the signed-state round trip: a callback whose state
-     * names store two lands the grant on store two and leaves store one's token
-     * untouched, and a forged state writes nothing.
-     */
     public function test_the_oauth_callback_lands_the_grant_on_the_store_named_in_state(): void
     {
         $one = $this->storeWithCreds('Main store');
@@ -209,18 +189,9 @@ class TikTokMultistoreTest extends TestCase
 
         $this->assertSame('at-old', decrypt($one->fresh()->access_token),
             'a forged state must trigger no token exchange');
-        // And the refusal lands on a TikTok store's own settings, named in
-        // the URL, never on whatever store the global URL default holds
-        // (the owner, 2026-09-06: the return landed on a Shopee store).
         $r->assertRedirect(route('ext.tiktok.index', ['store' => $one->id]));
     }
 
-    /**
-     * the owner, live 2026-09-07: with two stores, toggling the second store's
-     * production/sandbox switch, and saving its settings, both landed on the
-     * FIRST store's page. Every settings write is a write for the store in
-     * the URL, and it comes back to that store's page.
-     */
     public function test_a_settings_write_acts_for_the_store_in_the_url_and_returns_to_it(): void
     {
         $this->artisan('permissions:sync-catalogue');
@@ -246,12 +217,6 @@ class TikTokMultistoreTest extends TestCase
         $this->assertSame('Main store', $one->fresh()->store_name, "the second store's save must not touch the first store");
     }
 
-    /**
-     * Per-store dashboard figures (#194's last edge, 2026-09-07): with two
-     * stores the strip used to show one blended row on both, because the
-     * contribution was keyed by channel. Each store now reports its own
-     * waiting count under its own tab id.
-     */
     public function test_each_store_reports_its_own_waiting_count_to_the_dashboard(): void
     {
         $one = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
@@ -281,12 +246,6 @@ class TikTokMultistoreTest extends TestCase
         ]);
     }
 
-    /**
-     * One group per product PER STORE: a store never sees another store's
-     * groups, so a product sits in one group on each store, a second group
-     * on the same store is held, and leaving a group on one store leaves
-     * the other store's membership alone.
-     */
     public function test_a_product_sits_in_one_group_on_each_store(): void
     {
         $one = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);

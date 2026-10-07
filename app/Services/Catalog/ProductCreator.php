@@ -12,29 +12,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-/**
- * Makes a catalog product: the product, its description, its categories,
- * its pictures, its warehouse row, the activity log entry and the opening
- * stock line. The Add product form and the API both create through here,
- * so a product made either way is the same product.
- *
- * The form's variations and uploaded pictures are its own: it hands them
- * in as steps, run inside the same transaction once the product has an id.
- */
 class ProductCreator
 {
-    /** The most pictures a product is created with: the first is the main one. */
     public const MAX_IMAGES = 9;
 
-    /**
-     * @param  array<string, mixed>  $data  name, sku, price, weight, length, width, height, status; optionally
-     *                                      model, quantity, reorder_level, cost_amount, cost_percentage,
-     *                                      cost_additional, manufacturer_id, category_ids, description, image_paths
-     * @param  (\Closure(int): void)|null  $variations  saves the product's variations
-     * @param  (\Closure(int): list<string>)|null  $images  the product's picture paths, given its id
-     * @param  array{source?: string, actor?: string, reason?: string}  $by  who made it: a person at the form
-     *                                      (the default), or an application ('api', its name and its reason)
-     */
     public function create(array $data, ?\Closure $variations = null, ?\Closure $images = null, array $by = []): int
     {
         $pfx = (string) config('catalog.prefix');
@@ -43,7 +24,6 @@ class ProductCreator
         $productId = DB::transaction(function () use ($data, $variations, $images, $pfx, $langId) {
             $p = new Product();
 
-            // A blank model stays blank: empty is a real answer, never a copy of the SKU.
             $p->model = trim((string) ($data['model'] ?? ''));
             $p->sku = (string) ($data['sku'] ?? '');
             $p->upc = '';
@@ -73,7 +53,6 @@ class ProductCreator
             $p->points = 0;
             $p->tax_class_id = 0;
 
-            // Strict-mode safe date_available.
             $da = $p->date_available;
             if (! $da || $da === '0000-00-00') {
                 $p->date_available = now()->toDateString();
@@ -86,7 +65,6 @@ class ProductCreator
                 'product_id' => $id,
                 'language_id' => $langId,
                 'name' => (string) $data['name'],
-                // Sanitised before it is stored: the editor re-renders it as HTML.
                 'description' => DescriptionHtml::store((string) ($data['description'] ?? '')),
                 'meta_title' => (string) $data['name'],
                 'meta_description' => '',
@@ -121,7 +99,6 @@ class ProductCreator
             ActivityLogger::log('created', 'Product', $productId,
                 $actor . ' created ' . $name . ' (SKU: ' . $sku . '). Reason: ' . $reason,
                 ['actor' => $actor, 'reason' => $reason, 'sku' => $sku],
-                // Not 'user': no human pressed this, and the ledger must not read as though one did.
                 'api');
             if ($finalQty > 0) {
                 StockHistoryLogger::log(
@@ -144,7 +121,6 @@ class ProductCreator
         return $productId;
     }
 
-    /** A manufacturer by id, else by exact name ignoring case; 0 when neither matches. Never creates one. */
     public function resolveManufacturerId(?int $manufacturerId, ?string $manufacturerName): int
     {
         $manufacturerId = (int) ($manufacturerId ?? 0);
@@ -164,7 +140,6 @@ class ProductCreator
         return $row ? (int) $row->manufacturer_id : 0;
     }
 
-    /** A category by id, else by name; for a path like "A > B > C" the last part is matched. 0 when none. */
     public function resolveCategoryId(?int $categoryId, ?string $categoryName): int
     {
         $categoryId = (int) ($categoryId ?? 0);
@@ -187,7 +162,6 @@ class ProductCreator
         return $row ? (int) $row->category_id : 0;
     }
 
-    /** The library folder a manufacturer's pictures live in: its existing folder by name or slug, else a new one. */
     public function imageFolder(int $manufacturerId): string
     {
         $disk = Storage::disk('public');
@@ -221,7 +195,6 @@ class ProductCreator
         return 'catalog/_no_manufacturer_';
     }
 
-    /** The first path is the main picture; the rest are the additional pictures, in order. */
     public function saveImages(int $productId, array $paths): void
     {
         $pfx = (string) config('catalog.prefix');
@@ -238,7 +211,6 @@ class ProductCreator
         }
     }
 
-    /** The default warehouse holds the new product's stock, where there is one. */
     private function warehouse(int $productId, int $quantity): void
     {
         if (! class_exists(\Extensions\warehousing\Services\WarehouseStockService::class)) {

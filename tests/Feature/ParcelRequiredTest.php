@@ -9,17 +9,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * Weight, dimensions and a real description are required on EVERY core
- * product save (#198, extended by the owner 2026-09-04: "the actual goal is
- * to prevent errors" - a product that cannot list on the Big 3 is not
- * saved half-made and repaired at push time). The 80-character
- * description floor is the strictest marketplace bar (TikTok's listing
- * quality floor; Shopee's hard minimum is ~25; Lazada publishes none),
- * counted on the text with the HTML stripped. The 2026-09 change
- * reverses #198's edit carve-out: an old zero-parcel row must be
- * completed the next time anyone touches it.
- */
 class ParcelRequiredTest extends TestCase
 {
     use RefreshDatabase;
@@ -81,9 +70,6 @@ class ParcelRequiredTest extends TestCase
         $page = $this->actingAs($user)->get(route('products.edit', $pid))->assertOk()->getContent();
         $this->assertStringContainsString('This product is missing its weight or size', $page);
 
-        // The 2026-09-04 reversal of #198's carve-out: an edit is exactly
-        // the moment the owner is looking at the product, so the zero
-        // parcel does not survive it.
         $this->actingAs($user)->put(route('products.update', $pid), [
             'name' => 'Renamed, parcel untouched', 'model' => 'OLD-ZERO', 'sku' => 'OLD-ZERO',
             'price' => '300', 'quantity' => '5', 'status' => '1',
@@ -101,7 +87,6 @@ class ParcelRequiredTest extends TestCase
         ])->assertSessionHasNoErrors();
     }
 
-    /** The description is optional since 2026-09-06 (the owner): a terse one, or none, is not a refusal here. */
     public function test_a_terse_description_is_accepted_and_the_parcel_still_rules(): void
     {
         $r = $this->actingAs($this->manager())->post('/catalog/products', [

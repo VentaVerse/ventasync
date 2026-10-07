@@ -1,59 +1,9 @@
-/* Marketplace listing forms: the `cl-` grammar.
-   -------------------------------------------------------------------
-   Round F Task 1. The three pages that put ONE catalog product onto a
-   marketplace, as opposed to a whole product group:
-
-     - Shopee, add a product        (pick the product, carry three
-                                     pre-fill values to the push form)
-     - Shopee, push to Shopee       (the full listing payload)
-     - Lazada, create / edit a listing
-
-   Nearly all of the three is the shared fm- form anatomy
-   (components/form-page.css): fm-page / fm-head / fm-body / fm-section /
-   fm-fields / x-ui.field / fm-bar, plus fm-vars for Lazada's variant
-   mapping table and the gf- attribute rows from pages/group-form.css.
-   The catalog picker is the fm-ta / cc-ta typeahead the listings
-   pages already carry.
-
-   This file is only the four things none of those has:
-
-     1. .cl-images, the image chooser on Shopee's push form;
-     2. .cl-total, the running price total under Lazada's markup fields;
-     3. .cl-json, the three read-only payload panes at the bottom of
-        Lazada's edit form;
-     4. .cl-summary, the identity strip at the top of Lazada's edit
-        form, which names the product the listing is for.
-
-   It replaces pages/product-result.css, which existed only to style the
-   two innerHTML-built search dropdowns those pages no longer have.
-
-   Decisions carried in from the anatomies this builds on:
-
-     1. Colour has one job on these pages: the primary action. A chosen
-        image is marked by its checkbox and a border, never a tint.
-     2. Elevation is flat. Bordered tiles, hairlines, no shadows.
-     3. Every numeral is mono with tabular figures: prices, ids,
-        dimensions and stock, all of which are read down a column or
-        compared against the marketplace's own back office.
-   ------------------------------------------------------------------- */
-
-/* ==================================================================
-   1. The image chooser (Shopee push).
-
-   Every image the catalog holds for this product, each one ticked or
-   not. It is a grid because the images are the content: a list of file
-   names with checkboxes would make the operator open each one to know
-   what they were sending.
-   ================================================================== */
-
 .cl-images {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     gap: var(--bl-space-3);
 }
 
-/* The whole tile is the control. A checkbox alone is a 16px target for
-   a decision about a 120px picture. */
 .cl-image {
     display: flex;
     flex-direction: column;
@@ -68,10 +18,6 @@
 
 .cl-image:hover { border-color: var(--bl-rule-2); }
 
-/* Chosen is said by the border weight and by the checkbox, not by a
-   colour wash: on this page colour belongs to the Push button. :has()
-   is what lets the tile know its own checkbox is ticked without a
-   script keeping a class in sync. */
 .cl-image:has(input:checked) { border-color: var(--bl-ink); }
 
 .cl-image__thumb {
@@ -99,15 +45,6 @@
     font-size: 11px;
     color: var(--bl-ink-3);
 }
-
-/* ==================================================================
-   2. The running total (Lazada).
-
-   One figure that answers the only question the two markup fields
-   raise: what will this actually be listed at. Large enough to be the
-   thing the eye lands on in that column, mono because it changes as
-   you type and gets compared against the base price beside it.
-   ================================================================== */
 
 .cl-total {
     display: flex;
@@ -137,15 +74,6 @@
     color: var(--bl-ink-3);
 }
 
-/* ==================================================================
-   3. The payload panes (Lazada).
-
-   The built request, the last request sent and the last response. They
-   are read-only evidence, not fields, so they are <pre> rather than a
-   textarea pretending to be editable, and they scroll inside their own
-   box rather than making the page scroll sideways.
-   ================================================================== */
-
 .cl-json {
     max-height: 320px;
     margin: 0;
@@ -165,15 +93,6 @@
 }
 
 .cl-json:empty { display: none; }
-
-/* ==================================================================
-   4. The identity strip (Lazada edit).
-
-   Which catalog product this listing is for. It sits above the form
-   rather than inside it because it is not a field: it is the answer to
-   "what am I editing", and the fm- anatomy's own head is already
-   carrying the page title and the save state.
-   ================================================================== */
 
 .cl-summary {
     display: flex;
@@ -231,10 +150,6 @@
     white-space: nowrap;
 }
 
-/* ------------------------------------------------------------------
-   Phones.
-   ------------------------------------------------------------------ */
-
 @media (max-width: 640px) {
     .cl-images { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
     .cl-image__thumb { height: 80px; }
@@ -242,8 +157,6 @@
     .cl-json { max-height: 240px; font-size: 11px; }
 }
 
-/* Two verbs on one line beside the coverage fact (Phase F, #184): the
-   primary way forward and the read-back, together where the gap is named. */
 .fm-actions-row {
     display: flex;
     flex-wrap: wrap;
@@ -251,20 +164,14 @@
     align-items: center;
 }
 
-/* The preset bar above the bulk-push review (Phase F, #184). */
 .bp-preset-bar { align-items: center; }
 .bp-preset-save { max-width: 340px; margin-top: var(--bl-space-2); }
 
-/* "Save as preset…" name field in the sticky bar (#195): wide enough for a
-   real name, never wide enough to shove Save off the bar on a phone. */
 .fm-bar__preset-name {
     width: 180px;
     max-width: 38vw;
 }
 
-/* ── Global maintenance on the ON SHOPEE strip (cleanup, 2026-09-03):
-   the icon refresh and the link repair read as page furniture beside
-   the freshness stamp, never as page actions. ── */
 .cc-iconbtn {
     display: inline-grid;
     place-items: center;

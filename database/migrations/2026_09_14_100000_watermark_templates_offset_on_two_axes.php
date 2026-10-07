@@ -5,23 +5,6 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * THE MARGIN BECOMES AN OFFSET, ON TWO AXES (VENT2-128).
- *
- * the owner, 2026-09-11: "Rename margin to offset. Then I want to make offset
- * both X and Y axis. Separated slider." And of the sliders: "default is 0
- * and can go to negative and positive."
- *
- * A margin could only push a mark inward from its corner, by the same
- * amount on both sides. An offset moves it anywhere, independently on each
- * axis, in the picture's own directions: right and down are positive, the
- * way every image editor counts them.
- *
- * Existing templates keep exactly where their mark sits. A margin of m on
- * a bottom-right mark was m in from the right and m up from the bottom,
- * which is an offset of -m, -m; a top-left mark was +m, +m; a centred axis
- * had no margin on it at all.
- */
 return new class extends Migration
 {
     public function up(): void

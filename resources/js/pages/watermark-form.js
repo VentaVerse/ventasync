@@ -1,17 +1,4 @@
-/* THE WATERMARK TEMPLATE FORM (VENT2-128).
- *
- * Three jobs, all about seeing the thing before committing to it: pick the
- * mark out of the image library, show each slider's value as it moves, and
- * show what a marked photograph actually looks like as the settings change.
- *
- * The preview is drawn by the SERVER, by the same stamper the push uses
- * (watermarks.preview), rather than approximated in CSS. A canvas
- * impression of a watermark is exactly the kind of preview that agrees
- * with the form and disagrees with the marketplace.
- */
 (function () {
-    /* The real minus sign, not a hyphen: a signed readout is a number, and
-       -4% set in a hyphen is a dash next to a four. */
     var MINUS = '−';
 
     function init() {
@@ -27,7 +14,6 @@
         var previewUrl = form.getAttribute('data-wm-preview-url');
         if (!pick || !pathEl) return;
 
-        /* ── Readouts ─────────────────────────────────────────────── */
         function readout(range) {
             var out = range.parentNode.querySelector('[data-wm-readout]');
             if (!out) return;
@@ -39,9 +25,6 @@
                 else if (v < 0) text = MINUS + text.slice(1);
             }
             out.textContent = text + unit;
-            /* The filled part of the track follows the thumb. A signed
-               slider fills from its centre, so the fill says which way and
-               how far rather than how much. */
             var min = parseFloat(range.min);
             var max = parseFloat(range.max);
             var at = (v - min) / (max - min) * 100;
@@ -58,8 +41,6 @@
         ranges.forEach(function (range) {
             readout(range);
             range.addEventListener('input', function () { readout(range); });
-            /* A signed slider returns to zero on a double click: finding the
-               exact centre by hand is the one move a slider is bad at. */
             if (range.hasAttribute('data-wm-signed')) {
                 range.addEventListener('dblclick', function () {
                     range.value = '0';
@@ -74,7 +55,6 @@
             return el ? el.value : '';
         }
 
-        /* ── The library picker ───────────────────────────────────── */
         if (browseBtn && window.ImageLibrary) {
             browseBtn.addEventListener('click', function () {
                 window.ImageLibrary.open(function (files) {
@@ -91,14 +71,10 @@
             });
         }
 
-        /* ── The preview ──────────────────────────────────────────── */
         var timer = null;
         function draw() {
             if (!preview || !previewUrl || !pathEl.value) return;
             window.clearTimeout(timer);
-            /* Debounced: a slider fires on every pixel it moves, and a
-               request per step would ask the server to stamp a photo fifty
-               times in one drag. */
             timer = window.setTimeout(function () {
                 var url = new URL(previewUrl, window.location.origin);
                 url.searchParams.set('image_path', pathEl.value);

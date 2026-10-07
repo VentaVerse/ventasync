@@ -1,19 +1,3 @@
-/* ============================================================
- * THE VIDEO THAT GOES UP, on a listing page.
- *
- * The catalog's video is what this store sends unless it says otherwise. The
- * three answers ride two hidden fields, which the listing's own save reads:
- *
- *   path empty, off 0   send the catalog's
- *   path set,   off 0   send this store's own
- *   off 1               send none
- *
- * A replacement is uploaded on its own, before the listing is saved, so a
- * long upload never rides on the save.
- *
- * Written with textContent and element properties, never innerHTML: a
- * filename is somebody else's data.
- * ============================================================ */
 (function () {
     'use strict';
 
@@ -33,9 +17,6 @@
             say.hidden = !message;
         }
 
-        /* The card is drawn by the server; after a change it says what will
-           happen rather than redrawing itself, so nothing here has to rebuild
-           a player, its facts and its refusal from script. */
         function settled(message) {
             tell(message);
         }

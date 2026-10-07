@@ -1,7 +1,3 @@
-/* The Catalog change button and its comparison panel
-   (partials/catalog-change-button, partials/catalog-change-panel). The
-   panel is the store's slide-over (.cc-addpanel), widened for two columns. */
-
 .lcx-btn {
     display: inline-flex;
     align-items: center;
@@ -106,7 +102,6 @@
     min-width: 0;
 }
 
-/* Each cell names its side only where the column heads are gone. */
 .lcx-side {
     display: none;
     font-size: 11.5px;

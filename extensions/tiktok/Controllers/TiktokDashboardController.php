@@ -4,12 +4,6 @@ namespace Extensions\tiktok\Controllers;
 
 use App\Http\Controllers\Integrations\ChannelDashboardController;
 
-/**
- * The Tiktok landing page. All logic is in the shared base; this subclass
- * exists so the route - and therefore the derived permission key
- * (tiktok/dashboard) - belongs to this extension. See the base class for why
- * core's /{channel} wildcard could not do this job.
- */
 class TiktokDashboardController extends ChannelDashboardController
 {
     protected string $channel = 'tiktok';

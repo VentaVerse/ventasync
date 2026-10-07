@@ -15,24 +15,10 @@ use Extensions\tiktok\Services\TikTok\TikTokProductPush;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
-/**
- * The per-product TikTok surface (#146). TikTok's listing truth stays
- * DERIVED across the group pivots; this page reads that truth for ONE
- * product and manages the facts that belong to the product rather than
- * to any group - today, the discount rule.
- *
- * TikTok models a sale as a promotion ACTIVITY: a named object with a
- * server-side window that products join. DIRECT_DISCOUNT takes the
- * percent itself and applies it to the live price at the marketplace,
- * so unlike Shopee no promo price is computed here. Like the Shopee
- * half, VentaSync keeps ONE activity per window and every product
- * pushed for an identical window joins it.
- */
 class TikTokListingController extends Controller
 {
     use \App\Http\Controllers\Concerns\ComparesWithTheCatalog;
 
-    /** The store's listing of the product: the one on TikTok Shop, else the newest. */
     protected function catalogChangeListing(int $productId): \Illuminate\Database\Eloquent\Model
     {
         $rows = TikTokListing::query()->where('product_id', $productId)->orderBy('id')->get();
@@ -52,8 +38,6 @@ class TikTokListingController extends Controller
         $listing = TikTokListing::query()->where('product_id', $productId)->first();
         $truth = $this->derivedTruth($productId);
 
-        // The live half, fetched from TikTok on this load; only a listed
-        // product has one, an unpushed one shows readiness instead.
         $live = null;
         $liveError = null;
         $c = $this->creds();
@@ -64,8 +48,6 @@ class TikTokListingController extends Controller
                 $answer = $liveListing->fetch((string) $truth->tiktok_product_id, $c);
                 $live = $answer['live'];
                 $liveError = $answer['error'];
-                // The freshest answer there is: write it to the mirror so the
-                // lists agree with this page at once (the owner, 2026-08-28).
                 if ($live !== null && (string) ($live['status'] ?? '') !== '') {
                     TikTokListing::query()->where('tiktok_product_id', (string) $truth->tiktok_product_id)
                         ->update(['live_status' => (string) $live['status'], 'live_checked_at' => now()]);
@@ -78,9 +60,6 @@ class TikTokListingController extends Controller
             }
         }
 
-        /* The listing as the page shows it: a blank category and missing
-         * attribute answers filled from the product's group, and the group's
-         * price rule when the listing has none of its own. Never saved. */
         $inherit = app(\Extensions\tiktok\Services\TikTok\TikTokInheritedSettings::class);
         $inheritedGroup = $inherit->forProducts([$productId])[$productId] ?? null;
         $shown = $inherit->fill($listing ?? (new TikTokListing())->forceFill(['product_id' => $productId]), $inheritedGroup)['listing'];
@@ -92,7 +71,6 @@ class TikTokListingController extends Controller
             }
         }
 
-        // The category's attribute sheet, read once when never seen.
         $attributes = app(TikTokAttributes::class);
         $template = ($shown->tiktok_category_id && $c)
             ? $attributes->ensureTemplate((string) $shown->tiktok_category_id, app(TikTokClient::class), $c)
@@ -102,21 +80,12 @@ class TikTokListingController extends Controller
             : null;
         $readiness = app(TikTokListingReadiness::class)->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => []];
 
-        /* The engine's answer for this product, computed AFTER the
-         * write-through above so it reads the freshest mirror (#184 D).
-         * The page renders its words, never a map of its own. */
         $listingState = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)
             ->forProducts([$productId])[$productId] ?? null;
 
-        /* Variation coverage (Phase F, #184): the catalogue's SKUs vs the
-         * sku-id map TikTok holds. The update payload carries every
-         * catalogue variation (a combo without an id is created on
-         * update), so PUSH UPDATE is the add-variation verb - this line
-         * says so instead of leaving unlink-and-resync as folklore. */
         $covPfx = (string) config('catalog.prefix');
         $covStoreId = (int) (TikTokSetting::defaultStore()?->id ?? 0);
         $covSkus = \App\Integrations\Listings\ListingVariations::sold('tiktok', $covStoreId, [$productId], $covPfx)[$productId] ?? [];
-        // The map where it lives: the listing row, else the latest group pivot.
         $covRaw = \Extensions\tiktok\Models\TikTokListing::query()->where('product_id', $productId)->value('tiktok_sku_id')
             ?? \Extensions\tiktok\Models\TikTokProductGroupProduct::query()->onStore($covStoreId)->where('product_id', $productId)
                 ->whereNotNull('tiktok_product_id')->orderByDesc('last_pushed_at')->value('tiktok_sku_id');
@@ -128,7 +97,6 @@ class TikTokListingController extends Controller
             'missing' => array_values(array_filter($covSkus, fn ($sku) => !isset($covKeys[strtolower($sku)]))),
         ];
 
-        // The Product group band: this store's groups and each one's values.
         $bandGroups = \Extensions\tiktok\Models\TikTokProductGroup::query()
             ->where('tiktok_setting_id', $covStoreId)
             ->orderBy('name')
@@ -189,11 +157,9 @@ class TikTokListingController extends Controller
             'attrRows' => $attributes->rows($template),
             'shown' => $shown,
             'hasVariations' => $hasVariations,
-            // What the next push sends for a product without variations; the rule that priceRule() applies.
             'pushPrice' => $shown->priceFor($shown->startingPrice((float) $product->price, $hasVariations)),
             'savedAttributes' => $shown->attribute_values ?? [],
             'readinessMissing' => $readiness['missing'],
-            // The gaps by CODE, so the page can link each one to where it is fixed.
             'readiness' => $readiness,
             'groupBand' => $groupBand,
             'storeId' => (int) (TikTokSetting::defaultStore()?->id ?? 0),
@@ -227,27 +193,18 @@ class TikTokListingController extends Controller
             'image_order' => 'nullable|string|max:20000',
             ...\App\Integrations\Listings\ListingVariations::rules(),
             ...\App\Integrations\Listings\ListingGroup::rules(),
-            // TikTok takes the percent itself and only whole percents.
         ]);
 
-        /* The pictures this listing sends, in the order the card arranged
-         * them. Only a save that CARRIED the arrangement may change it:
-         * the input is invisible, so a caller that does not send it must
-         * not be read as one that cleared it. */
         $images = $request->has('image_order')
             ? ['image_order' => \App\Integrations\Listings\ListingImages::submitted($productId, $data['image_order'] ?? null),
                   'image_off' => \App\Integrations\Listings\ListingImages::submittedOff($productId, $request->input('image_off'))]
             : [];
 
-        /* The listing's own words, as typed. Only a save that carried a
-         * field changes it. Saving here never writes the core product. */
         $words = [];
         if ($request->has('title')) {
             $words['title'] = \App\Integrations\Listings\ListingContent::own($data['title'] ?? null);
         }
         $blank = fn ($v) => ($v === null || trim((string) $v) === '') ? null : $v;
-        /* The group dropdown: picking a group moves the product into it,
-         * No group takes it out. */
         $picked = \App\Integrations\Listings\ListingGroup::submitted($request);
         if ($picked['present']) {
             \App\Integrations\Listings\ListingGroup::assign([
@@ -260,7 +217,6 @@ class TikTokListingController extends Controller
             $currentDescription = TikTokListing::query()->where('product_id', $productId)->value('description');
             $words['description'] = \App\Integrations\Listings\ListingContent::descriptionToSave($data['description'] ?? null, $currentDescription, $request->input('description_edited'));
         }
-        // A product with variations prices each one from the catalog, so it keeps no Price of its own.
         $hasVariations = isset(\Extensions\tiktok\Services\TikTok\TikTokVariationPush::withVariations([$productId])[$productId]);
         TikTokListing::query()->updateOrCreate(
             ['product_id' => $productId],
@@ -286,7 +242,6 @@ class TikTokListingController extends Controller
             ]
         );
 
-        // A value equal to the group's follows the group from now on.
         $followed = app(\Extensions\tiktok\Services\TikTok\TikTokInheritedSettings::class)->forProducts([$productId])[$productId] ?? null;
         $savedRow = TikTokListing::query()->where('product_id', $productId)->first();
         if ($followed && $savedRow) {
@@ -308,11 +263,6 @@ class TikTokListingController extends Controller
 
         $back = \App\Support\BackTo::safe($request->input('back'), '');
 
-        /* Save and push: the save half runs first so a refusal never loses
-         * the typing. A product already on TikTok Shop is updated in place;
-         * one that is not has its readiness re-read after the save and
-         * named, and only a ready product goes on to the push. An accepted
-         * push returns to the search it came from. */
         if ($request->boolean('push_after')) {
             if (TikTokListing::query()->where('product_id', $productId)->whereNotNull('tiktok_product_id')->exists()) {
                 $r = $this->performListingUpdate($productId, app(TikTokClient::class));
@@ -333,11 +283,6 @@ class TikTokListingController extends Controller
             ->with('status', 'Listing saved.');
     }
 
-    /**
-     * Push the listing's content and settings onto the LIVE TikTok
-     * product: the same builder as every push, with the ids injected so
-     * an update edits SKUs rather than duplicating them.
-     */
     public function pushListingUpdate(int $productId, TikTokClient $client)
     {
         $r = $this->performListingUpdate($productId, $client);
@@ -345,12 +290,6 @@ class TikTokListingController extends Controller
         return redirect()->back()->with($r['tone'], $r['message']);
     }
 
-    /**
-     * The update itself, shared by the Push update route and Save and push.
-     *
-     * @return array{tone: 'status'|'warning'|'error', message: string}
-     */
-    /** The update a row's Send makes, for the selection bar's Send on a product already on TikTok Shop. */
     public function updateOne(int $productId, TikTokClient $client): array
     {
         $r = $this->performListingUpdate($productId, $client);
@@ -372,7 +311,6 @@ class TikTokListingController extends Controller
             return ['tone' => 'error', 'message' => 'Update failed: this listing still needs ' . implode(', ', $readiness['missing']) . '.'];
         }
         $listing = TikTokListing::query()->where('product_id', $productId)->first();
-        // The group's presets fill the blanks, the way readiness judged it.
         $inherit = app(\Extensions\tiktok\Services\TikTok\TikTokInheritedSettings::class);
         $listing = $inherit->fill($listing, $inherit->forProducts([$productId])[$productId] ?? null)['listing'];
         $attributes = app(TikTokAttributes::class);
@@ -406,7 +344,6 @@ class TikTokListingController extends Controller
         return ['tone' => $warning ? 'warning' : 'status', 'message' => 'Update pushed.' . ($warning ? ' ' . $warning : '')];
     }
 
-    /** The listing-state engine, pinned to the store this request acts for. */
     private function states(): \Extensions\tiktok\Services\TikTok\TikTokListingStates
     {
         $engine = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class);
@@ -415,7 +352,6 @@ class TikTokListingController extends Controller
         return $store ? $engine->forStore($store) : $engine;
     }
 
-    /** The seller center's Activate / Deactivate, from here. */
     public function toggleListing(Request $request, int $productId, TikTokClient $client)
     {
         $request->validate(['action' => 'required|in:activate,deactivate']);
@@ -438,15 +374,6 @@ class TikTokListingController extends Controller
             : 'Activated on TikTok Shop. Buyers see it again once TikTok applies it.');
     }
 
-    /**
-     * Activate or deactivate several products. TikTok's endpoints take a
-     * product_ids list, so a selection of fifty is one call. On success
-     * the mirror is written through, so the next page view reads the new
-     * status without waiting for a refresh.
-     *
-     * @param  list<string>  $tiktokProductIds
-     * @return array{ok: list<string>, failed: list<string>, error: ?string} failed is the refused call's ids; later ones were not sent
-     */
     private function toggleProducts(TikTokClient $client, array $c, array $tiktokProductIds, bool $deactivate): array
     {
         $path = '/product/202309/products/' . ($deactivate ? 'deactivate' : 'activate');
@@ -464,7 +391,6 @@ class TikTokListingController extends Controller
         return ['ok' => $ok, 'failed' => [], 'error' => null];
     }
 
-    /** The selection bar's Deactivate / Activate (the owner, 2026-08-28): the same call as the row's, for many rows. */
     public function bulkToggle(Request $request, TikTokClient $client)
     {
         $request->validate([
@@ -524,9 +450,6 @@ class TikTokListingController extends Controller
         return redirect()->back()->with($tone, implode(' ', $parts));
     }
 
-    // ── Helpers ──────────────────────────────────────────────────
-
-    /** The catalog product this page is about, or 404. */
     private function productOrFail(int $productId): object
     {
         $pfx = (string) config('catalog.prefix');
@@ -544,11 +467,6 @@ class TikTokListingController extends Controller
         return $product;
     }
 
-    /**
-     * The product's listing truth, derived across EVERY group's pivots:
-     * any pivot holding a TikTok id answers, latest push first, and the
-     * provenance names which group's push made it true.
-     */
     private function derivedTruth(int $productId): ?object
     {
         $listing = TikTokListing::query()->where('product_id', $productId)->first();
@@ -571,7 +489,6 @@ class TikTokListingController extends Controller
             ->first(['tp.tiktok_product_id', 'tp.tiktok_sku_id', 'tp.last_pushed_at', 'tg.name as group_name']);
     }
 
-    /** Credentials for whichever mode the shop runs in, or null. */
     private function creds(): ?array
     {
         $s = TikTokSetting::defaultStore();
@@ -590,7 +507,6 @@ class TikTokListingController extends Controller
         ];
     }
 
-    /** One signed promotion call, logged. */
     private function call(TikTokClient $client, array $c, string $method, string $path, array $body): array
     {
         try {
@@ -622,7 +538,6 @@ class TikTokListingController extends Controller
 
     private function callMessage(array $result): string
     {
-        // The one reader that knows where every channel hides its reason.
         return \App\Support\MarketplaceAnswer::errorText('TikTok Shop', $result);
     }
 }

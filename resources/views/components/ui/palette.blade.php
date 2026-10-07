@@ -1,13 +1,7 @@
 @php
-    // Built from Navigation::groups(), not definition(): groups() has
-    // already dropped anything the current user cannot open (permission
-    // filter) and anything that would crash route() (parameter filter, see
-    // Navigation::allows()), so every entry offered here is safe to link to.
     $entries = [];
     foreach (\App\Support\Navigation::groups() as $entry) {
         foreach ($entry['items'] ?? [$entry] as $item) {
-            // The third layer (trial, 2026-09-06): a channel's stores flatten
-            // to "Channels / Shopee / Main store" here.
             if (! isset($item['route']) && ! empty($item['children'])) {
                 foreach ($item['children'] as $child) {
                     $entries[] = [

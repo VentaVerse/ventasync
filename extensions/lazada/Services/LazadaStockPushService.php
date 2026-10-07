@@ -6,36 +6,9 @@ use Extensions\lazada\Models\LazadaProduct;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-/**
- * Single source of truth for "what ERP variants does this Lazada listing have,
- * and what quantity should each one carry on Lazada right now?".
- *
- * Both the UI flow (LazadaProductGroupController::pushStock / pushPrices) and
- * the cron flow (LazadaPushStock command) used to compute this independently
- * by reading product_option_value. Multi-option products (which store SKUs and
- * quantities in product_option_combinations rather than product_option_value)
- * silently fell through both paths, so cron-driven stock pushes never updated
- * Lazada for those products. That drift caused real overselling in production.
- *
- * This service consolidates the logic so future fixes only happen in one place.
- *
- *   buildPushItems(LazadaProduct $listing, object $product, string $pfx): array
- *     Returns [[ 'sku_id' => int, 'seller_sku' => string,
- *                'quantity' => int, 'price' => float|null ], …]
- *
- * Combination-based products take precedence; product_option_value rows are
- * used only when no combinations row exists for the product.
- */
+// Combination rows take precedence; product_option_value is used only when none exist.
 class LazadaStockPushService
 {
-    /**
-     * Build the per-Lazada-variant push payload for one listing.
-     *
-     * @param LazadaProduct $listing  with eager-loaded ->variants
-     * @param object        $product  catalog product row (must have product_id, quantity, price, sku)
-     * @param string        $pfx      catalog table prefix (config('catalog.prefix'))
-     * @return array<int, array{sku_id:int, seller_sku:string, quantity:int, price:float|null}>
-     */
     public function buildPushItems(LazadaProduct $listing, object $product, string $pfx): array
     {
         $lazadaVariants = $listing->variants;
@@ -51,8 +24,6 @@ class LazadaStockPushService
         $erpQtyByPov   = [];
         $erpPriceByPov = [];
 
-        // 1) Combinations first — multi-option products live here. SKU column on
-        //    combinations holds the seller_sku; absolute_price is the variant price.
         $combos = DB::table('product_option_combinations')
             ->where('product_id', $productId)
             ->get(['id', 'sku', 'quantity', 'absolute_price']);
@@ -66,7 +37,6 @@ class LazadaStockPushService
                 }
             }
         } else {
-            // 2) Single-option fallback: read directly from product_option_value.
             $povRows = DB::table($pfx . 'product_option_value')
                 ->where('product_id', $productId)
                 ->get(['product_option_value_id', 'sku', 'quantity', 'absolute_price']);
@@ -85,7 +55,6 @@ class LazadaStockPushService
 
         $hasErpVariants = !empty($erpQtyBySku) || !empty($erpQtyByPov);
 
-        // A variation switched off for this store, or in the catalog, is not synced.
         $hidden = \App\Integrations\Listings\ListingVariations::hidden('lazada', (int) ($listing->lazada_setting_id ?? 0), [$productId]);
 
         $items = [];
@@ -100,8 +69,6 @@ class LazadaStockPushService
             }
             $povId     = $variant->product_option_value_id;
 
-            // Match by seller_sku first (survives option-value renumbering),
-            // then by product_option_value_id, then the base product as a last resort.
             $matched = true;
             if ($sellerSku !== '' && array_key_exists($sellerSku, $erpQtyBySku)) {
                 $qty   = $erpQtyBySku[$sellerSku];
@@ -110,14 +77,9 @@ class LazadaStockPushService
                 $qty   = $erpQtyByPov[(int) $povId];
                 $price = $erpPriceByPov[(int) $povId] ?? null;
             } elseif (!$hasErpVariants) {
-                // Simple product (no ERP variants): catalog stock, and the
-                // listing's own price when set, else the catalog's.
                 $qty   = max(0, (int) ($product->quantity ?? 0));
                 $price = \Extensions\lazada\Services\Lazada\LazadaPushPayload::startingPrice($listing, $basePrice);
             } else {
-                // ERP has variants but this Lazada variant didn't match any of them.
-                // Default to 0 stock so we don't oversell on the marketplace by
-                // pushing a parent-row aggregate.
                 Log::warning('LazadaStockPushService: unmatched Lazada variant, defaulting to 0', [
                     'product_id'        => $productId,
                     'lazada_seller_sku' => $sellerSku,

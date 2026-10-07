@@ -6,19 +6,6 @@ use Extensions\lazada\Models\LazadaReverseOrder;
 use Extensions\lazada\Models\LazadaSetting;
 use Illuminate\Http\Request;
 
-/**
- * Assembles the view data for the Lazada returns list: filters, tab counts,
- * pagination, and the two lookups this channel needs that Shopee's does not
- * (the ERP order number behind a reverse order, and a product image resolved
- * by SKU because the return payload carries none).
- *
- * The counterpart of LazadaOrdersPanel, extracted for the same reason: one
- * returns list has to render both in the channel workspace and in place on
- * the fulfilment hub, so that "Returns and refunds" stops throwing the
- * operator into a different shell.
- *
- * Lifted from LazadaOrderController@returns without a logic change.
- */
 class LazadaReturnsPanel
 {
     public function build(Request $request, ?int $storeId = null): array
@@ -27,8 +14,6 @@ class LazadaReturnsPanel
             ? LazadaSetting::query()->find($storeId)
             : LazadaSetting::defaultStore();
         if ($storeId !== null && $setting !== null) {
-            // The hub page is storeless; bind the tab's store so the global
-            // scope narrows every return read and route() fills its {store}.
             app()->instance('lazada.route-store', $setting);
             \Illuminate\Support\Facades\URL::defaults(['store' => (int) $setting->id]);
         }
@@ -40,20 +25,10 @@ class LazadaReturnsPanel
             'opened_to' => ['nullable', 'date', 'after_or_equal:opened_from'],
         ]);
 
-        // One field matching return number, order number or product - the
-        // same box the Shopee returns list carries, and for the reason set
-        // out there. No buyer term, because this channel's payload carries
-        // only a buyer_id.
         $find = trim((string)($filters['q'] ?? ''));
         $openedFrom = trim((string)($filters['opened_from'] ?? ''));
         $openedTo = trim((string)($filters['opened_to'] ?? ''));
 
-        /* The same four orderings the Shopee returns list offers, over the
-           same two ideas: when the return was opened, and when it last moved.
-           There is no buyer search here to match Shopee's, because Lazada's
-           reverse order payload carries only a buyer_id - a number the
-           operator has never seen and could not type. A search box over it
-           would be worse than its absence. */
         $sortKey = strtolower((string)$request->query('sort', ''));
         $allowedSort = ['opened_desc', 'opened_asc', 'updated_desc', 'updated_asc'];
         if (!in_array($sortKey, $allowedSort, true)) { $sortKey = 'updated_desc'; }
@@ -61,19 +36,10 @@ class LazadaReturnsPanel
         $perPage = (int)$request->query('per_page', 10);
         if (!in_array($perPage, [10, 20, 50, 100], true)) { $perPage = 10; }
 
-        // Tab logic
         $tab = strtoupper((string)$request->query('tab', 'ALL'));
         $allowedTabs = ['ALL', 'RETURN_INITIATED', 'IN_PROGRESS', 'DISPUTE', 'REFUND_ISSUED', 'CLOSED', 'REJECTED', 'OTHER'];
         if (!in_array($tab, $allowedTabs, true)) { $tab = 'ALL'; }
 
-        // The values on the RIGHT are what Lazada actually stores, not what
-        // its documentation lists. Written from the docs, this map matched
-        // none of the 76 rows in the table: every tab read 0 while All read
-        // 76, because the live vocabulary is REFUND_SUCCESS, REQUEST_CANCEL
-        // and REFUND_REJECT and none of the three appeared here. The
-        // documented spellings are kept alongside them - Lazada is free to
-        // send either - and the OTHER tab below now catches whatever comes
-        // next instead of dropping it out of the strip entirely.
         $tabStatusMap = [
             'RETURN_INITIATED' => ['return initiated', 'return_initiated', 'requested', 'pending'],
             'IN_PROGRESS'      => ['in progress', 'in_progress', 'processing', 'approved', 'return_in_progress', 'shipped_back', 'received'],
@@ -83,10 +49,6 @@ class LazadaReturnsPanel
             'REJECTED'         => ['rejected', 'cancelled', 'canceled', 'request_cancel', 'refund_reject'],
         ];
 
-        /* Sentence case, and the wording the rows use - see the note on the
-         * Shopee panel's tab map. "Return Initiated" and "Dispute in
-         * Progress" were title-cased mid-phrase, which no other label in this
-         * product does, and named states the rows spell differently. */
         $tabs = [
             'ALL'              => 'All',
             'RETURN_INITIATED' => 'Return started',
@@ -102,11 +64,8 @@ class LazadaReturnsPanel
 
         $baseCountQuery = LazadaReverseOrder::query()->where('region', $region);
 
-        // Everything the map does not name, so a status Lazada invents is
-        // reachable instead of silently absent from every tab.
         $mappedStatuses = array_values(array_unique(array_merge(...array_values($tabStatusMap))));
 
-        // Apply tab filter
         if ($tab === 'OTHER') {
             $query->whereRaw('LOWER(reverse_status) NOT IN (' . implode(',', array_fill(0, count($mappedStatuses), '?')) . ')',
                 array_map('strtolower', $mappedStatuses));
@@ -124,24 +83,6 @@ class LazadaReturnsPanel
         if ($find !== '') {
             $like = '%' . $find . '%';
 
-            /* PRODUCT SEARCH ON A CHANNEL THAT SENDS NO PRODUCT NAME.
-             *
-             * A Lazada reverse order line names its product only as
-             * product_sku and seller_sku_id. There is no title anywhere in
-             * the payload, so "flat patch cable" cannot be matched against
-             * the return itself at all.
-             *
-             * It can be matched one step out. The same two sources this
-             * panel already reads to put a thumbnail on the row - the synced
-             * order products, and the ERP catalog by SKU - both carry names,
-             * so the search runs there first and comes back with the SKUs
-             * those names belong to. Those SKUs are what the returns are
-             * then matched on.
-             *
-             * Capped, because a one-letter term would otherwise resolve to
-             * every SKU in the catalog and build a WHERE clause the length of
-             * the product table. A term matching more than 200 products is
-             * not a search anyone meant to run. */
             $skus = collect(\DB::table('lazada_order_products')
                 ->where('name', 'like', $like)
                 ->limit(400)
@@ -167,23 +108,14 @@ class LazadaReturnsPanel
             $query->where(function ($w) use ($like, $skus) {
                 $w->where('reverse_order_id', 'like', $like)
                     ->orWhere('trade_order_id', 'like', $like)
-                    // A SKU or a reason typed straight in, and the only path
-                    // for a return whose order was never synced.
                     ->orWhere('items', 'like', $like);
 
-                // The SKUs the name search resolved to. Quoted, so a SKU
-                // matches as a whole JSON value rather than as a fragment of
-                // a longer one.
                 foreach ($skus as $sku) {
                     $w->orWhere('items', 'like', '%"' . $sku . '"%');
                 }
             });
         }
 
-        /* return_created_at is when Lazada opened the return, lifted out of
-           the raw payload by the migration that added the column. Rows whose
-           raw never carried it are null and fall outside any range, which is
-           the honest answer to "opened between these dates". */
         if ($openedFrom !== '') {
             $query->whereDate('return_created_at', '>=', $openedFrom);
         }
@@ -191,7 +123,6 @@ class LazadaReturnsPanel
             $query->whereDate('return_created_at', '<=', $openedTo);
         }
 
-        // Tab counts
         $tab_counts = [];
         $tab_counts['ALL'] = (clone $baseCountQuery)->count();
         foreach ($tabStatusMap as $k => $statuses) {
@@ -223,19 +154,13 @@ class LazadaReturnsPanel
             ->paginate($perPage)
             ->appends($request->query());
 
-        // Map each reverse order's trade_order_id -> linked ERP catalog order id
-        // (via lazada_orders) so the list can show the ERP # like Shopee.
         $tradeIds = collect($orders->items())->pluck('trade_order_id')->filter()->unique()->values();
         $erpMap = $tradeIds->isEmpty() ? collect() : \DB::table('lazada_orders')
             ->whereIn('order_id', $tradeIds->all())
             ->whereNotNull('catalog_order_id')
-            // Raw DB::table bypasses the BelongsToLazadaStore global scope, so
-            // scope the ERP-order lookup to the current store explicitly.
             ->when(app()->bound('lazada.route-store'), fn ($q) => $q->where('lazada_setting_id', app('lazada.route-store')->id))
             ->pluck('catalog_order_id', 'order_id');
 
-        // Product images aren't in the return payload — resolve them by seller SKU
-        // from the synced order products (same image regardless of order).
         $skus = collect($orders->items())
             ->flatMap(fn ($o) => collect(is_array($o->items) ? $o->items : [])
                 ->map(fn ($it) => $it['seller_sku_id'] ?? ($it['product']['product_sku'] ?? null)))
@@ -245,10 +170,6 @@ class LazadaReturnsPanel
             ->whereNotNull('image')->where('image', '!=', '')
             ->pluck('image', 'sku');
 
-        // Catalog fallback: many returns are for orders that were never synced,
-        // so resolve missing images from the ERP product catalog by SKU (product
-        // SKU or option-value SKU -> parent product image). Catalog images live
-        // on the local storage disk. Order-product images (marketplace URLs) win.
         if ($skus->isNotEmpty()) {
             $pfx = (string) config('catalog.prefix');
             $catImg = \DB::table($pfx . 'product')
@@ -261,21 +182,9 @@ class LazadaReturnsPanel
                 ->whereNotNull('p.image')->where('p.image', '!=', '')
                 ->pluck('p.image', 'pov.sku');
             $catImgMap = $catImg->merge($ovImg)->map(fn ($img) => \App\Services\Media\ImageCache::url($img));
-            $imgMap = $catImgMap->merge($imgMap); // order-product image wins; catalog fills gaps
+            $imgMap = $catImgMap->merge($imgMap);
         }
 
-        /* THE PRODUCT'S NAME, resolved the same way its picture is.
-         *
-         * A Lazada reverse order names its product only as a SKU, so this
-         * list printed 18296038918 in the slot every other list in the
-         * product fills with a title. The one person this page exists for -
-         * an agent with a buyer on the phone saying "the patch cable" - had
-         * a number to match it against.
-         *
-         * Same two sources and the same precedence as the thumbnail above:
-         * the synced order products first, the ERP catalog behind them. A
-         * return whose order was never synced still resolves, because the
-         * catalog knows the SKU even when no order does. */
         $nameMap = collect();
 
         if ($skus->isNotEmpty()) {
@@ -299,7 +208,6 @@ class LazadaReturnsPanel
                 ->whereNotNull('name')->where('name', '!=', '')
                 ->pluck('name', 'sku');
 
-            // Order products win: that is the title the buyer saw on Lazada.
             $nameMap = $catName->merge($ovName)->merge($orderName);
         }
 

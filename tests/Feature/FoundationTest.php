@@ -5,75 +5,27 @@ namespace Tests\Feature;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
-/**
- * The foundation, guarded.
- *
- * The application has been unified before. Board #5 ran six migration rounds,
- * each internally excellent, and the result was 22 class-prefix families with
- * four section implementations and six page heads, because every round minted
- * its own anatomy and nothing stopped the next one doing the same.
- *
- * So the foundation ships with the thing the previous rounds lacked: a test
- * that fails when it starts coming apart again. Both assertions are RATCHETS -
- * they permit the debt that exists and refuse any addition to it - so they are
- * useful from the day they are written rather than after the sweep finishes.
- *
- * Everything is enumerated off the filesystem rather than from a list of
- * pages, matching the convention RouteNameSweepTest and FinalRoundTest already
- * follow: a harness that has to be remembered is a harness that drifts.
- */
 class FoundationTest extends TestCase
 {
-    /**
-     * Prefixes allowed to define a layout primitive.
-     *
-     * `bl-` is the foundation and is the only one that SHOULD. The rest are
-     * recorded debt: each is a family that minted its own section, card or
-     * head before the primitives existed, and each entry is deleted as that
-     * family is folded onto .bl-sheet / .bl-inset / .bl-head.
-     *
-     * The list may shrink. It may not grow.
-     */
     private const PRIMITIVE_OWNERS = [
-        // Paid off by retiring app.css: oc-, lic-, db- and detail- defined
-        // their primitives only in stylesheets the legacy bundle loaded.
-        'bl',       // the foundation itself
-        'od',       // order pages
-        'fm',       // form anatomy
-        'fh',       // fulfilment summary
-        'cw',       // channel workspace
-        'cs',       // channel settings
-        'api',      // api explorer
-        'pc',       // petty cash
-        'inv',      // inventory
-        'int',      // integrations hub
+        'bl',
+        'od',
+        'fm',
+        'fh',
+        'cw',
+        'cs',
+        'api',
+        'pc',
+        'inv',
+        'int',
     ];
 
-    /**
-     * The v2.2 token vocabulary, retired 2026-08-18.
-     *
-     * The ratchet that used to live here (LEGACY_TOKEN_DEBT) went from
-     * 60 files and 2,550 references to zero, at which point the alias
-     * bridge (blotter-bridge.css) was deleted, exactly as its header
-     * promised. What remains is the terminal form of that ratchet: none
-     * of these names may be declared or referenced again. Tokens live in
-     * the --bl-* namespace, next to Tailwind's own --color-* / --font-*
-     * theme keys; a component may still declare its own scoped parameter
-     * (--pill-*, --bl-pad overrides), which no stem below collides with.
-     */
     private const RETIRED_TOKEN_PATTERN =
         '/(?<![\w-])--(?:canvas|surface(?:-[a-z]+)?|border(?:-[a-z-]+)?|text(?:-[a-z]+)?|ink|muted'
         .'|accent(?:-[a-z]+)?|danger(?:-hover)?|warning|info|success-(?:ink|soft)|chart-(?:money|count)'
         .'|radius-(?:sm|md|lg)|shadow-(?:sm|menu|modal)|transition-fast|font-ui|control-h(?:-sm)?|row-h'
         .'|sidebar-w-new|motion-(?:fast|base)|space-[1-8])(?![\w-])/';
 
-    /**
-     * A section, a card and a page head are the foundation's job. A page that
-     * needs a new one of those does not need a new vocabulary; it needs
-     * .bl-sheet, .bl-inset or .bl-head, or a variant of one of them.
-     *
-     * This is the assertion that stops a seventh round happening.
-     */
     public function test_no_new_vocabulary_defines_its_own_layout_primitive(): void
     {
         $found = [];
@@ -108,12 +60,6 @@ class FoundationTest extends TestCase
         );
     }
 
-    /**
-     * The reverse direction: an entry that has been paid off must be removed,
-     * so the list cannot quietly keep naming families that no longer own
-     * anything. Without this the allowlist would only ever grow stale, and a
-     * stale allowlist is how the previous rounds' debt went unnoticed.
-     */
     public function test_the_primitive_allowlist_names_nothing_that_is_already_clean(): void
     {
         $found = [];
@@ -129,8 +75,6 @@ class FoundationTest extends TestCase
 
         $found = array_unique($found);
 
-        // bl- is the foundation and is exempt: it stays whether or not it
-        // currently happens to define a primitive in a scanned file.
         $stale = array_diff(self::PRIMITIVE_OWNERS, $found, ['bl']);
 
         $this->assertSame(
@@ -142,13 +86,6 @@ class FoundationTest extends TestCase
         );
     }
 
-    /**
-     * The retired vocabulary stays retired.
-     *
-     * The undeclared-property check below cannot catch a revival on its
-     * own: re-declare --surface somewhere and every use of it is
-     * "declared" again. This is the assertion that keeps the door shut.
-     */
     public function test_the_retired_v22_token_vocabulary_stays_retired(): void
     {
         $revived = [];
@@ -170,25 +107,6 @@ class FoundationTest extends TestCase
         );
     }
 
-    /**
-     * A page title on a shell page must be the shared one.
-     *
-     * This is the assertion the first version of this test lacked, and the
-     * gap it left is exactly how Products was missed: the guard caught a page
-     * inventing a NEW primitive and was blind to a page reimplementing an
-     * EXISTING one in raw utilities. Products and the dashboard both rendered
-     * their page title as a bare <h1> sized by hand with text-[21px], next to
-     * a hand-rolled filter row, while 45 other lists used .x-list-head and
-     * .x-filters. No amount of work on the shared components could reach
-     * them, because they were not using the shared components.
-     *
-     * Reimplementation is the commoner failure mode of the two, and the one a
-     * reviewer is least likely to spot: the page looks nearly right.
-     *
-     * Scoped to views that extend a shell layout. Error pages, PDFs, print
-     * sheets and mail templates render outside the application chrome and
-     * have no business carrying its classes.
-     */
     public function test_a_shell_page_titles_itself_with_the_shared_class(): void
     {
         $offenders = [];
@@ -213,32 +131,8 @@ class FoundationTest extends TestCase
         );
     }
 
-    /**
-     * Views rendered inside the application chrome, keyed by repo-relative
-     * path. Read off the @extends line rather than off a list of directories,
-     * so an extension's views are covered on the same terms as core's.
-     *
-     * @return array<string, string>
-     */
-    /**
-     * VentaSync's OWN tables carry no catalog prefix.
-     *
-     * `product_option_combinations` and its pivot are created by this
-     * application's own migrations, unprefixed, and every reader in the
-     * app writes them that way - except three lines in the mobile app's
-     * quantity endpoint, which asked for `{prefix}product_option_...`.
-     * On a development database the prefix is empty, so those lines
-     * worked and the mistake was invisible; live runs on `0012_`, where
-     * the table does not exist and the mobile app therefore could not set
-     * the quantity of any product with variations (found 2026-09-09).
-     *
-     * A test is the only thing that catches this class of bug, because the
-     * environment that reveals it is not the one it is written in.
-     */
     public function test_no_query_prefixes_a_table_this_application_owns(): void
     {
-        // Tables created by database/migrations, not inherited from the
-        // catalog schema. A prefix on any of these is always a mistake.
         $ownTables = [
             'product_option_combinations',
             'product_option_combination_values',
@@ -255,7 +149,6 @@ class FoundationTest extends TestCase
                 }
                 $src = (string) file_get_contents($file->getPathname());
                 foreach ($ownTables as $table) {
-                    // $p . 'table', $pfx . 'table', config(...) . 'table'
                     if (preg_match('/(\$\w+|\))\s*\.\s*[\'"]' . preg_quote($table, '/') . '/', $src)) {
                         $offenders[] = str_replace(base_path() . '/', '', $file->getPathname()) . ' -> ' . $table;
                     }
@@ -268,21 +161,6 @@ class FoundationTest extends TestCase
             . "prefix is empty, and silently queries a table that does not exist on live:\n" . implode("\n", $offenders));
     }
 
-    /**
-     * NO IMPORT MAY LEAVE A PRODUCT WITHOUT A CODE.
-     *
-     * Creating a product by hand requires a SKU, unique and validated.
-     * Creating one by import did not - Lazada's importer wrote an empty SKU
-     * for any product with variations, whatever the source carried - and
-     * the SKU is the identity every channel keys on: what a push sends,
-     * what a link check searches by, and the only way a listing is matched
-     * back when its link is lost. A product with no code cannot be found,
-     * so the next push builds a second listing beside the first, which
-     * happened to the owner twice on 2026-09-09.
-     *
-     * Every importer therefore calls SkuFallback, which fills a blank from
-     * the product's own id and never rewrites a code that exists.
-     */
     public function test_every_import_gives_the_product_a_code(): void
     {
         $importers = glob(base_path('extensions/*/Services/*/*ItemImport.php'));
@@ -329,17 +207,6 @@ class FoundationTest extends TestCase
         return $views;
     }
 
-    /**
-     * A var() naming a property nothing declares does not fail loudly - it
-     * renders unstyled. That is how layouts/standalone once shipped an
-     * unreadable first render, and it is the failure mode a token sweep is
-     * most likely to cause: rename a property, miss one reference, and a page
-     * quietly loses a colour.
-     *
-     * Generalised from FinalRoundTest's dashboard-only version, which checked
-     * one stylesheet against one token file. Both of those files have since
-     * been deleted with the legacy bundle; the check now covers everything.
-     */
     public function test_no_stylesheet_uses_an_undeclared_custom_property(): void
     {
         $declared = [];
@@ -362,8 +229,6 @@ class FoundationTest extends TestCase
 
         $missing = [];
         foreach ($used as $prop => $firstSeenIn) {
-            // --tw-* are Tailwind's own internals, declared by its runtime
-            // rather than by any file here.
             if (str_starts_with($prop, '--tw-')) {
                 continue;
             }
@@ -383,36 +248,6 @@ class FoundationTest extends TestCase
         );
     }
 
-    /**
-     * Every channel-private class a fulfilment panel emits has a rule.
-     *
-     * The regression this exists for: pages/opencart-orders.css and
-     * pages/pedallion-orders.css were imported through app.css rather than
-     * blotter.css, so when the legacy bundle was retired both files went out
-     * with it while every other channel's page vocabulary was carried across.
-     * Their panels kept emitting oc-col-products, pd-col-date and thirteen
-     * more, and those classes matched nothing, so both channels rendered
-     * their order tables with no column widths at all - one column taking
-     * whatever the browser felt like giving it.
-     *
-     * Nothing caught it. The undeclared-custom-property guard reads
-     * stylesheets and cannot see a class that no stylesheet mentions, and the
-     * focus-ring guard that named pedallion-orders.css by path passed on a
-     * file that was not there. This checks the other direction: start from
-     * what the views actually emit, and require the stylesheets to answer.
-     *
-     * Scoped to the channel prefixes, because a shared class (x-, co-) is
-     * covered by every page that uses it noticing at once, whereas a
-     * channel-private one is only ever seen on the one screen.
-     */
-    /**
-     * The phone card reorders itself by data-label, because column counts
-     * differ per channel and :nth-child would reorder a different cell on
-     * every marketplace. That makes a renamed column header a silent
-     * regression: the cell falls back to the default order, the ship-by
-     * deadline quietly stops leading the card, and nothing fails. This is
-     * the guard that fails instead.
-     */
     public function test_every_label_the_phone_card_reorders_is_emitted_by_a_panel(): void
     {
         $path = resource_path('css/pages/marketplace-common.css');
@@ -452,20 +287,6 @@ class FoundationTest extends TestCase
         ));
     }
 
-    /**
-     * A returns row does not hide what it can do.
-     *
-     * The same job read two ways: Lazada's returns put "Open order" on the
-     * row as a button while Shopee's hid "Open return" and "Print waybill"
-     * behind a kebab - 12 visible buttons against 3, on two pages doing one
-     * thing, for the operator with the least screen time and the narrowest
-     * permission slice. The call had already been made for the Shopee ORDERS
-     * panel and written into its comment; returns never got it.
-     *
-     * The exception is deliberate and narrow: a DESTRUCTIVE action still
-     * belongs behind an overflow trigger, which is why Venta's Delete lives
-     * in one. If a returns panel grows a menu, it should be for that reason.
-     */
     public function test_no_returns_panel_hides_a_row_action_behind_a_menu(): void
     {
         $panels = glob(base_path('extensions/*/views/orders/_returns_panel.blade.php')) ?: [];
@@ -492,12 +313,6 @@ class FoundationTest extends TestCase
         ));
     }
 
-    /**
-     * Both returns panels reach their return, and by the same kind of
-     * control. This is the half of consistency that IS achievable: the
-     * columns and the tab words cannot match, because Lazada and Shopee
-     * model returns differently, but where the action lives can.
-     */
     public function test_both_returns_panels_open_a_return_from_the_row(): void
     {
         foreach (['lazada' => 'Open order', 'shopee' => 'Open return'] as $channel => $label) {
@@ -533,8 +348,6 @@ class FoundationTest extends TestCase
 
         $this->assertNotEmpty($panels, 'no fulfilment panels found to check');
 
-        // Prefixes that belong to the shared vocabularies rather than to one
-        // channel, plus the state prefixes the JS toggles.
         $shared = ['x', 'co', 'is', 'js', 'has', 'no', 'sr'];
 
         $orphans = [];
@@ -571,15 +384,6 @@ class FoundationTest extends TestCase
         );
     }
 
-    /**
-     * Every page stylesheet on disk is in the bundle.
-     *
-     * The companion to the guard above, for the opposite failure: a file that
-     * still exists and still reads correctly, but that nothing imports, so
-     * none of it reaches a page. The undeclared-property guard walks the
-     * filesystem rather than the import list on purpose, which means an
-     * unimported file passes every check here while being dead.
-     */
     public function test_every_page_stylesheet_is_imported_by_the_bundle(): void
     {
         $bundle = File::get(resource_path('css/blotter.css'));
@@ -602,22 +406,6 @@ class FoundationTest extends TestCase
         );
     }
 
-    /**
-     * The accent generator measures against the ink the UI actually paints.
-     *
-     * ChannelAccent::deep() walks a channel's colour down until it clears
-     * 4.5:1 against LIGHT_INK_ON_ACCENT, and the primary button it produces
-     * carries --bl-paper. Those two have to be the same colour or the
-     * guarantee is computed against something nobody sees: they were not, and
-     * the walk stopped at Shopee's #d14428 because that clears 4.597 against
-     * pure white, while the button it made measured 4.09 against the paper it
-     * was really printed in.
-     *
-     * A comment claimed this test existed before this test existed. It does
-     * now, because the same class of drift - a stated ratio nobody re-measured
-     * - had also left segment.css asserting 4.59:1 for a pairing that shipped
-     * at 4.21.
-     */
     public function test_the_accent_floor_is_measured_against_the_ink_it_carries(): void
     {
         $css = File::get(resource_path('css/blotter.css'));
@@ -639,18 +427,6 @@ class FoundationTest extends TestCase
         );
     }
 
-    /**
-     * And the alert colour it measures AGAINST is the alert colour we paint.
-     *
-     * ChannelAccent::cta() hands a channel the neutral instead of its own
-     * colour when the two cannot be told apart, so that a create button never
-     * arrives in the same red as "this cannot be undone". That judgement is
-     * only as good as the red it is compared with: let ALERT drift from
-     * --bl-bad and the guard either stops firing for a channel that needs it
-     * or fires for one that does not, and either way it does so silently.
-     *
-     * Same class of drift the test above exists for.
-     */
     public function test_the_alert_clearance_is_measured_against_the_alert_colour(): void
     {
         $css = File::get(resource_path('css/blotter.css'));
@@ -673,15 +449,6 @@ class FoundationTest extends TestCase
         );
     }
 
-    /**
-     * The guard actually fires for the channel it exists for, and only there.
-     *
-     * Shopee's deep orange lands 14.6 from the alert red - the same colour to
-     * any reader. Every other channel is more than 200 away. If a future
-     * change to deep(), to the threshold, or to a channel's manifest quietly
-     * moves Shopee back onto the red, or takes a channel's identity away that
-     * never had a problem, this is what says so.
-     */
     public function test_only_a_channel_that_reads_as_the_alert_colour_gives_up_its_own(): void
     {
         $this->assertSame(
@@ -699,14 +466,6 @@ class FoundationTest extends TestCase
         }
     }
 
-    /**
-     * Every channel's deep accent actually clears the floor it claims.
-     *
-     * The generator is only as good as its reference colour, and the previous
-     * reference was wrong, so this asserts the outcome rather than the method:
-     * every accent the shipped extensions declare, deepened, must hold
-     * --bl-paper at 4.5:1.
-     */
     public function test_every_channel_accent_holds_its_text_at_the_floor(): void
     {
         $accents = [];
@@ -718,8 +477,6 @@ class FoundationTest extends TestCase
             }
         }
 
-        // Plus the ones the critique measured directly, so the guard still
-        // bites if a manifest stops declaring its colour.
         $accents += [
             'shopee' => '#ee4d2d',
             'lazada' => '#0f146d',
@@ -742,10 +499,6 @@ class FoundationTest extends TestCase
         $this->assertSame([], $failures, "A channel's deepened accent cannot hold its own button text:\n".implode("\n", $failures));
     }
 
-    /**
-     * @param  array<int, int>  $a
-     * @param  array<int, int>  $b
-     */
     private function contrastRatio(array $a, array $b): float
     {
         $luminance = static function (array $rgb): float {
@@ -764,21 +517,6 @@ class FoundationTest extends TestCase
         return (max($l1, $l2) + 0.05) / (min($l1, $l2) + 0.05);
     }
 
-    /**
-     * A focus ring is never painted in a channel's own colour.
-     *
-     * The channel repaint gave `:focus-visible` inside `.fh-scope` the raw
-     * `--ch` hue. Half the channels happened to pass and half did not: on the
-     * dark ground Lazada's navy measures 1.22:1 and TikTok's near-black
-     * 1.15:1, against the 3:1 WCAG 1.4.11 asks of a focus indicator. It
-     * survived review because the theme it failed in was not the theme it was
-     * reviewed in.
-     *
-     * `--bl-brand` owns this job precisely so it does not depend on which
-     * channel is open - DESIGN.md assigns it to "focus rings, active rows",
-     * and it clears both grounds. This asserts no stylesheet hands the ring
-     * back to a per-channel property.
-     */
     public function test_no_focus_ring_takes_a_channel_colour(): void
     {
         $offenders = [];
@@ -808,32 +546,6 @@ class FoundationTest extends TestCase
         );
     }
 
-    /**
-     * The focus ring is visible in BOTH themes.
-     *
-     * The name-only guard above was not enough, and this test exists because
-     * of what it let through. The ring was moved off the channel accent and
-     * onto --bl-brand, which measures 8.40:1 on the dark ground and 2.03:1 on
-     * the light one - so a fix for the theme that had been measured broke the
-     * theme that had not, and the guard passed because the token name was
-     * right.
-     *
-     * A focus indicator needs 3:1 against what it sits on (WCAG 1.4.11). This
-     * resolves whatever token the channel-scoped rule actually names, in each
-     * theme's own declaration, and measures it against that theme's ground.
-     */
-    /**
-     * An overdue chip reads as a sentence.
-     *
-     * The label was a fixed prop and the countdown carried the word "late",
-     * so the busiest queue in the product printed "Ship by 33d 2h late" on
-     * nine of ten rows - through six critique runs, none of which caught it.
-     * The chip exists to drive triage under time pressure and it did not
-     * parse, which teaches staff to read the colour and skip the words.
-     *
-     * Renders the real component rather than matching the source, because
-     * what matters is the sentence that reaches the page.
-     */
     public function test_an_overdue_sla_chip_does_not_print_a_broken_sentence(): void
     {
         $overdue = $this->blade(
@@ -844,9 +556,6 @@ class FoundationTest extends TestCase
         $this->assertStringContainsString('Overdue', $overdue);
         $this->assertStringContainsString('33d 2h', $overdue);
 
-        // "Ship by" survives in title= and the screen-reader span, where it
-        // prefixes an actual date and reads correctly. It must not survive in
-        // the visible label.
         preg_match('/<span class="sla-chip__label">([^<]*)<\/span>/', $overdue, $m);
         $this->assertNotEmpty($m, 'the chip no longer renders a label span');
         $this->assertSame('Overdue', trim($m[1]));
@@ -857,7 +566,6 @@ class FoundationTest extends TestCase
             'the countdown still carries the word "late" alongside its label'
         );
 
-        // The other side of zero still says what it means.
         $upcoming = $this->blade(
             '<x-sla-chip :deadline="$d" />',
             ['d' => time() + (8 * 86400)]
@@ -865,10 +573,6 @@ class FoundationTest extends TestCase
         preg_match('/<span class="sla-chip__label">([^<]*)<\/span>/', $upcoming, $u);
         $this->assertSame('Ship by', trim($u[1]));
 
-        /* The 30s ticker is the other half. It rewrites the chip in place, so
-         * a chip that crosses zero with the page open prints whatever the JS
-         * says - and it used to update only the time node, which is the same
-         * broken sentence arriving live. */
         $ticker = File::get(resource_path('js/sla-countdown.js'));
         $this->assertFileExists(resource_path('js/sla-countdown.js'));
         $this->assertStringContainsString(
@@ -890,14 +594,6 @@ class FoundationTest extends TestCase
 
         $root = File::get(resource_path('css/blotter.css'));
 
-        /* BOTH rules that paint a ring, not just the scoped one.
-         *
-         * This guard read only the .fh-scope override and passed while the
-         * BASE rule in blotter.css still painted var(--bl-brand) at 2.03:1 on
-         * the light ground - so the ring was fixed on the fulfilment surface
-         * and broken on every other page in the product, including the top
-         * bar of the fulfilment page itself. A guard scoped more narrowly
-         * than the defect reports success at the moment it should fail. */
         $rules = [];
 
         preg_match(
@@ -916,8 +612,6 @@ class FoundationTest extends TestCase
         $this->assertNotEmpty($b, 'the base focus ring rule was not found in blotter.css');
         $rules['the base ring'] = $b[1];
 
-        // Each theme declares its own value for the same token; the ring is
-        // only as good as the weaker of the two.
         $themes = [
             'light' => ['ground' => '--bl-paper', 'block' => $this->cssBlock($root, ':root')],
             'dark' => ['ground' => '--bl-paper', 'block' => $this->cssBlock($root, "[data-theme='dark']")],
@@ -949,9 +643,6 @@ class FoundationTest extends TestCase
         );
     }
 
-    /**
-     * The body of the first rule with this exact selector.
-     */
     private function cssBlock(string $css, string $selector): string
     {
         $start = strpos($css, $selector.' {');
@@ -966,9 +657,6 @@ class FoundationTest extends TestCase
         return substr($css, $open, $close - $open);
     }
 
-    /**
-     * @return array<int, int>|null
-     */
     private function cssHex(string $block, string $token): ?array
     {
         if (preg_match('/'.preg_quote($token, '/').':\s*(#[0-9a-f]{6})/i', $block, $m) !== 1) {
@@ -978,15 +666,6 @@ class FoundationTest extends TestCase
         return array_map('hexdec', str_split(ltrim($m[1], '#'), 2));
     }
 
-    /**
-     * The marketplace pull never stands above the work again.
-     *
-     * Four stacked bands put the first order a packer could touch 517px down
-     * a 900px screen, and the widest of them was a sync form used a few times
-     * a day and never per order. Folding it is only half a fix: the value is
-     * that it stays folded on every channel, because a packer crossing from
-     * Lazada to Shopee should not meet a different toolbar.
-     */
     public function test_no_fulfilment_panel_stacks_a_command_bar_above_the_rows(): void
     {
         $loose = [];
@@ -996,8 +675,6 @@ class FoundationTest extends TestCase
                 continue;
             }
 
-            // The bar may exist; it may not sit outside a fold. Everything
-            // from the fold's open tag to its close is sanctioned ground.
             $folded = preg_replace('/<x-ui\.foldout\b.*?<\/x-ui\.foldout>/s', '', $markup);
 
             if (str_contains((string) $folded, 'class="x-cmdbar"')) {
@@ -1013,11 +690,6 @@ class FoundationTest extends TestCase
         ));
     }
 
-    /**
-     * A fold that hides an ACTIVE filter is worse than no fold, because the
-     * list is then narrowed by something invisible. The count on the trigger
-     * is what buys the right to hide anything, so it is not optional.
-     */
     public function test_a_filters_fold_says_how_much_it_is_hiding(): void
     {
         $silent = [];
@@ -1040,14 +712,6 @@ class FoundationTest extends TestCase
         ));
     }
 
-    /**
-     * Every shell offers a way past it.
-     *
-     * A keyboard user passed 15 to 17 stops through the sidebar, the header
-     * and the channel nav before reaching the first control inside the
-     * content, on every page load. The link is the whole of WCAG 2.4.1 and
-     * it costs a mouse user nothing, being visible only on focus.
-     */
     public function test_every_shell_layout_offers_a_bypass_block(): void
     {
         $missing = [];
@@ -1056,8 +720,6 @@ class FoundationTest extends TestCase
             $markup = File::get($layout);
             $name = basename($layout, '.blade.php');
 
-            // A layout with no content landmark has nothing to skip TO. The
-            // print and guest shells are single-purpose pages, not shells.
             if (! str_contains($markup, '<main')) {
                 continue;
             }
@@ -1067,8 +729,6 @@ class FoundationTest extends TestCase
                 continue;
             }
 
-            // The link has to point at something that exists in the same
-            // document, or it is a bypass block that bypasses nothing.
             if (! preg_match('/<a class="x-skip" href="#([\w-]+)"/', $markup, $m)) {
                 $missing[] = $name.' (skip link has no fragment target)';
                 continue;
@@ -1087,13 +747,6 @@ class FoundationTest extends TestCase
         ));
     }
 
-    /**
-     * A control's edge carries the 3:1 boundary floor (WCAG 1.4.11), and a
-     * secondary button is a white fill on a near-white chrome, so its border
-     * is the only thing saying a control is there. --bl-rule-2 is a rule
-     * between things and measured 1.13:1; --bl-field-edge is the edge of a
-     * control and measures 3.23.
-     */
     public function test_the_base_control_edge_is_not_a_hairline_rule(): void
     {
         $css = File::get(resource_path('css/blotter.css'));
@@ -1107,10 +760,6 @@ class FoundationTest extends TestCase
         $this->assertStringNotContainsString('border: 1px solid var(--bl-rule-2)', $m[1]);
     }
 
-    /**
-     * Every orders and returns panel across the channels, keyed by a label
-     * that names the channel and which list it is.
-     */
     private function fulfilmentPanels(): array
     {
         $panels = array_merge(
@@ -1131,15 +780,6 @@ class FoundationTest extends TestCase
         return $out;
     }
 
-    /**
-     * Every stylesheet that reaches a served page.
-     *
-     * Read off the filesystem rather than off the @import lists, so a file
-     * added to the bundle tomorrow is scanned without anyone remembering to
-     * add it here.
-     *
-     * @return array<int, string>
-     */
     private function stylesheets(): array
     {
         return array_map(

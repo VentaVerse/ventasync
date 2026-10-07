@@ -6,17 +6,6 @@ use App\Support\Catalog\SkuFallback;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Give a code to every product that has none.
- *
- * Imports mint one now (App\Support\Catalog\SkuFallback), but products
- * imported BEFORE that carry a blank SKU, and a blank SKU is what makes a
- * listing unmatchable and a push a duplicate. Pushing now requires one, so
- * those products would read "needs a SKU on the catalog product" one at a
- * time; this fills them in one pass.
- *
- * Lists by default and changes nothing. --apply writes.
- */
 class FillMissingSkus extends Command
 {
     protected $signature = 'catalog:fill-missing-skus {--apply : write the codes, instead of listing what is missing}';

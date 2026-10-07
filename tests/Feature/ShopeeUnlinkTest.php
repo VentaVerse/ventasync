@@ -7,25 +7,6 @@ use Extensions\shopee\Models\ShopeeProductLink;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * Unlinking a product from Shopee.
- *
- * There were two unlink actions and they did not agree. The products page
- * deleted the shopee_product_links rows and cleared the matching item cache;
- * the product-group page set a pivot's sync_status to 'unlinked' and deleted
- * nothing, then reported "Product unlinked from Shopee." either way.
- *
- * The push loop's first test is whether a ShopeeProductLink exists, so a
- * product unlinked from the group page kept coming back as
- * "0 pushed, 1 skipped (already linked or disabled)" - with no API log, because
- * the skip happens before any call is made. The interface said the link was
- * gone, the table said it was there, and the operator had no way to see which
- * was telling the truth.
- *
- * These tests pin the behaviour rather than the wording, so the two callers
- * cannot drift apart again: whatever "unlink" means, it must mean the same
- * thing to both, and it must mean the link is actually gone.
- */
 class ShopeeUnlinkTest extends TestCase
 {
     use RefreshDatabase;
@@ -34,7 +15,6 @@ class ShopeeUnlinkTest extends TestCase
     {
         parent::setUp();
 
-        // Multi-store S2 (#194): rows the tests create belong to a store.
         \Extensions\shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
@@ -42,7 +22,6 @@ class ShopeeUnlinkTest extends TestCase
     private const ITEM = 46008714785;
     private const SKU = 'demon-mt500';
 
-    /** The one store the fixtures create; every unlink is FOR a store now. */
     private function storeId(): int
     {
         return (int) \Extensions\shopee\Models\ShopeeSetting::query()->orderBy('id')->value('id');
@@ -89,11 +68,6 @@ class ShopeeUnlinkTest extends TestCase
         $this->assertDatabaseMissing('shopee_product_links', ['product_id' => self::PRODUCT]);
     }
 
-    /**
-     * A cache row outliving its link is what makes the next SKU match silently
-     * re-attach the product to the item it was just detached from, so the
-     * operator unlinks, pushes, and lands back where they started.
-     */
     public function test_unlinking_clears_the_item_cache_for_that_link(): void
     {
         $this->link();
@@ -106,10 +80,6 @@ class ShopeeUnlinkTest extends TestCase
         ]);
     }
 
-    /**
-     * Another product's link sharing the cache must survive. The delete is
-     * keyed on item AND sku for exactly this reason.
-     */
     public function test_unlinking_leaves_other_products_alone(): void
     {
         $this->link();
@@ -130,11 +100,6 @@ class ShopeeUnlinkTest extends TestCase
         $this->assertDatabaseHas('shopee_item_cache', ['shopee_item_id' => 88888888]);
     }
 
-    /**
-     * The third place the item id lives. The group page keeps its own copy, and
-     * a copy that outlives the link is displayed as a live Shopee id against a
-     * product that is linked to nothing.
-     */
     public function test_unlinking_clears_the_group_pivot_copy_of_the_id(): void
     {
         $this->link();
@@ -148,11 +113,6 @@ class ShopeeUnlinkTest extends TestCase
         $this->assertSame('unlinked', $row->sync_status);
     }
 
-    /**
-     * The exact state this bug left behind: a pivot holding an id the link
-     * table has already lost. Refusing to clean it because there is no link is
-     * how the leftover survived every unlink.
-     */
     public function test_a_pivot_id_is_cleared_even_when_the_link_is_already_gone(): void
     {
         $this->pivot(['shopee_item_id' => (string) self::ITEM, 'sync_status' => 'error']);
@@ -176,11 +136,6 @@ class ShopeeUnlinkTest extends TestCase
         $this->assertSame(0, ShopeeProductLink::unlinkProduct(self::PRODUCT, $this->storeId()));
     }
 
-    /**
-     * The ratchet. Both unlink actions must go through the one definition -
-     * a third caller that hand-rolls its own delete, or an old one that only
-     * touches a status column, is how this broke the first time.
-     */
     public function test_every_unlink_action_goes_through_the_shared_definition(): void
     {
         $callers = [

@@ -7,13 +7,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * The one shared query behind every list that shows variations under a
- * parent (core products, marketplace listings, group product lists):
- * combinations first - sku, stock, price, the variation's own image -
- * with a product_option_value fallback for products never re-saved since
- * combinations arrived.
- */
 class VariationRowsTest extends TestCase
 {
     use RefreshDatabase;
@@ -63,7 +56,6 @@ class VariationRowsTest extends TestCase
 
     public function test_rows_stay_keyed_by_product_id_across_both_sources(): void
     {
-        // A combination-bearing product...
         $comboProduct = $this->seedProduct('VR-COMBO');
         $povId = $this->seedOptionScaffold($comboProduct, 'Red');
         $comboId = (int) DB::table('product_option_combinations')->insertGetId([
@@ -75,15 +67,11 @@ class VariationRowsTest extends TestCase
             'combination_id' => $comboId, 'product_option_value_id' => $povId,
         ]);
 
-        // ...and one whose variations predate combinations entirely.
         $povProduct = $this->seedProduct('VR-POV');
         $this->seedOptionScaffold($povProduct, 'Blue');
 
         $rows = VariationRows::forProducts([$comboProduct, $povProduct]);
 
-        /* THE BUG THIS GUARDS: merging integer-keyed collections runs
-         * through array_merge, which renumbers the keys - product 1800's
-         * rows came back under key 0 and every list showed nothing. */
         $this->assertEqualsCanonicalizing([$comboProduct, $povProduct], $rows->keys()->all());
 
         $combo = $rows->get($comboProduct)->first();

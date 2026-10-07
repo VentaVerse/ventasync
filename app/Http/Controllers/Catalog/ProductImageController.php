@@ -10,16 +10,13 @@ use Illuminate\Support\Str;
 
 class ProductImageController extends Controller
 {
-    /** Results returned by one library search before it says it stopped. */
     private const SEARCH_LIMIT = 400;
 
-    /** A link the catalog may fetch: a public address only (CatalogImageImporter holds the rules). */
     private function isSafeRemoteUrl(string $url): bool
     {
         return app(\App\Services\Media\CatalogImageImporter::class)->isSafeRemoteUrl($url);
     }
 
-    /** A link's bytes, with no redirect followed; the caller has already checked the link. */
     private function fetchRemoteImageContents(string $url): string|false
     {
         return app(\App\Services\Media\CatalogImageImporter::class)->fetch($url);
@@ -53,7 +50,6 @@ class ProductImageController extends Controller
         }
     }
 
-    /** A WebP saved as a JPG in place; the new path, or the same path when it was not a WebP. */
     private function convertWebpToJpg(string $relPath): string
     {
         return app(\App\Services\Media\CatalogImageImporter::class)->convertWebpToJpg($relPath);
@@ -61,7 +57,6 @@ class ProductImageController extends Controller
 
     private function tmpCleanup(): void
     {
-        // Best-effort cleanup of old temporary uploads (6 hours)
         $disk = Storage::disk('public');
         $base = 'tmp/product-images';
         if (!$disk->exists($base)) return;
@@ -90,7 +85,6 @@ class ProductImageController extends Controller
             return 'catalog/' . $folder;
         }
 
-        // Fallback: create folder from manufacturer name slug
         $slug = $this->manufacturerSlugFromId($manufacturerId);
         return 'catalog/' . $slug;
     }
@@ -106,14 +100,6 @@ class ProductImageController extends Controller
         return 'catalog/_incoming/' . date('Y') . '/' . date('m');
     }
 
-    /**
-     * One picture's small copy, made now if it does not exist yet.
-     *
-     * The library opens a whole folder at once, so the page never draws the
-     * copies itself: a tile already copied points straight at the file, and
-     * one that is not asks for it here, which the browser does only for the
-     * tiles it actually shows.
-     */
     public function thumb(Request $request)
     {
         $path = (string) $request->query('path', '');
@@ -140,7 +126,6 @@ class ProductImageController extends Controller
         if (str_contains($path, '..')) {
             abort(422, 'Invalid path.');
         }
-        // allow letters, numbers, space, underscore, dash, dot, ampersand, apostrophe, and slashes
         if (!preg_match('#^[A-Za-z0-9/_\- .&\']+$#', $path)) {
             abort(422, 'Invalid path.');
         }
@@ -180,7 +165,7 @@ class ProductImageController extends Controller
 
         $request->validate([
             'manufacturer_id' => 'nullable|integer|min:0',
-            'file' => 'required|file|max:5120', // 5MB
+            'file' => 'required|file|max:5120',
             'product_id' => 'nullable|integer|min:1',
             'token' => 'nullable|string|max:80',
         ]);
@@ -394,7 +379,6 @@ class ProductImageController extends Controller
         $sub = $this->normalizeCatalogSubPath((string) ($request->path ?? ''));
         $dir = 'catalog' . ($sub !== '' ? '/' . $sub : '');
 
-        // The same importer the API's product create uses, so a link is judged one way everywhere.
         try {
             $target = app(\App\Services\Media\CatalogImageImporter::class)->fromUrl((string) $request->url, $dir);
         } catch (\RuntimeException $e) {
@@ -417,7 +401,6 @@ class ProductImageController extends Controller
 
         $path = trim($request->path);
 
-        // Only allow deleting from catalog/ folder
         if (!str_starts_with($path, 'catalog/')) {
             return response()->json(['ok' => false, 'message' => 'Can only delete images from catalog folder.'], 422);
         }
@@ -433,9 +416,6 @@ class ProductImageController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    /**
-     * Resolve the actual catalog folder name for a manufacturer (case-insensitive disk lookup).
-     */
     private function resolveManufacturerFolder(int $manufacturerId): string
     {
         if ($manufacturerId <= 0) {
@@ -454,7 +434,6 @@ class ProductImageController extends Controller
         $slug = Str::slug((string) $m->name);
         $name = (string) $m->name;
 
-        // Check exact name first, then slug, then case-insensitive scan
         if ($disk->exists('catalog/' . $name)) {
             return $name;
         }
@@ -462,7 +441,6 @@ class ProductImageController extends Controller
             return $slug;
         }
 
-        // Case-insensitive scan of top-level catalog folders
         $nameLower = mb_strtolower($name);
         $slugLower = mb_strtolower($slug);
         foreach ($disk->directories('catalog') as $dir) {
@@ -477,32 +455,10 @@ class ProductImageController extends Controller
     }
 
 
-    /**
-     * Search the whole library, not the folder you happen to be standing in.
-     *
-     * WHAT A MATCH MEANS HERE, per the owner:
-     *   - a FOLDER whose name matches
-     *   - an IMAGE whose name matches, wherever it lives
-     *   - every image INSIDE a matching folder, because asking for "Bigsby"
-     *     and being shown the Bigsby folder but none of the Bigsby pictures
-     *     answers a question nobody asked
-     *   - and when a query hits both, both are returned. They are different
-     *     answers to the same question and the caller can show both.
-     *
-     * Deliberately a live walk rather than an index. Measured on this
-     * library: 240 directories in 0.046s and 7,850 files in 0.071s, so the
-     * whole search costs about an eighth of a second and cannot go stale.
-     * An index would be faster and would have to be invalidated on every
-     * upload, delete and rename - a cache for a problem that does not exist
-     * yet. Revisit if the library reaches six figures.
-     *
-     * @return array<string, mixed>
-     */
     private function searchLibrary($disk, string $base, string $query): array
     {
         $needle = mb_strtolower($query);
 
-        // 1. Folders whose own name matches.
         $matchedFolders = [];
         $matchedPrefixes = [];
 
@@ -516,13 +472,10 @@ class ProductImageController extends Controller
 
             if (str_contains(mb_strtolower(basename($rel)), $needle)) {
                 $matchedFolders[] = ['path' => $rel, 'name' => basename($rel)];
-                // Trailing slash so "Boss" does not also claim "Bossa Nova".
                 $matchedPrefixes[] = $base.'/'.$rel.'/';
             }
         }
 
-        // 2. Images whose name matches, plus everything inside a matched
-        //    folder. One walk covers both.
         $files = [];
         $truncated = false;
 
@@ -560,8 +513,6 @@ class ProductImageController extends Controller
                 'path' => $file,
                 'url' => $this->publicUrl($file),
                 'name' => $name,
-                // Where it lives, because a result list spanning the whole
-                // library is unreadable without it.
                 'folder' => $folder,
                 'modified' => $this->safeLastModified($disk, $file),
             ];
@@ -593,22 +544,6 @@ class ProductImageController extends Controller
     }
 
 
-    /**
-     * Create one folder inside the catalog library.
-     *
-     * The library has always HAD folders - 240 of them - and no way to make
-     * one: a directory only came into being as a side effect of an upload
-     * landing in it. So "organise your images yourself" was advice about a
-     * capability that did not exist, and the only filing anyone could do was
-     * whatever the manufacturer gate did for them. Retiring that gate without
-     * this would have left people with no way to organise anything.
-     *
-     * ONE LEVEL, INSIDE THE CURRENT FOLDER. The name is a single segment: it
-     * may not contain a slash, so this cannot create a tree, walk up out of
-     * the library, or be talked into a path by a crafted name. Nesting is
-     * done by making a folder and then going into it, which is also how a
-     * person thinks about it.
-     */
     public function createFolder(Request $request)
     {
         $request->validate([
@@ -619,7 +554,6 @@ class ProductImageController extends Controller
         $parent = $this->normalizeCatalogSubPath((string) $request->input('path', ''));
         $name = trim((string) $request->input('name'));
 
-        // A single segment. Not a path, not a traversal, not a hidden file.
         if ($name === '' || str_contains($name, '/') || str_contains($name, '\\')) {
             return response()->json(['ok' => false, 'message' => 'A folder name cannot contain a slash.'], 422);
         }
@@ -628,8 +562,6 @@ class ProductImageController extends Controller
             return response()->json(['ok' => false, 'message' => 'A folder name cannot start with a dot.'], 422);
         }
 
-        // The same character set the rest of the library is addressed by, so
-        // a folder made here is always reachable by browse and by search.
         if (! preg_match("#^[A-Za-z0-9_\- .&']+$#", $name)) {
             return response()->json([
                 'ok' => false,
@@ -665,12 +597,9 @@ class ProductImageController extends Controller
             'q' => 'nullable|string|max:120',
         ]);
 
-        // We always browse from the Laravel public disk under catalog/.
         $base = 'catalog';
         $disk = Storage::disk('public');
 
-        // A search is a different question from "what is in this folder", so
-        // it takes a different path through here and ignores the current one.
         $query = trim((string) $request->input('q', ''));
 
         if ($query !== '') {
@@ -680,8 +609,6 @@ class ProductImageController extends Controller
         $path = (string) ($request->path ?? '');
         $serverResolved = false;
 
-        // If requested, resolve the manufacturer's actual folder on disk.
-        // If it doesn't exist yet, create it from the manufacturer's name so uploads land there.
         if ($request->boolean('start_at_manufacturer') && $path === '') {
             $mid = (int) ($request->manufacturer_id ?? 0);
             $folder = $this->resolveManufacturerFolder($mid);
@@ -701,7 +628,6 @@ class ProductImageController extends Controller
         $path = str_replace('\\', '/', $path);
         $path = trim($path, '/');
 
-        // Prevent traversal or weird inputs (skip for server-resolved paths).
         if ($path !== '' && !$serverResolved) {
             if (str_contains($path, '..')) {
                 abort(422, 'Invalid path.');
@@ -722,7 +648,6 @@ class ProductImageController extends Controller
             ]);
         }
 
-        // Folders (direct children only)
         $folders = collect($disk->directories($dir))
             ->map(function ($d) use ($base) {
                 $d = str_replace('\\', '/', $d);
@@ -739,7 +664,6 @@ class ProductImageController extends Controller
             }, SORT_NATURAL | SORT_FLAG_CASE)
             ->values();
 
-        // Files (direct children only)
         $files = collect($disk->files($dir))
             ->filter(function ($f) {
                 $ext = strtolower(pathinfo($f, PATHINFO_EXTENSION));
@@ -756,20 +680,16 @@ class ProductImageController extends Controller
                 return [
                     'path' => $f,
                     'url' => $this->publicUrl($f),
-                    // The tile's picture: the small copy when it exists, else
-                    // the route that makes that one copy.
                     'thumb' => \App\Services\Media\ImageCache::existing($f) ?? route('products.images.thumb', ['path' => $f]),
                     'name' => basename($f),
                     'modified' => $modified,
                 ];
             })
             ->sort(function ($a, $b) {
-                // 2) Image files - latest first
                 $ma = (int) ($a['modified'] ?? 0);
                 $mb = (int) ($b['modified'] ?? 0);
                 if ($ma !== $mb) return $mb <=> $ma;
 
-                // Stable tiebreaker
                 return strcmp((string) ($a['name'] ?? ''), (string) ($b['name'] ?? ''));
             })
             ->values();

@@ -4,10 +4,6 @@ namespace Extensions\tiktok\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-/**
- * A description picture TikTok Shop already holds for one store: the URL
- * it gave back for the picture whose bytes hash to content_hash.
- */
 class TikTokDescriptionImage extends Model
 {
     protected $table = 'tiktok_description_images';

@@ -15,24 +15,14 @@ use Extensions\tiktok\TiktokExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * Riders arrive one courier at a time and in no fixed order, so the courier
- * split on To Handover is a filter, not a caption: tap J&T, see J&T's
- * parcels, oldest first. And the seconds a marketplace takes to answer a
- * pack or a ship are narrated on the page, the way Shopee's ship already is.
- */
 class HandoverCourierStripTest extends TestCase
 {
     use RefreshDatabase;
 
     private int $groupSeq = 0;
 
-    /** The store every store-scoped Lazada URL in this file names. */
     private LazadaSetting $lazadaStore;
 
-    /**
-     * Same idempotent-install rationale as FulfilmentHubTest::setUp().
-     */
     protected function setUp(): void
     {
         parent::setUp();
@@ -48,9 +38,6 @@ class HandoverCourierStripTest extends TestCase
 
         $this->app['router']->getRoutes()->refreshNameLookups();
 
-        // Multi-store (the owner 2026-09-05): the Lazada orders page is now
-        // store-scoped. An enabled store names the {store} segment; the panel
-        // still filters by region ('ph' fallback), so the fixtures match.
         $this->lazadaStore = LazadaSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
@@ -107,8 +94,6 @@ class HandoverCourierStripTest extends TestCase
         $this->assertStringContainsString('All couriers', $html);
         $this->assertStringContainsString('>J&amp;T Express<', $html);
         $this->assertStringContainsString('>Flash Express<', $html);
-        // The raw two-leg string never reaches the strip (the row's own
-        // Shipping column still prints it, and is not what is asserted).
         preg_match('/<nav class="x-segment x-segment--sub x-segment--courier".*?<\/nav>/s', $html, $strip);
         $this->assertNotEmpty($strip);
         $this->assertStringNotContainsString('Pickup:', $strip[0]);
@@ -129,8 +114,6 @@ class HandoverCourierStripTest extends TestCase
         $this->assertStringContainsString('FL-1', $html);
         $this->assertStringNotContainsString('JT-1', $html);
 
-        // The strip still shows every courier, with the chosen one current,
-        // so the way back is as visible as the way in.
         $this->assertMatchesRegularExpression('/is-active"[^>]*aria-current="true"[^>]*>\s*<span>Flash Express<\/span>/', $html);
         $this->assertStringContainsString('>J&amp;T Express<', $html);
     }
@@ -149,9 +132,6 @@ class HandoverCourierStripTest extends TestCase
 
     public function test_every_to_ship_step_has_its_own_courier_strip_and_the_filter_stays_within_the_step(): void
     {
-        // Whose rider comes first is decided at To Pack as much as at To
-        // Handover (the owner, 2026-08-28), so the strip is on every step and
-        // counts only that step's orders.
         $this->lazadaHandoverOrder('JT-1', 'Pickup: J&T Express PH, Delivery: J&T Express PH', '2026-08-01 09:00:00');
         $pack = LazadaOrder::create([
             'region' => 'ph',
@@ -170,13 +150,10 @@ class HandoverCourierStripTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        // To Pack's strip counts To Pack's one order, under its courier; the
-        // handover order's courier is not offered here.
         $this->assertStringContainsString('aria-label="Courier"', $html);
         $this->assertStringContainsString('>Flash Express<', $html);
         $this->assertStringNotContainsString('>J&amp;T Express<', $html);
 
-        // A key from another step's tally narrows nothing on this one.
         $html = $this->actingAs($this->userWith(['view_lazada/order']))
             ->get('/channels/lazada/'.$this->lazadaStore->id.'/orders?tab=TO_SHIP&pending_sub=to_pack&courier=' . urlencode('j&t express'))
             ->assertOk()
@@ -208,8 +185,6 @@ class HandoverCourierStripTest extends TestCase
 
     public function test_tiktoks_ship_names_its_wait(): void
     {
-        // Multi-store (the owner 2026-09-05): the TikTok orders page is now
-        // store-scoped too, so an enabled store names the {store} segment.
         $tiktokStore = \Extensions\tiktok\Models\TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
 
         TikTokOrder::create([
@@ -239,8 +214,6 @@ class HandoverCourierStripTest extends TestCase
 
         $this->assertNotFalse($confirmAt);
         $this->assertNotFalse($busyAt);
-        // Order is not load-bearing (both listen on document), but keeping
-        // them adjacent is what keeps the contract between them findable.
         $this->assertGreaterThan($confirmAt, $busyAt);
     }
 }

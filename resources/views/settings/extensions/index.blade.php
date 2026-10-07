@@ -4,29 +4,13 @@
 
 @section('content')
 @php
-    // routes/settings.php: the list is read tier
-    // (view_website_settings|manage_website_settings); install, toggle,
-    // reinstall and uninstall are all manage_website_settings. The
-    // pre-redesign page offered every one of them to a read-tier operator.
     $canManage = auth()->user()?->hasPermission('manage_settings/extension') ?? false;
 
-    // An enabled extension that declares a settings page offers it from its row, as OpenCart's Edit does.
     $manager = app(\App\Extensions\ExtensionManager::class);
     $settingsRoute = fn (array $ext) => $ext['enabled']
         && ($route = $manager->getManifest($ext['id'])['settings']['route'] ?? null)
         && \App\Support\Navigation::allows($route) ? $route : null;
 
-    // ExtensionManager::all() is the whole inventory: one entry per
-    // extensions/*/extension.json on disk, merged with the `extensions`
-    // table. Three states come out of that merge and the page names all
-    // three, because they are genuinely different situations:
-    //
-    //   installed + enabled   the provider boots, its permissions exist
-    //   installed + disabled  the row exists, permissions were removed
-    //   not installed         the files are on disk, nothing else exists
-    //
-    // install() deliberately creates a new row DISABLED, so Install is not
-    // the same action as Enable and the page must not imply it is.
     $rows = collect($extensions);
     $enabled = $rows->where('enabled', true)->count();
     $installed = $rows->where('installed', true)->count();
@@ -46,11 +30,6 @@
             </p>
         </div>
         @if($canManage)
-            {{-- A disclosure, not the action. It opens the panel below, whose
-                 Install button is the one thing on this page that does
-                 anything, and therefore the only solid fill on screen. Two
-                 fills, one of which only reveals the other, is the mixed
-                 grammar this system avoids. --}}
             <x-ui.button type="button" @click="installOpen = !installOpen"
                          x-bind:aria-expanded="installOpen ? 'true' : 'false'">
                 <x-ui.icon name="plus" size="14" /> Install extension
@@ -156,9 +135,6 @@
     </x-ui.table>
 
     @if($canManage)
-        {{-- Hoisted out of the table: a form cannot live inside another
-             form, and the bulk of these are driven by data-confirm-submit
-             from the row's overflow menu. --}}
         @foreach($rows as $ext)
             @if($ext['installed'])
                 <form id="st-ext-toggle-{{ $ext['id'] }}" method="POST" action="{{ route('extensions.toggle', $ext['id']) }}" class="x-sr">@csrf</form>

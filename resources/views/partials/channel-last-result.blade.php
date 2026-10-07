@@ -1,14 +1,3 @@
-{{-- The result of the last Settings-page action, drawn in the section the
-     action came from. Two shapes (the owner, 2026-09-05):
-
-       full  - the explorer's answer inside the Explorer panel: the payload
-               is the point there, so it shows.
-       note  - a connection action (authorise, exchange, refresh) on
-               Connection: one plain line, succeeded or a sentence saying
-               what went wrong. Never a payload - that is on the API log.
-
-     Callers pass $result, the $channel name used in the marketplace answer,
-     and $mode. --}}
 @php
     $ok = (bool) ($result['ok'] ?? false);
     $mode = $mode ?? 'full';
@@ -40,9 +29,6 @@
             </div>
         </div>
         <p class="fm-section__note">{{ $title }}</p>
-        {{-- The REASON is the visible text; the payload is one click away, never
-             the message (the owner, 2026-09-03). A success keeps its confirmation
-             data in view - that is what was asked for. --}}
         @if(!$ok)
             <p class="fm-section__note fm-section__note--strong">@include('partials.channel-answer', ['channel' => $channel, 'raw' => $answerText, 'settingsRoute' => null])</p>
             <details class="fm-note__more">

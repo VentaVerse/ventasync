@@ -5,7 +5,6 @@ namespace Extensions\tiktok\Models;
 use Illuminate\Database\Eloquent\Model;
 use Extensions\tiktok\Models\Concerns\BelongsToTikTokStore;
 
-/** One return or refund request as TikTok Shop reports it. */
 class TikTokReturn extends Model
 {
     use BelongsToTikTokStore;

@@ -1,59 +1,3 @@
-/**
- * Shopee Orders, Shopee Returns and Shopee order detail
- * (extensions/shopee/views/orders/index.blade.php,
- * extensions/shopee/views/orders/returns.blade.php and
- * extensions/shopee/views/orders/show.blade.php).
- *
- * This used to be a ~400 line inline <script> block at the bottom of the
- * Orders Blade file. It is moved here as part of that page's exit from the
- * .x-legacy boundary: a new-UX page owns no inline script, same as it owns
- * no inline style. Bundled into the shared app.js (every layout loads it),
- * guarded on #shopee-orders-page and, separately, on #shopee-returns-page,
- * so it is inert everywhere else - the same convention orders-filter.js and
- * confirm-modal.js already use for their own root elements. Returns never
- * had an inline script of its own (it had no page-level JS at all before
- * Task 3); it is guarded here rather than sharing the Orders page's root id
- * because the two are separate documents with different DOM contents, and
- * "only bind what a page actually has" is the same rule the individual
- * init functions already follow element by element.
- *
- * Behaviour is unchanged from the inline version: same endpoints, same POST
- * fields, same success/failure handling, same window.showFlashError /
- * showFlashSuccess calls (defined by legacy-flash.js, also bundled into
- * app.js so both are guaranteed present together).
- *
- * Two defects fixed while moving, both logged in the Task 2 report:
- *
- *   1. The address panel the ship modal built for the pickup/drop-off step
- *      assembled an HTML string from data returned by Shopee's own API
- *      (addresses, flags, branch lists) and wrote it straight into the DOM,
- *      including hardcoded hex colours baked into that string (#16a34a,
- *      #2563eb, #6b7280). Writing markup built from fetched data straight
- *      into the DOM is a stored-XSS surface if that API ever returns a
- *      value containing markup, and the hex values could not be reskinned
- *      for dark theme. Every one of those strings is now
- *      createElement/textContent construction, and the colours are CSS
- *      classes (.sp-ship-addr, .sp-ship-flag--*) built from the token set
- *      in shopee-orders.css. The tracking modal's event rows and the hover
- *      image preview also used to build one static <img> tag the same way;
- *      converted for consistency so no code path in this module writes
- *      markup into the DOM as a string.
- *
- *   2. #shipStep2 and #shipStep2Content carried an inline style="display:
- *      none" in the Blade markup because the old script revealed them with
- *      .style.display = '', which falls back to the stylesheet. Both are
- *      now toggled with the .sp-hidden class (added by Task 1's CSS,
- *      already used on #formShipOrder), on all four step elements
- *      (shipStep1, shipStep2, shipStep2Loading, shipStep2Content) so the
- *      show/hide mechanism is consistent across the whole flow rather than
- *      three of the four using inline styles and one using a class.
- *
- * The C1 lesson (this file's own docblock references it): a failure path
- * that does not re-enable the button it disabled strands the operator with
- * no way to retry. Every fetch().catch() and every `!data.ok` branch below
- * re-enables whatever button it disabled and hides whatever overlay it
- * showed before returning - checked one at a time against the original.
- */
 document.addEventListener('DOMContentLoaded', function () {
     var page = document.getElementById('shopee-orders-page');
     var returnsPage = document.getElementById('shopee-returns-page');
@@ -66,22 +10,6 @@ document.addEventListener('DOMContentLoaded', function () {
         initTrackingModal();
     }
 
-    // The order detail page (extensions/shopee/views/orders/show.blade.php)
-    // is a third document with a third root id, not a section of the list.
-    // It carries the same ship and tracking modals - one copy of that markup
-    // lives in orders/_modals.blade.php and both pages include it - and its
-    // Arrange shipment button is the same .btnArrangeShipment contract, so
-    // both flows are the module's existing ones rather than a second
-    // implementation. It has no fetch/update command bar, so the overlay
-    // initialiser that binds those two buttons is not called here; the
-    // overlay ELEMENT is still present, and initShipModal() uses it for the
-    // "Shipping order" and "Generating AWB" states exactly as on the list.
-    //
-    // The thumbnail preview opts itself out of detail pages now - see
-    // order-thumb-preview.js, which states the reason (these thumbnails are
-    // already the size the preview zooms to) once rather than in each
-    // channel's module. What this page does need is
-    // the broken-image handling the old page had as an inline onerror="".
     if (returnDetail) {
         initReturnSolutions(returnDetail);
     }
@@ -92,21 +20,10 @@ document.addEventListener('DOMContentLoaded', function () {
         initBrokenImages(detailPage);
     }
 
-    // Returns (extensions/shopee/views/orders/returns.blade.php) is its own
-    // page, not a section of the orders page, so it gets its own root id
-    // and only wires up what it actually has: the fetch overlay and the
-    // item-thumbnail hover preview. It has no ship modal and no tracking
-    // modal, so initShipModal()/initTrackingModal() are not called here -
-    // both already no-op safely on a page missing their elements, but
-    // calling only what a page uses is what "guarded so it only binds on
-    // the returns page root id" means in practice.
     if (returnsPage) {
         initFetchReturnsOverlay();
     }
 
-    /* ------------------------------------------------------------------
-       Loading overlay on Fetch / Update (Orders page).
-       ------------------------------------------------------------------ */
     function initFetchUpdateOverlay() {
         var overlay = document.getElementById('spLoadingOverlay');
         var fetchForm = document.getElementById('formFetchShopeeOrders');
@@ -120,13 +37,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (fetchForm) {
             fetchForm.addEventListener('submit', function (e) {
-                // A submit that will not happen must not raise the overlay: the
-                // confirmation dialog preventDefaults this same event from a
-                // capture-phase listener, and Cancel never takes an overlay down.
-                // See the note above the submit handler in confirm-modal.js.
                 if (e.defaultPrevented) return;
 
-                // Require From/To dates.
                 var dateFrom = fetchForm.querySelector('input[name="date_from"]');
                 var dateTo = fetchForm.querySelector('input[name="date_to"]');
                 if (!dateFrom.value || !dateTo.value) {
@@ -142,22 +54,12 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    /* ------------------------------------------------------------------
-       Loading overlay on Fetch returns (Returns page). Same #spLoadingOverlay
-       / #spLoadingTitle contract as the Orders page's own overlay, just a
-       separate copy of the modal markup because the two pages are separate
-       documents.
-       ------------------------------------------------------------------ */
     function initFetchReturnsOverlay() {
         var overlay = document.getElementById('spLoadingOverlay');
         var fetchReturnsForm = document.getElementById('formFetchReturns');
         if (!fetchReturnsForm || !overlay) return;
 
         fetchReturnsForm.addEventListener('submit', function (e) {
-            // A submit that will not happen must not raise the overlay: the
-            // confirmation dialog preventDefaults this same event from a
-            // capture-phase listener, and Cancel never takes an overlay down.
-            // See the note above the submit handler in confirm-modal.js.
             if (e.defaultPrevented) return;
 
             document.getElementById('spLoadingTitle').textContent = 'Fetching returns…';
@@ -165,15 +67,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    /* ------------------------------------------------------------------
-       Ship method modal: choice -> address/branch fetch -> confirm.
-       ------------------------------------------------------------------ */
-    /* The parcel the dialog shows: the row renders it in a <template
-       data-parcel-for="..."> beside its button (one copy of the markup,
-       components/fulfilment/parcel), and the dialog clones that node in.
-       No fetch and no HTML strings: the content is DOM the server already
-       escaped. A dialog opened where no row carries a template (the order
-       detail page) keeps the slot hidden. */
     function fillParcel(container, key, hiddenClass) {
         if (!container) return;
         while (container.firstChild) container.removeChild(container.firstChild);
@@ -214,9 +107,6 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
-        // Replaces every one-line "write a <div class=...>text</div>
-        // string into the container" call from the inline script: a single
-        // text node wrapped in the same class it used to carry.
         function setContentMessage(text, className) {
             clearContent();
             var div = document.createElement('div');
@@ -237,9 +127,6 @@ document.addEventListener('DOMContentLoaded', function () {
             currentShipType = '';
         }
 
-        // Pickup: one auto-selected address plus its flags, rendered as
-        // tone-coded chips (Shopee's own address flags -
-        // pickup_address / return_address / anything else).
         function renderPickupAddress(addresses) {
             if (addresses.length === 0) {
                 setContentMessage('No pickup addresses available.', 'text-secondary');
@@ -291,8 +178,6 @@ document.addEventListener('DOMContentLoaded', function () {
             btnShipConfirm.disabled = false;
         }
 
-        // Drop-off: a list of branches, first one pre-selected, same as the
-        // original `checked = i === 0`.
         function renderDropoffBranches(branches) {
             if (branches.length === 0) {
                 setContentMessage('No drop-off branches available. The order will be shipped without branch selection.', 'text-secondary');
@@ -342,12 +227,6 @@ document.addEventListener('DOMContentLoaded', function () {
             btnShipConfirm.disabled = false;
         }
 
-        // The order URLs ride data-orders-base, a route() value the page
-        // hands down (multi-store S4, #194) - hardcoded paths broke once in
-        // the IA migration and would have broken again when the routes
-        // gained their {store} segment. The fallback keeps the modal alive
-        // if the attribute ever goes missing, on the default store's legacy
-        // redirect (GETs only; the ship POST relies on the attribute).
         var ordersBase = (shipForm && shipForm.getAttribute('data-orders-base')) || '/channels/shopee/orders';
         document.querySelectorAll('.btnArrangeShipment').forEach(function (el) {
             el.addEventListener('click', function () {
@@ -390,7 +269,6 @@ document.addEventListener('DOMContentLoaded', function () {
                         renderDropoffBranches(branches);
                     }
 
-                    // Listen for radio changes.
                     shipStep2Content.querySelectorAll('input[type=radio]').forEach(function (radio) {
                         radio.addEventListener('change', function () {
                             if (currentShipType === 'pickup') {
@@ -443,7 +321,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     return;
                 }
 
-                // Ship succeeded - now poll for the AWB.
                 if (overlay) {
                     document.getElementById('spLoadingTitle').textContent = 'Generating AWB…';
                 }
@@ -458,14 +335,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     .then(function (r) { return r.json(); })
                     .then(function (awbData) {
                         if (awbData.ok && awbData.ready) {
-                            // AWB ready - open in a new tab and reload the page.
                             if (overlay) overlay.style.display = 'none';
                             window.open(awbUrl, '_blank');
                             location.reload();
                         } else if (awbAttempts < maxAttempts) {
                             setTimeout(pollAwb, 3000);
                         } else {
-                            // Timed out - let the operator know and reload.
                             if (overlay) overlay.style.display = 'none';
                             window.showFlashError('Order shipped successfully but AWB is still being generated by Shopee. Use the Print AWB button to try again.');
                             location.reload();
@@ -482,7 +357,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     });
                 }
 
-                // Start polling after a short initial delay.
                 setTimeout(pollAwb, 2000);
             })
             .catch(function () {
@@ -498,17 +372,7 @@ document.addEventListener('DOMContentLoaded', function () {
         shipModal.addEventListener('click', function (e) { if (e.target === shipModal) closeShip(); });
     }
 
-    /* ------------------------------------------------------------------
-       What Shopee will accept on this return.
-
-       Asked on demand, never on load: it is a live marketplace call and the
-       answer is only wanted once someone has decided to act on this return.
-
-       Fails closed. A solution is drawn as available only when the server
-       says eligibility is true, and any refusal is printed as the reason
-       rather than as an empty list - "we did not get to ask" and "there is
-       nothing to offer" are different facts and must not share a rendering.
-       ------------------------------------------------------------------ */
+    // Fails closed: offer a solution only when the server says eligibility is true.
     function initReturnSolutions(root) {
         var btn = root.querySelector('[data-solutions-ask]');
         var out = root.querySelector('[data-solutions-out]');
@@ -567,14 +431,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    /* ------------------------------------------------------------------
-       Tracking modal.
-       ------------------------------------------------------------------ */
-
-    // Shopee's tracking events carry a Unix timestamp (seconds or
-    // milliseconds) in `update_time`/`ctime`, or occasionally a string
-    // timestamp. Accept all three; fall back to the raw value as text
-    // rather than rendering a blank cell.
+    // Shopee event times are Unix seconds or milliseconds, or a string; accept all three.
     function formatTrackTime(ts) {
         if (!ts) return '';
         var dt = typeof ts === 'number' ? new Date(ts > 1e12 ? ts : ts * 1000) : new Date(ts);
@@ -648,9 +505,6 @@ document.addEventListener('DOMContentLoaded', function () {
                         return;
                     }
 
-                    // Newest first, same as the events Shopee itself returns
-                    // newest-last. Some events carry only `ctime`, never
-                    // `update_time`, so both are checked.
                     events.sort(function (a, b) {
                         return (b.update_time || b.ctime || 0) - (a.update_time || a.ctime || 0);
                     });
@@ -690,13 +544,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    /* ------------------------------------------------------------------
-       A thumbnail whose image URL no longer resolves. Shopee's CDN links
-       expire on old orders, and the old detail page handled this with an
-       inline onerror="this.style.display='none'" attribute on every <img>.
-       Capture phase, because `error` does not bubble. Same shape as
-       order-detail.js's own handler.
-       ------------------------------------------------------------------ */
     function initBrokenImages(root) {
         root.addEventListener('error', function (e) {
             var img = e.target;
@@ -704,9 +551,4 @@ document.addEventListener('DOMContentLoaded', function () {
             img.hidden = true;
         }, true);
     }
-
-    /* The thumbnail hover preview used to live here, in two channel-private
-       copies of the same function. It is resources/js/order-thumb-preview.js
-       now, bound once for every fulfilment list, because the storefront list
-       needed it too and a third copy was not the answer. */
 });

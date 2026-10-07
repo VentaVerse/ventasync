@@ -15,19 +15,12 @@ class MarketplaceConfigController extends Controller
             'tiktok'          => $this->isMarketplaceActive(\Extensions\tiktok\Models\TikTokSetting::class, 'tiktok_settings'),
             'opencart_stores' => $this->getExtensionStores(\Extensions\opencart\Models\OpenCartSetting::class, 'opencart_settings'),
             'venta_stores'    => $this->getExtensionStores(\Extensions\venta\Models\VentaSetting::class, 'venta_settings'),
-            // Each marketplace store on its own, beside the true/false the app on phones reads.
             'lazada_stores'   => $this->getExtensionStores(\Extensions\lazada\Models\LazadaSetting::class, 'lazada_settings'),
             'shopee_stores'   => $this->getExtensionStores(\Extensions\shopee\Models\ShopeeSetting::class, 'shopee_settings'),
             'tiktok_stores'   => $this->getExtensionStores(\Extensions\tiktok\Models\TikTokSetting::class, 'tiktok_settings'),
         ]);
     }
 
-    /**
-     * Check if a marketplace (Lazada/Shopee/TikTok) is active.
-     *
-     * Active = record exists AND the relevant access_token is non-null
-     * (sandbox_access_token when mode is 'sandbox', access_token otherwise).
-     */
     private function isMarketplaceActive(string $modelClass, string $table): bool
     {
         if (!class_exists($modelClass) || !Schema::hasTable($table)) {
@@ -47,12 +40,6 @@ class MarketplaceConfigController extends Controller
         return !empty($setting->{$tokenField});
     }
 
-    /**
-     * Get enabled stores from an extension settings table.
-     *
-     * Returns an array of [{id, name}] for each enabled store,
-     * or an empty array if the extension is not installed.
-     */
     private function getExtensionStores(string $modelClass, string $table): array
     {
         if (!class_exists($modelClass) || !Schema::hasTable($table)) {

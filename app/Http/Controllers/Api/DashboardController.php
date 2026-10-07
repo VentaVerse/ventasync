@@ -16,7 +16,6 @@ class DashboardController extends Controller
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        // Stat cards
         $totalOrders = DB::table($pfx . 'order')->count();
         $revenueStatusIds = OrderStatus::where('add_revenue', 1)->pluck('order_status_id');
         $totalRevenue = (float) DB::table($pfx . 'order')->whereIn('order_status_id', $revenueStatusIds)->sum('total');
@@ -35,7 +34,6 @@ class DashboardController extends Controller
                 ->count();
         }
 
-        // Per-OpenCart-store pending counts
         $pendingStatusIds = OrderStatus::where(function ($q) {
             $q->where('name', 'like', '%pending%')
               ->orWhere('name', 'like', '%processing%');
@@ -56,10 +54,8 @@ class DashboardController extends Controller
             ];
         }
 
-        // Chart: default 30 days
         $chart = $this->buildChartData('30d');
 
-        // Recent orders (last 5)
         $recentOrders = DB::table($pfx . 'order as o')
             ->leftJoin($pfx . 'order_status as os', function ($j) use ($langId) {
                 $j->on('o.order_status_id', '=', 'os.order_status_id')

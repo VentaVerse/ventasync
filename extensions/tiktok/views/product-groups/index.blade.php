@@ -2,17 +2,8 @@
 @section('title', 'TikTok Shop Product Groups')
 @section('breadcrumb', 'Product Groups')
 
-{{-- Leaves the .x-legacy content boundary, rebuilt on the token set. --}}
 @section('content')
 @php
-    // Read tier is `view_tiktok|manage_tiktok`; create, update and destroy are
-    // all `manage_tiktok`. Replaces a hardcoded `true`.
-    //
-    // The edit GET is registered in the READ product group, so a view-tier operator
-    // can technically open the form. The link is still gated here, the way
-    // Lazada's Product Groups page gates its own: that form exists only to be
-    // saved, and the PUT behind it is manage-only, so offering it to an
-    // operator who cannot submit it is offering a dead end.
     $canManageTiktok = auth()->user()?->hasPermission('manage_tiktok/product_group') ?? false;
 @endphp
 
@@ -57,8 +48,6 @@
             $pCount = $productCounts[$g->id] ?? 0;
             $productsUrl = route('ext.tiktok.product-groups.products', $g->id);
 
-            // Two figures in different units, so two lines rather than one
-            // string that reads as a sum.
             $markupFixed = !empty($g->markup_fixed) ? (float) $g->markup_fixed : null;
             $markupPercent = !empty($g->markup_percent) ? (float) $g->markup_percent : null;
         @endphp
@@ -90,19 +79,11 @@
                 @endif
             </td>
             <td class="x-td-actions">
-                {{-- The old row carried three standing buttons, one of them a
-                     solid red Delete, on every line. The row itself is the link
-                     to its products now, and the rest sit in the overflow. --}}
                 <x-ui.menu label="Product group {{ $g->name }} actions">
                     <a class="x-menu__item" href="{{ $productsUrl }}">Products in this product group</a>
                     @if($canManageTiktok)
                         <a class="x-menu__item" href="{{ route('ext.tiktok.product-groups.edit', $g->id) }}">Edit product group</a>
                         <div class="x-menu__sep"></div>
-                        {{-- Destroy is never a standing control: it sits in the
-                             overflow behind the shared confirm dialog and drives
-                             a form outside this table, because a form cannot be
-                             nested inside a row that is itself a stretched
-                             link. --}}
                         <button type="button" class="x-menu__item x-menu__item--danger"
                                 data-confirm="Delete the product group {{ $g->name }}? Its listing rows are removed with it. Nothing changes in the catalog, and nothing already live on TikTok Shop is touched."
                                 data-confirm-submit="ttpg-del-{{ $g->id }}">Delete product group</button>
@@ -123,5 +104,5 @@
     @endforeach
 @endif
 
-</div>{{-- /.cc-page --}}
+</div>
 @endsection

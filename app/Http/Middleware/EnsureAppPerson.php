@@ -9,12 +9,6 @@ use Illuminate\Http\Request;
 use Laravel\Sanctum\PersonalAccessToken;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * The app door admits a person only: the token their login returned. An
- * outside application's API key belongs to the partner API and the
- * assistant, under its own scopes; here it would reach screens no scope
- * covers, such as the dashboard, so it is refused.
- */
 class EnsureAppPerson
 {
     public function handle(Request $request, Closure $next): Response

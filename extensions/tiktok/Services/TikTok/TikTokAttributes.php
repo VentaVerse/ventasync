@@ -5,20 +5,8 @@ namespace Extensions\tiktok\Services\TikTok;
 use Extensions\tiktok\Models\TikTokApiLog;
 use Extensions\tiktok\Models\TikTokCategoryTemplate;
 
-/**
- * A TikTok category's attribute sheet (#156). Read from TikTok once and
- * cached; normalised into rows the group form, the listing page and the
- * readiness check all read the same way; and turned back into the
- * product_attributes a push sends. TikTok's sheet mixes product
- * properties (what a listing answers) with sales properties (the
- * variation axes, which our pushes name themselves from the catalog),
- * so only PRODUCT_PROPERTY rows are listed. TikTok's own field for
- * "required" is spelled is_requried in the 202309 API; both spellings
- * are read.
- */
 class TikTokAttributes
 {
-    /** Read and cache the sheet when it has never been read. Quiet on failure. */
     public function ensureTemplate(string $categoryId, TikTokClient $client, array $c): ?TikTokCategoryTemplate
     {
         if ($categoryId === '') {
@@ -32,7 +20,6 @@ class TikTokAttributes
         return $this->refreshTemplate($categoryId, $client, $c);
     }
 
-    /** Read the sheet from TikTok and cache it, replacing what was there. */
     public function refreshTemplate(string $categoryId, TikTokClient $client, array $c): ?TikTokCategoryTemplate
     {
         try {
@@ -60,11 +47,6 @@ class TikTokAttributes
         );
     }
 
-    /**
-     * The sheet as rows: key (TikTok's attribute id), name, required,
-     * options [{id, name}], customizable (free text allowed).
-     * @return array<int, array{key: string, name: string, required: bool, options: array, customizable: bool}>
-     */
     public function rows(?TikTokCategoryTemplate $template): array
     {
         if (!$template) {
@@ -77,7 +59,7 @@ class TikTokAttributes
                 continue;
             }
             if (($attr['type'] ?? 'PRODUCT_PROPERTY') !== 'PRODUCT_PROPERTY') {
-                continue;   // sales properties are the variation axes
+                continue;
             }
             $id = (string) ($attr['id'] ?? '');
             if ($id === '') {
@@ -98,18 +80,11 @@ class TikTokAttributes
             ];
         }
 
-        // Required first, then the rest, each in TikTok's order.
         usort($rows, fn ($a, $b) => (int) $b['required'] <=> (int) $a['required']);
 
         return $rows;
     }
 
-    /**
-     * The ids of the variation types the category defines itself (its
-     * SALES_PROPERTY rows), or null when the sheet is unknown.
-     *
-     * @return ?list<string>
-     */
     public function salesPropertyIds(?TikTokCategoryTemplate $template): ?array
     {
         if (!$template) {
@@ -126,7 +101,6 @@ class TikTokAttributes
         return $ids;
     }
 
-    /** The answers as product_attributes for a push. */
     public function payload(array $rows, array $saved): array
     {
         $out = [];
@@ -151,7 +125,6 @@ class TikTokAttributes
         return $out;
     }
 
-    /** Names of required attributes the answers leave blank. */
     public function missingRequired(array $rows, array $saved): array
     {
         $missing = [];

@@ -20,9 +20,6 @@ use Symfony\Component\HttpFoundation\Response;
 
 class VentaOrderApiController extends Controller
 {
-    /**
-     * List enabled Venta stores.
-     */
     public function stores()
     {
         $stores = VentaSetting::where('enabled', true)
@@ -34,9 +31,6 @@ class VentaOrderApiController extends Controller
         );
     }
 
-    /**
-     * List orders for a Venta store with tab filtering and search.
-     */
     public function index(Request $request, int $storeId)
     {
         $store = VentaSetting::where('id', $storeId)->where('enabled', true)->first();
@@ -47,11 +41,9 @@ class VentaOrderApiController extends Controller
         $tab = trim((string) $request->query('tab', 'ALL'));
         $search = trim((string) $request->query('q', ''));
 
-        // Base query scoped to this store
         $baseQuery = VentaOrder::where('venta_setting_id', $storeId);
         $query = VentaOrder::where('venta_setting_id', $storeId);
 
-        // Get distinct statuses for dynamic tabs
         $distinctStatuses = (clone $baseQuery)->select('status')
             ->distinct()
             ->pluck('status')
@@ -60,13 +52,10 @@ class VentaOrderApiController extends Controller
             ->values()
             ->toArray();
 
-        // Tab filter
         if ($tab !== 'ALL' && $tab !== '') {
             $query->where('status', $tab);
         }
 
-        // Step filter: the web's To Pack and To Handover, by the statuses
-        // the store places in each.
         $step = trim((string) $request->query('step', ''));
         if (in_array($step, ['to_pack', 'to_handover'], true)) {
             $statusCounts = (clone $baseQuery)->selectRaw('status, COUNT(*) as cnt')->groupBy('status')->pluck('cnt', 'status');
@@ -74,7 +63,6 @@ class VentaOrderApiController extends Controller
             $query->whereIn('status', $buckets[$step]['statuses'] ?: ['']);
         }
 
-        // Search filter
         if ($search !== '') {
             $like = '%' . $search . '%';
             $query->where(function ($q) use ($like) {
@@ -85,19 +73,16 @@ class VentaOrderApiController extends Controller
             });
         }
 
-        // Tab counts
         $tabCounts = ['ALL' => (clone $baseQuery)->count()];
         foreach ($distinctStatuses as $status) {
             $tabCounts[$status] = (clone $baseQuery)->where('status', $status)->count();
         }
 
-        // Paginate
         $orders = $query
             ->orderByDesc('order_created_at')
             ->orderByDesc('created_at')
             ->paginate(20);
 
-        // Transform
         $baseUrl = rtrim($store->base_url ?? '', '/');
         $data = $orders->map(function ($order) use ($baseUrl) {
             $firstProduct = $order->products()->orderBy('id')->first();
@@ -140,9 +125,6 @@ class VentaOrderApiController extends Controller
         ]);
     }
 
-    /**
-     * Show a single Venta order detail.
-     */
     public function show(int $storeId, int $id)
     {
         $order = VentaOrder::with('products')
@@ -156,12 +138,6 @@ class VentaOrderApiController extends Controller
         return response()->json($this->payload($order));
     }
 
-    /**
-     * An order as the show endpoint draws it, which is also what every
-     * fulfilment action hands back after it acts.
-     *
-     * @return array<string, mixed>
-     */
     public function payload(VentaOrder $order): array
     {
         $order->loadMissing('products');
@@ -216,11 +192,6 @@ class VentaOrderApiController extends Controller
         ];
     }
 
-    /**
-     * The order's step as the web's VentaCart panel places it, and what it
-     * allows: a parcel on the bench is booked with a courier or by hand,
-     * one past it has a waybill and tracking.
-     */
     public static function fulfilment(VentaOrder $order): array
     {
         $placement = VentaStatusPlacements::stepFor((int) $order->venta_setting_id, trim((string) $order->status)) ?? 'other';
@@ -240,12 +211,6 @@ class VentaOrderApiController extends Controller
         );
     }
 
-    /**
-     * Resolve a product image from the ERP catalog by SKU.
-     *
-     * Checks product_option_value first (variant SKU), then product table.
-     * Returns a full URL to the ERP image, or null if not found.
-     */
     private function resolveProductImage(?string $sku): ?string
     {
         if (empty($sku)) {
@@ -255,7 +220,6 @@ class VentaOrderApiController extends Controller
         $pfx = (string) config('catalog.prefix');
         $productId = null;
 
-        // 1. Try variant SKU in product_option_value table
         $pov = DB::table($pfx . 'product_option_value')
             ->where('sku', $sku)
             ->first(['product_id']);
@@ -264,7 +228,6 @@ class VentaOrderApiController extends Controller
             $productId = $pov->product_id;
         }
 
-        // 2. Fallback: try product table directly
         if (! $productId) {
             $product = DB::table($pfx . 'product')
                 ->where('sku', $sku)
@@ -277,7 +240,6 @@ class VentaOrderApiController extends Controller
             return null;
         }
 
-        // 3. Get image from product table using the resolved product_id
         $product = DB::table($pfx . 'product')
             ->where('product_id', $productId)
             ->first(['image']);
@@ -288,9 +250,6 @@ class VentaOrderApiController extends Controller
 
         return null;
     }
-
-    // The web's booking buttons, for the app: the same storefront calls the
-    // booking modal makes, through the same service, in the app's shape.
 
     public function serviceability(int $store, int $id): JsonResponse
     {
@@ -383,13 +342,9 @@ class VentaOrderApiController extends Controller
 
         $pdf = $result['ok'] && is_file((string) $result['path']) ? file_get_contents($result['path']) : null;
 
-        // Some couriers make the label a few seconds after the booking, and
-        // the storefront's answer does not tell that wait from a refusal, so
-        // the app asks again for as long as the web's booking modal does.
         return AppFulfilment::waybill($pdf ?: null, 'AWB-venta-' . (int) $order->venta_order_id . '.pdf', true, $result['message']);
     }
 
-    /** An order already past To Pack is answered here; the storefront is not asked again. */
     private function passed(VentaOrder $order): ?JsonResponse
     {
         $step = self::fulfilment($order)['step'];
@@ -406,7 +361,6 @@ class VentaOrderApiController extends Controller
         return $this->payload($order->fresh());
     }
 
-    /** The same booking options the web's modal may send on to the storefront. */
     private function bookingOptions(Request $request): array
     {
         $data = $request->validate(VentaFulfilment::BOOKING_RULES);
@@ -419,7 +373,6 @@ class VentaOrderApiController extends Controller
         return VentaSetting::where('id', $store)->where('enabled', true)->firstOrFail();
     }
 
-    /** @return array{0: VentaSetting, 1: VentaOrder} */
     private function storeAndOrder(int $store, int $id): array
     {
         $setting = $this->store($store);

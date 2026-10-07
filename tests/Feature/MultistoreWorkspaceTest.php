@@ -16,50 +16,16 @@ use Extensions\venta\VentaExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * Round 2, task 1 of the Venta + OpenCart conversion: the two multi-store
- * channels get a workspace PER STORE, keyed `venta:2` / `opencart:1`, the
- * same format StoreLink and OrderTab ids already use.
- *
- * What makes this different from the three single-store suites it is modeled
- * on (ChannelWorkspaceTest, LazadaWorkspaceTest, TiktokWorkspaceTest): every
- * destination these channels have is store-scoped, so there is no storeless
- * page to land on, and the thing most worth guarding is that one store's
- * workspace never shows the other store's links. Two stores per channel are
- * seeded for exactly that reason - a one-store fixture would let a workspace
- * that ignored the store entirely pass every assertion here.
- */
 class MultistoreWorkspaceTest extends TestCase
 {
     use RefreshDatabase;
 
-    /**
-     * Both channels' extensions installed, enabled and registered, then two
-     * stores seeded for each.
-     *
-     * Same idempotent pattern the other workspace suites use: install() is
-     * updateOrCreate() and enable() is an update(), so both are no-ops when
-     * the row already exists, and $this->app->register() returns the
-     * already-registered provider rather than double-booting one.
-     *
-     * refreshNameLookups() is load-bearing. Registering a provider here loads
-     * its routes into the RouteCollection, but the name-lookup table
-     * Route::has()/getByName() read is only rebuilt on demand, and
-     * ChannelWorkspace::allows() calls Route::has() as its first gate. Without
-     * this every positive assertion below would fail and every negative one
-     * would pass for the wrong reason.
-     */
     protected function setUp(): void
     {
         parent::setUp();
 
         $manager = $this->app->make(ExtensionManager::class);
 
-        // Shopee comes along as the single-store control: without a real
-        // converted single-store channel registered, "a store suffix on a
-        // single-store channel resolves to nothing" would pass for the wrong
-        // reason (no such card at all), and the "return shapes are unchanged
-        // for single-store channels" claim would go unasserted here.
         $providers = [
             'venta' => VentaExtension::class,
             'opencart' => OpencartExtension::class,
@@ -77,22 +43,6 @@ class MultistoreWorkspaceTest extends TestCase
         $this->seedStores();
     }
 
-    /**
-     * Two stores per channel, created by name so re-running this is a no-op
-     * rather than a duplicate. Ids are never assumed anywhere in this suite:
-     * every assertion reads the id back off the seeded row, because in the
-     * real sandbox Venta's stores are ids 2 and 3, not 1 and 2.
-     *
-     * The states are deliberately different per store so a reading that
-     * ignored the store would be visible: Gear Depot synced minutes ago
-     * (connected), Switch Bazaar never synced (needs attention), Parts Yard
-     * synced (connected), Cable Loft still disabled (not connected).
-     *
-     * The names deliberately do not contain the channel name. Real store
-     * names are brands ("Shop A", "Shop B"), and a fixture named
-     * "Venta Store Two" would make the breadcrumb assertion below count the
-     * word Venta twice for a reason that has nothing to do with the trail.
-     */
     private function seedStores(): void
     {
         VentaSetting::updateOrCreate(
@@ -127,7 +77,6 @@ class MultistoreWorkspaceTest extends TestCase
             : OpenCartSetting::where('store_name', $name)->firstOrFail()->id);
     }
 
-    /** The two seeded store ids for a channel, first and second. */
     private function storeIds(string $channel): array
     {
         return $channel === 'venta'
@@ -135,17 +84,6 @@ class MultistoreWorkspaceTest extends TestCase
             : [$this->storeId('opencart', 'Parts Yard'), $this->storeId('opencart', 'Cable Loft')];
     }
 
-    /**
-     * The Overview link as it appears in the markup, href and quotes included.
-     *
-     * A bare URL substring stopped being evidence once the IA migration
-     * (2026-08-08, Task 2) put the store workspace at /channels/venta/2:
-     * that string is now a PREFIX of /channels/venta/2/orders, so
-     * "contains the Overview URL" is satisfied by any sidebar link on the
-     * page and "does not contain it" could never be true. Matching the whole
-     * attribute keeps both directions honest, the same way the board
-     * assertion further down already did.
-     */
     private function overviewHref(string $key): string
     {
         return 'href="'.e(ChannelWorkspace::overviewUrl($key)).'"';
@@ -164,18 +102,10 @@ class MultistoreWorkspaceTest extends TestCase
         $this->fail(ucfirst($channel).' did not register an IntegrationCard.');
     }
 
-    /**
-     * A genuine read-only operator for one channel: the card permission and
-     * the orders permission, nothing else. Group names are unique per test
-     * class so this suite never collides with the other workspace suites
-     * when they share a process.
-     */
     private function operator(string $channel): User
     {
         $group = UserGroup::create(['name' => 'Multistore '.$channel.' Operators']);
 
-        // Every derived view key of the channel - what the old broad
-        // view_{channel} grant meant, in the only vocabulary left.
         $keys = array_values(array_filter(
             app(\App\Services\PermissionCatalogue::class)->keys(),
             fn ($k) => str_starts_with($k, 'view_'.$channel.'/')
@@ -188,11 +118,6 @@ class MultistoreWorkspaceTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    /**
-     * The narrow tier: the orders permission alone, NOT the card permission
-     * visibleCards() wants. This app has no parent/child permission cascade,
-     * so this user reaches the orders page its route allows and nothing else.
-     */
     private function ordersOnlyOperator(string $channel): User
     {
         $group = UserGroup::create(['name' => 'Multistore '.$channel.' Order Desk']);
@@ -204,7 +129,6 @@ class MultistoreWorkspaceTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    /** Holds neither tier: the far side of every gate asserted here. */
     private function outsider(string $channel): User
     {
         $group = UserGroup::create(['name' => 'Multistore '.$channel.' Outsiders']);
@@ -221,26 +145,8 @@ class MultistoreWorkspaceTest extends TestCase
         return ['venta' => ['venta'], 'opencart' => ['opencart']];
     }
 
-    /**
-     * The part of the page an operator actually looks at: the channel
-     * sidebar and the content region.
-     *
-     * The command palette is deliberately excluded. It is the app-wide jump
-     * list, built from Navigation::groups(), and offering every store from
-     * anywhere is exactly what it is for - store isolation is a statement
-     * about the workspace, not about search. It also carries its entries as
-     * a JSON blob with escaped slashes, so leaving it in would make a URL
-     * assertion pass while testing nothing.
-     */
     private function visibleChrome(string $html): string
     {
-        // Since 2026-09-03 the channel chrome is the x-chnav menubar and it
-        // renders as shell chrome directly above <main> (the polish pass
-        // moved it out of the content region to run full width), so the
-        // workspace is the band plus the content region. The global sidebar stays outside
-        // this slice on purpose: it now legitimately lists every store of
-        // every channel, which is exactly what these isolation checks must
-        // not count as leakage.
         preg_match('/<div class="x-chband">(.*?)<main\b/s', $html, $band);
         preg_match('/<main\b[^>]*class="x-content[^"]*"[^>]*>(.*?)<\/main>/s', $html, $content);
 
@@ -250,8 +156,6 @@ class MultistoreWorkspaceTest extends TestCase
         return $band[1].$content[1];
     }
 
-    /** The destinations a store workspace offers, in sidebar order.
-     *  Venta grew a Listings page (196f9a95, 2026-08-28); OpenCart has not. */
     private function expectedGroups(string $channel, int $storeId): array
     {
         $rows = [
@@ -261,34 +165,23 @@ class MultistoreWorkspaceTest extends TestCase
             $rows[] = ['Catalog', 'Listings', route('ext.venta.listings.index', ['store' => $storeId])];
         }
         $rows[] = ['Catalog', 'Product Groups', route('ext.'.$channel.'.product-groups.index', ['store' => $storeId])];
-        /* Joined 2026-09-07: the store's own words above and below a
-           description. Only the channels that carry listings have it, so
-           OpenCart and Shopify are not expected to. */
         if (\Illuminate\Support\Facades\Route::has('ext.'.$channel.'.description-templates.index')) {
             $rows[] = ['Catalog', 'Description Templates', route('ext.'.$channel.'.description-templates.index', ['store' => $storeId])];
         }
-        /* The store's own watermark templates, beside its words: a mark is
-           worn on the way to a store, so the list belongs to the store. */
         if (\Illuminate\Support\Facades\Route::has('ext.'.$channel.'.watermarks.index')) {
             $rows[] = ['Catalog', 'Watermarks', route('ext.'.$channel.'.watermarks.index', ['store' => $storeId])];
         }
-        // Import joined 2026-09-04 (cleanup point 11) - every channel has it.
         $rows[] = ['Catalog', 'Import', route('ext.'.$channel.'.products.import', ['store' => $storeId])];
         $rows[] = ['Channel', 'Settings', route('ext.'.$channel.'.settings.show', ['store' => $storeId])];
 
         return $rows;
     }
 
-    // ------------------------------------------------------------------
-    // The conversion signal
-    // ------------------------------------------------------------------
-
     #[\PHPUnit\Framework\Attributes\DataProvider('channelProvider')]
     public function test_every_store_menu_item_declares_a_known_group(string $channel): void
     {
         $card = $this->card($channel);
 
-        // Guards the premise: without stores this whole suite is vacuous.
         $this->assertCount(2, $card->stores, $channel.' did not build two store links.');
 
         foreach ($card->stores as $store) {
@@ -304,23 +197,12 @@ class MultistoreWorkspaceTest extends TestCase
         }
     }
 
-    /**
-     * A multi-store card converts on its STORE menus, not its own. Reading
-     * the card menu here would call OpenCart unconverted (its only card-level
-     * item is the global Reviews link, which stays ungrouped) while its
-     * stores are fully converted.
-     */
     #[\PHPUnit\Framework\Attributes\DataProvider('channelProvider')]
     public function test_the_card_declares_a_workspace_through_its_stores(string $channel): void
     {
         $this->assertTrue(app(ChannelWorkspace::class)->hasWorkspace($this->card($channel)));
     }
 
-    /**
-     * The mirror: with no stores configured there is nothing to open, so the
-     * channel has no workspace and the board keeps sending the operator to
-     * the module page where a store can be created.
-     */
     #[\PHPUnit\Framework\Attributes\DataProvider('channelProvider')]
     public function test_a_channel_with_no_stores_has_no_workspace(string $channel): void
     {
@@ -331,15 +213,6 @@ class MultistoreWorkspaceTest extends TestCase
         $this->assertFalse(app(ChannelWorkspace::class)->hasWorkspace($this->card($channel)));
     }
 
-    // ------------------------------------------------------------------
-    // Store scoping
-    // ------------------------------------------------------------------
-
-    /**
-     * Every link in a store's sidebar carries THAT store's id. Asserted by
-     * full URL equality rather than a substring, so a link pointing at the
-     * sibling store cannot pass by containing the right route.
-     */
     #[\PHPUnit\Framework\Attributes\DataProvider('channelProvider')]
     public function test_the_sidebar_groups_carry_the_stores_own_params(string $channel): void
     {
@@ -367,11 +240,6 @@ class MultistoreWorkspaceTest extends TestCase
         }
     }
 
-    /**
-     * The isolation rule, at the machinery level: one store's sidebar holds
-     * no URL belonging to the other store. Asserted against the OTHER
-     * store's real id, read back from the database, not a guessed one.
-     */
     #[\PHPUnit\Framework\Attributes\DataProvider('channelProvider')]
     public function test_one_stores_sidebar_holds_none_of_the_other_stores_links(string $channel): void
     {
@@ -398,11 +266,6 @@ class MultistoreWorkspaceTest extends TestCase
         $this->assertSame([], array_intersect($firstUrls, $secondUrls));
     }
 
-    /**
-     * Health is read per store, from that store's own settings row. The
-     * seeded states differ on purpose: a reading that ignored the store
-     * would report the same word for both.
-     */
     public function test_each_store_reports_its_own_state(): void
     {
         $workspace = app(ChannelWorkspace::class);
@@ -413,11 +276,9 @@ class MultistoreWorkspaceTest extends TestCase
         [$ocOne, $ocTwo] = $this->storeIds('opencart');
 
         $this->assertSame('connected', $workspace->state($venta, 'venta:'.$ventaOne));
-        // Never synced, so stale by the same 24 hour threshold the board uses.
         $this->assertSame('attention', $workspace->state($venta, 'venta:'.$ventaTwo));
 
         $this->assertSame('connected', $workspace->state($opencart, 'opencart:'.$ocOne));
-        // Created but not enabled yet: setup, whatever its columns hold.
         $this->assertSame('setup', $workspace->state($opencart, 'opencart:'.$ocTwo));
     }
 
@@ -437,13 +298,8 @@ class MultistoreWorkspaceTest extends TestCase
         };
 
         $this->assertNotNull($lastSync($workspace->health($card, 'venta:'.$first)));
-        // Never synced, so not tracked rather than a fabricated timestamp.
         $this->assertNull($lastSync($workspace->health($card, 'venta:'.$second)));
     }
-
-    // ------------------------------------------------------------------
-    // The workspace page
-    // ------------------------------------------------------------------
 
     #[\PHPUnit\Framework\Attributes\DataProvider('channelProvider')]
     public function test_each_stores_workspace_renders_with_its_own_name_and_links(string $channel): void
@@ -458,14 +314,7 @@ class MultistoreWorkspaceTest extends TestCase
 
             $response->assertOk();
             $response->assertSee($store->label);
-            // Sell holds one item on a store workspace, so the menubar
-            // offers Orders directly rather than a one-entry menu; the
-            // Channel group's one item (Settings, carrying its page
-            // sections) becomes the Settings menu the same way.
             $response->assertSee('>Orders</a>', false);
-            // Venta's Catalog holds two items (Listings + Product Groups)
-            // and keeps its menu; OpenCart's holds one and flattens to the
-            // item itself, same rule as Orders above.
             if ($channel === 'venta') {
                 $response->assertSee('data-chnav-group="Catalog"', false);
             } else {
@@ -479,10 +328,6 @@ class MultistoreWorkspaceTest extends TestCase
         }
     }
 
-    /**
-     * The isolation rule on the rendered page: standing in one store, the
-     * other store's name and its three destinations are nowhere on screen.
-     */
     #[\PHPUnit\Framework\Attributes\DataProvider('channelProvider')]
     public function test_a_stores_workspace_never_shows_the_sibling_store(string $channel): void
     {
@@ -496,7 +341,6 @@ class MultistoreWorkspaceTest extends TestCase
 
         $chrome = $this->visibleChrome($response->getContent());
 
-        // Guards the premise: this IS the first store's page.
         $this->assertStringContainsString($firstStore->label, $chrome);
         $this->assertStringContainsString(
             $this->overviewHref($channel.':'.$first),
@@ -509,18 +353,12 @@ class MultistoreWorkspaceTest extends TestCase
             $this->assertStringNotContainsString($url, $chrome, $label.' leaked in from the sibling store.');
         }
 
-        // And the sibling's Overview is not reachable from here either.
         $this->assertStringNotContainsString(
             $this->overviewHref($channel.':'.$second),
             $chrome
         );
     }
 
-    /**
-     * OpenCart's Reviews item lives on the top card, not on any store, and is
-     * global to the app rather than to one shop. It stays in the main nav's
-     * Catalog group and out of every store workspace.
-     */
     public function test_the_global_reviews_item_stays_out_of_the_store_workspaces(): void
     {
         $group = UserGroup::create(['name' => 'Multistore OpenCart Reviewers']);
@@ -531,8 +369,6 @@ class MultistoreWorkspaceTest extends TestCase
         );
         $user = User::factory()->create(['user_group_id' => $group->id]);
 
-        // Guards the premise: this user genuinely holds the Reviews
-        // permission, so its absence below is the grouping and not the gate.
         $this->assertTrue($user->hasPermission('view_opencart/review'));
 
         [$first] = $this->storeIds('opencart');
@@ -540,52 +376,24 @@ class MultistoreWorkspaceTest extends TestCase
         $response = $this->actingAs($user)->get('/channels/opencart/'.$first);
 
         $response->assertOk();
-        /* The check moved onto the workspace slice (2026-09-03): the global
-           sidebar now renders on channel pages and rightly offers Reviews
-           under its own Catalog group - the pin is that the CHANNEL's menu
-           does not adopt it. */
         $chrome = $this->visibleChrome($response->getContent());
         $this->assertStringNotContainsString(e(route('ext.opencart.reviews.index')), $chrome);
         $this->assertStringNotContainsString('>Reviews</a>', $chrome);
     }
 
-    // ------------------------------------------------------------------
-    // Keys that must not resolve
-    // ------------------------------------------------------------------
-
-    /**
-     * Every key that must resolve to nothing, built from the store ids this
-     * test actually seeded.
-     *
-     * Building them at runtime is the whole point. A static list like
-     * 'venta:2:3' looked equivalent and was not: InnoDB does not reset
-     * AUTO_INCREMENT when RefreshDatabase rolls a test back, so by the time
-     * a later data set ran, the seeded stores were ids 15 and 16 and the
-     * literal 2 named nothing. The malformed-key assertions all passed
-     * without ever reaching the store lookup they claim to guard. These are
-     * pinned to the live id so a loosening of the parser is caught.
-     *
-     * @return array<string, string>
-     */
     private function keysThatMustNotResolve(int $ventaStoreId, int $opencartStoreId): array
     {
         return [
-            // No storeless page exists on either channel.
             'a bare multi-store channel' => 'venta',
             'a bare multi-store channel (opencart)' => 'opencart',
-            // Well formed, but no such store.
             'an unknown venta store' => 'venta:'.($ventaStoreId + 9000),
             'an unknown opencart store' => 'opencart:'.($opencartStoreId + 9000),
-            // Malformed, and every one of these names a REAL store the
-            // moment the parser stops being strict.
             'an empty store' => 'venta:',
             'a non numeric store' => 'venta:abc',
             'a second suffix after a real store' => 'venta:'.$ventaStoreId.':3',
             'a real store with trailing text' => 'venta:'.$ventaStoreId.'x',
             'store zero' => 'venta:0',
             'a negative store' => 'venta:-'.$ventaStoreId,
-            // A store suffix on a single-store channel names nothing: Shopee
-            // is one shop, and shopee:1 is not another name for it.
             'a suffix on a single-store channel' => 'shopee:'.$ventaStoreId,
         ];
     }
@@ -603,10 +411,6 @@ class MultistoreWorkspaceTest extends TestCase
         [$ventaStore] = $this->storeIds('venta');
         [$opencartStore] = $this->storeIds('opencart');
 
-        // Guards the premise: this user can open a real store workspace AND
-        // a real single-store one, so every 404 below is about the key and
-        // not about the user. The Shopee half is what makes the suffix case
-        // a statement about the suffix rather than about an absent card.
         $this->actingAs($user)->get('/channels/venta/'.$ventaStore)->assertOk();
         $this->actingAs($user)->get('/channels/opencart/'.$opencartStore)->assertOk();
         $this->actingAs($user)->get('/channels/shopee')->assertOk();
@@ -618,11 +422,6 @@ class MultistoreWorkspaceTest extends TestCase
         }
     }
 
-    // ------------------------------------------------------------------
-    // The pages inside the workspace
-    // ------------------------------------------------------------------
-
-    /** Every converted page of both channels, per store. */
     private function pagesFor(string $channel, int $storeId): array
     {
         return [
@@ -647,24 +446,14 @@ class MultistoreWorkspaceTest extends TestCase
                 $response->assertOk();
                 $response->assertSee('x-chnav', false);
                 $response->assertSee('All channels');
-                // The store this page belongs to is named in the trail now
-                // that the old sidebar head is gone - it is what stays on
-                // screen while the page scrolls.
                 preg_match('/<div class="x-topbar__crumb">(.*?)<\/div>/s', $response->getContent(), $mbCrumb);
                 $this->assertStringContainsString(e($store->label), $mbCrumb[1] ?? '',
                     'The trail does not name the store on the '.$name.' page.');
-                // Reversed 2026-09-03 (the teleportation fix): the global
-                // sidebar now STAYS on every channel page.
                 $response->assertSee('data-nav', false);
             }
         }
     }
 
-    /**
-     * The chrome owns the "Integrations / Venta / Venta Store Two" trail, so
-     * each view supplies only its leaf. Before this task the views carried
-     * the whole trail themselves, which would now read it twice.
-     */
     #[\PHPUnit\Framework\Attributes\DataProvider('channelProvider')]
     public function test_the_breadcrumb_names_the_channel_and_the_store_once_each(string $channel): void
     {
@@ -688,30 +477,18 @@ class MultistoreWorkspaceTest extends TestCase
         }
     }
 
-    // ------------------------------------------------------------------
-    // Gates, both directions
-    // ------------------------------------------------------------------
-
     #[\PHPUnit\Framework\Attributes\DataProvider('channelProvider')]
     public function test_an_orders_only_operator_is_refused_the_store_workspace(string $channel): void
     {
         [$first] = $this->storeIds($channel);
         $user = $this->ordersOnlyOperator($channel);
 
-        // Guards the premise: this user holds the orders permission and not
-        // the card permission, so the 404 is the card gate.
         $this->assertTrue($user->hasPermission('view_'.$channel.'/order'));
         $this->assertFalse($user->hasPermission('view_'.$channel.'/dashboard'));
 
         $this->actingAs($user)->get('/channels/'.$channel.'/'.$first)->assertNotFound();
     }
 
-    /**
-     * The mirror of the test above: the same narrow user still reaches the
-     * page their route allows, gets the channel sidebar on it, and sees only
-     * the group their permission covers - with no Overview link, because
-     * that destination would 404 for them.
-     */
     #[\PHPUnit\Framework\Attributes\DataProvider('channelProvider')]
     public function test_an_orders_only_operator_reaches_orders_with_a_narrow_sidebar(string $channel): void
     {
@@ -738,11 +515,6 @@ class MultistoreWorkspaceTest extends TestCase
         );
     }
 
-    /**
-     * A user holding the card permission DOES get the Overview link, so the
-     * assertion above is about the gate rather than about a link nobody ever
-     * sees.
-     */
     #[\PHPUnit\Framework\Attributes\DataProvider('channelProvider')]
     public function test_a_permitted_operator_gets_the_overview_link_for_this_store(string $channel): void
     {
@@ -759,7 +531,6 @@ class MultistoreWorkspaceTest extends TestCase
             $this->overviewHref($channel.':'.$first),
             $chrome
         );
-        // And it is THIS store's Overview, not the sibling's.
         $this->assertStringNotContainsString(
             $this->overviewHref($channel.':'.$second),
             $chrome
@@ -777,15 +548,8 @@ class MultistoreWorkspaceTest extends TestCase
 
         $this->actingAs($user)->get('/channels/'.$channel.'/'.$first)->assertNotFound();
 
-        // The orders route's door denies the page load with the readable
-        // 403 - unlike the dashboard above, which refuses by absence so an
-        // unpermitted channel never confirms itself.
         $this->actingAs($user)->get('/channels/'.$channel.'/'.$first.'/orders')->assertStatus(403);
     }
-
-    // ------------------------------------------------------------------
-    // The board and the nav agree with the workspace
-    // ------------------------------------------------------------------
 
     #[\PHPUnit\Framework\Attributes\DataProvider('channelProvider')]
     public function test_the_channels_nav_offers_one_seller_center_per_store(string $channel): void
@@ -798,7 +562,6 @@ class MultistoreWorkspaceTest extends TestCase
 
         $this->assertNotNull($channels, 'The nav has no Channels group.');
 
-        // Three layers (the owner, 2026-09-06): Channels, the channel, its stores.
         $channelEntry = collect($channels['items'])->firstWhere('label', $card->name);
         $this->assertNotNull($channelEntry, 'The nav has no entry for '.$card->name);
         $this->assertArrayNotHasKey('route', $channelEntry, 'the channel line is a sub-group, not a link');
@@ -814,7 +577,6 @@ class MultistoreWorkspaceTest extends TestCase
             );
         }
 
-        // The channel line is a sub-group with nowhere of its own to land: no route, only its stores.
         $this->assertArrayNotHasKey('route', collect($channels['items'])->firstWhere('label', $card->name));
     }
 
@@ -831,13 +593,9 @@ class MultistoreWorkspaceTest extends TestCase
             $response->assertSee($this->overviewHref($store->id), false);
         }
 
-        // And never the storeless key, which 404s. Quoted, because
-        // /channels/venta is a prefix of /channels/venta/2 and a bare
-        // substring test could never fail.
         $response->assertDontSee($this->overviewHref($channel), false);
     }
 
-    /** Each store on the board has Products beside Open, landing on that store's own Listings page. */
     public function test_the_board_gives_each_store_a_products_link_to_its_own_listings(): void
     {
         $card = $this->card('venta');
@@ -861,16 +619,6 @@ class MultistoreWorkspaceTest extends TestCase
         $this->assertTrue($rows->every(fn (array $row) => $row['productsUrl'] === null), 'an OpenCart store has no Listings page to link');
     }
 
-    // ------------------------------------------------------------------
-    // Round 2, Task 2: the orders pages, per store, on the seller center.
-    //
-    // The hub side of the same panels is covered in FulfilmentHubTest. What
-    // is specific here is that a store's seller center carries the store in
-    // its URI path rather than in a query param, and that the
-    // cross-marketplace tab strip these two pages used to include is gone.
-    // ------------------------------------------------------------------
-
-    /** Manage tier for a channel's orders, which is what renders its writes. */
     private function ordersManager(string $channel): User
     {
         $group = UserGroup::create(['name' => 'Multistore '.$channel.' Order Managers']);
@@ -884,7 +632,6 @@ class MultistoreWorkspaceTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    /** One Venta order in a named store. */
     private function ventaOrder(int $storeId, string $customer, string $status): \Extensions\venta\Models\VentaOrder
     {
         return \Extensions\venta\Models\VentaOrder::create([
@@ -900,12 +647,6 @@ class MultistoreWorkspaceTest extends TestCase
         ]);
     }
 
-    /**
-     * One core catalog order tagged to an OpenCart store. The legacy
-     * OpenCart-derived `order` table has many NOT NULL columns with no
-     * default and MySQL's STRICT_TRANS_TABLES rejects an insert that omits
-     * them; the blanks exist only to satisfy the schema.
-     */
     private function opencartOrder(int $storeId, string $firstname, string $marketplaceOrderId): int
     {
         $prefix = (string) config('catalog.prefix');
@@ -939,10 +680,6 @@ class MultistoreWorkspaceTest extends TestCase
         ]);
     }
 
-    /**
-     * Both channels' orders pages render through the shared panel partial,
-     * per store, and every control in it points at THAT store.
-     */
     #[\PHPUnit\Framework\Attributes\DataProvider('channelProvider')]
     public function test_the_orders_page_renders_the_shared_panel_per_store(string $channel): void
     {
@@ -952,29 +689,15 @@ class MultistoreWorkspaceTest extends TestCase
             $response = $this->actingAs($user)->get('/channels/'.$channel.'/'.$storeId.'/orders');
 
             $response->assertOk();
-            // The panel's own root, which is also what the page CSS and (for
-            // Venta) the page module scope themselves to.
             $response->assertSee('id="'.$channel.'-orders-page"', false);
-            // The one filter form the panel owns, posting back to this
-            // store's own route rather than to the channel's first store.
             $response->assertSee(
                 '<form method="GET" action="'.e(route('ext.'.$channel.'.orders.index', ['store' => $storeId])).'" class="x-filters" data-desk-tool id="orders-filter">',
                 false
             );
-            // The seller center passes no hidden context params, so the panel
-            // renders none. This is the mirror of the hub's channel input.
             $response->assertDontSee('<input type="hidden" name="channel"', false);
         }
     }
 
-    /**
-     * The cross-marketplace tab strip is gone from both orders pages.
-     *
-     * It was Task 1's one accepted exception, kept because it was then the
-     * only way to switch stores from inside orders. The workspace sidebar
-     * and the fulfilment hub are that now, so its presence would be a second
-     * navigation system inside a page that already sits in one.
-     */
     #[\PHPUnit\Framework\Attributes\DataProvider('channelProvider')]
     public function test_the_orders_page_no_longer_carries_the_cross_marketplace_strip(string $channel): void
     {
@@ -987,35 +710,18 @@ class MultistoreWorkspaceTest extends TestCase
 
         $chrome = $this->visibleChrome($response->getContent());
 
-        // The strip's own root and card classes, read off
-        // integrations/partials/_tab_strip rather than guessed: an assertion
-        // against a class name that partial never emits would pass whether
-        // or not the strip was still included.
         $this->assertStringNotContainsString('ord-tab-strip', $chrome);
         $this->assertStringNotContainsString('ord-tab-card', $chrome);
-        // And the strip's Summary card, which is its first entry and the one
-        // link it always carries.
         $this->assertStringNotContainsString(
             'href="'.e(route('channels.fulfilment')).'"',
             $chrome
         );
     }
 
-    /**
-     * Store isolation on the seller center: standing in one Venta store, the
-     * other store's orders are nowhere in the sidebar or the content.
-     *
-     * Asserted against the live order numbers read back off the rows, for
-     * the same reason the key assertions are: AUTO_INCREMENT does not reset
-     * between tests and a literal would name nothing.
-     */
     public function test_a_venta_stores_orders_page_holds_none_of_the_other_stores_orders(): void
     {
         [$first, $second] = $this->storeIds('venta');
 
-        // 'Processing' lands in the To Pack step the page opens on since
-        // the fixed-strip rework (0ea37a15); 'Pending' files under Unpaid
-        // now and the default landing would be empty.
         $mine = $this->ventaOrder($first, 'Depot Buyer', 'Processing');
         $theirs = $this->ventaOrder($second, 'Bazaar Buyer', 'Processing');
 
@@ -1026,18 +732,15 @@ class MultistoreWorkspaceTest extends TestCase
 
         $chrome = $this->visibleChrome($response->getContent());
 
-        // Guards the premise: this page is not simply empty.
         $this->assertStringContainsString('Depot Buyer', $chrome);
         $this->assertStringContainsString((string) $mine->venta_order_number, $chrome);
 
         $this->assertStringNotContainsString('Bazaar Buyer', $chrome);
         $this->assertStringNotContainsString((string) $theirs->venta_order_number, $chrome);
-        // And no control on the page acts on the sibling store.
         $this->assertStringNotContainsString(route('ext.venta.orders.fetch', ['store' => $second]), $chrome);
         $this->assertStringNotContainsString(route('ext.venta.orders.bulk_delete', ['store' => $second]), $chrome);
     }
 
-    /** The same rule for OpenCart, whose rows are core catalog orders. */
     public function test_an_opencart_stores_orders_page_holds_none_of_the_other_stores_orders(): void
     {
         [$first, $second] = $this->storeIds('opencart');
@@ -1057,22 +760,10 @@ class MultistoreWorkspaceTest extends TestCase
 
         $this->assertStringNotContainsString('Loftus', $chrome);
         $this->assertStringNotContainsString('OC-LOFT-1', $chrome);
-        // Quoted as a full href: /sales/orders/1 is a prefix of
-        // /sales/orders/12, so a bare substring test on the sibling's URL
-        // could pass or fail on nothing but which ids the run allocated.
         $this->assertStringContainsString('href="'.e(route('orders.show', $mineId)).'"', $chrome);
         $this->assertStringNotContainsString('href="'.e(route('orders.show', $theirsId)).'"', $chrome);
     }
 
-    /**
-     * The write controls a Venta store's orders page offers are the manage
-     * tier's, and they act on THIS store.
-     *
-     * The old page hardcoded its permission flag to true, so a read-only
-     * operator was shown a fetch bar and a row of Delete buttons that all
-     * 403 on submit. Both directions are asserted, because a flag that is
-     * always false would pass the negative half on its own.
-     */
     public function test_only_the_manage_tier_gets_the_venta_write_controls(): void
     {
         [$first] = $this->storeIds('venta');
@@ -1089,8 +780,6 @@ class MultistoreWorkspaceTest extends TestCase
         $managerView->assertSee('id="formFetchVentaOrders"', false);
         $managerView->assertSee(e(route('ext.venta.orders.fetch', ['store' => $first])), false);
         $managerView->assertSee(e(route('ext.venta.orders.bulk_delete', ['store' => $first])), false);
-        // Destructive actions carry the project's confirm convention rather
-        // than a native dialog.
         $managerView->assertSee('data-confirm=', false);
 
         $viewerView = $this->actingAs($viewer)->get('/channels/venta/'.$first.'/orders');
@@ -1099,11 +788,6 @@ class MultistoreWorkspaceTest extends TestCase
         $viewerView->assertDontSee(e(route('ext.venta.orders.bulk_delete', ['store' => $first])), false);
     }
 
-    /**
-     * OpenCart's page offers no command bar to anyone: the channel declares
-     * no order write route for one to submit to. Its row actions are core
-     * order routes and follow the core orders permission.
-     */
     public function test_the_opencart_orders_page_has_no_command_bar_and_core_gated_row_actions(): void
     {
         [$first] = $this->storeIds('opencart');
@@ -1118,17 +802,12 @@ class MultistoreWorkspaceTest extends TestCase
         $managerView->assertSee('href="'.e(route('orders.edit', $orderId)).'"', false);
         $managerView->assertSee('data-confirm=', false);
 
-        // The read tier gets the list and no writes at all.
         $viewerView = $this->actingAs($viewer)->get('/channels/opencart/'.$first.'/orders');
         $viewerView->assertOk();
         $viewerView->assertDontSee('x-cmdbar', false);
         $viewerView->assertDontSee('href="'.e(route('orders.edit', $orderId)).'"', false);
     }
 
-    /**
-     * Segment, sort and filter links on the seller center all carry the
-     * store in the URI path and never the sibling's.
-     */
     public function test_the_venta_panels_own_links_stay_on_this_store(): void
     {
         [$first, $second] = $this->storeIds('venta');
@@ -1143,14 +822,11 @@ class MultistoreWorkspaceTest extends TestCase
         $own = route('ext.venta.orders.index', ['store' => $first]);
         $sibling = route('ext.venta.orders.index', ['store' => $second]);
 
-        // A tab segment link: the fixed strip emits tab= and strips
-        // status= from its own links (0ea37a15).
         $this->assertMatchesRegularExpression(
             '/href="'.preg_quote(e($own), '/').'\?[^"]*tab=/',
             $chrome,
             'A tab segment link did not stay on this store.'
         );
-        // A column sort link.
         $this->assertMatchesRegularExpression(
             '/href="'.preg_quote(e($own), '/').'\?[^"]*sort=total/',
             $chrome,

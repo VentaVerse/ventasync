@@ -2,22 +2,6 @@
 @section('title', 'Shopee Authorisation')
 @section('breadcrumb', 'Authorisation')
 
-{{-- Round F Task 1 finding: this is NOT a bare redirect. It is a page a human
-     reads and copies from.
-
-     Shopee sends the operator's browser here after they authorise the app, with
-     the two values the token exchange needs in the query string. The page's
-     whole job is to show them so they can be carried to the settings screen.
-     It has no form, no script and no CSRF, and it never had any. That function
-     is untouched: the same two controller variables, the same names, the same
-     values, the same link back.
-
-     Its chrome had to change regardless of that, because it extended
-     layouts/app.blade.php, which Round F Task 4 deleted. Left alone, this page
-     would have 500'd the moment the layout went. So it moves onto layouts.channel
-     with the rest of the workspace and is drawn on the fm- anatomy, and the
-     two values are read-only fields in mono with a plain instruction above
-     them instead of unlabelled boxes. --}}
 @section('content')
 <div class="fm-page">
 

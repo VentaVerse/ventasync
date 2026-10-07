@@ -12,34 +12,8 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-/**
- * Can this listing's push succeed? (#101, Lazada half.) Answered from the
- * ERP's own records before anything is pressed, mirroring EXACTLY what the
- * upload gate and the payload builder refuse: the catalog product enabled,
- * its SKU and image, the category, the category template's required
- * attributes (the basics the catalog fills included), every variation's
- * SKU, the category's variation-axis allowance, and a price above zero
- * when the template calls price mandatory. One computation for the Ready
- * column, the readiness filter and every push path (the owner, 2026-09-06:
- * Ready has to be absolutely sure). Lazada's update is the create with an
- * ItemId, so a listed row answers the same checklist.
- *
- * Honesty rule, same as Shopee's: a category whose template has never been
- * read is NOT ready - opening the listing reads and caches it.
- */
 class LazadaListingReadiness
 {
-    /**
-     * Missing items come back twice: as sentences (missing) for prose, and
-     * as coded gaps (gaps) so deep-links and engines key on codes, never on
-     * label text (#184 C, same contract as Shopee's readiness).
-     *
-     * @param Collection $listings LazadaProduct rows
-     * @param array{settings?: array, attributes?: array} $overrides  what a group push
-     *        states for the whole batch, in the builder's own shape, so
-     *        readiness is judged on what will actually be sent
-     * @return array<int, array{ready: bool, missing: array<string>, gaps: list<array{code: string, label: string}>}> keyed by listing id
-     */
     public function forListings(Collection $listings, array $overrides = []): array
     {
         $categoryLabel = LazadaCategory::query()->exists() ? 'a Lazada category' : 'a Lazada category - none have been fetched for this store yet (fetch them on Catalog > Categories)';
@@ -52,17 +26,10 @@ class LazadaListingReadiness
         $region = (string) (LazadaSetting::defaultStore()?->region ?? '');
         $attrs = app(LazadaAttributes::class);
 
-        /* A group is a preset the product inherits (the owner, 2026-09-05): a
-         * blank category on the listing is filled from its group, on copies
-         * kept in memory, the same way every push fills it now. The rows the
-         * caller holds are not touched. The group's price rule stands in
-         * when the listing has none (the builder's own rule), and its
-         * attribute answers count as answered. */
         $inherit = app(LazadaInheritedSettings::class);
         $productIds = $listings->pluck('product_id')->filter()->map(fn ($v) => (int) $v)->unique()->values()->all();
         $groups = $inherit->forProducts($productIds);
         $listings = $listings->map(fn ($l) => $inherit->fill($l, $groups[(int) $l->product_id] ?? null)['listing']);
-        // A push's settings fill what the listing leaves blank; its own values win.
         if (!empty($overrides['settings'])) {
             $s = $overrides['settings'];
             $listings = $listings->map(function ($l) use ($s) {
@@ -87,10 +54,6 @@ class LazadaListingReadiness
             ->whereIn('p.product_id', $productIds)
             ->get(['p.product_id', 'p.sku', 'p.model', 'p.image', 'p.price', 'pd.name', 'pd.description'])
             ->keyBy('product_id');
-        /* A listing that arranges its own pictures answers the image gap
-           itself: it is read off the listings already in hand, so this
-           costs no query. Shopee's rule since 2026-09-08, every channel's
-           since VENT2-131. */
         $ownPictures = $listings->filter(fn ($l) => ! empty($l->image_order))->pluck('product_id')
             ->map(fn ($v) => (int) $v)->all();
         $catalog = CatalogGaps::forProducts($productIds, [CatalogGaps::ENABLED, CatalogGaps::SKU, CatalogGaps::IMAGE], $ownPictures);
@@ -106,9 +69,6 @@ class LazadaListingReadiness
             ->get()
             ->groupBy('lazada_product_id');
 
-        /* Variation data for EVERY product in one go, so variationGaps issues
-         * no per-listing query. This was the N+1 that made a full-catalog
-         * pass ~one query per listing (2,000+ on a 1,900-product store). */
         $povByProduct = DB::table($pfx . 'product_option_value as pov')
             ->leftJoin($pfx . 'option_description as od', function ($j) use ($langId) {
                 $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
@@ -150,19 +110,12 @@ class LazadaListingReadiness
                 $gaps[] = ['code' => ListingState::GAP_CATEGORY, 'label' => $categoryLabel];
             }
 
-            /* Brand is not demanded here: the payload builder defaults an
-             * unchosen brand to "No Brand", exactly as Shopee's does, so a
-             * listing without one pushes fine. Demanding it anyway made a
-             * pushable listing read "Not ready" (#175). */
-
             $requiredKeys = [];
             $template = $listing->primary_category_id ? $templates->get((int) $listing->primary_category_id) : null;
             if ($listing->primary_category_id) {
                 if (!$template || !$template->template_body) {
                     $gaps[] = ['code' => ListingState::GAP_SHEET, 'label' => "its category's attribute sheet (Refresh reads it)"];
                 } else {
-                    // The listing's own answers, the group's answers, then
-                    // what the catalog fills at push - the builder's merge.
                     $answered = ($savedAttrs->get($listing->id) ?? collect())->pluck('value', 'attribute_key')->all();
                     foreach ((array) ($group['attributes'] ?? []) + $sharedAnswers as $k => $v) {
                         if (trim((string) ($answered[$k] ?? '')) === '' && trim((string) $v) !== '') {
@@ -182,7 +135,7 @@ class LazadaListingReadiness
                         }
                         $requiredKeys[] = $key;
                         if ($attrs->isSkuLevelRequiredKey($key) || strtolower($key) === 'brand') {
-                            continue; // brand defaults to No Brand; SKU-level keys are judged below
+                            continue;
                         }
                         if (trim((string) ($answered[$key] ?? '')) === '') {
                             $unanswered[] = (string) ($attr['name'] ?? $key);
@@ -194,7 +147,6 @@ class LazadaListingReadiness
                             . Str::plural('attribute', count($unanswered))
                             . ' (' . implode(', ', array_slice($unanswered, 0, 5))
                             . (count($unanswered) > 5 ? ' and more' : '') . ')',
-                            // key => name, so the listing page can mark each row (the builder's own words).
                             'keys' => $unansweredKeys];
                     }
                 }
@@ -211,15 +163,6 @@ class LazadaListingReadiness
         return $out;
     }
 
-    /**
-     * What the payload builder refuses about the variations, judged the way
-     * it judges them: a multi-option product with no combinations stored,
-     * more option axes than the category's sale properties allow, a
-     * variation without a SKU, and a price at or below zero when the
-     * template calls price mandatory.
-     *
-     * @return list<array{code: string, label: string}>
-     */
     private function variationGaps($listing, ?object $product, ?array $group, ?LazadaCategoryTemplate $template, array $requiredKeys, $povRows, $combos, int $axes): array
     {
         $gaps = [];
@@ -244,7 +187,6 @@ class LazadaListingReadiness
                     ? app(LazadaAttributes::class)->cachedSalePropKeys((int) $listing->primary_category_id)
                     : [];
                 $keys = array_values(array_filter(array_unique($keys), fn ($k) => trim((string) $k) !== ''));
-                // An item already on Lazada keeps its own variation types; the push checks against those.
                 $onLazada = trim((string) ($listing->lazada_item_id ?? '')) !== '' && empty($listing->lazada_deleted_at);
                 if ($template && ! $onLazada && count($keys) < $axes) {
                     $gaps[] = ['code' => ListingState::GAP_VARIATIONS, 'label' => 'a Lazada category that allows ' . $axes . ' variation ' . Str::plural('axis', $axes) . ' (this one allows ' . count($keys) . ')'];
@@ -257,7 +199,6 @@ class LazadaListingReadiness
                     $prices[] = $priceOf($c->absolute_price !== null ? (float) $c->absolute_price : null);
                 }
             } else {
-                // A variation's SKU is the catalog's, never the listing's.
                 $blank = $povRows->filter(fn ($r) => trim((string) ($r->sku ?? '')) === '')->count();
                 if ($blank > 0) {
                     $gaps[] = ['code' => ListingState::GAP_VARIATIONS, 'label' => 'an SKU on every variation (' . $blank . ' without one)'];
@@ -278,16 +219,6 @@ class LazadaListingReadiness
         return $gaps;
     }
 
-    /**
-     * Readiness for catalogue products with NO lazada_products row yet - the
-     * catalogue-first index and the state engine ask about these (#184 C).
-     * Everything a row would carry is by definition missing (the category,
-     * and the attribute sheet behind it), so only the catalogue-level checks
-     * vary per product.
-     *
-     * @param list<int> $productIds
-     * @return array<int, array{ready: bool, missing: array<string>, gaps: list<array{code: string, label: string}>}> keyed by product id
-     */
     public function forProducts(array $productIds): array
     {
         $categoryLabel = LazadaCategory::query()->exists() ? 'a Lazada category' : 'a Lazada category - none have been fetched for this store yet (fetch them on Catalog > Categories)';

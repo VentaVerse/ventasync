@@ -1,21 +1,3 @@
-/* ============================================================
-   The channel menubar (partials/channel-menubar.blade.php).
-
-   The channel's own menu, inside the page instead of a swapped
-   sidebar (the owner, 2026-09-03: the old workspace shell read as
-   teleportation - enter Lazada and the nav you stood in is gone).
-   Menu language, deliberately not tabs: parents open downward on
-   click, the way a desktop menubar does, and the only channel
-   colour is the dot on the parent that owns the current page and
-   the edge on the current item inside its menu. Identity (name,
-   store, state) lives in the breadcrumb, not here.
-
-   Sticky, so the menu rides along on every page of the channel.
-   ============================================================ */
-/* How tall the band is, published for anything that pins UNDER it. The
-   listing strip does, and without this it pinned into the band's own
-   13px and was covered by it (critique 2026-09-08). Kept beside the
-   min-height it measures so the two cannot drift. */
 :root { --bl-chband-h: 43px; }
 
 @layer components {
@@ -25,9 +7,6 @@
         z-index: 30;
         background: var(--bl-sheet);
         border-bottom: 1px solid var(--bl-rule);
-        /* Shell chrome since the polish pass: the band renders between the
-           topbar and <main>, so it spans the column edge to edge on its
-           own - the rule under it runs the full width. */
         padding: 0;
     }
 
@@ -36,21 +15,11 @@
         align-items: center;
         gap: 6px;
         min-height: 42px;
-        /* The items live in the same centered ceiling the content uses
-           (the owner, 2026-09-03: full-width band, but the nav starts at the
-           left edge of the centered column, never at the window's). On a
-           screen narrower than the ceiling this is exactly the old inset;
-           on an ultrawide the items travel with the content instead of
-           stranding at the far left. 13px is the item's own padding, so
-           the first LABEL sits flush with the content's left edge. */
         max-width: var(--bl-content-max);
         margin-inline: auto;
         padding-inline: calc(var(--bl-page-gutter) - 13px);
     }
 
-    /* The store's mark, first in the bar and divided from the pages it
-       names. A wide logo is shown as it is; a square mark takes the
-       channel's name beside it, in the channel's own colour. */
     .x-chnav__mark {
         display: inline-flex;
         align-items: center;
@@ -66,15 +35,9 @@
         width: 24px;
         height: 24px;
         object-fit: contain;
-        /* A logo that carries its own background (Lazada's navy, TikTok's
-           black) then reads as a tile rather than a stray rectangle. */
         border-radius: var(--bl-r-dot);
     }
 
-    /* A box, not one height: the logos run from 2.5:1 to 6.7:1, so a
-       single height leaves the wide ones long and the boxy ones tiny.
-       Each is drawn as large as it can be inside the same box, which is
-       what makes a row of them read as one weight. */
     .x-chnav__logo--wide {
         width: auto;
         height: auto;
@@ -126,9 +89,6 @@
 
     .x-chnav__group { position: relative; }
 
-    /* Where you are: the parent (or direct link) that owns the current
-       page wears the channel's own colour, quietly - a menu's kind of
-       emphasis, never a tab underline. */
     .x-chnav__link.is-current,
     .x-chnav__group.is-current > .x-chnav__parent {
         color: var(--bl-ink);
@@ -150,14 +110,10 @@
         background: var(--ch-lift, var(--bl-brand));
     }
 
-    /* The submenu hangs from the bar. Alpine owns open/closed - hover on
-       a pointer that can hover, click/Enter everywhere, Escape,
-       click-outside, mouseleave, slide-across-when-open. */
     .x-chnav__menu {
         position: absolute;
         top: calc(100% + 5px);
-        left: 2px; /* the panel edge tucks in so child text (13px pad)
-                      sits flush under the parent's own text (13px + 2px) */
+        left: 2px;
         z-index: 40;
         min-width: 200px;
         padding: 5px;
@@ -173,9 +129,6 @@
         animation: x-chnav-drop var(--bl-motion-fast, .12s) ease-out;
     }
 
-    /* The invisible bridge over the drop gap, so a pointer travelling
-       from the parent into its menu never crosses bare page and closes
-       the menu it was reaching for. */
     .x-chnav__menu::before {
         content: '';
         position: absolute;
@@ -210,8 +163,6 @@
         background: var(--bl-paper);
     }
 
-    /* A count beside a menu item (Payouts' unpaid orders): the bad-state
-       red, small and tabular, pushed to the item's far edge. */
     .x-chnav__child:has(.x-chnav__count) {
         display: flex;
         align-items: center;
@@ -244,8 +195,6 @@
         box-shadow: inset 2px 0 0 var(--ch-lift, var(--bl-brand));
     }
 
-    /* A page section inside an item's own page (Settings' Connection,
-       Logs, ...) reads one step quieter than a page. */
     .x-chnav__child--section {
         padding-left: 26px;
         font-size: 12.5px;
@@ -254,9 +203,6 @@
 
     .x-chnav__child--section:hover { color: var(--bl-ink); }
 
-    /* A logo drawn for a white page keeps its own colours in the dark
-       theme: it sits on a small white plate rather than losing its ink.
-       A channel that ships a dark logo of its own needs no plate. */
     @media (prefers-color-scheme: dark) {
         :root:not([data-theme="light"]) .x-chnav__logo--wide {
             padding: 3px 6px;
@@ -272,7 +218,6 @@
     }
 
     @media (max-width: 640px) {
-        /* The trail above already names the channel, and the pages need the room. */
         .x-chnav__markname { display: none; }
 
         .x-chnav__mark { padding-inline: 10px 12px; }
@@ -284,7 +229,6 @@
             scrollbar-width: none;
         }
 
-        /* The mark holds the left edge while the pages scroll under it. */
         .x-chnav__mark {
             position: sticky;
             left: 0;
@@ -300,11 +244,8 @@
             padding: 9px 13px 11px;
         }
 
-        /* An open menu must escape the strip's own scroll clipping. */
         .x-chnav:has([aria-expanded="true"]) { overflow: visible; }
 
-        /* The last parent can sit at the strip's right edge, so its menu
-           hangs left of the anchor instead of running off the viewport. */
         .x-chnav__group:last-child .x-chnav__menu {
             left: auto;
             right: 2px;

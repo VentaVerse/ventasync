@@ -4,11 +4,6 @@ namespace Extensions\lazada\Services;
 
 use App\Services\Orders\SaleLines\AbstractSaleLines;
 
-/**
- * A Lazada order's sale as Lazada reports it on the order: price, shipping fee,
- * and the vouchers and shipping discounts split by who funded them. Lazada
- * sends no single amount the buyer paid, so the total is the lines added up.
- */
 final class LazadaSaleLines extends AbstractSaleLines
 {
     private const COMBINED_VOUCHER = 'voucher';
@@ -40,7 +35,6 @@ final class LazadaSaleLines extends AbstractSaleLines
         ];
     }
 
-    /** Older orders carry one combined voucher instead of the split; it is listed only for them. */
     protected function value(string $code, array $definition): float
     {
         if ($code === self::COMBINED_VOUCHER && ($this->has('voucher_platform') || $this->has('voucher_seller'))) {

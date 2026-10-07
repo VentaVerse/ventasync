@@ -26,10 +26,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * OpenCart is a multi-store integration. Each enabled OpenCartSetting is its
- * own card + tab; metrics are scoped via marketplace_source = "opencart:{id}".
- */
 use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Concerns\RevealsCredentials;
 
@@ -41,8 +37,6 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
     {
         parent::boot();
 
-        // Registered in every runtime, not only the console: the Automations
-        // tab's Run now calls Artisan inside a web request (live, 2026-09-07).
         $this->commands([
             \Extensions\opencart\Commands\OpenCartSync::class,
             \Extensions\opencart\Commands\OpenCartPush::class,
@@ -70,14 +64,6 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
                 id: $this->id . ':' . $store->id,
                 label: $store->store_name,
                 menu: [
-                    // Phase 4 — view-tier visibility: read-only operators can
-                    // open Settings / Product Groups / Orders for browsing.
-                    //
-                    // The trailing group is the workspace conversion signal:
-                    // a store whose menu is grouped gets its own seller
-                    // center at /integrations/opencart:{id}, built from
-                    // exactly this menu, with these ['store' => id] params
-                    // carried through unchanged.
                     new MenuItem('Settings', 'ext.opencart.settings.show', 'view_opencart/settings', null, ['store' => $store->id], 'Channel', children: [
                         ['label' => 'Connection', 'section' => 'connection'],
                         ['label' => 'Order sync', 'section' => 'orders'],
@@ -101,13 +87,6 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
                 tagline: 'Multi-store OpenCart. Add stores, sync products, push reviews.',
                 icon: 'cart',
                 accent: '#1f8fea',
-                // Card uses view tier so read-only operators still see OpenCart
-                // in the Integrations hub. Reviews menu is also view-tier; the
-                // Add-store action stays manage-only.
-                // The dashboard's own derived key (opencart/dashboard), not the
-                // legacy view_opencart: the card decides who sees this channel
-                // in the hub and the nav, and that must be the same answer
-                // the dashboard's door gives, or the menu offers a 404.
                 permission: 'view_opencart/dashboard',
                 menu: [
                     new MenuItem('Reviews', 'ext.opencart.reviews.index', 'view_opencart/review'),
@@ -134,9 +113,6 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
         return $tabs;
     }
 
-    /**
-     * @return iterable<\Extensions\opencart\Models\OpenCartSetting>
-     */
     protected function enabledStores(): iterable
     {
         if (!Schema::hasTable('opencart_settings')) {
@@ -145,14 +121,6 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
         return OpenCartSetting::where('enabled', true)->orderBy('id')->get();
     }
 
-    /**
-     * All stores regardless of enabled flag — used by the Integrations UI
-     * (cards / sidebar / module page) so freshly-created disabled stores
-     * remain visible while the operator finishes configuring them. Sync
-     * paths continue to filter via enabledStores().
-     *
-     * @return iterable<\Extensions\opencart\Models\OpenCartSetting>
-     */
     protected function allStores(): iterable
     {
         if (!Schema::hasTable('opencart_settings')) {
@@ -173,7 +141,6 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
             icon: 'cart',
             accent: '#1f8fea',
             routeName: 'ext.opencart.orders.index',
-            // OrderTab visibility uses view tier.
             permission: 'view_opencart/order',
             routeParams: ['store' => $storeId],
             unprocessedCounter: function () use ($marketplaceSource, $orderTable) {
@@ -219,12 +186,6 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
                     ->where('o.date_added', '>=', now()->startOfDay())
                     ->whereNotNull('p.model')
                     ->where('p.model', '!=', '')
-                    /* The chosen options, as the storefront wrote them, make the
-                     * variation: "Cable Length: 10 Ft". Grouped WITH the model so a
-                     * product sold in two variations is two rows, the way the
-                     * marketplaces (whose lines carry the variation's own SKU)
-                     * already rank. The Venta and Shopify lines carry the
-                     * variant SKU in model too; OpenCart's carry the parent's. */
                     ->leftJoin(DB::raw('(SELECT order_product_id, GROUP_CONCAT(CONCAT(name, \': \', value) ORDER BY order_option_id SEPARATOR \', \') AS variation FROM `' . str_replace('order_product', 'order_option', $productTable) . '` GROUP BY order_product_id) AS oo'), 'oo.order_product_id', '=', 'p.order_product_id')
                     ->groupBy('p.model', 'oo.variation')
                     ->orderByDesc('qty_sold')->orderByDesc('revenue')->orderBy('name')
@@ -273,12 +234,6 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
         );
     }
 
-    /**
-     * React to a SKU change on a catalog product by re-pushing the product
-     * to every enabled OpenCart store that has it linked. The push command
-     * already handles SKU+model+option-value updates wholesale, so this is
-     * "if any store has this product, refresh it."
-     */
     public function pushSkuChanges(int $productId, array $skuChanges): ?string
     {
         if (!Schema::hasTable('opencart_settings')) {
@@ -318,11 +273,6 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
         return empty($results) ? null : 'OpenCart: ' . implode(', ', $results);
     }
 
-    /**
-     * OpenCart widgets for the core dashboard: store-name lookup table and
-     * the per-store sync-status table (last sync log + pending-order count
-     * derived from the catalog `order` table by marketplace_source).
-     */
     public function dashboardData(): array
     {
         $data = [
@@ -340,7 +290,6 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
             return $data;
         }
 
-        // Per-store pending counts from the catalog order table
         $pendingByStore = [];
         $orderTable = (string) config('catalog.prefix') . 'order';
         if (Schema::hasTable($orderTable)) {
@@ -390,10 +339,6 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
         return $data;
     }
 
-    /**
-     * OpenCart fees come from the catalog order itself: payment_cost +
-     * extra_cost columns. No marketplace API lookup needed.
-     */
     public function feesForOrder(Order $order): ?array
     {
         $source = (string) $order->marketplace_source;
@@ -412,9 +357,6 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
         return ['total' => round($total, 2), 'items' => $items, 'source' => 'opencart'];
     }
 
-    /**
-     * Resolve opencart:N marketplace_source strings to the configured store name.
-     */
     public function resolveSourceLabel(string $source): ?string
     {
         if (!str_starts_with($source, 'opencart:')) {
@@ -428,10 +370,6 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
         return $name ?: ('OpenCart #' . $storeId);
     }
 
-    /**
-     * Per-store reports (the owner, 2026-09-05): the source already names the
-     * store here ("opencart:1"), so each source option is a store option.
-     */
     public function availableStoreOptions(): array
     {
         return array_map(fn ($o) => [
@@ -449,8 +387,6 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
         if (!Schema::hasTable('opencart_settings')) {
             return [];
         }
-        // Stable hue per store derived from store id so the platform pie chart
-        // colors don't shuffle on every page render.
         $palette = ['#16a34a', '#38bdf8', '#a855f7', '#f97316', '#0ea5e9', '#ec4899', '#65a30d'];
         return OpenCartSetting::orderBy('id')->get(['id', 'store_name', 'brand_color'])
             ->map(fn ($s) => [
@@ -464,13 +400,6 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
 
     use RevealsCredentials;
 
-    /**
-     * Readable back, and nothing else is.
-     *
-     * Public identifiers are deliberately absent: app keys, partner ids and
-     * shop ids are not secrets, so they are printed in the settings page and
-     * there is nothing to reveal. Only what is genuinely hidden appears here.
-     */
     public function revealableCredentials(): array
     {
         return [
@@ -493,8 +422,6 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
         return 'manage_opencart/settings';
     }
 
-    // ── A catalog delete forgets the product on this channel, inside VentaSync only (ProductRemover, 2026-09-07) ──
-
     public function productPresence(array $productIds): array
     {
         return app(\Extensions\opencart\Services\OpenCart\OpenCartProductRemover::class)->presence($productIds);
@@ -510,10 +437,6 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
         return app(\Extensions\opencart\Services\OpenCart\OpenCartProductRemover::class)->stranded();
     }
 
-    /**
-     * OpenCart's automations, one full set per store: every store is a
-     * separate live shop.
-     */
     public function automations(): array
     {
         return \Extensions\opencart\Support\OpencartScheduledJobs::JOBS;

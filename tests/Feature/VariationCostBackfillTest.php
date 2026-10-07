@@ -6,11 +6,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * catalog:backfill-variation-costs gives a variation without a cost of its
- * own the parent's amount and additional, composes the unit cost, and
- * clears the delta column a purchase order once wrote a total into.
- */
 class VariationCostBackfillTest extends TestCase
 {
     use RefreshDatabase;
@@ -25,7 +20,6 @@ class VariationCostBackfillTest extends TestCase
         $p = config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id', 1);
 
-        // The GP200: amount 10,000, no percentage, 220 additional, 21,990 price.
         $this->productId = DB::table($p . 'product')->insertGetId([
             'model' => 'GP200', 'sku' => 'valeton-gp-200', 'quantity' => 0, 'price' => 21990, 'status' => 1, 'image' => '',
             'cost_amount' => 10000, 'cost_percentage' => 0, 'cost_additional' => 220, 'cost' => 10220,
@@ -41,13 +35,9 @@ class VariationCostBackfillTest extends TestCase
         ]);
 
         $rows = [
-            // Overhead only, the 2026-08-22 shape.
             'red'   => ['absolute_price' => 21990, 'cost_amount' => 0, 'cost_additional' => 220, 'absolute_cost' => 220, 'cost' => 0],
-            // A PO total in the delta column, the 20,440 shape.
             'black' => ['absolute_price' => 21990, 'cost_amount' => 10000, 'cost_additional' => 220, 'absolute_cost' => 0, 'cost' => 10220],
-            // Its own amount, typed for this one size.
             'gold'  => ['absolute_price' => 25990, 'cost_amount' => 12000, 'cost_additional' => 220, 'absolute_cost' => 12220, 'cost' => 0],
-            // Typed as one number before the formula existed: no amount, no overhead stored.
             'old'   => ['absolute_price' => 21990, 'cost_amount' => 0, 'cost_additional' => 0, 'absolute_cost' => 9800, 'cost' => 0],
         ];
         foreach ($rows as $key => $cols) {

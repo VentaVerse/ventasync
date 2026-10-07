@@ -1,24 +1,13 @@
 <?php
-/**
- * OpenCart 2.3 — ERP Sync API Module
- *
- * Admin controller for Extensions > Modules > ERP Sync API.
- * Manages the API key, status, IP whitelist, and debug logging settings.
- *
- * Settings are stored in oc_setting with code = 'module_erp_sync'.
- */
 class ControllerExtensionModuleErpSync extends Controller
 {
     private $error = [];
-
-    // ─── Install / Uninstall ─────────────────────────────────
 
     public function install()
     {
         $this->load->model('setting/setting');
 
-        // Generate a random API key on install
-        $key = bin2hex(random_bytes(32)); // 64-char hex string
+        $key = bin2hex(random_bytes(32));
 
         $this->model_setting_setting->editSetting('module_erp_sync', [
             'module_erp_sync_status'       => 0,
@@ -27,7 +16,6 @@ class ControllerExtensionModuleErpSync extends Controller
             'module_erp_sync_debug_log'    => 0,
         ]);
 
-        // Also write to the legacy key that the API controller reads
         $this->model_setting_setting->editSetting('erp_api', [
             'erp_api_key' => $key,
         ]);
@@ -43,8 +31,6 @@ class ControllerExtensionModuleErpSync extends Controller
         $this->model_setting_setting->deleteSetting('erp_api');
     }
 
-    // ─── Settings Page ───────────────────────────────────────
-
     public function index()
     {
         $this->load->language('extension/module/erp_sync');
@@ -53,7 +39,6 @@ class ControllerExtensionModuleErpSync extends Controller
 
         $this->load->model('setting/setting');
 
-        // Handle POST (save)
         if ($this->request->server['REQUEST_METHOD'] == 'POST' && $this->validate()) {
             $data = [
                 'module_erp_sync_status'       => (int)($this->request->post['module_erp_sync_status'] ?? 0),
@@ -64,7 +49,6 @@ class ControllerExtensionModuleErpSync extends Controller
 
             $this->model_setting_setting->editSetting('module_erp_sync', $data);
 
-            // Keep the legacy key in sync for the API controller
             $this->model_setting_setting->editSetting('erp_api', [
                 'erp_api_key' => $data['module_erp_sync_api_key'],
             ]);
@@ -74,10 +58,8 @@ class ControllerExtensionModuleErpSync extends Controller
             $this->response->redirect($this->url->link('extension/extension', 'token=' . $this->session->data['token'] . '&type=module', true));
         }
 
-        // Load current settings
         $settings = $this->model_setting_setting->getSetting('module_erp_sync');
 
-        // Breadcrumbs
         $data['breadcrumbs'] = [];
         $data['breadcrumbs'][] = [
             'text' => $this->language->get('text_home') ?: 'Home',
@@ -92,11 +74,9 @@ class ControllerExtensionModuleErpSync extends Controller
             'href' => $this->url->link('extension/module/erp_sync', 'token=' . $this->session->data['token'], true),
         ];
 
-        // URLs
         $data['action'] = $this->url->link('extension/module/erp_sync', 'token=' . $this->session->data['token'], true);
         $data['cancel'] = $this->url->link('extension/extension', 'token=' . $this->session->data['token'] . '&type=module', true);
 
-        // Form values (POST fallback → stored → default)
         $data['module_erp_sync_status'] = isset($this->request->post['module_erp_sync_status'])
             ? $this->request->post['module_erp_sync_status']
             : ($settings['module_erp_sync_status'] ?? 0);
@@ -113,11 +93,9 @@ class ControllerExtensionModuleErpSync extends Controller
             ? $this->request->post['module_erp_sync_debug_log']
             : ($settings['module_erp_sync_debug_log'] ?? 0);
 
-        // Errors
         $data['error_warning'] = isset($this->error['warning']) ? $this->error['warning'] : '';
         $data['error_api_key'] = isset($this->error['api_key']) ? $this->error['api_key'] : '';
 
-        // Success flash
         if (isset($this->session->data['success'])) {
             $data['success'] = $this->session->data['success'];
             unset($this->session->data['success']);
@@ -125,7 +103,6 @@ class ControllerExtensionModuleErpSync extends Controller
             $data['success'] = '';
         }
 
-        // Language strings
         $data['heading_title']     = $this->language->get('heading_title');
         $data['text_edit']         = $this->language->get('text_edit');
         $data['text_enabled']      = $this->language->get('text_enabled');
@@ -150,8 +127,6 @@ class ControllerExtensionModuleErpSync extends Controller
 
         $this->response->setOutput($this->load->view('extension/module/erp_sync', $data));
     }
-
-    // ─── Validation ──────────────────────────────────────────
 
     private function validate()
     {

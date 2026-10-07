@@ -19,13 +19,11 @@ return new class extends Migration
             }
         });
 
-        // Assign existing users to Administrator group if empty
         $adminId = DB::table('user_groups')->where('name','Administrator')->value('id');
         if ($adminId) {
             DB::table('users')->whereNull('user_group_id')->update(['user_group_id' => $adminId]);
         }
 
-        // Backfill username from email (before @) when missing
         $users = DB::table('users')->whereNull('username')->get(['id','email']);
         foreach ($users as $u) {
             $base = $u->email ? explode('@', $u->email)[0] : ('user'.$u->id);
@@ -41,6 +39,5 @@ return new class extends Migration
 
     public function down(): void
     {
-        // no auto-drop
     }
 };

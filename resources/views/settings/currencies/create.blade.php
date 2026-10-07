@@ -4,8 +4,6 @@
 
 @section('content')
 @php
-    // Never hardcoded: whichever currency carries is_default in the
-    // `currencies` table is what a rate is expressed in.
     $defaultCode = \App\Support\Money::defaultCode();
 @endphp
 
@@ -84,10 +82,6 @@
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">How it is used</h2></div>
                 <div class="fm-card__body">
-                    {{-- status is validated `required|in:0,1`, so a bare
-                         checkbox (which submits nothing when off) would fail
-                         outright. The hidden 0 in front of it is what makes a
-                         switch legal here. --}}
                     @php $statusOn = old('status', '1') === '1'; @endphp
                     <input type="hidden" name="status" value="0">
                     <label class="fm-switch">
@@ -100,8 +94,6 @@
                     </label>
                     @error('status')<div class="fm-error">{{ $message }}</div>@enderror
 
-                    {{-- is_default is `nullable|boolean`, so a bare checkbox is
-                         correct: absent reads as false. --}}
                     <label class="fm-switch">
                         <input type="checkbox" class="fm-switch__input" name="is_default" value="1" @checked(old('is_default'))>
                         <span class="fm-switch__track" aria-hidden="true"></span>

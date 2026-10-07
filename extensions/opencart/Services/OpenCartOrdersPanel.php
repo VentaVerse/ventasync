@@ -8,25 +8,8 @@ use App\Models\Catalog\OrderStatus;
 use Extensions\opencart\Models\OpenCartSetting;
 use Illuminate\Http\Request;
 
-/**
- * Assembles the view data for one OpenCart storefront's orders list: the
- * search, the status filter, sorting, the shared image resolution and
- * pagination. Shared by that store's seller center
- * (OpenCartOrderController@index) and the fulfilment hub, both of which
- * render ext-opencart::orders._panel with this array. Extracted from
- * OpenCartOrderController@index without any logic change.
- *
- * The rows are core catalog orders, not a channel table of their own: the
- * OpenCart sync writes straight into the ERP's order tables and tags them
- * with marketplace_source = "opencart:{id}", which is the whole of this
- * panel's store scoping.
- *
- * Same store-id signature as Extensions\venta\Services\VentaOrdersPanel and
- * the same reason for it: every query here belongs to one store.
- */
 class OpenCartOrdersPanel
 {
-    /** Moved verbatim from the controller, which was the only reader. */
     private array $sortable = ['order_id', 'date_added', 'total', 'firstname'];
 
     public function build(Request $request, int $storeId): array
@@ -49,7 +32,6 @@ class OpenCartOrdersPanel
                         ->orWhere('email', 'like', '%' . $q . '%')
                         ->orWhere('marketplace_order_id', 'like', '%' . $q . '%')
                         ->orWhere('order_id', '=', (int) $q > 0 ? (int) $q : 0)
-                        // Product and tracking, the same four every panel searches (2026-09-06).
                         ->orWhere('tracking_number', 'like', '%' . $q . '%')
                         ->orWhere('tracking', 'like', '%' . $q . '%')
                         ->orWhereHas('products', function ($p) use ($q) {
@@ -64,16 +46,11 @@ class OpenCartOrdersPanel
             ->paginate(50)
             ->withQueryString();
 
-        // Reuse the shared image-resolution pipeline so per-store views stay
-        // visually consistent with the unified Orders index.
         $productImages = OrderController::resolveOrderProductImages($orders->getCollection());
         $lazadaImages = OrderController::resolveLazadaImages($orders->getCollection());
 
         $statuses = OrderStatus::orderBy('order_status_id')->get();
 
-        // The store's own name, read for the one row this panel is about
-        // rather than by pulling every store's name into an array to index
-        // one of them.
         $storeLabel = (string) (OpenCartSetting::where('id', $storeId)->value('store_name')
             ?: ('OpenCart #' . $storeId));
 

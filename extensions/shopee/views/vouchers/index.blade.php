@@ -2,13 +2,6 @@
 @section('breadcrumb', 'Vouchers')
 @section('title', 'Shopee Vouchers')
 
-{{-- Shop vouchers (#153, quest 4). The list is fetched from Shopee on
-     every load and never cached: when Shopee does not answer, the page
-     says so instead of showing yesterday. Nothing is stored locally -
-     a voucher is the marketplace's own object and this page is a live
-     read plus pass-through create/end/delete. The lifecycle decides
-     each row's verb: upcoming can be deleted, ongoing only ended,
-     expired neither. --}}
 @section('content')
 @php
     $canManage = auth()->user()?->hasPermission('manage_shopee/voucher') ?? false;
@@ -126,9 +119,6 @@
 @if($canManage)
 <form method="POST" action="{{ route('ext.shopee.vouchers.store') }}" class="fm-page">
     @csrf
-    {{-- Folded until asked for: creating is a deliberate act, and the
-         list is what this page is. It opens itself when a submit came
-         back with errors or old input, so nothing typed is hidden. --}}
     <details class="fm-card fm-card--fold" @if($errors->any() || old('_token')) open @endif>
         <summary class="fm-card__head fm-card__head--summary"><h2 class="fm-card__title">Create a voucher</h2><span class="fm-card__hint">Opens the form</span></summary>
         <div class="fm-card__body">

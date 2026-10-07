@@ -6,19 +6,8 @@ use Extensions\lazada\Models\LazadaApiLog;
 use Extensions\lazada\Models\LazadaSetting;
 use Illuminate\Support\Facades\Log;
 
-/**
- * SKU-to-item matching against the shop, out of the god controller
- * (Phase C, #184): the single fast lookup, the full-catalog map for bulk
- * matching, and the answer parsing both share.
- */
 class LazadaItemMatcher
 {
-    /**
-     * Extract Lazada item_id from /products/get result by verifying exact SKU match.
-     *
-     * Returns array [$itemIdOrNull, $matchCount].
-     * If multiple items match the same SKU, returns [null, >1] to prevent wrong linking.
-     */
     private function extractItemIdFromProductsGetResult(array $result, string $sku): array
     {
         $sku = trim($sku);
@@ -70,7 +59,7 @@ class LazadaItemMatcher
 
                 if (trim((string) $sellerSku) === $sku) {
                     $matchedItemIds[(string) $itemId] = true;
-                    break; // no need to scan other SKUs for this product
+                    break;
                 }
             }
         }
@@ -85,32 +74,23 @@ class LazadaItemMatcher
         return [null, $count];
     }
 
-    /**
-     * Search Lazada for a specific SKU.
-     * First tries the 'search' param (fast, 1 API call). If no match, falls back to
-     * paginated scan (needed for variant SellerSKUs that 'search' doesn't cover).
-     * Returns [$itemId, $matchCount].
-     */
     public function findLazadaItemBySku(object $setting, LazadaClient $client, string $sku): array
     {
         $sku = trim($sku);
         if ($sku === '') return [null, 0];
 
-        // Attempt 1: Use 'search' parameter (fast — searches product name + SellerSku)
         $result = $this->lazadaProductsGet($setting, $client, ['search' => $sku, 'limit' => '100', 'offset' => '0']);
         if (!empty($result)) {
             $matched = $this->matchSkuInProducts($result, $sku);
             if ($matched[1] > 0) return $matched;
         }
 
-        // Attempt 2: Use 'sku_seller_list' parameter (may work on some API versions)
         $result = $this->lazadaProductsGet($setting, $client, ['sku_seller_list' => json_encode([$sku], JSON_UNESCAPED_SLASHES), 'limit' => '100', 'offset' => '0']);
         if (!empty($result)) {
             $matched = $this->matchSkuInProducts($result, $sku);
             if ($matched[1] > 0) return $matched;
         }
 
-        // Attempt 3: Paginated full scan (fallback for variant SKUs not covered by search)
         $offset = 0;
         $limit = 50;
         $maxPages = 20;
@@ -132,9 +112,6 @@ class LazadaItemMatcher
         return [null, 0];
     }
 
-    /**
-     * Call /products/get with given extra params. Returns ['products' => [...], '_total' => N] or empty array.
-     */
     private function lazadaProductsGet(object $setting, LazadaClient $client, array $extra = []): array
     {
         $creds = LazadaSetting::activeCredentials($setting);
@@ -161,9 +138,6 @@ class LazadaItemMatcher
         ];
     }
 
-    /**
-     * Scan products array for exact SellerSku match. Returns [$itemId, $matchCount].
-     */
     private function matchSkuInProducts(array $data, string $sku): array
     {
         $matchedItemIds = [];
@@ -185,18 +159,14 @@ class LazadaItemMatcher
         return [null, 0];
     }
 
-    /**
-     * Fetch ALL Lazada products (paginated) and build a SellerSku → [item_id, ...] map.
-     * Used by bulk sync to avoid per-product API calls and work around unreliable seller_sku filter.
-     */
     public function fetchLazadaSkuMap(object $setting, LazadaClient $client): array
     {
         $creds = LazadaSetting::activeCredentials($setting);
 
-        $skuMap = []; // SellerSku => [item_id, ...]
+        $skuMap = [];
         $offset = 0;
         $limit = 50;
-        $maxPages = 60; // safety: 60 pages × 50 = 3,000 products max
+        $maxPages = 60;
         $page = 0;
 
         do {
@@ -213,11 +183,10 @@ class LazadaItemMatcher
             ];
             $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
 
-            // Retry up to 3 times with increasing delay for rate limiting
             $result = null;
             for ($attempt = 1; $attempt <= 3; $attempt++) {
                 if ($page > 0 || $attempt > 1) {
-                    usleep(500000); // 0.5s delay between pages / retries
+                    usleep(500000);
                 }
                 $timestamp = (string) round(microtime(true) * 1000);
                 $params['timestamp'] = $timestamp;
@@ -225,7 +194,7 @@ class LazadaItemMatcher
                 $result = $client->get((string) $setting->region, $apiPath, $params);
                 if (!empty($result['ok'])) break;
                 Log::warning('Lazada fetchLazadaSkuMap API error', ['offset' => $offset, 'attempt' => $attempt, 'result' => $result['body'] ?? '']);
-                if ($attempt < 3) usleep($attempt * 1000000); // 1s, 2s backoff
+                if ($attempt < 3) usleep($attempt * 1000000);
             }
 
             if (empty($result['ok'])) {
@@ -256,7 +225,6 @@ class LazadaItemMatcher
             $page++;
         } while ($offset < $totalProducts && $page < $maxPages);
 
-        // Deduplicate item IDs per SKU
         foreach ($skuMap as $sku => $itemIds) {
             $skuMap[$sku] = array_values(array_unique($itemIds));
         }

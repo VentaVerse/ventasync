@@ -5,31 +5,12 @@ namespace App\Services;
 use App\Models\OrderFetchRun;
 use Illuminate\Support\Str;
 
-/**
- * Drives a fetch of orders one page at a time (the owner, 2026-09-07). The
- * channel supplies the stepper: a callable that reads ONE page of the
- * store for the run's window from the run's cursor, saves what it read,
- * and answers with the counts, the next cursor and whether it is done.
- * The runner keeps the run honest: counts, the ledger of page sentences,
- * the place, and the verdict when a page fails.
- *
- * A step answer:
- *   read, created, updated, failed  (this page)
- *   cursor  the place for the next page (any array), null when done
- *   done    bool
- *   pages   ?int  how many pages the store has, when it says
- *   total   ?int  how many orders the store has in the window, when it says
- *   note    string  the page's own sentence, optional
- *   error   ?string  the store's refusal; the run stops on it
- */
 class OrderFetchRunner
 {
-    /** The largest number of pages one synchronous walk may take before it hands the rest to the page. */
     public const SYNC_PAGE_CAP = 3;
 
     public function begin(string $integration, ?int $storeId, string $dateFrom, string $dateTo, array $options = []): OrderFetchRun
     {
-        // One run per store at a time: whatever was still open is stopped, not lost.
         OrderFetchRun::query()
             ->where('integration', $integration)
             ->where(fn ($q) => $storeId === null ? $q->whereNull('store_id') : $q->where('store_id', $storeId))
@@ -49,7 +30,6 @@ class OrderFetchRunner
         ]);
     }
 
-    /** Continue a stopped or failed run from its place. */
     public function resume(OrderFetchRun $run): OrderFetchRun
     {
         if ($run->status !== OrderFetchRun::DONE) {
@@ -59,12 +39,6 @@ class OrderFetchRunner
         return $run;
     }
 
-    /**
-     * One page. The stepper's exception or error verdict stops the run
-     * with the sentence; nothing already saved is undone.
-     *
-     * @param callable(OrderFetchRun): array $stepper
-     */
     public function step(OrderFetchRun $run, callable $stepper): OrderFetchRun
     {
         if ($run->status !== OrderFetchRun::RUNNING) {
@@ -111,11 +85,6 @@ class OrderFetchRunner
         return $run;
     }
 
-    /**
-     * The whole run inside one request, for the form post that predates
-     * the page-driven walk and for tests: up to SYNC_PAGE_CAP pages, then
-     * the run stays running for the page to continue.
-     */
     public function walk(OrderFetchRun $run, callable $stepper, int $pages = self::SYNC_PAGE_CAP): OrderFetchRun
     {
         for ($i = 0; $i < $pages && $run->status === OrderFetchRun::RUNNING; $i++) {
@@ -134,7 +103,6 @@ class OrderFetchRunner
         return $run;
     }
 
-    /** "50 orders, 12 new, 2 updated" */
     public static function pageSentence(int $read, int $created, int $updated, int $failed): string
     {
         $parts = [$read . ' ' . Str::plural('order', $read)];
@@ -154,7 +122,6 @@ class OrderFetchRunner
         return implode(', ', $parts);
     }
 
-    /** The outcome in one sentence, the words the orders page uses. */
     public static function outcome(OrderFetchRun $run): string
     {
         $n = (int) $run->read;

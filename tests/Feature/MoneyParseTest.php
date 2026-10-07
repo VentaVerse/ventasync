@@ -5,12 +5,6 @@ namespace Tests\Feature;
 use App\Support\Money;
 use Tests\TestCase;
 
-/**
- * Money::parse must read a marketplace amount in full even when it arrives as a
- * string with a thousands separator - Lazada's finance API sends "-2,251.57",
- * and a bare (float) cast stopped at the comma and read that as -2, which
- * truncated every fee over 1,000 and overstated profit.
- */
 class MoneyParseTest extends TestCase
 {
     public function test_it_strips_the_thousands_comma_a_marketplace_sends(): void

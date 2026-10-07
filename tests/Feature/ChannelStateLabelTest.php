@@ -3,35 +3,14 @@
 namespace Tests\Feature;
 
 use App\Support\ChannelWorkspace;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
-/**
- * What a channel's status chip is allowed to say.
- *
- * Two labels were each covering two unrelated situations:
- *
- *   "Needs attention" meant the sign-in expires within seven days, OR the last
- *   sync is over a day old. Different problem, different fix, one word - and
- *   the channel sidebar shows this label with no figures beside it, so there
- *   was nothing there to work out which.
- *
- *   "Not connected" meant no usable token, OR a store that is simply switched
- *   off. StoreLink's status is 'setup_pending' whenever $store->enabled is
- *   false, so four configured Venta and OpenCart stores - tokens set, orders
- *   synced - were painted red and told to complete a setup that was already
- *   complete.
- *
- * The wording also lived in two Blade files with their own copies of the map,
- * which is how the sidebar and the status board came to describe one channel
- * differently. It lives in one function now, and these tests hold both halves:
- * every condition says what it is, and neither screen carries its own map.
- */
 class ChannelStateLabelTest extends TestCase
 {
     public static function labels(): array
     {
         return [
-            // state, reason, expected label, expected tone
             'expiring sign-in' => ['attention', 'expiring', 'Sign-in expires soon', 'warning'],
             'stale sync' => ['attention', 'stale', 'Sync overdue', 'warning'],
             'no token at all' => ['setup', 'no_token', 'Not connected', 'danger'],
@@ -42,9 +21,7 @@ class ChannelStateLabelTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider labels
-     */
+    #[DataProvider('labels')]
     public function test_each_condition_says_what_it_is(string $state, ?string $reason, string $label, string $tone): void
     {
         $badge = ChannelWorkspace::badge($state, $reason);
@@ -53,11 +30,6 @@ class ChannelStateLabelTest extends TestCase
         $this->assertSame($tone, $badge['tone']);
     }
 
-    /**
-     * The defect. A store that is configured, holds a valid token and has
-     * synced orders is not "Not connected", and painting it in the danger
-     * colour tells the seller to fix something that is not broken.
-     */
     public function test_a_switched_off_store_is_not_reported_as_broken(): void
     {
         $badge = ChannelWorkspace::badge('setup', 'disabled');
@@ -67,7 +39,6 @@ class ChannelStateLabelTest extends TestCase
             'A store that is merely switched off is shown in the alarm colour.');
     }
 
-    /** Two different problems must not read identically. */
     public function test_the_two_attention_causes_are_told_apart(): void
     {
         $this->assertNotSame(
@@ -78,7 +49,6 @@ class ChannelStateLabelTest extends TestCase
         );
     }
 
-    /** An unknown reason must still produce something honest, never a blank chip. */
     public function test_an_unrecognised_reason_still_says_something(): void
     {
         foreach ([['attention', 'who-knows'], ['setup', 'who-knows'], ['banana', null]] as [$state, $reason]) {
@@ -89,16 +59,8 @@ class ChannelStateLabelTest extends TestCase
         }
     }
 
-    /**
-     * The ratchet. Neither screen may carry its own copy of the wording again:
-     * that is what let them drift into describing one channel two ways.
-     */
     public function test_no_view_keeps_its_own_copy_of_the_wording(): void
     {
-        /* partials/channel-nav left the list 2026-09-03: the swapped
-           sidebar it guarded is gone (the teleportation fix), and its
-           replacement menubar deliberately carries no state wording - the
-           board and the Overview are where a channel's state is read. */
         $views = [
             'resources/views/channels/board.blade.php',
         ];
@@ -114,11 +76,6 @@ class ChannelStateLabelTest extends TestCase
         }
     }
 
-    /**
-     * "Needs attention" survives only as the fallback for an attention state
-     * whose cause is unknown. If it comes back as the normal reading, the
-     * reason is not reaching the label.
-     */
     public function test_needs_attention_is_only_a_fallback(): void
     {
         $this->assertSame('Needs attention', ChannelWorkspace::badge('attention', null)['label']);

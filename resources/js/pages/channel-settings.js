@@ -1,48 +1,4 @@
-/*
- * Channel settings page (Shopee first, Lazada second; TikTok has the same five
- * tabs and binds the same attributes).
- *
- * The tab strip, the environment switch, the API-logging toggle and the
- * select-on-click redirect field are the same object on every channel and are
- * shared here. The API explorer is not: each marketplace signs and shapes its
- * requests differently and posts different field names, so each channel's
- * explorer is its own function guarding on its own attribute. Shopee's is
- * initExplorer below; Lazada's is ./lazada-explorer.js.
- *
- * Ports, unchanged in behaviour, the four inline scripts that used to sit at
- * the bottom of extensions/shopee/views/index.blade.php: tab switching, the
- * environment switch, the API-logging toggle, and the API explorer. That view
- * has been rebuilt on the design tokens and left the .x-legacy boundary, and
- * this project does not put behaviour in Blade.
- *
- * Nothing here touches an OAuth surface. The authorize link, the auth-code
- * exchange form and the token-refresh form are plain server-rendered controls
- * with no JS attached, exactly as before, because their URLs and hidden
- * fields are contracts registered at the Shopee Open Platform.
- *
- * Deliberate changes from the inline originals, all reported:
- *
- *   1. Every URL, storage key and default now comes off a data- attribute
- *      instead of being Blade-interpolated into a script literal, which is
- *      what lets one module serve three channels.
- *   2. The environment switch and the logging toggle no longer write inline
- *      style strings (background, left, colour) to move a knob and repaint a
- *      track. State is a class or an attribute and the stylesheet draws it.
- *   3. The dead `spCopy()` helper is gone. It was defined in that inline
- *      block and called by nothing on the page.
- *
- * The wire is unchanged: the same hidden `mode` field posted to toggle-mode,
- * the same JSON body and X-CSRF-TOKEN header on toggle-logging, the same
- * method / api_path / use_access_token / use_shop_id / params_json fields on
- * the explorer form, and the same `?tab=` URL contract the controller
- * redirects with after saving logs settings.
- */
-
 import { initLazadaExplorer } from './lazada-explorer';
-
-/* ------------------------------------------------------------------
-   Tabs
-   ------------------------------------------------------------------ */
 
 function initTabs(root) {
     const prefix = root.getAttribute('data-tab-prefix') || '';
@@ -66,25 +22,6 @@ function initTabs(root) {
         });
     }
 
-    /*
-     * The URL names the tab you are looking at.
-     *
-     * ?tab= was already read on load - the controllers redirect with
-     * ?tab=logs after saving log settings - but clicking a tab only ever
-     * wrote to localStorage, so the address bar went on describing the tab
-     * the page opened with. A tab could not be linked to, bookmarked, or
-     * survive a refresh, and sending someone "the API explorer" meant sending
-     * a URL that would open on Connection and telling them where to click.
-     *
-     * replaceState rather than pushState, deliberately. Each tab has its own
-     * address and can be copied out of the bar at any moment, but stepping
-     * through five tabs does not bury the page the operator arrived from
-     * under five history entries they have to press Back through to leave.
-     *
-     * Every other query parameter is preserved: a multi-store channel carries
-     * its store in the same URL, and dropping it here would move the operator
-     * to a different shop.
-     */
     function writeToUrl(id) {
         if (typeof window.history?.replaceState !== 'function') return;
 
@@ -103,23 +40,16 @@ function initTabs(root) {
             show(id);
             writeToUrl(id);
             if (storageKey) {
-                try { window.localStorage.setItem(storageKey, id); } catch (e) { /* private mode */ }
+                try { window.localStorage.setItem(storageKey, id); } catch (e) { }
             }
         });
     });
 
-    // A real back or forward - arriving from a link, or the operator editing
-    // the address - re-reads the URL rather than leaving the panels showing
-    // whatever was open before.
     window.addEventListener('popstate', function () {
         const tab = new URLSearchParams(window.location.search).get('tab');
         if (tab) show(prefix + tab);
     });
 
-    // Restore order, unchanged from the inline original: an explicit ?tab=
-    // in the URL wins (the controller redirects with ?tab=logs after saving
-    // log settings), then whatever the operator last chose, then the page's
-    // own default when a result is waiting to be read.
     const urlTab = new URLSearchParams(window.location.search).get('tab');
     let wanted = urlTab ? prefix + urlTab : null;
 
@@ -130,19 +60,9 @@ function initTabs(root) {
 
     if (wanted && ids.indexOf(wanted) !== -1) {
         show(wanted);
-        // The address describes what is on screen from the first paint, so a
-        // tab restored from localStorage is as copyable as one that was
-        // clicked. Without this the panel and the URL disagree the moment the
-        // page opens on a remembered tab.
         writeToUrl(wanted);
     }
 }
-
-/* ------------------------------------------------------------------
-   Environment switch. Two named environments, not an on/off state. The
-   click sets the hidden `mode` field, reveals the matching panel, and
-   submits the form, which is exactly what the old toggle did.
-   ------------------------------------------------------------------ */
 
 function initEnvironment(root) {
     const form = root.querySelector('[data-cs-env-form]');
@@ -174,13 +94,6 @@ function initEnvironment(root) {
         });
     });
 }
-
-/* ------------------------------------------------------------------
-   API explorer. Same behaviour as the inline original: picking an
-   endpoint fills method / auth / shop / path and seeds the parameter
-   table, the table and the JSON box stay in step, and the search box
-   filters the catalog.
-   ------------------------------------------------------------------ */
 
 const SAMPLE_DATA = {
     '/api/v2/product/get_item_list': function () {
@@ -225,11 +138,6 @@ function initExplorer(root) {
     const shopBox = panel.querySelector('[data-cs-ex-shop]');
     const pathInput = panel.querySelector('[data-cs-ex-path]');
     const paramsBox = panel.querySelector('[data-cs-ex-params]');
-    // Optional second field. Shopee posts one textarea named `params_json` and
-    // has none of these; TikTok's controller validates `params_json` but the
-    // page shows the operator a readable `params_json_pretty` textarea, so the
-    // hidden field is kept in step with it. Absent on Shopee, so every write
-    // below is guarded.
     const hiddenParams = panel.querySelector('[data-cs-ex-hidden]');
     const kvBody = panel.querySelector('[data-cs-ex-kv]');
     const nameEl = panel.querySelector('[data-cs-ex-name]');
@@ -374,13 +282,6 @@ function initExplorer(root) {
     if (form) form.addEventListener('submit', syncToJson);
 }
 
-/* ------------------------------------------------------------------
-   Select-on-click for the readonly redirect URI. It exists to be copied
-   into the Shopee console, so one click should select the whole string.
-   Replaces an inline onclick attribute, which needs 'unsafe-inline' in a
-   script-src and puts behaviour back in the Blade.
-   ------------------------------------------------------------------ */
-
 function initSelectOnClick(root) {
     root.querySelectorAll('[data-select-on-click]').forEach((input) => {
         input.addEventListener('click', function () { input.select(); });
@@ -396,12 +297,6 @@ document.addEventListener('DOMContentLoaded', function () {
     initEnvironment(root);
     initSelectOnClick(root);
 
-    // The explorer is the one section of this page that is genuinely per
-    // channel, because each marketplace signs and shapes its requests
-    // differently and the field names posted differ with them. Each variant
-    // guards on its own attribute, so exactly one binds per page and neither
-    // touches the other's markup. Shopee's initExplorer above looks for
-    // [data-cs-explorer]; Lazada's looks for [data-lz-explorer].
     initExplorer(root);
     initLazadaExplorer(root);
 });

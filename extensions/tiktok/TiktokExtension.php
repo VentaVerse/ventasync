@@ -51,13 +51,8 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
     {
         parent::boot();
 
-        // Multi-store (the owner 2026-09-05): let every route() call fill {store}
-        // even outside a TikTok store request (hub, fulfilment tabs, the OAuth
-        // callback view, test code). The route-store binding overrides per-request.
         TikTokSetting::syncUrlDefault();
 
-        // Registered in every runtime, not only the console: the Automations
-        // tab's Run now calls Artisan inside a web request (live, 2026-09-07).
         $this->commands([
             \Extensions\tiktok\Commands\TikTokPushStock::class,
             \Extensions\tiktok\Commands\TikTokPushPrice::class,
@@ -70,8 +65,6 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
 
         $this->app->make(IntegrationRegistry::class)->register($this);
 
-        // Payouts (the owner, 2026-10-01): the report, the dashboard and the
-        // store's own page all list TikTok Shop's switched-on stores from here.
         $this->app->make(\App\Services\Payouts\PayoutRegistry::class)->register(new \App\Services\Payouts\PayoutChannel(
             id: 'tiktok',
             name: 'TikTok Shop',
@@ -83,7 +76,6 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
         ));
     }
 
-    /** A deleted catalog variation is forgotten here too (VariationForgetter, 2026-09-07). */
     public function forgetVariations(int $productId, array $skus): void
     {
         \Extensions\tiktok\Services\TikTok\TikTokVariationForgetter::forget($productId, $skus);
@@ -96,11 +88,6 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
 
     public function integrationCards(): array
     {
-        /* Multi-store (the owner 2026-09-05): the converted shape Shopee, Venta,
-         * OpenCart, Shopify and Lazada wear. One card for the channel; one
-         * StoreLink per settings row with the store's own menu, every item
-         * carrying its {store}. The card-level menu is empty. A store still
-         * being configured stays visible as setup_pending. */
         $stores = [];
         foreach ($this->allStores() as $store) {
             $p = ['store' => (int) $store->id];
@@ -135,24 +122,8 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
                 name: 'TikTok Shop',
                 tagline: 'TikTok Shop integration. OAuth, product sync, orders.',
                 icon: 'video',
-                // Black, not the pink. TikTok's mark is black-first and the
-                // legacy build used #1e1e1e here; the pink also measured
-                // deltaE 19 from this world's danger red, so a filled TikTok
-                // button read as a destructive one.
                 accent: '#1e1e1e',
-                // Card + menu use the VIEW tier so read-only operators still see
-                // TikTok in the Integrations hub and contextual sidebar. The
-                // 'manage implies view' cascade in PermissionHierarchy means
-                // managers continue to see these entries.
-                // The dashboard's own derived key (tiktok/dashboard), not the
-                // legacy view_tiktok: the card decides who sees this channel
-                // in the hub and the nav, and that must be the same answer
-                // the dashboard's door gives, or the menu offers a 404.
                 permission: 'view_tiktok/dashboard',
-                // No card-level menu: TikTok has no channel-global page - every
-                // settings route now needs a {store}. The per-store StoreLinks
-                // above carry Settings, so a card-level link to ext.tiktok.index
-                // would only throw the moment no store is enabled.
                 menu: [],
                 stores: $stores,
                 addStore: new \App\Integrations\AddStoreAction(
@@ -164,13 +135,6 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
         ];
     }
 
-    /**
-     * Every settings row, enabled or not - the Integrations UI keeps a
-     * freshly-created, still-disabled store visible so the operator can finish
-     * configuring it.
-     *
-     * @return iterable<\Extensions\tiktok\Models\TikTokSetting>
-     */
     protected function allStores(): iterable
     {
         try {
@@ -186,11 +150,6 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
 
     public function orderTabs(): array
     {
-        /* Multi-store (the owner 2026-09-05, parity with Lazada/Shopee): one tab
-         * per enabled store, counters scoped to the store's own rows. With a
-         * single store the tab keeps the channel's name - the store names
-         * take over the moment a second store exists and the name has to
-         * distinguish. */
         if (! Schema::hasTable('tiktok_settings')) {
             return [];
         }
@@ -219,37 +178,17 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
                 icon: 'video',
                 accent: '#1e1e1e',
                 routeName: 'ext.tiktok.orders.index',
-                // OrderTab visibility uses view tier so a TikTok Orders Viewer
-                // still sees the marketplace's orders tab on the unified Orders
-                // workspace.
                 permission: 'view_tiktok/order',
                 routeParams: ['store' => $storeId],
                 unprocessedCounter: function () use ($storeId) {
                     if (!Schema::hasTable('tiktok_orders')) {
                         return 0;
                     }
-                    /* THE SAME STATUSES THE "To Ship" TAB GROUPS.
-                     *
-                     * This counted only the first sub-step, so the head
-                     * sentence and the tab strip 40px below it disagreed on
-                     * every channel: "Nothing waiting" over "To Ship 1",
-                     * because the one order sat at the second step. An order
-                     * awaiting collection is still an order the seller is
-                     * holding - it is waiting on them, which is the only
-                     * question this figure exists to answer.
-                     *
-                     * Kept identical to the tab map in the orders panel. If
-                     * one moves the other has to, and FoundationTest asserts
-                     * they still agree. */
                     return TikTokOrder::query()
                         ->where('tiktok_setting_id', $storeId)
                         ->whereIn('status', ['AWAITING_SHIPMENT', 'AWAITING_COLLECTION'])
                         ->count();
                 },
-                /* The steps while the seller holds the parcel, each counted alone:
-                 * the fulfilment card leads with To Pack and prints To Handover beside
-                 * it, which the staff count against the shelf. The statuses are the
-                 * orders panel's own sub-tab map, so the card and the tab agree. */
                 stages: [
                     ['key' => 'to_pack', 'label' => 'to pack', 'counter' => fn () => $tiktokStatusCount(['AWAITING_SHIPMENT'])],
                     ['key' => 'to_handover', 'label' => 'to handover', 'counter' => fn () => $tiktokStatusCount(['AWAITING_COLLECTION'])],
@@ -332,12 +271,6 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
             );
     }
 
-    /**
-     * React to a SKU change on a catalog product by pushing the new
-     * seller_sku to every linked TikTok shop product. Uses the partial-
-     * edit endpoint via TikTokClient::editProduct — only the changed
-     * `skus[]` payload is sent, the rest of the product stays untouched.
-     */
     public function pushSkuChanges(int $productId, array $skuChanges): ?string
     {
         if (empty($skuChanges['product_sku']) || !Schema::hasTable('tiktok_product_group_products')) {
@@ -346,7 +279,6 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
 
         $newSku = $skuChanges['product_sku']['new'];
 
-        // Only the store whose credentials send the edit below.
         $links = TikTokProductGroupProduct::query()->onStore()->where('product_id', $productId)
             ->whereNotNull('tiktok_product_id')
             ->whereNotNull('tiktok_sku_id')
@@ -406,10 +338,6 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
         return empty($results) ? null : 'TikTok: ' . implode(', ', $results);
     }
 
-    /**
-     * TikTok widgets for the core dashboard: pending order count and
-     * sync-status row pulled from the settings table.
-     */
     public function dashboardData(): array
     {
         $data = [
@@ -420,21 +348,13 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
         if (Schema::hasTable('tiktok_settings')) {
             $ttSetting = TikTokSetting::defaultStore();
             if ($ttSetting) {
-                /* The listing troubles ride the chip (Phase D, #184), the
-                 * same two numbers Shopee's and Lazada's carry. A failure
-                 * here must not take the dashboard down. */
                 $flags = null;
                 $attention = 0;
                 try {
                     $sum = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)->summary();
                     $attention = (int) $sum['attention'];
-                    /* Each figure carries where it goes (#240): the Listings page
-                       filtered by the same query that counted it. The words are
-                       written once, in App\Integrations\Listings\ListingTrouble,
-                       so the chip and the page it lands on say the same thing. */
                     $flags = \App\Integrations\Listings\ListingTrouble::figures($sum, fn (string $bucket) => route('ext.tiktok.products.index', ['store' => $ttSetting->id, 'state' => $bucket]));
                 } catch (\Throwable) {
-                    // the chip simply carries no flags line
                 }
 
                 $data['tiktokSyncStatus'] = (object) [
@@ -449,27 +369,16 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
 
         if (Schema::hasTable('tiktok_orders')) {
             $data['tiktokPending'] = (int) DB::table('tiktok_orders')
-                // To Ship = to pack + to handover, matching unprocessedCount().
                 ->whereIn('status', ['AWAITING_SHIPMENT', 'AWAITING_COLLECTION'])
                 ->count();
         }
 
 
-        // Per-store figures ride alongside the channel-level ones.
         $data += $this->perStoreDashboardFigures();
 
         return $data;
     }
 
-    /**
-     * Per-store dashboard figures (#194, 2026-09-07): with two stores of one
-     * channel the strip used to show one blended row on both, because the
-     * contribution was keyed by channel. Each store now reports its own
-     * waiting count and its own freshness under its tab id ("tiktok:2"),
-     * which the dashboard prefers over the channel-level key.
-     *
-     * @return array{channelPending: array<string, int>, channelSyncStatuses: array<string, object>}
-     */
     private function perStoreDashboardFigures(): array
     {
         $pending = [];
@@ -486,8 +395,6 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
                     ->whereIn('status', ['AWAITING_SHIPMENT', 'AWAITING_COLLECTION'])
                     ->count();
             }
-            /* The listing engine scopes to the bound store, so each store's
-             * flags are its own; a failure must not take the strip down. */
             $flags = null;
             $attention = 0;
             $previous = app()->bound('tiktok.route-store') ? app('tiktok.route-store') : null;
@@ -495,13 +402,8 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
                 app()->instance('tiktok.route-store', $store);
                 $sum = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)->summary();
                 $attention = (int) $sum['attention'];
-                /* Each figure carries where it goes (#240): the Listings page
-                   filtered by the same query that counted it. The words are
-                   written once, in App\Integrations\Listings\ListingTrouble,
-                   so the chip and the page it lands on say the same thing. */
                 $flags = \App\Integrations\Listings\ListingTrouble::figures($sum, fn (string $bucket) => route('ext.tiktok.products.index', ['store' => $store->id, 'state' => $bucket]));
             } catch (\Throwable) {
-                // this store's chip simply carries no flags line
             } finally {
                 if ($previous !== null) {
                     app()->instance('tiktok.route-store', $previous);
@@ -523,15 +425,6 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
         return ['channelPending' => $pending, 'channelSyncStatuses' => $statuses];
     }
 
-    /**
-     * TikTok fees come from tiktok_orders.fees (commission, transaction fee,
-     * shipping fee).
-     */
-    /**
-     * What TikTok Shop charged for this order, in core's four buckets. Its
-     * delivery charge is shipping_fee, which sat in the Fees column until
-     * 2026-09-08; it publishes no payment-side deduction.
-     */
     public function renderOrderRef(string $marketplaceSource, string $marketplaceOrderId): ?array
     {
         if ($marketplaceSource !== 'tiktok') {
@@ -570,7 +463,6 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
             return null;
         }
 
-        // The seller's discount beyond the markdown already inside the item prices.
         $payment = is_array($row->raw['payment'] ?? null) ? $row->raw['payment'] : [];
         $sellerDiscount = 0.0;
         foreach (\Extensions\tiktok\Services\TikTokSaleLines::lines($payment, 0, 0) as $line) {
@@ -619,8 +511,6 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
         return ['total' => round($total, 2), 'items' => $items, 'source' => 'tiktok'];
     }
 
-    // ── Mobile API ─────────────────────────────────────────────
-
     public function mobilePlatformSlug(): string
     {
         return 'tiktok';
@@ -635,7 +525,6 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
             $pendingSub = '';
         }
 
-        // ?store= narrows the list to one store; without it, every store as before.
         $storeId = $request->integer('store') ?: null;
         $base = TikTokOrder::query()->when($storeId !== null, fn ($q) => $q->where('tiktok_setting_id', $storeId));
         $query = TikTokOrder::query()->when($storeId !== null, fn ($q) => $q->where('tiktok_setting_id', $storeId));
@@ -767,18 +656,8 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
         return app(\Extensions\tiktok\Services\TikTokAppFulfilment::class)->handle($action, $id, $request);
     }
 
-    // ── Layout banner + source label ───────────────────────────
-
     public function layoutBanners(): array
     {
-        /* Credential state is NOT answered here any more. It read
-           settings.expires_at directly - the LIVE column - while these
-           installs select their credential by `mode`, so a sandbox channel
-           with a healthy token was announced as expired from a leftover live
-           date. partials/integration-banners.blade.php asks ChannelWorkspace
-           instead, which is the same object the card, the head and the
-           channel sidebar read, so the four cannot disagree. This method
-           keeps operational notices only. */
         return [];
     }
 
@@ -787,10 +666,6 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
         return $source === 'tiktok' ? 'TikTok' : null;
     }
 
-    /**
-     * Per-store reports (the owner, 2026-09-05): every store as a filter
-     * choice, paused ones included. A deleted store is simply gone.
-     */
     public function availableStoreOptions(): array
     {
         if (! \Illuminate\Support\Facades\Schema::hasTable('tiktok_settings')) {
@@ -820,13 +695,6 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
 
     use RevealsCredentials;
 
-    /**
-     * Readable back, and nothing else is.
-     *
-     * Public identifiers are deliberately absent: app keys, partner ids and
-     * shop ids are not secrets, so they are printed in the settings page and
-     * there is nothing to reveal. Only what is genuinely hidden appears here.
-     */
     public function revealableCredentials(): array
     {
         return [
@@ -849,17 +717,12 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
         return 'manage_tiktok/settings';
     }
 
-    /**
-     * Phase D (#184): the one answer to "where does this product stand on
-     * TikTok Shop?", for core surfaces that render listing state.
-     */
     public function listingStates(array $productIds): array
     {
         return app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)->forProducts($productIds);
     }
 
 
-    /** Every catalog product TikTok Shop currently lists (#197). */
     public function listedProductIds(): array
     {
         if (! \Illuminate\Support\Facades\Schema::hasTable('tiktok_listings')) {
@@ -883,17 +746,12 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
         return $out;
     }
 
-    // ── Webhooks (Phase E, #184) ────────────────────────────────────
-
     public function webhookChannel(): string
     {
         return 'tiktok';
     }
 
-    /**
-     * TikTok Shop signs each push HMAC-SHA256(app_secret, app_key + body)
-     * into the Authorization header.
-     */
+    // TikTok Shop signs each push HMAC-SHA256(app_secret, app_key + body) into the Authorization header.
     public function verifyWebhook(\Illuminate\Http\Request $request): bool
     {
         $setting = TikTokSetting::defaultStore()?->decrypted();
@@ -907,7 +765,6 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
         return hash_equals(hash_hmac('sha256', $appKey . $request->getContent(), $appSecret), $received);
     }
 
-    /** Named by shape, so an unrecognised type still reads honestly in the inbox. */
     public function webhookEventType(array $payload): ?string
     {
         $data = (array) ($payload['data'] ?? []);
@@ -921,10 +778,6 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
         return isset($payload['type']) ? 'type_' . (int) $payload['type'] : null;
     }
 
-    /**
-     * v1 applies only MIRRORS - see ShopeeExtension: order transitions
-     * carry stock movements, which belong to the order sync's own path.
-     */
     public function handleWebhookEvent(\App\Models\ChannelWebhookEvent $event): string
     {
         $data = (array) ($event->payload['data'] ?? []);
@@ -954,8 +807,6 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
         return 'stored; no handler for ' . ($event->event_type ?? 'this shape') . ' yet';
     }
 
-    // ── A catalog delete forgets the product on this channel, inside VentaSync only (ProductRemover, 2026-09-07) ──
-
     public function productPresence(array $productIds): array
     {
         return app(\Extensions\tiktok\Services\TikTok\TikTokProductRemover::class)->presence($productIds);
@@ -971,11 +822,6 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
         return app(\Extensions\tiktok\Services\TikTok\TikTokProductRemover::class)->stranded();
     }
 
-    /**
-     * TikTok's automations. Its commands work across the channel's stores
-     * themselves, so there is one set for the channel. TikTok has no review
-     * sync.
-     */
     public function automations(): array
     {
         return [

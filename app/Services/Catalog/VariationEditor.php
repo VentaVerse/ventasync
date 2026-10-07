@@ -8,22 +8,6 @@ use App\Services\VariationForgetService;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
-/**
- * Edits some of a product's existing variations and adds new ones, leaving
- * every other variation exactly as it was.
- *
- * The variations are read as the product form would post them
- * (VariationSnapshot), only the named rows are changed, and the whole set is
- * saved through VariationWriter, the way the Edit page saves. A row nobody
- * named goes back with its own SKU, stock, price, cost parts, picture and
- * status.
- *
- * What it will not do, and why: rename a value (a value's name is shared by
- * every product that uses it), remove a variation (switching it off is the
- * reversible way), or give a plain product its first variations (its stock
- * would become the new variations' total). Price, stock and cost have their
- * own paths.
- */
 final class VariationEditor
 {
     public function __construct(
@@ -32,14 +16,6 @@ final class VariationEditor
     ) {
     }
 
-    /**
-     * @param  list<array{sku: string, new_sku?: string, enabled?: bool, image?: string}>  $changes
-     * @param  list<array{values: list<string>, sku: string, price: float, cost_amount?: float, image?: string}>  $additions
-     * @param  array{actor?: string, reason?: string}  $by
-     * @return array{changed: list<array{sku: string, before: array, after: array}>, added: list<array>, notes: list<string>}
-     *
-     * @throws RuntimeException naming every problem, before anything writes
-     */
     public function edit(int $productId, array $changes, array $additions, array $by = []): array
     {
         $wire = $this->snapshot->wire($productId);
@@ -108,7 +84,6 @@ final class VariationEditor
                 'quantity' => 0,
                 'absolute_price' => $price,
                 'cost_amount' => (float) ($add['cost_amount'] ?? 0),
-                // Empty: the variation carries the product's own additional cost.
                 'cost_additional' => '',
                 'image' => (string) ($add['image'] ?? ''),
                 'status' => 1,
@@ -149,7 +124,6 @@ final class VariationEditor
             return $report;
         }
 
-        // The form's own SKU checks, over the whole set as it will be saved.
         $this->writer->validateSkus($productId, $wire + ['sku' => (string) DB::table(config('catalog.prefix') . 'product')->where('product_id', $productId)->value('sku')]);
 
         $before = VariationForgetService::snapshot($productId);
@@ -157,8 +131,6 @@ final class VariationEditor
 
         DB::transaction(function () use ($productId, $wire, &$skuChanges) {
             $this->writer->save($productId, $wire, $skuChanges);
-            // Stock is untouched: every existing row goes back with its own
-            // and a new one starts at 0, so the product's total cannot move.
             DB::table(config('catalog.prefix') . 'product')->where('product_id', $productId)->update(['date_modified' => now()]);
         });
 
@@ -190,7 +162,6 @@ final class VariationEditor
         return $report;
     }
 
-    /** What the answer shows of one variation. */
     private function face(array $row, bool $twoTypes): array
     {
         return [

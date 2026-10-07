@@ -14,13 +14,6 @@ class ShopeeRefreshToken extends Command
 
     protected $description = 'Refresh the Shopee access token before it expires';
 
-    /**
-     * Multi-store S3 (#194): every enabled store refreshes its own token
-     * pair, and a store that fails is reported and skipped. The QAS
-     * lesson stands per store: a refresh token is single-use, so the
-     * grant always writes back to the ROW it was minted from - tokens
-     * never cross stores.
-     */
     public function handle(ShopeeClient $client): int
     {
         $stores = ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get();
@@ -55,12 +48,6 @@ class ShopeeRefreshToken extends Command
             return 1;
         }
 
-        // Skip only if the token still has plenty of life left. This window
-        // (150 min) MUST exceed the refresh cron interval (2h) — otherwise a
-        // scheduled run keeps landing outside the window and skipping until the
-        // 4h access token dies (the old 30-min window vs 4h cron was the bug).
-        // 150 > 120 (cron) guarantees a run lands inside it before expiry, while
-        // still avoiding a redundant refresh of a just-minted token.
         if (!empty($auth['expires_at']) && now()->diffInMinutes($auth['expires_at'], false) > 150) {
             $this->info('Token still valid (expires ' . $auth['expires_at'] . '). Skipping refresh.');
             return 0;
@@ -89,8 +76,7 @@ class ShopeeRefreshToken extends Command
             $refresh = $result['body']['refresh_token'] ?? null;
 
             if ($access) {
-                // Write back to THE row the refresh token came from, never a
-                // re-resolved default: tokens must not cross stores.
+                // Write back to the row the refresh token came from; tokens must never cross stores.
                 $raw = $store;
                 if ($raw) {
                     $isSandbox = $auth['mode'] === 'sandbox';
@@ -108,8 +94,6 @@ class ShopeeRefreshToken extends Command
                         $raw->access_token = encrypt($access);
                         if ($refresh) {
                             $raw->refresh_token = encrypt($refresh);
-                            // A fresh refresh token lives 30 days from now (Shopee's
-                            // design); that date is the sign-in expiry the card shows.
                             $raw->refresh_expires_at = now()->addDays(ShopeeSetting::REFRESH_TOKEN_DAYS);
                         }
                         $expiresIn = $result['body']['expire_in'] ?? null;
@@ -120,7 +104,7 @@ class ShopeeRefreshToken extends Command
                     $raw->save();
                 }
                 Cache::forget('shopee_sync_paused:' . $store->id);
-                Cache::forget('shopee_sync_paused'); // legacy pre-store key
+                Cache::forget('shopee_sync_paused');
                 $this->info('Token refreshed successfully.');
                 return 0;
             }

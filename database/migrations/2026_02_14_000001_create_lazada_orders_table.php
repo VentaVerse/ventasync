@@ -10,7 +10,7 @@ return new class extends Migration {
         Schema::create('lazada_orders', function (Blueprint $table) {
             $table->id();
             $table->string('region', 8)->index();
-            $table->string('order_id', 64)->index(); // Lazada order_number / order_id
+            $table->string('order_id', 64)->index();
             $table->string('status', 64)->nullable()->index();
             $table->timestamp('order_created_at')->nullable()->index();
             $table->timestamp('order_updated_at')->nullable()->index();

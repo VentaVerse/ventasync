@@ -12,20 +12,12 @@ use Extensions\lazada\Services\Lazada\LazadaClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * A seller's own order actions on Lazada, on the calls Lazada documents
- * today: Cancel is /order/reverse/cancel/create, one request for the whole
- * order; Repack is /order/package/repack, by package. Each answer is judged
- * by Lazada's own verdict in the body, never by HTTP 200 alone.
- */
 class LazadaOrderActionsTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @var list<array{method: string, path: string, params: array}> */
     public array $sent = [];
 
-    /** @var array<string, mixed> "METHOD /path" => answer or Closure(params) */
     public array $answers = [];
 
     private LazadaSetting $store;
@@ -67,7 +59,6 @@ class LazadaOrderActionsTest extends TestCase
             }
         });
 
-        // The order's items, as /order/items/get answers them.
         $this->answers['GET /order/items/get'] = ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => [
             ['order_item_id' => 1001, 'package_id' => 'FP1'],
             ['order_item_id' => 1002, 'package_id' => 'FP1'],
@@ -141,7 +132,6 @@ class LazadaOrderActionsTest extends TestCase
 
         $this->assertSame('pending', $order->fresh()->status);
 
-        // An HTTP 200 carrying Lazada's own error code is a refusal too.
         $this->answers['GET /order/reverse/cancel/create'] = ['ok' => true, 'status' => 200,
             'body' => ['code' => '104', 'message' => 'E0104: reason is empty or invalid']];
         $this->actingAs($this->manager())
@@ -178,7 +168,6 @@ class LazadaOrderActionsTest extends TestCase
                 && str_contains($r['message'], 'package not found'));
     }
 
-    /** Lazada retired seller_sku_list on /product/remove; nothing may send it. */
     public function test_no_lazada_removal_names_skus_by_the_retired_list(): void
     {
         foreach ([

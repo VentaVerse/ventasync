@@ -14,14 +14,14 @@ return new class extends Migration
 
         Schema::create('shopee_settings', function (Blueprint $table) {
             $table->id();
-            $table->string('mode', 16)->default('sandbox'); // sandbox|live
+            $table->string('mode', 16)->default('sandbox');
             $table->unsignedBigInteger('partner_id')->nullable();
-            $table->text('partner_key')->nullable(); // encrypted
+            $table->text('partner_key')->nullable();
             $table->unsignedBigInteger('shop_id')->nullable();
-            $table->text('access_token')->nullable(); // encrypted
-            $table->text('refresh_token')->nullable(); // encrypted
+            $table->text('access_token')->nullable();
+            $table->text('refresh_token')->nullable();
             $table->string('redirect_uri', 255)->nullable();
-            $table->string('region', 16)->nullable(); // optional: PH/SG/...
+            $table->string('region', 16)->nullable();
             $table->timestamps();
         });
     }

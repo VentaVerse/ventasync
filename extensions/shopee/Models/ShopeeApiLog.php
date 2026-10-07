@@ -33,17 +33,10 @@ class ShopeeApiLog extends Model
         'response_body' => 'array',
     ];
 
-    /**
-     * Create an API log record without breaking the app if schema is out of sync.
-     */
     public static function safeCreate(array $attributes): void
     {
         try {
-            // Green or red by the marketplace's own verdict, not the HTTP
-            // status (MarketplaceVerdict, 2026-09-06): a refusal riding a
-            // 200 is a red row.
             $attributes['ok'] = \App\Support\MarketplaceVerdict::ok('shopee', (bool) ($attributes['ok'] ?? true), $attributes['response_body'] ?? null);
-            // The three-way mode (#200): off, errors only, everything.
             $setting = ShopeeSetting::defaultStore();
             if (! \App\Support\ApiLogMode::shouldLog($setting?->api_log_mode, (bool) ($attributes['ok'] ?? true))) {
                 return;

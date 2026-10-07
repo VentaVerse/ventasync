@@ -10,13 +10,6 @@ use Extensions\tiktok\Services\TikTok\TikTokStockPricePush;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
-/**
- * The "Push Price" automation (the owner, 2026-09-07). The old
- * stock-and-price row sent stock only; price is its own row now, on every
- * channel. Every product pushed to TikTok Shop from every enabled store
- * goes up through the rule the buttons use: the listing's own markup,
- * else its group's, else the catalog price as it is.
- */
 class TikTokPushPrice extends Command implements \App\Integrations\Contracts\SteppableAutomation
 {
     protected $signature = 'tiktok:push-price';
@@ -36,7 +29,7 @@ class TikTokPushPrice extends Command implements \App\Integrations\Contracts\Ste
         foreach ($stores as $store) {
             $label = $store->store_name ?: ('#' . $store->id);
             $this->info("=== TikTok store: {$label} ===");
-            app()->instance('tiktok.route-store', $store); // the model trait scopes every query to THIS store
+            app()->instance('tiktok.route-store', $store);
             try {
                 $worst = max($worst, $this->handleStore($store));
             } catch (\Throwable $e) {
@@ -70,7 +63,6 @@ class TikTokPushPrice extends Command implements \App\Integrations\Contracts\Ste
             return 1;
         }
 
-        // This store's pivots: the group carries the store, the pivot does not.
         $pivotRows = TikTokProductGroupProduct::query()
             ->whereIn('tiktok_product_group_id', TikTokProductGroup::query()->select('id'))
             ->whereNotNull('tiktok_product_id')
@@ -99,20 +91,11 @@ class TikTokPushPrice extends Command implements \App\Integrations\Contracts\Ste
         return $results['err'] > 0 ? 1 : 0;
     }
 
-    /**
-     * The rule the buttons use, resolved once per product: the listing's
-     * own markup, else its group's, else the catalog price untouched.
-     *
-     * @param iterable<object> $pivots rows exposing product_id and tiktok_product_group_id
-     * @return \Closure(float, object): float
-     */
     public static function priceRule(iterable $pivots): \Closure
     {
         $pivots = collect($pivots);
         $pids = $pivots->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
         $listings = TikTokListing::query()->whereIn('product_id', $pids ?: [0])->get()->keyBy('product_id');
-        // The group by product too, for a row that carries no group id (the Listings page's rows).
-        // The pivot carries no store, so only this store's groups are read.
         $store = TikTokSetting::defaultStore();
         $groupByProduct = TikTokProductGroupProduct::query()->whereIn('product_id', $pids ?: [0])
             ->whereIn('tiktok_product_group_id', TikTokProductGroup::query()->forStore($store)->select('id'))
@@ -133,7 +116,6 @@ class TikTokPushPrice extends Command implements \App\Integrations\Contracts\Ste
         };
     }
 
-    /** Run now walks this push ten products per request (SteppableAutomation, 2026-09-07). */
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
         return ['label' => 'products', 'units' => \Extensions\tiktok\Services\TikTok\TikTokPushSteps::units()];

@@ -1,15 +1,7 @@
-/* All Listings (Phase D, #184): the cross-channel grid. Rows are the
-   catalogue, columns are channels; every badge is a channel engine's own
-   answer. This file only sets the grid's geometry - all words, tones and
-   components come from the shared layer, so this page can never disagree
-   with a channel page about anything. */
-
 .al-col-id { width: 56px; }
 .al-col-qty { width: 72px; }
 .al-col-chan { width: 148px; }
 
-/* A smaller thumb than the channel pages': this row carries no variation
-   fold-out, so the 96px block left the grid mostly air. */
 .al-thumb {
     position: relative;
     display: flex;
@@ -33,9 +25,6 @@
     object-fit: cover;
 }
 
-/* One cell = one channel's whole answer. As a link it keeps the text
-   colour and earns its affordance on hover, the same grammar as x-row-link:
-   a column of underlined badges would read as nine warnings. */
 .al-cell {
     display: inline-flex;
     flex-direction: column;
@@ -63,8 +52,6 @@
 
 .al-cell__drift { display: inline-flex; }
 
-/* Phone: the shared table stacking gives each channel its data-label line;
-   the cell just needs to sit beside its label instead of under it. */
 @media (max-width: 760px) {
     .al-col-chan .al-cell { flex-direction: row; align-items: center; }
 }

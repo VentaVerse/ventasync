@@ -4,20 +4,8 @@
 
 @section('content')
 @php
-    // routes/settings.php: reading is view_error_log|manage_error_log,
-    // clearing and test-firing are manage_error_log. The pre-redesign view
-    // hardcoded this to true and showed a read-tier operator a red Clear
-    // button that would bounce.
     $canManage = auth()->user()?->hasPermission('manage_settings/error_log') ?? false;
 
-    // AppServiceProvider's handler writes one line per error, always in this
-    // shape:
-    //   [Y-m-d H:i:s] E_LEVEL: message in /file:line | METHOD /uri | user_id=N
-    // Splitting it up is what turns a wall of identical grey text into
-    // something scannable: the level is the only thing the eye needs first,
-    // then when, then what. A line that does not match (a stray write, a
-    // multi-line message) is shown verbatim rather than mangled into
-    // columns it does not have.
     $entries = collect($lines)->reverse()->values()->map(function ($line) {
         $ok = preg_match(
             '/^\[(?<at>[^\]]+)\]\s+(?<level>E_[A-Z0-9_]+):\s+(?<message>.*?)(?:\s+in\s+(?<file>[^ ]+):(?<line>\d+))?(?:\s+\|\s+(?<where>[^|]*?))?(?:\s+\|\s+(?<who>[^|]*?))?$/',
@@ -42,9 +30,6 @@
         ];
     });
 
-    // The three families PHP actually raises through this handler, folded to
-    // what an operator cares about. Anything unrecognised keeps its own name
-    // rather than being forced into a bucket.
     $severity = function (?string $level): array {
         if ($level === null) {
             return ['key' => 'other', 'label' => 'Unparsed', 'tone' => 'neutral'];
@@ -73,12 +58,6 @@
     ];
 @endphp
 
-{{-- The filters are client side on purpose. ErrorLogController hands the
-     view the last 250 lines of a flat file and offers no query parameters at
-     all, so a server-side filter would mean a controller change this task is
-     not sanctioned to make. Every line is already in the document; the
-     segment and the search box narrow what is shown, and the count under the
-     segment always says how many of how many. --}}
 <div class="st-log-page" x-data="{ sev: '', term: '' }">
 
     @include('partials.flash')

@@ -9,7 +9,6 @@ class LazadaProduct extends Model
 {
     use BelongsToLazadaStore, \App\Integrations\Listings\KeepsItsOwnCopy;
 
-    // Lazada products table
     protected $table = 'lazada_products';
 
     protected $fillable = [
@@ -17,11 +16,7 @@ class LazadaProduct extends Model
 'lazada_setting_id', 'product_id', 'item_name', 'description',
         'description_prefix_id', 'description_suffix_id', 'watermark_template_id', 'watermark_all_images',
         'primary_category_id', 'brand_id', 'brand_name_override', 'image_order',
-        // The markups were missing here, and every create() that passed them
-        // dropped them SILENTLY - the same disease 0af64cea documented on
-        // the group dance's update(). Found again by #195's save-as pin.
         'markup_fixed', 'markup_percent',
-        // The listing's own starting price and parcel; blank follows the catalog.
         'price', 'weight', 'package_length', 'package_width', 'package_height',
         'lazada_item_id', 'unlinked_at', 'live_status', 'live_checked_at',
         'last_pushed_at', 'last_push_source', 'last_push_settings',
@@ -49,14 +44,6 @@ class LazadaProduct extends Model
         'sale_pushed_at' => 'datetime',
     ];
 
-    /**
-     * The mirrored bucket counts, keyed the way the listings strip names
-     * them. Uploaded listings only: the tab table shows nothing else, so
-     * the count must not promise more rows than the tab has.
-     *
-     * @param  array<string, string>  $tabMap  tab key => Lazada status word
-     * @return array<string, int>
-     */
     public static function mirrorCounts(array $tabMap): array
     {
         $byStatus = static::query()
@@ -89,11 +76,6 @@ class LazadaProduct extends Model
         return $this->hasMany(LazadaProductVariant::class, 'lazada_product_id');
     }
 
-    /**
-     * This listing's own words (App\Integrations\Listings\ListingContent).
-     *
-     * @return array{title: ?string, description: ?string}
-     */
     public function contentOverrides(): array
     {
         return ['title' => $this->item_name, 'description' => $this->description];

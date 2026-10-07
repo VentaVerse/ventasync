@@ -9,40 +9,10 @@ use Extensions\shopee\Models\ShopeeListing;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 
-/**
- * The shared machinery of putting an item ON Shopee (#184 decomposition).
- * Three surfaces create items - the one-click push (rows and the listing
- * editor since the 2026-09-03 one-editor merge, when the push form died), the
- * index bulk, the group send - and until now each carried its own copy of
- * the image upload loop, the add_item call, and the variations-or-undo
- * tail; ShopeeProductController and ShopeeProductGroupController even held
- * duplicate private uploadImage/resolveLocalImagePath helpers. A fix to
- * one copy (the half-listed undo of #192, the plain-error mandate) had to
- * be re-made three more times or silently miss a surface.
- *
- * The controllers keep what is genuinely theirs: validation, which
- * settings price the push, provenance stamps, and the wording of their
- * flashes. Everything a copy could drift on lives here once.
- */
 class ShopeeItemCreate
 {
-    /** Shopee takes at most this many images on an item. */
-
-    /**
-     * The pictures that go up, capped at Shopee's nine (the owner, 2026-09-05:
-     * a product with more was refused with "The number of product images
-     * must be between 1 and 9").
-     *
-     * The listing's own arrangement when it has one, the catalog product's
-     * own images when it does not - one reader for both, so the "Images
-     * that go up" card and the push can never disagree. Before this, three
-     * copies of the same query lived here and in the group controller, and
-     * two of them forgot the cap.
-     */
     public function catalogImagePaths(object $product, ?ShopeeListing $listing = null): array
     {
-        /* Every picture that is on goes up. How many Shopee takes is
-           Shopee's to say, and it says so on the push. */
         $paths = \App\Integrations\Listings\ListingImages::sending(
             \App\Support\Catalog\ProductImages::paths((int) $product->product_id, $listing?->image_order),
             $listing
@@ -51,7 +21,6 @@ class ShopeeItemCreate
         return \App\Services\Media\ListingWatermark::paths($paths, $listing, \App\Services\Media\ListingWatermark::groupTemplateId('shopee_product_groups', 'shopee_product_group_products', 'shopee_product_group_id', (int) $product->product_id, 'shopee_setting_id', (int) ($listing?->shopee_setting_id ?? 0) ?: null), 'shopee', (int) ($listing?->shopee_setting_id ?? 0));
     }
 
-    /** How many pictures this listing has. */
     public function catalogImageCount(object $product, ?ShopeeListing $listing = null): int
     {
         return count(\App\Support\Catalog\ProductImages::paths((int) $product->product_id, $listing?->image_order));
@@ -73,13 +42,6 @@ class ShopeeItemCreate
         return null;
     }
 
-    /**
-     * Upload every resolvable path, logging each call (the bulk and group
-     * loops used to skip the log, so a failed batch upload left no
-     * evidence). Stops at the first refusal.
-     *
-     * @return array{ids: list<string>, error: ?string}
-     */
     public function uploadImages(ShopeeClient $client, array $auth, array $paths): array
     {
         $ids = [];
@@ -118,14 +80,8 @@ class ShopeeItemCreate
         return ['ids' => $ids, 'error' => null];
     }
 
-    /**
-     * One picture into Shopee's media space. A product picture goes up with
-     * the default scene, which Shopee squares; a picture inside an extended
-     * description goes up with scene "desc", which Shopee leaves as it is.
-     */
     public function uploadImage(ShopeeClient $client, array $auth, string $localPath, string $scene = 'normal'): array
     {
-        // A product or variation picture goes as its square push copy; a description picture keeps its shape, fitted only to Shopee's limits.
         $localPath = $scene === 'desc'
             ? \App\Services\Media\StoreReadyImages::fitLocalFile($localPath, \App\Services\Media\StoreReadyImages::SHOPEE)
             : \App\Services\Media\ImageCache::pushLocalFile($localPath);
@@ -155,10 +111,6 @@ class ShopeeItemCreate
 
         $body = $response->json();
 
-        /* Stricter than the two controller copies this replaces: Shopee
-         * answers HTTP 200 with an error in the body, and the old
-         * $response->ok() counted that as a success whose missing
-         * image_id was then skipped without a word. */
         return [
             'status' => $response->status(),
             'ok' => $response->successful() && empty($body['error']),
@@ -166,7 +118,6 @@ class ShopeeItemCreate
         ];
     }
 
-    /** The uploader ShopeeVariationPush borrows for tier images. */
     public function tierImageUploader(ShopeeClient $client, array $auth): \Closure
     {
         return function (string $path) use ($client, $auth): ?string {
@@ -182,12 +133,6 @@ class ShopeeItemCreate
         };
     }
 
-    /**
-     * The add_item payload every listing-settings push sends (the row
-     * push and the index bulk built this block char-for-char twice):
-     * content the operator wrote on the listing wins, the catalog fills
-     * the rest, SKU is always the catalog's (reconcile matches by it).
-     */
     public function payloadFromListing(ShopeeListing $listing, object $product, string $itemName, string $description, array $imageIds, array $attributeValues): array
     {
         $logisticInfo = [];
@@ -195,22 +140,16 @@ class ShopeeItemCreate
             $logisticInfo[] = ['logistic_id' => (int) $lid, 'enabled' => true];
         }
 
-        /* The one reader (2026-09-07): the listing's own words win, and the
-         * store's prefix and suffix templates wrap whichever won. */
         $content = \App\Integrations\Listings\ListingContent::of(
             $listing, $itemName, $description, 'shopee', (int) ($listing->shopee_setting_id ?? 0)
         );
 
         $payload = [
             'original_price' => $listing->itemPriceFor((float) $product->price, ShopeeListing::hasVariations((int) $product->product_id)),
-            // Shopee accepts plain text only; description templates may contain HTML.
             'description' => mb_substr(\App\Support\Catalog\DescriptionText::of($content['description']), 0, 5000),
             'item_name' => mb_substr($content['title'], 0, 255),
             'seller_stock' => [['stock' => max(0, (int) $product->quantity)]],
             'item_sku' => (string) ($product->sku ?? ''),
-            /* Shopee keeps one place on a dimension and two on a weight, so
-               the figure is rounded to that and not cast to a whole number:
-               a listing measured at 10.5 cm went up as 10 cm. */
             'weight' => \App\Integrations\Listings\ParcelPrecision::of($listing->weight, $product->weight, \App\Integrations\Listings\ParcelPrecision::SHOPEE['weight']),
             'dimension' => [
                 'package_length' => \App\Integrations\Listings\ParcelPrecision::of($listing->package_length, $product->length, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
@@ -233,13 +172,6 @@ class ShopeeItemCreate
         return $payload;
     }
 
-    /**
-     * One add_item call: sent, logged under the caller's pack, answered
-     * in plain words. item_id can be null on an accepted call - Shopee
-     * does that - and the caller owns what to tell the operator then.
-     *
-     * @return array{ok: bool, item_id: ?int, error: ?string}
-     */
     public function addItem(ShopeeClient $client, array $auth, array $payload, string $logPack): array
     {
         $path = '/api/v2/product/add_item';
@@ -250,13 +182,6 @@ class ShopeeItemCreate
             $path, [], $payload
         );
 
-        /* Shopee answers HTTP 200 with the refusal in the body (error beside
-         * an often-empty message). Reading only the HTTP status counted such
-         * a push a success, found no item_id, told the operator "Shopee
-         * accepted the push but returned no item id" and wrote ok=1 to the
-         * API log, so nothing looked wrong anywhere (the owner, 2026-09-06: two
-         * of thirty Lazada-imported products, no error logged). The same
-         * class of bug uploadImages() had. A body error is a refusal. */
         $body = is_array($result['body'] ?? null) ? $result['body'] : [];
         $bodyError = trim((string) ($body['error'] ?? ''));
         $refused = ! ($result['ok'] ?? false) || $bodyError !== '';
@@ -274,8 +199,6 @@ class ShopeeItemCreate
 
         $itemId = $body['response']['item_id'] ?? null;
         if ($itemId === null) {
-            // Accepted with no item: say whatever Shopee did say, so the API
-            // log and the page agree on the reason.
             $said = trim((string) ($body['message'] ?? '')) ?: trim((string) ($body['warning'] ?? ''));
 
             return ['ok' => true, 'item_id' => null, 'error' => 'Shopee accepted the push but returned no item id' . ($said !== '' ? ' (it said: ' . $said . ')' : '') . '. Run Check against Shopee to adopt the item it created.'];
@@ -284,13 +207,6 @@ class ShopeeItemCreate
         return ['ok' => true, 'item_id' => (int) $itemId, 'error' => null];
     }
 
-    /**
-     * The #192 tail: variations ride the freshly created item, and a
-     * refusal takes the item down again - half-listed is worse than
-     * unlisted (the owner's #2062).
-     *
-     * @return array{ok: bool, models: ?int, undone: bool, message: ?string}
-     */
     public function variationsRideOrUndo(ShopeeClient $client, array $auth, int $itemId, int $productId, callable $priceFor): array
     {
         $variations = app(ShopeeVariationPush::class)->pushForProduct(

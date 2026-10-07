@@ -7,18 +7,12 @@ use App\Services\Sales\Receivables;
 use App\Support\Api\Refused;
 use Illuminate\Support\Facades\Validator;
 
-/**
- * Record a customer's payment on accounts receivable: against one order, or
- * against a customer, split over what they owe oldest order first. The
- * partner API, the app and the assistant all run this.
- */
 final class ReceivableWrites
 {
     public function __construct(private readonly Receivables $receivables)
     {
     }
 
-    /** @return array<string, mixed> */
     public function recordPayment(array $input): array
     {
         $data = Validator::make($input, [

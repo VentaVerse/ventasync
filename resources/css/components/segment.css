@@ -1,34 +1,3 @@
-/* Segmented control.
-   One row of mutually exclusive views over the same list. Every marketplace
-   orders page needs exactly this control (status tabs plus counts), so it is
-   built once here rather than per channel.
-
-   Why a segment and not the old .tabs strip: tabs imply separate pages, and
-   these are seven filters over one page. A segment reads as "pick one",
-   which is what the control actually does.
-
-   THE SELECTED STATE IS A CHANNEL-COLOURED FILL. This paragraph used to
-   argue the opposite - that the selection is carried by elevation and a
-   hairline ring, never by a brand colour, because colour on these pages has
-   one job and a coloured tab would compete with the status column for it.
-   the owner asked for the fill directly, and the argument was worth less than it
-   sounds: the trough and the lifted pill went at the same time, so there was
-   nothing left for a pill to be lifted out of.
-
-   The competition the old paragraph feared is real and is answered by
-   position rather than by hue. The tab strip is chrome at the top of the
-   page; the status column is data inside a row. Nobody scanning rows for
-   work mistakes the header for a row. What would have been a genuine
-   collision - two levels of tabs both filled - is handled where the sub
-   strip is defined below.
-
-   Leaving the old paragraph in place would have been worse than deleting
-   it: a comment asserting the opposite of the code is how the next reader
-   gets talked out of what they can see on screen.
-
-   The trough scrolls horizontally on its own below the desktop widths so a
-   seven-item control never widens the page. */
-
 .x-segment-bar {
     display: flex;
     align-items: center;
@@ -41,25 +10,12 @@
 .x-segment {
     display: flex;
     align-items: center;
-    /* Enough air to read as separate objects, not enough to stop reading as
-       one control. Below about 5px a row of bordered pills reads as a table
-       of cells; above about 10px it stops being a segmented control at all. */
     gap: 6px;
     min-width: 0;
     background: transparent;
     border: 0;
-    /* Not a trough. This is room for the FOCUS RING.
-       The strip clips on the y axis so it can never grow a second row, and
-       the ring is a 2px outline at a 1px offset - so with the padding gone
-       along with the trough, a keyboard user tabbing across the tabs would
-       have watched it get shaved off at the top and bottom. Three pixels is
-       exactly the ring's reach. */
     padding: 3px;
 
-    /* Setting one axis to a non-visible value forces the other to auto per
-       the CSS Overflow spec. Declaring it keeps the clipping deliberate:
-       the trough is exactly one item tall and must never grow a second
-       row. */
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-width: none;
@@ -67,30 +23,6 @@
 
 .x-segment::-webkit-scrollbar { display: none; }
 
-/* THE EDGE FADE IS GONE, AND THE BORDERS REPLACED IT.
- *
- * A four-layer background trick used to darken whichever edge still had
- * content behind it - two shadows fixed to the viewport, two opaque covers
- * scrolling with the content, so the browser's own scroll position did the
- * work with no resize listener. It was a good mechanism and it is not needed
- * any more.
- *
- * Now that every tab carries its own border, a tab cut off by the trough
- * edge is visibly a cut-off tab: you can see a border enter and not leave.
- * The separation does the job the fade was doing, and it does it without
- * painting a gradient over live content. The owner asked for the gradient gone;
- * this is what makes that safe rather than a loss.
- *
- * The trough went with it. A container drawn around a row of already-bordered
- * pills is a box inside a box - the ground, the ring and the padding were all
- * saying "these belong together", which is now said by the fact that they sit
- * in a row and look alike. */
-
-/* An item is an <a> when it navigates and a <button> when it switches a
-   view in place (the error log's severity filter, which narrows lines
-   already in the document). The four resets below are inert on an anchor
-   and are what stop a button arriving with the user agent's own grey
-   face, border and 13.333px system font. */
 .x-segment__item {
     display: inline-flex;
     align-items: center;
@@ -98,16 +30,8 @@
     flex: none;
     font-family: inherit;
     cursor: pointer;
-    /* Sized for a working surface, per the owner: "Make the tabs bigger".
-       These are the primary mode switch on the fulfilment pages and get
-       clicked all day, so they earn control-scale hit targets. */
     height: 36px;
     padding: 0 14px;
-    /* Its own edge, so the tabs read as separate things rather than as
-       regions of one strip. --bl-field-edge, not --bl-rule: this is the
-       boundary of a control and carries the 3:1 floor (WCAG 1.4.11), which
-       a hairline rule does not - measured, --bl-rule-2 came out at 1.13:1
-       against this ground. */
     border: 1px solid var(--bl-field-edge);
     border-radius: var(--bl-r-ctrl);
     background: var(--bl-sheet);
@@ -122,24 +46,6 @@
 
 .x-segment__item:hover { color: var(--bl-ink); }
 
-/* A CONTROL THE TOUCH UPLIFT MISSED.
- *
- * blotter.css raises .bl-seg__item to 44px under pointer: coarse, and the
- * row kebab goes 14px to 44, the pager likewise. This comment used to claim
- * that covered "every other target on these pages". It did not: a browser
- * pass measured the row action buttons at 86x25 and the per-order document
- * links at 61x17, which are the two controls a packer touches MOST per
- * order. They are lifted now, at the foot of this file. A comment asserting
- * a guard that does not exist is worse than no comment, because the next
- * person to audit targets reads it and moves on. The fulfilment status
- * tabs are .x-segment__item, a different class family that was never aliased
- * to it, so the primary mode switch on the busiest screen in the product -
- * the thing a packer taps all day to move between To Ship and Shipped - kept
- * a hard 36px height on a phone while smaller, rarer controls were lifted.
- *
- * Gated on the input device rather than on width, the same as every other
- * uplift here: a 36px target is fine under a mouse and the desk should not
- * pay for the warehouse. The sub strip rises too, from 30px. */
 @media (pointer: coarse) {
     .x-segment__item {
         min-height: 44px;
@@ -153,34 +59,13 @@
     }
 }
 
-/* The selected view is FILLED, not ringed.
- *
- * It used to be a white pill lifted on a hairline ring inside a grey trough.
- * With the trough gone there is nothing for a lifted pill to be lifted out
- * of, and the ring it carried was a second border on an element that now has
- * one of its own - two edges, 1px apart, saying the same thing.
- *
- * Filled is also simply louder, which this control has earned: it is the
- * primary mode switch on the busiest page in the product, and the answer to
- * "which queue am I looking at" should be readable from across the room.
- *
- * Outside a channel scope the fill is the page's ink. Inside one it is that
- * marketplace's own colour - see the channel block in blotter-components.css,
- * which sits in @layer app and so wins over this file's vocabulary layer. */
 .x-segment__item.is-active {
     background: var(--bl-ink);
     border-color: var(--bl-ink);
-    /* --bl-paper, not #fff. It is the light ink this product actually prints
-       on a filled surface, and it is what ChannelAccent::deep() measures its
-       4.5:1 guarantee against; measuring against a white that never reaches
-       the screen is how that guarantee gets overstated. */
     color: var(--bl-paper);
     box-shadow: none;
 }
 
-/* Counts are reference information, not emphasis, so they take the muted
-   token and the mono face every other numeral in this UI uses. Tabular
-   figures stop a count changing from 9 to 10 from nudging the label. */
 .x-segment__count {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
@@ -188,12 +73,6 @@
     color: var(--bl-ink-3);
 }
 
-/* The courier strip under To Handover: the third level of the same control.
-   It is a sub strip in every respect (same pills, same active tint, same
-   44px touch height) with one difference, a leading word that says what the
-   pills are, because "J&T Express 12" on its own could be read as a step.
-   It sits closer to the step above it than that step sits to its parent,
-   so the three rows read as one control tapering, not three peers. */
 .x-segment--courier {
     margin-top: calc(-1 * var(--bl-space-4) + 6px);
 }
@@ -206,74 +85,12 @@
     white-space: nowrap;
 }
 
-/* FULL OPACITY, AND THE STEP BACK COMES FROM WEIGHT.
- *
- * This was --bl-paper at 72%, on the reasoning that transparency steps the
- * count back from the label without fighting the colour underneath. It does
- * step it back; it also drops it under AA on any fill that is not almost
- * black. Composited over the actual fills it measured 3.08:1 on Shopee and
- * 3.34:1 on Venta in light theme, and 3.44-3.78:1 on all four in dark,
- * against the 4.5:1 a 12px label needs. Lazada and TikTok passed in light
- * only because their fills are near-black - an accident of two palettes, not
- * a working rule.
- *
- * Weight is the safe axis. It carries hierarchy without touching the
- * contrast, which is exactly what transparency cannot do on a coloured
- * ground: every point of alpha spends legibility to buy emphasis. */
 .x-segment__item.is-active .x-segment__count {
     color: var(--bl-paper);
     font-weight: 450;
 }
 
-/* The sub level. A second, quieter row that only appears under the one
-   segment that has sub steps (Shopee's To Ship splits into To Pack and To
-   Handover). It drops the trough entirely so it cannot be mistaken for a
-   peer of the row above it, and marks its active item with the same
-   brand-wash tint the shell nav uses for its own active child.
-
-   THE RATIO THIS COMMENT CLAIMED WAS NOT THE ONE IT SHIPPED. It said 4.59:1,
-   carried over from where the tint was introduced against a different
-   ground. Measured on the built page, --bl-brand-deep on --bl-brand-wash is
-   4.21:1 - under the 4.5 a 12.5px label needs, and under it the whole time
-   the comment said otherwise.
-
-   The tint stays, because it is what says "second level"; the label takes
-   --bl-ink instead, which measures 16.96:1 on the same ground. Identity moves
-   to the background and legibility to the text, rather than asking one colour
-   to do both and missing. --bl-brand-deep is left alone: darkening it to
-   clear this one pairing would move a token used across the app to fix a
-   control that is two items wide. */
-/* A sub-tab strip is still a strip.
- *
- * This stripped the border and ground entirely, so the To Pack / To Handover
- * row floated unhoused beneath a set of main tabs that were properly
- * contained - two levels of the same control reading as two different kinds
- * of thing. It keeps its own scale, a step smaller and quieter, which is
- * what says "second level" rather than "different control".
- *
- * This file is a page vocabulary imported unlayered from blotter.css, so it
- * beats the @layer'd component sheet regardless of order. The rule had to
- * change here; setting it in blotter-components.css alone did nothing and
- * measured as if the edit had not happened. */
-/* THE SUB STEP IS THE WORK, so it stops being drawn as a footnote.
- *
- * This was deliberately a step smaller and quieter than the strip above it -
- * 30px against 36px, 12.5px text against 14px - on the reasoning that
- * smaller reads as "second level". The reasoning is sound in general and
- * wrong here. To Pack, To Arrange and To Handover are the packing bench:
- * they are what an operator moves between all day, while the parent tab
- * above them is picked once and left. The most-used control on the page was
- * the smallest thing on it.
- *
- * It is now the larger of the two. What still says "second level" is
- * position and treatment, not scale: it sits beneath its parent, and its
- * active item takes the brand tint rather than the lifted white pill, so the
- * two levels remain tellable apart without the working one having to
- * whisper. */
 .x-segment--sub {
-    /* No trough here either, for the same reason as the parent: its items
-       carry their own edges now. What still says "second level" is position
-       and the way the selected step is marked, not a box drawn around it. */
     background: transparent;
     border: 0;
     gap: 6px;
@@ -288,48 +105,17 @@
     font-weight: 600;
 }
 
-/* The count carries the same promotion. On this strip it is not reference
-   information sitting beside a label - it is the number of parcels on the
-   bench, which is the reason the operator is looking. */
 .x-segment--sub .x-segment__count {
     font-size: 13px;
 }
 
 @media (max-width: 640px) {
-    /* Promoted, not padded. The extra height and weight are what make this
-       the working control and they stay; the generous side padding was
-       bought with width the phone does not have, and it is what pushed a
-       three-step strip past the trough. Trimming it recovers 60px across
-       three items without shrinking a single target below the parent's. */
     .x-segment--sub .x-segment__item {
         padding: 0 12px;
         font-size: 14px;
     }
 }
 
-/* The selected step. No box-shadow declared here on purpose: the channel
-   block in blotter-components.css already gives every active segment item
-   the channel's own underline, and it sits in a later cascade layer, so a
-   ring written here would be overridden and the comment describing it would
-   be a lie. Measured on the built page, the active step carries the brand
-   tint, that channel underline and a hairline ring - enough marking that a
-   fourth would be noise. */
-/* TWO LEVELS, ONE COLOUR, TWO TREATMENTS.
- *
- * The parent strip fills its selected tab with the channel's colour. If this
- * strip did the same, the two rows would be indistinguishable and the page
- * would appear to have two answers to the same question.
- *
- * So the sub step takes the same colour and inverts the relationship: a pale
- * wash of it as the ground, the colour itself as the edge, and the page's own
- * ink for the label. That reads unmistakably as the same family and just as
- * unmistakably as the quieter of the two.
- *
- * The label is --bl-ink rather than the accent for a measured reason recorded
- * here before: the accent on its own wash came out at 4.21:1, under the 4.5 a
- * 12.5px label needs, while --bl-ink on the same ground measures 16.96:1.
- * Identity goes to the ground, legibility to the text, rather than asking one
- * colour to do both and missing. */
 .x-segment--sub .x-segment__item.is-active {
     background: color-mix(in srgb, var(--ch, var(--bl-brand-deep)) 12%, var(--bl-sheet));
     border-color: var(--ch, var(--bl-brand-deep));
@@ -338,14 +124,8 @@
     box-shadow: none;
 }
 
-/* Back to the muted token: this count sits on a pale ground, not on a fill,
-   so it does not need the transparency treatment the parent's does. */
 .x-segment--sub .x-segment__item.is-active .x-segment__count { color: var(--bl-ink-2); }
 
-/* The far side of the bar can carry more than one standing item (Returns
-   pairs "All orders" with its own Fetch, because that channel's endpoint
-   takes no parameters and so earns no command bar of its own). They share
-   one baseline and wrap together below the breakpoint. */
 .x-segment-bar__aside-group {
     display: inline-flex;
     align-items: center;
@@ -355,9 +135,6 @@
 
 .x-segment-bar__aside-group form { display: inline-flex; }
 
-/* A sibling destination that is not one of the segment's own views. It sits
-   on the far side of the bar and takes plain-link weight so it never reads
-   as an eighth filter. */
 .x-segment-bar__aside {
     display: inline-flex;
     align-items: center;
@@ -373,9 +150,6 @@
 .x-segment-bar__aside:hover { color: var(--bl-ink); }
 
 @media (max-width: 640px) {
-    /* The aside would otherwise squeeze the trough it sits beside on a
-       phone, where the trough is already the scrolling element. Below the
-       breakpoint the bar stacks and each part gets the full width. */
     .x-segment-bar {
         flex-direction: column;
         align-items: stretch;
@@ -386,15 +160,6 @@
     .x-segment-bar__aside-group { align-self: flex-start; }
 }
 
-/* The two controls a packer actually touches per order.
-   ------------------------------------------------------------------
-   Measured at 86x25 (.x-btn--sm, Print waybill / Tracking / Arrange
-   shipment) and 61x17 (.x-doc, Packing list / Pick list) against a 24x24
-   floor, with the small buttons sitting a few pixels apart. Mis-taps here
-   open the wrong document in the middle of packing an order.
-
-   Padding rather than min-height on the links, so a wrapped row of them
-   keeps its baseline rhythm instead of turning into a column of boxes. */
 @media (pointer: coarse) {
     .x-btn--sm {
         min-height: 44px;

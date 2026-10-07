@@ -7,11 +7,6 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * Terminable middleware: writes one ApiRequestLog row per external API
- * request, after the response is sent, so it never adds request latency
- * and a logging failure never breaks the actual API call.
- */
 class LogApiRequest
 {
     public function handle(Request $request, Closure $next): Response

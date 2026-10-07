@@ -4,10 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Audit trail for every external API request. Lets the operator see exactly
- * what each API Application (incl. the AI agent) accessed and when.
- */
 return new class extends Migration
 {
     public function up(): void
@@ -17,7 +13,7 @@ return new class extends Migration
             $table->unsignedBigInteger('api_client_id')->nullable();
             $table->string('method', 10);
             $table->string('path');
-            $table->string('scope')->nullable();      // scope required by the route
+            $table->string('scope')->nullable();
             $table->unsignedSmallInteger('status')->nullable();
             $table->string('ip', 45)->nullable();
             $table->timestamp('created_at')->nullable();

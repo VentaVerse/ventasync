@@ -4,8 +4,6 @@
 
 @section('content')
 @php
-    // UserController@destroy refuses both cases, so the page never offers a
-    // delete the server would bounce.
     $isAdminAccount = ($user->userGroup->name ?? '') === 'Administrator';
     $isSelf = auth()->check() && (int) auth()->id() === (int) $user->id;
     $canDelete = !$isAdminAccount && !$isSelf;
@@ -50,9 +48,6 @@
                 @endif
                 @if($canDelete)
                     @if(Route::has('ext.audit.activity-log.index'))<div class="x-menu__sep"></div>@endif
-                    {{-- Destroy is never a standing control: it sits behind the
-                         overflow menu and the shared confirm dialog, and drives
-                         a form outside this one, because forms cannot nest. --}}
                     <button type="button" class="x-menu__item x-menu__item--danger"
                             data-confirm="Delete {{ $user->name }}? This cannot be undone."
                             data-confirm-submit="st-user-delete-form">Delete user</button>
@@ -98,10 +93,6 @@
                 </p>
 
                 <div class="fm-fields fm-fields--2">
-                    {{-- No value attribute, ever. The stored password is a hash
-                         and is never rendered; an empty box means "unchanged",
-                         which is what UserController@update does with
-                         $request->filled('password'). --}}
                     <x-ui.field label="New password" for="st-user-password" name="password">
                         <x-ui.input type="password" id="st-user-password" name="password"
                                     autocomplete="new-password" />

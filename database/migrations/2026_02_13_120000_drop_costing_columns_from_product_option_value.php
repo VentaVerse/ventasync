@@ -33,6 +33,5 @@ return new class extends Migration
 
     public function down(): void
     {
-        // Intentionally left blank. These columns were non-standard and should not be recreated automatically.
     }
 };

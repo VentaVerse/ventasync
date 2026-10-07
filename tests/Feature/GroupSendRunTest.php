@@ -10,12 +10,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
-/**
- * Sending a whole group walks it ten products per request, counts what each
- * step sent, stops on a refusal that touched nothing, and leaves a product
- * that left the group alone. The channel pieces are faked here; each
- * channel's Listings test drives its own.
- */
 class GroupSendRunTest extends TestCase
 {
     use RefreshDatabase;
@@ -136,12 +130,9 @@ class FakeGroupSendController extends Controller
 {
     use DrivesGroupSendRuns;
 
-    /** @var list<int> */
     public static array $members = [];
-    /** @var list<int> */
     public static array $failing = [];
     public static ?string $stop = null;
-    /** @var list<list<int>> */
     public static array $chunks = [];
 
     public static function reset(): void

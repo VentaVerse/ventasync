@@ -5,10 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @php
-        // AppServiceProvider shares $appSetting with every view; the login
-        // controller's own $setting is not always populated, and
-        // config('app.name') is still the scaffold default on a fresh
-        // install. Prefer the record the rest of the app reads.
         $company = $appSetting->company_name
             ?? ($setting->company_name ?? null)
             ?: 'VentaSync';
@@ -22,9 +18,6 @@
     <title>{{ $company }}</title>
     <link rel="icon" type="image/png" href="{{ $favicon }}">
     @include('partials.theme-boot')
-    {{-- The Breeze scaffold pulled Figtree from a font CDN. A self-hosted
-         product should not phone out for a typeface on its login screen, and
-         this application already ships its own faces through Vite. --}}
     @vite(['resources/css/blotter.css', 'resources/js/app.js'])
 </head>
 <body class="bl-app">

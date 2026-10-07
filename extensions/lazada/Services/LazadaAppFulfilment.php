@@ -10,14 +10,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * Lazada's fulfilment buttons for the mobile app. Each runs the Lazada
- * orders page's own action for the order's store, so the phone makes the
- * same Lazada calls, with the same checks, as the web.
- */
 final class LazadaAppFulfilment
 {
-    /** Each action => whether it changes the order. */
     public const ACTIONS = [
         'pack' => true,
         'rts' => true,
@@ -26,7 +20,6 @@ final class LazadaAppFulfilment
         'tracking' => false,
     ];
 
-    /** The order's step as the Lazada orders page places it, and what it allows. */
     public static function block(LazadaOrder $order): array
     {
         [$step, $writes, $reads] = match (strtolower((string) $order->status)) {
@@ -71,7 +64,6 @@ final class LazadaAppFulfilment
         );
     }
 
-    /** The PDF the orders page serves, or the sentence its waybill error page carries. */
     private function waybill(Response $answer, string $orderId): Response
     {
         $body = (string) $answer->getContent();
@@ -87,7 +79,6 @@ final class LazadaAppFulfilment
         return AppFulfilment::waybill(null, '', false, $message);
     }
 
-    /** Lazada's trace, as the tracking number, the courier and each event. */
     private function tracking(JsonResponse $answer): JsonResponse
     {
         $data = (array) $answer->getData(true);

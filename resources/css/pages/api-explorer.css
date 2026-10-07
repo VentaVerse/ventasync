@@ -1,7 +1,3 @@
-/* ============================================================
-   API EXPLORER (unified for Shopee / Lazada / TikTok)
-   Replaces: .sp-*, .lz-*, .tt-* prefixed classes
-   ============================================================ */
 .api-code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
 .api-explorer { display: grid; grid-template-columns: 360px 1fr; gap: 14px; margin-top: 12px; }
 @media (max-width: 1100px) { .api-explorer { grid-template-columns: 1fr; } }
@@ -24,19 +20,6 @@
 .api-badge.get { border-color: #bfdbfe; background: #eff6ff; }
 .api-badge.post { border-color: #bbf7d0; background: #f0fdf4; }
 .api-hint { color: var(--bl-ink-2); font-size: 12px; margin-top: 4px; }
-/* This table used to lean on components/tables.css, which styled the bare
-   `table`/`th`/`td` elements globally and unscoped, and so reached every table
-   in the bundle whether or not it asked. That file was deleted in Round F Task
-   4, and the properties .api-kv was silently inheriting from it are restated
-   here so the table stands on its own classes.
-
-   Only `text-align` is a genuine restatement: a <th> centres by UA default and
-   the legacy rule was the only thing making these row labels left-aligned.
-   The other three inherited properties are deliberately NOT carried over -
-   this is a two-column key/value table, and a shouting --bl-chrome header
-   band, a sticky header in a table that never scrolls, and a vertical rule
-   between the key and the value were all wrong for it. Losing them is the
-   improvement half of that deletion, not a regression. */
 .api-kv { width: 100%; border-collapse: collapse; }
 .api-kv th, .api-kv td { border-bottom: 1px solid var(--bl-rule); padding: 8px 6px; vertical-align: top; text-align: left; }
 .api-kv th { color: var(--bl-ink); font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }

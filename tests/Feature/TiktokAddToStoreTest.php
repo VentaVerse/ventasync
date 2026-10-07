@@ -16,16 +16,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * All Listings goes per-store (#201, the owner 2026-09-05), the Shopee shape on
- * TikTok. THIS STORE shows only what this store carries - a listing record
- * here, or a group pivot a pre-record push gave a TikTok product id; adding
- * a main-catalogue product is the Add products slide-over (Draft C): a
- * capped catalogue search, add in place over JSON, the full catalogue page
- * one link away as the overflow. Remove from store is the inverse - free,
- * and it stops syncing. The product group page carries the same panel over
- * THIS STORE's products, and the group's edit form is its settings only.
- */
 class TiktokAddToStoreTest extends TestCase
 {
     use RefreshDatabase;
@@ -98,16 +88,12 @@ class TiktokAddToStoreTest extends TestCase
         return '/channels/tiktok/' . $this->store->id . '/product-groups/' . $groupId;
     }
 
-    // ── This store ───────────────────────────────────────────────────
-
     public function test_this_store_shows_only_products_this_store_carries(): void
     {
         $onStore = $this->seedProduct('On store widget', 'ON-1');
         $legacy = $this->seedProduct('Legacy pivot widget', 'LEG-1');
         $this->seedProduct('Catalogue only widget', 'OFF-1');
         $this->onStore($onStore);
-        // A product pushed by a group before the listing record carried the
-        // truth is on the store too: its pivot holds the TikTok product id.
         TikTokProductGroupProduct::create(['tiktok_product_group_id' => $this->group()->id, 'product_id' => $legacy, 'tiktok_product_id' => 'tt-legacy', 'sync_status' => 'synced']);
 
         $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
@@ -126,9 +112,6 @@ class TiktokAddToStoreTest extends TestCase
         $this->assertStringContainsString('No products on this store yet', $html);
         $this->assertStringContainsString('data-add-panel-open', $html);
         $this->assertStringContainsString('id="tiktok-add-panel"', $html);
-        /* The tab row says "All", this store's own list, never "All
-           products", which framed the page as the whole catalogue. The left
-           menu's own total is allowed to say it: there it counts the store. */
         $this->assertStringNotContainsString('<span>All products</span>', $html, 'the catalogue framing is gone');
     }
 
@@ -143,8 +126,6 @@ class TiktokAddToStoreTest extends TestCase
         $this->assertStringNotContainsString('data-add-panel-open', $html);
         $this->assertStringNotContainsString('id="tiktok-add-panel"', $html);
     }
-
-    // ── The panel's catalogue search ─────────────────────────────────
 
     public function test_catalogue_search_defaults_to_products_not_yet_on_this_store(): void
     {
@@ -190,8 +171,6 @@ class TiktokAddToStoreTest extends TestCase
         $this->assertSame(25, $all->json('shown'), 'a slide-over cannot list a whole catalogue; it caps and names the total');
     }
 
-    // ── Add ───────────────────────────────────────────────────────────
-
     public function test_add_to_store_over_json_puts_the_product_on_the_store(): void
     {
         $pid = $this->seedProduct('Catalogue only widget', 'OFF-1');
@@ -208,7 +187,6 @@ class TiktokAddToStoreTest extends TestCase
         $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
         $this->assertStringContainsString('Catalogue only widget', $html);
 
-        // Again: already on, nothing doubled.
         $this->actingAs($this->manager())
             ->postJson($this->base() . '/' . $pid . '/add-to-store')
             ->assertOk()->assertJson(['added' => false]);
@@ -237,8 +215,6 @@ class TiktokAddToStoreTest extends TestCase
         $this->assertStringContainsString('Back to Listings', $html);
     }
 
-    // ── Remove from store ─────────────────────────────────────────────
-
     public function test_remove_from_store_takes_the_product_off_the_store_freely(): void
     {
         $pid = $this->seedProduct('Live widget', 'LIVE-1');
@@ -252,7 +228,6 @@ class TiktokAddToStoreTest extends TestCase
         $this->assertStringContainsString('stays up, still orderable', $html);
         $this->assertStringContainsString('Use Delete from TikTok Shop for that', $html);
 
-        // Live on TikTok Shop, in a group - and still no blocker (the owner, 2026-09-05).
         $this->actingAs($this->manager())
             ->from($this->base())
             ->post($this->base() . '/' . $pid . '/remove-from-store')
@@ -281,8 +256,6 @@ class TiktokAddToStoreTest extends TestCase
         $this->assertSame(1, TikTokListing::withoutGlobalScope('tiktokStore')->where('product_id', $pid)->count());
     }
 
-    // ── The product group's own panel ─────────────────────────────────
-
     public function test_the_group_page_offers_the_panel_and_not_add_a_product_by_name(): void
     {
         $group = $this->group();
@@ -310,8 +283,6 @@ class TiktokAddToStoreTest extends TestCase
         TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => $inGroup, 'sync_status' => 'pending']);
         TikTokProductGroupProduct::create(['tiktok_product_group_id' => $other->id, 'product_id' => $elsewhere, 'sync_status' => 'pending']);
 
-        // Option 2 (the owner, 2026-09-05): the Master Catalog, minus what the
-        // group already holds, each row saying whether the store carries it.
         $r = $this->actingAs($this->manager())->getJson($this->groupBase($group->id) . '/products/search')->assertOk();
         $byName = collect($r->json('items'))->keyBy('name');
         $this->assertSame(['Catalogue only widget', 'On store free', 'Owned elsewhere'], $byName->keys()->sort()->values()->all());
@@ -344,8 +315,6 @@ class TiktokAddToStoreTest extends TestCase
             ->assertOk()->assertJson(['added' => false]);
         $this->assertSame(1, TikTokProductGroupProduct::query()->where('tiktok_product_group_id', $group->id)->where('product_id', $free)->count());
 
-        // A product the store does not carry is listed on it as it joins
-        // (option 2, 2026-09-05); an unknown product is refused.
         $this->actingAs($this->manager())
             ->postJson($this->groupBase($group->id) . '/products/' . $off . '/add')
             ->assertOk()->assertJson(['ok' => true, 'added' => true, 'listed' => true]);
@@ -355,7 +324,6 @@ class TiktokAddToStoreTest extends TestCase
             ->postJson($this->groupBase($group->id) . '/products/424242/add')
             ->assertNotFound();
 
-        // The one-group rule: held without Move here, moved with it.
         $this->actingAs($this->manager())
             ->postJson($this->groupBase($group->id) . '/products/' . $elsewhere . '/add')
             ->assertStatus(409);

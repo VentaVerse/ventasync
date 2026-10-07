@@ -1,25 +1,4 @@
-/* ============================================================
-   VentaSync v2.2: page vocabularies, in the Blotter.
-
-   blotter-components.css dresses the shared component layer. This file
-   dresses the vocabularies that belong to one family of pages: the order
-   detail (od-), the order form (of-), the payments report (rp-/op-), the
-   settings hub (x-hub) and the settings pages (st-).
-
-   Same contract as the component adapter: the class names are kept exactly
-   as the views and their JavaScript already use them, and only the
-   materials change. Widths and grid tracks are carried over from the
-   legacy rules, because those proportions were designed against real
-   content and re-deciding them would be churn, not design.
-   ============================================================ */
-
 @layer components {
-    /* ------------------------------------------------------------
-       Shared across the order pages
-       ------------------------------------------------------------ */
-
-    /* A figure and, under it, the same figure as the buyer was charged.
-       Both are money, so both are set as money. */
     .money-primary {
         font-variant-numeric: tabular-nums;
         font-weight: 600;
@@ -33,15 +12,6 @@
         color: var(--bl-ink-3);
     }
 
-    /* Channel identity on a badge, same grammar as the swatch: a square
-       carrying the marketplace's own colour, beside its written name. */
-    /* The word is tinted with the channel's own deep colour, which is what
-       the Channel cell's comment always promised and what plain ink never
-       delivered: without the dot (deliberately dropped, dot means state)
-       and without the tint, Channel read exactly like Customer beside it.
-       Deep, not brand: Shopee's orange holds 12px text at 3.7:1, its deep
-       red at 4.9:1. The dark theme lifts each to a tint that clears the
-       dark sheet. */
     .x-badge--shopee { color: #c0392b; }
     .x-badge--shopee .x-badge__dot { background: #ee4d2d; }
     .x-badge--lazada { color: #1c2496; }
@@ -65,7 +35,6 @@
     .x-td-actions { width: 44px; text-align: right; }
     .x-th-sort--num { justify-content: flex-end; }
 
-    /* The exchange rate a foreign order was booked at. */
     .currency-banner {
         display: flex;
         flex-wrap: wrap;
@@ -85,9 +54,6 @@
         color: var(--bl-ink-2);
     }
 
-    /* ------------------------------------------------------------
-       Order detail
-       ------------------------------------------------------------ */
     .od-page {
         display: flex;
         flex-direction: column;
@@ -95,19 +61,10 @@
         padding: 18px var(--bl-pad) 40px;
     }
 
-    /* The link is the words, not the row (the owner, 2026-09-09: "The
-       clickable hit box is just too long. Almost the entire header can be
-       clicked"). .od-page is a flex column, and a flex item stretches
-       across its cross axis by default - which blockified this inline-flex
-       anchor to the full page width, so anywhere on that line was Back.
-       align-self shrinks it back to "< Orders". */
     .od-back {
         display: inline-flex;
         align-self: flex-start;
         align-items: center;
-        /* A 45x18 target is under the floor for a thumb. The padding
-           is cancelled by an equal negative margin, so the words stay
-           exactly where they were drawn and only the hitbox grows. */
         padding: 4px 0;
         margin: -4px 0;
         gap: 5px;
@@ -134,7 +91,6 @@
         min-width: 0;
     }
 
-    /* The order reference is an identifier, so it is set as one. */
     .od-title {
         margin: 0;
         font-family: var(--font-mono);
@@ -150,12 +106,6 @@
         gap: 7px;
     }
 
-    /* THE STATUS BADGE IS THE CONTROL (critique, 2026-08-27). Update status
-       sat at y=964 on a desktop and 1,892 of 2,565 on a phone, past two
-       cost editors, while the badge everyone looks at did nothing. The
-       badge opens a panel holding the same two forms that section held:
-       who sets the status, and the change itself. The history stays at
-       the foot, where a record belongs. */
     .od-status { position: relative; display: inline-flex; }
     .od-status > summary {
         display: inline-flex;
@@ -202,8 +152,6 @@
     .od-status__scrim { display: none; }
     @media (max-width: 720px) {
         .od-status__panel { position: fixed; left: 16px; right: 16px; top: auto; bottom: 16px; width: auto; max-height: 80vh; overflow-y: auto; z-index: 31; }
-        /* The sheet's ground: a tap anywhere outside it closes it, and the
-           page cannot be mistaken for the surface in focus. */
         .od-status[open] .od-status__scrim { display: block; position: fixed; inset: 0; z-index: 30; background: var(--bl-scrim); }
     }
 
@@ -231,8 +179,6 @@
         font-family: var(--font-mono);
         font-variant-numeric: tabular-nums;
         color: var(--bl-ink-2);
-        /* The external-link icon after a marketplace reference is part of
-           the value; it wrapped to a line of its own. */
         white-space: nowrap;
     }
 
@@ -266,14 +212,6 @@
         align-items: start;
     }
 
-    /* One column. The rail is gone: the facts run as a band above (see
-       .od-facts) and the money takes the whole width below. */
-
-    /* ONE frame, three cells. Three separate cards of different heights
-       (a four-line customer beside two seven-line addresses) read as
-       unbalanced the moment an order had little to say (the owner,
-       2026-08-27); one card divided by hairlines reads as one band
-       whatever each cell holds. */
     .od-facts {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -296,25 +234,19 @@
         .od-facts > .od-card + .od-card { border-left: 0; border-top: 1px solid var(--bl-rule); }
     }
 
-    /* Totals and Payments side by side once there is room: the money and
-       what has been paid against it, read together. */
     .od-money {
         display: grid;
         grid-template-columns: minmax(0, 1fr);
         gap: 22px;
-        /* Both sections stand the same height, so a Payments section with
-           one sentence in it does not float short beside the ledger. */
         align-items: stretch;
     }
     @media (min-width: 900px) {
         .od-money { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
     }
     .od-money > .od-section { margin: 0; }
-    /* Sale and Profit stack in the first column; Payments sits beside them. */
     .od-money__ledgers { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
     .od-money__ledgers > .od-section { margin: 0; }
     .od-payments__body { display: flex; flex-direction: column; gap: 10px; }
-    /* An empty Payments section centres what little it has to say. */
     .od-payments__body:has(> .od-empty:first-child) { flex: 1; justify-content: center; align-items: center; text-align: center; }
     .od-payments { display: flex; flex-direction: column; }
     .od-paid--balance { font-size: 14px; font-weight: 650; padding-bottom: 8px; border-bottom: 1px solid var(--bl-rule-2); }
@@ -326,33 +258,23 @@
         min-width: 0;
     }
 
-    /* A page that brings a side column keeps it beside the work once there
-       is room; a page without one stays a single column. */
     @media (min-width: 1001px) {
         .od-body:has(> .od-col--side) { grid-template-columns: minmax(0, 1fr) 340px; }
     }
 
-    /* The main column is the container its item rows answer to, so a row
-       restacks by the width it actually has rather than the window's. */
     .od-col--main { container: odmain / inline-size; }
 
-    /* A card in the side column keeps its full height; the column scrolls
-       instead of squeezing a card until it hides its own content. */
     .od-col--side > * { flex-shrink: 0; }
 
-    /* A payout's state beside the breakdown it settles. */
     .od-payout { display: inline-flex; align-items: center; gap: var(--bl-space-2); }
     .od-payout__when { font-size: 12px; color: var(--bl-ink-3); }
 
-    /* The raw data folds away at the foot of the work, quieter than the
-       sections above it. */
     .od-rawbox {
         padding: 0 var(--bl-space-1);
         color: var(--bl-ink-3);
         font-size: 12px;
     }
 
-    /* One heading voice down both columns. */
     .od-col--side .od-card__title {
         font-size: 13px;
         font-stretch: normal;
@@ -396,15 +318,11 @@
         gap: 8px;
     }
 
-    /* The line items. One grid shared by the head and every row, so the
-       figures line up as columns rather than as a stack of cards. */
     .od-items { display: flex; flex-direction: column; }
 
     .od-items__head,
     .od-item {
         display: grid;
-        /* 56px of picture, not 96: the widest fixed column carried the least
-           decision value and the name truncated at 172px beside it. */
         grid-template-columns: 56px minmax(0, 2fr) 3rem 7rem 7.5rem;
         align-items: start;
         gap: 12px;
@@ -425,10 +343,6 @@
 
     .od-items__head span:nth-child(n + 3) { text-align: right; }
 
-    /* The picture box is the column's width, whatever the component rule
-       says (96px), and shows the whole picture: a portrait product photo
-       was cropped, and the 96px box overlapped the product name beside it
-       (the owner, 2026-08-27). */
     .od-item .od-item__media .order-img { object-fit: contain; }
     .od-item__body { min-width: 0; }
 
@@ -449,9 +363,6 @@
     .od-fig--total { font-weight: 650; }
     .od-fig__k { display: none; }
 
-    /* What the line actually earned, under the line it belongs to. */
-    /* Five figures in five columns, so the second item's Markup sits under
-       the first item's Markup instead of wrapping to a line of its own. */
     .od-econ {
         grid-column: 2 / -1;
         display: grid;
@@ -475,7 +386,6 @@
         font-weight: 600;
     }
 
-    /* The money ledger: label left, figure right, one line per fact. */
     .od-ledger { display: flex; flex-direction: column; }
 
     .od-ledger__row {
@@ -504,7 +414,6 @@
         font-weight: 650;
     }
 
-    /* The total row draws its own rule above; the row before it drops its own. */
     .od-ledger__row:has(+ .od-ledger__row--total) { border-bottom: 0; }
     .od-ledger__row--total .od-ledger__v { font-size: 16px; font-weight: 650; }
 
@@ -538,8 +447,6 @@
         padding: 8px 0;
     }
 
-    /* Money that moved the wrong way is the one thing here that takes a
-       colour, because a negative figure is a state. */
     .od-neg { color: var(--bl-bad); }
     .od-pos { color: var(--bl-good); }
 
@@ -575,9 +482,6 @@
         border-color: var(--bl-rule-2);
         color: var(--bl-ink);
     }
-
-    /* Side rail panels. */
-    /* .od-card is aliased onto .bl-inset in blotter.css. */
 
     .od-card__head {
         display: flex;
@@ -680,9 +584,6 @@
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
         gap: 12px;
-        /* end, not start: a cell holding only a submit has no label above it,
-           so aligning to the top floated the button a label's height clear of
-           the inputs it submits. */
         align-items: end;
     }
 
@@ -700,10 +601,6 @@
 
     .od-form__actions { display: flex; justify-content: flex-end; }
 
-    /* A submit sharing a field grid with labelled controls. Grid blockifies
-       an inline-flex child, so without this the button stretches the whole
-       column into a slab and lines up with the labels rather than with the
-       controls it submits. */
     .od-field > .x-btn:only-child,
     .fm-field > .x-btn:only-child {
         margin-top: auto;
@@ -715,12 +612,6 @@
     .od-override__title { font-size: 13px; font-weight: 550; }
     .od-override__note { margin-top: 2px; font-size: 11.5px; color: var(--bl-ink-3); }
 
-    /* Same switch as the form pages, so one control means one thing. */
-    /* A switch is a pill with a round knob that slides. TWIN of
-       .fm-switch__track in blotter-components.css, which carries the full
-       reasoning: both took their radius from --bl-r-ctrl, both broke when
-       that token moved in v2.3, and both are now stated in absolute values.
-       These two blocks must agree. If you change one, change the other. */
     .od-switch {
         position: relative;
         flex: none;
@@ -747,8 +638,6 @@
         transition: transform .16s cubic-bezier(.2, .7, .3, 1);
     }
 
-    /* On is the brand's "you can act here" cyan, and the knob travels rather
-       than teleports. */
     .od-switch[aria-checked="true"] {
         border-color: var(--bl-brand-deep);
         background: var(--bl-brand-deep);
@@ -761,7 +650,6 @@
         .od-switch::after { transition-duration: 0.01ms; }
     }
 
-    /* The order's history, newest first. */
     .od-time { display: flex; flex-direction: column; }
 
     .od-time__row {
@@ -787,10 +675,6 @@
         .od-items__head { display: none; }
         .od-items__head,
         .od-item { grid-template-columns: 72px minmax(0, 1fr); }
-        /* The figures stop being grid items. With display: contents they
-           flowed into the two remaining columns in turn, so Total landed
-           under the thumbnail and "Qty1" had no space; on a phone the
-           packer reads Qty, Unit and Total on one line under the name. */
         .od-item__figs {
             display: flex;
             flex-wrap: wrap;
@@ -804,9 +688,6 @@
         .od-fee-amount { flex: 1 1 auto; width: auto; }
     }
 
-    /* ------------------------------------------------------------
-       Order form
-       ------------------------------------------------------------ */
     .of-page {
         display: flex;
         flex-direction: column;
@@ -818,8 +699,6 @@
     .of-pick [hidden] { display: none !important; }
 
     .fm-col--main { min-width: 0; }
-
-    /* The column widths live in pages/order-form.css, once. */
 
     .of-lines { width: 100%; }
     .of-lines__empty { padding: 22px 0; text-align: center; font-size: 13px; color: var(--bl-ink-3); }
@@ -902,7 +781,6 @@
     .of-pay,
     .of-pay-block { min-width: 0; }
 
-    /* Product picker. */
     .of-pick {
         display: flex;
         flex-direction: column;
@@ -1042,9 +920,6 @@
     .of-hist__what { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
     .of-hist__note { grid-column: 2; color: var(--bl-ink-3); }
 
-    /* ------------------------------------------------------------
-       Payments report
-       ------------------------------------------------------------ */
     .rp-page {
         display: block;
         padding: 18px var(--bl-pad) 40px;
@@ -1129,8 +1004,6 @@
         color: var(--bl-ink-3);
     }
 
-    /* The currency itself is the fact the reader checks before trusting a
-       column of money, so it is set as a value rather than as prose. */
     .rp-basis__code {
         font-variant-numeric: tabular-nums;
         font-weight: 600;
@@ -1142,16 +1015,12 @@
     .rp-scroll { overflow-x: auto; }
     .rp-total { font-weight: 650; }
 
-    /* Money still owed reads as attention, because it is a state. */
     .op-owing { color: var(--bl-attn); font-weight: 650; }
     .op-col-count { width: 92px; }
 
     .rp-range { display: inline-flex; align-items: center; gap: 4px; }
     .rp-filters { align-items: flex-end; }
 
-    /* ------------------------------------------------------------
-       Settings hub
-       ------------------------------------------------------------ */
     .x-hub {
         max-width: 1040px;
         padding: 18px var(--bl-pad) 40px;
@@ -1219,8 +1088,6 @@
         background: color-mix(in srgb, var(--bl-brand) 4%, var(--bl-sheet));
     }
 
-    /* The icon is drawn, not tinted: a filled swatch here would be colour
-       spent on decoration. */
     .x-hub__card-icon {
         display: flex;
         align-items: center;
@@ -1241,9 +1108,6 @@
         .x-hub__grid { grid-template-columns: 1fr; }
     }
 
-    /* ------------------------------------------------------------
-       Settings pages
-       ------------------------------------------------------------ */
     .st-os-page,
     .st-log-page,
     .st-ext-page {
@@ -1296,7 +1160,6 @@
         color: var(--bl-ink-3);
     }
 
-    /* A rate is a figure with a basis, so both are mono and stack right. */
     .st-rate {
         display: flex;
         flex-direction: column;
@@ -1364,7 +1227,6 @@
     .st-fact__v--path { word-break: break-all; font-size: 11.5px; }
     .st-fact__note { font-size: 11.5px; color: var(--bl-ink-3); }
 
-    /* Error log. Severity is a state, so it is the one coloured thing. */
     .st-log-count { font-size: 12.5px; color: var(--bl-ink-3); }
     .st-log { display: flex; flex-direction: column; }
 
@@ -1418,7 +1280,6 @@
         color: var(--bl-ink-3);
     }
 
-    /* Extensions. */
     .st-install {
         display: flex;
         flex-direction: column;
@@ -1441,9 +1302,6 @@
 
     .st-file { display: flex; align-items: center; gap: 12px; min-width: 0; flex-wrap: wrap; }
 
-    /* The real input is the control; the label is what you see. It keeps a
-       size rather than collapsing, so the focus ring below has something to
-       draw around. */
     .st-file__input {
         position: absolute;
         width: 1px;
@@ -1451,8 +1309,6 @@
         opacity: 0;
     }
 
-    /* A button, because it opens the file picker. It was inline text with no
-       edge, so the one control in the section did not look like one. */
     .st-file__btn {
         display: inline-flex;
         align-items: center;
@@ -1471,7 +1327,6 @@
 
     .st-file__btn:hover { background: var(--bl-paper); border-color: var(--bl-ink-3); }
 
-    /* The focus lands on the hidden input, so the label wears its ring. */
     .st-file:has(.st-file__input:focus-visible) .st-file__btn {
         outline: 2px solid var(--bl-brand-deep);
         outline-offset: 2px;
@@ -1482,7 +1337,6 @@
         cursor: not-allowed;
     }
 
-    /* A long filename ends in an ellipsis rather than pushing Undo off the row. */
     .st-file__name {
         min-width: 0;
         max-width: 100%;
@@ -1510,8 +1364,6 @@
     .st-file__reset:hover { color: var(--bl-ink); }
     .st-file__reset[hidden] { display: none; }
 
-    /* The refusal sits under the control it refuses, in the same place a
-       validation message would land. */
     .st-file__error {
         margin: 6px 0 0;
         font-size: 12.5px;
@@ -1541,10 +1393,6 @@
     .st-body--one .fm-col--main { max-width: 900px; }
     .st-form--wide .fm-body { grid-template-columns: minmax(0, 1fr); }
 
-    /* Permission scopes: a resource, then one None / Read / Read & write
-       pill. The tier colours are the user-group pill's, so a level reads the
-       same on both pages. Native radios carry the value and the arrow keys;
-       the thumb follows the checked one through :has, with no script. */
     .st-scopes {
         --st-level-h: 32px;
         --st-level-text-on: #fff;
@@ -1579,7 +1427,6 @@
         color: var(--bl-ink-3);
     }
 
-    /* The three buttons sit over the pill's three columns. */
     .st-scopes__all {
         position: relative;
         display: grid;
@@ -1656,8 +1503,6 @@
         background: var(--bl-chrome);
     }
 
-    /* A read-only resource keeps the three-column rhythm: its pill is the
-       first two thirds, so every None and Read lines up down the list. */
     .st-level[data-segments="2"] { width: calc((264px - 8px) * 2 / 3 + 8px); }
 
     .st-level__thumb {
@@ -1705,12 +1550,8 @@
         .st-level__thumb { transition: background var(--bl-motion-fast); }
     }
 
-    /* The date only matters once No expiry is off; settings.js disables
-       it at the same time so it never posts. */
     .st-expiry:has(.fm-switch__input:checked) .st-expiry-date { display: none; }
 
-    /* The View token dialog. The field is wide enough for a whole Sanctum
-       token at 12px mono, so it reads without scrolling on a desktop. */
     .st-reveal { max-width: 620px; }
     .st-reveal__status { margin: 0 0 var(--bl-space-3); font-size: 13px; color: var(--bl-ink-2); }
     .st-reveal__row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; }
@@ -1718,20 +1559,12 @@
     .st-reveal__value { flex: 1 1 320px; min-width: 0; font-family: var(--font-mono); font-size: 12px; }
     .st-reveal__foot { display: flex; justify-content: flex-end; margin-top: var(--bl-space-4); }
 
-    /* What is on the site now, directly under the control that replaces it.
-       Set on a ground so a logo with a transparent background is still
-       readable, and bounded in height so a tall upload cannot push the
-       favicon field off the fold. */
-    /* The attribute alone loses to this rule's own display. */
     .st-brandnow[hidden] { display: none; }
 
     .st-brandnow {
         display: flex;
         flex-direction: column;
         align-items: flex-start;
-        /* The field is a flex column, so a child stretches to its width
-           unless it says otherwise. The box should be the size of the image
-           in it, not the size of the form. */
         align-self: flex-start;
         max-width: 100%;
         gap: 8px;
@@ -1759,8 +1592,6 @@
 
     .st-brand__cap { font-size: 12px; color: var(--bl-ink-3); }
 
-    /* Back to the shipped mark. One under each upload, naming what it
-       removes, because the two sit side by side. */
     .st-brand__remove {
         align-self: flex-start;
         margin-top: 8px;
@@ -1794,16 +1625,6 @@
     }
 }
 
-    /* An editable figure has to look different from a printed one.
-       Unit cost, shipping and the fee were <button> elements rendering as
-       plain money, identical to the line totals beside them that cannot be
-       changed. An operator either never found the feature or found it by
-       accident on a live order - and unit cost drives COGS, which drives
-       every profit figure on the page.
-
-       A dashed underline in the ink's own colour, not a border or a box:
-       the figure keeps its place in the column of numbers and still says
-       "you can change me". The pointer confirms it. */
     .od-edit {
         border: 0;
         background: none;
@@ -1825,74 +1646,18 @@
         outline: 1px solid var(--bl-rule-2);
     }
 
-/* ============================================================
-   The order page's left column was never given the card treatment.
-
-   v2.3 turned every data container into a raised white sheet on a tinted
-   ground, and .od-card was in that list. .od-section - which wraps Items,
-   Totals, Update status and Order history, i.e. the entire left column and
-   the substance of the page - was not. So the rail carried three bordered
-   cards while everything that matters sat bare on the grey, and the page
-   read as unfinished down its whole left side.
-
-   This is the defect the owner saw and my audit did not: I measured contrast,
-   overflow, DOM count and token usage, all of which were fine, and never
-   asked whether the page's own containers agreed with each other.
-   ============================================================ */
 @layer components {
-    /* The surface is .bl-sheet's, in blotter.css. Only the stacking is the
-       order page's own. */
     .od-section + .od-section { margin-top: 16px; }
 
-    /* The section head no longer needs a rule to separate it: the sheet
-       does that job, exactly as on every other converted page. */
     .od-section__head { border-bottom: 0; padding-bottom: 4px; }
 
-    /* The submit sits in a field slot with no label, so it aligned to the
-       top of its cell while every input aligned under its own label - the
-       button floated a label's height above the row it belongs to. Pushing
-       it down puts it on the same baseline as the fields it submits. */
     .od-field > .x-btn { margin-top: auto; }
 }
 
-/* ============================================================
-   Update status and Order history sit AFTER the two-column grid, so they
-   ran the full page width while Items and Totals stopped at the rail -
-   two card widths on one page, which is the kind of thing that reads as
-   "unfinished" long before anyone can name it.
-
-   They keep the left column's measure. The subtraction is the grid's own
-   track plus its gap (320px rail + 22px), so the two agree by
-   construction rather than by a number chosen to look right.
-   ============================================================ */
-/* (The rail is gone; the history runs the full width like everything else.) */
-
-/* ============================================================
-   Which environment you are in is worth a colour.
-
-   Production and Sandbox were the same ink pill, so the one control on
-   the page that decides whether an action touches real orders and real
-   money looked exactly like a view filter. Sandbox takes the attention
-   token - the same amber that means "needs a person" everywhere else -
-   and the whole control borrows it, so the answer is visible before you
-   read either word. Production stays ink: it is the serious state, not
-   the alarming one.
-   ============================================================ */
 @layer components {
-    /* The environment colours live in resources/css/pages/channel-settings.css,
-       not here. That file is a legacy page stylesheet imported through the
-       bridge and is UNLAYERED, so it beats anything in @layer components no
-       matter how specific the selector - which is why the first version of
-       this rule measured as though it had never been written. */
 }
 
 @layer components {
-    /* THE PHONE ORDERS LIST (critique, 2026-08-27). The generic restack made
-       each order a six-line card of label and value, 256px tall, 13,106px
-       for one page, and only the 53x14px order number could be tapped. Two
-       lines: the number, the status and the total; the customer, the
-       channel and the time. The whole row opens the order; the actions
-       menu keeps its corner above that. */
     @media (max-width: 640px) {
         .so-table > tbody > tr {
             position: relative;
@@ -1905,9 +1670,6 @@
             align-items: center;
         }
         .so-table > tbody > tr > td { grid-column: auto; }
-        /* Outranks the generic restack's own label rule, which carries the
-           attribute selector: without this the labels came back and the row
-           stood 102px. */
         .so-table.x-table > tbody > tr > td[data-label]::before { display: none; }
         .so-table > tbody > tr > td.x-col-id { grid-area: id; }
         .so-table > tbody > tr > td[data-label="Status"] { grid-area: status; }
@@ -1923,8 +1685,6 @@
             padding-left: 8px;
         }
         .so-table > tbody > tr > td.x-col-total { padding-right: 34px; }
-        /* The whole row is the link: the order number's anchor reaches the
-           row's four edges, under the actions cell. */
         .so-table > tbody > tr > td.x-col-id > .x-row-link::after {
             content: '';
             position: absolute;
@@ -1933,10 +1693,6 @@
     }
 }
 
-/* The picture box on an order line. In the vocabulary layer, because that
-   layer's own .order-img-wrap (86px) outranks anything in components by
-   layer order, whatever the selector: the 96px component box overlapped
-   the product name and cropped a portrait photo (the owner, 2026-08-27). */
 @layer vocabulary {
     .od-item .od-item__media.order-img-wrap { width: 56px; height: 56px; min-width: 0; }
 }

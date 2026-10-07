@@ -3,25 +3,6 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Phase D of the one-vocabulary plan: the retired scheme leaves the
- * database.
- *
- * TRANSLATE FIRST, PRUNE SECOND, ONE TRANSACTION. Every group holding a
- * legacy key gets the derived keys that cover it (same tier, never
- * widening) - creating the rows if missing - and only then do the legacy
- * rows and their grants go. A database restored from a years-old backup
- * and migrated forward arrives at exactly the access it had, in the only
- * vocabulary that remains.
- *
- * The translation table is EMBEDDED, not read from LegacyGrantMap: that
- * class is deleted in the same commit, and a migration must still run
- * years from now against code that has long forgotten the old scheme.
- *
- * Pruned: every permission row whose key has no slash. After this, the
- * permissions table holds catalog-derived keys only, and the boot sync
- * keeps it converged.
- */
 return new class extends Migration
 {
     private const TRANSLATIONS = [
@@ -138,8 +119,6 @@ return new class extends Migration
                 }
             }
 
-            // Now nothing depends on them: every legacy row goes, grants
-            // included. No slash is the tell - every derived key has one.
             $legacyIds = DB::table('permissions')
                 ->where('key', 'not like', '%/%')
                 ->pluck('id');
@@ -151,8 +130,5 @@ return new class extends Migration
 
     public function down(): void
     {
-        // The rows can be re-created empty, but the grants they carried are
-        // only reconstructable FROM the translations - which is the forward
-        // direction. Restoring the old scheme means restoring a backup.
     }
 };

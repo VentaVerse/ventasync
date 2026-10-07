@@ -6,25 +6,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * One product, one group (cleanup point 2, the owner 2026-09-03).
- *
- * A product in several groups was the ambiguity that made group status
- * unreadable: which group's settings priced it, which page's status was
- * true. Membership becomes unique - per store where groups are
- * store-scoped (Shopee, Venta, OpenCart), globally where they are not
- * (Lazada, TikTok, Pedallion) - and the legacy category/manufacturer
- * FILTER membership dies with it (its resolution code is already gone:
- * an empty filter matched every product, the #96 catch-all trap).
- *
- * Existing multi-memberships are resolved deterministically - the OLDEST
- * membership (lowest pivot id) wins - and every removal is written to the
- * log so nothing is silently reassigned. The owner asked for a report, not a
- * guess; the log lines are the report.
- */
 return new class extends Migration
 {
-    /** pivot table => [group fk column, group table, store fk column|null] */
     private const PIVOTS = [
         'shopee_product_group_products' => ['shopee_product_group_id', 'shopee_product_groups', 'shopee_setting_id'],
         'venta_product_group_products' => ['venta_product_group_id', 'venta_product_groups', 'venta_setting_id'],
@@ -79,10 +62,6 @@ return new class extends Migration
                 DB::table($pivot)->whereIn('id', array_map(fn ($r) => (int) $r->id, $drop))->delete();
             }
 
-            /* The database holds the rule where it can express it: a global
-             * unique on product_id where groups are not store-scoped. The
-             * store-scoped pivots (the store lives on the GROUP row, not
-             * the pivot) are enforced in the controllers instead. */
             if ($storeFk === null) {
                 Schema::table($pivot, function (Blueprint $table) use ($pivot) {
                     $table->unique('product_id', $pivot . '_one_group');

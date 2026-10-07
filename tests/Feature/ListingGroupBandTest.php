@@ -13,11 +13,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * The Product group band leads a listing page: the store's groups in one
- * dropdown with the product's own group picked, and each group's values
- * on the page for the band to fill the fields with.
- */
 class ListingGroupBandTest extends TestCase
 {
     use RefreshDatabase;

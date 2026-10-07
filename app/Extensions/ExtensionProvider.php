@@ -7,10 +7,8 @@ use Illuminate\Support\ServiceProvider;
 
 abstract class ExtensionProvider extends ServiceProvider
 {
-    /** Unique extension identifier — must match extension.json "id" */
     protected string $id = '';
 
-    /** Resolved base path of the extension directory */
     protected string $basePath = '';
 
     public function register(): void
@@ -23,7 +21,6 @@ abstract class ExtensionProvider extends ServiceProvider
 
         $this->app->singletonIf(McpToolRegistry::class);
 
-        // Merge config files if config/ directory exists
         $configPath = $this->basePath . '/config';
         if (is_dir($configPath)) {
             foreach (glob($configPath . '/*.php') as $file) {
@@ -44,23 +41,13 @@ abstract class ExtensionProvider extends ServiceProvider
         $this->bootViews();
         $this->bootMigrations();
         $this->bootTranslations();
-        // A pulled update brings new pictures without an install or enable to publish them.
         ExtensionImages::publish($this->id);
     }
 
-    /**
-     * The assistant tools this extension brings, as class names. Each still
-     * decides for itself whether an application may see it.
-     *
-     * @return list<class-string>
-     */
     protected function mcpTools(): array
     {
         return [];
     }
-
-    // IMPORTANT: Use different method names than parent to avoid recursion
-    // Call parent::loadRoutesFrom(), parent::loadViewsFrom(), parent::loadMigrationsFrom()
 
     protected function bootRoutes(): void
     {
@@ -69,11 +56,6 @@ abstract class ExtensionProvider extends ServiceProvider
             $this->app['router']->middleware('web')->group($routeFile);
         }
 
-        // External API routes. Each extension owns its own scoped endpoints;
-        // they are mounted under /api/v1 with token auth + audit logging, the
-        // same envelope core uses. The extension's routes/api.php declares its
-        // own `scope:{resource}:{action}` middleware per route. This keeps the
-        // API modular — core never references extension resources.
         $apiRouteFile = $this->basePath . '/routes/api.php';
         if (file_exists($apiRouteFile)) {
             $this->app['router']
@@ -82,9 +64,6 @@ abstract class ExtensionProvider extends ServiceProvider
                 ->group($apiRouteFile);
         }
 
-        // The app door: the same endpoints for the mobile app, reached with a
-        // person's login token under that person's permissions. The
-        // extension's routes/app.php gives each route its own `perm:`.
         $appRouteFile = $this->basePath . '/routes/app.php';
         if (file_exists($appRouteFile)) {
             $this->app['router']
@@ -110,18 +89,6 @@ abstract class ExtensionProvider extends ServiceProvider
         }
     }
 
-    /**
-     * Auto-load the extension's translation files under the `ext-{id}` namespace
-     * so core can resolve display strings (permission labels, UI text, etc.)
-     * via Laravel's translator without knowing which extension owns the key.
-     *
-     * Layout:
-     *   extensions/{id}/lang/en/permissions.php
-     *   extensions/{id}/lang/tl/permissions.php   (when shipping new locales)
-     *
-     * Resolution from core:
-     *   __('ext-shopee::permissions.manage_shopee.label')
-     */
     protected function bootTranslations(): void
     {
         $langPath = $this->basePath . '/lang';
@@ -140,29 +107,11 @@ abstract class ExtensionProvider extends ServiceProvider
         return $this->basePath;
     }
 
-    /**
-     * The automations this extension runs, each as
-     * [command, name, every, unit] with an optional fifth entry of options.
-     *
-     * Declared here, in code, rather than written once by a migration: a
-     * migration runs before an extension is switched on, so an install that
-     * switches it on later would never get them. App\Integrations\Support\
-     * AutomationCatalogue keeps the scheduled_jobs table in step with this
-     * list. An extension with nothing to schedule leaves it empty.
-     *
-     * @return array<int, array{0: string, 1: string, 2: int, 3: string, 4?: array<string, mixed>}>
-     */
     public function automations(): array
     {
         return [];
     }
 
-    /**
-     * The stores the automations are kept for, one full set each, or null
-     * for a single set for the whole channel.
-     *
-     * @return array<int, int>|null
-     */
     public function automationStoreIds(): ?array
     {
         return null;

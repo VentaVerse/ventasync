@@ -16,11 +16,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * Per-store reports (the owner, 2026-09-05): a core order remembers its store
- * on its own, so reports read by store and a deleted store's sales keep
- * the name they were sold under.
- */
 class StoreStampTest extends TestCase
 {
     use RefreshDatabase;
@@ -69,8 +64,6 @@ class StoreStampTest extends TestCase
         $store = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
         $pfx = config('catalog.prefix');
 
-        // Two orders pulled "before the stamp": synced, then their stamp
-        // wiped the way old rows stand. The second loses its channel row.
         [$linked, $orphan] = array_map(function (string $sn) use ($pfx) {
             $so = ShopeeOrder::create(['order_sn' => $sn, 'region' => 'PH', 'status' => 'READY_TO_SHIP',
                 'raw' => ['currency' => 'PHP', 'total_amount' => 100, 'buyer_username' => 'b']]);

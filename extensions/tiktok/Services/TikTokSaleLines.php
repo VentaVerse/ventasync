@@ -4,15 +4,6 @@ namespace Extensions\tiktok\Services;
 
 use App\Services\Orders\SaleLines\AbstractSaleLines;
 
-/**
- * A TikTok Shop order's sale from the payment block TikTok returns with the
- * order. TikTok's total_amount is the total.
- *
- * TikTok's platform_discount and seller_discount cover both item markdown,
- * which is already inside sub_total, and discounts applied after it, which are
- * not. Only the part not already in the subtotal is listed, so the lines always
- * add up to the total.
- */
 final class TikTokSaleLines extends AbstractSaleLines
 {
     protected function isComplete(): bool
@@ -58,8 +49,6 @@ final class TikTokSaleLines extends AbstractSaleLines
             return parent::value($code, $definition);
         }
 
-        // The markdown already inside the subtotal is set against the seller's
-        // discount first, then the platform's; what remains is listed.
         $markdown = $this->has('sub_total') && $this->has('original_total_product_price')
             ? max(0.0, $this->amount('original_total_product_price') - $this->amount('sub_total'))
             : 0.0;

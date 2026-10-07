@@ -1,17 +1,3 @@
-{{-- Deleting a store (the owner, 2026-09-05): the sheet behind "Delete this
-     store" on Settings > Connection. Hard delete, no restore, so the
-     store's name is typed to confirm and the button stays off until it
-     matches. Rides .modal-backdrop's scrim and .active show/hide like
-     the setup popup; resources/js/pages/channel-setup.js owns both.
-
-     $action        the destroy route
-     $storeName     the name to type
-     $channelLabel  'Shopee', 'Lazada', 'TikTok'
-     $open          whether to open on load (a refused attempt comes back
-                    with the error inside the sheet)
-     $holds         optional: what this channel's store owns, in the
-                    caller's own words (a channel without couriers or
-                    returns must not be told they go with it) --}}
 @php
     $storeName = (string) ($storeName ?? '');
     $channelLabel = $channelLabel ?? 'the channel';

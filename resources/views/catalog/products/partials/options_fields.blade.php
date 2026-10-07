@@ -1,30 +1,10 @@
 
-{{--
-  Variations builder (absolute pricing).
-   - one axis:  editable rows, one per value (name / SKU / qty / price / cost)
-   - two axes:  a combination grid, axis 1 x axis 2
-   - global option and option_value records are found-or-created on save
-
-  Wire, unchanged: a hidden `_options_format=absolute` marks the format, and
-  beforeSubmit() generates the hidden inputs the controller reads -
-  `option_name` + `values[i][name|sku|quantity|absolute_price|cost_amount|cost_additional|
-  option_value_id]` for one axis, `option1_name` + `option2_name` +
-  `option1_values[i]` + `option2_values[i]` + `combinations[i][opt1|opt2|sku|
-  quantity|absolute_price|cost_amount|cost_additional]` for two. Every id the script binds
-  to is unchanged; only classes moved to the `fm-` set. See
-  ProductController::saveAbsoluteOptions.
-
-  User-facing copy says Variation throughout, per CLAUDE.md. Code identifiers
-  stay `option`.
---}}
-
 <div id="options-error" class="fm-vars__errors d-none" role="alert"></div>
 
 <div class="fm-vars" id="options-root">
     <input type="hidden" name="_options_format" value="absolute">
 
     <div class="fm-vars__row">
-        {{-- Variation 1 --}}
         <div id="option1-group" class="d-none fm-vars__col">
             <div class="fm-vars__card">
                 <div class="fm-vars__head">
@@ -37,8 +17,6 @@
                     <x-ui.button type="button" variant="danger" size="sm" id="remove-opt1-btn">Remove</x-ui.button>
                 </div>
 
-                {{-- Values as an editable list. Only shown with two axes; with
-                     one, the values are the rows of the grid below. --}}
                 <div class="d-none" id="opt1-values-section">
                     <div class="fm-label">Values</div>
                     <div class="fm-vars__values" id="opt1-value-list"></div>
@@ -57,7 +35,6 @@
             </x-ui.button>
         </div>
 
-        {{-- Variation 2 --}}
         <div id="option2-group" class="d-none fm-vars__col">
             <div class="fm-vars__card">
                 <div class="fm-vars__head">
@@ -83,26 +60,8 @@
         </div>
     </div>
 
-    {{-- Values / combination grid --}}
     <div id="data-table-wrap" class="d-none">
-        {{-- The rest of the product's cost equation, said once.
-
-             Cost, Cost % and Additional cost sit in the pricing section as
-             three fields and a total. A variation gets ONE of those fields,
-             because a commission share and inbound shipping describe how the
-             product is bought and sold rather than which size is on the
-             label. Without this line the grid's Cost column would look like
-             the whole story and read 10,000 where the unit actually costs
-             10,220.
-
-             Hidden while the parent charges neither, which is most of this
-             catalog - there the amount IS the unit cost and a note saying
-             so is noise. --}}
         @if(isset($product))
-            {{-- Cost and Additional are locked on the edit form for the same
-                 reason the parent's are: they arrive from a received purchase
-                 order, and a typed figure should be asked for. One button
-                 for the grid, mirroring the pricing section's. --}}
             <div class="fm-vars__lock">
                 <p class="fm-vars__lock-note" id="vars-cost-lock-note">Cost and Additional are set when a purchase order is received.</p>
                 <x-ui.button type="button" size="sm" id="vars-cost-override-btn">Edit by hand</x-ui.button>
@@ -134,16 +93,8 @@
 'use strict';
 
 @php
-    /* A FAILED SAVE RETURNS WHAT WAS TYPED (#185, the owner's live loss: add a
-     * variation, Save, "SKU already exists" - and every typed row gone,
-     * because this grid seeded from the DATABASE while the scalars read
-     * old(). When validation flashed variation input back, the same five
-     * constants are built from old() in the exact shapes the loader
-     * already reads, so the typed rows - names, SKUs, quantities, prices,
-     * costs - come back exactly as typed, failing SKU marked and all. */
     $typedBack = ($errors ?? null)?->any() && (old('option_name') !== null || old('option1_name') !== null);
     if ($typedBack && old('option1_name') !== null) {
-        // Two axes: the axis lists carry names; the combinations carry the rows.
         $seedOption = (object) ['option_name' => old('option1_name')];
         $seedOption2 = (object) ['option_name' => old('option2_name')];
         $seedValues = collect((array) old('option1_values', []))->map(fn ($n) => (object) ['name' => (string) $n])->values();
@@ -188,34 +139,15 @@ const EXISTING_OPTION2 = @json($seedOption2);
 const EXISTING_VALUES  = @json($seedValues);
 const EXISTING_VALUES2 = @json($seedValues2);
 const EXISTING_COMBOS  = @json($seedCombos);
-/* Edit form: cost fields start locked (see the lock row in the markup). */
 let variationCostLocked = @json(isset($product));
 
-// State
-let opt1Values = []; // [{name, option_value_id?, sku, status, image, quantity, absolute_price, cost_amount, cost_additional}]
-let opt2Values = []; // [{name, option_value_id?}]
-let comboData  = {}; // key "v1|v2" → {sku, image, quantity, absolute_price, cost_amount, cost_additional} (2-option)
-let mode       = 'none'; // 'none' | 'one' | 'two'
+let opt1Values = [];
+let opt2Values = [];
+let comboData  = {};
+let mode       = 'none';
 
-/* THE SHAPE THE TABLE IS CURRENTLY DRAWN IN, which is not always `mode`.
- *
- * saveTableToState() harvests the DOM back into state and has to read the
- * rows the way they were WRITTEN. It used to branch on `mode`, and every
- * mode transition sets `mode` before renderTable() redraws - so for one
- * call, `mode` said 'one' while the tbody still held combination rows.
- *
- * renderTable() opens by calling saveTableToState(), so that call landed in
- * the one-axis branch and harvested a 10-row combination grid into 5 single
- * values BY FLAT ROW INDEX: Small took (Small,Red), Medium took (Small,Blue)
- * which is empty, Large took (Medium,Red). Removing a second axis scrambled
- * and part-erased every value, which is the other half of the data loss and
- * the half that survived fixing the first.
- *
- * This is set at the END of every render, so it always describes what is on
- * screen rather than what is about to be. */
 let renderedMode = 'none';
 
-// ---- DOM refs ----
 const $opt1Group      = document.getElementById('option1-group');
 const $opt2Group      = document.getElementById('option2-group');
 const $opt2Wrapper    = document.getElementById('add-opt2-wrapper');
@@ -231,7 +163,6 @@ const $opt1ValSection = document.getElementById('opt1-values-section');
 const $opt2ValList    = document.getElementById('opt2-value-list');
 const $optionsRoot    = document.getElementById('options-root');
 
-// ---- Event delegation on tbody (catches all dynamic rows) ----
 $tbody.addEventListener('input', function(e) {
     if (e.target.classList.contains('js-price') || e.target.classList.contains('js-cost') || e.target.classList.contains('js-addl')) {
         calcRowMetrics(e.target.closest('tr'));
@@ -240,8 +171,6 @@ $tbody.addEventListener('input', function(e) {
         recalcProductQty();
     }
 });
-
-// ---- Helpers ----
 
 function createEl(tag, attrs, textContent) {
     const el = document.createElement(tag);
@@ -274,8 +203,6 @@ function comboKey(v1, v2) {
     return v1 + '|' + (v2 || '');
 }
 
-// ---- Mode management ----
-
 function setMode(newMode) {
     mode = newMode;
     $opt1Group.classList.toggle('d-none', mode === 'none');
@@ -284,14 +211,11 @@ function setMode(newMode) {
     $addOptWrapper.classList.toggle('d-none', mode !== 'none');
     $tableWrap.classList.toggle('d-none', mode === 'none');
     $addRowBtn.classList.toggle('d-none', mode !== 'one');
-    // Variation 1 chip UI only in 2-option mode
     $opt1ValSection.classList.toggle('d-none', mode !== 'two');
     if (mode === 'two') renderOpt1List();
     renderTable();
     recalcProductQty();
 }
-
-// ---- Value list rendering (two axes: editable inputs) ----
 
 function renderValueList(container, values, onRemove, onRename) {
     clearChildren(container);
@@ -367,31 +291,11 @@ function addOpt1Value(name) {
     renderOpt1List();
     renderTable();
     recalcProductQty();
-    // Focus the newly added input for inline editing
     const inputs = $opt1ValList.querySelectorAll('.js-opt-val-name');
     const last = inputs[inputs.length - 1];
     if (last && !name) last.focus();
 }
 
-/* THE FIRST COLUMN INHERITS. THIS IS THE FIX FOR THE DATA LOSS.
- *
- * The grid only becomes a combination grid once the second axis has a value
- * (renderTable's `is2` requires opt2Values.length > 0), and renderTable reads
- * every cell from comboData, falling back to zeros for a missing key. On a
- * product that was one-axis, comboData is EMPTY - the real SKUs, quantities
- * and prices are in opt1Values - so the first value added to a second axis
- * rendered a grid of zeros. saveTableToState() then wrote those zeros back
- * over comboData, and Remove on the axis copied them into opt1Values, which
- * is why backing out did not undo it. The next click is Save, and zero stock
- * and zero price go to every marketplace.
- *
- * Seeding comboData[(i1, 0)] from opt1Values[i1] at the moment of conversion
- * makes it lossless: the first column keeps everything it had, and the
- * genuinely new combinations start empty, which is what they are.
- *
- * Guarded on comboData being empty so this only ever runs on the one-axis to
- * two-axis transition. A product that already has combinations arrives with
- * comboData populated from the server and must not be touched. */
 function seedFirstColumnFromOneAxis() {
     if (Object.keys(comboData).length > 0) return;
 
@@ -411,7 +315,6 @@ function seedFirstColumnFromOneAxis() {
 function addOpt2Value(name) {
     name = (name || '').trim();
 
-    // Before the first value turns this into a combination grid.
     if (opt2Values.length === 0) {
         saveTableToState();
         seedFirstColumnFromOneAxis();
@@ -426,10 +329,7 @@ function addOpt2Value(name) {
     if (last && !name) last.focus();
 }
 
-// ---- Table state ----
-
 function saveTableToState() {
-    // renderedMode, not mode: read the rows as they were drawn.
     if (renderedMode === 'one') {
         $tbody.querySelectorAll('tr').forEach((row, i) => {
             if (i >= opt1Values.length) return;
@@ -441,9 +341,6 @@ function saveTableToState() {
             if (imgInput) opt1Values[i].image = imgInput.value;
             const onInput = row.querySelector('.js-enabled');
             if (onInput) opt1Values[i].status = onInput.checked ? 1 : 0;
-            // Still legacy only while it is still blank. Type a SKU and the
-            // row stops being one; clear it again and it goes back to being
-            // a record that never had one, which is the truth either way.
             opt1Values[i].legacyBlankSku = !!(skuInput && skuInput.dataset.legacyBlank)
                 && !(skuInput.value || '').trim();
             const qtyInput = row.querySelector('.js-qty');
@@ -474,11 +371,6 @@ function saveTableToState() {
     }
 }
 
-/* The parent's percentage and additional, live.
-
-   Read from the DOM on every recompute rather than captured once, because on
-   the create form these two are typed and the grid has to follow them. On the
-   edit form they are readonly and this simply returns the same pair. */
 function parentCostFormula() {
     const num = (id) => {
         const el = document.getElementById(id);
@@ -492,26 +384,16 @@ function costFormulaApplies() {
     return f.pct !== 0 || f.add !== 0;
 }
 
-/* The additional a stored row carries. A row from before the column has
-   none, and reads the parent's, which is what it was costed at. */
 function rowAdditional(v) {
     const raw = v ? v.cost_additional : undefined;
     return (raw === undefined || raw === null || raw === '') ? parentCostFormula().add : (parseFloat(raw) || 0);
 }
 
-/* What the variation actually costs. Against its OWN price - that is the
-   whole reason the percentage is worth applying per row instead of once -
-   and with its OWN additional (the owner, 2026-08-27: freight is not the same
-   per variation). The percentage stays the product's. */
 function variationUnitCost(amount, price, add) {
     const f = parentCostFormula();
     return amount + (f.pct / 100 * price) + (add || 0);
 }
 
-/* What the product itself costs per unit, from the pricing section. A
-   variation with no amount of its own is costed at THIS on every order
-   line (App\Support\LineCost), so that is the figure the grid shows for it
-   rather than a unit cost made of overhead on nothing. */
 function parentUnitCost() {
     const num = (id) => {
         const el = document.getElementById(id);
@@ -528,10 +410,6 @@ function calcRowMetrics(row) {
     const price  = parseFloat(priceInput ? priceInput.value : 0) || 0;
     const amount = parseFloat(costInput ? costInput.value : 0) || 0;
     const add    = parseFloat(addlInput ? addlInput.value : 0) || 0;
-    /* Profit, margin and markup are worked against the UNIT cost, not the
-       amount. A row that cost 10,000 to buy and carries 220 of freight does
-       not make the extra 220 of profit, and this table is where somebody
-       decides what to charge. */
     const own    = amount > 0;
     const cost   = own ? variationUnitCost(amount, price, add) : parentUnitCost();
     const profit = price - cost;
@@ -555,27 +433,18 @@ function calcRowMetrics(row) {
         markupEl.className = ('fm-num js-markup ' + cls).trim();
     }
 
-    /* The worked-out figure, under the amount that produced it. Drawn only
-       when the two differ, so nobody reads a second number that restates the
-       field above it. */
     const unitEl = row.querySelector('.js-unitcost');
     if (unitEl) {
-        /* Per row now: a row with its own additional has a unit cost that
-           differs from its amount even when the product charges nothing. */
         const applies = own ? (parentCostFormula().pct !== 0 || add !== 0) : cost > 0;
         unitEl.classList.toggle('d-none', !applies);
         clearChildren(unitEl);
         if (applies) {
             unitEl.appendChild(document.createTextNode('= ' + cost.toFixed(2)));
-            /* On its own line so the figure keeps the column's width; only
-               the rows costed at the product's figure grow by it. */
             if (!own) unitEl.appendChild(createEl('span', { className: 'fm-vars__unit-why' }, 'the product\u2019s'));
         }
     }
 }
 
-/* The row's own additional. Sits beside Cost so the equation reads across:
-   amount, then what is added to it, then the unit cost under the amount. */
 function buildAdditionalCell(add, rowName, idx) {
     const td = document.createElement('td');
     const input = createInput('js-addl', 'number', add || 0, {
@@ -587,9 +456,6 @@ function buildAdditionalCell(add, rowName, idx) {
     return td;
 }
 
-/* Locked or not, per the grid's own Edit by hand. Applied when a cell is
-   built, so a value added or a table re-rendered after unlocking comes out
-   in the state the operator chose. */
 function applyCostLock(input) {
     if (variationCostLocked) {
         input.setAttribute('readonly', 'readonly');
@@ -625,9 +491,6 @@ function applyCostLock(input) {
     });
 })();
 
-/* One builder for both row shapes, because the cell now has two parts and
-   the single-axis and combination tables were already drifting apart on the
-   ones that did not. */
 let costCellSeq = 0;
 function buildCostCell(amount, rowName, idx) {
     const td = document.createElement('td');
@@ -636,8 +499,6 @@ function buildCostCell(amount, rowName, idx) {
     const input = createInput('js-cost', 'number', amount || 0, {
         step: '0.01',
         'aria-label': labelFor('Cost', rowName, idx),
-        /* Described by the worked-out total, so the figure is announced when
-           the field is entered rather than only drawn beside it. */
         'aria-describedby': unitId,
     });
     applyCostLock(input);
@@ -662,17 +523,9 @@ function bindRowEvents(tr) {
     if (qtyEl)   { qtyEl.addEventListener('input', recalcQty); qtyEl.addEventListener('change', recalcQty); }
 }
 
-// ---- Table rendering (no innerHTML for user data) ----
-
 function buildHeaderRow(is2) {
     const tr = document.createElement('tr');
 
-    /* scope="col" on every header. Built headers had none, while the two
-       hand-written tables on this surface scope all of theirs - so the one
-       table a person is most likely to get lost in was the one with no column
-       association at all. It does not name the inputs (a header never names a
-       control inside a cell, which is what the aria-labels above are for) but
-       it is what lets a screen reader answer "which column am I in". */
     const th = (cls, text) => createEl('th', { className: cls, scope: 'col' }, text);
 
     if (is2) {
@@ -684,57 +537,16 @@ function buildHeaderRow(is2) {
     tr.appendChild(th('fm-vcol-sku', 'SKU'));
     tr.appendChild(th('fm-vcol-qty', 'Qty'));
     tr.appendChild(th('fm-vcol-price', 'Price'));
-    /* "Cost", matching the parent's field of the same name rather than the
-       parent's TOTAL, which is called Unit cost. Same word, same meaning, so
-       the equation reads across the two. */
     tr.appendChild(th('fm-vcol-cost', 'Cost'));
-    /* The row's own additional, the parent's field of the same name. */
     tr.appendChild(th('fm-vcol-addl', 'Additional'));
-    /* PROFIT / MARGIN / MARKUP USED TO SIT HERE and they are gone on purpose.
-       They were read-only, they restated the Pricing metrics strip further up
-       the same form, and with cost at 0 - which is most of this catalog -
-       every row printed an identical "370.00 / 100.0% / 0.0%". Measured, they
-       were 187px of the 780px this table gets, spent on three numbers that
-       are the same on every line and that nobody can act on here.
-       That width is what pays for the image. */
     tr.appendChild(th('fm-vcol-img', 'Image'));
-    /* Offered for sale, or not. Narrow on purpose: it is a state, not a
-       field, and the columns either side of it are things you type into. */
     tr.appendChild(th('fm-vcol-on', 'On'));
-    /* Named, not empty. A header with no text is a column a screen reader
-       cannot announce; the other six all say what they are. */
     const thAct = th('fm-vcol-act', '');
     thAct.appendChild(createEl('span', { className: 'x-sr' }, 'Row actions'));
     tr.appendChild(thAct);
     return tr;
 }
 
-/* The image cell.
- * ------------------------------------------------------------------
- * A button showing what this variation looks like, or the product's own
- * picture greyed back when it has none of its own. Empty is not an error and
- * is not blank: inheriting the parent is the normal case and the cell says so
- * rather than leaving a hole.
- *
- * The path travels in a hidden input beside the thumbnail, so it rides with
- * the row through every re-render and through submit exactly the way sku and
- * quantity do. That matters more here than it looks: saving a two-axis
- * product DELETES its combinations and re-inserts them, so an image the
- * server was holding but the form did not send would be dropped on the next
- * save.
- */
-/* EVERY CELL IN THIS GRID SAYS WHAT IT IS.
- *
- * A five-value grid is 25 inputs; a realistic six-sizes-by-eight-colours one
- * is 192. None of them carried a label, an aria-label or a placeholder, and a
- * column header does not name a form control inside a cell - so to a screen
- * reader the whole grid was a field of anonymous boxes, in the one section
- * where getting the wrong row means shipping the wrong thing.
- *
- * The row identity is the value name, or both value names in a combination
- * grid, which is exactly how a person refers to these rows out loud: "the SKU
- * for Small, Red". Falls back to the position when a value has not been named
- * yet, because "SKU for value 3" still beats nothing. */
 function labelFor(column, rowName, idx) {
     const who = (rowName && String(rowName).trim())
         ? String(rowName).trim()
@@ -743,19 +555,6 @@ function labelFor(column, rowName, idx) {
     return column + ' for ' + who;
 }
 
-/* Whether this variation is offered for sale.
- *
- * The same switch the product's own Enabled uses, at the same size, because
- * it is the same decision one level down - a person who has met one has met
- * the other. It carries a real checkbox so it is reachable by keyboard and
- * announced as a switch, with the row identity in its label: a column of
- * eleven identical toggles is unusable without one.
- *
- * Nothing here touches stock. A disabled variation still counts toward the
- * product's on-hand total, because on-hand is a fact about a shelf and a
- * withdrawn variation whose units are still in the building is still stock
- * somebody has to account for.
- */
 function buildStatusCell(enabled, rowName, idx) {
     const td = createEl('td', { className: 'fm-vcol-on' });
 
@@ -790,12 +589,6 @@ function buildImageCell(imagePath, rowName, idx) {
 
     const img = createEl('img', { alt: '', loading: 'lazy' });
 
-    /* A path that does not resolve is not a picture, and the browser's own
-       broken-image glyph is the worst possible way to say so: it reads as a
-       fault in the page rather than as a missing file. This catalog was
-       imported from a legacy store and carries plenty of references to files
-       that are no longer on disk. Falling back to the empty state says the
-       true thing - there is nothing to show here, pick something. */
     img.addEventListener('error', () => {
         if (img.parentNode) btn.removeChild(img);
         btn.classList.add('is-empty');
@@ -822,7 +615,6 @@ function buildImageCell(imagePath, rowName, idx) {
         }
 
         btn.classList.toggle('is-empty', !src);
-        // The accessible name carries the state, since the thumbnail cannot.
         const who = (rowName && String(rowName).trim())
             ? String(rowName).trim()
             : ('value ' + ((idx || 0) + 1));
@@ -850,8 +642,6 @@ function buildImageCell(imagePath, rowName, idx) {
     td.appendChild(clear);
     paint();
 
-    // An inheriting cell shows the product's main image, so it has to follow
-    // when somebody drags a different photo to the front.
     document.addEventListener('pim:primary-changed', () => {
         if (!hidden.value) paint();
     });
@@ -868,7 +658,6 @@ function buildComboRow(i1, i2, v1Name, v2Name, data) {
     tr.appendChild(td1);
     tr.appendChild(td2);
 
-    // "SKU for Small, Red" - the way a person refers to the row out loud.
     const rowName = [v1Name, v2Name].filter(Boolean).join(', ');
 
     const tdSku   = document.createElement('td');
@@ -894,8 +683,6 @@ function buildComboRow(i1, i2, v1Name, v2Name, data) {
     tr.appendChild(buildImageCell(data.image, rowName, i1));
     tr.appendChild(buildStatusCell(data.status, rowName, i1));
 
-    // A combination row has no per-row remove: the combinations are the
-    // product of the two axes, so you remove a VALUE, not a cell.
     tr.appendChild(document.createElement('td'));
 
     bindRowEvents(tr);
@@ -907,7 +694,6 @@ function buildOneOptRow(v, idx) {
     const tr = document.createElement('tr');
     tr.dataset.rowIdx = idx;
 
-    // Value name (editable input)
     const tdName = document.createElement('td');
     const nameInput = createInput('js-value-name', 'text', v.name, {
         placeholder: 'Value name',
@@ -961,7 +747,6 @@ function renderTable() {
     clearChildren($tbody);
 
     if (opt1Values.length === 0) {
-        // Nothing drawn means nothing to harvest next time round.
         renderedMode = mode === 'one' ? 'one' : 'none';
 
         if (mode === 'one') {
@@ -993,11 +778,8 @@ function renderTable() {
         });
     }
 
-    // Last, so it describes what is on screen rather than what was intended.
     renderedMode = is2 ? 'two' : 'one';
 }
-
-// ---- Product quantity sync ----
 
 function recalcProductQty() {
     const qtyInput = document.getElementById('product_quantity') || document.querySelector('input[name="quantity"]');
@@ -1020,9 +802,6 @@ function recalcProductQty() {
         if (hint) hint.classList.add('d-none');
     }
 }
-
-// ---- beforeSubmit (generates hidden inputs for form) ----
-// Reads directly from DOM inputs to guarantee submitted data matches what the user sees.
 
 function beforeSubmit() {
     $optionsRoot.querySelectorAll('input[data-gen]').forEach(el => el.remove());
@@ -1048,7 +827,6 @@ function beforeSubmit() {
         opt1Values.forEach((v, i) => addHidden('option1_values[' + i + ']', v.name));
         opt2Values.forEach((v, i) => addHidden('option2_values[' + i + ']', v.name));
 
-        // Read combo data directly from DOM rows
         const comboRows = $tbody.querySelectorAll('tr[data-combo-key]');
         let ci = 0;
         comboRows.forEach(row => {
@@ -1067,7 +845,6 @@ function beforeSubmit() {
     } else {
         addHidden('option_name', opt1Name);
 
-        // Read values directly from DOM rows
         const rows = $tbody.querySelectorAll('tr');
         rows.forEach((row, idx) => {
             const nameInput = row.querySelector('.js-value-name');
@@ -1083,7 +860,6 @@ function beforeSubmit() {
             addHidden('values[' + idx + '][cost_amount]', (row.querySelector('.js-cost') || {}).value || 0);
             addHidden('values[' + idx + '][cost_additional]', (row.querySelector('.js-addl') || {}).value || 0);
 
-            // Preserve option_value_id for existing values
             if (idx < opt1Values.length && opt1Values[idx].option_value_id) {
                 addHidden('values[' + idx + '][option_value_id]', opt1Values[idx].option_value_id);
             }
@@ -1091,24 +867,12 @@ function beforeSubmit() {
     }
 }
 
-// ---- Event listeners ----
-
 document.getElementById('add-option-btn').addEventListener('click', () => {
     setMode('one');
     $opt1Name.focus();
 });
 
 document.getElementById('remove-opt1-btn').addEventListener('click', () => {
-    /* THE DESTRUCTIVE CONTROL ASKS, AND THE SAFE ONE ALREADY DID.
-     *
-     * This wipes every value, every combination and every SKU, quantity,
-     * price and image attached to them, in one click, with no undo anywhere
-     * on this form - while "Second variation", which destroys nothing, opened
-     * a carefully written dialog. That is a precise inversion of risk, and
-     * Remove is the control a person reaches for to BACK OUT of a mistake.
-     *
-     * The count comes from the grid rather than a generic warning, because
-     * "10 combinations" is the fact that decides whether you meant it. */
     const wipe = () => {
         opt1Values = [];
         opt2Values = [];
@@ -1137,13 +901,6 @@ document.getElementById('remove-opt1-btn').addEventListener('click', () => {
 });
 
 document.getElementById('add-opt2-btn').addEventListener('click', () => {
-    /* A second axis multiplies the grid, and that is worth saying out loud
-       before someone invests in naming it. Not a warning - with the seed
-       above, nothing is lost - but "5 values" becoming "10 combinations you
-       now have to fill in" is a change of shape a person should agree to.
-
-       Primary tone, not danger: this destroys nothing. The dialog is the same
-       one Delete product and the cost override already use. */
     const existing = opt1Values.length;
 
     if (existing === 0 || typeof window.confirmModal !== 'function') {
@@ -1165,10 +922,6 @@ document.getElementById('add-opt2-btn').addEventListener('click', () => {
 });
 
 document.getElementById('remove-opt2-btn').addEventListener('click', () => {
-    /* Removing the second axis keeps column one and discards every other
-       combination - real data, silently, with no undo. It asks too, and it
-       names what survives as well as what does not, because "the first column
-       is kept" is the difference between a mistake and a decision. */
     const dropped = Math.max(0, $tbody.querySelectorAll('tr').length - opt1Values.length);
 
     if (dropped > 0 && typeof window.confirmModal === 'function') {
@@ -1188,14 +941,6 @@ document.getElementById('remove-opt2-btn').addEventListener('click', () => {
 
 function removeSecondAxis() {
     saveTableToState();
-    /* Carry the first combination column back to the single axis.
-     *
-     * This is what made the data loss permanent: it happily copied a row of
-     * zeros over a value that had real stock and a real price, so Remove -
-     * the control a person reaches for to undo - completed the damage instead
-     * of reversing it. It cannot write an empty row over a non-empty value
-     * any more. Clearing a value's fields deliberately and then removing the
-     * axis still works, because then the value itself is empty too. */
     opt1Values.forEach((v1, i1) => {
         const first = comboData[comboKey(i1, 0)];
         if (!first) return;
@@ -1239,7 +984,6 @@ $addRowBtn.addEventListener('click', () => {
     recalcProductQty();
 });
 
-// Opt1 add value (2-option mode)
 function handleAddOpt1() {
     const input = document.getElementById('opt1-new-value');
     addOpt1Value(input.value);
@@ -1251,7 +995,6 @@ document.getElementById('opt1-new-value').addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); handleAddOpt1(); }
 });
 
-// Opt2 add value
 function handleAddOpt2() {
     const input = document.getElementById('opt2-new-value');
     addOpt2Value(input.value);
@@ -1263,7 +1006,6 @@ document.getElementById('opt2-new-value').addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); handleAddOpt2(); }
 });
 
-// Form submit hook
 const form = $optionsRoot.closest('form');
 if (form) {
     const $optError = document.getElementById('options-error');
@@ -1279,9 +1021,6 @@ if (form) {
         $optError.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
-    /* A notice, not an error: same place, different weight, and it never
-       stops a submit. showOptError scrolls the block into view because it is
-       blocking; this one does not, because the save is already on its way. */
     function showOptNotice(message) {
         $optError.textContent = '';
         const div = createEl('div', { className: 'fm-note--soft' }, message);
@@ -1300,43 +1039,20 @@ if (form) {
     const checkSkusUrl = @json(route('products.check_skus'));
     const excludeProductId = {{ isset($product) ? (int) $product->product_id : 0 }};
 
-    /* SUBMIT SO THAT EVERY OTHER LISTENER STILL GETS A TURN.
-     *
-     * This used to call form.submit(), which submits WITHOUT firing the
-     * submit event - so on any product with variations, every other submit
-     * listener on the form was silently skipped. The manufacturer guard was
-     * the visible casualty: it printed its error in red and the form saved
-     * anyway, in the same click. Anything added later would have been
-     * skipped the same way, and nothing would have said so.
-     *
-     * requestSubmit() fires the event, which is the whole point. The flag is
-     * what stops this listener from catching its own re-entry and looping -
-     * the same shape confirm-modal.js uses for exactly the same reason. */
     function submitPastThisListener() {
         beforeSubmit();
 
         if (form.requestSubmit) {
             form._optionsValidated = true;
 
-            /* Out of the current event dispatch first.
-               requestSubmit() is specified to do NOTHING while the form is
-               already firing submission events, and one of the three exits
-               here is synchronous - it runs inside the very submit handler
-               that is calling it. That path silently stopped submitting the
-               moment this switched from form.submit(), which does not care.
-               It only surfaced once legacy rows were allowed through
-               validation and could reach the synchronous exit at all. */
             setTimeout(() => form.requestSubmit(), 0);
             return;
         }
 
-        // Pre-2020 fallback. Skips the event, which is the old bug, but a
-        // browser without requestSubmit cannot have it both ways.
         form.submit();
     }
 
     form.addEventListener('submit', (e) => {
-        // Our own re-entry: stand aside and let the submission proceed.
         if (form._optionsValidated) {
             form._optionsValidated = false;
             return;
@@ -1359,7 +1075,6 @@ if (form) {
         let firstBadInput = null;
         const allSkus = [];
 
-        // Option name(s) must not be empty
         if (!$opt1Name.value.trim()) {
             errors.push('Variation 1 name is required.');
             $opt1Name.classList.add('input-error');
@@ -1371,7 +1086,6 @@ if (form) {
             if (!firstBadInput) firstBadInput = $opt2Name;
         }
 
-        // Variation 1 and Variation 2 names must differ
         if (mode === 'two' && $opt1Name.value.trim() && $opt2Name.value.trim()
             && $opt1Name.value.trim().toLowerCase() === $opt2Name.value.trim().toLowerCase()) {
             errors.push('Variation 1 and Variation 2 cannot have the same name.');
@@ -1386,7 +1100,6 @@ if (form) {
             errors.push('Variation 2 must have at least one value.');
         }
 
-        // Duplicate value names within Variation 1
         const seen1 = {};
         opt1Values.forEach(v => {
             const lower = (v.name || '').trim().toLowerCase();
@@ -1396,7 +1109,6 @@ if (form) {
             if (lower) seen1[lower] = true;
         });
 
-        // Duplicate value names within Variation 2
         if (mode === 'two') {
             const seen2 = {};
             opt2Values.forEach(v => {
@@ -1421,19 +1133,6 @@ if (form) {
                 if (!firstBadInput) firstBadInput = nameInput;
             }
 
-            /* A MISSING SKU IS ONLY AN ERROR ON A ROW SOMEBODY IS MAKING.
-             *
-             * This used to mark every blank SKU red and refuse the save, so a
-             * product imported in 2017 without variation SKUs could not be
-             * saved at all - open it to change one price and five fields you
-             * never touched hold the form hostage, on a rule the server never
-             * applied when the record was written. On a six-by-eight product
-             * that is 48 SKUs invented before you can fix a typo.
-             *
-             * It also contradicted the rest of the form, where SKU is
-             * deliberately optional. A row that ARRIVED blank keeps its right
-             * to be blank; a row being created now does not, because that is
-             * the moment the operator can actually supply one. */
             if (skuInput && !sku) {
                 if (skuInput.dataset.legacyBlank) {
                     legacyBlankCount++;
@@ -1477,16 +1176,12 @@ if (form) {
             return;
         }
 
-        /* Said once, and not in the way of the save. These rows are going to
-           the marketplaces without an identifier, which is worth knowing and
-           is not a reason to refuse the edit somebody actually came to make. */
         if (legacyBlankCount > 0) {
             showOptNotice(legacyBlankCount === 1
                 ? 'One variation has no SKU. It will not map to a marketplace listing.'
                 : legacyBlankCount + ' variations have no SKU. They will not map to marketplace listings.');
         }
 
-        // AJAX cross-product SKU uniqueness check
         if (allSkus.length === 0) {
             submitPastThisListener();
             return;
@@ -1517,15 +1212,10 @@ if (form) {
                 submitPastThisListener();
             })
             .catch(() => {
-                // The uniqueness check could not be reached. The server
-                // validates SKUs itself, so this proceeds rather than
-                // blocking a save on a network hiccup.
                 submitPastThisListener();
             });
     });
 }
-
-// ---- Load existing data ----
 
 if (EXISTING_OPTION) {
     EXISTING_VALUES.forEach(v => {
@@ -1533,10 +1223,6 @@ if (EXISTING_OPTION) {
             name: v.option_value_name || v.name,
             option_value_id: v.option_value_id,
             sku: v.sku || '',
-            /* This row came from the database. If it arrived without a SKU,
-               it is a legacy record, not something the operator left blank -
-               see the validation below, which refuses to hold a save hostage
-               to fields nobody touched. */
             legacyBlankSku: !String(v.sku || '').trim(),
             status: v.status === undefined ? 1 : Number(v.status),
             image: v.image || '',
@@ -1583,13 +1269,6 @@ if (EXISTING_OPTION) {
     recalcProductQty();
 }
 
-/* ---- The parent's half of the equation, kept in step ----
- *
- * The note is written here rather than in the template because it quotes
- * numbers the operator can still be typing: on the create form Cost % and
- * Additional cost are editable, and a note that fixed itself at page load
- * would go stale the moment either changed. On the edit form both are
- * readonly and this runs exactly once. */
 function refreshCostFormula() {
     const note = document.getElementById('vars-cost-note');
     const { pct, add } = parentCostFormula();
@@ -1598,8 +1277,6 @@ function refreshCostFormula() {
     if (note) {
         note.classList.toggle('d-none', !applies);
         if (applies) {
-            /* Named the way the pricing section names them, so the two
-               read as one equation rather than two vocabularies. */
             const parts = [];
             if (pct !== 0) parts.push('this product\u2019s ' + pct + '% cost share');
             if (add !== 0) parts.push('its own additional cost, which starts at the product\u2019s ' + add);
@@ -1618,19 +1295,13 @@ function refreshCostFormula() {
     const el = document.getElementById(id);
     if (!el) return;
     el.addEventListener('input', refreshCostFormula);
-    // Also on change, because "Edit by hand" un-readonlys these fields by
-    // script and a programmatic value assignment fires neither on its own.
     el.addEventListener('change', refreshCostFormula);
 });
 
 refreshCostFormula();
 
-// ---- Highlight duplicate SKU fields on validation error ----
 @if($errors->has('option_sku'))
 (function() {
-    /* The reason lands BESIDE the row (#185): the server's own sentence -
-       which now names the product holding the SKU - not a generic word
-       that sends the operator searching. */
     const errorBySku = @json(
         collect($errors->get('option_sku'))->mapWithKeys(function($msg) {
             if (preg_match('/SKU "([^"]+)"/', $msg, $m)) return [strtolower($m[1]) => $msg];

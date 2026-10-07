@@ -27,12 +27,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Venta is a multi-store integration: each enabled VentaSetting is its own
- * fulfillable surface. integrationCards() and orderTabs() return one entry
- * per enabled store, with metrics scoped to that store via the
- * marketplace_source = "venta:{id}" convention used elsewhere in the app.
- */
 use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Concerns\RevealsCredentials;
 
@@ -44,15 +38,12 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
     {
         parent::boot();
 
-        // Registered in every runtime, not only the console: the Automations
-        // tab's Run now calls Artisan inside a web request (live, 2026-09-07).
         $this->commands([
             \Extensions\venta\Commands\VentaSync::class,
             \Extensions\venta\Commands\VentaPushStock::class,
             \Extensions\venta\Commands\VentaPushPrice::class,
             \Extensions\venta\Commands\VentaPushReviews::class,
             \Extensions\venta\Commands\VentaRefreshListingStatus::class,
-            // TEMPORARY: delete once the fee field names are pinned.
             \Extensions\venta\Commands\VentaFeeKeys::class,
             \Extensions\venta\Commands\VentaRefreshOrderFees::class,
         ]);
@@ -73,14 +64,6 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
                 id: $this->id . ':' . $store->id,
                 label: $store->store_name,
                 menu: [
-                    // Phase 4 — view-tier visibility: read-only operators can
-                    // open Settings / Product Groups / Orders for browsing.
-                    //
-                    // The trailing group is the workspace conversion signal:
-                    // a store whose menu is grouped gets its own seller
-                    // center at /integrations/venta:{id}, built from exactly
-                    // this menu, with these ['store' => id] params carried
-                    // through unchanged.
                     new MenuItem('Settings', 'ext.venta.settings.show', 'view_venta/settings', null, ['store' => $store->id], 'Channel', children: [
                         ['label' => 'Connection', 'section' => 'connection'],
                         ['label' => 'Status mapping', 'section' => 'status'],
@@ -106,12 +89,6 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
                 tagline: 'Multi-store ecommerce. Add stores, sync orders, push inventory.',
                 icon: 'shop',
                 accent: '#7c3aed',
-                // Card uses view tier so read-only operators still see Venta in
-                // the Integrations hub. Add-store action stays manage-only.
-                // The dashboard's own derived key (venta/dashboard), not the
-                // legacy view_venta: the card decides who sees this channel
-                // in the hub and the nav, and that must be the same answer
-                // the dashboard's door gives, or the menu offers a 404.
                 permission: 'view_venta/dashboard',
                 menu: [],
                 stores: $stores,
@@ -136,17 +113,6 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
         return $tabs;
     }
 
-    /**
-     * @return iterable<\Extensions\venta\Models\VentaSetting>
-     */
-    // ── Listing states for the core grid (ListingStateSource, 2026-09-06) ──
-
-    /**
-     * The contract is store-less; Venta is multi-store. One answer per
-     * product: the first enabled store that holds it, so a product live
-     * on any store reads as live. The store page asks VentaListingStates
-     * for one store directly.
-     */
     public function listingStates(array $productIds): array
     {
         $productIds = array_values(array_unique(array_map('intval', $productIds)));
@@ -191,7 +157,6 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
         return $out;
     }
 
-    /** Every catalog product some store has live (a link with a store product id). */
     public function listedProductIds(): array
     {
         if (! Schema::hasTable('venta_product_links')) {
@@ -210,14 +175,6 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
         return VentaSetting::where('enabled', true)->orderBy('id')->get();
     }
 
-    /**
-     * All stores regardless of enabled flag — used by the Integrations UI
-     * (cards / sidebar / module page) so freshly-created disabled stores
-     * remain visible to the operator while they finish configuring them.
-     * Sync/cron paths continue to filter via enabledStores().
-     *
-     * @return iterable<\Extensions\venta\Models\VentaSetting>
-     */
     protected function allStores(): iterable
     {
         if (!Schema::hasTable('venta_settings')) {
@@ -226,18 +183,6 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
         return VentaSetting::orderBy('id')->get();
     }
 
-    /**
-     * How many of a store's orders sit in each fulfilment step, keyed by
-     * step (to_pack, to_handover, ...), every step present at zero.
-     *
-     * One GROUP BY over venta_orders.status, bucketed through the same map
-     * the orders panel builds its strip from. Public and static because the
-     * card counters above and any later reader (the dashboard, a report)
-     * must count the same way the panel does, or the numbers on the card
-     * and on the strip drift apart again.
-     *
-     * @return array<string, int>
-     */
     public static function stepCounts(int $storeId): array
     {
         if (!Schema::hasTable('venta_orders')) {
@@ -268,36 +213,13 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
             icon: 'shop',
             accent: '#7c3aed',
             routeName: 'ext.venta.orders.index',
-            // OrderTab visibility uses view tier so a Venta Orders Viewer
-            // still sees the per-store tab on the unified Orders workspace.
             permission: 'view_venta/order',
             routeParams: ['store' => $storeId],
-            /* COUNT THE TABLE THE TABS COUNT.
-             *
-             * This read the ERP catalog order table's order_status_id and
-             * matched it against Pending/Processing, while the orders list
-             * beside it groups venta_orders.status - two different tables
-             * holding two different taxonomies. The head therefore said
-             * "Nothing waiting" above a tab reading "Start Pickup 1", and
-             * neither number was wrong; they were answers to different
-             * questions.
-             *
-             * Waiting means the seller still has the parcel: the To Pack and
-             * To Handover steps, and nothing else. The statuses behind each
-             * step are the ONE map the orders panel's strip reads
-             * (FulfilmentSteps, surface venta.orders), through the same
-             * bucketing over the same GROUP BY, so the card and the tabs
-             * cannot disagree. An unplaced status the storefront invents
-             * lands in Other, visible on the strip, and is not counted as
-             * work nobody has to do. */
             unprocessedCounter: function () use ($storeId) {
                 $steps = self::stepCounts($storeId);
 
                 return $steps['to_pack'] + $steps['to_handover'];
             },
-            /* The steps while the seller holds the parcel, each counted alone:
-             * the fulfilment card leads with To Pack and prints To Handover beside
-             * it, which the staff count against the shelf. */
             stages: [
                 ['key' => 'to_pack', 'label' => 'to pack', 'counter' => fn () => self::stepCounts($storeId)['to_pack']],
                 ['key' => 'to_handover', 'label' => 'to handover', 'counter' => fn () => self::stepCounts($storeId)['to_handover']],
@@ -332,12 +254,6 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
                     ->where('o.date_added', '>=', now()->startOfDay())
                     ->whereNotNull('p.model')
                     ->where('p.model', '!=', '')
-                    /* The chosen options, as the storefront wrote them, make the
-                     * variation: "Cable Length: 10 Ft". Grouped WITH the model so a
-                     * product sold in two variations is two rows, the way the
-                     * marketplaces (whose lines carry the variation's own SKU)
-                     * already rank. The Venta and Shopify lines carry the
-                     * variant SKU in model too; OpenCart's carry the parent's. */
                     ->leftJoin(DB::raw('(SELECT order_product_id, GROUP_CONCAT(CONCAT(name, \': \', value) ORDER BY order_option_id SEPARATOR \', \') AS variation FROM `' . str_replace('order_product', 'order_option', $productTable) . '` GROUP BY order_product_id) AS oo'), 'oo.order_product_id', '=', 'p.order_product_id')
                     ->groupBy('p.model', 'oo.variation')
                     ->orderByDesc('qty_sold')->orderByDesc('revenue')->orderBy('name')
@@ -386,13 +302,6 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
         );
     }
 
-    /**
-     * React to a SKU change on a catalog product by updating the
-     * corresponding product on every linked Venta store. Venta's API uses
-     * the existing SKU as the path key — PUT /products/{old_sku} with
-     * { sku: new_sku } in the body — so we look up each linked store's
-     * VentaProductLink, push the rename, and update the link locally.
-     */
     public function pushSkuChanges(int $productId, array $skuChanges): ?string
     {
         if (empty($skuChanges['product_sku']) || !Schema::hasTable('venta_product_links')) {
@@ -446,15 +355,6 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
         return empty($results) ? null : 'Venta: ' . implode(', ', $results);
     }
 
-    /**
-     * Venta widgets for the core dashboard: store-name lookup table for
-     * the "Recent orders" and platform breakdown labels.
-     */
-    /**
-     * The product page's way into this product's listing on each store
-     * (#171). One action per enabled store, because each store is a
-     * separate live shop with its own record of the product.
-     */
     public function productActions(int $productId): array
     {
         if (! Schema::hasTable('venta_settings')) {
@@ -474,39 +374,6 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
             ->all();
     }
 
-    /**
-     * WHAT THE STOREFRONT CHARGED FOR THIS ORDER (VENT2-73, VENT2-74).
-     *
-     * Venta records both since 2026-09-10; before that the ERP wrote a
-     * literal zero into payment_cost and the reports had no Venta join at
-     * all, so a Venta order read as costing nothing to take payment for
-     * and nothing to deliver. Profit on this channel was overstated by
-     * exactly those two numbers.
-     *
-     * THE FIELD NAMES ARE THE STOREFRONT'S OWN, read from its source
-     * rather than guessed (ErpOrderController::show):
-     *
-     *   fees.payment_fee     what the gateway charged the store
-     *   fees.shipping_cost   what the COURIER charged the store
-     *   totals.shipping      what the CUSTOMER was charged - NOT this
-     *
-     * That last line is the trap, and the storefront says so in its own
-     * comment: the two "must never be conflated". The customer's shipping
-     * is revenue and already lands on the core order as shipping_cost;
-     * counting it here would charge the seller for a parcel the buyer paid
-     * for.
-     *
-     * NULL MEANS NOT KNOWN YET, NOT ZERO, and the storefront is explicit
-     * about it: a payment fee arrives at settlement and a courier's charge
-     * at booking, so an order can legitimately have neither. Reading null
-     * as 0 would report an unbooked parcel as free and overstate the
-     * margin - so an order with neither answers null and the normalizer
-     * writes nothing at all, rather than stamping it with zeroes.
-     *
-     * Read from the order's stored payload rather than the API, so the
-     * live sync and the backfill agree and neither needs the storefront to
-     * be reachable.
-     */
     public function saleLinesForOrder(int $coreOrderId, float $itemsSubtotal, float $shipping): ?array
     {
         $order = VentaOrder::query()->where('catalog_order_id', $coreOrderId)->first();
@@ -530,8 +397,6 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
         }
 
         $raw = \App\Integrations\Orders\FeePayload::decode($row->raw ?? null);
-        /* Only the fees object, never the totals: everything in totals is
-           what the customer owed. */
         $fees = \App\Integrations\Orders\FeePayload::decode($raw['fees'] ?? []);
 
         $known = function (string $key) use ($fees): ?float {
@@ -543,7 +408,6 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
         $payment = $known('payment_fee');
         $delivery = $known('shipping_cost');
 
-        // The coupon is the store's cost; store credit is the buyer's own money.
         $coupon = 0.0;
         $totals = \App\Integrations\Orders\FeePayload::decode($raw['totals'] ?? []);
         foreach (is_array($totals['lines'] ?? null) ? $totals['lines'] : [] as $line) {
@@ -552,7 +416,6 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
             }
         }
 
-        // Nothing recorded is not the same fact as nothing charged.
         if ($payment === null && $delivery === null && $coupon == 0.0) {
             return null;
         }
@@ -568,27 +431,15 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
 
     public function dashboardData(): array
     {
-        /* The listing troubles ride the chip, per store (VENT2-131): a
-         * product the storefront no longer returns, or one live but behind
-         * the catalog, used to live only on a page nobody opens daily.
-         * Counted by aggregate, keyed by tab id so two stores never share
-         * one blended row, and a failure here must not take the dashboard
-         * down. Each figure carries where it goes - the Listings page
-         * filtered by the same query that counted it - and the words are
-         * App\Integrations\Listings\ListingTrouble's, so the chip and the
-         * page it lands on say the same thing. */
         $statuses = [];
         if (Schema::hasTable('venta_listings')) {
             foreach ($this->allStores() as $store) {
                 try {
                     $sum = \Extensions\venta\Services\Venta\VentaListingStates::for((int) $store->id)->summary();
                 } catch (\Throwable) {
-                    continue; // this store's chip simply carries no flags line
+                    continue;
                 }
                 $statuses[$this->id . ':' . $store->id] = (object) [
-                    // The dashboard's freshness line reads last_order_sync_at off this
-                    // object; without it Venta always read "never synced" even though
-                    // the store syncs on schedule (the timestamp lives on the setting).
                     'last_order_sync_at' => $store->last_order_sync_at,
                     'listing_flags' => \App\Integrations\Listings\ListingTrouble::figures(
                         $sum,
@@ -607,9 +458,6 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
         ];
     }
 
-    /**
-     * Resolve venta:N marketplace_source strings to the configured store name.
-     */
     public function resolveSourceLabel(string $source): ?string
     {
         if (!str_starts_with($source, 'venta:')) {
@@ -623,10 +471,6 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
         return \App\Support\StoreLabel::of('Venta', $name ?: ('Venta #' . $storeId));
     }
 
-    /**
-     * Per-store reports (the owner, 2026-09-05): the source already names the
-     * store here ("venta:3"), so each source option is a store option.
-     */
     public function availableStoreOptions(): array
     {
         return array_map(fn ($o) => [
@@ -656,13 +500,6 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
 
     use RevealsCredentials;
 
-    /**
-     * Readable back, and nothing else is.
-     *
-     * Public identifiers are deliberately absent: app keys, partner ids and
-     * shop ids are not secrets, so they are printed in the settings page and
-     * there is nothing to reveal. Only what is genuinely hidden appears here.
-     */
     public function revealableCredentials(): array
     {
         return [
@@ -685,8 +522,6 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
         return 'manage_venta/settings';
     }
 
-    // ── A catalog delete forgets the product on this channel, inside VentaSync only (ProductRemover, 2026-09-07) ──
-
     public function productPresence(array $productIds): array
     {
         return app(\Extensions\venta\Services\Venta\VentaProductRemover::class)->presence($productIds);
@@ -702,10 +537,6 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
         return app(\Extensions\venta\Services\Venta\VentaProductRemover::class)->stranded();
     }
 
-    /**
-     * Venta's automations, one full set per store: every store is a
-     * separate live shop.
-     */
     public function automations(): array
     {
         return \Extensions\venta\Support\VentaScheduledJobs::JOBS;

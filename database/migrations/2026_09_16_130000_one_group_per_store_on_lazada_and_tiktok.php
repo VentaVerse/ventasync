@@ -5,14 +5,6 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * One group per product PER STORE on Lazada and TikTok, as on Shopee and
- * Venta. Their groups carry the store and the pivot does not, so a unique
- * key on the pivot's product_id made a product grouped on one store
- * impossible to group on any other store of the same channel. The rule
- * is kept per store by OneGroupRule. A plain index keeps lookups by
- * product fast once the unique one is gone.
- */
 return new class extends Migration
 {
     private const PIVOTS = ['lazada_product_group_products', 'tiktok_product_group_products'];
@@ -34,7 +26,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        // Restored only where no product has since joined a group on a second store.
         foreach (self::PIVOTS as $pivot) {
             if (! Schema::hasTable($pivot) || Schema::hasIndex($pivot, $pivot . '_one_group')) {
                 continue;

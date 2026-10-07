@@ -30,7 +30,6 @@ class AuthController extends Controller
             return response()->json(['message' => $refused], 403);
         }
 
-        // Revoke any existing mobile tokens for this user to prevent accumulation
         $user->tokens()->where('name', 'ventasync-mobile')->delete();
 
         $token = $user->createToken('ventasync-mobile')->plainTextToken;

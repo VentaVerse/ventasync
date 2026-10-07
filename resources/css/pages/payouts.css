@@ -1,9 +1,3 @@
-/* Payouts (the owner, 2026-10-01/02): the store card on the dashboard rail
-   (payouts/partials/store-card) and the money panels on Reports > Payouts
-   and each store's Overview (payouts/partials/money-panel). The store
-   Payouts pages these once also styled were folded into the Overview and
-   the report on 2026-10-02. */
-
 .po-label {
     font-size: 11.5px;
     font-weight: 500;
@@ -17,9 +11,6 @@
     color: var(--bl-ink-3);
 }
 
-/* One store's payouts (payouts/partials/store-card) on the dashboard
-   rail. The surface is .bl-panel, the rail's own panel; this only stacks
-   what is inside it. */
 .po-store {
     display: flex;
     flex-direction: column;
@@ -147,7 +138,6 @@
     color: var(--bl-ink-3);
 }
 
-/* A figure the channel keeps to its own Seller Center: said, never guessed. */
 .po-store__note {
     margin: 0;
     font-size: 12px;
@@ -156,18 +146,12 @@
 }
 
 
-/* ------------------------------------------------------------------
-   Money at each marketplace (Reports > Payouts, 2026-10-02; the approved
-   original, draft #1): one panel per store, side by side, each in its
-   own Seller Center's words (payouts/partials/money-panels).
-   ------------------------------------------------------------------ */
 .mp { margin-bottom: 18px; }
 .mp__head { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 16px; margin-bottom: 12px; }
 .mp__title { margin: 0; font-size: 16px; font-weight: 700; color: var(--bl-ink); }
 .mp__aside { font-size: 12.5px; color: var(--bl-ink-3); }
 .mp__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; align-items: stretch; }
 
-/* The surface is .bl-sheet; this only stacks what is inside it. */
 .mp-store {
     display: flex;
     flex-direction: column;
@@ -208,7 +192,6 @@
 .mp-store__foot--good { background: var(--bl-good-wash); color: var(--bl-good); }
 
 
-/* On a store's Overview the panel is just "Payouts": the page names the store. */
 .mp-store__head--compact { justify-content: space-between; }
 .mp-store__title { margin: 0; font-size: 14px; font-weight: 650; color: var(--bl-ink); }
 .mp-store__more { display: inline-flex; align-items: center; gap: 2px; font-size: 12.5px; font-weight: 600; color: var(--bl-ink-2); text-decoration: none; }

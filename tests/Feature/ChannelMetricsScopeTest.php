@@ -7,14 +7,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\MakesCoreOrders;
 use Tests\TestCase;
 
-/**
- * The channel page's sales read the store the way every order is stamped
- * (the owner, 2026-09-06, on live: every big-3 store said "No sales recorded
- * here yet" while the orders were there). Shopee, Lazada and TikTok write
- * the bare channel in marketplace_source with the store in store_id; Venta
- * and the store-based channels write the store into the source. One key
- * shape, one parser, both stampings.
- */
 class ChannelMetricsScopeTest extends TestCase
 {
     use RefreshDatabase;
@@ -36,7 +28,6 @@ class ChannelMetricsScopeTest extends TestCase
         $this->assertNotNull($outlet);
         $this->assertSame(1, (int) $outlet['totalOrders']);
 
-        // The store-based shape still works, and a store nobody stamped is empty.
         $this->assertNotNull($metrics->trend('venta:3'));
         $this->assertNull($metrics->trend('shopee:9'));
     }

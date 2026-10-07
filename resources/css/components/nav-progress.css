@@ -1,11 +1,3 @@
-/* The navigation progress line.
-
-   Every list page that asks a marketplace before it can paint is slow in
-   a way the browser does not show: the click lands, nothing changes, and
-   the operator clicks again. This line appears at the top edge the moment
-   a same-site link or form is followed and leaves with the old page. One
-   element in the layout, one small script (resources/js/nav-progress.js);
-   no page has to opt in. */
 .x-progress {
     position: fixed;
     top: 0;

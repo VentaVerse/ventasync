@@ -7,13 +7,6 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * The rows a deleted product left behind before 2026-09-07 (variations,
- * combinations, images, specials, vendors): listed by default, removed
- * with --apply. A stranded variation row made the SKU rule refuse an
- * import as "already used by a variation of product #2767" when #2767
- * no longer existed. Run once per tier after the deploy.
- */
 class PurgeOrphanProductRows extends Command
 {
     protected $signature = 'catalog:purge-orphan-rows {--apply : Delete the rows; without it the command only lists them}';

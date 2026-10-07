@@ -1,18 +1,6 @@
 @extends('layouts.blotter')
 
 @php
-    // One controller action and one view back four real routes
-    // (settings.general / .website / .mail / .maintenance, each with a
-    // ->defaults('tab', …)). Before this round all four rendered at once and
-    // a script hid three of them, so a page that had been split into four
-    // URLs was still one document pretending to be four. Each tab is now its
-    // own page: only its own sections render, and the segment below is real
-    // navigation between four addresses rather than a class toggle.
-    // Each tab's URL is resolved here with a clean literal route() call, not
-    // route($item['route']) inside the loop below. A route name assembled
-    // from a variable is invisible to RouteNameSweepTest's static half, which
-    // is the sweep that exists precisely so a renamed route cannot ship as a
-    // 500 nobody noticed.
     $tabs = [
         'general' => [
             'label' => 'General',
@@ -40,16 +28,9 @@
         ],
     ];
 
-    // edit() falls back to 'general' when no route default is bound, but a
-    // partial name is built from this below, so an unknown value has to
-    // resolve here rather than reach @include.
     $activeTab = array_key_exists($activeTab, $tabs) ? $activeTab : 'general';
     $tab = $tabs[$activeTab];
 
-    // routes/settings.php gates the four GETs on
-    // view_website_settings|manage_website_settings and settings.update on
-    // manage_website_settings alone. The pre-redesign view hardcoded this to
-    // true, so a read-tier operator saw a Save button that would bounce.
     $canManage = auth()->user()?->hasPermission('manage_settings/setting') ?? false;
     $ro = ! $canManage;
 @endphp
@@ -102,19 +83,9 @@
     <p class="st-lede">{{ $tab['sub'] }}</p>
 
     @if($tab['saves'])
-        {{-- enctype is load-bearing: the Website Settings tab posts the logo
-             and favicon files through this same action. All four tabs share
-             one form element so the markup does not fork on which tab is
-             showing. --}}
         <form method="POST" action="{{ route('settings.update') }}" enctype="multipart/form-data" class="st-set-form" data-guard-unsaved>
             @csrf
 
-            {{-- Literal include names, not 'tab-' . $activeTab. The view
-                 sweep (tests/Feature/ViewResolutionSweepTest) resolves every
-                 referenced view and can only do that for a literal, and a
-                 dynamically-built name is exactly how a renamed partial ships
-                 as a 500 nobody noticed. $activeTab is already normalised to
-                 one of these four above. --}}
             @if($activeTab === 'general')
                 @include('settings.partials.tab-general', ['setting' => $setting, 'ro' => $ro])
             @elseif($activeTab === 'website')
@@ -123,15 +94,6 @@
                 @include('settings.partials.tab-mail', ['setting' => $setting, 'ro' => $ro])
             @endif
 
-            {{-- SettingController::update() validates the UNION of all four
-                 tabs (company_name, from_email, timezone,
-                 activity_log_retention_days and mail_mailer are each
-                 `required`), so a tab that posted only its own fields would
-                 fail validation on fields the operator cannot even see. The
-                 pre-redesign page never hit this because all four tabs sat
-                 inside one form and posted together. This carries the stored
-                 value of every required field the current tab does not show,
-                 which reproduces exactly what that one form used to send. --}}
             @include('settings.partials.carry', ['setting' => $setting, 'activeTab' => $activeTab])
 
             @if($canManage)

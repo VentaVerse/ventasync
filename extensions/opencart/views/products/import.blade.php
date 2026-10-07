@@ -2,11 +2,6 @@
 @section('title', 'Import from ' . ($setting->store_name ?: 'OpenCart'))
 @section('breadcrumb', 'Import')
 
-{{-- The Import page, stateless (the owner, 2026-09-04): nothing about the
-     store's items is saved. The page is blank until Fetch reads the store
-     live; the rows exist only in this render and act through the values
-     they carry. Refreshing re-fetches; leaving forgets. --}}
-
 @section('content')
 
 @php
@@ -43,9 +38,6 @@
     @if($fetchError)
         <p class="fm-section__note fm-section__note--strong">{{ $fetchError }}</p>
     @elseif($fetched === null)
-        {{-- First-run: a shaped initial look, not a paragraph. The
-             action is self-evident, so one orienting line stands in
-             for the explanation a tooltip used to carry. --}}
         <x-ui.empty title="Nothing fetched yet"
                     description="Read what is listed on the store and bring anything missing into your Master Catalog.">
             <x-slot:icon><x-ui.icon name="download" size="22" /></x-slot:icon>
@@ -62,11 +54,6 @@
     @else
         <p class="fm-section__note">These items exist on the store but not in your Master Catalog. <x-ui.hint label="How importing works">Import one, or tick several and import them together, to create the real product in your Master Catalog - details, variations and images included. Or link it to a catalog product it already is.</x-ui.hint></p>
 
-        {{-- Import selected: the checkboxes in the table belong to this
-             form through form="", so one press imports every ticked row,
-             each re-read live and in its own transaction. --}}
-        {{-- The bar appears only once a row is ticked (channel-import.js),
-             the same rule the products and listings pages hold. --}}
         <div class="cc-bulkbar" data-import-bar hidden>
             <span class="cc-bulkbar__count"><span data-import-count>0</span> selected</span>
             <form id="cc-import-selected" method="POST" action="{{ route('ext.opencart.products.import_selected', $store) }}"

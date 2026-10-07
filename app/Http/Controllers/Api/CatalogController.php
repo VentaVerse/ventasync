@@ -15,7 +15,6 @@ class CatalogController extends Controller
         $t = mb_strtolower(trim($term), 'UTF-8');
         if ($t === '') return false;
 
-        // Match at start or after any non-alphanumeric (space, dash, etc.)
         return (bool) preg_match('/(^|[^a-z0-9])' . preg_quote($t, '/') . '/i', $h);
     }
 
@@ -26,7 +25,6 @@ class CatalogController extends Controller
             return response()->json([]);
         }
 
-        // DB prefilter (fast), then PHP word-start filter (accurate & consistent)
         $rows = Manufacturer::query()
             ->where('name', 'like', '%'.$term.'%')
             ->orderBy('name')
@@ -60,7 +58,6 @@ class CatalogController extends Controller
         $tableCat = $p.'category_description';
         $tablePath = $p.'category_path';
 
-        // Build paths using category_path (like OpenCart)
         $rows = DB::table($tablePath.' as cp')
             ->join($tableCat.' as cd1', function($j) use ($lang){
                 $j->on('cp.category_id','=','cd1.category_id')->where('cd1.language_id','=',$lang);
@@ -87,7 +84,6 @@ class CatalogController extends Controller
             if (count($out) >= 15) break;
         }
 
-        // Fallback if category_path not populated
         if (count($out) === 0) {
             $rows2 = DB::table($tableCat)
                 ->where('language_id', $lang)

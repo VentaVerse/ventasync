@@ -6,11 +6,6 @@ use App\Services\Orders\SaleLinesWriter;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Rewrites the Sale lines of orders already held, from what each channel
- * stores for them, without re-syncing: product lines, cost, stock, status,
- * order.total and fee rows are untouched. No marketplace is called.
- */
 class RewriteSaleLines extends Command
 {
     protected $signature = 'orders:rewrite-sale-lines

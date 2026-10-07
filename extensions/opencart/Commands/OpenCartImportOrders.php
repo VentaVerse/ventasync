@@ -27,7 +27,6 @@ class OpenCartImportOrders extends Command
         $client = new OpenCartClient($setting);
         $startPage = (int) $this->option('page');
 
-        // If a previous import was interrupted, suggest resuming
         if ($startPage === 1 && $setting->last_order_page > 0) {
             $this->warn("Previous import stopped at page {$setting->last_order_page}.");
             if ($this->confirm("Resume from page {$setting->last_order_page}?", true)) {
@@ -43,7 +42,7 @@ class OpenCartImportOrders extends Command
 
         $sync = new OpenCartOrderSync($client, $setting);
         $log = $sync->pull(
-            null, // No modified_since — full import
+            null,
             $startPage,
             function (int $processed, int $total) use (&$bar) {
                 if ($bar === null && $total > 0) {

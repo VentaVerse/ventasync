@@ -2,48 +2,14 @@
 @section('title', ($mode === 'create' ? 'Add' : 'Edit') . ' Lazada Product group')
 @section('breadcrumb', $mode === 'create' ? 'New Product group' : $group->name)
 
-{{-- This page shows its own validation summary (the fm-note below) and marks
-     the offending fields inline, so partials/legacy-page-contract skips its
-     bullet list of every message rather than stacking a second red box on
-     top of this one. --}}
 @section('own-errors', true)
 
-{{-- Round F Task 1. Rebuilt on the shared fm- form anatomy
-     (components/form-page.css) and the gf- product picker
-     (pages/group-form.css), with the behaviour moved out of an inline
-     <script> into resources/js/pages/group-form.js.
-
-     The wire, checked field by field against
-     LazadaProductGroupController::store()/update():
-
-       name, lazada_category_id, brand_id, no_brand, markup_percent,
-       markup_fixed, attributes[<key>]
-
-     and the endpoints behind the page (brands autocomplete,
-     refresh-categories, fetch-attributes) are called with the same verbs,
-     parameters and headers.
-
-     No product list since #201 (the owner, 2026-09-05): this form is the
-     group's own settings only. Products join and leave the group on its
-     products page, through the Add products panel over THIS STORE's list;
-     the whole-catalogue dual list went with product_ids[] and search-products.
-
-     Lazada differs from Shopee in exactly two ways, and both are here rather
-     than in the shared module: its category list is small enough for a plain
-     select, and its brand is a free-text name resolved to an id, with an
-     explicit "No brand" flag posted alongside. --}}
 @section('content')
 @php
-    // The CREATE render is manage-tier, the EDIT render is in the read product group
-    // (extensions/lazada/routes/web.php), so a view_lazada operator can open
-    // this page on an existing product group and every write behind it would 403.
-    // The previous version hardcoded the manage tier on.
     $canManageLazada = auth()->user()?->hasPermission('manage_lazada/product_group') ?? false;
 
     $selectedCategoryId = (string) old('lazada_category_id', $group->lazada_category_id ?? '');
 
-    // The No-brand flag survives a validation round trip through old(), and
-    // otherwise reads whatever the product group was last saved with.
     $noBrand = old('no_brand');
     if ($noBrand === null) {
         $noBrand = (!empty($group->brand_name_override)
@@ -64,8 +30,6 @@
       data-guard-unsaved>
     @csrf
     @if($mode === 'create')
-        {{-- Back to the page that sent you here: the store's list, or the
-             groups list. Only a local path is ever followed. --}}
         <input type="hidden" name="_return" value="{{ \App\Support\BackTo::capture() }}">
     @endif
     @if($mode === 'edit')
@@ -117,19 +81,6 @@
                 </div>
             </section>
 
-            {{-- ------------------------------------------------------------
-                 Lazada mapping.
-
-                 The category is a plain select: the controller ships at most
-                 5000 rows and Lazada has no leaf-search endpoint to put
-                 behind a combobox. Changing it fires the attribute fetch
-                 below, which is what the original did too.
-
-                 The brand is a name the operator recognises resolved to an
-                 id. Two hidden inputs carry the answer: brand_id when one was
-                 matched, and no_brand when the operator said there is not
-                 one. Both are the pre-redesign wire.
-                 ------------------------------------------------------------ --}}
             <section class="fm-section">
                 <div class="fm-section__head">
                     <h2 class="fm-section__title">Category and brand</h2>
@@ -173,11 +124,6 @@
                 </div>
             </section>
 
-            {{-- ------------------------------------------------------------
-                 Category attributes. Rendered inline when the product group already
-                 has a category, replaced wholesale when it changes: the
-                 endpoint answers with this same partial.
-                 ------------------------------------------------------------ --}}
             <section class="fm-section"
                      data-attributes-fetch
                      data-attributes-url="{{ route('ext.lazada.product-groups.fetchAttributes') }}"

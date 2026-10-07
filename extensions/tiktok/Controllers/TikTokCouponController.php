@@ -8,21 +8,10 @@ use Extensions\tiktok\Models\TikTokSetting;
 use Extensions\tiktok\Services\TikTok\TikTokClient;
 use Illuminate\Http\Request;
 
-/**
- * Seller coupons (#153, quest 4, TikTok half). TikTok's word for the
- * shop voucher is "coupon", so the page uses it - the operator sees
- * the same word in the seller center. Like the Shopee half, nothing
- * is stored locally: the list is a live read of the 202406 coupon API
- * on every load (absent, never stale), create and deactivate pass
- * straight through, and the lifecycle decides the row's verb. TikTok
- * has no delete: a coupon that has not started and one that is
- * running are both DEACTIVATED, and a deactivated coupon stays gone.
- */
 class TikTokCouponController extends Controller
 {
     private const API = '/promotion/202406/coupons';
 
-    /** TikTok's status words -> the page's, with the badge tone. */
     public const STATUS_MAP = [
         'NOT_START' => ['Upcoming', 'info'],
         'ONGOING' => ['Ongoing', 'success'],
@@ -132,8 +121,6 @@ class TikTokCouponController extends Controller
             ->with('status', 'Coupon deactivated. Buyers can no longer claim or use it, and it cannot restart.');
     }
 
-    // ── Helpers ──────────────────────────────────────────────────
-
     private function creds(): ?array
     {
         $s = TikTokSetting::defaultStore();
@@ -151,7 +138,6 @@ class TikTokCouponController extends Controller
         ];
     }
 
-    /** One signed coupon call, logged. */
     private function call(TikTokClient $client, array $c, string $method, string $path, array $body, array $query = []): array
     {
         try {
@@ -179,7 +165,6 @@ class TikTokCouponController extends Controller
 
     private function callMessage(array $result): string
     {
-        // The one reader that knows where every channel hides its reason.
         return \App\Support\MarketplaceAnswer::errorText('TikTok Shop', $result);
     }
 }

@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('tiktok_categories', function (Blueprint $table) {
-            $table->string('id')->primary(); // TikTok's category_id, not auto-increment
+            $table->string('id')->primary();
             $table->string('parent_id')->nullable();
             $table->string('name');
             $table->boolean('is_leaf')->default(false);

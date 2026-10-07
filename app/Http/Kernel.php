@@ -6,18 +6,8 @@ use Illuminate\Foundation\Http\Kernel as HttpKernel;
 
 class Kernel extends HttpKernel
 {
-    /**
-     * The application's global HTTP middleware stack.
-     *
-     * These middleware are run during every request to your application.
-     *
-     * @var array<int, class-string|string>
-     */
     protected $middleware = [
-        // /mcp only: promotes ?key= into the bearer header before auth
-        // runs, for the one connector box that cannot send headers.
         \App\Http\Middleware\McpKeyInUrl::class,
-        // \App\Http\Middleware\TrustHosts::class,
         \App\Http\Middleware\TrustProxies::class,
         \Illuminate\Http\Middleware\HandleCors::class,
         \App\Http\Middleware\PreventRequestsDuringMaintenance::class,
@@ -26,11 +16,6 @@ class Kernel extends HttpKernel
         \Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull::class,
     ];
 
-    /**
-     * The application's route middleware groups.
-     *
-     * @var array<string, array<int, class-string|string>>
-     */
     protected $middlewareGroups = [
         'web' => [
             \App\Http\Middleware\AutoDetectAppUrl::class,
@@ -41,36 +26,15 @@ class Kernel extends HttpKernel
             \App\Http\Middleware\VerifyCsrfToken::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
 
-            /* EVERY WEB ROUTE IS GATED ON ITS OWN CONTROLLER.
-             *
-             * Not per route, and that is the point. Under the `perm:` argument
-             * this joins, a route that forgot to declare one was simply open -
-             * measured before this change, twenty authenticated routes carried
-             * no permission at all. Here the gate follows from what the route
-             * IS, so a controller added tomorrow is protected the moment it
-             * exists and nobody has to remember anything.
-             *
-             * After SubstituteBindings so the route is fully resolved, and
-             * inside `web` only: the API group authenticates with a token and
-             * carries its own checks. See App\Services\PermissionCatalogue
-             * for what is never gated and why. */
             \App\Http\Middleware\EnsureControllerPermission::class,
         ],
 
         'api' => [
-            // \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
             \Illuminate\Routing\Middleware\ThrottleRequests::class.':api',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ],
     ];
 
-    /**
-     * The application's middleware aliases.
-     *
-     * Aliases may be used instead of class names to conveniently assign middleware to routes and groups.
-     *
-     * @var array<string, class-string|string>
-     */
     protected $middlewareAliases = [
         'auth' => \App\Http\Middleware\Authenticate::class,
         'auth.basic' => \Illuminate\Auth\Middleware\AuthenticateWithBasicAuth::class,
@@ -89,7 +53,6 @@ class Kernel extends HttpKernel
         'packing.check' => \App\Http\Middleware\RequirePackingCheck::class,
         'booking.lock' => \App\Http\Middleware\OneBookingAtATime::class,
 
-        // External API (Settings → API): scope enforcement + audit log
         'scope' => \App\Http\Middleware\EnsureApiScope::class,
         'api.audit' => \App\Http\Middleware\LogApiRequest::class,
         'api.limits' => \App\Http\Middleware\EnforceApiClientLimits::class,

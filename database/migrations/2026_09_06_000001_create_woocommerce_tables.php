@@ -4,13 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * The WooCommerce channel (spec 2026-09-05). Every table the channel will
- * ever need is created here so the later stages add only code. Shapes
- * follow Venta's tables of the same name. Nothing is installed in
- * WordPress: WooCommerce's own REST API is the transport, so the
- * settings row holds a key pair and the webhooks the ERP registered.
- */
 return new class extends Migration
 {
     public function up(): void
@@ -19,11 +12,11 @@ return new class extends Migration
             $t->id();
             $t->string('store_name', 128);
             $t->string('base_url', 255);
-            $t->string('rest_style', 8)->default('pretty'); // pretty | query
+            $t->string('rest_style', 8)->default('pretty');
             $t->string('consumer_key', 128)->default('');
             $t->text('consumer_secret')->nullable();
             $t->text('webhook_secret')->nullable();
-            $t->json('webhook_ids')->nullable(); // {topic: id} at the store
+            $t->json('webhook_ids')->nullable();
             $t->timestamp('connected_at')->nullable();
             $t->string('wc_version', 32)->nullable();
             $t->string('wp_version', 32)->nullable();
@@ -101,7 +94,7 @@ return new class extends Migration
             $t->decimal('markup_fixed', 12, 2)->nullable();
             $t->string('name', 255)->nullable();
             $t->text('description')->nullable();
-            $t->string('live_status', 16)->nullable(); // publish | draft | pending | private | missing
+            $t->string('live_status', 16)->nullable();
             $t->timestamp('live_checked_at')->nullable();
             $t->decimal('live_price', 12, 2)->nullable();
             $t->integer('live_quantity')->nullable();

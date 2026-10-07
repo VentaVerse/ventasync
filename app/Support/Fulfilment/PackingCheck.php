@@ -11,27 +11,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * The packing check: before an order is booked, the packer types how many
- * of each item is in their hands, and the booking goes ahead only when
- * every count matches the order. The packer is never shown the ordered
- * quantity.
- *
- * A correct count leaves a pass for that person and order, which the
- * booking routes require while the check is switched on, so a booking
- * cannot skip the count. A booking spends the pass, so booking the order
- * again, after a cancel or a repack, needs a fresh count.
- */
 final class PackingCheck
 {
-    /** The channels whose orders are booked from VentaSync. */
     public const CHANNELS = ['shopee', 'lazada', 'tiktok', 'venta'];
 
     public const WRONG = 'That count is wrong. Count again.';
 
     public const MISSING = 'Count the items before booking this order.';
 
-    /** How long a correct count lets the person book that order. */
     private const PASS_MINUTES = 30;
 
     public static function enabled(): bool
@@ -48,12 +35,6 @@ final class PackingCheck
         return in_array($channel, self::CHANNELS, true) && OrderPrintLists::supports($channel);
     }
 
-    /**
-     * The order's lines, one per product and variation, with the quantity
-     * ordered. Null when there is no such order.
-     *
-     * @return array{reference: string, lines: list<array{key: string, name: string, variation: string, sku: string, image: ?string, quantity: int}>}|null
-     */
     public static function order(string $channel, int $id): ?array
     {
         if (! self::supports($channel)) {
@@ -61,7 +42,6 @@ final class PackingCheck
         }
 
         $found = OrderPrintLists::orders($channel, [$id]);
-        /** @var Model|null $order */
         $order = $found->first();
         if ($order === null) {
             return null;
@@ -96,11 +76,6 @@ final class PackingCheck
         return ['reference' => $reference, 'lines' => $lines];
     }
 
-    /**
-     * Whether the counts match every line. A match leaves the pass.
-     *
-     * @param  array<string, mixed>  $counts  line key => what the packer typed
-     */
     public static function verify(User $user, string $channel, int $id, array $counts): bool
     {
         $order = self::order($channel, $id);
@@ -125,20 +100,11 @@ final class PackingCheck
         return Cache::has(self::passKey($user, $channel, $id));
     }
 
-    /**
-     * The orders a booking request is about, by their row id, read from the
-     * route or the bulk selection.
-     *
-     * @return list<int>
-     */
     public static function ordersOf(string $channel, Request $request): array
     {
-        // The channel's store middleware binds the store and drops the
-        // route parameter; read whichever is there.
         $store = app()->bound($channel . '.route-store') ? app($channel . '.route-store') : $request->route('store');
         $storeId = is_object($store) ? (int) $store->getKey() : (int) $store;
 
-        // The app's routes name every order by its own row id.
         if ($request->is('api/*') && $request->route('id') !== null) {
             return [(int) $request->route('id')];
         }
@@ -162,7 +128,6 @@ final class PackingCheck
         return array_values(array_unique(array_filter(array_map('intval', $ids))));
     }
 
-    /** @param  list<int>  $ids */
     public static function spend(User $user, string $channel, array $ids): void
     {
         foreach ($ids as $id) {
@@ -170,15 +135,6 @@ final class PackingCheck
         }
     }
 
-    /**
-     * Of the orders a booking request was about, the ones it booked, read
-     * from its answer the way the app reads a web button's outcome. An order
-     * already booked counts as booked; a refusal keeps the pass, so the
-     * packer can try again without counting twice.
-     *
-     * @param  list<int>  $ids
-     * @return list<int>
-     */
     public static function booked(string $channel, array $ids, Request $request, Response $response): array
     {
         if ($response instanceof JsonResponse) {
@@ -191,8 +147,6 @@ final class PackingCheck
             return $response->isSuccessful() ? $ids : [];
         }
 
-        // Only what this request flashed: the last request's flash is still
-        // readable and would speak for a booking it was not about.
         $session = $request->hasSession() ? $request->session() : null;
         $fresh = (array) ($session?->get('_flash.new') ?? []);
 

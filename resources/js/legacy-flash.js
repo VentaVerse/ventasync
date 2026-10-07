@@ -1,42 +1,5 @@
-/*
- * window.showFlashError / window.showFlashSuccess.
- *
- * Pages call these instead of alert(). They were originally defined only by an
- * inline <script> at the bottom of layouts/app.blade.php, so any page moved to
- * a different layout lost them and every call site threw a ReferenceError,
- * which also stranded whatever ran after the call (the Confirm Ship button on
- * Shopee's orders page stayed disabled forever for exactly that reason). This
- * module was written as a faithful copy of that inline original, deferred, so
- * it reassigned the same two names on pages using that layout - which was the
- * only way to share the implementation while the original file was protected
- * and could not be edited.
- *
- * layouts/app.blade.php was deleted in Round F Task 4. This is the only
- * definition of either function now, and nothing reassigns them.
- *
- * Both write into #js-flash-container, which partials/legacy-page-contract
- * renders (layouts.channel includes it). A page without that container is a
- * no-op rather than an error.
- *
- * Neither function reads a Blade-rendered value, which is why they can live in
- * a real JS file at all. Both build their DOM with createElement and
- * textContent - never innerHTML - so a message containing markup is shown as
- * text and cannot inject anything.
- */
-
 var SVG_NS = 'http://www.w3.org/2000/svg';
 
-/*
- * The icon's geometry used to be an inline style attribute copied off the old
- * layout ("width:18px;height:18px;flex-shrink:0;margin-top:1px"). It is the
- * .alert__icon class in resources/css/components/alerts.css, with those exact
- * values, and that is what the Blade copy of this markup in
- * partials/legacy-page-contract.blade.php has always used. Setting the class
- * here instead means the two flash paths - server-rendered and script-rendered
- * - are styled by one rule, and no CSS is written in a string. setAttribute
- * rather than className because on an SVG element className is a read-only
- * SVGAnimatedString.
- */
 function svgIcon(shapes) {
     var svg = document.createElementNS(SVG_NS, 'svg');
     svg.setAttribute('class', 'alert__icon');
@@ -58,11 +21,6 @@ function svgIcon(shapes) {
     return svg;
 }
 
-/*
- * One builder for both tones. The two functions differed only in the tone
- * class and the icon's shapes; everything else - the single-alert replacement,
- * the close button, the scroll into view - was duplicated verbatim.
- */
 function showFlash(tone, shapes, message) {
     var container = document.getElementById('js-flash-container');
     if (!container) return;

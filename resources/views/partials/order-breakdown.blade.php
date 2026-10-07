@@ -1,4 +1,3 @@
-{{-- $breakdown: App\Services\Orders\Breakdown\OrderBreakdown; $currency: the order's currency code --}}
 <div class="od-ledger">
     @foreach($breakdown->rows() as $row)
         @php

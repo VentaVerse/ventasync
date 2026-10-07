@@ -17,11 +17,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * Which variations a store sells. The catalog's own switch turns one off
- * everywhere, a listing's switch turns it off on that one store, and a
- * variation a store does not carry is never an error.
- */
 class ListingVariationsTest extends TestCase
 {
     use RefreshDatabase;
@@ -74,7 +69,6 @@ class ListingVariationsTest extends TestCase
         return (int) ShopeeSetting::defaultStore()->id;
     }
 
-    /** @param array<string, array{0: float, 1: int}> $combos sku => [price, status] */
     private function productWithCombinations(array $combos): int
     {
         $pfx = (string) config('catalog.prefix');
@@ -155,11 +149,9 @@ class ListingVariationsTest extends TestCase
 
         $this->assertSame(['VAR-A'], ListingVariations::sold('shopee', $this->storeId(), [$pid])[$pid]);
 
-        // A save that did not carry the card leaves the switches alone.
         $this->actingAs($user)->post(route('ext.shopee.listings.update', $pid), [])->assertRedirect();
         $this->assertSame(['VAR-A'], ListingVariations::sold('shopee', $this->storeId(), [$pid])[$pid]);
 
-        // Another store is not touched.
         $this->assertSame(['VAR-A', 'VAR-B'], ListingVariations::sold('lazada', $this->storeId(), [$pid])[$pid]);
     }
 

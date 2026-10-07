@@ -32,7 +32,6 @@ class LazadaCatalogOrderSync
             $raw = is_array($lazadaOrder->raw) ? $lazadaOrder->raw : [];
             $detail = (isset($raw['_detail']) && is_array($raw['_detail'])) ? $raw['_detail'] : [];
 
-            // Merge: prefer detail over raw list payload
             $src = array_merge($raw, $detail);
 
             $orderStatusMap = LazadaOrderStatusMap::where('context', 'order')->pluck('order_status_id', 'lazada_status')->all();
@@ -40,7 +39,6 @@ class LazadaCatalogOrderSync
             $lazadaStatus = strtolower($lazadaOrder->status ?? '');
             $statusId = $orderStatusMap[$lazadaStatus] ?? $returnStatusMap[$lazadaStatus] ?? 1;
 
-            // --- Name ---
             $firstname = trim((string) ($src['customer_first_name'] ?? ''));
             $lastname = trim((string) ($src['customer_last_name'] ?? ''));
             if ($firstname === '') {
@@ -50,17 +48,12 @@ class LazadaCatalogOrderSync
                 $lastname = $parts[1] ?? '';
             }
 
-            // --- Shipping address ---
             $addr = $src['address_shipping'] ?? $src['shipping_address'] ?? $src['address'] ?? [];
             if (!is_array($addr)) $addr = [];
 
             $shippingFirstname = trim((string) ($addr['first_name'] ?? $firstname));
             $shippingLastname = trim((string) ($addr['last_name'] ?? $lastname));
 
-            /* The order's name columns hold 32 characters. A longer buyer
-               name failed the whole insert, the failure was swallowed, and
-               the sale never reached the ERP: 16 Lazada orders, May to
-               September (the owner, 2026-09-25). */
             [$firstname, $lastname, $shippingFirstname, $shippingLastname] = array_map(
                 fn (string $name) => mb_substr($name, 0, 32),
                 [$firstname, $lastname, $shippingFirstname, $shippingLastname]
@@ -68,13 +61,11 @@ class LazadaCatalogOrderSync
             $shippingAddress1 = trim((string) ($addr['address1'] ?? ($addr['address'] ?? '')));
             $shippingAddress2 = trim((string) ($addr['address2'] ?? ''));
             $shippingCity = trim((string) ($addr['city'] ?? ''));
-            // Ten characters, the column's width: a buyer who typed "Barangay 535" here failed the insert the same way.
             $shippingPostcode = mb_substr(trim((string) ($addr['post_code'] ?? ($addr['zip_code'] ?? ''))), 0, 10);
             $shippingCountry = trim((string) ($addr['country'] ?? ''));
             $shippingZone = trim((string) ($addr['state'] ?? ($addr['region'] ?? '')));
             $telephone = trim((string) ($addr['phone'] ?? ($addr['phone1'] ?? ($src['receiver_phone'] ?? ''))));
 
-            // --- Other fields ---
             $email = trim((string) ($src['customer_email'] ?? ''));
             $shippingMethod = trim((string) ($src['shipping_provider'] ?? ($src['shipping_provider_type'] ?? '')));
             $paymentMethod = trim((string) ($src['payment_method'] ?? ''));
@@ -96,7 +87,6 @@ class LazadaCatalogOrderSync
             $createdAt = $lazadaOrder->order_created_at ?? now();
             $updatedAt = $lazadaOrder->order_updated_at ?? now();
 
-            // --- Find or create catalog order ---
             $catalogOrder = null;
 
             if ($lazadaOrder->catalog_order_id) {
@@ -109,24 +99,13 @@ class LazadaCatalogOrderSync
                     ->first();
             }
 
-            // Re-sync guard: once an order has been normalized (foreign_total
-            // is no longer NULL), its currency_value is a frozen, as-transacted
-            // rate. A later re-sync must not overwrite it with today's feed
-            // rate - that would desynchronize currency_value from the total
-            // and foreign_total that were already stored under the old rate.
-            // The order must also still be foreign today - if a feed ever
-            // re-reports this order as the default currency, the frozen rate
-            // must not be applied to what is now a default-currency amount.
+            // Never overwrite a frozen as-transacted currency_value on re-sync, or it drifts from the stored totals.
             $rate = $currency['rate'];
             $isDefault = $currency['is_default'];
             if ($catalogOrder && !$isDefault && $catalogOrder->foreign_total !== null) {
                 $rate = (float) $catalogOrder->currency_value;
             }
 
-            // Per-store reports (the owner, 2026-09-05): the core order carries
-            // its store on its own, name included, so reports read by store
-            // and a deleted store's sales keep the name they were sold under.
-            // Written on every resync, so a rename follows.
             $storeId = (int) $lazadaOrder->lazada_setting_id;
             $storeName = mb_substr((string) (\Extensions\lazada\Models\LazadaSetting::query()->find($storeId)?->store_name ?? ''), 0, 64);
 
@@ -177,12 +156,6 @@ class LazadaCatalogOrderSync
                 'shipping_cost'         => 0,
                 'shipping_code'         => '',
                 'comment'               => '',
-                // Storage rule: total is ALWAYS the default currency;
-                // foreign_total holds the raw (as-transacted) marketplace
-                // amount and must stay NULL (never 0.00) for a
-                // default-currency order. Unlike Shopee/TikTok, this sync
-                // never recomputes order.total from line items afterwards -
-                // $total (the API's own order-level figure) is authoritative.
                 'total'                 => \App\Services\OrderCurrencyService::toBase($total, $rate),
                 'foreign_total'         => $isDefault ? null : round($total, \App\Services\OrderCurrencyService::MONEY_SCALE),
                 'extra_cost'            => 0,
@@ -208,9 +181,6 @@ class LazadaCatalogOrderSync
 
             if ($catalogOrder) {
                 $oldStatusId = (int) $catalogOrder->order_status_id;
-                // Sync Override: operator has manually finalised this order -
-                // preserve its status (no-op the status-change block below, so
-                // no stock moves). See order.sync_override.
                 if ((int) ($catalogOrder->sync_override ?? 0) === 1) {
                     $statusId = $oldStatusId;
                     $orderData['order_status_id'] = $oldStatusId;
@@ -224,10 +194,6 @@ class LazadaCatalogOrderSync
                 $catalogOrder = Order::create($orderData);
             }
 
-            // FCM notifications dispatched centrally by App\Observers\OrderObserver
-            // on Order::create / $catalogOrder->update() above.
-
-            // --- Sync products ---
             OrderProduct::where('order_id', $catalogOrder->order_id)->delete();
             OrderOption::where('order_id', $catalogOrder->order_id)->delete();
 
@@ -235,7 +201,6 @@ class LazadaCatalogOrderSync
             $shippingTotal = 0;
             $voucherTotal = 0;
 
-            // Group Lazada line items by SKU so qty 5 = one row with quantity 5
             $grouped = [];
             foreach ($lazadaOrder->products as $lp) {
                 $lpRaw = is_array($lp->raw) ? $lp->raw : [];
@@ -262,24 +227,18 @@ class LazadaCatalogOrderSync
             }
 
             foreach ($grouped as $item) {
-                // Foreign (as-transacted, marketplace-currency) figures.
                 $price = $item['price'];
                 $qty = $item['quantity'];
                 $lineTotal = $price * $qty;
                 $subTotal += $lineTotal;
 
-                // Storage rule: price/total are ALWAYS the default currency;
-                // foreign_price/foreign_total hold the raw marketplace amount
-                // and must stay NULL (never 0.00) for a default-currency order.
                 $priceBase = \App\Services\OrderCurrencyService::toBase($price, $rate);
                 $lineTotalBase = \App\Services\OrderCurrencyService::toBase($lineTotal, $rate);
 
-                // Resolve catalog product_id and option value via seller SKU
                 $resolvedProductId = 0;
                 $resolvedOptionValueId = 0;
                 $sellerSku = $item['sku'];
                 if ($sellerSku !== '') {
-                    // 1. Try Lazada variant chain
                     $variant = LazadaProductVariant::where('seller_sku', $sellerSku)->first();
                     if ($variant) {
                         $lzProduct = LazadaProduct::where('id', $variant->lazada_product_id)->first();
@@ -291,7 +250,6 @@ class LazadaCatalogOrderSync
                         }
                     }
 
-                    // 2. Match option value by SKU on the resolved product
                     if ($resolvedProductId > 0 && $resolvedOptionValueId === 0) {
                         $pov = \App\Models\Catalog\ProductOptionValue::where('product_id', $resolvedProductId)
                             ->where('sku', $sellerSku)
@@ -302,7 +260,6 @@ class LazadaCatalogOrderSync
                     }
                 }
 
-                // 3. Fallback: resolve option value by variation name
                 if ($resolvedProductId > 0 && $resolvedOptionValueId === 0) {
                     $variation = trim($item['variation'] ?? '');
                     if ($variation !== '') {
@@ -310,9 +267,6 @@ class LazadaCatalogOrderSync
                     }
                 }
 
-                // Cost at the time of sale, from the catalogue: the variation's own
-                // cost when it has an amount, else the parent's. One rule for every
-                // channel, in App\Support\LineCost.
                 $productCost = \App\Support\LineCost::resolve((int) $resolvedProductId, (int) $resolvedOptionValueId);
 
                 $op = OrderProduct::create([
@@ -328,13 +282,10 @@ class LazadaCatalogOrderSync
                     'tax'           => 0,
                     'reward'        => 0,
                     'base_price'    => $priceBase,
-                    // Cost is looked up from the catalog (already PHP), not
-                    // from marketplace data - no conversion needed.
                     'cost'          => $productCost,
                     'supplier_id'   => 0,
                 ]);
 
-                // Sync variation as order option
                 if ($item['variation'] && trim($item['variation']) !== '') {
                     OrderOption::create([
                         'order_id'                => $catalogOrder->order_id,
@@ -348,12 +299,8 @@ class LazadaCatalogOrderSync
                 }
             }
 
-            // --- Sync order totals ---
-            // order_total has no foreign_* column - it always holds the
-            // default-currency figure, matching order.total.
             OrderTotal::where('order_id', $catalogOrder->order_id)->delete();
 
-            // The sale as Lazada reports it. order.total stays the revenue figure the reports read.
             $sortOrder = 1;
             foreach (\Extensions\lazada\Services\LazadaSaleLines::lines($raw, $subTotal, $shippingTotal) as $line) {
                 OrderTotal::create([
@@ -365,7 +312,6 @@ class LazadaCatalogOrderSync
                 ]);
             }
 
-            // --- Add history if status changed ---
             if ($oldStatusId !== $statusId) {
                 OrderHistory::create([
                     'order_id'        => $catalogOrder->order_id,
@@ -381,37 +327,24 @@ class LazadaCatalogOrderSync
                     'order_status_id' => [(string) $oldStatusId, (string) $statusId],
                 ], source: 'system');
 
-                // Adjust stock based on status transition
                 if (!$this->skipStockAdjust) {
                     OrderStockService::adjustStock($catalogOrder, $oldStatusId, $statusId);
                 }
             }
 
-            // --- Save catalog_order_id back ---
             $lazadaOrder->catalog_order_id = $catalogOrder->order_id;
             $lazadaOrder->saveQuietly();
 
-            /* The channel's fees land on the CORE order here, in the four
-               codes every report reads (MarketplaceFeeNormalizer). Inside
-               the transaction, so an order and its fees arrive together or
-               not at all; idempotent, so the re-sync on every status change
-               replaces the rows rather than adding to them. */
             app(\App\Services\Orders\MarketplaceFeeNormalizer::class)->forOrder((int) $catalogOrder->order_id);
 
         });
     }
 
-    /**
-     * Resolve a product_option_value_id by parsing the variation string and
-     * matching against option value names on the product.
-     * Handles formats like "Red", "Color Family:Black", "Color: Red, Size: M".
-     */
     private function resolveOptionByVariation(int $productId, string $variation): int
     {
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        // Extract candidate value names from the variation string
         $parts = array_map('trim', explode(',', $variation));
         $candidates = [];
         foreach ($parts as $part) {

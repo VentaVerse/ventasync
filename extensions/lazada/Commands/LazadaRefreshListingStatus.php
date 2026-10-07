@@ -6,11 +6,6 @@ use Extensions\lazada\Models\LazadaSetting;
 use Extensions\lazada\Services\Lazada\LazadaLiveListing;
 use Illuminate\Console\Command;
 
-/**
- * Refresh the listing status mirror: what Lazada holds in each bucket,
- * written onto every listing row. Scheduled every 30 minutes (Automations)
- * and run by the Refresh button on the listings page.
- */
 class LazadaRefreshListingStatus extends Command
 {
     protected $signature = 'lazada:refresh-listing-status';
@@ -25,7 +20,7 @@ class LazadaRefreshListingStatus extends Command
         foreach ($stores as $store) {
             $label = $store->store_name ?: ('#' . $store->id);
             $this->info("=== Lazada store: {$label} ===");
-            app()->instance('lazada.route-store', $store); // bind: the model trait now scopes every query + stamps writes to THIS store
+            app()->instance('lazada.route-store', $store);
             try {
                 $worst = max($worst, $this->handleStore($live, $store));
             } catch (\Throwable $e) {
@@ -54,11 +49,6 @@ class LazadaRefreshListingStatus extends Command
         }
 
 
-        /* The cron does what the button does (the owner, 2026-09-07): the
-         * statuses are re-read, THEN the links are checked. Before this the
-         * scheduled refresh only re-read statuses, so a failed link check
-         * was never revisited and a row wore a six-month-old refusal until
-         * somebody pressed Refresh by hand. */
         $checked = app(\Extensions\lazada\Services\Lazada\LazadaLinkCheck::class)->runNext($setting, $creds);
         $sheets = app(\Extensions\lazada\Services\Lazada\LazadaSheetReads::class)->readMissing($setting, app(\Extensions\lazada\Services\Lazada\LazadaClient::class));
 

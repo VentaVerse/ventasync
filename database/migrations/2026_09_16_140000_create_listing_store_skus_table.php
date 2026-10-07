@@ -4,12 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * The variation SKUs a store's own item holds, per channel, store and
- * product, as last read from the store. It lets a listing name a variation
- * the store sells but its item does not have, without asking the store on
- * every page load.
- */
 return new class extends Migration
 {
     public function up(): void

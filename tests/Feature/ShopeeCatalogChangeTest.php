@@ -13,11 +13,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * The Catalog change on Shopee: the listing page shows the button and the
- * comparison panel when the catalog product moved and the two differ, and
- * the panel's Save and Ignore clear it until the catalog moves again.
- */
 class ShopeeCatalogChangeTest extends TestCase
 {
     use RefreshDatabase;
@@ -82,7 +77,6 @@ class ShopeeCatalogChangeTest extends TestCase
         return $id;
     }
 
-    /** A catalog edit, made a minute after the listing was compared. */
     private function editCatalog(int $productId, array $words = []): void
     {
         $pfx = (string) config('catalog.prefix');
@@ -147,8 +141,6 @@ class ShopeeCatalogChangeTest extends TestCase
             'back' => '/channels',
             'listing' => ['title' => 'Plug for Shopee', 'description' => '<p>Catalog words.</p>', 'description_edited' => '1'],
             'catalog' => ['title' => 'Plug, catalog name', 'description_edited' => '0'],
-        /* Save stays on the listing, carrying the way back: the one page
-           that can push what was just changed. */
         ])->assertRedirect(route('ext.shopee.listings.edit', $pid) . '?back=' . urlencode('/channels'))
             ->assertSessionHas('status', 'Saved.');
 
@@ -190,11 +182,6 @@ class ShopeeCatalogChangeTest extends TestCase
             ->assertSee(e(route('ext.shopee.listings.edit', [$pid, 'compare' => 1])), false);
     }
 
-    /**
-     * The push review modal shows the description as WORDS, while the
-     * listing keeps markup. Pushing without retyping there must not flatten
-     * the stored description and drop its pictures; retyping replaces it.
-     */
     public function test_pushing_unchanged_words_from_the_review_keeps_the_stored_description(): void
     {
         $pid = $this->product('Plug', '<p>Words.</p><p><img src="/image/catalog/plug.jpg"></p>');
@@ -212,7 +199,6 @@ class ShopeeCatalogChangeTest extends TestCase
         $this->assertSame('Other words.', $listing->fresh()->description);
     }
 
-    /** The listing page's own box is the editor, so it saves what it holds: markup. */
     public function test_the_listing_form_saves_the_markup_it_holds(): void
     {
         $pid = $this->product('Plug', '<p>Words.</p>');

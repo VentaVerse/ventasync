@@ -2,20 +2,11 @@
 
 namespace App\Support\Catalog;
 
-/**
- * Converts description HTML to plain text for channels that accept text only.
- *
- * Paragraphs become blank lines, line breaks become new lines and list items
- * become bullets, so the text keeps its shape instead of collapsing into one
- * block. Input without markup is returned trimmed and otherwise unchanged,
- * so a literal "<" in plain text is not treated as a tag.
- */
 final class DescriptionText
 {
     public static function of(?string $html): string
     {
         $text = str_replace(["\r\n", "\r"], "\n", (string) $html);
-        // An entity-encoded description is markup first, so its tags are read as tags, not as words.
         $text = DescriptionHtml::decoded($text);
         if (! self::looksLikeHtml($text)) {
             return trim($text);
@@ -33,17 +24,12 @@ final class DescriptionText
         return trim(preg_replace("/\n{3,}/", "\n\n", implode("\n", $lines)));
     }
 
-    /** Whether the text contains an HTML tag or entity. */
     public static function looksLikeHtml(string $text): bool
     {
         return preg_match('#<(?:[a-z][a-z0-9]*\b[^>]*|/[a-z][a-z0-9]*\s*)>#i', $text) === 1
             || preg_match('/&(?:[a-z]+|#\d+|#x[0-9a-f]+);/i', $text) === 1;
     }
 
-    /**
-     * Whether the HTML has no visible text and no image. An emptied rich
-     * editor returns markup such as "<p><br></p>", which counts as blank.
-     */
     public static function isBlank(?string $html): bool
     {
         $html = (string) $html;

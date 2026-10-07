@@ -15,12 +15,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * Import a Shopee item into the core catalog (#196). The owner's spec:
- * everything with a core field maps to the core; Shopee-only details
- * ride the product's listing record instead of being dropped; the new
- * product links so it behaves as listed at once.
- */
 class ShopeeItemImportTest extends TestCase
 {
     use RefreshDatabase;
@@ -107,17 +101,14 @@ class ShopeeItemImportTest extends TestCase
         $name = DB::table($pfx . 'product_description')->where('product_id', $product->product_id)->value('name');
         $this->assertSame('Imported Overdrive Pedal', $name);
 
-        // Variations through the real writer: combination rows with their own SKUs and prices.
         $combos = DB::table('product_option_combinations')->where('product_id', $product->product_id)->get();
         $this->assertCount(2, $combos);
         $this->assertEqualsCanonicalizing(['IMP-OD1-9', 'IMP-OD1-18'], $combos->pluck('sku')->all());
 
-        // Shopee-only details ride the listing record, not the floor.
         $listing = ShopeeListing::where('product_id', $product->product_id)->first();
         $this->assertSame(101988, (int) $listing->shopee_category_id);
         $this->assertSame('Alloy', (string) data_get($listing->attribute_values, '1000'));
 
-        // Linked at once: parent + both models.
         $this->assertSame(3, ShopeeProductLink::where('product_id', $product->product_id)->count());
     }
 
@@ -140,9 +131,6 @@ class ShopeeItemImportTest extends TestCase
 
     public function test_the_page_starts_blank_and_the_workbench_carries_none_of_it(): void
     {
-        /* Stateless (the owner, 2026-09-04): nothing about the shop's items is
-           saved, so the page is blank until Fetch - and the workbench
-           never grew the import card back (cleanup point 10). */
         $manager = $this->manager();
 
         $html = $this->actingAs($manager)
@@ -159,7 +147,6 @@ class ShopeeItemImportTest extends TestCase
         $this->assertStringNotContainsString('New listing</x-ui.button>', $workbench, 'the picker page retired - every unlisted row offers its own push');
     }
 
-    /** Ready the moment it lands (the owner, 2026-09-07): category, couriers, the sheet and the answers all arrive with the item. */
     public function test_an_imported_item_is_ready_at_once(): void
     {
         $this->actingAs($this->manager())->post(route('ext.shopee.products.import_one'), ['ref' => 990001])->assertSessionHas('status');

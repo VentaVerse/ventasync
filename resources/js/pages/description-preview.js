@@ -1,19 +1,5 @@
-/* The greyed prefix and suffix around a listing's Description field.
- *
- * The server renders each template's body, already escaped or sanitised,
- * into a <template data-dt-preview="{id}"> inside the box. A picker change
- * clones the matching one into its block; no id, no template, no block.
- *
- * A template made with the + on this page arrives as a "dtp:created" event
- * (resources/js/pages/description-template.js). Its body is built with DOM
- * calls: a text node on a plain-text channel, and on the others a DOMParser
- * parse walked through the same allowlist as App\Support\HtmlSanitizer.
- * Nothing here parses a body by assigning it as markup.
- *
- * Markup: resources/views/partials/channel-description-compose.blade.php.
- */
 (function () {
-    /* tag => allowed attributes, as in App\Support\HtmlSanitizer. */
+    // Must match the allowlist in App\Support\HtmlSanitizer; never assign a body as markup.
     var ALLOWED = {
         p: [], h1: [], h2: [], h3: [], h4: [], h5: [], h6: [], blockquote: [], pre: [],
         b: [], strong: [], i: [], em: [], u: [], br: [],
@@ -23,7 +9,6 @@
         img: ['src', 'alt']
     };
 
-    /* Dropped with everything inside them. */
     var DROP = [
         'script', 'style', 'iframe', 'frame', 'frameset', 'object', 'embed',
         'applet', 'noscript', 'noframes', 'form', 'button', 'select',
@@ -43,8 +28,6 @@
         return name === 'http' || name === 'https';
     }
 
-    /* Copies source's children into target, keeping allowed tags and
-       attributes, unwrapping other tags and dropping the DROP ones. */
     function copyClean(source, target) {
         Array.prototype.forEach.call(source.childNodes, function (node) {
             if (node.nodeType === Node.TEXT_NODE) {
@@ -103,7 +86,6 @@
         });
     }
 
-    /* A template created on this page joins every box's previews. */
     function learn(box, id, body) {
         if (previewOf(box, id)) return;
         var text = typeof body === 'string' ? body : '';
@@ -138,7 +120,6 @@
             paintAll();
         });
 
-        // A restored form can bring back a different choice than the page drew.
         paintAll();
     }
 

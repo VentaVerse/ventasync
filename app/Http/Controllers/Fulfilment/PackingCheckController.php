@@ -7,11 +7,6 @@ use App\Support\Fulfilment\PackingCheck;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-/**
- * The packing check's two questions: what is in this order (without how
- * many), and does this count match. Gated here on the same permission the
- * channel's booking needs, since this namespace is not gated at the door.
- */
 class PackingCheckController extends Controller
 {
     public function show(Request $request, string $channel, int $order): JsonResponse
@@ -23,7 +18,6 @@ class PackingCheckController extends Controller
 
         return response()->json([
             'reference' => $found['reference'],
-            // Never the quantity: the packer counts what is in their hands.
             'lines' => array_map(fn (array $line) => [
                 'key' => $line['key'],
                 'name' => $line['name'],

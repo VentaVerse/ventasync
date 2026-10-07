@@ -53,28 +53,15 @@ class LazadaProductGroupController extends Controller
     }
 
 
-    /** The one attribute vocabulary (Phase C, #184): this controller carried
-     * its own pre-#175 fork of the extractor, which still showed sale props
-     * and __wire__ keys as questions on the group sheet. */
     private function attrs(): LazadaAttributes
     {
         return app(LazadaAttributes::class);
     }
 
-    /** The wire payloads and the reading of Lazada's answers (Phase C, #184). */
     private function payload(): LazadaPushPayload
     {
         return app(LazadaPushPayload::class);
     }
-    /**
-     * Write a product's status to every group on the store that holds it.
-     *
-     * The status is stored once per group, so one product could read
-     * differently on two pages: a stale error sends the operator chasing a
-     * problem that is fixed, and a stale success hides a real failure behind a
-     * green badge somewhere else. Another store's groups refer to another
-     * shop and another remote product, so they are left alone.
-     */
     private function writeProductStatus(int $storeId, int $productId, array $attributes): void
     {
         \App\Support\ChannelProductStatus::write(
@@ -85,7 +72,6 @@ class LazadaProductGroupController extends Controller
             $attributes
         );
 
-        // The listing's error line follows: a failure sets it, a success clears it.
         $states = \Extensions\lazada\Services\Lazada\LazadaListingStates::on($storeId);
         if (($attributes['sync_status'] ?? null) === 'error') {
             $states->recordOutcome($productId, (string) ($attributes['push_error'] ?? ''));
@@ -94,13 +80,11 @@ class LazadaProductGroupController extends Controller
         }
     }
 
-    /** The error line engine for the group's own store. */
     private function states(LazadaProductGroup $group): \Extensions\lazada\Services\Lazada\LazadaListingStates
     {
         return \Extensions\lazada\Services\Lazada\LazadaListingStates::on((int) $group->lazada_setting_id);
     }
 
-    /** A failed group attempt: named on this group's pivot, and the listing's error line. */
     private function recordGroupFailure(LazadaProductGroup $group, ?LazadaProductGroupProduct $pivot, int $productId, string $message): void
     {
         if ($pivot) {
@@ -111,7 +95,6 @@ class LazadaProductGroupController extends Controller
 
     private function productsRedirect(int $id)
     {
-        // Only a local path is followed: '//host' and '/\\host' would leave the site.
         $fallback = route('ext.lazada.product-groups.products', $id);
 
         return redirect(\App\Support\BackTo::safe(request()->input('_return'), $fallback));
@@ -121,7 +104,6 @@ class LazadaProductGroupController extends Controller
     {
         $groups = LazadaProductGroup::query()->orderByDesc('id')->get();
 
-        // Lazada category names
         $lazCatIds = $groups->pluck('lazada_category_id')->filter()->unique()->values()->all();
         $lazadaCategoryNames = collect();
         if (!empty($lazCatIds)) {
@@ -130,7 +112,6 @@ class LazadaProductGroupController extends Controller
                 ->pluck('name', 'category_id');
         }
 
-        // Product counts per group (via pivot)
         $productCounts = DB::table('lazada_product_group_products')
             ->selectRaw('lazada_product_group_id, COUNT(*) as cnt')
             ->groupBy('lazada_product_group_id')
@@ -158,7 +139,6 @@ class LazadaProductGroupController extends Controller
     {
         $lazadaCategories = LazadaCategory::query()->orderBy('name')->limit(5000)->get();
 
-        // Template & attributes
         $template = null;
         $attributes = [];
         $saved = [];
@@ -185,11 +165,6 @@ class LazadaProductGroupController extends Controller
             $brand = \Extensions\lazada\Models\LazadaBrand::query()->where('brand_id', $group->brand_id)->first();
             if ($brand) $selectedBrandName = $brand->name;
         }
-
-        /* No product list here since #201 (the owner, 2026-09-05): this form is
-         * the group's own settings only. Products join and leave the group
-         * on its products page, through the Add products panel over THIS
-         * STORE's list - never a whole-catalogue dual list. */
 
         return view('ext-lazada::product-groups.form', [
             'productCount' => $group->exists ? \Illuminate\Support\Facades\DB::table('lazada_product_group_products')->where('lazada_product_group_id', $group->id)->count() : 0,
@@ -229,10 +204,6 @@ class LazadaProductGroupController extends Controller
 
         ActivityLogger::log('created', 'Lazada Product group', $group->id, $group->name);
 
-        // The next thing to do with a new group is put products in it, and
-        // that happens on its products page (#201), so land there.
-        /* Back to the page that sent you here, the store's list or the
-           groups list, and the new group's own page when nothing did. */
         return redirect(\App\Support\BackTo::safe(
             $request->input('_return'),
             route('ext.lazada.product-groups.products', $group->id)
@@ -266,8 +237,6 @@ class LazadaProductGroupController extends Controller
 
         ActivityLogger::log('updated', 'Lazada Product group', $group->id, $group->name);
 
-        // Membership is not this form's business since #201: a stray
-        // product_ids[] in the request changes nothing.
         return redirect()->route('ext.lazada.product-groups.edit', $group->id)
             ->with('status', 'Product group saved.');
     }
@@ -276,7 +245,6 @@ class LazadaProductGroupController extends Controller
     {
         $group = LazadaProductGroup::query()->findOrFail($id);
 
-        // Get lazada_product_ids linked to this group before deletion
         $linkedLpIds = $group->groupProducts()->pluck('lazada_product_id')->filter()->toArray();
         $memberIds = $group->groupProducts()->whereNotNull('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->all();
 
@@ -285,7 +253,6 @@ class LazadaProductGroupController extends Controller
 
         ActivityLogger::log('deleted', 'Lazada Product group', (int) $id, $group->name);
 
-        // Check which lazada products no longer have any group links
         $removed = 0;
         $kept = 0;
         if (!empty($linkedLpIds)) {
@@ -314,9 +281,6 @@ class LazadaProductGroupController extends Controller
             ->with('status', implode(' ', $parts));
     }
 
-    /**
-     * Products page for a specific product group.
-     */
     public function products(Request $request, int $id)
     {
         $group = LazadaProductGroup::query()->findOrFail($id);
@@ -353,7 +317,6 @@ class LazadaProductGroupController extends Controller
                 $w->where('pd.name', 'like', "%{$q}%")
                     ->orWhere('p.sku', 'like', "%{$q}%")
                     ->orWhere('p.model', 'like', "%{$q}%")
-                    // The row shows this store's own title, so the search finds it by that too.
                     ->orWhereIn('p.product_id', LazadaProduct::query()
                         ->forStore(LazadaSetting::defaultStore())
                         ->where('item_name', 'like', "%{$q}%")
@@ -369,11 +332,6 @@ class LazadaProductGroupController extends Controller
 
         $states = $this->states($group);
 
-        /* The filter answers what the column shows (one-truth port from
-         * Shopee, 2026-08-25): Listed/Not listed are the LISTING record's
-         * facts - lazada_products, the same row the Listings page reads.
-         * 'error' is the rows that draw an error line, by the line's own
-         * engine. */
         if ($syncStatus === 'pushed') {
             $query->whereNotNull('lp.lazada_item_id')->where('lp.lazada_item_id', '!=', '');
         } elseif ($syncStatus === 'pending') {
@@ -383,8 +341,6 @@ class LazadaProductGroupController extends Controller
         } elseif ($syncStatus === 'error') {
             $query->whereIn('p.product_id', $states->erroredProductIds() ?: [0]);
         } elseif ($syncStatus === 'unlinked') {
-            // Unlinked was a state the columns could show and the filter
-            // could not find (parity #156, from Shopee's group page).
             $query->where('gp.sync_status', 'unlinked');
         }
 
@@ -396,7 +352,6 @@ class LazadaProductGroupController extends Controller
 
         $products = $query->paginate(50)->appends($request->except('page'));
 
-        // Pivot map for templates
         $pivotProductIds = $products->pluck('product_id')->toArray();
         $pivotMap = LazadaProductGroupProduct::query()
             ->where('lazada_product_group_id', $group->id)
@@ -404,16 +359,10 @@ class LazadaProductGroupController extends Controller
             ->get()
             ->keyBy('product_id');
 
-        // Variation rows: the shared combinations-first query the core
-        // product list uses, image and proper option names included
-        // (App\Support\VariationRows). The pov fallback for never-resaved
-        // products lives inside it.
         $optionRowsByProductId = \App\Support\VariationRows::forListing($pivotProductIds, 'lazada', (int) (\Extensions\lazada\Models\LazadaSetting::defaultStore()?->id ?? 0));
 
-        // All product IDs in this group
         $manualIds = $group->groupProducts()->whereNotNull('product_id')->pluck('product_id')->toArray();
 
-        // Each row is named by this store's own title, the catalog's name when it has none.
         $rowTitles = \App\Integrations\Listings\ListingContent::rowTitles($products, LazadaProduct::query()
             ->forStore(LazadaSetting::defaultStore())
             ->whereIn('product_id', $pivotProductIds ?: [0])
@@ -425,18 +374,12 @@ class LazadaProductGroupController extends Controller
             'products' => $products,
             'rowTitles' => $rowTitles,
             'pivotMap' => $pivotMap,
-            /* ONE state per row (#188): the same engine the Listings page
-             * renders, so this page's badges and menus can never disagree
-             * with it. */
             'order' => $order,
             'orderOptions' => \App\Integrations\Listings\ListingSort::options(array_keys($sortMenu)),
             'listingStates' => app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)
                 ->forProducts(array_map('intval', $pivotProductIds)),
-            // The Last sync column (the owner, 2026-09-05), one answer shared with the Listings page.
             'rowErrors' => $states->errors(array_map('intval', $pivotProductIds)),
             'optionRowsByProductId' => $optionRowsByProductId,
-            // The row menu reaches the product's Lazada listing page, like
-            // the Shopee and TikTok group pages do (critique 2026-08-25).
             'lazadaIdByProductId' => LazadaProduct::query()
                 ->whereIn('product_id', $products->pluck('product_id')->all() ?: [0])
                 ->pluck('id', 'product_id'),
@@ -447,7 +390,6 @@ class LazadaProductGroupController extends Controller
         ]);
     }
 
-    /** The group that owns this product on this store, other than $group - or null. */
     private function otherOwnerName(LazadaProductGroup $group, int $productId): ?string
     {
         return DB::table('lazada_product_group_products as pv')
@@ -458,17 +400,6 @@ class LazadaProductGroupController extends Controller
             ->value('g.name');
     }
 
-    /**
-     * The group page's Add products panel search (#201, Draft C - the owner
-     * 2026-09-05, ported back from Shopee): THIS STORE's products, never the
-     * whole catalogue - a group only holds what the store carries, so a
-     * product the store does not have is not offered here; it is added on
-     * Listings first. Each row is flagged with whether it is already in this
-     * group, or owned by another group under the one-group rule (named, so
-     * the panel offers Move here rather than a refusal after the press).
-     * Capped like the Listings panel; defaults to what is NOT yet in this
-     * group.
-     */
     public function productSearch(Request $request, int $id)
     {
         $group = LazadaProductGroup::query()->findOrFail($id);
@@ -484,7 +415,6 @@ class LazadaProductGroupController extends Controller
             ->whereNotNull('product_id')
             ->select('product_id');
 
-        // One listing row per product for THIS store is the membership.
         $lpPick = DB::table('lazada_products')
             ->selectRaw('product_id, MIN(id) as pick_id')
             ->whereNotNull('product_id')
@@ -495,10 +425,6 @@ class LazadaProductGroupController extends Controller
             ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
-            // The Master Catalog, each row flagged with whether this store
-            // carries it (the owner, 2026-09-05, option 2): a fresh store has
-            // nothing listed yet, and a group must not be a dead end there.
-            // Adding a product the store does not carry lists it as it joins.
             ->leftJoinSub($lpPick, 'lps', 'lps.product_id', '=', 'p.product_id')
             ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.model', 'p.quantity', 'p.price', 'lps.product_id as on_store_pid')
             ->where('p.status', 1);
@@ -542,10 +468,8 @@ class LazadaProductGroupController extends Controller
                 'quantity' => (int) ($r->quantity ?? 0),
                 'price' => \App\Support\Money::base((float) ($r->price ?? 0)),
                 'thumb' => $images->toDisplayImageUrl($r->image ?? null),
-                // The panel's "already in" flag: in this group.
                 'on_store' => $inGroup->has($pid),
                 'elsewhere' => $owners->get($pid)?->name,
-                // Whether this store carries it yet; adding lists it if not.
                 'listed' => ! is_null($r->on_store_pid),
             ];
         })->values();
@@ -553,15 +477,6 @@ class LazadaProductGroupController extends Controller
         return response()->json(['total' => $total, 'shown' => $items->count(), 'limit' => $limit, 'items' => $items]);
     }
 
-    /**
-     * Add one of this store's products to the group, in place (#201, Draft
-     * C). Refuses a product the store does not carry: the group is a subset
-     * of the store's list, never a door into the catalogue. The one-group
-     * rule holds - a product owned by another group is held unless the panel
-     * said Move here (`move`), in which case it moves. The pivot rides the
-     * store's existing listing row; addProductsToGroup never creates a new
-     * one here because the row is what "on this store" means.
-     */
     public function addProduct(Request $request, int $id, int $productId)
     {
         $group = LazadaProductGroup::query()->findOrFail($id);
@@ -569,9 +484,6 @@ class LazadaProductGroupController extends Controller
             ->where('product_id', $productId)->where('status', 1)->exists();
         abort_unless($inCatalogue, 404);
 
-        // Option 2 (the owner, 2026-09-05): a product this store does not carry
-        // yet is listed on it as it joins, the same row the Listings page's
-        // Add products creates. The pivot rides that row.
         $listedNow = false;
         if (! LazadaProduct::query()->where('product_id', $productId)->exists()) {
             LazadaProduct::firstOrCreate(['product_id' => $productId]);
@@ -590,7 +502,6 @@ class LazadaProductGroupController extends Controller
 
         if ($request->wantsJson()) {
             if (! $already && ! $added) {
-                // Held by another group and no Move here: say so, do nothing.
                 return response()->json(['ok' => false, 'product_id' => $productId, 'message' => trim(\App\Integrations\OneGroupRule::heldClause($this->lastHeld))], 409);
             }
 
@@ -606,9 +517,6 @@ class LazadaProductGroupController extends Controller
         return $this->productsRedirect($group->id)->with($added ? 'status' : 'warning', $status);
     }
 
-    /**
-     * Unlink a product (keep in group but mark as unlinked).
-     */
     public function unlinkProduct(int $groupId, int $productId)
     {
         $group = LazadaProductGroup::query()->findOrFail($groupId);
@@ -622,12 +530,6 @@ class LazadaProductGroupController extends Controller
             ->with('status', 'Product unlinked from Lazada.');
     }
 
-    /**
-     * Re-link a previously unlinked product.
-     */
-    /**
-     * Sync Lazada item ID for a single product by matching seller_sku via /products/get API.
-     */
     public function syncId(int $groupId, int $productId)
     {
         $group = LazadaProductGroup::query()->findOrFail($groupId);
@@ -645,7 +547,6 @@ class LazadaProductGroupController extends Controller
         $pfx = (string) config('catalog.prefix');
         $client = app(\Extensions\lazada\Services\Lazada\LazadaClient::class);
 
-        // Collect all SKUs for this product (parent + option values)
         $product = DB::table($pfx . 'product')->where('product_id', $productId)->first(['sku', 'model']);
         $skus = [];
         if ($product->sku && trim($product->sku) !== '') $skus[] = trim($product->sku);
@@ -663,7 +564,6 @@ class LazadaProductGroupController extends Controller
             return redirect()->back()->with('error', 'Product has no SKU to match against Lazada.');
         }
 
-        // If already has a lazada_item_id, just refresh variant cache (no need to search)
         $lazadaProduct = LazadaProduct::find($pivot->lazada_product_id);
         if ($lazadaProduct && $lazadaProduct->lazada_item_id && !$lazadaProduct->unlinked_at) {
             app(LazadaItemCache::class)->refreshListing($lazadaProduct, $setting, $client, 'lazada.product.item.get.cache.group');
@@ -673,7 +573,6 @@ class LazadaProductGroupController extends Controller
             return redirect()->back()->with('status', "Lazada item ID {$lazadaProduct->lazada_item_id}: cache refreshed.");
         }
 
-        // Search Lazada by each SKU using /products/get with search param
         $matchedItemId = null;
         foreach ($skus as $sku) {
             $apiPath = '/products/get';
@@ -714,7 +613,6 @@ class LazadaProductGroupController extends Controller
             return redirect()->back()->with('error', 'No matching product found on Lazada for SKU(s): ' . implode(', ', $skus));
         }
 
-        // Update lazada_products with the matched item ID
         if (!$lazadaProduct) {
             $lazadaProduct = LazadaProduct::find($pivot->lazada_product_id);
         }
@@ -725,11 +623,9 @@ class LazadaProductGroupController extends Controller
                 'unlinked_at' => null,
             ]);
 
-            // Refresh variant cache + product status from API
             app(LazadaItemCache::class)->refreshListing($lazadaProduct, $setting, $client, 'lazada.product.item.get.cache.group');
         }
 
-        // Update sync status
         $pivot->update(['sync_status' => 'pushed']);
         $this->states($group)->recordOutcome($productId, null);
 
@@ -743,7 +639,6 @@ class LazadaProductGroupController extends Controller
         $pivot = $group->groupProducts()->where('product_id', $productId)->first();
 
         if ($pivot) {
-            // Check if the linked lazada_product has a lazada_item_id
             $hasItemId = false;
             if ($pivot->lazada_product_id) {
                 $hasItemId = LazadaProduct::query()
@@ -760,9 +655,6 @@ class LazadaProductGroupController extends Controller
             ->with('status', 'Product re-linked.');
     }
 
-    /**
-     * Remove a single product from the group.
-     */
     public function removeProduct(int $groupId, int $productId)
     {
         $group = LazadaProductGroup::query()->findOrFail($groupId);
@@ -773,12 +665,6 @@ class LazadaProductGroupController extends Controller
             ->with('status', 'Product removed from the product group.');
     }
 
-    /**
-     * Move products from the store's Listings page: into a group, from one
-     * group to another, or out of every group. A product belongs to one group
-     * on a store, so choosing a group moves it there rather than holding it
-     * back; the choice on the picker is the operator's "Move here".
-     */
     public function moveProducts(Request $request)
     {
         $ids = array_values(array_unique(array_filter(array_map('intval', (array) $request->input('ids', [])), fn ($v) => $v > 0)));
@@ -800,7 +686,6 @@ class LazadaProductGroupController extends Controller
         $claim = \App\Integrations\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'lazada_setting_id', $group->id, $wanted, $wanted);
         $moved = 0;
         foreach (array_merge($claim['free'], array_keys($claim['moved'])) as $pid) {
-            // The pivot names the store's listing row, so the product needs one.
             $listingId = LazadaProduct::query()->forStore($store)->where('product_id', (int) $pid)->value('id')
                 ?? LazadaProduct::create(['product_id' => (int) $pid])->id;
             LazadaProductGroupProduct::create([
@@ -818,9 +703,6 @@ class LazadaProductGroupController extends Controller
         return redirect($back)->with('status', $moved . ' ' . \Illuminate\Support\Str::plural('product', $moved) . ' moved to ' . $group->name . '.');
     }
 
-    /**
-     * Bulk remove products from the group.
-     */
     public function massRemove(Request $request, int $id)
     {
         $group = LazadaProductGroup::query()->findOrFail($id);
@@ -848,13 +730,6 @@ class LazadaProductGroupController extends Controller
         return $this->productsRedirect($id)->with($r['tone'], $r['summary']);
     }
 
-    /**
-     * Send these products of the group and say how it went. A stop is a
-     * refusal before any product was touched.
-     *
-     * @param list<int> $productIds
-     * @return array{tone: string, summary: string, failed: int, stop: bool}
-     */
     public function sendProducts(LazadaProductGroup $group, array $productIds, LazadaClient $client): array
     {
         if (!$group->lazada_category_id) {
@@ -878,7 +753,6 @@ class LazadaProductGroupController extends Controller
         $picturesWarned = false;
 
         foreach ($productIds as $productId) {
-            // Get or create LazadaProduct record
             $pivot = LazadaProductGroupProduct::query()
                 ->where('lazada_product_group_id', $group->id)
                 ->where('product_id', $productId)
@@ -890,9 +764,6 @@ class LazadaProductGroupController extends Controller
                 $listing = LazadaProduct::find($pivot->lazada_product_id);
             }
 
-            /* SEND SEMANTICS (parity #156, item 4): an already-listed
-             * product is updated in place instead of skipped, the verb
-             * Shopee's group page already speaks. */
             $isAlreadyLinked = $listing && $listing->lazada_item_id && !$listing->lazada_deleted_at;
             if ($isAlreadyLinked) {
                 $outcome = $this->updateLinked($group, $pivot, $listing, (int) $productId, $setting, $creds, $client);
@@ -908,12 +779,6 @@ class LazadaProductGroupController extends Controller
                 continue;
             }
 
-            /* THE GATE (the owner, 2026-09-06): the readiness the Ready column
-             * shows, judged on what THIS push sends - the group's category,
-             * price rule and attribute answers filling the listing's blanks - so a
-             * product that read Ready is never turned away here. A product
-             * with no listing row yet is judged as the row this push would
-             * create for it. */
             $gateOverrides = [
                 'settings' => ['primary_category_id' => $group->lazada_category_id, 'markup_fixed' => $group->markup_fixed, 'markup_percent' => $group->markup_percent],
                 'attributes' => LazadaProductGroupAttribute::where('lazada_product_group_id', $group->id)->pluck('value', 'attribute_key')->toArray(),
@@ -931,17 +796,12 @@ class LazadaProductGroupController extends Controller
                 continue;
             }
 
-            /* A listing row carries only what the operator set on it: the
-             * group's values fill its blanks at build time and are never
-             * written into it, so a later change to the group reaches it. */
             if (!$listing) {
                 $listing = LazadaProduct::create(['product_id' => $productId]);
 
-                // Link pivot
                 if ($pivot) {
                     $pivot->update(['lazada_product_id' => $listing->id]);
                 } elseif (\App\Integrations\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'lazada_setting_id', $group->id, [(int) $productId])['free'] !== []) {
-                    // Only a product no other group on this store holds joins this one.
                     LazadaProductGroupProduct::create([
                         'lazada_product_group_id' => $group->id,
                         'product_id' => $productId,
@@ -955,8 +815,6 @@ class LazadaProductGroupController extends Controller
                 }
             }
 
-            /* The group's settings fill what the listing leaves blank, in
-             * memory at build time; the listing's rows are never written. */
             $groupOverrides = [
                 'settings' => [
                     'primary_category_id' => $group->lazada_category_id,
@@ -967,7 +825,6 @@ class LazadaProductGroupController extends Controller
                     ->pluck('value', 'attribute_key')->toArray(),
             ];
 
-            // Build payload
             try {
                 [$productPayload, $preview] = $this->payload()->buildLazadaProductCreatePayload($listing, $setting, $client, $groupOverrides);
                 $productPayload = app(\Extensions\lazada\Services\Lazada\LazadaImages::class)->ensureLazadaInlinkImages($productPayload, $setting, $client);
@@ -1010,7 +867,6 @@ class LazadaProductGroupController extends Controller
 
             $e = $this->payload()->extractLazadaError($result);
             if ($e['ok']) {
-                // Extract item_id from create response
                 $body = $result['body'] ?? [];
                 $data = $body['data'] ?? $body;
                 $itemId = $data['item_id'] ?? ($data['ItemId'] ?? null);
@@ -1021,13 +877,10 @@ class LazadaProductGroupController extends Controller
                     try { $listing->save(); } catch (\Throwable $ex) {}
                 }
 
-                // Refresh variant cache after push
                 app(LazadaItemCache::class)->refreshListing($listing, $setting, $client, 'lazada.product.item.get.cache.group');
 
                 $this->persistSyncStatus($listing, 'push', true);
 
-                /* Provenance (#104): the GROUP's settings made this push -
-                 * auditable on the listing, same vocabulary as Shopee. */
                 $listing->forceFill([
                     'last_pushed_at' => now(),
                     'last_push_source' => 'group:' . $group->name,
@@ -1057,7 +910,7 @@ class LazadaProductGroupController extends Controller
                 $errCount++;
             }
 
-            usleep(300000); // 300ms rate limit
+            usleep(300000);
         }
 
         $summary = "Send: {$okCount} created";
@@ -1070,10 +923,6 @@ class LazadaProductGroupController extends Controller
         return ['tone' => ($okCount + $updatedCount) > 0 ? ($picturesWarned ? 'warning' : 'status') : 'error', 'summary' => $summary, 'failed' => min(count($productIds), $errCount), 'stop' => false];
     }
 
-    /**
-     * Update existing Lazada listings with latest ERP data.
-     * Only processes products that are already linked to Lazada.
-     */
     public function updateProduct(Request $request, int $id, LazadaClient $client)
     {
         $group = LazadaProductGroup::findOrFail($id);
@@ -1111,7 +960,6 @@ class LazadaProductGroupController extends Controller
                 $listing = LazadaProduct::find($pivot->lazada_product_id);
             }
 
-            // Only process products that are already linked
             if (!$listing || !$listing->lazada_item_id || $listing->lazada_deleted_at) {
                 $skipCount++;
                 continue;
@@ -1138,19 +986,8 @@ class LazadaProductGroupController extends Controller
         return $this->productsRedirect($id)->with($okCount > 0 ? ($picturesWarned ? 'warning' : 'status') : 'error', $summary);
     }
 
-    /**
-     * Update one already-listed product on Lazada with the GROUP's settings,
-     * without those becoming the listing's own (#104): applied for the
-     * build, restored right after. Shared by Update and by Send, where an
-     * already-listed selection is updated in place instead of skipped.
-     */
     private function updateLinked(LazadaProductGroup $group, ?LazadaProductGroupProduct $pivot, LazadaProduct $listing, int $productId, object $setting, array $creds, LazadaClient $client): array
     {
-            /* The GROUP's settings make this update - without becoming the
-             * listing's own (#104's rule). The builder applies them in
-             * memory; the listing's rows are never written (the old
-             * overwrite-then-restore dance had a crash window that left
-             * listings permanently wearing the group's values). */
             $groupOverrides = [
                 'settings' => [
                     'primary_category_id' => $group->lazada_category_id,
@@ -1161,8 +998,6 @@ class LazadaProductGroupController extends Controller
                     ->pluck('value', 'attribute_key')->toArray(),
             ];
 
-            // The gate (the owner, 2026-09-06): the Ready column's own answer,
-            // judged on the group's settings this update sends.
             $readiness = app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class)->forListings(collect([$listing]), $groupOverrides)[(int) $listing->id] ?? ['ready' => false, 'missing' => []];
             if (!$readiness['ready']) {
                 $refusal = \App\Integrations\Listings\CatalogGaps::refusal($readiness, 'update');
@@ -1171,7 +1006,6 @@ class LazadaProductGroupController extends Controller
                 return ['ok' => false, 'message' => $refusal];
             }
 
-            // Build payload
             try {
                 [$productPayload, $preview] = $this->payload()->buildLazadaProductCreatePayload($listing, $setting, $client, $groupOverrides);
                 $productPayload = app(\Extensions\lazada\Services\Lazada\LazadaImages::class)->ensureLazadaInlinkImages($productPayload, $setting, $client);
@@ -1185,7 +1019,6 @@ class LazadaProductGroupController extends Controller
                 return ['ok' => false, 'message' => $e->getMessage()];
             }
 
-            // Inject ItemId and SkuId for update
             $productPayload['Request']['Product']['ItemId'] = (int) $listing->lazada_item_id;
 
             $variantMap = LazadaProductVariant::where('lazada_product_id', $listing->id)
@@ -1223,7 +1056,6 @@ class LazadaProductGroupController extends Controller
                 'user_id' => auth()->id(),
             ]);
 
-            // A variation switched off for this store stops selling, whatever the update's answer.
             $switched = app(LazadaVariationSwitch::class)->switchOff($setting, $creds, (string) $listing->lazada_item_id, $preview['variations_off'] ?? []);
             $switchRefusal = LazadaVariationSwitch::refusal($productId, $switched['refused']);
 
@@ -1234,8 +1066,6 @@ class LazadaProductGroupController extends Controller
                 $switchNote = LazadaVariationSwitch::summary($productId, $switched['off'], $preview['variations_back'] ?? []);
                 $this->persistSyncStatus($listing, 'push', true);
 
-                /* Provenance (#104): the GROUP's settings made this push -
-                 * auditable on the listing, same vocabulary as Shopee. */
                 $listing->forceFill([
                     'last_pushed_at' => now(),
                     'last_push_source' => 'group:' . $group->name,
@@ -1265,26 +1095,8 @@ class LazadaProductGroupController extends Controller
 
     }
 
-    /**
-     * Check every product in this group against Lazada (parity #156, the
-     * Shopee group page's tool). Nothing is sent; the ERP corrects its
-     * own records to what it finds: a listed product whose item is gone
-     * is marked so, an unlisted product whose SKU already sits on the
-     * shop is linked. One batched lookup by seller SKU, fifty a call.
-     */
-    /**
-     * Ask Lazada about this group's products and make the ERP agree.
-     * The SKU walk lives in LazadaLinkCheck, shared with the workbench
-     * (Phase F, #184); this entry point supplies the group's members as
-     * the default scope and the group itself for adoption defaults.
-     */
     public function checkAgainstLazada(Request $request, int $id, \Extensions\lazada\Services\Lazada\LazadaLinkCheck $check)
     {
-        // One Lazada call per fifty SKUs: a whole group of two hundred
-        // products is eight or more calls of a few seconds each, past the
-        // default execution limit, and the request died with the page still
-        // waiting (2026-08-26). The same allowance every other long action
-        // on this controller takes.
         try { @set_time_limit(0); } catch (\Throwable $e) {}
 
         $group = LazadaProductGroup::findOrFail($id);
@@ -1307,11 +1119,6 @@ class LazadaProductGroupController extends Controller
         return $this->productsRedirect($id)->with($r['tone'], $r['summary']);
     }
 
-    /**
-     * What Lazada holds that no catalog product is linked to (parity
-     * #156, the Shopee group page's Unlinked view). Read-only: every row
-     * is a judgement call for the operator.
-     */
     public function orphans(Request $request, int $id, LazadaLiveListing $live)
     {
         $group = LazadaProductGroup::findOrFail($id);
@@ -1342,8 +1149,6 @@ class LazadaProductGroupController extends Controller
         ]);
     }
 
-    /** Every SKU a product carries: its own, its model, its option and combination SKUs. */
-
     public function pushPrices(Request $request, int $id, LazadaClient $client)
     {
         $group = LazadaProductGroup::findOrFail($id);
@@ -1361,14 +1166,10 @@ class LazadaProductGroupController extends Controller
         $pfx = (string) config('catalog.prefix');
         $listings = LazadaProduct::query()->whereNotNull('product_id')->whereIn('product_id', $ids)->get();
 
-        /* The shared sender (Phase F, #184), priced by the one rule every
-         * push uses: the listing's own markup, else its group's. */
         $results = app(\Extensions\lazada\Services\Lazada\LazadaStockPricePush::class)
             ->push('price', $setting, $creds, $listings, $pfx,
                 \Extensions\lazada\Commands\LazadaPushPrice::priceRule($listings));
 
-        /* The verdicts land on THIS group's pivots - a stock or price
-         * failure used to leave no durable trace on the page at all. */
         foreach ($results['outcomes'] as $pid => $outcome) {
             LazadaProductGroupProduct::query()
                 ->where('lazada_product_group_id', $group->id)->where('product_id', (int) $pid)
@@ -1402,8 +1203,6 @@ class LazadaProductGroupController extends Controller
         $pfx = (string) config('catalog.prefix');
         $listings = LazadaProduct::query()->whereNotNull('product_id')->whereIn('product_id', $ids)->get();
 
-        /* The shared sender (Phase F, #184): the orphan variant that used
-         * to be silently zeroed is named and skipped instead. */
         $results = app(\Extensions\lazada\Services\Lazada\LazadaStockPricePush::class)
             ->push('stock', $setting, $creds, $listings, $pfx);
 
@@ -1439,7 +1238,6 @@ class LazadaProductGroupController extends Controller
 
         $pfx = (string) config('catalog.prefix');
 
-        // Get lazada_product_ids from pivot
         $pivotRows = LazadaProductGroupProduct::query()
             ->where('lazada_product_group_id', $group->id)
             ->whereIn('product_id', $productIds)
@@ -1466,7 +1264,6 @@ class LazadaProductGroupController extends Controller
 
             $mainSku = trim((string) ($product->sku ?? ''));
 
-            // Get variant SKUs
             $variantSkus = $this->payload()->getErpVariantStockByProductId((int) $listing->product_id);
             $sellerSkuList = [];
             foreach ($variantSkus as $v) {
@@ -1482,7 +1279,6 @@ class LazadaProductGroupController extends Controller
                 $sellerSkuList[] = $mainSku;
             }
 
-            // Try to get sku_id_list via API
             $skuIdList = [];
             $itemId = trim((string) ($listing->lazada_item_id ?? ''));
             if ($itemId !== '') {
@@ -1507,8 +1303,6 @@ class LazadaProductGroupController extends Controller
                 'access_token' => (string) $creds['access_token'],
             ];
 
-            // Lazada retired seller_sku_list on /product/remove: without the
-            // item's sku ids nothing is sent and the product counts as failed.
             if (empty($skuIdList)) {
                 $errCount++;
                 continue;
@@ -1518,7 +1312,6 @@ class LazadaProductGroupController extends Controller
 
             $result = $client->post((string) $setting->region, $apiPath, $params);
 
-            // Retry on E006 (internal error)
             $e = $this->payload()->extractLazadaError($result);
             if (!empty($e['code']) && (string) $e['code'] === '6') {
                 $params['timestamp'] = (string) round(microtime(true) * 1000);
@@ -1544,7 +1337,6 @@ class LazadaProductGroupController extends Controller
                     $listing->save();
                 } catch (\Throwable $ex) {}
 
-                // Update pivot
                 $this->writeProductStatus((int) $group->lazada_setting_id, (int) $pivotRow->product_id, ['sync_status' => 'pending']);
                 $this->states($group)->clearErrors([(int) $pivotRow->product_id]);
 
@@ -1560,8 +1352,6 @@ class LazadaProductGroupController extends Controller
         return $this->productsRedirect($id)
             ->with($okCount > 0 ? 'status' : 'error', "Delete from Lazada: {$okCount} deleted, {$errCount} failed.");
     }
-
-    // ── Sync Helpers ─────────────────────────────────────────────────
 
     private function parseIds(Request $request): array
     {
@@ -1617,21 +1407,12 @@ class LazadaProductGroupController extends Controller
             ->with('status', 'Category template synced.');
     }
 
-    // -- Helpers ----------------------------------------------------------
-
-    /** Products the one-group rule held back on the last add, for flashes. */
     private array $lastHeld = [];
 
-    /**
-     * Add catalog products to a group, creating LazadaProduct records as needed.
-     */
     private function addProductsToGroup(LazadaProductGroup $group, array $productIds, array $moveIds = []): int
     {
         $existing = $group->groupProducts()->whereIn('product_id', $productIds)->pluck('product_id')->toArray();
 
-        /* One product, one group (cleanup point 2): products owned by
-         * another group are dropped here and named by the caller's flash
-         * via lastHeld. */
         $claim = \App\Integrations\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'lazada_setting_id', $group->id, array_values(array_diff(array_map('intval', $productIds), $existing)), $moveIds);
         $this->lastHeld = $claim['held'];
         $productIds = array_merge($claim['free'], array_keys($claim['moved']), array_map('intval', $existing));
@@ -1641,12 +1422,10 @@ class LazadaProductGroupController extends Controller
             ->where('lazada_product_group_id', $group->id)
             ->get();
 
-        // Batch-fetch existing LazadaProduct records
         $existingLpMap = LazadaProduct::query()
             ->whereIn('product_id', $productIds)
             ->pluck('id', 'product_id');
 
-        // Batch-fetch ERP prices for new products
         $pfx = (string) config('catalog.prefix');
         $newProductIds = array_values(array_diff($productIds, $existingLpMap->keys()->toArray()));
         $erpPrices = [];
@@ -1663,7 +1442,6 @@ class LazadaProductGroupController extends Controller
             $lpId = $existingLpMap->get($pid);
 
             if (!$lpId) {
-                // A blank listing row: the group's values fill it at build time, never into it.
                 $lpId = LazadaProduct::create(['product_id' => $pid])->id;
             }
 
@@ -1699,9 +1477,6 @@ class LazadaProductGroupController extends Controller
         }
     }
 
-    /**
-     * AJAX: Refresh categories from Lazada API and return updated list.
-     */
     public function refreshCategories(LazadaClient $client)
     {
         $setting = LazadaSetting::defaultStore()?->decrypted();
@@ -1779,9 +1554,6 @@ class LazadaProductGroupController extends Controller
         }
     }
 
-    /**
-     * AJAX: Sync template for a category and return rendered attribute fields.
-     */
     public function fetchAttributesAjax(Request $request, LazadaClient $client)
     {
         $categoryId = (int) $request->input('lazada_category_id', 0);

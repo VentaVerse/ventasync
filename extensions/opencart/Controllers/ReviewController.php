@@ -80,13 +80,11 @@ class ReviewController extends Controller
 
         $reviews = $query->paginate(50)->withQueryString();
 
-        // Platform tab counts
         $platformCounts = [];
         $platformCounts['all'] = MarketplaceReview::count();
         $platformCounts['shopee'] = MarketplaceReview::where('platform', 'shopee')->count();
         $platformCounts['lazada'] = MarketplaceReview::where('platform', 'lazada')->count();
 
-        // Summary stats
         $avgRating = MarketplaceReview::avg('rating');
         $pendingCount = MarketplaceReview::where('oc_sync_status', 'pending')->count();
 
@@ -126,7 +124,6 @@ class ReviewController extends Controller
             return redirect()->back()->with('error', 'Review has no mapped product.');
         }
 
-        // Find first OC store that has this product linked
         $link = OpenCartProductLink::query()
             ->where('product_id', $review->product_id)
             ->first();
@@ -204,14 +201,12 @@ class ReviewController extends Controller
         $pushed = 0;
         $errors = 0;
 
-        // Group by OC store for efficiency
         $stores = OpenCartSetting::where('enabled', true)->get()->keyBy('id');
         $linkMap = OpenCartProductLink::query()
             ->pluck('oc_product_id', DB::raw("CONCAT(opencart_setting_id, '-', product_id)"))
             ->all();
 
         foreach ($reviews as $review) {
-            // Find a matching OC product link
             $pushed_this = false;
             foreach ($stores as $setting) {
                 $key = $setting->id . '-' . $review->product_id;
@@ -268,13 +263,6 @@ class ReviewController extends Controller
 
         $from = $data['date_from'];
         $platform = $data['platform'] ?? 'all';
-        // abs(), because Carbon 3 returns a SIGNED difference and $from is
-        // always in the past: diffInDays() gave -29.84 for a 30-day range,
-        // (int) + 1 made it -28, and max(1, ...) clamped it to 1. The form
-        // accepted the range, the page reported success, and the sync fetched
-        // a single day. Nothing errored, so 29 days of reviews just never
-        // arrived. The line above stores the correct range start, so the two
-        // halves of this handler disagreed with each other.
         $daysBack = max(1, (int) abs(now()->diffInDays(\Carbon\Carbon::parse($from))) + 1);
 
         $php = PHP_BINARY ?: '/usr/bin/php';
@@ -329,7 +317,6 @@ class ReviewController extends Controller
         $count = MarketplaceReview::count();
         MarketplaceReview::query()->truncate();
 
-        // Reset sync timestamps so next fetch starts fresh
         \Extensions\shopee\Models\ShopeeSetting::query()->update(['last_review_sync_at' => null]);
         \Extensions\lazada\Models\LazadaSetting::query()->update(['last_review_sync_at' => null]);
 

@@ -11,21 +11,12 @@ use Extensions\tiktok\Services\TikTok\TikTokClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * Seller coupons (#153, quest 4, TikTok half, 2026-08-26). Nothing is
- * stored locally: the page is a live read of the 202406 coupon API on
- * every load (absent, never stale) and create/deactivate pass straight
- * through. TikTok has no delete, so an upcoming and an ongoing coupon
- * share one verb, Deactivate, and expired or ended ones get none.
- */
 class TiktokCouponTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @var array<int, array{path: string, body: array, query: array}> */
     private array $sentCalls = [];
 
-    /** What the fake marketplace answers per path (array or closure). */
     public array $callResponses = [];
 
     protected function setUp(): void
@@ -110,10 +101,10 @@ class TiktokCouponTest extends TestCase
     public function test_the_page_lists_live_coupons_with_the_verb_their_state_allows(): void
     {
         $this->callResponses['/promotion/202406/coupons/search'] = $this->listAnswer([
-            $this->sampleCoupon(),                                                    // ongoing: End now
+            $this->sampleCoupon(),
             $this->sampleCoupon(['id' => '7700110002', 'title' => 'Next week', 'status' => 'NOT_START',
-                'discount' => ['type' => 'PERCENTAGE_OFF', 'percentage_off' => 10, 'max_discount' => '100.00']]), // upcoming: End now
-            $this->sampleCoupon(['id' => '7700110003', 'title' => 'Old news', 'status' => 'EXPIRED']),   // expired: nothing
+                'discount' => ['type' => 'PERCENTAGE_OFF', 'percentage_off' => 10, 'max_discount' => '100.00']]),
+            $this->sampleCoupon(['id' => '7700110003', 'title' => 'Old news', 'status' => 'EXPIRED']),
         ]);
 
         $r = $this->actingAs($this->manager())->get(route('ext.tiktok.coupons.index'));
@@ -126,9 +117,6 @@ class TiktokCouponTest extends TestCase
         $r->assertSee('Upcoming');
         $r->assertSee('Old news');
         $r->assertSee('Expired');
-        // Two live rows, two Deactivate buttons; the expired row offers none.
-        // One verb per state across the three channels: End now for a
-        // running one, Cancel before it starts for one nobody has seen.
         $this->assertSame(1, substr_count($r->getContent(), '>End now<'));
         $this->assertSame(1, substr_count($r->getContent(), '>Cancel before it starts<'));
     }
@@ -260,8 +248,6 @@ class TiktokCouponTest extends TestCase
         $r->assertDontSee('>End now<', false);
         $r->assertDontSee('Create a coupon');
 
-        // Writes are refused with a redirect and a flashed denial (the
-        // EnsurePermission contract for POST); TikTok is never called.
         $this->actingAs($viewer)
             ->post(route('ext.tiktok.coupons.deactivate', '7700110001'))
             ->assertRedirect();

@@ -4,14 +4,6 @@ namespace Tests\Feature;
 
 use Tests\TestCase;
 
-/**
- * The booking dialog's required choices start unchosen (the owner,
- * 2026-09-03, live): the packer booked a Small parcel because Small
- * was the DEFAULT - a default there is a decision nobody made. And no
- * cutoff rule can know the rider already came at 8am, so the schedule
- * and pickup are explicit choices too. Source pins on the module,
- * since the dialog is pure browser behaviour.
- */
 class VentaBookingChoicesTest extends TestCase
 {
     private function js(): string
@@ -38,7 +30,6 @@ class VentaBookingChoicesTest extends TestCase
         $this->assertStringContainsString("showError('Choose ' + missing.map", $js);
         $this->assertStringContainsString("first. Nothing was booked.", $js);
 
-        // The gate stands BEFORE the booking request leaves.
         $gateAt = strpos($js, 'var missing = unanswered();', strpos($js, "confirmBtn.addEventListener"));
         $bookAt = strpos($js, 'postJson(urls.book', strpos($js, "confirmBtn.addEventListener"));
         $this->assertNotFalse($gateAt);

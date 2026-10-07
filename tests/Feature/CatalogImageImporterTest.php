@@ -6,11 +6,6 @@ use App\Services\Media\CatalogImageImporter;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * A photo link can never make this server read its own network: every
- * address the host resolves to is checked, and the download checks the
- * link itself rather than trusting that someone checked it before.
- */
 class CatalogImageImporterTest extends TestCase
 {
     protected function tearDown(): void

@@ -5,19 +5,8 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * API logging grows a middle setting (#200, the owner): "errors only".
- *
- * He wants logging ON permanently, but the every-minute order fetch
- * eats the database and drowns the interesting rows. A boolean cannot
- * hold that want - the answer is a mode: all / errors / off. The old
- * booleans (api_logging, and pedallion's differently-named
- * logging_enabled) backfill into it and then leave, so there is one
- * source of truth.
- */
 return new class extends Migration
 {
-    /** [table, old boolean column] per channel with an API log. */
     private const TABLES = [
         ['shopee_settings', 'api_logging'],
         ['lazada_settings', 'api_logging'],

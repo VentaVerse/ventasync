@@ -8,15 +8,6 @@ use Extensions\lazada\Models\LazadaOrder;
 use Extensions\lazada\Models\LazadaSetting;
 use Illuminate\Http\Request;
 
-/**
- * Assembles the view data for the Lazada orders list: filters, tab counts,
- * sort persistence, pagination and the AWB-saved lookup. Shared by the
- * Lazada seller center (LazadaOrderController@index) and the fulfilment hub,
- * both of which render the same ext-lazada::orders._panel partial with this
- * array. Extracted from LazadaOrderController@index without any logic
- * change - mirrors Extensions\shopee\Services\ShopeeOrdersPanel exactly, see
- * docs/superpowers/plans/2026-08-07-lazada-conversion.md Task 3.
- */
 class LazadaOrdersPanel
 {
     public function build(Request $request, ?int $storeId = null): array
@@ -25,10 +16,6 @@ class LazadaOrdersPanel
             ? LazadaSetting::query()->find($storeId)
             : LazadaSetting::defaultStore();
         if ($storeId !== null && $setting !== null) {
-            /* The hub page itself is storeless, so bind the tab's store for
-             * the render: the model global scope narrows every LazadaOrder
-             * read to it, every route() in the panel partial fills its
-             * {store} from it, and nested defaultStore() reads agree. */
             app()->instance('lazada.route-store', $setting);
             \Illuminate\Support\Facades\URL::defaults(['store' => (int) $setting->id]);
         }
@@ -40,22 +27,8 @@ class LazadaOrdersPanel
             'courier' => ['nullable', 'string', 'max:80'],
         ]);
 
-        // The courier pill on To Handover. A key from CourierTally, so a
-        // stale one (that courier's last parcel already left) matches
-        // nothing and the list simply stays whole.
         $courierKey = trim((string) ($filters['courier'] ?? ''));
 
-        /* ONE FIELD, THE SAME ONE THE RETURNS LISTS CARRY.
-         *
-         * This was an order-number box beside a buyer box, and the critique's
-         * standing red flag was that neither answers the call it was built
-         * for: a buyer on the phone has a product and a rough date, not an
-         * order number, and on Lazada every buyer name renders masked as
-         * J******e, so that box was a dead control on the channel that needed
-         * it most. Product was not searchable here at all.
-         *
-         * One box matching order number, buyer and product, and a date range
-         * over when the order was placed - which this list has never had. */
         $find = trim((string) ($filters['q'] ?? ''));
         $placedFrom = trim((string) ($filters['placed_from'] ?? ''));
         $placedTo = trim((string) ($filters['placed_to'] ?? ''));
@@ -65,13 +38,11 @@ class LazadaOrdersPanel
 
         $tab = strtoupper((string)$request->query('tab', 'ALL'));
 
-        // Lazada "TO_SHIP" has internal workflow steps (to pack -> to arrange shipment -> to handover).
         $pendingSubtab = (string) $request->query('pending_sub', $tab === 'TO_SHIP' ? 'to_pack' : '');
         if ($tab !== 'TO_SHIP') {
             $pendingSubtab = '';
         }
 
-        // Failed Delivery has sub-tabs: Failed Delivery / Lost & Damaged
         $fdSub = (string) $request->query('fd_sub', $tab === 'FAILED_DELIVERY' ? 'failed_delivery' : '');
         if ($tab !== 'FAILED_DELIVERY') {
             $fdSub = '';
@@ -85,14 +56,10 @@ class LazadaOrdersPanel
             'DELIVERED',
             'CANCELLATION',
             'FAILED_DELIVERY',
-            // See ShopeeOrdersPanel: accepted here whether or not it renders,
-            // because this guard runs before the counts that decide that.
             'OTHER',
         ];
         if (!in_array($tab, $allowedTabs, true)) { $tab = 'ALL'; }
 
-        // Per-marketplace sort persistence, see ShopeeOrderController
-        // for the rationale. Session key is namespaced to "lazada".
         $defaultDir = ($tab === 'TO_SHIP') ? 'asc' : 'desc';
         $sortKey = strtolower((string)$request->query('sort', ''));
         if ($sortKey !== '') {
@@ -133,10 +100,6 @@ class LazadaOrdersPanel
             'FAILED_DELIVERY' => ['failed_delivery', 'lost_by_3pl', 'damaged_by_3pl', 'shipped_back', 'shipped_back_success'],
         ];
 
-        // See ShopeeOrdersPanel for the reasoning. Lazada sends `returned`
-        // and `package_scrapped`, which no tab above names, so they were
-        // reachable only by paging through All. Found rather than
-        // enumerated, so the next status Lazada invents surfaces by itself.
         $mappedStatuses = array_values(array_unique(array_merge(...array_values($tabStatusMap))));
 
         $tabs = FulfilmentSteps::tabs([
@@ -145,17 +108,10 @@ class LazadaOrdersPanel
             'TO_SHIP'         => 'to_ship',
             'SHIPPING'        => 'shipping',
             'DELIVERED'       => 'delivered',
-            // The key stays CANCELLATION - it is Lazada's filter value - but
-            // the word a packer reads is Cancelled, the same as everywhere.
             'CANCELLATION'    => 'cancelled',
             'FAILED_DELIVERY' => 'failed',
         ]);
 
-        // The courier split of whichever To Ship step is open. The courier
-        // is on the order from the moment it arrives, and the bench packs
-        // by courier before it hands over by courier: whose rider comes
-        // first is decided at To Pack (the owner, 2026-08-28). Walked only for
-        // the step shown, since it reads every order's first line's raw.
         $subStepStatuses = [
             'to_pack' => ['pending', 'repacked'],
             'to_arrange' => ['packed'],
@@ -169,7 +125,6 @@ class LazadaOrdersPanel
             ->where('region', $setting->region ?? 'ph')
             ->with('products');
 
-        // Base query used for badge counts (DB only)
         $baseCountQuery = LazadaOrder::query()->where('region', $setting->region ?? 'ph');
 
 
@@ -201,10 +156,6 @@ class LazadaOrdersPanel
         }
 
 
-        // Counts for TO_SHIP sub-tabs (DB only)
-        // One courier's parcels, oldest first. The ids come from the same
-        // walk that produced the count on the pill, so the two cannot
-        // disagree.
         if ($tab === 'TO_SHIP' && isset($subStepStatuses[$pendingSubtab]) && $courierKey !== '') {
             $courierIds = $courierTally->idsFor($courierKey);
             if ($courierIds !== null) {
@@ -218,13 +169,11 @@ class LazadaOrdersPanel
             'to_handover' => (clone $baseCountQuery)->whereIn('status', ['ready_to_ship'])->count(),
         ];
 
-        // Counts for FAILED_DELIVERY sub-tabs (DB only)
         $fd_sub_counts = [
             'failed_delivery' => (clone $baseCountQuery)->whereIn('status', ['failed_delivery'])->count(),
             'shipped_back' => (clone $baseCountQuery)->whereIn('status', ['shipped_back', 'shipped_back_success'])->count(),
             'lost_damaged' => (clone $baseCountQuery)->whereIn('status', ['lost_by_3pl', 'damaged_by_3pl'])->count(),
         ];
-        // Search filters (safe, parameter-bound). LazadaOrder currently stores customer info in raw JSON.
         if ($find !== '') {
             $like = '%' . $find . '%';
 
@@ -233,14 +182,10 @@ class LazadaOrdersPanel
                     ->orWhere('raw->customer_first_name', 'like', $like)
                     ->orWhere('raw->customer_name', 'like', $like)
                     ->orWhere('raw->buyer_name', 'like', $like)
-                    // The tracking number, where the row's Tracking cell reads
-                    // it: the order, its detail, or the first item (2026-09-06).
                     ->orWhere('raw->tracking_code', 'like', $like)
                     ->orWhere('raw->tracking_number', 'like', $like)
                     ->orWhere('raw->_detail->tracking_code', 'like', $like)
 
-                    /* The products are on the order, so this reaches through
-                       the relation - the same shape the returns lists use. */
                     ->orWhereHas('products', function ($p) use ($like) {
                         $p->where('name', 'like', $like)
                             ->orWhere('sku', 'like', $like)
@@ -250,8 +195,6 @@ class LazadaOrdersPanel
             });
         }
 
-        /* When the order was placed on the marketplace, not when a sync last
-           wrote the row. whereDate so a To date includes the whole of it. */
         if ($placedFrom !== '') {
             $query->whereDate('order_created_at', '>=', $placedFrom);
         }
@@ -259,17 +202,9 @@ class LazadaOrdersPanel
             $query->whereDate('order_created_at', '<=', $placedTo);
         }
 
-        // Counts for tab badges (DB only; UI will still show live status per row).
         $tab_counts = [];
         $tab_counts['ALL'] = (clone $baseCountQuery)->count();
         foreach ($tabStatusMap as $k => $statuses) {
-            // Each tab counts EVERY status it filters on. To Ship used to
-            // count only pending and repacked - its first sub-step - while
-            // its own filter also covered packed and ready_to_ship, and
-            // Failed Delivery left out lost_by_3pl and damaged_by_3pl the
-            // same way. 33 of this channel's orders were sitting inside a
-            // tab whose number said they were not there, which is why the
-            // strip summed to 592 against an All of 628.
             $tab_counts[$k] = !empty($statuses)
                 ? (clone $baseCountQuery)->whereIn('status', $statuses)->count()
                 : 0;
@@ -294,12 +229,8 @@ class LazadaOrdersPanel
             ->paginate($perPage)
             ->appends($request->query());
 
-        // IMPORTANT: Do NOT call Lazada APIs from the listing page.
-        // Doing so quickly hits SellerCallLimit and prevents products from syncing reliably.
-        // Products (and any status refresh) should happen during explicit user actions (Fetch Orders / Pack / RTS).
         $live_statuses = [];
 
-        // Detect which orders have saved AWB PDFs locally
         $savedAwbs = [];
         foreach ($orders as $o) {
             $oid = (string) ($o->order_id ?? '');
@@ -335,14 +266,6 @@ class LazadaOrdersPanel
         ];
     }
 
-    /**
-     * The order the packer just packed, for the confirmation that follows.
-     *
-     * Read from the session key the controller sets on redirect rather than
-     * from the listed orders, because packing moves the order out of the To
-     * Pack tab: the row a packer was looking at is frequently not on the page
-     * that renders the modal.
-     */
     private function resolvePackedParcel(?LazadaSetting $setting): ?array
     {
         $orderId = (string) session('open_pack_print_modal_order_id', '');
@@ -360,12 +283,6 @@ class LazadaOrdersPanel
         return \App\Support\Fulfilment\PackedParcel::fromOrder($order, $orderId);
     }
 
-    /**
-     * Every order on one To Ship step, filed under its courier, with the
-     * order ids kept so the list can be narrowed to one courier's orders.
-     *
-     * @param  list<string>  $statuses  the step's Lazada statuses
-     */
     private function buildToShipCourierTally(string $region, array $statuses): CourierTally
     {
         $tally = new CourierTally();

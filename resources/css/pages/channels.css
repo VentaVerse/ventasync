@@ -1,8 +1,3 @@
-/* ============================================================
-   Integrations hub: module cards for marketplace integrations
-   Bundled via Laravel Vite
-   ============================================================ */
-
 .int-page {
     padding: 8px 0 24px;
 }
@@ -127,9 +122,6 @@
     line-height: 1.45;
 }
 
-/* Top-of-card variant for the Manage Stores link on multi-store cards.
-   Sits between the card head and the flat menu (DOM order handles
-   placement) and reads as the primary action via neon-green tint. */
 .int-card-stores-link--top {
     margin-top: 4px;
     background: rgba(57,255,20,.10);
@@ -182,11 +174,6 @@
     border-top: 1px solid var(--bl-rule, #f1f5f9);
 }
 
-/* "Manage all N stores →" link inside a multi-store module's card.
-   Lives at the bottom of the card; the actual store list lives on
-   the dedicated module sub-page so the Integrations grid stays calm
-   regardless of how many stores are configured. */
-
 .int-card-stores-link {
     display: flex;
     align-items: center;
@@ -226,45 +213,6 @@
     }
 }
 
-/* ============================================================
-   The card-style Orders tab strip lived here (`ord-tab-*`, ~180 lines).
-
-   It is gone with the markup that rendered it. The IA migration replaced
-   that strip with the channel sidebar: resources/views/integrations/partials/
-   _tab_strip.blade.php had no remaining include anywhere in the app or the
-   extensions, and six test files now assert the OPPOSITE of it rendering
-   (assertDontSee('ord-tab-head'), assertStringNotContainsString('ord-tab-strip',
-   $chrome) in the Shopify, Multistore, Pedallion, Lazada, TikTok and channel
-   workspace suites). Its icon partial, _icon.blade.php, went with it: the strip
-   was its only caller.
-
-   Recorded because the CSS outlived the markup by long enough for the design
-   hook to keep reporting a defect in it - a 3px accent border mitring against
-   a 12px radius - on every edit to this file. The finding was real and the
-   corner really did wedge; it was simply in a component nobody could see.
-   ============================================================ */
-
-/* ============================================================
-   Module sub-page (/integrations/module/{id})  (`int-mod-`)
-   ------------------------------------------------------------
-   The store list for a channel that has no seller center of its
-   own yet. Round E Task 2 rebuilt it on the shared list anatomy
-   (x-list-head / x-table / x-ui.badge / x-ui.menu), so the
-   ~200 lines of `int-module-*` card grammar that used to live
-   here are gone with the markup that referenced them: they
-   carried hardcoded hex fallbacks, a per-card accent driven by
-   an inline style attribute, and a hover lift with a transform.
-
-   What is left is the two pieces the list anatomy has no
-   equivalent for: the row of module-level destinations, and the
-   add-store panel.
-   ============================================================ */
-
-/* Module-level destinations (Settings, Reviews, and so on). Quiet
-   text links with a chevron, not a row of buttons: they are
-   navigation sitting beside a solid primary action, and three
-   ghost buttons next to one fill is the mixed grammar this system
-   avoids. */
 .int-mod__nav {
     display: flex;
     flex-wrap: wrap;
@@ -284,15 +232,7 @@
 }
 .int-mod__navlink:hover { color: var(--bl-ink); }
 
-/* The module page's own add-store panel went with the owner's 2026-09-06 rule:
-   a store is created from the Integrations board's Add store only. */
-
 .int-mod__count { margin-top: calc(var(--bl-space-2) * -1); }
-
-/* ============================================================
-   Orders summary page: leaderboard + activity feed grid
-   (status cards are rendered by the .ord-tab-strip above)
-   ============================================================ */
 
 .ord-summary-grid {
     display: grid;
@@ -340,8 +280,6 @@
     color: var(--bl-ink-3, #6b7280);
     font-size: 13px;
 }
-
-/* Top-products leaderboard */
 
 .ord-leaderboard {
     list-style: none;
@@ -468,8 +406,6 @@
     font-variant-numeric: tabular-nums;
 }
 
-/* Recent activity feed */
-
 .ord-feed {
     list-style: none;
     margin: 0;
@@ -561,20 +497,8 @@
     margin-top: 2px;
 }
 
-/* ============================================================
-   Integrations status board (/integrations). One card per
-   channel, one card per store for multi-store channels. Uses the
-   shell design tokens (base/tokens.css), not the legacy --bl-ink/
-   --bl-ink-3 variables the rest of this file predates.
-   ============================================================ */
-
 .x-board { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--bl-space-3); }
 
-/* A top-level page card, so it takes the foundation's sheet: 16px and a lift,
-   not the 11px flat box --bl-r-ctrl gives. This is the hub's primary content
-   and it was the one place where a page-level container still wore the INSET
-   treatment - measured at 11px against every sheet's 16px on the same
-   screen. */
 .x-board__card {
     display: flex;
     flex-direction: column;
@@ -587,8 +511,6 @@
 }
 .x-board__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--bl-space-2); }
 
-/* The channel's mark, where a list's avatar goes. It keeps its own
-   background when it has one, so a brand tile stays a brand tile. */
 .x-board__mark {
     flex: none;
     width: 34px;
@@ -606,57 +528,16 @@
 .x-board__health dt { font-size: 12px; color: var(--bl-ink-3); }
 .x-board__health dd { margin: 0; font-size: 12px; color: var(--bl-ink-2); }
 
-/* "not tracked" (token expiry with no OAuth on this channel, error counts
-   with api_logging off) must not read as a value at a glance the way a
-   real reading does. Italic plus the dimmer --bl-ink-3 token marks it as
-   an absent measurement rather than data - a solid token, not opacity:
-   --bl-ink-3 at reduced opacity over a card surface drops well under
-   the 4.5:1 floor (see the --bl-ink-3 note in base/tokens.css), while
-   used solid it already clears 4.5:1 in both themes (4.58 light / 4.56
-   dark, worst case surface-hover, per the I3 matrix there). A genuine 0
-   (errors24h logged and clean) is never null, so it always keeps the
-   solid --bl-ink-2 treatment real values get. */
 .x-board__health-value--empty { color: var(--bl-ink-3); font-style: italic; }
 
-/* The grid stretches every card in a row to the tallest, but the footer sat
-   directly after the health list - so a card carrying a store name pushed its
-   buttons 16px lower than the card beside it and the row of buttons stepped
-   down mid-row. Pinning the footer to the bottom of the card makes the button
-   row a straight line whatever each card holds above it. */
 .x-board__foot { display: flex; gap: var(--bl-space-2); margin-top: auto; }
 
 @media (max-width: 640px) { .x-board { grid-template-columns: 1fr; } }
 
-/* ------------------------------------------------------------------
-   THE CHANNEL WORKSPACE OVERVIEW
-
-   Work on the left, context on the right, the same split the order page
-   (.od-body) and every form page (.fm-body) already use, down to the 320px
-   rail and the 22px gutter between the columns. The rail's sticky behaviour
-   is declared once for all three in blotter.css.
-
-   It replaces four full-width bands stacked down a 1160px column. That shape
-   was wrong in three separate ways at once, and all three are worth naming
-   because each is easy to reintroduce:
-
-   - It gave every region the same weight. "Connection", which a seller reads
-     on the day it breaks and never otherwise, was drawn exactly as large and
-     exactly as loud as thirty days of takings.
-   - It stretched everything to the page width. A product title ended around
-     850px and its revenue sat at 1400px, so the eye had to cross a hand's
-     width of empty carpet to join a name to its number, and the 30-day plot
-     was drawn at roughly 6:1 - wide enough that a real trend flattened into a
-     squiggle in the first fifth and a dead line after it.
-   - It had no reading order. Four identical white rectangles in a column is
-     not a hierarchy; it is a list of containers.
-   ------------------------------------------------------------------ */
 .cw-body {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 22px;
-    /* A sticky rail needs its grid track to start at the top rather than
-       stretch. Also stated beside the sticky rule itself in blotter.css, so
-       neither file can quietly break the other. */
     align-items: start;
 }
 
@@ -671,47 +552,16 @@
     min-width: 0;
 }
 
-/* The rail's panels sit closer together than the work's: they are one region
-   read as a group, not two subjects read in turn. */
 .cw-col--side { gap: 16px; }
 
-/* A section is a card, the same raised sheet every other data container in
-   v2.3 is.
-
-   --bl-pad is REDECLARED here, and that is the whole fix for a bug the owner saw
-   as "no margins on the best seller cards and the graph". .x-content declares
-   --bl-pad: 0px, because the page gutter belongs to the content region and a
-   section carrying it too would inset everything twice. A var() fallback only
-   fires when a variable is UNDEFINED - a variable set to zero is a value, and
-   it wins - so the old `padding: var(--bl-pad, 20px)` resolved to 0 and every
-   panel's content sat flush against its own border.
-
-   Opting back in is how the token was designed to be used (see its note in
-   blotter.css): the page level is zero, and a card or a cell declares its own.
-   Doing it as the token rather than as a literal is what makes the plot's own
-   rules, which also ask for --bl-pad, resolve correctly inside this card.
-
-   This is the second time this trap has been sprung in this codebase - the
-   dashboard's .bl-share hit it first and carries the same note. */
 .cw-section {
-    /* Surface from .bl-sheet. The token redeclaration stays, because it is
-       what makes the plot's own rules resolve their padding inside this card
-       (see the note above). */
     --bl-pad: 20px;
 }
 
-/* The head sits INSIDE its card, on a hairline, which is what .od-section and
-   .fm-section already do. It used to float above the card as bare text on the
-   page ground. That reads fine once and reads as four unattached labels when
-   there are four of them, and it leaves a 320px rail panel labelled by
-   something that is not part of it. */
 .cw-section__head {
     display: flex;
     flex-wrap: wrap;
     align-items: baseline;
-    /* Packed left, NOT space-between. The note qualifies the title, so the two
-       are one phrase: pushed to opposite ends of an 800px card they read as
-       two unrelated labels with a hand's width of nothing between them. */
     gap: 3px 10px;
     padding-bottom: 10px;
     margin-bottom: 15px;
@@ -732,20 +582,10 @@
     color: var(--bl-ink-3, #8792a9);
 }
 
-/* The rail is context, so it speaks at the size the order page's sections
-   speak at, and the work beside it keeps the larger voice. Two columns that
-   are read differently should not be typeset identically. */
 .cw-section--rail { padding: 15px var(--bl-pad) 16px; }
 .cw-section--rail .cw-section__head { padding-bottom: 9px; margin-bottom: 12px; }
 .cw-section--rail .cw-section__title { font-size: 13px; font-weight: 650; }
 
-/* ---- The two figures the trend section exists to state ---- */
-
-/* A row, not an auto-fit grid. The grid was `repeat(auto-fit, minmax(180px,
-   1fr))`, which on a full-width band spread two figures to the far ends of
-   1160px with nothing between them - Revenue at the left margin and Orders
-   at the 45% mark, reading as two unrelated cards rather than as one pair
-   that is meant to be compared. They wrap on a narrow column instead. */
 .cw-figures {
     display: flex;
     flex-wrap: wrap;
@@ -776,8 +616,6 @@
     color: var(--bl-ink, #1f2937);
 }
 
-/* Direction is carried by the sign as well as the colour, so the reading
-   survives without colour vision. */
 .cw-figure__d {
     font-size: 12.5px;
     font-weight: 600;
@@ -788,10 +626,6 @@
 .cw-figure__d.is-down { color: var(--bl-bad, #c0392b); }
 .cw-figure__d.is-flat { color: var(--bl-ink-3, #8792a9); font-weight: 500; }
 
-/* ---- Best sellers ----
-
-   A list, not a table: three fields per row do not need column headers to be
-   read, and a table would not wrap on a phone. */
 .cw-top {
     margin: 0;
     padding: 0;
@@ -800,9 +634,6 @@
 
 .cw-top__row {
     display: grid;
-    /* Fixed number columns, not auto. With auto tracks each row sized its own
-       figures, so "1 sold" and "20 sold" started at different x and the
-       column read as ragged - the one thing a list of numbers must not do. */
     grid-template-columns: 20px minmax(0, 1fr) 74px 104px;
     grid-template-areas: "rank name units rev";
     align-items: baseline;
@@ -814,9 +645,6 @@
 
 .cw-top__row:first-child { border-top: 0; padding-top: 0; }
 
-/* The list is ranked, so it says so. An <ol> whose numbers are invisible is
-   an <ol> for nobody; screen readers already announce the position, which is
-   why the printed numeral is aria-hidden rather than repeated. */
 .cw-top__rank {
     grid-area: rank;
     font-size: 12px;
@@ -834,9 +662,6 @@
 .cw-top__model {
     display: block;
     margin-top: 1px;
-    /* The model IS the SKU, which is exactly what the mono face is reserved
-       for in this system: telling 0 from O in a product code is real work,
-       not a costume. */
     font-family: var(--font-mono);
     font-size: 11.5px;
     color: var(--bl-ink-3, #8792a9);
@@ -857,16 +682,6 @@
     color: var(--bl-ink, #1f2937);
 }
 
-/* A revenue share bar was drawn here, one SVG rect per row scaled to the
-   leader, and it was cut after seeing it: at three pixels under a row it read
-   as an underline competing with the row rules, and because the top two
-   sellers were within four percent of each other it spent that weight saying
-   almost nothing the printed figures did not. The rank numeral gives the list
-   its ordinal identity for free. */
-
-/* On a phone the two figures stack under the name rather than squeezing a
-   product title into a column too narrow to read. The rank keeps its own
-   column so the list still reads as ranked. */
 @media (max-width: 560px) {
     .cw-top__row {
         grid-template-columns: 20px minmax(0, 1fr) 104px;
@@ -876,18 +691,8 @@
     }
 }
 
-/* The plot partial is shared with the dashboard, whose column is wider than
-   this one. Scoped to this section so the dashboard keeps its own behaviour:
-   the key wraps rather than running past the edge, and the axis strip takes
-   its own horizontal scroll instead of making the whole page scroll sideways
-   on a phone. */
 .cw-section .bl-key { flex-wrap: wrap; }
 
-/* Taller than the dashboard's 190px, because this column is narrower than the
-   dashboard's and the plot is stretched to fit it with
-   preserveAspectRatio="none". Height is the only lever left on the aspect
-   ratio once the width is the column's: at 190px in a ~760px column a
-   thirty-day trend flattened towards a straight line. */
 .cw-section .bl-plot--dual { height: 210px; }
 
 .cw-section .bl-axis {
@@ -897,22 +702,11 @@
 
 .cw-section .bl-axis::-webkit-scrollbar { display: none; }
 
-/* The key item carries a label and its peak; at phone width that pair is a
-   few pixels wider than the column, which was enough to scroll the page. It
-   wraps within itself rather than being truncated - the peak is the scale
-   disclosure and hiding it would leave the two series looking comparable. */
 .cw-section .bl-key__item {
     flex-wrap: wrap;
     min-width: 0;
 }
 
-/* ---- Rail rows: waiting, and the connection ----
-
-   One shape for both panels. The waiting strip used to print its figure above
-   its label and the health strip printed its label above its figure, on the
-   reasoning that the number is the message in one and the caption in the
-   other. That is true, and it still cost the page two row vocabularies within
-   200px of each other. Label left, reading right, is scannable for both. */
 .cw-rows {
     margin: 0;
     display: flex;
@@ -946,11 +740,6 @@
     color: var(--bl-ink, #1f2937);
 }
 
-/* Not tracked is a statement about instrumentation, not a quantity, so it
-   drops out of the numeric size and weight entirely. Printing a zero here
-   would read as "nothing waiting" or "no errors" when it means "never
-   measured". A solid --bl-ink-3, never a reduced opacity: the dimmed version
-   falls under the 4.5:1 floor over this surface. */
 .cw-row__value.is-untracked {
     font-size: 13px;
     font-weight: 450;
@@ -958,18 +747,6 @@
     color: var(--bl-ink-3, #8792a9);
 }
 
-/* Tone on a connection row.
-
-   An access token that expired a fortnight ago was rendering in the same grey
-   as "Not tracked", which made the most time-critical fact on the page the
-   quietest thing on it while a red banner at the top of the same screen was
-   already shouting about it.
-
-   Only trouble and near-trouble are coloured. A settled row stays ink: if
-   "good" were green then a healthy channel's rail would glow at a seller who
-   has nothing to do about it, and colour would stop meaning "look here".
-   Colour never carries it alone either - the row prints the word (Expired,
-   Expiring soon) beside the date. */
 .cw-row.is-bad .cw-row__value { color: var(--bl-bad); }
 .cw-row.is-attn .cw-row__value { color: var(--bl-attn); }
 
@@ -983,11 +760,6 @@
 .cw-row.is-bad .cw-row__note { color: var(--bl-bad); }
 .cw-row.is-attn .cw-row__note { color: var(--bl-attn); }
 
-/* ---- Nothing to report yet ----
-
-   A channel connected this morning has no thirty days to describe, and an
-   empty left column beside a full rail reads as a page that failed to load
-   rather than as a channel that has not traded. */
 .cw-empty__title {
     margin: 0 0 6px;
     font-size: 15px;

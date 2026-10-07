@@ -1,15 +1,3 @@
-{{--
-    The View token dialog, on the API applications list and the edit page.
-
-    A [data-token-view] trigger opens it and resources/js/pages/settings.js
-    fetches the token from api_clients.token into the field. The page itself
-    never carries a token, with one exception: right after create or rotate
-    the flashed token is passed in as $flash and the dialog opens with it.
-
-    Expects:
-      $flash      the plaintext token flashed after create/rotate, or null
-      $flashName  the application it belongs to, or null
---}}
 @php
     $flash = $flash ?? null;
     $flashName = $flashName ?? null;

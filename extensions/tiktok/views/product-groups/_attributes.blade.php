@@ -1,10 +1,3 @@
-{{-- TikTok category attributes: one row per product property TikTok asks
-     for in the chosen category (the sales properties are the variation
-     axes, which the push names from the catalog). Rendered inline by the
-     product group form and the listing page, and as the body of
-     fetchAttributesAjax()'s JSON when the category changes, so the row
-     grammar lives in pages/group-form.css (.gf-attrs / .gf-attr) and the
-     wire is one `attributes[<id>]` control per attribute. --}}
 @php
     $canManage = $canManage ?? true;
     $rows = $rows ?? [];

@@ -34,7 +34,7 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
         foreach ($stores as $store) {
             $label = $store->store_name ?: ('#' . $store->id);
             $this->info("=== Lazada store: {$label} ===");
-            app()->instance('lazada.route-store', $store); // bind: the model trait now scopes every query + stamps writes to THIS store
+            app()->instance('lazada.route-store', $store);
             try {
                 $worst = max($worst, $this->handleStore($client, $store));
             } catch (\Throwable $e) {
@@ -124,7 +124,6 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
             $this->info("  Initial backfill: last {$syncDays} days");
         }
 
-        // Paginate through all orders from the API
         $allOrders = [];
         $offset = 0;
 
@@ -158,7 +157,6 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
             $offset += $pageLimit;
         }
 
-        // Process each order: create if new, update if existing
         $created = 0;
         $updated = 0;
         $errors = 0;
@@ -178,7 +176,6 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
                 ->first();
 
             if ($existing) {
-                // --- Update existing order ---
                 $existing->fill([
                     'status'           => is_string($statusVal) ? $statusVal : null,
                     'order_created_at' => $this->parseApiDatetime($o['created_at'] ?? $o['createdAt'] ?? $o['created_time'] ?? null),
@@ -187,7 +184,6 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
                 ])->save();
                 $updated++;
 
-                // Re-sync products if missing OR shipping data incomplete
                 $needsProductSync = !$existing->products()->exists();
                 if (!$needsProductSync) {
                     $firstProduct = $existing->products()->first();
@@ -211,7 +207,6 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
 
                 $this->fetchFeesIfReady($client, $setting, $existing);
             } else {
-                // --- Create new order ---
                 try {
                     $newOrder = LazadaOrder::query()->create([
                         'region'           => $setting->region,
@@ -246,9 +241,6 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
         $this->info("  Synced: {$created} new, {$updated} updated" . ($errors > 0 ? ", {$errors} errors" : ''));
     }
 
-    /**
-     * Sync reverse orders (returns/refunds) from Lazada API.
-     */
     private function syncReturns(LazadaClient $client, object $setting): void
     {
         $cliDaysReturns = $this->option('days-returns');
@@ -273,7 +265,6 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
             $body = $res['body'] ?? [];
             $pageOrders = [];
             if (($res['ok'] ?? false) && is_array($body)) {
-                // Lazada returns reverse orders under result.items
                 $resultNode = $body['result'] ?? $body['data'] ?? $body;
                 $pageOrders = $resultNode['items'] ?? $resultNode['list'] ?? $resultNode['reverse_order_list'] ?? $resultNode['data'] ?? [];
                 if (!is_array($pageOrders)) $pageOrders = [];
@@ -306,12 +297,10 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
             $lines = $o['reverse_order_lines'] ?? $o['items'] ?? $o['reverse_order_items'] ?? [];
             $firstLine = is_array($lines) && !empty($lines) ? $lines[0] : [];
 
-            // Status and reason may be on the line items, not the top-level order
             $reverseStatus = (string)($o['reverse_status'] ?? $firstLine['reverse_status'] ?? $o['reverseStatus'] ?? $o['status'] ?? '');
             $reverseType = (string)($o['reverse_type'] ?? $o['request_type'] ?? $o['reverseType'] ?? $o['type'] ?? '');
             $reason = (string)($o['reason'] ?? $firstLine['reason_text'] ?? $o['reverse_reason'] ?? '');
             $refundAmount = $o['refund_amount'] ?? $firstLine['refund_amount'] ?? $o['refundAmount'] ?? $o['actual_refund_amount'] ?? null;
-            // Lazada returns refund_amount in centavos (e.g. 26200 = 262.00)
             if (is_numeric($refundAmount)) {
                 $refundAmount = (float) $refundAmount / 100;
             }
@@ -352,9 +341,6 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
         $this->info("  Returns: {$saved} new, {$updated} updated");
     }
 
-    /**
-     * Fetch order items from Lazada API and store as LazadaOrderProduct rows.
-     */
     private function syncOrderProducts(LazadaClient $client, object $setting, LazadaOrder $order): void
     {
         $oid = (string) ($order->order_id ?? '');
@@ -416,9 +402,6 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
         }
     }
 
-    /**
-     * Signed API call with rate limiting and retry (mirrors LazadaOrderController logic).
-     */
     private function runSignedApiCall(LazadaClient $client, object $setting, string $method, string $apiPath, array $customParams, ?string $pack = null): array
     {
         $creds = LazadaSetting::activeCredentials($setting);
@@ -504,26 +487,17 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
         return $result;
     }
 
-    /**
-     * Fetch finance transaction fees for delivered/completed orders.
-     * Only calls the API if: order is delivered/completed, fees not already stored,
-     * and the order has products (needed for the API to return data).
-     */
     private function fetchFeesIfReady(LazadaClient $client, object $setting, LazadaOrder $order): void
     {
         $status = strtolower(trim((string) $order->status));
 
-        // Skip cancelled/unpaid — no fees to fetch
         if (in_array($status, ['canceled', 'unpaid'])) return;
 
-        // Skip if already has finance data (commission key present)
         $existingFees = $order->fees;
         if (is_array($existingFees) && isset($existingFees['commission'])) return;
 
-        // First: always extract basic pricing from raw order data
         $raw = $order->raw;
         if (is_array($raw) && !empty($raw['price'])) {
-            // Money::parse strips the thousands comma Lazada's order detail can carry on large values.
             $m = fn ($v) => \App\Support\Money::parse($v);
             $fees = is_array($existingFees) ? $existingFees : [];
             $fees['subtotal'] = $m($raw['price'] ?? 0);
@@ -545,13 +519,7 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
             $existingFees = $fees;
         }
 
-        // Second: try the finance transaction API for detailed commission breakdown
         try {
-            /* The transactions are searched from the order's own day, the
-               same 170-day span as before. It was the last 170 days, which
-               found nothing for an order older than that: a sale fetched
-               from January came back with no commission and no payment fee
-               (the owner, 2026-09-25). An order with no date keeps the old span. */
             $from = $order->order_created_at ? $order->order_created_at->copy()->subDay() : now()->subDays(170);
             $to = $from->copy()->addDays(171)->min(now()->addDay());
             $trxRes = $this->runSignedApiCall($client, $setting, 'GET', '/finance/transaction/details/get', [
@@ -561,7 +529,6 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
             ], 'lazada.finance.transaction_details');
 
             if (!($trxRes['ok'] ?? false) || !is_array($trxRes['body'] ?? null)) {
-                // Store the API response for debugging
                 $fees = is_array($existingFees) ? $existingFees : [];
                 $fees['_finance_raw'] = $trxRes['body'] ?? null;
                 $order->fees = $fees;
@@ -591,7 +558,7 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
 
                 $feeType = (int) ($trx['fee_type'] ?? 0);
                 $feeName = (string) ($trx['fee_name'] ?? $trx['transaction_type'] ?? '');
-                // Money::parse strips the thousands comma Lazada sends ("-2,251.57"); a bare (float) would read that as -2.
+                // Money::parse strips the thousands comma Lazada sends; a bare float cast reads -2,251.57 as -2.
                 $amount = \App\Support\Money::parse($trx['amount'] ?? $trx['fee_amount'] ?? 0);
                 $lineName = $feeName !== '' ? $feeName : 'Fee type ' . $feeType;
                 $byName[$lineName] = ($byName[$lineName] ?? 0) + $amount;
@@ -631,13 +598,9 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
             $order->fees = $fees;
             $order->save();
         } catch (\Throwable $e) {
-            // Best-effort — don't break the sync
         }
     }
 
-    /**
-     * Fetch fees for orders that don't have fee data yet.
-     */
     private function backfillMissingFees(LazadaClient $client, object $setting): void
     {
         $region = $setting->region ?? 'ph';
@@ -664,7 +627,7 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
             if (!empty($after) && $after !== $before) {
                 $filled++;
             }
-            usleep(300000); // 300ms rate limit
+            usleep(300000); // Wait 300ms between calls to stay under Lazada's rate limit.
         }
 
         $this->info("  Backfilled fees for {$filled}/{$orders->count()} orders.");
@@ -691,12 +654,6 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
         return $ts === false ? null : date('Y-m-d H:i:s', $ts);
     }
 
-    /**
-     * Run now walks this sync one phase per request (SteppableAutomation,
-     * 2026-09-07): the bar moves per phase and store, and the page never
-     * shows the console. The job's own options (returns only, no returns)
-     * choose the phases, exactly as the scheduler would.
-     */
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
         $args = $job->commandArguments();

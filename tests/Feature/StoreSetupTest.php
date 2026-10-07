@@ -17,13 +17,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * the owner's first connection on QA (2026-09-05): a store's categories and
- * couriers are read the moment it is authorised, behind a progress popup;
- * a connection result is one plain line on the page and the payload on
- * the API log; and a store that has fetched nothing yet is told so, in
- * words, before it tries to push.
- */
 class StoreSetupTest extends TestCase
 {
     use RefreshDatabase;
@@ -68,8 +61,6 @@ class StoreSetupTest extends TestCase
         return $pid;
     }
 
-    // ── The setup run ────────────────────────────────────────────────
-
     public function test_the_settings_page_carries_the_setup_popup_and_starts_it_after_an_authorisation(): void
     {
         $store = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main']);
@@ -82,7 +73,6 @@ class StoreSetupTest extends TestCase
         $this->assertStringContainsString('/setup/categories', $html);
         $this->assertStringContainsString('/setup/couriers', $html);
 
-        // Fresh from an authorisation: the page starts the run on load.
         $html = $this->actingAs($user)->withSession(['settings_setup' => true])
             ->get(route('ext.shopee.settings.show', ['store' => $store->id]))->assertOk()->getContent();
         $this->assertStringContainsString('data-setup-run="1"', $html);
@@ -99,13 +89,10 @@ class StoreSetupTest extends TestCase
         $this->assertStringContainsString('not connected yet', $r->json('message'));
         $this->assertStringNotContainsString('{', $r->json('message'), 'a sentence, never a payload');
 
-        // Only the named steps exist: anything else is refused before the controller.
         $status = $this->actingAs($this->manager('shopee'))
             ->postJson('/channels/shopee/' . $store->id . '/setup/anything-else')->status();
         $this->assertContains($status, [404, 405]);
     }
-
-    // ── The connection note ──────────────────────────────────────────
 
     public function test_a_connection_result_is_one_plain_line_and_never_a_payload(): void
     {
@@ -128,8 +115,6 @@ class StoreSetupTest extends TestCase
         $this->assertStringNotContainsString('cs-pre', $html);
     }
 
-    // ── The fallbacks ────────────────────────────────────────────────
-
     public function test_readiness_says_when_nothing_has_been_fetched_yet(): void
     {
         ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main']);
@@ -141,7 +126,6 @@ class StoreSetupTest extends TestCase
         $this->assertStringContainsString('Catalog > Categories', implode(' | ', $missing));
         $this->assertStringContainsString('Catalog > Logistics', implode(' | ', $missing));
 
-        // Once fetched, the gap is the product's own choice again.
         ShopeeCategory::create(['category_id' => 100200, 'parent_id' => null, 'name' => 'Pedals', 'level' => 0, 'leaf' => true]);
         ShopeeLogistic::create(['logistics_channel_id' => 8001, 'logistics_channel_name' => 'J&T', 'enabled' => true]);
         $missing = app(ShopeeListingReadiness::class)->forProducts([$pid])[$pid]['missing'];

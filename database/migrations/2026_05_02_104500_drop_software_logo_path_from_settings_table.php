@@ -13,8 +13,6 @@ return new class extends Migration
             return;
         }
 
-        // Preserve a previously-uploaded software logo by promoting it to logo_path
-        // when no company logo was set.
         DB::table('settings')
             ->whereNull('logo_path')
             ->whereNotNull('software_logo_path')

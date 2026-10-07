@@ -6,18 +6,6 @@ use App\Extensions\ExtensionManager;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Report - and optionally remove - permissions nothing declares any more.
- *
- * The permission list grows itself: every extension's manifest is synced on
- * boot and its keys inserted. Nothing shrinks it. A key dropped from a
- * manifest is unreachable by the sync (which only inserts) and by the
- * uninstall path (which deletes by the manifest's current keys), so it stays
- * on the user group screen forever as a control that grants nothing.
- *
- * Read-only by default, because deleting a permission revokes it from every
- * group that holds it and that is a person's decision, not a boot-time one.
- */
 class PermissionsReconcile extends Command
 {
     protected $signature = 'permissions:reconcile {--prune : Delete the orphaned permissions and the grants pointing at them}';
@@ -37,9 +25,6 @@ class PermissionsReconcile extends Command
         $this->line(count($orphans) . ' permission(s) are declared nowhere on disk:');
         $this->newLine();
 
-        // What it would cost, named before it is spent: a permission is
-        // deleted from every group that holds it, and those groups are
-        // usually the point of the question.
         foreach ($orphans as $key) {
             $holders = DB::table('user_group_permissions as ugp')
                 ->join('permissions as p', 'p.id', '=', 'ugp.permission_id')

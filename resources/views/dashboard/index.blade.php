@@ -9,11 +9,6 @@
 
     $user = auth()->user();
 
-    /**
-     * Period-over-period movement. Returns null when the comparison period
-     * has no figure to compare against, because "+100%" against zero is a
-     * sentence the data cannot support.
-     */
     $delta = function (float $now, float $then): ?float {
         if ($then <= 0.0) {
             return null;
@@ -25,11 +20,6 @@
     $revenueDelta = $delta((float) $todayRevenue, (float) $yesterdayRevenue);
     $weekDelta = $delta((float) $weekRevenue, (float) $lastWeekRevenue);
 
-    /**
-     * Order status to state colour. The status table is user-editable, so
-     * this reads the words rather than assuming ids, and falls back to the
-     * neutral token instead of guessing.
-     */
     $statusTone = function (?string $name): string {
         $n = strtolower((string) $name);
         foreach (['cancel', 'refund', 'fail', 'void', 'denied', 'reject'] as $needle) {
@@ -44,11 +34,6 @@
         return 'off';
     };
 
-    /**
-     * Sync freshness as words. A figure nobody can date is a figure nobody
-     * can trust, so every channel says when it last spoke to its
-     * marketplace, and the state token repeats it for someone scanning.
-     */
     $freshness = function ($timestamp, $expiresAt = null): array {
         if ($expiresAt && !$expiresAt->isFuture()) {
             return ['tone' => 'bad', 'text' => 'reconnect needed, the access token expired'];
@@ -57,41 +42,13 @@
             return ['tone' => 'off', 'text' => 'never synced'];
         }
         $when = is_string($timestamp) ? \Carbon\Carbon::parse($timestamp) : $timestamp;
-        // Carbon 3 returns a SIGNED difference, so a timestamp in the past
-        // gives a negative hour count. Without abs() every stale channel
-        // scored under one hour and reported itself healthy, which is the
-        // exact failure this row exists to prevent.
         $hours = abs(now()->diffInHours($when));
         $tone = $hours < 1 ? 'good' : ($hours < 6 ? 'attn' : 'bad');
         return ['tone' => $tone, 'text' => 'synced ' . $when->diffForHumans()];
     };
 
-    /*
-     * One row per channel, built from the keys each marketplace extension
-     * contributes through DashboardContributor. Both halves of the question
-     * are on one row: is this channel healthy, and does it want me now.
-     * Every row is gated on the same permission that opens the records it
-     * links to, so a restricted operator is never shown a figure they
-     * cannot act on.
-     */
     $channelColour = fn (string $key) => $sourceLabelsMap[$key]['chart_color'] ?? null;
 
-    // Built from the registry, not from a list.
-    //
-    // This used to be four hardcoded blocks: one each for Shopee, Lazada and
-    // TikTok, plus a loop over OpenCart stores. Venta, Shopify and Pedallion
-    // therefore could not appear on this strip however many stores they had
-    // enabled - a channel became visible here only by someone remembering to
-    // add another block. visibleOrderTabs() already answers both halves of
-    // the question the old blocks answered by hand: it drops an integration
-    // that is disabled, and it drops one whose order permission this user
-    // does not hold. It is also the source the Fulfilment page and the
-    // sidebar badge read, so the three can no longer disagree.
-    //
-    // Freshness is the one thing a tab does not carry. The marketplaces that
-    // contribute a sync status through DashboardContributor keep their
-    // "synced 3 weeks ago" line; a channel that contributes none simply does
-    // not print one, rather than being left off the strip entirely.
     $syncFor = [
         'shopee' => $shopeeSyncStatus ?? null,
         'lazada' => $lazadaSyncStatus ?? null,
@@ -104,22 +61,11 @@
         }
     }
 
-    /* Per-store figures (#194, 2026-09-07): a multi-store channel keys its
-       own contribution by tab id (shopee:2), so two stores of one channel
-       stop sharing one blended row. A channel that contributes none keeps
-       the channel-level keys above, which the lookup already falls back to. */
     foreach ((array) ($channelSyncStatuses ?? []) as $key => $status) {
         $syncFor[$key] = $status;
     }
 
-    // The waiting count has TWO legitimate sources and the contributor wins.
-    //
-    // DashboardContributor lets an extension inject shopeePending and its
-    // siblings straight into this view, which is the contract the extension
-    // suite pins. OrderTab carries its own counter for the Fulfilment page.
-    // Reading only the tab silently dropped the injected figure, so an
-    // extension could report a number that never appeared. The tab is the
-    // fallback for a channel that injects nothing.
+    // The extension-injected count wins; the tab counter is only the fallback for channels that inject none.
     $pendingFor = [
         'shopee' => $shopeePending ?? null,
         'lazada' => $lazadaPending ?? null,
@@ -140,9 +86,6 @@
 
     try {
         foreach (app(\App\Integrations\IntegrationRegistry::class)->visibleOrderTabs($user) as $tab) {
-            /* A converted channel's tabs carry a store suffix (shopee:2,
-               multi-store S4, #194); the contributor contract stays keyed
-               by channel, so the base id is the fallback for both maps. */
             $tabBase = explode(':', $tab->id, 2)[0];
             $sync = $syncFor[$tab->id] ?? $syncFor[$tabBase] ?? null;
 
@@ -161,14 +104,6 @@
                 'name' => $tab->label,
                 'colour' => $tab->accent ?: $channelColour($tab->id),
                 'state' => $state,
-                /* The channel's listing troubles, when it reports them
-                   (Phase B, #184): "2 listings need attention · 5 behind
-                   the catalogue". A channel that reports none prints
-                   nothing. */
-                /* Each trouble the channel counts, WITH somewhere to go
-                   (#240): the Listings page filtered to exactly the rows
-                   that were counted. A channel that reports none prints
-                   nothing, as before. */
                 'figures' => is_array($sync->listing_flags ?? null) ? $sync->listing_flags : [],
                 'pending' => $pendingFor[$tab->id] ?? $pendingFor[$tabBase] ?? $tab->unprocessedCount(),
                 'link' => RouteFacade::has($tab->routeName)
@@ -177,35 +112,19 @@
             ];
         }
     } catch (\Throwable $e) {
-        // A marketplace with an expired token or a missing table must not
-        // take the dashboard down with it. No strip is the honest failure.
         $channels = [];
     }
 
-    // "Waiting to ship" is the sum of what the strip shows: each channel's own
-    // To Ship count (to pack + to handover), from the contributor figure or the
-    // order tab's unprocessedCount(). Core no longer names an order status here,
-    // so the card, the strip and each channel's Orders page count the same rows.
-    // A channel with no waiting concept is null and adds nothing.
     $pendingTotal = array_sum(array_map(static fn ($c) => (int) ($c['pending'] ?? 0), $channels));
 
-    // $ranges comes from DashboardController::RANGES, which is also the
-    // whitelist ?range= is checked against. It used to be declared here as a
-    // second list that had to agree with that one; it did not have to agree
-    // for long.
     $rangeHeading = $ranges[$range]['heading'] ?? $ranges['30d']['heading'];
     $rangeTitle = $ranges[$range]['title'] ?? $ranges['30d']['title'];
 
-    // Same tier the old broad manage_purchasing key asked: the card leads
-    // to the purchase-orders page, so its own manage key is the gate.
     $canSeePurchasing = RouteFacade::has('ext.purchasing.purchase_orders.index')
         && $user?->hasPermission('manage_purchasing/purchase_order');
 @endphp
 
 @section('content')
-    {{-- The shared list head, not a hand-rolled copy. Its utilities computed
-         to the same 18px/14px inset .x-list-head already applies, so this is
-         the same head it always was, now spelled once. --}}
     <div class="x-list-head">
         <div>
             <h1 class="x-page-title">{{ $greeting }}</h1>
@@ -214,9 +133,6 @@
             </p>
         </div>
         <div class="flex gap-1.5 db-head-actions">
-            {{-- The store control lives in the page head, not with the
-                 charts: it scopes every figure on the page, the facts and
-                 the latest orders above the charts included. --}}
             @include('dashboard.partials.store-control')
             <a href="{{ route('search') }}" class="bl-btn">
                 <x-ui.icon name="search" size="14" /> Find an order
@@ -224,18 +140,6 @@
         </div>
     </div>
 
-    {{-- The headline figures. Filled blocks rather than a ruled band:
-         the owner picked this against CoreUI Pro and it is the brief.
-
-         Colour here says WHICH MEASURE, never how it is doing, so the
-         written label carries the meaning and nothing is lost without
-         hue. State colour stays on the rows below, where it belongs.
-
-         All five carry their fill whatever the figure. An earlier
-         version dropped a zero block to white on the reasoning that a
-         saturated card shouting 0 reads as a fault; in practice it read
-         as two of the five being unfinished, because no orders yet
-         today is the normal state of a morning. --}}
     <div class="bl-stats">
         <a class="bl-stat bl-stat--violet" href="{{ route('orders.index') }}">
             <span class="bl-stat__top">
@@ -307,31 +211,11 @@
         </a>
     </div>
 
-    {{-- Channels, as chips. A 9px square beside a name made six channels
-         read as six near-identical words; a filled rounded chip carrying
-         the initial is scannable at a glance.
-
-         The chip colour is the channel's own brand hue and is the one
-         place a non-token colour is allowed. It never carries meaning by
-         itself: the name is beside it and the freshness sentence under
-         it, both in words. --}}
     @if($channels !== [])
         <div class="bl-chans">
             @foreach($channels as $channel)
                 @php $chBad = ($channel['state']['tone'] ?? '') === 'bad'; @endphp
-                {{-- The card is no longer ONE link (#240). The owner, looking at
-                     "1 listing needs attention" on a card that opened the
-                     orders page: "That doesnt really answer the question
-                     needs attention." Each fact now goes where it belongs -
-                     the name and the waiting count to orders, each listing
-                     figure to the Listings page filtered to the rows it
-                     counted - which cannot be done inside one anchor. --}}
                 <div class="bl-chan">
-                    {{-- Drawn as SVG, not as a span with an inline custom
-                         property: this project puts no CSS in Blade and the
-                         suite enforces it. fill is a presentation attribute,
-                         which is how the swatch this replaces carried a
-                         per-channel colour too. --}}
                     <svg class="bl-chan__ic" width="40" height="40" viewBox="0 0 40 40"
                          aria-hidden="true" focusable="false">
                         <rect width="40" height="40" rx="13"
@@ -371,10 +255,6 @@
         </div>
     @endif
 
-    {{-- 2fr / 1fr, not 1.9 / 1: it puts the rail divider at exactly two
-         thirds, which is where the three-column channel strip above already
-         breaks. The two edges now line up down the page instead of missing
-         each other by a few pixels. --}}
     <div class="bl-split grid items-start xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <div class="min-w-0">
             <div class="bl-panel-head">
@@ -444,35 +324,9 @@
                 </table>
             </div>
 
-            {{-- Trend. One range control above both series, so the two charts
-                 always show the same slice and their figures agree. --}}
             <div class="bl-panel-head">
                 <h2>{{ $rangeTitle }}</h2>
 
-                {{-- One segmented control, not seven floating chips.
-
-                     Three separate bordered pills were fine at three. At seven
-                     - and with "This Month" and "Last Month" among them, which
-                     are words rather than tokens - they became seven boxes of
-                     different widths competing with the heading beside them.
-                     Joined into one control with hairline separators they read
-                     as a single choice with seven positions, which is what
-                     they are, and the group gets one outline instead of seven.
-
-                     The control scrolls inside itself below the width where
-                     seven positions fit, on the same rule the tables follow:
-                     a range you own has to stay reachable. --}}
-                {{-- Below the width where all seven fit, the control scrolls,
-                     and a scroll container opens at zero: pick "All Time" and
-                     the page comes back with the selected position off the
-                     right-hand edge, so the one thing the control exists to
-                     tell you is the one thing you cannot see. This centres the
-                     selected position in its own scrollport on load.
-
-                     scrollLeft rather than scrollIntoView, which walks every
-                     scrollable ancestor and would move the page as well as the
-                     control. Above the breakpoint there is nothing to scroll
-                     and the assignment is a no-op. --}}
                 <div class="bl-seg" role="group" aria-label="Chart range"
                      x-data
                      x-init="$nextTick(() => {
@@ -489,20 +343,6 @@
                 </div>
             </div>
 
-            {{-- ONE plot, two series, two colours.
-
-                 the owner's reasoning: the lines are already colour coded, so
-                 they can share a frame and still be told apart. True, and it
-                 halves the vertical space this section spends.
-
-                 The honest cost, stated because it is real: revenue runs to
-                 hundreds of thousands of pesos and orders to a couple of
-                 dozen, so the two cannot share one y-scale. Each is drawn
-                 against its OWN peak, which means the two lines crossing says
-                 nothing about the data - it is decided by the scaling. The
-                 shapes are comparable; the crossings are not. Each series
-                 therefore prints its own peak in the key above the plot, so a
-                 reader can see the two scales rather than infer one. --}}
             @php
                 $rev = array_map('floatval', $chartRevenue ?? []);
                 $ord = array_map('floatval', $chartOrders ?? []);
@@ -534,10 +374,6 @@
             @endphp
 
             <div class="bl-charts grid gap-px bg-rule-2">
-                {{-- The series ride on the element as pre-formatted strings.
-                     Currency formatting belongs to App\Support\Money, not to a
-                     reimplementation of it in JavaScript that would drift the
-                     first time a second currency appeared. --}}
                 <div class="bg-sheet px-3.5 pb-4 pt-3 bl-plotcard"
                      @if($hasPlot)
                      data-plot="{{ json_encode([
@@ -550,9 +386,6 @@
                      ]) }}"
                      @endif>
                     @if($hasPlot)
-                        {{-- The key doubles as the scale disclosure: each series
-                             names its own peak, so nobody reads a crossing as a
-                             fact about the business. --}}
                         <div class="bl-key">
                             <span class="bl-key__item">
                                 <svg class="bl-key__sw" width="14" height="4" viewBox="0 0 14 4" aria-hidden="true" focusable="false">
@@ -570,10 +403,6 @@
                             </span>
                         </div>
 
-                        {{-- The reading is drawn here rather than left to the
-                             SVG's native <title>, which the browser holds for
-                             about a second before showing. The titles stay for
-                             assistive technology. --}}
                         <div class="bl-plotwrap">
                         <svg class="bl-plot bl-plot--dual" viewBox="0 0 {{ $pw }} {{ $ph }}"
                              preserveAspectRatio="none" role="img"
@@ -590,9 +419,6 @@
                                       y1="{{ $ph * $g }}" y2="{{ $ph * $g }}"></line>
                             @endforeach
 
-                            {{-- Revenue takes the fill because it is the figure a
-                                 seller opens the page for; orders ride over it as
-                                 a line so neither hides the other. --}}
                             <path class="bl-trace__area" d="{{ $revArea }}" fill="url(#plot-rev)"></path>
                             <path class="bl-trace bl-trace--money" d="{{ $revLine }}"></path>
                             <path class="bl-trace bl-trace--count" d="{{ $ordLine }}"></path>
@@ -641,10 +467,6 @@
                 <div class="bl-panel-head">
                     <h2>Orders by store</h2>
                     <span class="text-[12px] text-ink-3">{{ $rangeHeading }}</span>
-                    {{-- This rode on the ring's own heading until the ring moved
-                         beside the table and that heading went with the cell.
-                         It belongs to the section, not to the cell, so it lives
-                         on the section heading now. --}}
                     <x-ui.hint label="What this ring counts">Orders, not revenue. A store with one large
                         order can hold a small share of the ring and the largest figure in the revenue
                         column beside it. A store that has been deleted still ranks under the name it
@@ -656,12 +478,6 @@
                     $ringC = 2 * M_PI * $ringR;
                     $ringAt = 0.0;
 
-                    // A slice is labelled from the order's marketplace_source and
-                    // a channel from its own card, so the two agree on "Shopee"
-                    // and disagree on "TikTok" vs "TikTok Shop". Exact match
-                    // first, then one prefix match in either direction, which is
-                    // enough for that family without pairing two channels that
-                    // merely share a first word.
                     $channelFor = function (string $label) use ($channels) {
                         $all = collect($channels ?? []);
                         return $all->firstWhere('name', $label)
@@ -674,10 +490,6 @@
                     $brandFor = fn (string $label) => $channelFor($label)['colour'] ?? null;
                 @endphp
 
-                {{-- Ring on the LEFT, because the colour it explains is in the
-                     Channel column immediately beside it. On the right it was
-                     the full width of the table away from the swatches it
-                     matches. --}}
                 <div class="bl-split-ring">
                     <div class="bl-split-ring__ring">
             <svg class="bl-ring" width="100%" height="188" viewBox="0 0 200 200" data-ring
@@ -703,11 +515,6 @@
             <title>{{ $slice['name'] }}: {{ number_format($slice['orders']) }} {{ Str::plural('order', $slice['orders']) }}</title>
             </circle>
             @endforeach
-            {{-- The middle answers the hover. Idle it is the total; over a
-                 segment it becomes that channel's own figures, instantly, in
-                 space that was already there. No floating panel to position,
-                 and no native <title> to wait a second for. The titles stay
-                 for assistive technology. --}}
             <text class="bl-ring__v" x="100" y="92" text-anchor="middle" data-ring-v>{{ number_format($ringTotal) }}</text>
             <text class="bl-ring__k" x="100" y="109" text-anchor="middle" data-ring-k>{{ Str::plural('order', $ringTotal) }}</text>
             <text class="bl-ring__s" x="100" y="125" text-anchor="middle" data-ring-s></text>
@@ -731,10 +538,6 @@
                                     $href = $channelFor($slice['label'])['link'] ?? null;
                                 @endphp
                                 <tr>
-                                    {{-- The swatch lives on the row it belongs to. It used
-                                         to sit in a legend beside this table, which meant
-                                         every channel name and every order count was
-                                         printed twice, six inches apart. --}}
                                     <td class="font-semibold">
                                         <svg class="bl-tsw" width="10" height="10" viewBox="0 0 10 10"
                                              aria-hidden="true" focusable="false">
@@ -759,19 +562,7 @@
             @endif
         </div>
 
-        {{-- The rail's blocks are cards: bordered, so they read as siblings of
-             the ruled table beside them rather than as loose text floating on
-             the page. --}}
-        {{-- The rail gets a heading of its own so its cards start level with
-             the table beside them, and so the column says what it is before
-             it starts listing figures. No divider between the columns: the
-             cards already have edges, and a rule between two bordered things
-             is one line too many. --}}
         <div class="bl-rail-stack min-w-0">
-            {{-- Payouts (the owner, 2026-10-01): one card per Shopee, Lazada and
-                 TikTok store this person may see the payouts of, above
-                 Inventory. Fills the rail beside the orders, chart and share;
-                 someone without the permission sees the rail as before. --}}
             @if(($payoutCards ?? []) !== [])
                 <div class="bl-panel-head">
                     <h2>Payouts</h2>
@@ -789,9 +580,6 @@
 
             <div class="bl-panel-head">
                 <h2>Inventory</h2>
-                {{-- A count, not a peso figure: "Stock at cost" is already in
-                     the band above, and the panel below repeats it. Counting
-                     also mirrors "N in total" on the table beside it. --}}
                 <span class="text-[12px] text-ink-3">
                     {{ number_format($inventoryProducts) }} {{ Str::plural('product', $inventoryProducts) }}
                 </span>
@@ -816,10 +604,6 @@
             </dl>
             </section>
 
-            {{-- The purchase-order figures arrive from the purchasing
-                 extension through the contributor registry, so the whole
-                 block only appears for an operator who holds the permission
-                 that opens those records. --}}
             @if($canSeePurchasing)
                 <section class="bl-panel">
                 <div class="bl-panel__head">

@@ -4,9 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/* Stage 3 of the WooCommerce channel: a listing can carry a sale (percent
- * off the pushed price, with the dates WooCommerce honours itself). Guarded
- * per column so a tier that took these by hand is left alone. */
 return new class extends Migration
 {
     public function up(): void

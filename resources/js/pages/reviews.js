@@ -1,23 +1,3 @@
-/**
- * Marketplace reviews list (`rv-` anatomy, Round D Task 3).
- *
- * Two behaviours, both inert unless the page carries the markup.
- *
- *   1. The fetch panel, an in-place disclosure rather than a modal.
- *   2. The selection bar, which appears only once rows are ticked.
- *
- * What this module deliberately does NOT do is build the bulk payload.
- * The old page listened for the bulk form's submit and appended a hidden
- * `ids[]` input per ticked row. On layouts.shell that form also carries
- * data-confirm, and confirm-modal.js intercepts the submit, then
- * re-submits the same form once the operator agrees - so the append ran
- * twice and every id was posted twice. The row checkboxes are instead
- * `name="ids[]"` associated to the form by the `form="..."` attribute, so
- * the browser collects them natively. That is the same pattern the
- * protocol prescribes for a control inside a table row, it cannot double
- * up, and it keeps working with JavaScript off.
- */
-
 function initFetchPanel() {
     const toggle = document.querySelector('[data-fetch-toggle]');
     if (!toggle) return;

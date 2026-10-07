@@ -7,13 +7,8 @@ use Extensions\opencart\Models\OpenCartProductLink;
 use Extensions\opencart\Models\OpenCartSetting;
 use Illuminate\Support\Facades\DB;
 
-/**
- * OpenCart's half of the catalog delete (ProductRemover, 2026-09-07): the
- * link and group rows go; the product on OpenCart stays.
- */
 final class OpenCartProductRemover
 {
-    /** @see \App\Integrations\Contracts\ProductRemover::productPresence */
     public function presence(array $productIds): array
     {
         $links = OpenCartProductLink::query()->whereIn('product_id', $productIds)->get();
@@ -31,7 +26,6 @@ final class OpenCartProductRemover
         return $out;
     }
 
-    /** @see \App\Integrations\Contracts\ProductRemover::removeProduct */
     public function remove(int $productId): array
     {
         $links = OpenCartProductLink::query()->where('product_id', $productId)->get();
@@ -46,7 +40,6 @@ final class OpenCartProductRemover
         return array_keys($stays);
     }
 
-    /** @see \App\Integrations\Contracts\ProductRemover::strandedProductIds */
     public function stranded(): array
     {
         $pfx = (string) config('catalog.prefix');
@@ -60,7 +53,6 @@ final class OpenCartProductRemover
         return array_values(array_unique($ids));
     }
 
-    /** @return array<int, string> */
     private function stores($ids): array
     {
         return OpenCartSetting::query()->whereIn('id', collect($ids)->filter()->unique()->all())

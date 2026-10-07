@@ -31,17 +31,11 @@ class LazadaOrderController extends Controller
         return view('ext-lazada::orders.index', $panel->build($request));
     }
 
-    /**
-     * Return or Refund — separate page listing reverse orders.
-     */
     public function returns(Request $request, LazadaReturnsPanel $panel)
     {
         return view('ext-lazada::orders.returns', $panel->build($request));
     }
 
-    /**
-     * Fetch reverse orders (returns/refunds) from Lazada API.
-     */
     public function fetchReturns(Request $request, LazadaClient $client)
     {
         try { @set_time_limit(0); } catch (\Throwable $e) {}
@@ -59,7 +53,6 @@ class LazadaOrderController extends Controller
         $allOrders = [];
         $res = null;
 
-        // Optional date range from form
         $dateFrom = $request->input('date_from');
         $dateTo = $request->input('date_to');
 
@@ -133,12 +126,6 @@ class LazadaOrderController extends Controller
             $currency = (string)($o['currency'] ?? '');
             $items = $o['items'] ?? $o['reverse_order_items'] ?? $o['reverseOrderItems'] ?? null;
 
-            // When Lazada opened the return. It arrives per line as a Unix
-            // timestamp and a reverse order can carry several lines, so the
-            // earliest one is the moment the return was opened. Stored in its
-            // own column because created_at is a row timestamp and moves
-            // whenever a sync touches the row, which makes it useless as the
-            // thing a From and To filter reads.
             $openedStamps = [];
             foreach ((array) ($o['reverse_order_lines'] ?? []) as $reverseLine) {
                 $lineStamp = $reverseLine['return_order_line_gmt_create'] ?? null;
@@ -186,10 +173,6 @@ class LazadaOrderController extends Controller
         ]);
     }
 
-    /**
-     * Order detail page.
-     * Best-effort: loads from DB first, then optionally refreshes from Lazada APIs.
-     */
     public function show(Request $request, LazadaClient $client, string $orderId)
     {
         $orderId = trim($orderId);
@@ -210,8 +193,6 @@ class LazadaOrderController extends Controller
         $apiItemsSynced = false;
         $apiError = null;
 
-        // Refresh is explicit to avoid hitting SellerCallLimit accidentally.
-        // If we detect the stored payload is missing common detail nodes, we refresh once (cached).
         $refresh = (bool) $request->boolean('refresh');
         $needsDetail = $refresh || !$this->rawLikelyHasOrderDetail($order->raw ?? []);
 
@@ -219,13 +200,6 @@ class LazadaOrderController extends Controller
         $creds = LazadaSetting::activeCredentials($setting);
         $hasCreds = $setting && $setting->region && $creds['app_key'] && $creds['app_secret'] && $creds['access_token'];
 
-        // Manage-tier only. Unlike Shopee/TikTok, Lazada's pulls are not
-        // solely gated by `refresh` — a thin stored payload (`$needsDetail`)
-        // or missing products/fees trigger a pull on a plain page load with
-        // no query string at all. Every write branch below must therefore
-        // check this explicitly rather than relying on the param. A
-        // view-tier operator (view_lazada_orders without manage_lazada_orders)
-        // always gets the page rendered from stored data.
         $canManage = (bool) $request->user()?->hasPermission('manage_lazada/order');
 
         if ($hasCreds && $canManage && $needsDetail) {
@@ -265,7 +239,6 @@ class LazadaOrderController extends Controller
                 });
 
                 if (is_array($apiOrder) && ($apiOrder['_ok'] ?? false) === true && isset($apiOrder['order']) && is_array($apiOrder['order'])) {
-                    // Persist the detailed payload while keeping the original list payload.
                     $raw = is_array($order->raw) ? $order->raw : [];
                     $raw['_detail'] = $apiOrder['order'];
                     $order->raw = $raw;
@@ -278,7 +251,6 @@ class LazadaOrderController extends Controller
             }
         }
 
-        // Sync items on demand only (or when missing).
         if ($hasCreds && $canManage && ($refresh || !$order->products()->limit(1)->exists())) {
             try {
                 $synced = $this->syncOrderProductsFromApi($client, $setting, $order);
@@ -287,19 +259,13 @@ class LazadaOrderController extends Controller
                     $order->load('products');
                 }
             } catch (\Throwable $e) {
-                // Best-effort; ignore.
             }
         }
 
-        // Extract fees from order item raw data + order detail
         if ($hasCreds && $canManage && (empty($order->fees) || $refresh) && $order->products()->exists()) {
             try {
                 $fees = $this->extractLazadaFees($order);
 
-                // Try /finance/transaction/details/get for commission/fee breakdown
-                // Lazada fee_type codes: 16=Commission, 15=Reversal Commission, 3=Payment Fee,
-                // 4=Payment Fee Credit, 7=Shipping (Seller), 8=Shipping (Customer),
-                // 21=Shipping (3P), 109=Other Services, 112=Sponsored Product Fee, etc.
                 $trxRes = $this->runSignedApiCall(
                     $client,
                     $setting->region,
@@ -317,17 +283,13 @@ class LazadaOrderController extends Controller
                     $trxData = $trxRes['body']['data'] ?? $trxRes['body'];
                     $fees['_finance_raw'] = $trxData;
 
-                    // Extract transaction line items
                     $trxItems = [];
                     if (is_array($trxData)) {
                         $trxItems = array_is_list($trxData) ? $trxData : ($trxData['data'] ?? $trxData['items'] ?? $trxData['transaction_details'] ?? []);
                     }
 
-                    // Commission fee_type codes
                     $commissionTypes = [16, 15, 65, 66, 123, 274, 275, 277, 278, 341];
-                    // Payment fee_type codes
                     $paymentTypes = [3, 4, 67, 84, 514];
-                    // Shipping fee_type codes
                     $shippingTypes = [7, 8, 21, 26, 27, 28, 34, 35, 42, 43, 49, 52, 53, 141, 157, 158, 159, 160, 161, 200, 211, 500, 501, 502, 503, 504, 505];
 
                     if (is_array($trxItems)) {
@@ -342,14 +304,13 @@ class LazadaOrderController extends Controller
 
                             $feeType = (int) ($trx['fee_type'] ?? 0);
                             $feeName = (string) ($trx['fee_name'] ?? $trx['transaction_type'] ?? '');
-                            // Money::parse strips the thousands comma Lazada sends ("-2,251.57"); a bare (float) would read that as -2.
+                            // Money::parse strips the thousands comma Lazada sends ("-2,251.57"); a bare float cast reads -2.
                             $amount = \App\Support\Money::parse($trx['amount'] ?? $trx['fee_amount'] ?? 0);
                             $trxDate = (string) ($trx['transaction_date'] ?? $trx['paid_time'] ?? '');
                             $trxNumber = (string) ($trx['transaction_number'] ?? '');
                             $orderItemId = (string) ($trx['order_item_id'] ?? $trx['orderItemId'] ?? '');
                             $sku = (string) ($trx['seller_sku'] ?? $trx['sku'] ?? '');
 
-                            // Categorize by fee_type code, fallback to name matching
                             if ($feeType && in_array($feeType, $commissionTypes)) {
                                 $commissionTotal += $amount;
                             } elseif ($feeType && in_array($feeType, $paymentTypes)) {
@@ -357,7 +318,6 @@ class LazadaOrderController extends Controller
                             } elseif ($feeType && in_array($feeType, $shippingTypes)) {
                                 $shippingFeeTotal += $amount;
                             } elseif (!$feeType && $feeName !== '') {
-                                // Fallback: match by name when fee_type is missing
                                 $feeNameLower = strtolower($feeName);
                                 if (str_contains($feeNameLower, 'commission')) {
                                     $commissionTotal += $amount;
@@ -374,7 +334,6 @@ class LazadaOrderController extends Controller
                                 $otherFees[$label] = ($otherFees[$label] ?? 0) + $amount;
                             }
 
-                            // Keep individual transaction lines for per-item display
                             if ($amount != 0) {
                                 $transactionLines[] = [
                                     'fee_type' => $feeType,
@@ -399,7 +358,6 @@ class LazadaOrderController extends Controller
                 $order->fees = $fees;
                 $order->save();
             } catch (\Throwable $e) {
-                // Best-effort
             }
         }
 
@@ -430,7 +388,6 @@ class LazadaOrderController extends Controller
         $walletCredits = 0;
         $shippingServiceCost = 0;
 
-        // Money::parse strips the thousands comma Lazada's order detail can carry on large values.
         $m = fn ($v) => \App\Support\Money::parse($v);
         foreach ($items as $item) {
             $ir = is_array($item->raw) ? $item->raw : [];
@@ -449,7 +406,6 @@ class LazadaOrderController extends Controller
             $shippingServiceCost += $m($ir['shipping_service_cost'] ?? 0);
         }
 
-        // Order-level data
         $raw = is_array($order->raw) ? $order->raw : [];
         $detail = $raw['_detail'] ?? $raw;
         $orderPrice = $m($detail['price'] ?? 0);
@@ -471,10 +427,6 @@ class LazadaOrderController extends Controller
         ];
     }
 
-    /**
-     * Heuristic: the /orders/get payload is usually missing address/receiver fields.
-     * If we don't see any of these nodes, we likely need /order/get.
-     */
     private function rawLikelyHasOrderDetail(array $raw): bool
     {
         if (isset($raw['_detail']) && is_array($raw['_detail']) && count($raw['_detail']) > 0) {
@@ -487,7 +439,6 @@ class LazadaOrderController extends Controller
             }
         }
 
-        // Some ventures return these at root in /order/get.
         foreach (['items_count', 'voucher', 'payment_method', 'invoice_number'] as $k) {
             if (array_key_exists($k, $raw)) {
                 return true;
@@ -497,10 +448,6 @@ class LazadaOrderController extends Controller
         return false;
     }
 
-    /**
-     * Lazada "Pack & Print" flow entrypoint.
-     * Packs the order immediately (creates packages) then redirects back and opens a modal.
-     */
     public function packAndPrint(Request $request, LazadaClient $client, $orderId)
     {
         $setting = LazadaSetting::defaultStore()?->decrypted();
@@ -529,8 +476,6 @@ class LazadaOrderController extends Controller
             ]);
         }
 
-        // Lazada makes a second package for an order packed twice, so an
-        // order that already has one is answered here and never packed again.
         if (count($items['package_ids']) > 0) {
             return redirect()->back()->with('lazada_orders_last_result', [
                 'ok' => false,
@@ -547,10 +492,6 @@ class LazadaOrderController extends Controller
             ]);
         }
 
-        // IMPORTANT:
-        // Many Lazada tenants require the payload to be wrapped in a single parameter called "packReq",
-        // and it must be a JSON string (application/x-www-form-urlencoded).
-        // Lazada param mapping can also be strict: order_item_list should be a plain list of IDs (often as strings).
         $orderItemList = [];
         foreach (array_values($items['order_item_ids']) as $oid) {
             $orderItemList[] = (string) $oid;
@@ -577,7 +518,6 @@ class LazadaOrderController extends Controller
             '/order/fulfill/pack',
             true,
             [
-                // Force packReq to be a JSON string. runSignedApiCall will NOT re-encode scalars.
                 'packReq' => json_encode($packReqPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
             ],
             'lazada.order.fulfill.pack'
@@ -609,30 +549,8 @@ class LazadaOrderController extends Controller
         ])->with('open_pack_print_modal_order_id', (string)$orderId);
     }
 
-    /**
-     * Pack a selection, then hand back one combined waybill.
-     *
-     * A To Pack queue of 34 orders was 34 round trips through a modal, and
-     * the selection that already existed on every row could only print a
-     * pick list. This is the queue's own verb applied to a selection.
-     *
-     * PACKED ONE AT A TIME, DELIBERATELY. Lazada's /order/fulfill/pack takes
-     * a pack_order_list and would accept the whole selection in one call,
-     * which is faster and which I am not doing: the failure semantics of a
-     * partially-bad batch are not documented, and a rejected batch would
-     * leave the operator unable to tell which order was the problem. One
-     * call per order reuses the exact payload the single-order path already
-     * proves, and every outcome is attributable to its own order.
-     *
-     * An order that already has packages is NOT packed again. Re-submitting
-     * the same selection - a double click, a back button, a retry after a
-     * timeout - must not create duplicate packages, and Lazada will happily
-     * make them.
-     */
     public function bulkPackPrint(Request $request, LazadaClient $client)
     {
-        // Sixteen live calls in a row outlast the default limit. The fetch
-        // loops on this controller already do this; see index().
         try { @set_time_limit(0); } catch (\Throwable $e) {}
 
         $data = $request->validate([
@@ -670,8 +588,6 @@ class LazadaOrderController extends Controller
             $outcomes[] = $this->packOneForBulk($client, $setting, $order);
         }
 
-        // An id that resolved to nothing is reported, not dropped. A silent
-        // skip reads as "all 12 packed" when 11 did.
         $found = $orders->pluck('id')->all();
         foreach (array_diff($data['ids'], $found) as $missingId) {
             $outcomes[] = [
@@ -685,10 +601,6 @@ class LazadaOrderController extends Controller
 
         $packed = array_values(array_filter($outcomes, fn ($o) => $o['ok']));
 
-        // Signature is (action, subjectType, subjectId, subjectLabel, changes).
-        // The label is the 4th argument, not the 2nd, and changes must be an
-        // array - passing a sentence as subjectType is how this call gets
-        // written wrong.
         ActivityLogger::log(
             'lazada.orders.bulk_pack',
             null,
@@ -705,12 +617,6 @@ class LazadaOrderController extends Controller
         ]);
     }
 
-    /**
-     * One order's share of a bulk pack. Never throws: a single bad order must
-     * not abandon the rest of the selection half done.
-     *
-     * @return array{local_id: int, order_id: string, ok: bool, state: string, message: string}
-     */
     private function packOneForBulk(LazadaClient $client, $setting, LazadaOrder $order): array
     {
         $orderId = (string) $order->order_id;
@@ -736,8 +642,7 @@ class LazadaOrderController extends Controller
                 return $out(false, 'sof', 'An SOF or DBS order. Lazada does not support packing it through this API.');
             }
 
-            // Already packed. Skipping the write is the whole idempotency
-            // guard: it is still printable, so it counts as a success.
+            // An order that already has packages is skipped; packing again makes duplicate packages on Lazada.
             if (count($items['package_ids'] ?? []) > 0) {
                 return $out(true, 'already', 'Already packed. Its waybill is included.');
             }
@@ -784,8 +689,6 @@ class LazadaOrderController extends Controller
                 return $out(false, 'failed', 'Lazada error: ' . $body['code'] . ' - ' . $body['message']);
             }
 
-            // Best effort, exactly as the single-order path does it: a failed
-            // status refresh does not make a successful pack a failure.
             try {
                 $st = $this->fetchOrderStatusFromApi($client, $setting, $orderId);
                 if ($st !== null) {
@@ -802,7 +705,6 @@ class LazadaOrderController extends Controller
                     (new LazadaCatalogOrderSync)->sync($fresh);
                 }
             } catch (\Throwable $e) {
-                // ignore
             }
 
             return $out(true, 'packed', 'Packed.');
@@ -811,17 +713,6 @@ class LazadaOrderController extends Controller
         }
     }
 
-    /**
-     * One PDF for a selection's waybills.
-     *
-     * Lazada's /order/package/document/get takes a list of packages, so this
-     * is a single call however many orders were picked - the packer gets one
-     * document to send to the printer rather than one tab per parcel.
-     *
-     * Unlike the single-order AWB this does not serve or write the local
-     * cache: a combined document cannot be filed under one order id, and
-     * splitting it back apart is not something this can do.
-     */
     public function bulkAwb(Request $request, LazadaClient $client)
     {
         try { @set_time_limit(0); } catch (\Throwable $e) {}
@@ -909,8 +800,6 @@ class LazadaOrderController extends Controller
             }
         }
 
-        // Same shape the single AWB handles: sometimes the base64 is an HTML
-        // wrapper around the real PDF's address rather than the PDF itself.
         if (!str_starts_with($bin, '%PDF') && preg_match('/<iframe[^>]+src="([^"]+)"/i', $bin, $m)) {
             $bin = $this->downloadPdf((string) $m[1]);
             if ($bin === null) {
@@ -928,10 +817,6 @@ class LazadaOrderController extends Controller
         ]);
     }
 
-    /**
-     * Packing List (printable HTML) for a single order.
-     * Uses DB products when available, otherwise falls back to Lazada /order/items/get.
-     */
     public function packingList(Request $request, LazadaClient $client, $orderId)
     {
         $setting = LazadaSetting::defaultStore()?->decrypted();
@@ -957,10 +842,6 @@ class LazadaOrderController extends Controller
         ]);
     }
 
-    /**
-     * Pick List (printable HTML) for a single order.
-     * Uses DB products when available, otherwise falls back to Lazada /order/items/get.
-     */
     public function pickList(Request $request, LazadaClient $client, $orderId)
     {
         $setting = LazadaSetting::defaultStore()?->decrypted();
@@ -979,7 +860,6 @@ class LazadaOrderController extends Controller
             ]);
         }
 
-        // For pick list, a simple stable sort helps pickers (SKU then name)
         $sorted = $items['items'];
         usort($sorted, function ($a, $b) {
             $as = strtolower((string)($a['sku'] ?? ''));
@@ -997,10 +877,6 @@ class LazadaOrderController extends Controller
         ]);
     }
 
-    /**
-     * Logistics status / trace (JSON) from Lazada.
-     * Lazada documents this as /logistic/order/trace, available after ready_to_ship.
-     */
     public function logisticsTrace(Request $request, LazadaClient $client, $orderId)
     {
         $setting = LazadaSetting::defaultStore()?->decrypted();
@@ -1051,15 +927,6 @@ class LazadaOrderController extends Controller
         ], $ok ? 200 : 502);
     }
 
-    /**
-     * Ship & Print:
-     * - Sets RTS (moves to handover)
-     * - Redirects to AWB PDF.
-     * Use target="_blank" in the UI so the PDF opens in a new tab.
-     */
-    /**
-     * Ship (RTS) and then open AWB in a NEW TAB (AWB only), while keeping the user on the current orders tab.
-     */
     public function shipAndPrintPost(Request $request, LazadaClient $client, $orderId)
     {
         $res = $this->shipAndPrintInternal($request, $client, $orderId, true);
@@ -1072,17 +939,12 @@ class LazadaOrderController extends Controller
             ]);
         }
 
-        // Store the AWB URL in session so the orders page can open it in a new tab.
         return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
             'ok' => true,
             'message' => 'Order set to Ready To Ship. Opening AWB…',
         ])->with('lazada_awb_url', route('ext.lazada.orders.awb', ['orderId' => $orderId]));
     }
 
-    /**
-     * Shared logic for ship & print.
-     * If $returnArray is true, returns ['ok'=>bool,'message'=>string,'raw'=>mixed].
-     */
     private function shipAndPrintInternal(Request $request, LazadaClient $client, $orderId, bool $returnArray = false)
     {
         $setting = LazadaSetting::defaultStore()?->decrypted();
@@ -1127,9 +989,7 @@ class LazadaOrderController extends Controller
             return ['package_id' => (string)$pid];
         }, $packageIds);
 
-        // Lazada's /order/package/rts expects a mandatory "readyToShipReq" parameter.
-        // IMPORTANT: Do not send empty params (e.g. tracking_code/shipment_provider) or signature validation may fail.
-        // It must be a JSON string payload.
+        // readyToShipReq is mandatory and must be a JSON string; empty params break the signature.
         $readyToShipReq = json_encode([
             'delivery_type' => 'dropship',
             'packages' => $packages,
@@ -1164,11 +1024,6 @@ class LazadaOrderController extends Controller
         return ['ok' => true];
     }
 
-    /**
-     * What every booking does once Lazada has accepted it: the order's
-     * status as Lazada now holds it, the catalog order in step, and an
-     * activity line. A failed read leaves the next order sync to catch up.
-     */
     private function afterBooking(LazadaClient $client, object $setting, string $orderId, string $logLabel): void
     {
         try {
@@ -1186,11 +1041,6 @@ class LazadaOrderController extends Controller
         ActivityLogger::log('updated', 'Lazada Order', null, $logLabel . $orderId);
     }
 
-    /**
-     * Why an order cannot be marked ready to ship again, or null when it
-     * can. Read from the stored status, which every booking here refreshes,
-     * so a page left open still gets a plain answer.
-     */
     private function pastReadyToShip(string $orderId): ?string
     {
         $status = strtolower((string) LazadaOrder::query()->where('order_id', $orderId)->value('status'));
@@ -1202,10 +1052,6 @@ class LazadaOrderController extends Controller
         };
     }
 
-/**
-     * Cancel reasons (AJAX).
-     * Uses /order/reverse/cancel/validate which returns order-specific reasons.
-     */
     public function cancelReasons(Request $request, LazadaClient $client, $orderId)
     {
         $setting = LazadaSetting::defaultStore()?->decrypted();
@@ -1214,7 +1060,6 @@ class LazadaOrderController extends Controller
             return response()->json(['ok' => false, 'message' => 'Missing Lazada credentials/token.'], 400);
         }
 
-        // Get order item IDs for the validate call
         $order = LazadaOrder::with('products')->where('order_id', $orderId)->first();
         if (!$order || !$order->products || $order->products->isEmpty()) {
             return response()->json(['ok' => false, 'message' => 'Order or order items not found.'], 404);
@@ -1248,15 +1093,11 @@ class LazadaOrderController extends Controller
         }
 
         $data = is_array($body) ? ($body['data'] ?? $body) : $body;
-        // Normalize: return reason_options as a flat array for the JS dropdown
         $reasons = $data['reason_options'] ?? $data['reasons'] ?? [];
 
         return response()->json(['ok' => true, 'data' => $reasons]);
     }
 
-    /**
-     * Cancel order (cancels every order item in the order).
-     */
     public function cancel(Request $request, LazadaClient $client, $orderId)
     {
         $request->validate([
@@ -1290,10 +1131,6 @@ class LazadaOrderController extends Controller
 
         $reasonId = (int)$request->input('reason_id');
 
-        /* Seller cancellation, as Lazada documents it now: one request for
-           the whole order with every item in it and the reason picked from
-           the list the validate call offered. The older per-item cancel has
-           no page in Lazada's documentation any more. */
         $attempt = 0;
         while (true) {
             $cancelRes = $this->runSignedApiCall(
@@ -1316,7 +1153,6 @@ class LazadaOrderController extends Controller
             $body = is_array($cancelRes['body'] ?? null) ? $cancelRes['body'] : [];
             $code = (string) ($body['code'] ?? '');
 
-            // Lazada rate limiting: wait out the ban window and try again.
             if ($code === 'ApiCallLimit' && $attempt < 5) {
                 $attempt++;
                 $banSeconds = preg_match('/\bban\s+will\s+last\s+(\d+)\s+seconds?\b/i', (string) ($body['message'] ?? ''), $mm) ? max(1, (int) $mm[1]) : 1;
@@ -1326,7 +1162,6 @@ class LazadaOrderController extends Controller
             break;
         }
 
-        // The verdict is Lazada's code; a tip of type "error" is a refusal too.
         $tip = is_array($body['data'] ?? null) ? $body['data'] : [];
         if (!($cancelRes['ok'] ?? false) || $code !== '0' || strtolower((string) ($tip['tip_type'] ?? '')) === 'error') {
             $why = trim((string) ($tip['tip_content'] ?? '')) ?: trim((string) ($body['message'] ?? '')) ?: 'Lazada did not accept the cancellation.';
@@ -1348,7 +1183,6 @@ class LazadaOrderController extends Controller
         } catch (\Throwable $e) {
             LazadaOrder::query()->where('region', $setting->region)->where('order_id', (string)$orderId)->update(['status' => 'canceled']);
         }
-        // Sync to catalog
         try {
             $lo = LazadaOrder::query()->where('region', $setting->region)->where('order_id', (string)$orderId)->first();
             if ($lo) { (new LazadaCatalogOrderSync)->sync($lo); }
@@ -1362,11 +1196,6 @@ class LazadaOrderController extends Controller
         ]);
     }
 
-    /**
-     * "Recreate Package": asks Lazada to repack the order's packages, which
-     * sends the order back to To Pack, and drops the stored label so the
-     * next Pack & Print fetches a fresh one.
-     */
     public function recreatePackage(Request $request, LazadaClient $client, $orderId)
     {
         $setting = LazadaSetting::defaultStore()?->decrypted();
@@ -1395,7 +1224,6 @@ class LazadaOrderController extends Controller
             ]);
         }
 
-        // Extract package_ids (same pattern as RTS)
         $packageIds = [];
         $order = LazadaOrder::query()->where('region', $setting->region)->where('order_id', (string)$orderId)->first();
         if ($order) {
@@ -1421,9 +1249,6 @@ class LazadaOrderController extends Controller
             ]);
         }
 
-        /* Repack, as Lazada documents it now: the packages, up to 20, and
-           nothing else. Lazada answers per package; "success" on the batch
-           does not mean every package went through, item_err_code "0" does. */
         $packages = array_map(
             fn ($p) => ['package_id' => (string) $p],
             array_slice(array_values(array_unique(array_filter(array_map('strval', $packageIds)))), 0, 20)
@@ -1459,10 +1284,8 @@ class LazadaOrderController extends Controller
             ]);
         }
 
-        // Delete old local AWB so the next Pack & Print fetches a fresh one
         Storage::disk('local')->delete(\App\Support\Fulfilment\Waybills::relative('lazada', (int) $setting->id, (string) $orderId));
 
-        // Refresh local order status from API
         try {
             $st = $this->fetchOrderStatusFromApi($client, $setting, (string)$orderId);
             if ($st !== null) {
@@ -1471,7 +1294,6 @@ class LazadaOrderController extends Controller
             $lo = LazadaOrder::query()->where('region', $setting->region)->where('order_id', (string)$orderId)->first();
             if ($lo) { (new LazadaCatalogOrderSync)->sync($lo); }
         } catch (\Throwable $e) {
-            // ignore
         }
 
         return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
@@ -1482,13 +1304,6 @@ class LazadaOrderController extends Controller
     }
 
 
-    /**
-     * Fetch orders for a window of dates. Since 2026-09-07 this is a run
-     * of one-page steps (App\Services\OrderFetchRunner): the form post
-     * reads the first few pages here and the page continues the rest, one
-     * request per page, so a fourteen-day fetch on a busy store never
-     * meets the server's limit and every page is saved when it arrives.
-     */
     public function fetch(Request $request, LazadaClient $client)
     {
         $data = $request->validate([
@@ -1542,11 +1357,6 @@ class LazadaOrderController extends Controller
         return LazadaSetting::defaultStore()?->id;
     }
 
-    /**
-     * One page of /orders/get for the run's window, saved as it arrives.
-     * Lazada pages by offset with a hard limit of 100; a page shorter than
-     * the limit is the last. The cursor is the offset.
-     */
     public function orderFetchStep(\App\Models\OrderFetchRun $run): array
     {
         $client = app(LazadaClient::class);
@@ -1636,13 +1446,8 @@ class LazadaOrderController extends Controller
         return $answer;
     }
 
-	/**
-	 * Update status/updated_at of existing orders (and add any newly updated orders)
-	 * without syncing products. This is intended to be fast and API-light.
-	 */
 	public function updateStatuses(Request $request, LazadaClient $client)
 	{
-	    // Long-running network operations (best-effort; may be ignored by host settings)
 	    try { @set_time_limit(0); } catch (\Throwable $e) {}
 
 	    $data = $request->validate([
@@ -1650,7 +1455,6 @@ class LazadaOrderController extends Controller
 	        'date_to' => 'required|date|after_or_equal:date_from',
 	    ]);
 
-	    // Decrypt Lazada credentials via model method.
 	    $setting = LazadaSetting::defaultStore()?->decrypted();
 	    $creds = LazadaSetting::activeCredentials($setting);
 	    if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
@@ -1668,7 +1472,6 @@ class LazadaOrderController extends Controller
 	        'update_after' => $updateAfter,
 	    ];
 
-	    // Pull multiple pages.
 	    $orders = [];
 	    $res = null;
 	    for ($offset = 0; $offset <= 450; $offset += 50) {
@@ -1753,7 +1556,6 @@ class LazadaOrderController extends Controller
                 $oldStatus = $existing->status;
                 $existing->fill($payload)->save();
                 $updated++;
-                // Re-sync products when status changed OR shipping data is missing
                 $needsProductSync = ($oldStatus !== $existing->status);
                 if (!$needsProductSync) {
                     $firstProduct = $existing->products()->first();
@@ -1765,12 +1567,8 @@ class LazadaOrderController extends Controller
                 if ($needsProductSync) {
                     try { $this->syncOrderProductsFromApi($client, $setting, $existing); } catch (\Throwable $e) {}
                 }
-                // Sync to catalog order tables
                 try { (new LazadaCatalogOrderSync)->sync($existing); } catch (\Throwable $e) {}
             } else {
-                // IMPORTANT: Update Orders is meant to update statuses of already-synced orders only.
-                // Creating header-only orders (without products) causes "empty" orders in the UI and breaks workflows.
-                // Newly discovered orders should be added only via "Fetch Orders" (full sync).
                 $skipped++;
             }
 	    }
@@ -1789,10 +1587,6 @@ class LazadaOrderController extends Controller
 	}
 
 
-/**
- * Reset Lazada orders for the current region (deletes orders and cascades products).
- * This is a manual admin action to allow a clean re-sync.
- */
 public function reset(Request $request)
 {
     $request->validate([
@@ -1820,7 +1614,6 @@ public function reset(Request $request)
         $count = LazadaOrder::query()->where('region', $setting->region)->count();
 
         \DB::transaction(function () use ($setting) {
-            // Delete orders by region; products are deleted via FK cascade.
             LazadaOrder::query()->where('region', $setting->region)->delete();
         });
 
@@ -1841,9 +1634,6 @@ public function reset(Request $request)
 
 
 
-    /**
-     * Step 1 for fulfillment: Pack order items (creates packages that enable AWB printing).
-     */
     public function pack(Request $request, LazadaClient $client, $orderId)
     {
         $setting = LazadaSetting::defaultStore()?->decrypted();
@@ -1855,7 +1645,6 @@ public function reset(Request $request)
             ]);
         }
 
-        // Fetch items first so we can pass order_item_ids if needed.
         $items = $this->getOrderItems($client, $setting, $orderId);
         if (!$items['ok']) {
             return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
@@ -1873,8 +1662,6 @@ public function reset(Request $request)
             ]);
         }
 
-        // Lazada makes a second package for an order packed twice, so an
-        // order that already has one is answered here and never packed again.
         if (count($items['package_ids']) > 0) {
             return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
                 'ok' => false,
@@ -1891,10 +1678,6 @@ public function reset(Request $request)
             ]);
         }
 
-        // IMPORTANT:
-        // Many Lazada tenants require the payload to be wrapped in a single parameter called "packReq",
-        // and it must be a JSON string (application/x-www-form-urlencoded).
-        // Lazada param mapping can also be strict: order_item_list should be a plain list of IDs (often as strings).
         $orderItemList = [];
         foreach (array_values($items['order_item_ids']) as $oid) {
             $orderItemList[] = (string) $oid;
@@ -1921,7 +1704,6 @@ public function reset(Request $request)
             '/order/fulfill/pack',
             true,
             [
-                // Force packReq to be a JSON string. runSignedApiCall will NOT re-encode scalars.
                 'packReq' => json_encode($packReqPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
             ],
             'lazada.order.fulfill.pack'
@@ -1953,9 +1735,6 @@ public function reset(Request $request)
         ]);
     }
 
-    /**
-     * Step 3 for fulfillment: Ready To Ship (RTS) for package-based fulfillment.
-     */
     public function rts(Request $request, LazadaClient $client, $orderId)
     {
         $setting = LazadaSetting::defaultStore()?->decrypted();
@@ -2005,8 +1784,6 @@ public function reset(Request $request)
             return ['package_id' => $pid];
         }, $items['package_ids']);
 
-        // Lazada's /order/package/rts expects a mandatory "readyToShipReq" parameter.
-        // It must be a JSON string payload.
         $readyToShipReq = json_encode([
             'delivery_type' => 'dropship',
             'packages' => $packages,
@@ -2055,11 +1832,6 @@ public function reset(Request $request)
 
     private const WAYBILL_UNREACHABLE = 'The waybill could not be downloaded from Lazada. Try again in a moment.';
 
-    /**
-     * A waybill Lazada answers with a link is fetched here and served by
-     * the ERP: whoever asked holds a session with the ERP only, never with
-     * the address the link points to. Null when it is not a reachable PDF.
-     */
     private function downloadPdf(string $url): ?string
     {
         if (!preg_match('#^https://#i', $url)) {
@@ -2085,7 +1857,6 @@ public function reset(Request $request)
 
     public function awbPdf(Request $request, LazadaClient $client, $orderId)
     {
-        // Serve saved AWB if it exists locally
         $safeOrderId = preg_replace('/[^0-9A-Za-z_-]/', '', (string) $orderId);
         $localPath = \App\Support\Fulfilment\Waybills::path('lazada', (int) LazadaSetting::defaultStore()?->id, (string) $orderId);
 
@@ -2096,15 +1867,12 @@ public function reset(Request $request)
             ]);
         }
 
-        // Decrypt Lazada credentials via model method.
         $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return $this->awbError('Missing Lazada credentials/token. Please configure Lazada settings and generate access token first.');
         }
 
-        // Package-based printing: Pack -> PrintAWB (/order/package/document/get)
-        // Get order items so we can collect package_ids.
         $items = $this->getOrderItems($client, $setting, $orderId);
 
         if (!$items['ok']) {
@@ -2123,9 +1891,6 @@ public function reset(Request $request)
             return ['package_id' => $pid];
         }, $items['package_ids']);
 
-        // Lazada's /order/package/document/get expects a JSON payload wrapped in the
-        // "getDocumentReq" parameter.
-        // We keep it minimal: doc_type + packages.
         $getDocumentReq = json_encode([
             'doc_type' => 'PDF',
             'packages' => $packages,
@@ -2152,13 +1917,11 @@ public function reset(Request $request)
 
         $awbBody = $awbRes['body'] ?? [];
 
-        // If Lazada returned an API error at the top-level, surface it early
         if (is_array($awbBody) && isset($awbBody['code']) && isset($awbBody['message'])) {
             return $this->awbError('Lazada error: ' . $awbBody['code'] . ' - ' . $awbBody['message']);
         }
         $dataNode = is_array($awbBody) ? ($awbBody['data'] ?? $awbBody) : $awbBody;
 
-        // If Lazada returned an API error, surface it
         if (is_array($dataNode) && isset($dataNode['code']) && isset($dataNode['message'])) {
             $code = (string)$dataNode['code'];
             $msg = (string)$dataNode['message'];
@@ -2177,9 +1940,6 @@ public function reset(Request $request)
             return $this->awbError('AWB PDF response did not contain a document.');
         }
 
-        // Save-to-server behavior:
-        // When the user opens the AWB, we also store it into local storage (best-effort) so the server
-        // keeps a copy. This avoids extra UI changes and matches the "automatic into the server" request.
         $storePath = \App\Support\Fulfilment\Waybills::relative('lazada', (int) $setting->id, (string) $orderId);
 
         if (($doc['type'] ?? '') === 'url') {
@@ -2198,7 +1958,6 @@ public function reset(Request $request)
             ]);
         }
 
-        // Lazada sometimes returns an HTML wrapper whose iframe holds the PDF's address.
         if (!str_starts_with($bin, '%PDF') && preg_match('/<iframe[^>]+src="([^"]+)"/i', $bin, $m)) {
             $bin = $this->downloadPdf((string) $m[1]);
             if ($bin === null) {
@@ -2213,7 +1972,6 @@ public function reset(Request $request)
         try {
             Storage::disk('local')->put($storePath, $bin);
         } catch (\Throwable $e) {
-            // The waybill is still served; only the saved copy is missing.
         }
 
         return response($bin, 200, [
@@ -2222,10 +1980,6 @@ public function reset(Request $request)
         ]);
     }
 
-    /**
-     * Fetch order status from Lazada (best-effort).
-     * Returns the raw Lazada status string (lowercased) or null on failure.
-     */
     private function fetchOrderStatusFromApi(LazadaClient $client, $setting, string $orderId): ?string
     {
         $creds = LazadaSetting::activeCredentials($setting);
@@ -2262,10 +2016,6 @@ public function reset(Request $request)
         return strtolower(trim($st));
     }
 
-    /**
-     * Fetches order items from Lazada and stores them as LazadaOrderProduct rows.
-     * Best-effort: if the API fails, it returns null and does not break the page.
-     */
     private function syncOrderProductsFromApi(LazadaClient $client, $setting, LazadaOrder $order): ?array
     {
         $oid = (string)($order->order_id ?? '');
@@ -2292,7 +2042,6 @@ public function reset(Request $request)
 
         $itemsBody = $itemsRes['body'] ?? [];
         $itemsDataNode = is_array($itemsBody) ? ($itemsBody['data'] ?? $itemsBody) : [];
-        // Some ventures return the item list directly under `data` as an array.
         if (is_array($itemsDataNode) && array_is_list($itemsDataNode)) {
             $items = $itemsDataNode;
         } else {
@@ -2311,7 +2060,6 @@ public function reset(Request $request)
             $sellerSku = (string)($it['seller_sku'] ?? $it['SellerSku'] ?? $it['sellerSku'] ?? $it['sku'] ?? $it['Sku'] ?? '');
             $name = (string)($it['name'] ?? $it['product_name'] ?? $it['item_name'] ?? '');
 
-            // Variation/options can appear under different keys.
             $variation = null;
             foreach (['variation', 'sku_variant', 'variation_sku', 'variation_name', 'variation_detail', 'item_variation'] as $k) {
                 if (isset($it[$k]) && is_string($it[$k]) && trim($it[$k]) !== '') {
@@ -2320,7 +2068,6 @@ public function reset(Request $request)
                 }
             }
             if ($variation === null) {
-                // Some payloads provide a list of options.
                 $opts = $it['sku_attributes'] ?? $it['skuAttributes'] ?? $it['variation_attributes'] ?? null;
                 if (is_array($opts) && count($opts) > 0) {
                     $pairs = [];
@@ -2371,9 +2118,6 @@ public function reset(Request $request)
         return $out;
     }
 
-    /**
-     * Fetch order items and normalize the key details we need for Pack/PrintAWB/RTS.
-     */
     private function getOrderItems(LazadaClient $client, $setting, $orderId): array
     {
         $creds = LazadaSetting::activeCredentials($setting);
@@ -2421,7 +2165,6 @@ public function reset(Request $request)
                 $packageIds[] = (string)$pid;
             }
 
-            // SOF/DBS detection (field name can vary; check raw flags)
             $sofFlag = $it['delivery_option_sof'] ?? $it['is_sof'] ?? $it['isSof'] ?? null;
             if ((string)$sofFlag === '1' || $sofFlag === true) {
                 $isSof = true;
@@ -2444,17 +2187,12 @@ public function reset(Request $request)
         ];
     }
 
-    /**
-     * Build printable items for Packing/Pick list.
-     * Prefers DB relation products (fast, no API calls). Falls back to Lazada /order/items/get.
-     */
     private function buildPrintableItems(LazadaClient $client, $setting, $orderId, ?LazadaOrder $order = null): array
     {
         $creds = LazadaSetting::activeCredentials($setting);
 
         $items = [];
 
-        // DB first
         if ($order && $order->relationLoaded('products') && $order->products) {
             foreach ($order->products as $p) {
                 $items[] = [
@@ -2474,7 +2212,6 @@ public function reset(Request $request)
             return ['ok' => true, 'items' => $items];
         }
 
-        // Fallback to Lazada API when DB doesn't have products for this order.
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return ['ok' => false, 'items' => [], 'raw' => ['message' => 'Missing Lazada credentials/token for items fallback']];
         }
@@ -2518,9 +2255,6 @@ public function reset(Request $request)
         return ['ok' => true, 'items' => $items, 'raw' => $itemsRes];
     }
 
-    /**
-     * Lazada logistics trace API expects seller_id. Resolve it via /seller/get and cache.
-     */
     private function getSellerId(LazadaClient $client, $setting): string
     {
         $creds = LazadaSetting::activeCredentials($setting);
@@ -2568,34 +2302,26 @@ public function reset(Request $request)
 
     private function findDocument($data)
     {
-        // Returns: ['type' => 'base64'|'url', 'value' => string] or null
         if (is_array($data)) {
-            // Common keys
-            // Lazada package document API commonly returns `pdf_url`.
             foreach (['pdf_url', 'document_url', 'url', 'download_url', 'file_url'] as $k) {
                 if (isset($data[$k]) && is_string($data[$k]) && str_starts_with($data[$k], 'http')) {
                     return ['type' => 'url', 'value' => $data[$k]];
                 }
             }
 
-            // Lazada may return a base64-encoded HTML iframe under `file` (that points to the PDF URL)
-            // or a base64 PDF itself.
             foreach (['file', 'document', 'pdf', 'awb_pdf', 'awbPdf'] as $k) {
                 if (!isset($data[$k])) continue;
 
-                // document might be a base64 string
                 if (is_string($data[$k]) && strlen($data[$k]) > 50) {
                     return ['type' => 'base64', 'value' => $data[$k]];
                 }
 
-                // document might be an object/array
                 if (is_array($data[$k])) {
                     $nested = $this->findDocument($data[$k]);
                     if ($nested) return $nested;
                 }
             }
 
-            // Search recursively
             foreach ($data as $v) {
                 $found = $this->findDocument($v);
                 if ($found) return $found;
@@ -2647,9 +2373,7 @@ public function reset(Request $request)
             }
     
     
-            // Normalize pagination params for specific Lazada endpoints
             if ($apiPath === '/category/brands/query') {
-                // Lazada requires startRow + pageSize (not page_no/page_size)
                 $pageNo = isset($params['page_no']) ? (int)$params['page_no'] : null;
                 $pageSize = isset($params['page_size']) ? (int)$params['page_size'] : null;
     
@@ -2658,7 +2382,6 @@ public function reset(Request $request)
                     $params['pageSize'] = max(1, $pageSize);
                     unset($params['page_no'], $params['page_size']);
                 } else {
-                    // if client already provided correct keys, ensure casing matches Lazada
                     if (isset($params['startRow']) && !isset($params['pageSize']) && isset($params['page_size'])) {
                         $params['pageSize'] = (int)$params['page_size'];
                         unset($params['page_size']);
@@ -2666,13 +2389,10 @@ public function reset(Request $request)
                 }
             }
     
-            // Lazada is very strict with call frequency (SellerCallLimit ~1s bans).
-            // Enforce a minimum spacing between calls (per region/app_key) and retry with backoff.
             $method = strtoupper($method);
 
             $rateKey = 'lazada_api_last_call:' . $region . ':' . $appKey;
             $lockKey = 'lazada_api_lock:' . $region . ':' . $appKey;
-            // The spacing is Lazada's rate limit, not a test's: a fake client answers at once.
             $minIntervalMs = app()->runningUnitTests() ? 0 : 1200;
 
             $callOnce = function () use ($client, $region, $apiPath, &$params, $appSecret, $method) {
@@ -2710,7 +2430,6 @@ public function reset(Request $request)
                 $body = $result['body'] ?? null;
                 $code = is_array($body) ? ($body['code'] ?? null) : null;
                 if ($code === 'SellerCallLimit' || $code === 'ApiCallLimit') {
-                    // Backoff a little longer than the ban duration and retry.
                     usleep((1300 + ($attempt - 1) * 350) * 1000);
                     continue;
                 }
@@ -2738,23 +2457,16 @@ public function reset(Request $request)
         }
 
 
-    /**
-     * Lazada sometimes returns timestamps as ISO strings or numeric epoch values (seconds/ms).
-     * Normalize to 'Y-m-d H:i:s' or null.
-     */
     private function parseApiDatetime($value): ?string
     {
         if ($value === null) return null;
 
-        // If value is already a DateTime-like object
         if ($value instanceof \DateTimeInterface) {
             return $value->format('Y-m-d H:i:s');
         }
 
-        // Numeric epoch
         if (is_int($value) || (is_string($value) && ctype_digit($value))) {
             $num = (int)$value;
-            // If milliseconds
             if ($num > 1000000000000) {
                 $num = (int) floor($num / 1000);
             }
@@ -2775,10 +2487,6 @@ public function reset(Request $request)
     }
 
 
-    /**
-     * Keep user on the same orders tab after POST actions (Pack/RTS/Cancel/etc.).
-     * Uses HTTP referer when available; falls back to orders index with current query params.
-     */
     private function redirectBackOrIndex(Request $request)
     {
         $prev = url()->previous();

@@ -31,35 +31,6 @@ class ShopeeOrderController extends Controller
         return view('ext-shopee::orders.returns', $panel->build($request));
     }
 
-    /**
-     * Rich, order-style detail view for a single Shopee return.
-     * Read-only (Phase 1): renders data already captured in the return's raw payload.
-     */
-    /**
-     * What Shopee will actually let us offer on this return.
-     *
-     * A seller cannot propose any resolution on any return: what is permitted
-     * depends on the return's state, its reason, the market and what the buyer
-     * asked for. /api/v2/returns/get_available_solutions answers that per
-     * return, and it answers with two objects - offer_return_refund (send it
-     * back, then get money) and offer_refund (keep it, get money anyway) -
-     * each carrying eligibility, whether the amount can be countered, and the
-     * ceiling if it can.
-     *
-     * WHY THIS ONE FIRST, AND ALONE. It is a READ, so it sits in the same
-     * permission tier as the return list and can be verified against live
-     * without pushing anything to a marketplace. The write side (offer,
-     * accept_offer, dispute, confirm) cannot be exercised in our sandbox at
-     * all, and the failure mode of guessing is a button that a customer
-     * watches fail. This call is what lets the interface offer only choices
-     * that exist.
-     *
-     * FAILS CLOSED. A solution is reported available only when Shopee says
-     * eligibility is true. A refused call, a missing token or an unparseable
-     * body all report nothing available with the reason attached - never a
-     * silent empty list, which would read as "no options" rather than "we did
-     * not get to ask".
-     */
     public function returnSolutions(Request $request, ShopeeClient $client, string $returnSn)
     {
         $setting = ShopeeSetting::defaultStore()?->decrypted();
@@ -121,14 +92,6 @@ class ShopeeOrderController extends Controller
         ]);
     }
 
-    /**
-     * One solution object, read conservatively.
-     *
-     * max_refund_amount is documented as present only when the amount is
-     * adjustable, so reading it unconditionally yields null - and a null
-     * rendered as a number is a ceiling of zero, which is a lie about how much
-     * can be offered.
-     */
     private static function readSolution(array $data, string $key, string $label, string $blurb): array
     {
         $node = is_array($data[$key] ?? null) ? $data[$key] : [];
@@ -158,8 +121,6 @@ class ShopeeOrderController extends Controller
             ->where('return_sn', $returnSn)
             ->firstOrFail();
 
-        // Ordered-qty map from the linked Shopee order, keyed by item_id_model_id,
-        // so each returned line can show "returning X of Y ordered".
         $orderedQty = [];
         $return->loadMissing('order.products');
         if ($return->order) {
@@ -200,10 +161,6 @@ class ShopeeOrderController extends Controller
         $refresh = (bool) $request->boolean('refresh');
         $hasCreds = $setting && $auth['complete'];
 
-        // Both pull-and-persist branches below are manage-tier only. A
-        // view-tier operator (view_shopee_orders without manage_shopee_orders)
-        // must always see the page rendered from stored data — never a live
-        // API pull, never a write — regardless of the `refresh` query string.
         $canManage = (bool) $request->user()?->hasPermission('manage_shopee/order');
 
         if ($hasCreds && $canManage && $refresh) {
@@ -238,7 +195,6 @@ class ShopeeOrderController extends Controller
                     if (!empty($orderList) && is_array($orderList[0] ?? null)) {
                         $detail = $orderList[0];
 
-                        // Fetch tracking number if not in detail
                         if (empty($detail['tracking_no'])) {
                             try {
                                 $trackRes = $client->shopGet(
@@ -261,7 +217,6 @@ class ShopeeOrderController extends Controller
                         $order->status = $detail['order_status'] ?? $order->status;
                         $order->save();
 
-                        // Sync items from detail
                         $this->syncOrderProductsFromDetail($order, $detail);
                         $order->load('products');
                     }
@@ -273,9 +228,6 @@ class ShopeeOrderController extends Controller
             }
         }
 
-        // Fetch escrow detail (fees) if not already stored or on refresh.
-        // This branch fires even with no `refresh` param whenever fees are
-        // empty, so it needs the same manage gate as the block above.
         if ($hasCreds && $canManage && (empty($order->fees) || $refresh)) {
             try {
                 $escrowRes = $client->shopGet(
@@ -303,7 +255,6 @@ class ShopeeOrderController extends Controller
                     $escrowBody = $escrowRes['body'];
                     $escrowData = $escrowBody['response'] ?? $escrowBody;
                     if (is_array($escrowData) && !empty($escrowData)) {
-                        // Extract order_income (the financial breakdown) as the top-level fees
                         $orderIncome = $escrowData['order_income'] ?? null;
                         $order->fees = is_array($orderIncome) && !empty($orderIncome)
                             ? $orderIncome
@@ -312,7 +263,6 @@ class ShopeeOrderController extends Controller
                     }
                 }
             } catch (\Throwable $e) {
-                // Best-effort — don't fail the page
             }
         }
 
@@ -332,11 +282,6 @@ class ShopeeOrderController extends Controller
         ]);
     }
 
-    /**
-     * Fetch orders for a window of dates, as a run of one-page steps
-     * (App\Services\OrderFetchRunner, 2026-09-07): the first pages ride
-     * this request, the page continues the rest one request per page.
-     */
     public function fetch(Request $request, ShopeeClient $client)
     {
         $data = $request->validate([
@@ -382,13 +327,6 @@ class ShopeeOrderController extends Controller
         return ShopeeSetting::defaultStore()?->id;
     }
 
-    /**
-     * One page of get_order_list inside the current fifteen-day window
-     * (Shopee's largest), then the details of that page's orders in
-     * batches of fifty, saved as they arrive. The cursor is the window and
-     * Shopee's own cursor inside it; the next window begins when Shopee
-     * says there is no more in this one.
-     */
     public function orderFetchStep(\App\Models\OrderFetchRun $run): array
     {
         $client = app(ShopeeClient::class);
@@ -461,11 +399,10 @@ class ShopeeOrderController extends Controller
                 $orderSn = (string) ($o['order_sn'] ?? '');
                 if ($orderSn === '') continue;
                 $read++;
-                // Checked and created under the order's lock, so a push or the
-                // order sync creating the same order cannot make a second row.
+                // Check and create under the order's lock so a push and the sync cannot make two rows.
                 \Extensions\shopee\Services\Shopee\ShopeeOrderIngest::locked($orderSn, function () use ($auth, $orderSn, $o, $skipStock, &$created, &$failed) {
                     if (ShopeeOrder::query()->where('region', $auth['region'] ?? 'ph')->where('order_sn', $orderSn)->exists()) {
-                        return; // already held: a Fetch never rewrites what Update statuses maintains
+                        return;
                     }
                     try {
                         $newOrder = ShopeeOrder::query()->create([
@@ -486,7 +423,6 @@ class ShopeeOrderController extends Controller
             }
         }
 
-        // Where the next page is: the same window with Shopee's cursor, else the next window, else done.
         if ($more && $nextCursor !== '') {
             $next = ['window_from' => $windowFrom, 'cursor' => $nextCursor];
         } elseif ($windowTo < $timeTo) {
@@ -523,10 +459,9 @@ class ShopeeOrderController extends Controller
         $timeFrom = (new \DateTime($data['date_from'], $tz))->setTime(0, 0, 0)->getTimestamp();
         $timeTo = (new \DateTime($data['date_to'], $tz))->setTime(23, 59, 59)->getTimestamp();
 
-        // Sliding 15-day windows (Shopee API max window is 15 days per request)
         $allOrderSns = [];
         $maxOrders = 5000;
-        $windowSize = 15 * 86400; // 15 days in seconds
+        $windowSize = 15 * 86400;
 
         $windowFrom = $timeFrom;
         while ($windowFrom < $timeTo && count($allOrderSns) < $maxOrders) {
@@ -579,7 +514,6 @@ class ShopeeOrderController extends Controller
             $windowFrom = $windowTo;
         }
 
-        // Fetch details in batches
         $updated = 0;
         $skipped = 0;
 
@@ -610,7 +544,7 @@ class ShopeeOrderController extends Controller
                 $orderSn = (string) ($o['order_sn'] ?? '');
                 if ($orderSn === '') continue;
 
-                // Under the order's lock, as every Shopee order write is.
+                // Write under the order's lock, as every Shopee order write does.
                 \Extensions\shopee\Services\Shopee\ShopeeOrderIngest::locked($orderSn, function () use ($auth, $orderSn, $o, &$updated, &$skipped) {
                     $existing = ShopeeOrder::query()
                         ->where('region', $auth['region'] ?? 'ph')
@@ -725,8 +659,6 @@ class ShopeeOrderController extends Controller
             ]);
         }
 
-        // An order already past this step is answered here, never sent to
-        // Shopee again: a page left open still shows the button.
         $passed = match (strtoupper((string) $order->status)) {
             'PROCESSED', 'SHIPPED', 'TO_CONFIRM_RECEIVE', 'COMPLETED' => 'This order\'s shipment is already arranged.',
             'IN_CANCEL', 'CANCELLED' => 'This order was cancelled.',
@@ -741,7 +673,6 @@ class ShopeeOrderController extends Controller
             ]);
         }
 
-        // Step 1: Get shipping parameter
         $paramRes = $client->shopGet(
             $auth['mode'],
             (int) $auth['partner_id'],
@@ -778,7 +709,6 @@ class ShopeeOrderController extends Controller
         $pickup = $paramResp['pickup'] ?? null;
         $dropoff = $paramResp['dropoff'] ?? null;
 
-        // Step 2: Ship the order using user-selected shipping type
         $shippingType = $request->input('shipping_type', 'pickup');
         $shipBody = ['order_sn' => $orderSn];
 
@@ -786,7 +716,6 @@ class ShopeeOrderController extends Controller
             $branchId = (int) $request->input('branch_id', 0);
             $shipBody['dropoff'] = $branchId > 0 ? ['branch_id' => $branchId] : new \stdClass();
         } else {
-            // Use user-selected address_id if provided, otherwise find pickup_address flag
             $addressList = ($paramResp['pickup']['address_list'] ?? []);
             $addressId = (int) $request->input('address_id', 0);
             $chosenAddress = null;
@@ -813,12 +742,6 @@ class ShopeeOrderController extends Controller
 
             $pickup = ['address_id' => $addressId];
 
-            // Honour info_needed: Shopee tells us per-region which extra
-            // fields are required. PH carriers commonly require
-            // pickup_time_id; we previously ignored that and Shopee
-            // returned "Pickup time is out of range". Pick the
-            // operator-supplied slot if any, else the slot flagged
-            // `recommended`, else the first slot in the list.
             $pickupNeeds = (array) ($infoList['pickup'] ?? []);
             if (in_array('pickup_time_id', $pickupNeeds, true)) {
                 $pickupTimeId = $request->input('pickup_time_id', null);
@@ -835,8 +758,6 @@ class ShopeeOrderController extends Controller
                     }
                 }
                 if ($pickupTimeId !== null && $pickupTimeId !== '') {
-                    // Shopee returns pickup_time_id as a string in the
-                    // time_slot_list — keep the same type when sending it back.
                     $pickup['pickup_time_id'] = (string) $pickupTimeId;
                 }
             }
@@ -870,7 +791,6 @@ class ShopeeOrderController extends Controller
         $errMsg = $shipBodyResp['error'] ?? ($shipBodyResp['message'] ?? null);
 
         if (!($shipRes['ok'] ?? false) || (is_string($errMsg) && $errMsg !== '' && $errMsg !== 'success')) {
-            // The reason, not the code and never the payload (2026-09-03).
             $shipReason = \App\Support\MarketplaceAnswer::plain('Shopee', $shipRes);
             if ($json) return response()->json(['ok' => false, 'message' => 'Ship order failed: ' . $shipReason], 422);
             return redirect()->route('ext.shopee.orders.index')->with('shopee_orders_last_result', [
@@ -880,11 +800,8 @@ class ShopeeOrderController extends Controller
             ]);
         }
 
-        // Update local status, under the order's lock: Shopee's push for
-        // this same change lands a second later and writes the order too.
+        // Take the order's lock: Shopee's push for this change lands a second later and writes the order too.
         \Extensions\shopee\Services\Shopee\ShopeeOrderIngest::locked($orderSn, function () use ($order) {
-            // Pushes on: one that got here first may already hold a later
-            // status, so re-read the order and never step back from it.
             $pushesOn = \Extensions\shopee\Services\Shopee\ShopeeOrderIngest::pushesOn();
             if ($pushesOn) {
                 $order->refresh();
@@ -982,7 +899,6 @@ class ShopeeOrderController extends Controller
         $body = $res['body'] ?? [];
         $respData = $body['response'] ?? $body;
 
-        // Also fetch tracking number
         $trackRes = $client->shopGet(
             $auth['mode'],
             (int) $auth['partner_id'],
@@ -996,7 +912,6 @@ class ShopeeOrderController extends Controller
         $trackResp = $trackBody['response'] ?? $trackBody;
         $trackingNo = trim((string) ($trackResp['tracking_number'] ?? ''));
 
-        // Get shipping carrier from order raw
         $order = \Extensions\shopee\Models\ShopeeOrder::where('order_sn', $orderSn)->first();
         $raw = is_array($order->raw ?? null) ? $order->raw : [];
         $carrier = (string) ($raw['shipping_carrier'] ?? '');
@@ -1014,7 +929,6 @@ class ShopeeOrderController extends Controller
     {
         $json = $request->expectsJson();
 
-        // Serve saved AWB if it exists locally
         $safeOrderSn = preg_replace('/[^A-Za-z0-9_-]/', '', $orderSn);
         $awbPath = \App\Support\Fulfilment\Waybills::path('shopee', (int) ShopeeSetting::defaultStore()?->id, $orderSn);
 
@@ -1042,7 +956,6 @@ class ShopeeOrderController extends Controller
         $token = (string) $auth['access_token'];
         $shopId = (int) $auth['shop_id'];
 
-        // Fetch tracking number from Shopee — needed for create_shipping_document
         $trackRes = $client->shopGet($mode, $pid, $pkey, $token, $shopId,
             '/api/v2/logistics/get_tracking_number',
             ['order_sn' => $orderSn]
@@ -1051,7 +964,6 @@ class ShopeeOrderController extends Controller
         $trackResp = is_array($trackBody) ? ($trackBody['response'] ?? []) : [];
         $trackingNo = trim((string) ($trackResp['tracking_number'] ?? ''));
 
-        // Step 1: Get shipping document parameter to find supported document type
         $paramRes = $client->shopPost($mode, $pid, $pkey, $token, $shopId,
             '/api/v2/logistics/get_shipping_document_parameter', [],
             ['order_list' => [['order_sn' => $orderSn]]]
@@ -1075,7 +987,6 @@ class ShopeeOrderController extends Controller
             'response_body'   => is_array($paramBody) ? $paramBody : null,
         ]);
 
-        // Build order entry with package_number and tracking_number
         $orderEntry = ['order_sn' => $orderSn, 'shipping_document_type' => $docType];
         if ($packageNumber) {
             $orderEntry['package_number'] = $packageNumber;
@@ -1084,7 +995,6 @@ class ShopeeOrderController extends Controller
             $orderEntry['tracking_number'] = $trackingNo;
         }
 
-        // Step 2: Create shipping document (don't abort on failure — proceed to poll & download)
         $createRes = $client->shopPost($mode, $pid, $pkey, $token, $shopId,
             '/api/v2/logistics/create_shipping_document', [],
             ['order_list' => [$orderEntry]]
@@ -1104,18 +1014,16 @@ class ShopeeOrderController extends Controller
             'response_body'   => is_array($createBody) ? $createBody : null,
         ]);
 
-        // For AJAX: fast path — if create failed, return immediately so frontend retries
         if ($json && $createError !== '' && $createError !== 'success') {
             $failMsg = (($createBody['response']['result_list'] ?? [])[0]['fail_message'] ?? null)
                 ?: ($createBody['message'] ?? 'Document not ready yet');
             return response()->json(['ok' => false, 'ready' => false, 'message' => $failMsg], 422);
         }
 
-        // Step 3: Poll get_shipping_document_result until READY
         $ready = false;
         $lastFailMsg = null;
-        $maxPolls = $json ? 2 : 5;        // AJAX: quick check; browser: full wait
-        $pollSleep = $json ? 1 : 2;       // AJAX: 1s; browser: 2s
+        $maxPolls = $json ? 2 : 5;
+        $pollSleep = $json ? 1 : 2;
         for ($attempt = 0; $attempt < $maxPolls; $attempt++) {
             sleep($pollSleep);
 
@@ -1150,7 +1058,6 @@ class ShopeeOrderController extends Controller
             }
         }
 
-        // Step 4: Download shipping document (attempt even if polling didn't confirm READY)
         $dlEntry = ['order_sn' => $orderSn];
         if ($packageNumber) {
             $dlEntry['package_number'] = $packageNumber;
@@ -1162,7 +1069,6 @@ class ShopeeOrderController extends Controller
 
         $body = $downloadRes['body'] ?? null;
 
-        // Binary PDF returned directly — save to disk then serve
         if (is_string($body) && str_starts_with($body, '%PDF')) {
             \App\Support\Fulfilment\Waybills::save($awbPath, $body);
 
@@ -1172,7 +1078,6 @@ class ShopeeOrderController extends Controller
                 ->header('Content-Disposition', 'inline; filename="AWB-' . $safeOrderSn . '.pdf"');
         }
 
-        // JSON error response — download failed
         $dlErrMsg = 'Unknown error';
         if (is_array($body)) {
             $dlErrMsg = $body['message'] ?? ($body['error'] ?? $dlErrMsg);
@@ -1198,7 +1103,6 @@ class ShopeeOrderController extends Controller
             'response_body'   => is_array($body) ? $body : ['raw_length' => is_string($body) ? strlen($body) : 0],
         ]);
 
-        // Build informative error: show create + poll + download context
         $createError = is_array($createBody) ? ($createBody['error'] ?? '') : '';
         $errorMsg = 'Failed to download AWB: ' . $dlErrMsg;
         if ($createError !== '' && $createError !== 'success') {
@@ -1314,7 +1218,6 @@ class ShopeeOrderController extends Controller
 
             $body = $res['body'] ?? [];
             $respData = $body['response'] ?? $body;
-            // Shopee's get_return_list returns the array under `return` (not `return_list`).
             $returnList = $respData['return'] ?? $respData['return_list'] ?? [];
             if (!is_array($returnList) || empty($returnList)) {
                 break;
@@ -1324,7 +1227,6 @@ class ShopeeOrderController extends Controller
                 $returnSn = $ret['return_sn'] ?? null;
                 if (!$returnSn) continue;
 
-                // Fetch detail for this return
                 $detailRes = $client->shopGet(
                     $auth['mode'],
                     (int) $auth['partner_id'],
@@ -1356,7 +1258,6 @@ class ShopeeOrderController extends Controller
 
                 $orderSn = (string) ($detail['order_sn'] ?? ($ret['order_sn'] ?? ''));
 
-                // Find linked shopee_order
                 $shopeeOrder = null;
                 if ($orderSn !== '') {
                     $shopeeOrder = ShopeeOrder::query()
@@ -1398,7 +1299,7 @@ class ShopeeOrderController extends Controller
             }
 
             $pageNo++;
-            if ($pageNo > 50) break; // safety limit
+            if ($pageNo > 50) break;
         }
 
         $message = $saved > 0
@@ -1410,8 +1311,6 @@ class ShopeeOrderController extends Controller
             'message' => $message,
         ]);
     }
-
-    // --- Private helpers ---
 
     private function syncOrderProductsFromDetail(ShopeeOrder $order, array $detail): void
     {

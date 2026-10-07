@@ -1,37 +1,3 @@
-/*
- * Product-group form pages: the two pickers those forms carry.
- *
- * Round C Task 3 rebuilt both channels' product-group create/edit forms on the
- * fm- anatomy and took them out of the .x-legacy boundary. Their behaviour was
- * an inline <script> in the Blade; this project does not put behaviour in
- * Blade, so it lives here.
- *
- * Two different controls, because the two channels genuinely group products
- * differently and neither is a variant of the other:
- *
- *   1. OpenCart's filter picker  two tag fields (categories, manufacturers)
- *                                over a list the server already shipped with
- *                                the page. What submits is one hidden input
- *                                per tag, named `catalog_category_ids[]` /
- *                                `manufacturer_ids[]`.
- *
- *   2. The marketplace category and brand comboboxes, the attribute sheet
- *      and its mapped-value preview.
- *
- * The two-pane product picker that used to live here went with the in-form
- * membership (2026-09-07, the one group shape): a group form holds only what
- * the group lends, and products join it on its own Products page.
- *
- * They read their data from a <script type="application/json"> island the
- * Blade renders with JSON_HEX_TAG, rather than having the payload interpolated
- * into a script literal. Every node is createElement + textContent; a product
- * or category named `<img src=x onerror=...>` is text here, not markup.
- */
-
-/* ==================================================================
-   1. OpenCart: the category / manufacturer tag picker
-   ================================================================== */
-
 function initFilterPicker(field) {
     const tags = field.querySelector('[data-picker-tags]');
     const search = field.querySelector('[data-picker-search]');
@@ -104,21 +70,10 @@ function initFilterPicker(field) {
             return;
         }
 
-        // Fifty is what the pre-redesign picker showed, and it is what keeps a
-        // catalog with thousands of categories from building thousands of
-        // nodes on every keystroke.
         matches.slice(0, 50).forEach(function (option) {
             const button = document.createElement('button');
             button.type = 'button';
             button.textContent = option.name;
-            // Two paths, deliberately. mousedown carries the MOUSE because the
-            // input's blur fires before click and would tear the list down
-            // first; that reasoning is real and is why click alone was used
-            // here. But mousedown never fires for a keyboard, so binding only
-            // mousedown left this picker unreachable without a mouse, exactly
-            // the defect the category combobox below was fixed for. keydown
-            // carries Enter and Space so a keyboard user can commit the option
-            // their focus is already on.
             const choose = function (e) {
                 e.preventDefault();
                 addTag(option);
@@ -159,8 +114,6 @@ function initFilterPicker(field) {
         if (e.key === 'Escape') hide();
     });
 
-    // Tags the server rendered carry their own remove button with no handler
-    // (this project does not use inline onclick), so they are bound here.
     tags.querySelectorAll('.fm-tag__x').forEach(function (button) {
         button.addEventListener('click', function () {
             const tag = button.closest('.fm-tag');
@@ -168,29 +121,6 @@ function initFilterPicker(field) {
         });
     });
 }
-
-/* ==================================================================
-   3. The marketplace category combobox (Shopee, TikTok)
-
-   Round F Task 1. Both channels had their own inline copy of the same
-   control: a text box that filters leaf categories and writes the
-   chosen id into a hidden input beside it. They differ in exactly one
-   thing, where the candidate list comes from:
-
-     - Shopee asks the server on every keystroke, because it caches
-       tens of thousands of leaves and shipping them all to the page is
-       not an option;
-     - TikTok filters an array the page already carries, because its
-       leaf list is small and the controller already loaded it.
-
-   That is `data-combo-mode`. Everything else is shared, including the
-   part that matters: the hidden input's `change` event is what the
-   brand loader and the attribute fetch listen for, so picking a
-   category has to dispatch it exactly the way the originals did.
-
-   SECURITY. Every option is createElement + textContent. A category
-   named `<img src=x onerror=...>` is text here.
-   ================================================================== */
 
 let categoryComboSeq = 0;
 
@@ -209,32 +139,6 @@ function initCategoryCombo(root) {
     const extraEmptyText = root.getAttribute('data-combo-extra-empty') || 'Pick a category first.';
     if (!input || !value || !results) return;
 
-    /* REQUIRED, THE WAY THE CORE PRODUCT FORM IS REQUIRED (the owner,
-     * 2026-09-09: "Best is we use the same pop up requirement in the core
-     * listing page... the default laravel and browser requirement
-     * feedback"). The browser's own bubble, on the button that needs the
-     * field, focusing the field it names.
-     *
-     * It has to hang off the VISIBLE input. The pick lives in a hidden
-     * input, and a hidden control cannot be validated or focused - the
-     * browser refuses the submit and shows NOTHING, which is worse than no
-     * constraint at all.
-     *
-     * And it is setCustomValidity rather than the `required` attribute,
-     * for two reasons that both come from the same fact: the visible box
-     * holds WORDS and the hidden input holds the answer.
-     *
-     *   - Typing voids the pick (see the input listener below, by design),
-     *     so a box full of text can sit over an empty id. `required` would
-     *     call that filled.
-     *   - A remote combo opens EMPTY and fills itself from a lookup a
-     *     moment later, so `required` would refuse a listing that has had
-     *     a category for months, in the seconds before the name arrives.
-     *
-     * Validity is therefore a plain function of the real value, and the
-     * message names what is wanted rather than saying "fill this in". Same
-     * native bubble, same focus, same behaviour as the core product form's
-     * own required fields. */
     const mustPick = root.getAttribute('data-combo-required');
 
     function syncValidity() {
@@ -243,8 +147,6 @@ function initCategoryCombo(root) {
         input.setCustomValidity(picked ? '' : (mustPick || 'Pick one from the list.'));
     }
 
-    // When what this combobox depends on changes, its own pick is void:
-    // a brand id from one category means nothing in another.
     if (extraSource) {
         extraSource.addEventListener('change', function () {
             value.value = '';
@@ -255,12 +157,6 @@ function initCategoryCombo(root) {
         });
     }
 
-    /* Warming (the owner, 2026-09-05): a first-time brand list is thousands of
-       rows read from Shopee a page at a time, and the search box used to
-       hang until the last page. Now the list is read the moment a category
-       is picked, one request per page, with the count drawn as it grows;
-       the box is locked until the list is in. A category already read to
-       the end answers at once and nothing is shown. */
     const warmUrl = root.hasAttribute('data-combo-warm') ? searchUrl : null;
     const progress = root.querySelector('[data-combo-progress]');
     const progressText = root.querySelector('[data-combo-progress-text]');
@@ -280,10 +176,6 @@ function initCategoryCombo(root) {
         const wasDisabled = input.disabled;
         let offset = 0;
         let shown = false;
-        // The stall guard (live, 2026-09-07: "100 so far" never moved). A
-        // page that grows the count by nothing three times in a row is the
-        // end of the list, whatever the server says; the box unlocks and
-        // the brands read so far are the list.
         let lastRead = -1;
         let stalls = 0;
         function step() {
@@ -294,7 +186,7 @@ function initCategoryCombo(root) {
             return fetch(url.toString(), { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
-                    if (run !== warmRun) return; // the category changed under us
+                    if (run !== warmRun) return;
                     if (!data || !data.ok) {
                         setProgress('failed', (data && data.message) || 'Could not read the brands. Try again in a moment.');
                         input.disabled = wasDisabled;
@@ -336,11 +228,6 @@ function initCategoryCombo(root) {
 
     if (warmUrl) warm();
 
-    // The popup is a real listbox and the field that opens it is a real
-    // combobox: both roles need the pair of ids that ties them together,
-    // and aria-expanded has to track the one thing that actually decides
-    // whether the popup is showing (`results.hidden`), not a value set
-    // once at load and forgotten.
     if (!results.id) results.id = 'gf-combo-results-' + (categoryComboSeq += 1);
     input.setAttribute('role', 'combobox');
     input.setAttribute('aria-autocomplete', 'list');
@@ -358,14 +245,6 @@ function initCategoryCombo(root) {
     }
 
     let timer = null;
-    // Set immediately before a programmatic input.focus() that follows a
-    // deliberate hide(), so the input's own 'focus' handler (below) does
-    // not treat that refocus as a user tabbing back in and reopen the list
-    // it was just told to close. Keyboard-only, found by actually pressing
-    // Enter on a focused option: without this, commit() left the picked
-    // value showing but silently reopened the results underneath it, and
-    // Escape from an option closed the list for exactly one frame before
-    // its own return-of-focus reopened it.
     let suppressFocusSearch = false;
 
     function hide() {
@@ -373,8 +252,6 @@ function initCategoryCombo(root) {
         input.setAttribute('aria-expanded', 'false');
     }
 
-    // hide() plus returning focus to the field, without the field's own
-    // focus handler re-running the search that would undo the hide.
     function hideAndFocusInput() {
         hide();
         suppressFocusSearch = true;
@@ -391,27 +268,14 @@ function initCategoryCombo(root) {
     function commit(id, label) {
         value.value = String(id);
         input.value = label;
-        // A remote list that is not cached locally (TikTok's brands) has
-        // nowhere to look the name up again on the next page load, so the
-        // picked words ride a sibling hidden input when the page asks.
         const labelStore = root.querySelector('[data-combo-label-store]');
         if (labelStore) labelStore.value = label;
         syncValidity();
-        // Without this, focus was left on the option button, which the
-        // hide() above turns into `display: none`; a hidden element cannot
-        // hold focus, so the browser drops it to <body> and a keyboard
-        // user loses their place in the form entirely.
         hideAndFocusInput();
-        // The brand loader and the attribute fetch are bound to this
-        // element's change event, exactly as they were before. Picking
-        // from the list is not a user edit of the input, so nothing
-        // fires it for us.
         value.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
     function label(item) {
-        // Category labels carry the id (it is what API rejections quote);
-        // a brand list is names an operator recognises, the id is noise.
         if (root.hasAttribute('data-combo-plain-label')) {
             return String(item.name || '');
         }
@@ -447,17 +311,10 @@ function initCategoryCombo(root) {
             id.textContent = String(item.id);
             option.appendChild(id);
 
-            // A real button already receives `click` for a mouse click and
-            // for a keyboard Enter/Space on whichever option currently has
-            // focus, so one listener covers both input methods.
             option.addEventListener('click', function () {
                 commit(item.id, label(item));
             });
 
-            // Roving between options with the arrow keys, in addition to
-            // the plain Tab stop each button already carries: Home/End
-            // jump to the ends, Up from the first option (or Escape from
-            // any option) hands focus back to the field.
             option.addEventListener('keydown', function (e) {
                 if (e.key === 'ArrowDown') {
                     const next = optionAt(index + 1);
@@ -497,10 +354,6 @@ function initCategoryCombo(root) {
         const url = new URL(searchUrl, window.location.origin);
         url.searchParams.set('q', query);
         url.searchParams.set('limit', '25');
-        // A dependent combobox (the brand list belongs to a category)
-        // carries the parameter name and where to read its value from.
-        // No value yet means there is nothing to search IN: say so
-        // instead of asking the server a question it must refuse.
         if (extraParam && extraSource) {
             if (!extraSource.value) {
                 render([]);
@@ -530,9 +383,6 @@ function initCategoryCombo(root) {
     }
 
     input.addEventListener('input', function () {
-        // Typing invalidates the pick. Without this an operator could
-        // choose a category, edit the words, and save an id that no
-        // longer matches what the box says.
         value.value = '';
         syncValidity();
         window.clearTimeout(timer);
@@ -545,20 +395,11 @@ function initCategoryCombo(root) {
         search(input.value.trim());
     });
 
-    // A page that opens with words in the box and no pick behind them - a
-    // refused save handing back what was typed - is in the hole from the
-    // first frame, not from the first keystroke.
     syncValidity();
 
     input.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') { hide(); return; }
-        // This control lives inside the group form. A bare Enter here
-        // would submit a half-filled form.
         if (e.key === 'Enter') { e.preventDefault(); return; }
-        // Down steps off the field and onto the first option, the same
-        // move Tab makes, so a keyboard user is not required to know that
-        // Tab happens to work here. Only meaningful once the popup is
-        // actually open with something in it.
         if (e.key === 'ArrowDown' && !results.hidden) {
             const first = optionAt(0);
             if (first) { e.preventDefault(); focusOption(first); }
@@ -569,8 +410,6 @@ function initCategoryCombo(root) {
         if (!root.contains(e.target)) hide();
     });
 
-    // Edit-page load: the hidden input carries an id but the visible box
-    // is empty, because only the server knows what that id is called.
     if (value.value && lookupUrl) {
         const url = new URL(lookupUrl, window.location.origin);
         url.searchParams.set('category_id', value.value);
@@ -584,8 +423,6 @@ function initCategoryCombo(root) {
             .catch(function () {});
     }
 
-    // The Refresh button re-pulls the marketplace's category tree. It is
-    // a manage-tier POST, so it is only in the markup for that tier.
     const refresh = root.querySelector('[data-combo-refresh]');
     const refreshUrl = root.getAttribute('data-combo-refresh-url');
     if (refresh && refreshUrl) {
@@ -610,9 +447,6 @@ function initCategoryCombo(root) {
                         }
                         return;
                     }
-                    // TikTok returns the whole list and the page filters
-                    // it locally, so the local copy has to be replaced.
-                    // Shopee returns only a count and is re-searched.
                     if (Array.isArray(data.categories)) {
                         options = data.categories.map(function (c) {
                             return { id: c.id !== undefined ? c.id : c.category_id, name: c.name };
@@ -635,15 +469,6 @@ function initCategoryCombo(root) {
         });
     }
 }
-
-/* ==================================================================
-   5. Lazada: the brand typeahead
-
-   A datalist, not a popover: Lazada's autocomplete returns names the
-   operator recognises and the native control is the right size for
-   it. The pair of hidden inputs behind it is the wire (`brand_id` and
-   the `no_brand` flag), unchanged.
-   ================================================================== */
 
 function initBrandPicker(root) {
     const url = root.getAttribute('data-brand-url');
@@ -716,17 +541,6 @@ function initBrandPicker(root) {
     show(id.value);
 }
 
-/* ==================================================================
-   6. Category attributes, fetched when the category changes
-
-   The endpoint answers with server-rendered Blade (the same
-   _attributes partial the form renders inline), which is why this is
-   the one place in these pages that assigns markup rather than
-   building nodes. That markup comes from the application's own view
-   layer with Blade's escaping applied, not from the response of a
-   third party, and the endpoint is untouched by this redesign.
-   ================================================================== */
-
 function initAttributeFetch(root) {
     const url = root.getAttribute('data-attributes-url');
     const field = root.getAttribute('data-attributes-field');
@@ -734,10 +548,6 @@ function initAttributeFetch(root) {
     const target = root.querySelector('[data-attributes-target]');
     if (!url || !field || !source || !target) return;
 
-    /* The listing page (2026-09-06) keeps the section on screen with a
-       sentence when no category is picked, carries a "Re-read the template"
-       button beside the category, and names when the template was read.
-       The group page has none of these and keeps hiding the section. */
     const emptyText = root.getAttribute('data-attributes-empty');
     const reread = root.hasAttribute('data-attributes-reread-button')
         ? document.querySelector(root.getAttribute('data-attributes-reread-button'))
@@ -790,7 +600,6 @@ function initAttributeFetch(root) {
                 if (data && data.ok && data.html) {
                     target.innerHTML = data.html;
                     bindAttributeRows();
-                    // Whoever filled the category can now fill the answers.
                     root.dispatchEvent(new CustomEvent('attributes:loaded', { bubbles: true }));
                     if (readAt) readAt.textContent = data.fetched_at ? 'Attributes read from Lazada ' + data.fetched_at + '.' : '';
                     return;
@@ -814,22 +623,10 @@ function initAttributeFetch(root) {
         });
     }
 
-    // A category saved before its template was read: read it now.
     if (root.hasAttribute('data-attributes-autoload') && source.value) {
         load(source.value, false);
     }
 }
-
-/* ==================================================================
-   7. Lazada: one attribute value, set by hand or read off a product
-
-   Two controls that are alternatives, plus a hidden input that is the
-   only thing that submits. The `__map:<field>` prefix is the wire and
-   is unchanged.
-
-   Bound both at load and after an AJAX fetch injects new rows, so
-   every row carries a guard against being bound twice.
-   ================================================================== */
 
 function erpFieldValues() {
     const island = document.querySelector('[data-erp-fields]');
@@ -858,11 +655,6 @@ function bindAttributeRows() {
         const resolved = row.querySelector('[data-attr-resolved]');
         const resolvedText = row.querySelector('[data-attr-resolved-text]');
 
-        // What actually gets shown and hidden. A <select> in this system is
-        // wrapped in .x-select-wrap for its chevron, and hiding the select
-        // while leaving the wrapper leaves a floating chevron behind, so the
-        // markup marks the box to toggle and this falls back to the control
-        // itself only if there is none.
         const manualBox = row.querySelector('[data-attr-manual-box]') || manual;
         const fieldBox = row.querySelector('[data-attr-field-box]') || field;
 
@@ -896,10 +688,6 @@ function bindAttributeRows() {
         field.addEventListener('change', sync);
     });
 }
-
-/* ------------------------------------------------------------------
-   Bind
-   ------------------------------------------------------------------ */
 
 document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('[data-group-filter-picker] .fm-field').forEach(initFilterPicker);

@@ -2,15 +2,8 @@
 @section('title', $group->name . ' Products, ' . $setting->store_name)
 @section('breadcrumb', $group->name . ' Products')
 
-{{-- Leaves the .x-legacy content boundary, rebuilt on the token set.
-
-     OpenCart is multi-store. Every self-link, every form action and the
-     product-search endpoint carry the {store} segment this page arrived on,
-     and the store is named on the page as well as in the breadcrumb. --}}
 @section('content')
 @php
-    // Read tier on this route is `view_opencart|manage_opencart`; the push and
-    // remove writes are `manage_opencart`. Replaces a hardcoded `true`.
     $canManageOpencart = auth()->user()?->hasPermission('manage_opencart/product_group') ?? false;
 
     $storeName = $setting->store_name ?: 'Unnamed store';
@@ -20,10 +13,6 @@
 
     $listUrl = route('ext.opencart.product-groups.products', [$setting->id, $group->id]);
 
-    // The controller's empty-group branch returns before it builds any of the
-    // cross-channel link maps, so nothing below may assume they exist. The
-    // table is not rendered at all in that case, but resolving them once here
-    // keeps that fact stated rather than depending on it.
     $otherOcLinks = $otherOcLinks ?? [];
     $otherStoreNames = $otherStoreNames ?? [];
     $shopeeLinked = $shopeeLinked ?? collect();
@@ -49,9 +38,6 @@
     @endif
 </div>
 
-{{-- One filter row, same `q` param as before. The old page put the field and
-     its button inside a toolbar card; the button stays because a form with a
-     text field and no submit does not submit on Enter per the HTML spec. --}}
 <form method="GET" action="{{ $listUrl }}" class="x-filters">
     <x-ui.input type="search" name="q" class="x-filters__search"
                 value="{{ $q }}" placeholder="Name, SKU or model" aria-label="Search products in this product group" />
@@ -62,13 +48,6 @@
 </form>
 
 @if($canManageOpencart)
-{{-- Bulk bar. The old page put a solid "Push Selected" button in the page
-     header, where it was on screen with nothing selected and did nothing when
-     pressed. It appears here only once at least one row is ticked. Same route,
-     same `ids[]` payload; the module injects the ticked ids. --}}
-{{-- role="status" so the bar arriving is heard, not only seen. aria-live is
-     on the COUNT rather than the whole bar: the buttons do not change, and
-     re-reading their labels on every tick would be worse than silence. --}}
 <div class="cc-bulkbar" x-show="selected.length > 0" x-cloak data-bulkbar role="status">
     <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected</span>
     <div class="cc-bulkbar__actions">
@@ -127,11 +106,6 @@
             $pName = html_entity_decode((string) ($p->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
             $pSku = (string) ($p->sku ?: ($p->model ?: ''));
 
-            // The old row printed six identical green badges, one per place the
-            // product is listed. Green there meant nothing, because everything
-            // was green. The store you are standing in gets its own column; the
-            // rest are a plain list, because "also on Shopee" is context, not a
-            // status you have to act on.
             $elsewhere = [];
             foreach (($otherOcLinks[$p->product_id] ?? []) as $oLink) {
                 $elsewhere[] = ($otherStoreNames[$oLink->opencart_setting_id] ?? 'Another OpenCart store')
@@ -150,10 +124,6 @@
         <tr>
             @if($canManageOpencart)
             <td class="cc-col-check">
-                {{-- No name attribute: these boxes belong to no form. The bulk
-                     form injects the ticked ids on submit, which posts the same
-                     `ids[]` the old checkboxes posted through their form
-                     attribute. --}}
                 <input type="checkbox" class="cc-check" data-row-check value="{{ (string) $p->product_id }}"
                        x-model="selected" aria-label="Select product {{ $p->product_id }}">
             </td>
@@ -212,9 +182,6 @@
 
             <td class="x-td-actions">
                 @if($canManageOpencart)
-                {{-- The old row carried a standing Push button and, on manual
-                     rows, a solid red Remove beside it. Same routes, same
-                     confirms, in the overflow. --}}
                 <x-ui.menu label="Product {{ $p->product_id }} actions">
                     <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalog</a>
                     <form method="POST" action="{{ route('ext.opencart.products.push', [$setting->id, $p->product_id]) }}" data-slow-action
@@ -242,9 +209,6 @@
 @endif
 
 @if($canManageOpencart)
-{{-- Add one at a time. Same endpoints as before: a GET to search-products?q=
-     for the results, and one POST to addProducts carrying `ids[]`. The results
-     are built with createElement and textContent only. --}}
 <section class="fm-section cc-unmatched"
          data-group-manual-add
          data-group-id="{{ $group->id }}"
@@ -270,15 +234,7 @@
 </section>
 @endif
 
-{{-- Work-in-progress overlay. A push to OpenCart is a multi-second round trip
-     and the page has to say so, or the operator clicks again. Rides
-     components/modals.css's .modal-backdrop show/hide mechanics. --}}
 <div id="opencart-group-progress" class="modal-backdrop">
-    {{-- A dialog, and one that speaks. This overlay covers the page for
-         several seconds while a marketplace call is in flight and carried no
-         role, no name and no live region, so the only signal that anything
-         was happening was the spinner - which is to say none at all for
-         anyone not looking at it. --}}
     <div class="modal co-modal co-modal--sm" role="dialog" aria-modal="true"
          aria-labelledby="opencart-group-progress-title" aria-describedby="opencart-group-progress-note">
         <div class="cc-progress" role="status" aria-live="polite">
@@ -291,5 +247,5 @@
     </div>
 </div>
 
-</div>{{-- /.cc-page --}}
+</div>
 @endsection

@@ -7,12 +7,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * A variation the store sells but its own item does not hold is named on
- * the listing, from the SKUs last read from the store. Switching it off for
- * the store, or in the catalog, takes it off at once; a store never read is
- * not a gap.
- */
 class ListingStoreSkusTest extends TestCase
 {
     use RefreshDatabase;

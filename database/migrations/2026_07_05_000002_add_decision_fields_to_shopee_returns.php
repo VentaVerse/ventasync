@@ -6,12 +6,6 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Decision fields used to classify a Shopee return outcome:
-     * - needs_logistics / return_solution: split ACCEPTED into "goods returned" vs "refund only".
-     * - reverse_logistics_status / is_arrived_at_warehouse: whether goods physically came back.
-     * - seller_compensation_status: distinguishes compensated (still sold) cases.
-     */
     public function up(): void
     {
         if (!Schema::hasTable('shopee_returns')) {

@@ -1,42 +1,3 @@
-/* Product-group form pages: the `gf-` grammar.
-   -------------------------------------------------------------------
-   A group form is nearly all shared form anatomy already (fm-page /
-   fm-head / fm-body / fm-section / fm-fields / x-ui.field / fm-bar).
-   This file carries only the controls that anatomy has no equivalent
-   for:
-
-     1. .gf-count, the one figure on OpenCart's side column;
-     2. .gf-combo, the marketplace category combobox. Three channels,
-        one control: Shopee searches its leaf categories over AJAX,
-        TikTok filters a list already on the page, Lazada uses a plain
-        <select>. The first two share this popover.
-     3. .gf-checks, the delivery-options picker (Shopee only). A flat
-        list of checkboxes, not a card each.
-     4. .gf-attrs, the category-attribute mapping rows. These are
-        rendered both inline by the form and, on a category change, by
-        an AJAX response that returns the same Blade partial, so the
-        markup has to look right in both places with no JS restyling.
-
-   Venta's two-pane product picker used to live here and is gone with
-   the in-form membership (the owner, 2026-09-07, the one group shape): a
-   group form holds only what the group lends, and products join it on
-   its own Products page. The rules it needed went with it.
-
-   The decisions carried in from the anatomies this builds on:
-
-     1. Colour has one job. The primary action is the only accent on
-        these pages.
-     2. Elevation is flat. Hairlines between rows, no card stack.
-     3. Every numeral is mono with tabular figures: product ids and
-        stock counts, which are read down a column.
-   ------------------------------------------------------------------- */
-
-/* ------------------------------------------------------------------
-   A single figure that is the point of its own card. Large enough to
-   be the thing the eye lands on, in mono because it is a count that
-   changes and gets compared against the last time you looked.
-   ------------------------------------------------------------------ */
-
 .gf-count {
     margin: 0;
     font-family: var(--font-mono);
@@ -46,21 +7,6 @@
     line-height: 1.1;
     color: var(--bl-ink);
 }
-
-/* ==================================================================
-   The marketplace category combobox (Shopee, TikTok).
-
-   A text input that filters a list of leaf categories and writes the
-   chosen id into a hidden input beside it. Shopee asks the server on
-   every keystroke; TikTok filters an array the page already carries.
-   Both end up with the same popover under the same field, so both use
-   this.
-
-   The popover is the only elevated thing on either page. Everything
-   else in this design system is flat and bordered, but a list that
-   covers the fields underneath has to read as floating or the eye
-   cannot tell what is on top of what.
-   ================================================================== */
 
 .gf-combo { display: flex; align-items: flex-start; gap: var(--bl-space-2); }
 
@@ -78,16 +24,9 @@
     background: var(--bl-sheet);
     border: 1px solid var(--bl-rule);
     border-radius: var(--bl-r-ctrl);
-    /* --bl-lift, not the legacy --shadow-lg: the latter is defined in
-       base/variables.css, which is the legacy sheet Round F Task 4 deletes.
-       This is the same elevation <x-ui.menu> uses, which is what a popover
-       over the page should read as. */
     box-shadow: var(--bl-lift);
 }
 
-/* [hidden] is only a user-agent display:none rule and loses to any
-   class that sets display. The JS toggles this element's hidden
-   attribute, so the opt-out has to be re-stated at a weight that wins. */
 .gf-combo__results[hidden] { display: none; }
 
 .gf-combo__opt {
@@ -109,8 +48,6 @@
 .gf-combo__opt:hover,
 .gf-combo__opt:focus-visible { background: var(--bl-chrome-2); }
 
-/* The marketplace's own id for the category, read down the list and
-   compared against what the marketplace's back office shows. */
 .gf-combo__id {
     margin-left: var(--bl-space-2);
     font-family: var(--font-mono);
@@ -126,15 +63,6 @@
     text-align: center;
 }
 
-/* ==================================================================
-   Logistics channels (Shopee).
-
-   Every channel Shopee will carry this product on. There are commonly
-   a dozen and the operator ticks several, so this is a plain list of
-   checkboxes in columns, not a card each. Two columns above 640px so
-   the list does not run off the bottom of the section.
-   ================================================================== */
-
 .gf-checks {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -143,8 +71,6 @@
 
 @media (min-width: 641px) {
     .gf-checks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    /* Inside a side rail two columns break courier names mid-word
-       ("Sandbox SPX Express(Do / n't modify)"); one column reads. */
     .fm-col--side .gf-checks { grid-template-columns: minmax(0, 1fr); }
 }
 
@@ -162,8 +88,6 @@
 .gf-check input[disabled] { cursor: default; }
 
 .gf-check__name {
-    /* The name is the useful half; it wraps before the numeric id gets
-       to keep its full width beside a truncated "Instant Del...". */
     min-width: 0;
     overflow-wrap: anywhere;
 }
@@ -175,19 +99,6 @@
     font-size: 11px;
     color: var(--bl-ink-3);
 }
-
-/* ==================================================================
-   Category attributes.
-
-   One row per attribute the marketplace defines for the chosen
-   category: what it is called on the left, the control that sets it on
-   the right. Hairlines between rows, no box each, because there can be
-   forty of them and forty boxes is a wall.
-
-   These rows are also what the fetch-attributes endpoint returns, so
-   the classes live here rather than on the page: the AJAX response is
-   the same Blade partial and has to land looking identical.
-   ================================================================== */
 
 .gf-attrs { display: block; }
 
@@ -214,9 +125,6 @@
     color: var(--bl-ink);
 }
 
-/* The marketplace's own key for this attribute. It is what appears in
-   an API error message, so it is worth showing, but it is a machine
-   name and reads as one. */
 .gf-attr__key {
     display: block;
     margin-top: 2px;
@@ -226,12 +134,6 @@
     word-break: break-all;
 }
 
-/* Mandatory is the asterisk every form taught (the owner, 2026-09-04) -
-   deliberately identical to .fm-req, which is the marker every other
-   required field in this system carries: the same fact should not be
-   shouted here and murmured there. Muted rather than attn here, because
-   twenty attention-coloured stars down one attribute column would teach
-   the operator that the colour is decoration. */
 .gf-attr__req {
     margin-left: 2px;
     color: var(--bl-ink-3);
@@ -241,22 +143,12 @@
 
 .gf-attr__control { min-width: 0; }
 
-/* .x-select-wrap is inline-flex, so a <select> in this column shrinks
-   to its widest option while the <input> beside it fills the row. Two
-   controls answering the same kind of question at two different widths
-   is the unconsidered look this system avoids; both fill the column.
-   Caught in the browser. */
 .gf-attr__control > .x-select-wrap,
 .gf-attr__value > .x-select-wrap { display: flex; width: 100%; }
 
 .gf-attr__control > .x-select-wrap > .x-input,
 .gf-attr__value > .x-select-wrap > .x-input { width: 100%; }
 
-/* The manual-value / product-field pair (Lazada). How the value is
-   filled in on the left, the control that fills it on the right. The
-   two value controls are alternatives to each other and share one
-   cell, so exactly one of them is visible and neither moves when the
-   other appears. */
 .gf-attr__mode {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -270,19 +162,11 @@
 
 .gf-attr__value { min-width: 0; }
 
-/* .x-select-wrap sets its own display, so the user agent's [hidden]
-   rule loses to it and a script toggling the attribute appears to do
-   nothing. Re-stated here at a weight that wins. Trap #2 of the shell
-   anatomy notes, and the reason this rule exists at all. */
 .gf-attr__mode [hidden],
 .gf-attr__value [hidden] { display: none; }
 
-/* The resolved-value preview belongs under both columns, not beside
-   the mode selector. */
 .gf-attr__mode > .gf-attr__resolved { grid-column: 1 / -1; }
 
-/* What the chosen product field currently resolves to. A quiet line
-   under the pair, not a tinted callout: it is a preview, not a state. */
 .gf-attr__resolved {
     margin-top: var(--bl-space-2);
     padding-left: var(--bl-space-3);
@@ -309,19 +193,11 @@
     font-size: 12px;
 }
 
-/* A required attribute still blank: the attention tone, said before the
-   push rather than only after Lazada refuses it. */
 .gf-attr__need {
     margin-top: var(--bl-space-2);
     color: var(--bl-attn);
     font-size: 12px;
 }
-
-/* ------------------------------------------------------------------
-   Phones. The panes are already stacked by the 901px breakpoint above;
-   this shortens them so both plus the move buttons plus the save bar
-   are reachable without a long scroll past an inner scroll.
-   ------------------------------------------------------------------ */
 
 @media (max-width: 640px) {
     .gf-pane__body { height: 260px; }
@@ -330,23 +206,10 @@
     .gf-move .x-btn { flex: 1 1 auto; }
     .gf-count { font-size: 24px; }
 
-    /* The combobox's Refresh button drops under the field rather than
-       squeezing it to nothing beside it. */
     .gf-combo { flex-wrap: wrap; }
     .gf-combo__field { flex: 1 1 100%; }
 }
 
-/* ==================================================================
-   The category combobox inside a CARD (the Shopee listing page).
-
-   .fm-card clips its children (overflow: hidden, for the rounded
-   corners), which beheaded the results list at the card's edge - and
-   sibling cards paint in DOM order, so what survived the clip went
-   UNDER the next card. The group form never showed either failure
-   because its combo lives in a section, not a card. A card hosting
-   the combo keeps its corners but not the clip, and rises above its
-   siblings only while the list is open.
-   ================================================================== */
 .fm-card:has([data-category-combo]) {
     overflow: visible;
 }
@@ -356,10 +219,6 @@
     z-index: 40;
 }
 
-/* One product, one group (cleanup point 3): owned search results are
-   read-only with their owner named; Move here is the deliberate
-   transfer. Shared by the dual-pane form picker (gf-) and the
-   products-page manual add (cc-). */
 .gf-row--owned .gf-name,
 .cc-row--owned .co-item__name { color: var(--bl-ink-3); }
 
@@ -390,10 +249,6 @@
 .gf-move:hover,
 .cc-move:hover { color: var(--bl-ink); }
 
-/* Reading a brand list (2026-09-05): a first-time list comes from Shopee
-   a page at a time, and the box is locked until the last page. The bar is
-   indeterminate because Shopee never says how many pages there are; the
-   count beside it is the honest measure. A transform, never a width. */
 .gf-combo__progress {
     display: flex;
     align-items: center;

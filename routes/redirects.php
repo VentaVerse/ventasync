@@ -1,35 +1,15 @@
 <?php
 
-// ─────────────────────────────────────────────────────────────────────────
-// TEMPORARY SCAFFOLDING, IA migration (docs/superpowers/plans/2026-08-08-
-// ia-migration.md). Every entry here 301-redirects an OLD URI (from before
-// a page moved under its navigation section's prefix) to its NEW home.
-// Route NAMES never changed, only URIs, these are pure path shims for
-// stale bookmarks, links in old emails/tickets, and anything external that
-// still points at the pre-migration path.
-//
-// GET/HEAD only, by design: a 301 on a POST/PUT/DELETE/PATCH silently drops
-// the request body on redirect-following clients, which would be worse than
-// a clean 404, old write endpoints simply stop existing with the move. The
-// two safety-net sweeps (ViewResolutionSweepTest, RouteNameSweepTest) prove
-// nothing in this codebase still targets an old write URI.
-//
-// Deletable after the next major release once external bookmarks/links have
-// had a full cycle to update, do not add new permanent behaviour here.
-// ─────────────────────────────────────────────────────────────────────────
+// GET/HEAD only: a 301 on a write request drops the body on redirect-following clients.
 
 use Illuminate\Support\Facades\Route;
 
-// Preserve the tail of a catch-all segment plus the original query string,
-// so `/vendors/42/edit?highlight=1` redirects to
-// `/purchasing/vendors/42/edit?highlight=1`, not a bare parent path.
 $withQuery = function (string $path): string {
     $qs = request()->getQueryString();
 
     return $qs ? "{$path}?{$qs}" : $path;
 };
 
-// ── Purchasing ──────────────────────────────────────────────────────────
 Route::get('/vendors/{any?}', fn (?string $any = null) => redirect($withQuery('/purchasing/vendors'.($any ? '/'.$any : '')), 301))
     ->where('any', '.*');
 
@@ -43,164 +23,64 @@ Route::get('/api/vendors', fn () => redirect($withQuery('/purchasing/api/vendors
 
 Route::get('/api/purchase-orders/products', fn () => redirect($withQuery('/purchasing/api/purchase-orders/products'), 301));
 
-// The product-vendor AJAX list endpoint, was flat, now nested under
-// /purchasing/api. The sibling "manage" page route (/purchasing/products/
-// {id}/vendors) never moved, so it needs no redirect.
 Route::get('/products/{id}/vendors', fn (string $id) => redirect($withQuery('/purchasing/api/products/'.$id.'/vendors'), 301))
     ->whereNumber('id');
 
-// ── Warehousing ─────────────────────────────────────────────────────────
-// Every page URI already carried its /warehousing/ segment before this
-// task; only the product-search API endpoint was flat.
 Route::get('/api/warehousing/products', fn () => redirect($withQuery('/warehousing/api/products'), 301));
 
-// ── Catalog: Reviews (OpenCart extension, nav-grouped under Catalog) ──
 Route::get('/reviews/{any?}', fn (?string $any = null) => redirect($withQuery('/catalog/reviews'.($any ? '/'.$any : '')), 301))
     ->where('any', '.*');
 
-// ─────────────────────────────────────────────────────────────────────────
-//  Task 2: channel pages under their workspace roots
-//
-//  Every seller center page moved from /{channel}/… to /channels/{channel}
-//  /…, so the address bar names the workspace the operator is standing in.
-//
-//  ORDERING NOTE, and the reason these are per-FAMILY rather than one
-//  catch-all per channel: this file is required at the end of routes/web.php,
-//  which Laravel loads BEFORE any extension provider boots. Every shim here is
-//  therefore registered AHEAD of the extension routes it shadows. A blanket
-//  `/shopee/{any?}` would sit in front of the live OAuth surfaces below and
-//  301 Shopee's own callback into a page it has never heard of. Naming each
-//  moved family instead means no shim can ever reach a URI that did not move.
-//
-//  EXEMPT, and absent from this file on purpose - these URIs did NOT move and
-//  must not be redirected. They are registered at the marketplaces' developer
-//  consoles and compared byte-for-byte on every consent round trip, so a 301
-//  does not rescue them; it simply makes the comparison fail somewhere the
-//  operator cannot see:
-//    GET /shopee           ext.shopee.index      Shopee redirect URI
-//    GET /shopee/authorize ext.shopee.authorize  consent entry point
-//    GET /lazada/callback  lazada.callback       Lazada redirect URI
-//    GET /lazada/authorize ext.lazada.authorize  consent entry point
-//    GET /tiktok/callback  ext.tiktok.callback   TikTok Shop redirect URI
-//    GET /tiktok/authorize ext.tiktok.authorize  consent entry point
-//
-//  That list is now COMPLETE. Round F Task 2 brought the last two channels,
-//  Pedallion and Shopify, under this grammar and neither adds an entry to it:
-//  both authenticate with an operator-pasted API credential (a Pedallion API
-//  key, a Shopify custom app's Admin API access token), neither registers a
-//  redirect URI anywhere, and neither has a consent round trip. Verified
-//  against every controller, client and route file in both extensions before
-//  their URIs moved. The IA migration's final review registered their flat
-//  URIs as an unexplained gap; this closes it.
-// ─────────────────────────────────────────────────────────────────────────
+// Shims are per family, never a catch-all: OAuth redirect and authorize URIs are compared byte for byte and must not move.
 
-// A moved family: /{channel}/{family}/… -> /channels/{channel}/{family}/…
-// with the tail and the query string carried through untouched.
 $channelFamily = function (string $channel, string $family) use ($withQuery): void {
     Route::get("/{$channel}/{$family}/{any?}", function (?string $any = null) use ($withQuery, $channel, $family) {
         return redirect($withQuery("/channels/{$channel}/{$family}".($any ? '/'.$any : '')), 301);
     })->where('any', '.*');
 };
 
-// ── Shopee ──────────────────────────────────────────────────────────────
-// No shim for the channel root: /shopee is the live OAuth redirect URI.
 foreach (['orders', 'products', 'product-groups', 'categories', 'logistics'] as $family) {
     $channelFamily('shopee', $family);
 }
 
-// ── Lazada ──────────────────────────────────────────────────────────────
-// The settings page gained a segment of its own (/channels/lazada is the
-// workspace Overview), so the bare channel root points at it.
 Route::get('/lazada', fn () => redirect($withQuery('/channels/lazada/settings'), 301));
 
 foreach (['orders', 'products', 'product-groups', 'categories', 'brands'] as $family) {
     $channelFamily('lazada', $family);
 }
 
-// ── TikTok ──────────────────────────────────────────────────────────────
 Route::get('/tiktok', fn () => redirect($withQuery('/channels/tiktok/settings'), 301));
 
 foreach (['orders', 'product-groups', 'categories'] as $family) {
     $channelFamily('tiktok', $family);
 }
 
-// ── Pedallion ───────────────────────────────────────────────────────────
-// Single store, API key, no OAuth surface at all, so nothing here is exempt
-// and the bare channel root gets a shim like Lazada's and TikTok's do.
 Route::get('/pedallion', fn () => redirect($withQuery('/channels/pedallion/settings'), 301));
 
 foreach (['orders', 'products', 'product-groups', 'categories'] as $family) {
     $channelFamily('pedallion', $family);
 }
 
-// Two families whose flat form was NOT `/pedallion/{family}/…` and so is not
-// covered by the loop above: the manufacturers fetch (a POST, so no shim, but
-// named here so the inventory is complete) and the api-logs delete (likewise).
-// Both moved under the page that offers them. Nothing GETtable was lost.
-
-// ── Venta and OpenCart (multi-store, slash grammar) ─────────────────────
-// Their pages were already store-scoped as /{channel}/{store}/…, so the store
-// segment simply rides along under the new prefix. Only the settings page
-// changed shape: the store now precedes what it scopes.
-// Shopify joins them with Round F Task 2. Its pages were already store-scoped
-// as /shopify/{store}/orders, and its settings page carried the same
-// /shopify/settings/{store} shape Venta's and OpenCart's did, so the three
-// shims below are identical in kind. Shopify has no OAuth surface either, so
-// its bare channel root is shimmed like theirs rather than exempted.
 foreach (['venta', 'opencart', 'shopify'] as $channel) {
     Route::get("/{$channel}/settings/{store}", fn (string $store) => redirect($withQuery("/channels/{$channel}/{$store}/settings"), 301))
         ->whereNumber('store');
 
-    // The storeless fallback that redirects to the first configured store.
     Route::get("/{$channel}", fn () => redirect($withQuery("/channels/{$channel}/settings"), 301));
 
-    // Everything else under a store: orders, product groups and their tails.
-    // whereNumber('store') is what keeps this off /{channel}/settings/{store}
-    // above regardless of which is registered first.
     Route::get("/{$channel}/{store}/{any}", fn (string $store, string $any) => redirect($withQuery("/channels/{$channel}/{$store}/{$any}"), 301))
         ->whereNumber('store')
         ->where('any', '.*');
 }
 
-// ── The workspace Overview's own colon form ─────────────────────────────
-// The internal key for a store workspace is `venta:2` and stays that way
-// (StoreLink ids, OrderTab ids, the hub's channel= parameter). It used to
-// reach the URL as well; spec decision 3 replaced that with slash grammar.
-// This catches anything still holding the old exposed form.
-//
-// integrations.workspace's own `channel` pattern excludes ':', so a colon URL
-// falls past it to here rather than being answered as an unknown channel.
 Route::get('/integrations/{key}', fn (string $key) => redirect($withQuery('/channels/'.str_replace(':', '/', $key)), 301))
     ->where('key', '[A-Za-z0-9_.-]+:[0-9]+');
 
-// The same guard under the renamed prefix: no dashboard route's own pattern
-// admits a colon, so /channels/venta:2 would otherwise fall through to 404
-// while /channels/venta/2 renders. The contract survives the rename.
 Route::get('/channels/{key}', fn (string $key) => redirect($withQuery('/channels/'.str_replace(':', '/', $key)), 301))
     ->where('key', '[A-Za-z0-9_.-]+:[0-9]+');
-
-// ─────────────────────────────────────────────────────────────────────────
-//  Task 3: core decisions
-//
-//  Spec decision 2, /sales/order-statuses is Settings, not Sales.
-//
-//  The settings ?tab= split (spec decision 4) needs NO entry here: the old
-//  URI, /settings/edit, still exists as a real named route (settings.edit -
-//  named originally because the protected layouts/app.blade.php called it,
-//  and kept named after Round F Task 4 deleted that layout only because the
-//  route-table fixture pins it) and redirects from inside
-//  SettingController::redirectLegacyEdit() rather than as a path shim, since
-//  the mapping depends on a query value, not just the path.
-// ─────────────────────────────────────────────────────────────────────────
 
 Route::get('/sales/order-statuses/{any?}', fn (?string $any = null) => redirect($withQuery('/settings/order-statuses'.($any ? '/'.$any : '')), 301))
     ->where('any', '.*');
 
-// ── /integrations retired (2026-08-23) ──────────────────────────────────
-// The menu said Channels and the URL said integrations; the URL lost. The
-// fulfilment hub moved AND was renamed in the same pass: /integrations/
-// orders said "orders", which already means the Sales record one menu
-// group up. GET only, same reasoning as everything above.
 Route::get('integrations/{path?}', function (?string $path = null) use ($withQuery) {
     $path = (string) $path;
 

@@ -8,7 +8,6 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Add new granular permissions
         $permissions = [
             [
                 'key'         => 'manage_reports',
@@ -22,7 +21,6 @@ return new class extends Migration
             ],
         ];
 
-        // Guard: label/description are dropped by 2026_04_09. Skip missing columns.
         $hasLabel = Schema::hasColumn('permissions', 'label');
         $hasDescription = Schema::hasColumn('permissions', 'description');
 
@@ -40,7 +38,6 @@ return new class extends Migration
             }
         }
 
-        // Auto-assign new permissions to Administrator group
         $adminGroup = DB::table('user_groups')->where('name', 'Administrator')->first();
         if ($adminGroup && !empty($newIds)) {
             foreach ($newIds as $pid) {
@@ -51,8 +48,6 @@ return new class extends Migration
             }
         }
 
-        // Also assign to any group that already has manage_orders (for reports)
-        // and manage_settings (for activity log) to avoid breaking existing access
         $reportsPerm = DB::table('permissions')->where('key', 'manage_reports')->first();
         $activityPerm = DB::table('permissions')->where('key', 'manage_activity_log')->first();
 

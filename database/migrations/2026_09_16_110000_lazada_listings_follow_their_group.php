@@ -4,14 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Lazada used to copy a group's category, price rule, brand and attribute
- * answers into each listing it touched. A blank listing field now follows
- * its group, so a copy that still equals the group's value is returned to
- * blank: the listing keeps following the group when the group changes.
- * A value the operator changed on the listing differs from the group's
- * and is left exactly as it is.
- */
 return new class extends Migration
 {
     public function up(): void
@@ -22,7 +14,6 @@ return new class extends Migration
             }
         }
 
-        // Each membership with its own store's listing row: another store's listing never follows this group.
         $pairs = DB::table('lazada_product_group_products as gp')
             ->join('lazada_product_groups as g', 'g.id', '=', 'gp.lazada_product_group_id')
             ->join('lazada_products as l', 'l.id', '=', 'gp.lazada_product_id')
@@ -67,6 +58,5 @@ return new class extends Migration
 
     public function down(): void
     {
-        // The copies carried the group's values; following the group sends the same.
     }
 };

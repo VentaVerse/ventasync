@@ -17,13 +17,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * TikTok category attributes and the one product builder (#156). The
- * category's sheet is read from TikTok once and cached; a group answers
- * it once for every product it pushes; the push carries the answers as
- * product_attributes, and writes the truth onto the product's own
- * listing record as well as the pivot.
- */
 class TiktokAttributesTest extends TestCase
 {
     use RefreshDatabase;
@@ -143,11 +136,10 @@ class TiktokAttributesTest extends TestCase
         $r->assertOk();
         $r->assertSee('Brand Origin');
         $r->assertSee('Material');
-        $r->assertDontSee('TikTok attribute 100003');   // a sales property is a variation axis, not a question
+        $r->assertDontSee('TikTok attribute 100003');
         $this->assertCount(1, $this->callsFor('GET', '/product/202309/categories/900009/attributes'));
         $this->assertNotNull(TikTokCategoryTemplate::where('category_id', '900009')->first());
 
-        // A second open reads the cache, not TikTok.
         $this->actingAs($this->manager())->get(route('ext.tiktok.product-groups.edit', $group->id))->assertOk();
         $this->assertCount(1, $this->callsFor('GET', '/product/202309/categories/900009/attributes'));
     }
@@ -186,18 +178,11 @@ class TiktokAttributesTest extends TestCase
         $this->assertSame('tt-777', TikTokProductGroupProduct::where('product_id', $productId)->value('tiktok_product_id'));
     }
 
-    /**
-     * the owner, 2026-09-07: a store listing's own title and description are
-     * saved per store and must go up from EVERY door. The group push carried
-     * neither, so the builder fell back to the catalog and the listing's own
-     * words, saved and shown on its page, were never sent.
-     */
     public function test_a_group_push_sends_the_listings_own_words_not_the_catalogs(): void
     {
         $productId = $this->seedProduct();
         $group = TikTokProductGroup::create(['name' => 'Words group', 'tiktok_category_id' => '900009']);
         TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => $productId, 'sync_status' => 'pending']);
-        // The category's required answers, so readiness lets the push run.
         $this->actingAs($this->manager())->put(route('ext.tiktok.product-groups.update', $group->id), [
             'name' => 'Words group', 'tiktok_category_id' => '900009',
             'attributes' => ['100001' => 'v-ph', '100002' => 'Maple'],
@@ -214,17 +199,10 @@ class TiktokAttributesTest extends TestCase
 
         $creates = $this->callsFor('POST', '/product/202309/products');
         $this->assertCount(1, $creates);
-        // TikTok pads a short title with the SKU, so the listing's words are
-        // what the title is BUILT from rather than the whole of it.
         $this->assertStringStartsWith('TikTok only title', $creates[0]['body']['title']);
         $this->assertSame('TikTok only description.', $creates[0]['body']['description']);
     }
 
-    /**
-     * Every push is the listing's own values first, the group's only where
-     * the listing has none. A group push used to send an empty brand, so a
-     * group update could strip a live product's brand.
-     */
     public function test_a_group_push_keeps_the_listings_own_brand(): void
     {
         $productId = $this->seedProduct();
@@ -247,11 +225,6 @@ class TiktokAttributesTest extends TestCase
         $this->assertSame('900009', (string) $creates[0]['body']['category_id'], 'the group fills the category the listing leaves blank');
     }
 
-    /**
-     * Send is one verb on a group too. A product already on TikTok Shop is
-     * updated there on the group's settings; the group's Send used to count
-     * it as skipped and send nothing.
-     */
     public function test_a_group_send_updates_a_product_already_on_tiktok_instead_of_skipping_it(): void
     {
         $productId = $this->seedProduct();
@@ -266,14 +239,12 @@ class TiktokAttributesTest extends TestCase
         $this->assertCount(0, $this->callsFor('POST', '/product/202309/products'), 'nothing new is created on TikTok Shop');
     }
 
-    /** The Listings page's selection bar: the same, on the listing's own settings. */
     public function test_the_selection_bars_send_updates_a_product_already_on_tiktok(): void
     {
         $productId = $this->seedProduct();
         $group = TikTokProductGroup::create(['name' => 'Live group', 'tiktok_category_id' => '900009']);
         TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => $productId, 'tiktok_product_id' => 'tt-556', 'sync_status' => 'pushed']);
         TikTokListing::query()->create(['product_id' => $productId, 'tiktok_product_id' => 'tt-556']);
-        // The category's attribute sheet is on file, as it is once a group or listing has read it.
         \Extensions\tiktok\Models\TikTokCategoryTemplate::create(['category_id' => '900009', 'attributes' => [], 'fetched_at' => now()]);
         $user = $this->manager();
         $user->userGroup->permissions()->attach(Permission::whereIn('key', ['manage_tiktok/product', 'view_tiktok/product'])->pluck('id')->all());

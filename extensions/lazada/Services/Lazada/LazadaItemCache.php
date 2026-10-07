@@ -9,26 +9,8 @@ use Extensions\lazada\Models\LazadaSetting;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-/**
- * The item read-back, out of the god controller (Phase C, #184).
- *
- * One /product/item/get answer feeds four caches: the live-status MIRROR
- * (#184 C write-through), the sync-outcome columns, the variant rows
- * (sku_id / shop_sku / product_option_value_id), and the group pivot.
- * This existed as FIVE private copies - refreshLazadaProductCache and
- * fetchAndCacheLazadaVariants in the product controller, near-identical
- * twins of both in the group controller, and a third variant fetcher in
- * the stock-push command - drifting apart one edit at a time. The $pack
- * argument keeps each caller's audit-log identity.
- */
 class LazadaItemCache
 {
-/**
-/**
- * Full cache refresh for a Lazada product: variants, status, stale cleanup, sync_status, error fields.
- * Returns the item as Lazada answered it, or null when it did not answer,
- * so a caller that needs the item after a write reads it only once.
- */
 public function refreshListing(LazadaProduct $listing, object $setting, LazadaClient $client, string $pack = 'lazada.product.item.get.cache'): ?array
 {
     $itemId = (string) ($listing->lazada_item_id ?? '');
@@ -65,7 +47,6 @@ public function refreshListing(LazadaProduct $listing, object $setting, LazadaCl
 
     $answered = ($res['ok'] ?? false) && ($apiCode === '' || $apiCode === '0');
     if (! $answered) {
-        // A read can set a failure: Lazada saying the item is gone becomes the line.
         $said = is_array($body) ? trim((string) ($body['message'] ?? '')) : '';
         if (preg_match('/not\s*(?:exist|found)|E0207/i', $apiCode . ' ' . $said)) {
             LazadaListingStates::on((int) ($listing->lazada_setting_id ?? 0) ?: (int) ($setting->id ?? 0))
@@ -77,17 +58,12 @@ public function refreshListing(LazadaProduct $listing, object $setting, LazadaCl
 
     if (empty($data) || !is_array($data)) return null;
 
-    // 1. Write the answer through to the mirror (#184 C). This read runs
-    // after uploads and ID matches, so the status in hand is exactly the
-    // freshness the row needs - the old code wrote it to the dead `status`
-    // column nothing reads, and the mirror waited for the 30-minute sweep.
     $lazadaStatus = strtolower(trim((string) ($data['status'] ?? '')));
     if ($lazadaStatus !== '') {
         $listing->live_status = $lazadaStatus;
         $listing->live_checked_at = now();
     }
 
-    // 2. The sync stamp moves only on a row carrying no failure: a read never clears an error.
     if (! ($listing->last_sync_ok !== null && ! $listing->last_sync_ok)) {
         $listing->last_sync_ok = true;
         $listing->last_sync_error_code = null;
@@ -96,7 +72,6 @@ public function refreshListing(LazadaProduct $listing, object $setting, LazadaCl
     }
     $listing->save();
 
-    // 3. Refresh variants (sku_id, shop_sku, pov_id mapping)
     $pfx = (string) config('catalog.prefix');
     $skuToPovId = [];
     $erpOvs = DB::table($pfx . 'product_option_value')
@@ -133,7 +108,6 @@ public function refreshListing(LazadaProduct $listing, object $setting, LazadaCl
         } catch (\Throwable $ex) {}
     }
 
-    // The item's seller SKUs, remembered only from an answer that holds them.
     if (($res['ok'] ?? false) && ($apiCode === '' || $apiCode === '0') && is_array($skus) && $skus !== []) {
         LazadaListingStates::rememberHeld(
             (int) ($listing->lazada_setting_id ?? 0) ?: (int) ($setting->id ?? 0),
@@ -142,14 +116,12 @@ public function refreshListing(LazadaProduct $listing, object $setting, LazadaCl
         );
     }
 
-    // 4. Remove stale variants no longer on Lazada
     if (!empty($activeLazadaSkus)) {
         LazadaProductVariant::where('lazada_product_id', $listing->id)
             ->whereNotIn('seller_sku', $activeLazadaSkus)
             ->delete();
     }
 
-    // 5. Update sync_status on group pivot, never over a failed attempt
     DB::table('lazada_product_group_products')
         ->where('lazada_product_id', $listing->id)
         ->where(fn ($q) => $q->whereNull('sync_status')->orWhereNotIn('sync_status', ['error', 'failed']))
@@ -158,10 +130,6 @@ public function refreshListing(LazadaProduct $listing, object $setting, LazadaCl
     return $data;
 }
 
-/**
- * Fetch Lazada product variants via /product/item/get, cache SkuId in lazada_product_variants.
- * Returns array of ['seller_sku' => ..., 'sku_id' => ..., 'shop_sku' => ...].
- */
 public function fetchAndCacheVariants(LazadaProduct $listing, object $setting, LazadaClient $client, string $pack = 'lazada.product.item.get.variants'): array
 {
     $itemId = (string) ($listing->lazada_item_id ?? '');
@@ -239,7 +207,6 @@ public function fetchAndCacheVariants(LazadaProduct $listing, object $setting, L
         } catch (\Throwable $ex) {}
     }
 
-    // The item's seller SKUs, remembered only from an answer that holds them.
     if (($res['ok'] ?? false) && ($apiCode === '' || $apiCode === '0') && $skus !== []) {
         LazadaListingStates::rememberHeld(
             (int) ($listing->lazada_setting_id ?? 0) ?: (int) ($setting->id ?? 0),
@@ -251,15 +218,10 @@ public function fetchAndCacheVariants(LazadaProduct $listing, object $setting, L
     return $variants;
 }
 
-/**
- * Resolve SellerSku => SkuId for a listing. Uses cached lazada_product_variants first, falls back to API.
- * Returns array keyed by seller_sku => sku_id.
- */
 public function resolveSkuIds(LazadaProduct $listing, object $setting, LazadaClient $client, string $pack = 'lazada.product.item.get.variants'): array
 {
     $map = [];
 
-    // Try cached variants first
     $cached = LazadaProductVariant::where('lazada_product_id', $listing->id)
         ->whereNotNull('sku_id')
         ->get(['seller_sku', 'sku_id']);
@@ -269,12 +231,6 @@ public function resolveSkuIds(LazadaProduct $listing, object $setting, LazadaCli
             $map[trim((string) $v->seller_sku)] = (int) $v->sku_id;
         }
 
-        // Check if all ERP variation SKUs are covered by the cache.
-        // If not, the cache is stale — re-fetch from Lazada API. The diff
-        // reads combinations AND option values (Phase F, #184): it read
-        // POV alone before, so a multi-option product's cache was forever
-        // "fresh" and a variation added in the catalogue never triggered
-        // the refetch that would have found its Lazada twin.
         $pfx = (string) config('catalog.prefix');
         $erpSkus = \App\Integrations\Listings\ListingVariations::sold('lazada', (int) ($listing->lazada_setting_id ?? 0), [(int) $listing->product_id], $pfx)[(int) $listing->product_id] ?? [];
 
@@ -282,11 +238,8 @@ public function resolveSkuIds(LazadaProduct $listing, object $setting, LazadaCli
         if (empty($missingSkus)) {
             return $map;
         }
-
-        // Stale cache — re-fetch from API to pick up new/renamed Lazada variants
     }
 
-    // Fetch from API and cache
     $variants = $this->fetchAndCacheVariants($listing, $setting, $client, $pack);
     $map = [];
     foreach ($variants as $v) {
@@ -295,12 +248,6 @@ public function resolveSkuIds(LazadaProduct $listing, object $setting, LazadaCli
     return $map;
 }
 
-/**
- * Fetch Lazada SKU IDs for an item via /product/item/get and build sku_id_list entries.
- * Returns array like: ["SkuId_<itemId>_<skuId>", ...]
- *
- * This is used to make /product/remove reliable even when variant sku_id mapping isn't stored locally.
- */
 public function fetchSkuIdListByItemId(\Extensions\lazada\Services\Lazada\LazadaClient $client, string $region, string $appKey, string $appSecret, string $accessToken, string $itemId): array
 {
     $apiPath = '/product/item/get';
@@ -315,14 +262,12 @@ public function fetchSkuIdListByItemId(\Extensions\lazada\Services\Lazada\Lazada
     ];
     $params['sign'] = $client->sign($apiPath, $params, $appSecret);
 
-    // This endpoint supports GET in Lazada docs; use GET.
     $res = $client->get($region, $apiPath, $params);
     $body = $res['body'] ?? null;
     if (!is_array($body)) {
         return [];
     }
 
-    // Try common shapes.
     $skus = data_get($body, 'data.skus')
         ?? data_get($body, 'data.Skus.Sku')
         ?? data_get($body, 'skus')
@@ -344,7 +289,6 @@ public function fetchSkuIdListByItemId(\Extensions\lazada\Services\Lazada\Lazada
         $out[] = 'SkuId_' . $itemId . '_' . (string) $skuId;
     }
 
-    // Deduplicate
     $out = array_values(array_unique($out));
     return $out;
 }

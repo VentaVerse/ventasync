@@ -4,27 +4,8 @@ namespace App\Support;
 
 use Illuminate\Support\Str;
 
-/**
- * The marketplace's own error message, and nothing else (the owner,
- * 2026-09-03: "Instead of going to the API logs, I want the reason why
- * the API had error. It should not be the whole return message. Only
- * the error message.").
- *
- * Every channel client answers ['ok' => bool, 'status' => int, 'body'
- * => array]; every marketplace hides its reason in its own corner of
- * the body. This is the ONE place that knows those corners, so a flash
- * or result panel can print the reason without either dumping the
- * payload or shrugging "Unknown error" while the reason sat one field
- * over. MarketplaceWords::headline() stays the layer above: it turns a
- * KNOWN reason into plain seller words; this extracts the reason.
- */
 final class MarketplaceAnswer
 {
-    /**
-     * The error message alone, or null when the answer was a success.
-     * Clipped to one flash-sized line; the full body belongs behind a
-     * details fold or in the API log, never in the message.
-     */
     public static function error(string $channel, array $result): ?string
     {
         $body = is_array($result['body'] ?? null) ? $result['body'] : [];
@@ -47,16 +28,6 @@ final class MarketplaceAnswer
         return $message !== null ? Str::limit(trim($message), 300, '…') : null;
     }
 
-    /**
-     * The idiot-proof variant for flashes (the owner, 2026-09-03): a KNOWN
-     * reason comes back translated into plain seller words by the
-     * hardcoded map in MarketplaceWords; an unknown one keeps the
-     * marketplace's own sentence, because a made-up translation would
-     * be worse. Surfaces that render partials.channel-answer keep using
-     * errorText() - the partial translates itself and keeps the raw
-     * sentence one click away, which a flash has no room for. The raw
-     * answer always survives in the API log either way.
-     */
     public static function plain(string $channel, array $result): string
     {
         $message = self::errorText($channel, $result);
@@ -64,18 +35,12 @@ final class MarketplaceAnswer
         return MarketplaceWords::headline($channel, $message) ?? $message;
     }
 
-    /** Never-null variant for failure branches that already know they failed. */
     public static function errorText(string $channel, array $result): string
     {
         return self::error($channel, $result)
             ?? ($channel . ' reported no error message.');
     }
 
-    /**
-     * Shopee replies HTTP 200 with an `error` code beside a often-empty
-     * `message`; per-item refusals ride response.failure_list with the
-     * real sentence in fail_message.
-     */
     private static function shopee(bool $ok, array $body): ?string
     {
         $code = trim((string) ($body['error'] ?? ''));
@@ -96,11 +61,6 @@ final class MarketplaceAnswer
         return $code !== '' ? $code : null;
     }
 
-    /**
-     * Lazada: code '0' is success; the reason lives in message. A
-     * transport failure carries a message with no code at all, and must
-     * not read as success for lacking one.
-     */
     private static function lazada(bool $ok, array $body): ?string
     {
         $code = trim((string) ($body['code'] ?? '0'));
@@ -108,9 +68,6 @@ final class MarketplaceAnswer
             return null;
         }
 
-        // The detail[] list is the message that matters (a broad "E500:
-        // Create product failed" beside "p-100005514: C004: cannot be
-        // blank"); it leads when present.
         $details = [];
         foreach ((array) ($body['detail'] ?? []) as $d) {
             if (is_array($d) && trim((string) ($d['message'] ?? '')) !== '') {
@@ -126,10 +83,6 @@ final class MarketplaceAnswer
         return $message !== null ? $message . " ({$code})" : "Lazada refused with code {$code}.";
     }
 
-    /**
-     * TikTok: body.code 0 is success; per-SKU refusals inside an
-     * accepted call ride data.errors[].message.
-     */
     private static function tiktok(bool $ok, array $body): ?string
     {
         $code = (int) ($body['code'] ?? ($ok ? 0 : -1));
@@ -148,7 +101,6 @@ final class MarketplaceAnswer
         return $parts !== [] ? self::joined($parts) : null;
     }
 
-    /** "The item cannot be updated: model SKU GTR-1PC already exists". */
     private static function joined(array $parts): string
     {
         $parts = array_values($parts);

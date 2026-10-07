@@ -67,7 +67,6 @@ class OpenCartSync extends Command implements \App\Integrations\Contracts\Steppa
         $startPage = (int) $this->option('page');
         $maxPages = (int) $this->option('max-pages');
 
-        // Ping test
         $ping = $client->ping();
         if (!$ping['ok']) {
             $this->error('Cannot connect to OpenCart API: ' . json_encode($ping['body']));
@@ -77,12 +76,10 @@ class OpenCartSync extends Command implements \App\Integrations\Contracts\Steppa
         $info = $ping['body']['data'] ?? [];
         $this->info('Connected. Store: ' . ($info['store'] ?? '?') . ', Version: ' . ($info['version'] ?? '?'));
 
-        // Enforced sync order when entity is 'all'
         $entities = $entity === 'all'
             ? ['categories', 'manufacturers', 'options', 'products', 'orders']
             : [$entity];
 
-        // Maps passed between sync steps
         $categoryMap = [];
         $manufacturerMap = [];
         $optionMap = [];
@@ -167,11 +164,6 @@ class OpenCartSync extends Command implements \App\Integrations\Contracts\Steppa
         return 0;
     }
 
-    /**
-     * Run now walks this sync one store per request (SteppableAutomation,
-     * 2026-09-07): the bar moves per store, and the page never shows the
-     * console. The job's store (its options) is the only store.
-     */
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
         $stores = OpenCartSetting::query()->where('enabled', true);

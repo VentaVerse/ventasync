@@ -12,8 +12,6 @@ use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
-    // There is no sign-up: the one account made here is the install's first,
-    // and every other account is added by an administrator.
     Route::get('setup', [FirstAccountController::class, 'create'])->name('first-account');
     Route::post('setup', [FirstAccountController::class, 'store'])
                 ->middleware('throttle:10,1')

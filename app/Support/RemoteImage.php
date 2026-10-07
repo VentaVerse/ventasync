@@ -4,23 +4,6 @@ namespace App\Support;
 
 use Illuminate\Support\Facades\Http;
 
-/**
- * The one way an importer downloads a marketplace image (2026-09-04,
- * from the security review of the channel importers).
- *
- * The URL comes from a channel's API answer - data, not something this
- * server chose - so fetching it blindly is server-side request forgery:
- * a hostile or compromised channel could hand back links to the cloud
- * metadata service or anything else on the private network. This
- * fetcher refuses everything but https, resolves the host FIRST and
- * refuses private, loopback, link-local and reserved addresses, and
- * follows a redirect only by running the same check on every hop (a
- * CDN's 30x to a sibling host was why TikTok pictures never arrived,
- * 2026-09-07). The body is judged by its bytes, not the header alone:
- * a CDN that says octet-stream for a JPEG is still handing over a JPEG.
- *
- * @return array{body: string, ext: string}|null null = not fetched, for any reason
- */
 class RemoteImage
 {
     private const MAX_HOPS = 3;
@@ -44,7 +27,6 @@ class RemoteImage
                 if ($next === '') {
                     return null;
                 }
-                // A relative Location resolves against the URL that answered.
                 if (! preg_match('#^https?://#i', $next)) {
                     $base = parse_url($url);
                     $next = (string) ($base['scheme'] ?? 'https') . '://' . (string) ($base['host'] ?? '')
@@ -68,7 +50,6 @@ class RemoteImage
         return null;
     }
 
-    /** https only, and a host that resolves to public addresses. */
     private static function hostIsPublic(string $url): bool
     {
         if (! preg_match('#^https://#i', $url)) {
@@ -91,7 +72,6 @@ class RemoteImage
         return true;
     }
 
-    /** The file extension from the bytes first, the header second; null when it is not an image. */
     private static function extensionOf(string $body, string $contentType): ?string
     {
         $byBytes = match (true) {

@@ -14,12 +14,8 @@ use Illuminate\View\View;
 
 class AuthenticatedSessionController extends Controller
 {
-    /**
-     * Display the login view.
-     */
     public function create(): View|RedirectResponse
     {
-        // Nobody can sign in to an install with no accounts yet.
         if (FirstAccount::needed()) {
             return redirect()->route('first-account');
         }
@@ -27,9 +23,6 @@ class AuthenticatedSessionController extends Controller
         return view('auth.login');
     }
 
-    /**
-     * Handle an incoming authentication request.
-     */
     public function store(LoginRequest $request): RedirectResponse
     {
         $request->authenticate();
@@ -46,9 +39,6 @@ class AuthenticatedSessionController extends Controller
         return redirect()->intended(RouteServiceProvider::HOME);
     }
 
-    /**
-     * Destroy an authenticated session.
-     */
     public function destroy(Request $request): RedirectResponse
     {
         ActivityLogger::log('logout', 'User', Auth::id(), Auth::user()?->name);

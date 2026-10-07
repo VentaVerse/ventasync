@@ -11,11 +11,11 @@ return new class extends Migration {
             $table->id();
             $table->unsignedBigInteger('user_id')->nullable()->index();
             $table->string('user_name', 100)->nullable();
-            $table->string('action', 50)->index();           // created, updated, deleted, login, logout, etc.
-            $table->string('subject_type', 100)->nullable();  // Product, Order, User, etc.
+            $table->string('action', 50)->index();
+            $table->string('subject_type', 100)->nullable();
             $table->unsignedBigInteger('subject_id')->nullable();
-            $table->string('subject_label', 255)->nullable(); // Human-readable: "iPhone 15 Pro (SKU: IP15P)"
-            $table->json('changes')->nullable();              // {field: [old, new], ...}
+            $table->string('subject_label', 255)->nullable();
+            $table->json('changes')->nullable();
             $table->string('ip_address', 45)->nullable();
             $table->timestamp('created_at')->useCurrent()->index();
         });

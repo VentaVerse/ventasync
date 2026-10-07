@@ -1,8 +1,3 @@
-{{-- The Add products slide-over (#201, Draft C - the owner 2026-09-05): the shared
-     component, given Lazada's two endpoints and this store's words. Each
-     addition joins this store's list (unpushed, the push workflow unchanged)
-     and lands in the table behind when the panel closes; the full catalogue
-     page is the overflow for a browse. --}}
 <x-channel.add-panel
     id="lazada-add-panel"
     :search-url="route('ext.lazada.products.catalogue_search')"

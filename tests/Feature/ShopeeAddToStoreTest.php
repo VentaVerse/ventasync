@@ -17,16 +17,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * All Listings goes per-store (#201, the owner 2026-09-05), Shopee as the
- * reference build. THIS STORE shows only what this store carries - a listing
- * record here or a link row here; adding a main-catalogue product is the Add
- * products slide-over (Draft C): a capped catalogue search, add in place over
- * JSON, the full catalogue page one link away as the overflow. Remove from
- * store is the inverse - free, and it stops syncing. The product group page
- * carries the same panel over THIS STORE's products, and the group's edit
- * form is its settings only.
- */
 class ShopeeAddToStoreTest extends TestCase
 {
     use RefreshDatabase;
@@ -49,8 +39,6 @@ class ShopeeAddToStoreTest extends TestCase
 
     private function manager(): User
     {
-        // Unique per call: some tests act as a manager twice, and
-        // user_groups.name is unique.
         $group = UserGroup::create(['name' => 'SP add manager ' . uniqid()]);
         $group->permissions()->attach(
             Permission::whereIn('key', [
@@ -93,16 +81,12 @@ class ShopeeAddToStoreTest extends TestCase
         return '/channels/shopee/' . $this->store->id . '/product-groups/' . $groupId;
     }
 
-    // ── This store ───────────────────────────────────────────────────
-
     public function test_this_store_shows_only_products_this_store_carries(): void
     {
         $onStore = $this->seedProduct('On store widget', 'ON-1');
         $linkedOnly = $this->seedProduct('Linked only widget', 'LNK-1');
         $this->seedProduct('Catalogue only widget', 'OFF-1');
         $this->onStore($onStore);
-        // A product carried by a link row alone (a push or a match made it)
-        // is on the store too - no backfill needed for it to show.
         ShopeeProductLink::create(['shopee_setting_id' => $this->store->id, 'product_id' => $linkedOnly, 'shopee_item_id' => '777', 'sku' => 'LNK-1']);
 
         $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
@@ -119,14 +103,9 @@ class ShopeeAddToStoreTest extends TestCase
         $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
 
         $this->assertStringContainsString('No products on this store yet', $html);
-        // The empty state and the header both open the slide-over in place;
-        // no tab, no separate door.
         $this->assertStringContainsString('data-add-panel-open', $html);
         $this->assertStringContainsString('id="shopee-add-panel"', $html, 'the panel markup rides the page for a manager');
         $this->assertStringNotContainsString('cc-worktab', $html, 'the two-tab treatment never came to Shopee');
-        /* The tab row says "All", this store's own list, never "All
-           products", which framed the page as the whole catalogue. The left
-           menu's own total is allowed to say it: there it counts the store. */
         $this->assertStringNotContainsString('<span>All products</span>', $html, 'the catalogue framing is gone');
     }
 
@@ -141,8 +120,6 @@ class ShopeeAddToStoreTest extends TestCase
         $this->assertStringNotContainsString('data-add-panel-open', $html);
         $this->assertStringNotContainsString('id="shopee-add-panel"', $html);
     }
-
-    // ── The panel's catalogue search ─────────────────────────────────
 
     public function test_catalogue_search_defaults_to_products_not_yet_on_this_store(): void
     {
@@ -200,8 +177,6 @@ class ShopeeAddToStoreTest extends TestCase
         $this->assertCount(25, $r->json('items'));
     }
 
-    // ── Add ───────────────────────────────────────────────────────────
-
     public function test_add_to_store_over_json_puts_the_product_on_the_store(): void
     {
         $pid = $this->seedProduct('Catalogue only widget', 'OFF-1');
@@ -216,7 +191,6 @@ class ShopeeAddToStoreTest extends TestCase
         $this->assertSame($this->store->id, (int) $row->shopee_setting_id, 'the record is stamped with this store');
         $this->assertNull($row->shopee_category_id, 'blank: the listing editor fills it in, readiness says what is missing');
 
-        // It now shows under This store.
         $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
         $this->assertStringContainsString('Catalogue only widget', $html);
     }
@@ -270,8 +244,6 @@ class ShopeeAddToStoreTest extends TestCase
         $this->assertStringContainsString('Back to Listings', $html);
     }
 
-    // ── Remove from store ─────────────────────────────────────────────
-
     public function test_remove_from_store_takes_the_product_off_the_store_freely(): void
     {
         $pid = $this->seedProduct('Live widget', 'LIVE-1');
@@ -280,7 +252,6 @@ class ShopeeAddToStoreTest extends TestCase
         $group = ShopeeProductGroup::create(['shopee_setting_id' => $this->store->id, 'name' => 'Group', 'shopee_category_id' => 100]);
         ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $pid]);
 
-        // Live on Shopee, in a group - and still no blocker (the owner, 2026-09-05).
         $this->actingAs($this->manager())
             ->from($this->base())
             ->post($this->base() . '/' . $pid . '/remove-from-store')
@@ -290,7 +261,6 @@ class ShopeeAddToStoreTest extends TestCase
         $this->assertSame(0, ShopeeProductLink::withoutGlobalScope('shopeeStore')->where('product_id', $pid)->count(), 'the link rows are gone, so nothing is left to sync');
         $this->assertSame(0, ShopeeProductGroupProduct::query()->where('product_id', $pid)->count(), 'its group membership went with it');
 
-        // It is back on the Add side, not on This store.
         $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
         $this->assertStringNotContainsString('Live widget', $html);
     }
@@ -314,15 +284,12 @@ class ShopeeAddToStoreTest extends TestCase
         $pid = $this->seedProduct('Theirs', 'T-1');
         $this->onStore($pid, $other->id);
 
-        // Standing in Gearshipper, the other store's product is not on this store.
         $this->actingAs($this->manager())
             ->post($this->base() . '/' . $pid . '/remove-from-store')
             ->assertNotFound();
 
         $this->assertSame(1, ShopeeListing::withoutGlobalScope('shopeeStore')->where('product_id', $pid)->count());
     }
-
-    // ── The product group's own panel ─────────────────────────────────
 
     private function group(string $name = 'Helmets'): ShopeeProductGroup
     {
@@ -342,13 +309,6 @@ class ShopeeAddToStoreTest extends TestCase
         $this->assertStringNotContainsString('data-group-manual-add', $html);
     }
 
-    /**
-     * Option 2 (the owner, 2026-09-05): a fresh store has nothing listed, so the
-     * group's panel searches the Master Catalog and lists a product on the
-     * store as it joins the group. Before this the empty store answered
-     * "Every product on this store is already in this group", which was
-     * false in every word.
-     */
     public function test_group_search_offers_the_main_catalogue_and_says_what_the_store_does_not_carry_yet(): void
     {
         $group = $this->group();
@@ -385,7 +345,6 @@ class ShopeeAddToStoreTest extends TestCase
         $this->assertTrue(ShopeeStoreProducts::has($pid), 'it is on this store now');
         $this->assertSame(1, ShopeeProductGroupProduct::query()->where('shopee_product_group_id', $group->id)->where('product_id', $pid)->count());
 
-        // A second add of a product already on the store lists nothing twice.
         $again = $this->seedProduct('On store already', 'S-2');
         $this->onStore($again);
         $this->actingAs($this->manager())
@@ -393,7 +352,6 @@ class ShopeeAddToStoreTest extends TestCase
             ->assertOk()->assertJson(['ok' => true, 'added' => true, 'listed' => false]);
         $this->assertSame(1, ShopeeListing::query()->where('product_id', $again)->count());
 
-        // A disabled or unknown catalogue product is refused.
         $this->actingAs($this->manager())
             ->postJson($this->groupBase($group->id) . '/products/424242/add')
             ->assertNotFound();
@@ -427,16 +385,11 @@ class ShopeeAddToStoreTest extends TestCase
 
         $this->assertSame(1, ShopeeProductGroupProduct::query()->where('shopee_product_group_id', $group->id)->where('product_id', $pid)->count());
 
-        // Again: already in, nothing doubled.
         $this->actingAs($this->manager())
             ->postJson($this->groupBase($group->id) . '/products/' . $pid . '/add')
             ->assertOk()->assertJson(['added' => false]);
         $this->assertSame(1, ShopeeProductGroupProduct::query()->where('shopee_product_group_id', $group->id)->where('product_id', $pid)->count());
     }
-
-    // "Add to group refuses a product the store does not carry" retired with
-    // option 2 (the owner, 2026-09-05): the group lists the product on the store
-    // as it joins. See test_adding_a_catalogue_product_to_a_group_lists_it.
 
     public function test_move_here_takes_the_product_from_the_group_that_owned_it(): void
     {
@@ -446,7 +399,6 @@ class ShopeeAddToStoreTest extends TestCase
         $this->onStore($pid);
         ShopeeProductGroupProduct::create(['shopee_product_group_id' => $other->id, 'product_id' => $pid]);
 
-        // Without Move here the one-group rule holds it.
         $this->actingAs($this->manager())
             ->postJson($this->groupBase($group->id) . '/products/' . $pid . '/add')
             ->assertStatus(409);
@@ -473,7 +425,6 @@ class ShopeeAddToStoreTest extends TestCase
         $this->assertStringNotContainsString('Products in this product group', $html);
         $this->assertStringNotContainsString('product_ids', $html);
 
-        // Saving the form with a stray product_ids[] changes nothing about membership.
         $this->actingAs($this->manager())
             ->put($this->groupBase($group->id), [
                 'name' => 'Helmets renamed', 'shopee_category_id' => 100, 'logistic_ids' => [1], 'product_ids' => [],

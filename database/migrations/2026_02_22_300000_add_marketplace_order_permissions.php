@@ -16,7 +16,6 @@ return new class extends Migration
             DB::table('permissions')->updateOrInsert(['key' => $r['key']], $r);
         }
 
-        // Grant to Administrator group
         $adminId = DB::table('user_groups')->where('name', 'Administrator')->value('id');
         if ($adminId) {
             $permIds = DB::table('permissions')

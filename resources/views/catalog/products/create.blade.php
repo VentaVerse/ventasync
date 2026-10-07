@@ -3,9 +3,6 @@
 
 @section('content')
 @php
-    // Upload token for images attached before the product row exists. The
-    // image manager writes them under this token and store() finalises them
-    // into the product's folder. Generated per render, exactly as before.
     $pimToken = (string) \Illuminate\Support\Str::uuid();
 @endphp
 
@@ -37,9 +34,6 @@
     <div class="fm-body">
         <div class="fm-col fm-col--main">
 
-            {{-- ---------------------------------------------------------
-                 General
-                 --------------------------------------------------------- --}}
             <section class="fm-section" aria-labelledby="sec-general">
                 <div class="fm-section__head">
                     <h2 class="fm-section__title" id="sec-general">General</h2>
@@ -60,16 +54,10 @@
 
                     <x-ui.field label="Name" for="product_name" name="name" :required="true" wide>
                         <div class="fm-group">
-                            {{-- Filled in by pages/product-form.js from the
-                                 chosen manufacturer, and prepended back into
-                                 the name value on submit. --}}
                             <x-ui.input id="product_name" name="name" value="{{ old('name') }}" />
                         </div>
                     </x-ui.field>
 
-                    {{-- Model retired from the form (the owner, 2026-09-04):
-                         no channel has the concept; the column lives on for
-                         OpenCart's native model and legacy rows. --}}
                     <x-ui.field label="SKU" name="sku" :required="true"
                                 hint="How imports, stock pushes and link repair recognise this product.">
                         <x-ui.input id="f-sku" name="sku" class="fm-input--num" value="{{ old('sku') }}" required />
@@ -96,19 +84,12 @@
 
                     <x-ui.field label="Description" name="description" wide
                                 hint="Optional here. A marketplace with a minimum of its own says so when the listing is pushed.">
-                        {{-- Escaped, not {!! !!}. A textarea's contents are
-                             parsed as character data, so escaping is what makes
-                             the stored HTML round-trip intact; the raw echo the
-                             pre-redesign view used let a description containing
-                             "</textarea>" break out of the control. --}}
+                        {{-- Escaped, not raw: a description containing </textarea> would break out of the control. --}}
                         <x-ui.textarea id="f-description" name="description" class="wysiwyg">{{ old('description', '') }}</x-ui.textarea>
                     </x-ui.field>
                 </div>
             </section>
 
-            {{-- ---------------------------------------------------------
-                 Pricing
-                 --------------------------------------------------------- --}}
             <section class="fm-section" aria-labelledby="sec-pricing">
                 <div class="fm-section__head">
                     <h2 class="fm-section__title" id="sec-pricing">Pricing</h2>
@@ -163,16 +144,10 @@
                 </div>
             </section>
 
-            {{-- ---------------------------------------------------------
-                 Media
-                 --------------------------------------------------------- --}}
             @include('catalog.products.partials.image_manager', ['pimToken' => $pimToken, 'pimProductId' => 0])
 
             @include('catalog.products.partials.video_manager', ['pimToken' => $pimToken, 'pimProductId' => 0, 'productVideo' => null])
 
-            {{-- ---------------------------------------------------------
-                 Variations
-                 --------------------------------------------------------- --}}
             <section class="fm-section" aria-labelledby="sec-variations">
                 <div class="fm-section__head">
                     <h2 class="fm-section__title" id="sec-variations">Variations</h2>
@@ -185,14 +160,9 @@
 
         <div class="fm-col fm-col--side">
 
-            {{-- Status ------------------------------------------------- --}}
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Status</h2></div>
                 <div class="fm-card__body">
-                    {{-- ProductController@store validates status as
-                         `required|in:0,1`, so a bare checkbox (which submits
-                         nothing when off) would fail outright. The hidden 0
-                         in front of it is what makes a switch legal here. --}}
                     @php $statusOn = old('status', '1') === '1'; @endphp
                     <input type="hidden" name="status" value="0">
                     <label class="fm-switch">
@@ -207,7 +177,6 @@
                 </div>
             </div>
 
-            {{-- Inventory ---------------------------------------------- --}}
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Inventory</h2></div>
                 <div class="fm-card__body">
@@ -221,21 +190,14 @@
                                         value="{{ old('reorder_level', 0) }}" min="0" />
                         </x-ui.field>
                     </div>
-                    {{-- The builder toggles d-none on this. It used to carry
-                         `hidden` while the script toggled `d-none`, so it never
-                         actually appeared. --}}
                     <div class="fm-hint d-none" id="qty_hint">Worked out from the variation quantities below.</div>
                     <div class="fm-hint">Reorder level 0 turns the low-stock alert off.</div>
                 </div>
             </div>
 
-            {{-- Shipping ----------------------------------------------- --}}
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Shipping</h2></div>
                 <div class="fm-card__body">
-                    {{-- Required at birth (#198): a zero default would let
-                         the requirement pass unread. Placeholders show the
-                         shape; the operator types the truth. --}}
                     <div class="fm-fields fm-fields--2">
                         <x-ui.field label="Weight" name="weight" :required="true">
                             <x-ui.input id="f-weight" name="weight" class="fm-input--num" value="{{ old('weight') }}" placeholder="0.5" required />

@@ -4,39 +4,10 @@ namespace Tests\Feature;
 
 use Tests\TestCase;
 
-/**
- * Shopee gets the same reconcile Venta got, and for the same reason.
- *
- * Every action on a row decided what to do from a link row - the ERP's own
- * memory - which is wrong in both directions often enough to have produced a
- * closed trap. Delete an item in Seller Centre and the ERP went on believing
- * it was live: Update on Shopee could only answer item_not_found, Push was
- * skipped because push()'s first act was "skip anything already linked", and
- * Unlink led to "Link to Shopee again", which succeeded against a listing that
- * was not there.
- *
- * Three properties are pinned here.
- *
- * FIRST, silence is not an answer. Shopee replies HTTP 200 with an `error`
- * field, and its client retries twice and then THROWS, so there are three ways
- * to learn nothing and only one of them looks like a normal failure. Only an
- * error that names the item as missing may conclude the item is gone, because
- * concluding it deletes a link.
- *
- * SECOND, the search must not mistake a hidden item for a deleted one. An
- * UNLIST or BANNED item still occupies its SKU; treating it as absent would
- * drop a good link and create a duplicate listing beside the original.
- *
- * THIRD, reconcile runs BEFORE the create-versus-update decision, so the local
- * gates in createOnShopee and updateOnShopee are checked facts rather than
- * guesses.
- */
 class ShopeeReconcileTest extends TestCase
 {
     private const CONTROLLER = 'extensions/shopee/Controllers/ShopeeProductGroupController.php';
 
-    /* The reconcile, the SKU index and the check sweep moved here whole
-     * (Phase F, #184) so the workbench shares them; methodBody() follows. */
     private const CHECK = 'extensions/shopee/Services/Shopee/ShopeeLinkCheck.php';
     private const VIEW = 'extensions/shopee/views/product-groups/products.blade.php';
 
@@ -65,8 +36,6 @@ class ShopeeReconcileTest extends TestCase
         return substr($source, $start, $next - $start);
     }
 
-    // ── Silence is not an answer ─────────────────────────────────────
-
     public function test_a_thrown_request_concludes_nothing(): void
     {
         $body = $this->methodBody('shopeeItemStillExists');
@@ -79,10 +48,6 @@ class ShopeeReconcileTest extends TestCase
             'There is no unknown answer, so every failure to reach Shopee reads as absence.');
     }
 
-    /**
-     * Shopee answers 200 with an error field, so the HTTP status proves
-     * nothing. An auth failure or a rate limit is silence, not a no.
-     */
     public function test_only_an_error_naming_the_item_means_it_is_gone(): void
     {
         $body = $this->methodBody('shopeeItemStillExists');
@@ -123,19 +88,6 @@ class ShopeeReconcileTest extends TestCase
             .'deletes links for products the scan simply never reached.');
     }
 
-    /* ── The duplicate guard (#244, the owner 2026-09-09) ─────────────────
-     *
-     * His test shop held three copies of one product and four of another,
-     * and this ERP held not one link row. Four separate teeth had to be
-     * missing at once for that, and each one is pinned here. */
-
-    /**
-     * Every create asks the marketplace, not only our own table.
-     *
-     * The guard lives in pushOne, which is the ONE create path: the
-     * one-click push and the multi-tick bulk push both go through it
-     * (2026-09-09), so neither can grow its own way in.
-     */
     public function test_every_push_reconciles_before_it_creates(): void
     {
         $controller = 'extensions/shopee/Controllers/ShopeeProductController.php';
@@ -160,7 +112,6 @@ class ShopeeReconcileTest extends TestCase
             .'the group push has always refused it and this must too.');
     }
 
-    /** A refusal from the shop is not a shop with nothing in it. */
     public function test_a_refused_scan_is_never_a_complete_one(): void
     {
         $body = $this->methodBody('skuIndex');
@@ -169,28 +120,18 @@ class ShopeeReconcileTest extends TestCase
             '/\$res\[.ok.\].*?\$complete = false;/s',
             $body,
             'An item-list call that failed yields no items and reads as an empty shop, so an expired '
-            .'token or a rate limit becomes "not on Shopee" and a duplicate is created. The owner\'s QA log '
+            .'token or a rate limit becomes "not on Shopee" and a duplicate is created. Maria\'s QA log '
             .'was full of invalid_acceess_token on the days the copies appeared.'
         );
     }
 
-    /**
-     * A MODEL'S SKU IS ITS OWN CALL.
-     *
-     * The shop index read $item['model_list'] off get_item_base_info, a
-     * field Shopee does not put there - models come from get_model_list,
-     * one item at a time, which is how every other model read in this
-     * application already does it. So the index never held a single model
-     * SKU, and an item with no parent SKU contributed NOTHING to it: the
-     * one product that cannot be found any other way. The owner pushed such a
-     * product, unlinked it, pushed again and got a duplicate, with the
-     * guard in place and working exactly as written (2026-09-09).
-     */
     public function test_the_shop_index_asks_for_the_models_it_needs(): void
     {
         $body = $this->methodBody('skuIndex');
 
-        $this->assertStringContainsString('get_model_list', $body,
+        $this->assertStringContainsString('modelSkus(', $body,
+            'The index asks each item with models for its model SKUs.');
+        $this->assertStringContainsString('get_model_list', $this->methodBody('modelSkus'),
             'The index reads model SKUs off the base info, where Shopee never puts them, so it holds none '
             .'and a product with no parent SKU can never be matched back to its listing.');
         $this->assertStringContainsString("has_model", $body,
@@ -199,7 +140,6 @@ class ShopeeReconcileTest extends TestCase
             'The field that was never there is being read again.');
     }
 
-    /** A parent with no SKU is not a product with no SKU. */
     public function test_the_search_knows_every_place_a_sku_lives(): void
     {
         $body = $this->methodBody('shopeeCandidateSkus');
@@ -209,10 +149,9 @@ class ShopeeReconcileTest extends TestCase
         $this->assertStringContainsString('product_option_combinations', $body,
             'Combination SKUs are not candidates, so a product whose variations live there and whose '
             .'parent carries no SKU can never be matched back to its Shopee item - which is exactly the '
-            .'product the owner pushed four times. Lazada and TikTok have always read both tables.');
+            .'product Maria pushed four times. Lazada and TikTok have always read both tables.');
     }
 
-    /** A link is dropped only when the item is really gone. */
     public function test_an_undo_confirms_the_item_left(): void
     {
         $body = $this->methodBody('undoCreate', 'extensions/shopee/Services/Shopee/ShopeeVariationPush.php');
@@ -224,7 +163,6 @@ class ShopeeReconcileTest extends TestCase
             .'next push create a second one.');
     }
 
-    /** The sweep can find a link, not only confirm one. */
     public function test_the_sweep_walks_the_store_not_only_its_links(): void
     {
         $body = $this->methodBody('storeProductIds');
@@ -234,8 +172,6 @@ class ShopeeReconcileTest extends TestCase
             'The sweep walks linked rows only, so an item whose link was lost is invisible to every '
             .'automatic path and the untargeted Check answers "nothing to check" over a shop full of items.');
     }
-
-    // ── Every divergence has a verdict ───────────────────────────────
 
     public function test_every_divergence_has_a_verdict(): void
     {
@@ -248,11 +184,6 @@ class ShopeeReconcileTest extends TestCase
         }
     }
 
-    /**
-     * A found item already held by another catalog product is reported, not
-     * stolen. That link may be perfectly good, and taking it would leave the
-     * other product silently pointing at nothing.
-     */
     public function test_a_contested_item_is_not_taken_over(): void
     {
         $body = $this->methodBody('reconcile');
@@ -269,10 +200,6 @@ class ShopeeReconcileTest extends TestCase
             .'by two catalog products.');
     }
 
-    /**
-     * Losing an item must not leave the row saying "unlinked". That word means
-     * the operator did it deliberately, and it hides the product from Send.
-     */
     public function test_a_lost_item_reads_as_not_pushed_not_as_unlinked(): void
     {
         $body = $this->methodBody('reconcile');
@@ -284,8 +211,6 @@ class ShopeeReconcileTest extends TestCase
             .'stops Send offering to recreate it.'
         );
     }
-
-    // ── Reconcile decides; the local gate no longer guesses ──────────
 
     public function test_send_reconciles_before_it_decides(): void
     {
@@ -317,23 +242,14 @@ class ShopeeReconcileTest extends TestCase
         );
     }
 
-    // ── The row always offers one action that works ──────────────────
-
     public function test_the_row_always_offers_one_action_that_works(): void
     {
         $view = $this->source(self::VIEW);
 
-        // One row menu on every channel (2026-09-07): the labels sit in the spec, and both the
-        // unlisted row's Push and the listed row's Update post to Send, which asks Shopee first.
         $this->assertStringContainsString("'label' => 'Send to Shopee'", $view,
             'The row no longer offers Send, which is the only action that works in every state.');
         $this->assertGreaterThanOrEqual(2, substr_count($view, "route('ext.shopee.product-groups.send', \$group->id), 'label' =>"), 'Push and Update both ride Send');
 
-        // The verbs it replaced. Any of them returning means the row can
-        // once again present a set of mutually exclusive states and hide the
-        // useful one behind the wrong guess. ('Send to Shopee' left this
-        // list 2026-09-03: the one action RENAMED to it in the verb
-        // unification - same single ungated action, the marketplace verb.)
         foreach (['Match Shopee ID', 'Link to Shopee again'] as $gone) {
             $this->assertDoesNotMatchRegularExpression(
                 '/>\s*'.preg_quote($gone, '/').'\s*<\/button>/',
@@ -344,10 +260,6 @@ class ShopeeReconcileTest extends TestCase
         }
     }
 
-    /**
-     * And Send is not gated on the link. Gating it is exactly how the trap
-     * closed: the useful action disappeared precisely when it was needed.
-     */
     public function test_send_is_not_hidden_by_any_status(): void
     {
         $view = $this->source(self::VIEW);
@@ -363,14 +275,8 @@ class ShopeeReconcileTest extends TestCase
         }
     }
 
-    // ── Checked versus believed ──────────────────────────────────────
-
     public function test_the_check_records_when_it_asked(): void
     {
-        /* The stamp moved product-level (stage 2 of the one-truth
-         * repointing, 2026-08-25): it lands on the listing record, where
-         * every page reads it, instead of the pivot copy only the page the
-         * check ran from could see. */
         $this->assertStringContainsString("'last_checked_at' => now()", $this->methodBody('run'),
             'Checking leaves no trace, so a fresh answer cannot be told from an old belief.');
         $this->assertStringNotContainsString("'last_confirmed_at'", $this->methodBody('run'),
@@ -400,8 +306,6 @@ class ShopeeReconcileTest extends TestCase
             'The view reads last_confirmed_at but the query does not select it, so every row renders '
             .'as never checked.');
     }
-
-    // ── The check and the orphan report only read ────────────────────
 
     public function test_checking_never_writes_to_shopee(): void
     {
@@ -448,30 +352,12 @@ class ShopeeReconcileTest extends TestCase
         );
     }
 
-    /**
-     * One row per item, not one per SKU. A product with four variations carries
-     * four SKUs pointing at the same item.
-     */
     public function test_orphans_are_grouped_by_item(): void
     {
         $this->assertStringContainsString('$byItem', $this->methodBody('orphans'),
             'Orphans are listed per SKU, so one item with four variations appears four times.');
     }
 
-    // ── The shop is scanned once, not once per product ───────────────
-
-    /**
-     * Shopee has no get-item-by-SKU endpoint, so a lookup means paging the
-     * whole shop: roughly forty calls. Per product that is ruinous on a group
-     * of any size; memoised it is a fixed cost paid once and only when
-     * something actually needs looking up.
-     *
-     * PER SHOP, though, not per process. One instance served every store in
-     * the scheduled refresh on 2026-09-09, so the second store was searched
-     * against the first store's shop and had every good link dropped. The
-     * behaviour is pinned in ShopeeMultistoreTest; this pins that the memo
-     * is still there at all, and that it is keyed.
-     */
     public function test_the_shop_is_scanned_once_per_shop(): void
     {
         $body = $this->methodBody('skuIndex');
@@ -483,11 +369,6 @@ class ShopeeReconcileTest extends TestCase
             'The memo is not keyed by shop, so one store can be answered from another store\'s shop.');
     }
 
-    /**
-     * And the cheap question is asked first. Confirming an id we already hold
-     * is one call; searching by SKU is forty. A reconcile that searched first
-     * would pay the high price on the common case.
-     */
     public function test_the_cheap_question_is_asked_first(): void
     {
         $body = $this->methodBody('reconcile');

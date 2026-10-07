@@ -6,10 +6,6 @@ use App\Extensions\ExtensionImages;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
-/**
- * An extension carries its pictures in its own folder; they are published
- * where pages load them, refreshed when newer, and removed with it.
- */
 class ExtensionImagesTest extends TestCase
 {
     private const ID = 'zz-picture-test';

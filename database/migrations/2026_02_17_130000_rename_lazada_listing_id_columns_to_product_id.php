@@ -16,7 +16,6 @@ return new class extends Migration
 
     public function up(): void
     {
-        // Only applies to existing installs that still have lazada_listing_id columns
         $this->renameFkColumn(
             table: 'lazada_product_attributes',
             from: 'lazada_listing_id',
@@ -38,7 +37,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        // Best-effort rollback (rename back)
         $this->renameFkColumn(
             table: 'lazada_product_attributes',
             from: 'lazada_product_id',
@@ -73,22 +71,16 @@ return new class extends Migration
             return;
         }
         if (Schema::hasColumn($table, $to)) {
-            // Column already renamed
             return;
         }
 
-        // Drop any FK constraints that reference the old column (constraint names may vary)
         foreach ($this->getForeignKeyConstraintNames($table, $from) as $fkName) {
             DB::statement("ALTER TABLE `{$table}` DROP FOREIGN KEY `{$fkName}`");
         }
 
-        // Rename column using raw SQL (avoids requiring doctrine/dbal)
-        // Assumes BIGINT UNSIGNED NOT NULL (matches unsignedBigInteger in Laravel)
         DB::statement("ALTER TABLE `{$table}` CHANGE `{$from}` `{$to}` BIGINT UNSIGNED NOT NULL");
 
-        // Add FK constraint back to parent
         if (Schema::hasTable($parentTable)) {
-            // Ensure we don't collide with an existing FK name
             $fkName = substr($newFkName, 0, 60);
             if (!$this->foreignKeyNameExists($table, $fkName)) {
                 Schema::table($table, function (Blueprint $blueprint) use ($to, $parentTable, $parentColumn, $fkName) {

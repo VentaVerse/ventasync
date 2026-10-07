@@ -12,9 +12,6 @@ class OpenCartReclassifyOrders extends Command
 
     protected $description = 'Reclassify opencart orders to lazada/shopee based on payment and shipping method';
 
-    /**
-     * Lazada-specific payment method codes (uppercase abbreviations from Lazada API).
-     */
     private array $lazadaPaymentMethods = [
         'COD',
         'GCASH_PP',
@@ -42,10 +39,8 @@ class OpenCartReclassifyOrders extends Command
         $this->line("OpenCart orders before: <comment>{$before}</comment>");
         $this->newLine();
 
-        // Use transaction so dry-run can rollback after showing accurate counts
         DB::beginTransaction();
 
-        // --- Rule 1: LazadaShipping → lazada ---
         $count1 = DB::table($table)
             ->where('marketplace_source', 'like', 'opencart:%')
             ->where(function ($q) {
@@ -56,7 +51,6 @@ class OpenCartReclassifyOrders extends Command
 
         $this->line("Rule 1: shipping_method contains 'Lazada': <info>{$count1}</info> → lazada");
 
-        // --- Rule 2: Shopee Payment → shopee ---
         $count2 = DB::table($table)
             ->where('marketplace_source', 'like', 'opencart:%')
             ->where('payment_method', 'Shopee Payment')
@@ -64,7 +58,6 @@ class OpenCartReclassifyOrders extends Command
 
         $this->line("Rule 2: payment_method = 'Shopee Payment': <info>{$count2}</info> → shopee");
 
-        // --- Rule 3: Lazada payment codes (catch remaining) → lazada ---
         $count3 = DB::table($table)
             ->where('marketplace_source', 'like', 'opencart:%')
             ->whereIn('payment_method', $this->lazadaPaymentMethods)
@@ -72,7 +65,6 @@ class OpenCartReclassifyOrders extends Command
 
         $this->line("Rule 3: Lazada payment codes (COD, GCASH_PP, etc.): <info>{$count3}</info> → lazada");
 
-        // --- Rule 4: Shopee couriers (catch remaining) → shopee ---
         $count4 = DB::table($table)
             ->where('marketplace_source', 'like', 'opencart:%')
             ->whereIn('shipping_method', ['SPX Express', 'Shopee Xpress', 'Ninja Van'])
@@ -80,7 +72,6 @@ class OpenCartReclassifyOrders extends Command
 
         $this->line("Rule 4: Shopee couriers (SPX, Shopee Xpress): <info>{$count4}</info> → shopee");
 
-        // --- Summary ---
         $this->newLine();
         $totalLazada = $count1 + $count3;
         $totalShopee = $count2 + $count4;
@@ -91,7 +82,6 @@ class OpenCartReclassifyOrders extends Command
             ->count();
         $this->line("Remaining as opencart: <comment>{$remaining}</comment>");
 
-        // Show what stays as opencart
         $this->newLine();
         $this->info('Remaining opencart orders, top payment/shipping combos:');
         $leftover = DB::table($table)

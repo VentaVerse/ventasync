@@ -14,7 +14,6 @@ return new class extends Migration
             return;
         }
 
-        // Guard: label/description columns are dropped by 2026_04_09. Skip them if absent.
         $row = ['key' => $key];
         if (Schema::hasColumn('permissions', 'label')) {
             $row['label'] = 'Reviews';
@@ -25,7 +24,6 @@ return new class extends Migration
 
         $permId = DB::table('permissions')->insertGetId($row);
 
-        // Auto-assign to Administrator group
         $adminGroup = DB::table('user_groups')->where('name', 'Administrator')->first();
         if ($adminGroup) {
             DB::table('user_group_permissions')->insertOrIgnore([
@@ -34,7 +32,6 @@ return new class extends Migration
             ]);
         }
 
-        // Also assign to any group that has manage_marketplace_api
         $mpPerm = DB::table('permissions')->where('key', 'manage_marketplace_api')->first();
         if ($mpPerm) {
             $groupIds = DB::table('user_group_permissions')

@@ -2,13 +2,6 @@
 @section('breadcrumb', 'Coupons')
 @section('title', 'TikTok Shop Coupons')
 
-{{-- Seller coupons (#153, quest 4). TikTok's own word, so the page and
-     the seller center agree. The list is fetched from TikTok on every
-     load and never cached; when TikTok does not answer, the page says
-     so instead of showing yesterday. Nothing is stored locally: a
-     coupon is the marketplace's own object and this page is a live
-     read plus pass-through create and deactivate. TikTok has no
-     delete, so upcoming and ongoing coupons share one verb. --}}
 @section('content')
 @php
     $canManage = auth()->user()?->hasPermission('manage_tiktok/coupon') ?? false;
@@ -130,9 +123,6 @@
 @if($canManage)
 <form method="POST" action="{{ route('ext.tiktok.coupons.store') }}" class="fm-page">
     @csrf
-    {{-- Folded until asked for: creating is a deliberate act, and the
-         list is what this page is. It opens itself when a submit came
-         back with errors or old input, so nothing typed is hidden. --}}
     <details class="fm-card fm-card--fold" @if($errors->any() || old('_token')) open @endif>
         <summary class="fm-card__head fm-card__head--summary"><h2 class="fm-card__title">Create a coupon</h2><span class="fm-card__hint">Opens the form</span></summary>
         <div class="fm-card__body">

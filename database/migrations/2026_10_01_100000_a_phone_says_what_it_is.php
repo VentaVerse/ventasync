@@ -4,10 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * A registered phone may say its model, system and app version, so a
- * person can tell their phones apart before revoking one.
- */
 return new class extends Migration
 {
     public function up(): void

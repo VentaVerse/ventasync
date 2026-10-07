@@ -50,7 +50,6 @@ class ShopeeCategoryController extends Controller
                 ->with('error', "Missing Shopee {$modeLabel} settings. Please configure Partner ID, Partner Key, Access Token, and Shop ID first.");
         }
 
-        // One read, shared with the setup run on Settings (2026-09-05).
         $out = app(\Extensions\shopee\Services\Shopee\ShopeeStoreSetup::class)->categories($auth);
 
         return redirect()->route('ext.shopee.categories.index')

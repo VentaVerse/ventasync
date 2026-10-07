@@ -5,10 +5,6 @@ namespace Tests\Unit;
 use App\Support\PayoutExpectation;
 use PHPUnit\Framework\TestCase;
 
-/**
- * What each marketplace said it would pay for an order (2026-10-01). The
- * Payouts report and every store's Payouts page read this one answer.
- */
 class PayoutExpectationTest extends TestCase
 {
     public function test_shopee_pays_its_escrow(): void

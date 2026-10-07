@@ -4,22 +4,12 @@ namespace Extensions\shopee\Services\Shopee;
 
 use Extensions\shopee\Models\ShopeeApiLog;
 
-/**
- * The live half of the individual listing page: what Shopee says about an
- * item RIGHT NOW. Fetched on every page load by design (the owner, 2026-08-23):
- * status must be the marketplace's answer, never a cached copy presented as
- * live. When Shopee does not answer, the page says so instead of
- * substituting stale data.
- */
 class ShopeeLiveListing
 {
     public function __construct(private ShopeeClient $client)
     {
     }
 
-    /**
-     * @return array{live: ?array, error: ?string}
-     */
     public function fetch(array $auth, int $itemId): array
     {
         try {
@@ -31,8 +21,6 @@ class ShopeeLiveListing
                 ['item_id_list' => (string) $itemId]
             );
         } catch (\Throwable $e) {
-            // A connection failure must degrade to the page's "did not
-            // answer" note, never to a 500 on a page that otherwise works.
             return ['live' => null, 'error' => \App\Support\TransportError::plain($e, 'Shopee')];
         }
 
@@ -76,23 +64,8 @@ class ShopeeLiveListing
         return ['live' => $live, 'error' => null];
     }
 
-    /** Every item_status get_item_list can be asked for. */
     public const STATUSES = ['NORMAL', 'UNLIST', 'BANNED', 'REVIEWING', 'SELLER_DELETE', 'SHOPEE_DELETE'];
 
-    /**
-     * Refresh the status mirror: walk the shop's items per status (100 a
-     * page) and write each link row's live_status. A link the shop no
-     * longer returns under any status becomes MISSING. One walk serves
-     * every listings and group page until the next; a page view costs
-     * Shopee nothing (the owner, 2026-08-28).
-     *
-     * @return array{error: ?string, counts: array<string, int>, links: int}
-     */
-    /**
-     * @param ?int $settingId Multi-store S3 (#194): the store whose links
-     *   this sweep may touch. Without it a two-store sweep would stamp the
-     *   other shop's links MISSING. Null means all (single-store legacy).
-     */
     public function refreshMirror(array $auth, ?int $settingId = null): array
     {
         $idsByStatus = [];
@@ -135,15 +108,6 @@ class ShopeeLiveListing
         ];
     }
 
-    /**
-     * The status of specific items, one get_item_base_info per 50, and
-     * MISSING for an item Shopee does not return. Used to fill the
-     * mirror's blanks: a link created by a push or a match has no status
-     * until someone asks, and the listings page asks once, for those rows
-     * only, the first time it shows them.
-     *
-     * @return array<int, string>  item_id => item_status
-     */
     public function statusesFor(array $auth, array $itemIds): array
     {
         $out = [];
@@ -176,18 +140,6 @@ class ShopeeLiveListing
         return $out;
     }
 
-    /**
-     * Write-through after a push (Phase B, #184): ask Shopee what the
-     * pushed items' status actually is and write the mirror, so a product
-     * pushed a minute ago never reads "Not checked yet" and never reads a
-     * guess either - a fresh item can be NORMAL or REVIEWING and only
-     * Shopee knows which. Seven of the ten push paths used to skip the
-     * mirror entirely; they all call this now.
-     *
-     * Failure is swallowed on purpose: the push already succeeded, and
-     * reporting it as failed because the confirming READ failed would be
-     * a lie. The row simply stays blank and the next sweep fills it.
-     */
     public function confirm(array $auth, array $itemIds): void
     {
         $itemIds = array_values(array_filter(array_map('intval', $itemIds)));
@@ -210,21 +162,6 @@ class ShopeeLiveListing
         }
     }
 
-    /**
-     * Fill the mirror for links that were never checked. One call per 50,
-     * only for the given links, and only once: after this they carry a
-     * status and a timestamp like every other row.
-     *
-     * @param  \Illuminate\Support\Collection<int, \Extensions\shopee\Models\ShopeeProductLink>  $links
-     * @return bool  whether anything was written
-     */
-    /**
-     * @param  string|null  $error  filled with WHY nothing was filled, when
-     *        Shopee refused. It used to be swallowed, so a refusal left
-     *        every row reading "not checked yet" with nothing on the page
-     *        to say why - which is what "it just went unsynced" looks like
-     *        from the operator's chair (the owner, 2026-09-09).
-     */
     public function fillBlanks(array $auth, $links, ?string &$error = null): bool
     {
         $blank = $links->filter(fn ($l) => $l->live_status === null && (int) $l->shopee_item_id > 0);
@@ -253,7 +190,6 @@ class ShopeeLiveListing
         return true;
     }
 
-    /** Every item id in one status, 100 a page, up to 5,000 items. Throws when Shopee refuses. */
     public function itemIds(array $auth, string $itemStatus): array
     {
         $itemIds = [];
@@ -315,7 +251,6 @@ class ShopeeLiveListing
         ], $models);
     }
 
-    /** @return array{original: ?float, current: ?float} */
     private function priceOf(array $priceInfo): array
     {
         $first = $priceInfo[0] ?? null;
@@ -328,10 +263,6 @@ class ShopeeLiveListing
         ];
     }
 
-    /**
-     * Shopee has shipped three stock shapes across API revisions; read them
-     * newest-first so the page works on whichever the shop's region returns.
-     */
     private function stockOf(array $item): ?int
     {
         $v2 = $item['stock_info_v2'] ?? null;

@@ -5,29 +5,12 @@ namespace Extensions\tiktok\Services\TikTok;
 use Carbon\Carbon;
 use Extensions\tiktok\Models\TikTokSetting;
 
-/**
- * The money at TikTok Shop for one store, in TikTok Shop Seller Center's own
- * words (the owner, 2026-10-01: accuracy, not normalisation), from the shop's
- * money movements (Get Withdrawals): each statement settles into the
- * balance as a SETTLE record, and a bank transfer is a WITHDRAW record.
- *
- *   Available to withdraw                (Withdrawals) every SETTLE since
- *                                        the newest WITHDRAW; matched ₱23,534.68
- *   To Settle                            (Transactions) Get Unsettled
- *                                        Transactions' estimated settlement
- *   Total settlement amount · Last week  SETTLE records of last Monday-Sunday;
- *                                        matched ₱7,701.79
- *   Total settlement amount · Last month SETTLE records of last month
- *
- * Read live, never stored. PayoutBalances keeps the last good read.
- */
 class TikTokBalance
 {
     private const PATH = '/finance/202309/withdrawals';
 
     private const UNSETTLED = '/finance/202507/orders/unsettled';
 
-    /** How far back to look for the last withdrawal. */
     private const LOOKBACK_DAYS = 365;
 
     private const MAX_PAGES = 50;
@@ -36,9 +19,6 @@ class TikTokBalance
     {
     }
 
-    /**
-     * @return array{ok: bool, error?: string, lead?: array, facts?: list<array>}
-     */
     public function read(TikTokSetting $store): array
     {
         $creds = TikTokReturnSync::credsFrom($store);
@@ -85,8 +65,6 @@ class TikTokBalance
         $settles = array_filter($records, fn ($r) => $type($r) === 'SETTLE');
         $available = array_sum(array_map($amount, array_filter($settles, fn ($r) => $at($r) > $since)));
 
-        // Pending release: the orders TikTok has not settled yet, with its
-        // own estimate of what each will settle for.
         $unsettled = $this->client->get($creds['app_key'], $creds['app_secret'], $creds['token'], self::UNSETTLED,
             ['sort_field' => 'order_create_time', 'page_size' => 50], $creds['shop_cipher'] ?: null);
         $ubody = is_array($unsettled['body'] ?? null) ? $unsettled['body'] : [];
@@ -94,9 +72,6 @@ class TikTokBalance
         $pending = $pendingOk ? (float) str_replace(',', '', (string) ($ubody['data']['sum_est_settlement_amount'] ?? 0)) : null;
         $pendingCount = $pendingOk ? (int) ($ubody['data']['total_count'] ?? 0) : null;
 
-        // TikTok's "Last week" and "Last month" are the calendar week
-        // (Monday to Sunday) and month before this one, by settlement date
-        // in the shop's own time zone: Last week matched ₱7,701.79 exactly.
         $thisWeek = now()->startOfWeek(Carbon::MONDAY);
         $thisMonth = now()->startOfMonth();
         $settledBetween = fn (Carbon $from, Carbon $to) => round(array_sum(array_map($amount, array_filter($settles,

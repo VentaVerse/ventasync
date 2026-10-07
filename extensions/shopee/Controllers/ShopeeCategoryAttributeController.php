@@ -88,7 +88,6 @@ class ShopeeCategoryAttributeController extends Controller
                 ->with('error', 'Fetch failed: ' . $msg);
         }
 
-        // Try multiple response keys — Shopee may use attribute_list or attribute_tree
         $attrList = null;
         $response = null;
         if (is_array($body)) {
@@ -121,7 +120,6 @@ class ShopeeCategoryAttributeController extends Controller
             return [];
         }
 
-        // Shopee returns attribute_list directly as an array
         $list = $data;
         if (isset($data['attribute_list']) && is_array($data['attribute_list'])) {
             $list = $data['attribute_list'];

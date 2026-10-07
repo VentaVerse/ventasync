@@ -4,11 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-/**
- * One delivery in the webhook inbox (Phase E, #184). Stored by the public
- * endpoint, applied by webhooks:process. An event that failed signature
- * verification stays here unprocessed - evidence, never authority.
- */
 class ChannelWebhookEvent extends Model
 {
     public $timestamps = false;

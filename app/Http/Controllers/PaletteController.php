@@ -8,19 +8,7 @@ use Illuminate\Support\Facades\DB;
 
 class PaletteController extends Controller
 {
-    /**
-     * Record lookups for the command palette. Route entries are rendered
-     * server side into the palette itself and are not searched here.
-     *
-     * Each result set is gated independently on the same permission its
-     * destination route requires, so a user permitted to see orders but
-     * not products (or vice versa) still gets the set they can see, empty
-     * arrays for the rest. Never auth()->user()->can(): this app registers
-     * no Gates or Policies, so can() always returns false, including for a
-     * full admin, and a filter built on it would silently hide everything.
-     * User::hasPermission() is the only real check, same as the `perm:`
-     * route middleware and Navigation::allows() use.
-     */
+    // Use hasPermission(), never can(): no Gates are registered so can() is always false.
     public function search(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -34,7 +22,6 @@ class PaletteController extends Controller
         $pfx = (string) config('catalog.prefix');
         $like = '%'.$q.'%';
 
-        // Pipe-delimited any-match, same parsing as EnsurePermission::handle.
         $hasAny = function (string $keys) use ($user): bool {
             if (!$user) {
                 return false;
@@ -48,29 +35,13 @@ class PaletteController extends Controller
             return false;
         };
 
-        // Matches the door's sales/order view tier exactly (manage implies
-        // view inside hasPermission, so one key covers both grants).
         $canViewOrders = $hasAny('view_sales/order');
 
-        // Product results link to products.edit, and there is no read-only
-        // products.show route to send a view_products-only user to instead
-        // (see products.index / products.edit split in routes/web.php), so
-        // this must match products.edit's own gate (manage_products) rather
-        // than the broader view_products|manage_products tier the catalog
-        // list page accepts. A view-only user simply never sees products in
-        // the palette, rather than seeing a result that bounces them.
         $canViewProducts = $hasAny('manage_catalog/product');
 
         $orders = collect();
         if ($canViewOrders) {
-            // Numeric id match and name match are ORed together inside a
-            // single group. A bare `when(ctype_digit)->orWhere(...)`
-            // followed by a separate `->where(closure)` compiles to an AND
-            // between the two (the id match becomes a required condition,
-            // not an alternative), which silently drops the very id
-            // lookups this endpoint exists for. Nesting both inside one
-            // closure keeps the OR intact without ever letting an
-            // unparenthesised orWhere leak past the name filter.
+            // Keep id and name matches inside one OR group, or the id lookup becomes a required condition.
             $orders = DB::table($pfx.'order')
                 ->select('order_id as id', 'firstname', 'lastname', 'total', 'foreign_total', 'currency_code')
                 ->where(function ($b) use ($q, $like) {
@@ -83,22 +54,6 @@ class PaletteController extends Controller
                 ->limit(5)
                 ->get();
 
-            // Each record carries its own destination URL, built the same
-            // way SearchController already does for its results, so the
-            // palette's JS never has to hand-assemble a path from an id.
-            // orders.show takes a required numeric {id}, which is always
-            // supplied here, so route() cannot throw the way it would for
-            // a fixed nav destination with no model context.
-            //
-            // `total` is always in the default (PHP) currency - see
-            // OrderCurrencyService::toBase() - while `currency_code` names
-            // the currency the customer actually transacted in. Those are
-            // not the same number, so the palette must never concatenate
-            // them client side the way an earlier version did (that read
-            // "USD 308071.4726" for a ₱308,071.47 order). Money::dual()
-            // formats both correctly and matches the orders list's
-            // <x-money> presentation, minus the two-line markup that
-            // component renders, since this is a plain JS string.
             $orders->each(function ($o) {
                 $o->url = route('orders.show', $o->id);
                 $o->total_display = \App\Support\Money::dual(

@@ -8,27 +8,6 @@ use Illuminate\Support\Facades\DB;
 use ReflectionMethod;
 use Tests\TestCase;
 
-/**
- * Every Shopee write path reports what actually happened.
- *
- * The push helpers already recorded each failure onto shopee_product_links,
- * but the products page reads the GROUP PIVOT, so those failures were
- * invisible on the one screen built to show them. Price and stock pushes then
- * flashed 'status' unconditionally, and 'status' renders as a green tick, so
- * "Sync Price: 0 success, 12 error" arrived in the success colour and left no
- * trace on any row. The only record that twelve prices had failed to reach a
- * live marketplace was a banner the next click destroyed.
- *
- * Three separate messages had the same shape: they were written before anyone
- * checked whether the work succeeded. linkProduct said "Product re-linked."
- * on the branch where it had explicitly failed to find a link and set the
- * product back to not-pushed. massRemove reported how many ids were posted
- * rather than how many rows it deleted. addProducts swallowed duplicates.
- *
- * These tests pin the rule rather than the wording: a message states the
- * outcome, and an outcome that is not a success does not wear the success
- * colour.
- */
 class ShopeeWriteOutcomeTest extends TestCase
 {
     use RefreshDatabase;
@@ -37,7 +16,6 @@ class ShopeeWriteOutcomeTest extends TestCase
     {
         parent::setUp();
 
-        // Multi-store S2 (#194): rows the tests create belong to a store.
         \Extensions\shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
@@ -45,8 +23,6 @@ class ShopeeWriteOutcomeTest extends TestCase
 
     private function invokePrivate(string $method, array $args)
     {
-        // No setAccessible: it has had no effect since PHP 8.1 and is
-        // deprecated in 8.5.
         $ref = new ReflectionMethod(ShopeeProductGroupController::class, $method);
 
         return $ref->invokeArgs(app(ShopeeProductGroupController::class), $args);
@@ -56,8 +32,6 @@ class ShopeeWriteOutcomeTest extends TestCase
     {
         return file_get_contents(base_path(self::CONTROLLER));
     }
-
-    // ── The tone a batch has earned ──────────────────────────────────
 
     public function test_a_clean_batch_is_a_success(): void
     {
@@ -70,10 +44,6 @@ class ShopeeWriteOutcomeTest extends TestCase
             'A partly failed batch still wears the success colour.');
     }
 
-    /**
-     * The exact case from the report: "Sync Price: 0 success, 12 error"
-     * rendered green with a check icon.
-     */
     public function test_a_batch_that_failed_entirely_is_an_error(): void
     {
         $this->assertSame('error', $this->invokePrivate('batchTone', [0, 12]));
@@ -83,8 +53,6 @@ class ShopeeWriteOutcomeTest extends TestCase
     {
         $this->assertSame('status', $this->invokePrivate('batchTone', [0, 0]));
     }
-
-    // ── The reason is never blank ────────────────────────────────────
 
     public function test_a_failure_message_prefers_shopees_own_words(): void
     {
@@ -104,18 +72,12 @@ class ShopeeWriteOutcomeTest extends TestCase
         );
     }
 
-    /**
-     * A blank reason written to push_error is indistinguishable from never
-     * having failed, which is the defect this whole file was carrying.
-     */
     public function test_a_failure_message_is_never_blank(): void
     {
         foreach ([[], ['body' => []], ['body' => ['error' => '', 'message' => '']], ['body' => 'not an array']] as $result) {
             $this->assertNotSame('', $this->invokePrivate('apiFailureMessage', [$result]));
         }
     }
-
-    // ── Outcomes reach the row the operator is looking at ────────────
 
     public function test_a_failed_product_is_marked_on_its_own_row(): void
     {
@@ -146,24 +108,6 @@ class ShopeeWriteOutcomeTest extends TestCase
         $this->assertNull($row->push_error, 'A fixed product keeps displaying its old failure.');
     }
 
-    /**
-     * A product's status reaches EVERY group that holds it.
-     *
-     * This test used to assert the opposite - that a result in one group left
-     * the others alone - and that assertion was the defect written down.
-     * Whether a product is on Shopee is one fact; storing it once per group
-     * meant the same product read differently on different pages. 42 products
-     * on this installation sit in more than one group.
-     *
-     * Both directions are wrong and the quiet one is worse: a stale error
-     * sends the operator chasing a problem that is already fixed, and a stale
-     * SUCCESS leaves a green badge on another page hiding a real failure,
-     * which is the one that gets ignored.
-     *
-     * Shopee is single-store, so every group refers to the same shop and the
-     * same remote product. A multi-store channel scopes the fan-out to its own
-     * store's groups instead.
-     */
     public function test_a_result_reaches_every_group_holding_that_product(): void
     {
         $one = $this->group();
@@ -187,7 +131,6 @@ class ShopeeWriteOutcomeTest extends TestCase
         }
     }
 
-    /** And the healing direction: a later success clears the earlier error everywhere. */
     public function test_a_later_success_clears_the_error_in_every_group(): void
     {
         $one = $this->group();
@@ -207,12 +150,6 @@ class ShopeeWriteOutcomeTest extends TestCase
         $this->assertNull($stale->push_error);
     }
 
-    // ── Ratchets: the wiring cannot come undone ──────────────────────
-
-    /**
-     * The regression that matters. If a push path flashes 'status' directly
-     * again, its failures go back to arriving green.
-     */
     public function test_no_push_path_flashes_success_unconditionally(): void
     {
         $source = $this->source();
@@ -268,8 +205,6 @@ class ShopeeWriteOutcomeTest extends TestCase
         $this->assertStringNotContainsString("->with('status', 'Product re-linked.')", $source,
             'Re-link reports success on the branch where it found no link and set the product back to not pushed.');
     }
-
-    // ── Fixtures ─────────────────────────────────────────────────────
 
     private function group(): int
     {

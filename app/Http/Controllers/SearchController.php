@@ -21,7 +21,6 @@ class SearchController extends Controller
 
         $results = [];
 
-        // Orders
         $orders = Order::query()
             ->where(function ($sub) use ($q) {
                 $sub->where('firstname', 'like', '%' . $q . '%')
@@ -45,7 +44,6 @@ class SearchController extends Controller
             ];
         }
 
-        // Products
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $products = DB::table($pfx . 'product as p')
@@ -71,7 +69,6 @@ class SearchController extends Controller
             ];
         }
 
-        // Users
         $users = User::query()
             ->where(function ($sub) use ($q) {
                 $sub->where('name', 'like', '%' . $q . '%')
@@ -91,7 +88,6 @@ class SearchController extends Controller
             ];
         }
 
-        // Activity Log
         $logs = ActivityLog::query()
             ->where('subject_label', 'like', '%' . $q . '%')
             ->orderByDesc('created_at')

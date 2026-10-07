@@ -11,21 +11,12 @@ use Extensions\shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * Shop vouchers (#153, quest 4, 2026-08-26). Nothing is stored locally:
- * the page is a live read of v2.voucher on every load (absent, never
- * stale) and create/end/delete pass straight through. The lifecycle
- * decides each row's verb: an upcoming voucher offers Delete, an
- * ongoing one End, an expired one neither.
- */
 class ShopeeVoucherTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @var array<int, array{method: string, path: string, payload: array}> */
     private array $sentCalls = [];
 
-    /** What the fake marketplace answers per "METHOD path" (array or closure). */
     public array $callResponses = [];
 
     protected function setUp(): void
@@ -119,12 +110,12 @@ class ShopeeVoucherTest extends TestCase
     public function test_the_page_lists_live_vouchers_with_the_verb_their_state_allows(): void
     {
         $this->callResponses['GET /api/v2/voucher/get_voucher_list'] = $this->listAnswer([
-            $this->sampleVoucher(),   // ongoing
+            $this->sampleVoucher(),
             $this->sampleVoucher([
                 'voucher_id' => 660012, 'voucher_name' => 'Next week', 'voucher_code' => 'NEXT9',
                 'reward_type' => 2, 'percentage' => 10, 'max_price' => 100.0, 'discount_amount' => null,
                 'start_time' => now()->addDays(2)->timestamp, 'end_time' => now()->addDays(9)->timestamp,
-            ]),                       // upcoming
+            ]),
         ]);
 
         $r = $this->actingAs($this->manager())->get(route('ext.shopee.vouchers.index'));
@@ -138,8 +129,6 @@ class ShopeeVoucherTest extends TestCase
         $r->assertSee('10% off');
         $r->assertSee('Upcoming');
         $r->assertSee('Delete');
-        // The ongoing row must not offer Delete, nor the upcoming row End:
-        // one verb per state, so exactly one of each appears on this page.
         $this->assertSame(1, substr_count($r->getContent(), 'End now'));
     }
 
@@ -196,9 +185,9 @@ class ShopeeVoucherTest extends TestCase
         $this->assertCount(1, $creates);
         $body = $creates[0]['payload'];
         $this->assertSame('August treat', $body['voucher_name']);
-        $this->assertSame('AUG50', $body['voucher_code']);        // upper-cased for Shopee
-        $this->assertSame(1, $body['voucher_type']);              // shop voucher
-        $this->assertSame(1, $body['reward_type']);               // fixed amount
+        $this->assertSame('AUG50', $body['voucher_code']);
+        $this->assertSame(1, $body['voucher_type']);
+        $this->assertSame(1, $body['reward_type']);
         $this->assertEqualsWithDelta(50.0, $body['discount_amount'], 0.001);
         $this->assertArrayNotHasKey('percentage', $body);
         $this->assertSame($starts->timestamp, $body['start_time']);
@@ -222,7 +211,7 @@ class ShopeeVoucherTest extends TestCase
 
         $r->assertSessionHas('status');
         $body = $this->callsFor('POST', '/api/v2/voucher/add_voucher')[0]['payload'];
-        $this->assertSame(2, $body['reward_type']);               // percentage
+        $this->assertSame(2, $body['reward_type']);
         $this->assertSame(10, $body['percentage']);
         $this->assertEqualsWithDelta(100.0, $body['max_price'], 0.001);
         $this->assertArrayNotHasKey('discount_amount', $body);
@@ -303,9 +292,6 @@ class ShopeeVoucherTest extends TestCase
         $r->assertDontSee('End now');
         $r->assertDontSee('Create a voucher');
 
-        // Writes are refused with a redirect and a flashed denial, the
-        // EnsurePermission contract for POST; the marketplace is never
-        // called for it.
         $this->actingAs($viewer)
             ->post(route('ext.shopee.vouchers.end', 660011))
             ->assertRedirect();

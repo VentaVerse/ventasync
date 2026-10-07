@@ -36,7 +36,6 @@ return new class extends Migration
                   ->cascadeOnDelete();
         });
 
-        // Backfill: create 1 combination + 1 pivot row per existing POV
         $pfx = config('catalog.prefix');
 
         $povRows = DB::table($pfx . 'product_option_value as pov')
@@ -57,7 +56,6 @@ return new class extends Migration
         $now = now();
 
         foreach ($povRows as $pov) {
-            // Use absolute_price if set, otherwise compute from base + delta
             $absPrice = $pov->absolute_price;
             if ($absPrice === null) {
                 $delta = (float) $pov->price;

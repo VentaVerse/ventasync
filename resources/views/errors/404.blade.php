@@ -32,9 +32,6 @@
     </div>
     <script>
         document.getElementById('backBtn').addEventListener('click', function () {
-            // history.length > 1 means there's a prior entry to return to; cold
-            // loads (typed URL, external link) get sent home instead so the
-            // button is never a no-op.
             if (window.history.length > 1) {
                 window.history.back();
             } else {

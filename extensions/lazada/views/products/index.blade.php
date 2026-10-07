@@ -3,18 +3,8 @@
 
 @section('title', 'Lazada Listings')
 
-{{-- Leaves the .x-legacy content boundary, rebuilt on the token set and the
-     x-ui components. The page's behaviour moved out with it: everything that
-     used to be an inline <script> at the bottom of this file now lives in
-     resources/js/pages/lazada-listings.js (Lazada's three values) on top of
-     resources/js/pages/channel-listings.js (the behaviour it shares with
-     Shopee), bound from data- attributes on the elements below. --}}
 @section('content')
 @php
-    // Read tier is `view_lazada|manage_lazada`; every upload, sync, link,
-    // dismiss, unlink and delete below is `manage_lazada`. Replaces a
-    // hardcoded `true` that showed a read-only operator five bulk buttons and
-    // seven row actions, all of which the route middleware would refuse.
     $canManageLazada = auth()->user()?->hasPermission('manage_lazada/product') ?? false;
     $canEditCatalog = auth()->user()?->hasPermission('manage_catalog/product') ?? false;
 
@@ -35,11 +25,6 @@
         || $groupFilter !== 'all'
         || $erpStatus !== 'all';
 
-    // Sort links, the same three closures the old header carried and the same
-    // ones resources/views/catalog/products/index.blade.php uses: current
-    // query in, sort and dir replaced, page dropped so a re-sort starts at the
-    // top. The controller allow-lists the column, so an edited URL cannot
-    // reach anything it does not name.
     $toggleDir = function (string $col) use ($sort, $dir) {
         if ($sort !== $col) return 'asc';
         return $dir === 'asc' ? 'desc' : 'asc';
@@ -64,9 +49,6 @@
     <div>
         <h1 class="x-page-title">Listings</h1>
         <p class="x-page-sub">
-            {{-- This store's own list now (#201): the products this store
-                 carries, not the whole catalogue. A filtered count says what
-                 it is counting. --}}
             @if($hasFilters)
                 {{ number_format($paginator->total()) }} {{ $paginator->total() === 1 ? 'product matches' : 'products match' }}@if($statusMenu['label'] ?? null): {{ $statusMenu['label'] }}@endif
             @else
@@ -77,8 +59,6 @@
     </div>
     @if($canManageLazada)
         <div class="cc-head-actions">
-            {{-- Add products: the one way a main-catalogue product joins this
-                 store, opening the slide-over in place. --}}
             <x-ui.button type="button" variant="primary" data-add-panel-open>
                 <x-ui.icon name="plus" size="14" /> Add products
             </x-ui.button>
@@ -86,16 +66,6 @@
     @endif
 </div>
 
-{{-- One filter row. The old page had a six-column CSS grid of labelled selects
-     inside a card with a Filter button at the end; the selects here submit on
-     change (data-autosubmit, resources/js/list-filters.js) so there is no
-     Filter button to press, and Clear is a link because it is navigation. The
-     two hidden fields keep whatever column the list is sorted by from being
-     dropped the moment a filter is submitted, exactly as before. --}}
-{{-- Lazada's own statuses, as the tab row above the table: what the store
-     says about each item, beside the menu's VentaSync status. The two
-     combine, and each one's counts follow the other's choice. When Lazada
-     cannot be asked, the note says why and the row is not drawn. --}}
 @if(($liveTabError ?? null) !== null)
     <div class="fm-note fm-note--warn" role="status">
         <div class="fm-note__body">@include('partials.channel-answer', ['channel' => 'Lazada', 'raw' => $liveTabError, 'settingsRoute' => 'ext.lazada.index'])</div>
@@ -140,7 +110,6 @@
                     @endif
                 </span>
                 @if($canManageLazada)
-                    {{-- Refresh re-reads every status and checks every link against the store. --}}
                     <form method="POST" action="{{ route('ext.lazada.products.refresh_status') }}" class="x-segment-group__refresh" data-slow-action>
                         @csrf
                         <x-ui.button type="submit"><x-ui.icon name="refresh-cw" size="14" /> Refresh from Lazada</x-ui.button>
@@ -162,8 +131,6 @@
 <div class="lsm-layout__main">
 
 @php
-    /* The group a Listings page stands in, and what acts on it: its settings
-       page, and a Send that uses those settings for the ticked rows. */
     $canManageGroups = auth()->user()?->hasPermission('manage_lazada/product_group') ?? false;
     $chosenGroup = collect($statusMenu['groups'])->first(fn ($g) => $g['active'] && $g['key'] !== 'none');
     $groupLine = ($chosenGroup && $canManageGroups) ? [
@@ -186,14 +153,12 @@
 @include('partials.listing-stand-segment', ['menu' => $statusMenu, 'group' => $groupLine])
 
 <form method="GET" action="{{ route('ext.lazada.products.index') }}" class="x-filters" id="lazada-listings-filter">
-    {{-- The menu's choice rides a search. --}}
     @if(($lazadaTab ?? 'all') !== 'all')
         <input type="hidden" name="lazada_tab" value="{{ $lazadaTab }}">
     @endif
     @if($syncStatus !== 'all')
         <input type="hidden" name="sync_status" value="{{ $syncStatus }}">
     @endif
-    {{-- The rail's choice rides a search too, or searching would drop it. --}}
     @if(($groupFilter ?? 'all') !== 'all')
         <input type="hidden" name="group" value="{{ $groupFilter }}">
     @endif
@@ -238,14 +203,6 @@
 </form>
 
 @php
-    // Guards check the ext.-prefixed name the route() call actually generates.
-    // They used to check the unprefixed name (lazada.products.bulk_sync_quantity
-    // etc.), which stopped existing when these routes gained their ext.
-    // prefix - Route::has() was therefore always false and every button
-    // silently fell back to a hardcoded URL that matches no registered route.
-    // Caught by RouteNameSweepTest's Route::has() sweep, and kept here
-    // unchanged: these action URLs are the wire. (The multi-tick push left
-    // on 2026-09-06: many products go up from a product group's page.)
     $bulkSyncQtyUrl = \Illuminate\Support\Facades\Route::has('ext.lazada.products.bulk_sync_quantity')
         ? route('ext.lazada.products.bulk_sync_quantity')
         : url('/channels/lazada/products/bulk/sync/quantity');
@@ -261,22 +218,8 @@
 @endphp
 
 @if($canManageLazada)
-{{-- Bulk bar. It exists only once at least one row is ticked, which is the
-     whole reason the pre-redesign page's standing accent-tinted strip of five
-     buttons is gone. Each action is still its own form posting product_ids[]
-     to its own route, exactly as before; the module injects the ticked ids
-     into whichever form is submitted. Delete keeps the transparent danger
-     treatment, not a solid red fill. --}}
-{{-- role="status" so the bar arriving is heard, not only seen. Ticking a
-     row made five actions appear with no announcement of any kind, so a
-     screen reader user selected twelve listings and was never told the count
-     or that anything had opened. aria-live is on the COUNT rather than the
-     whole bar: the buttons do not change, and re-reading five labels on
-     every tick would be worse than silence. --}}
 @php
     $bulk = [
-        /* Filing the ticked rows: into a group, between groups, or out of
-           every group; and, standing inside one, the quick way out of it. */
         'move' => $canManageGroups ? [
             'action' => route('ext.lazada.product-groups.move'),
             'groups' => collect($statusMenu['groups'])->reject(fn ($g) => $g['key'] === 'none')
@@ -290,8 +233,6 @@
             'confirm' => 'Take these products out of ' . $chosenGroup['label'] . '? They become ungrouped and stop taking its settings on the next push.',
             'return' => request()->getRequestUri(),
         ] : null,
-        /* Multi-tick push (2026-09-09): each ticked product goes up on
-           its own settings and reports for itself. */
         'push' => ['action' => route('ext.lazada.products.bulk_push'), 'label' => 'Send to Lazada',
             'confirm' => 'Send the selected products to Lazada? Each goes up on its own settings, and anything not ready is named rather than sent.'],
         'switch' => [
@@ -313,9 +254,6 @@
                     : ((($lazadaTab ?? 'all') !== 'all')
                         ? 'No listing on this store holds this status right now.'
                         : 'This store carries nothing yet. Add products from your Master Catalog and they will land here, ready to configure and push to Lazada.')">
-        {{-- A new store opens here empty (#201): the way forward is Add
-             products, not a dead end. The other two branches keep the reader
-             from being stuck behind a filter with no visible way out. --}}
         @if($hasFilters)
         <x-slot:action>
             <x-ui.button :href="route('ext.lazada.products.index')">Clear filters</x-ui.button>
@@ -377,9 +315,6 @@
         @php
             $pid = (int) $row->product_id;
             $listing = $row->listing_id ? $listingsById->get((int) $row->listing_id) : null;
-            /* ONE state per row (Phase C, #184): badge, readiness AND the
-               action menu below all read this same object, so the words and
-               the buttons can never disagree (#188). */
             $rowState = $listingStates[$pid] ?? null;
             $stateClass = \App\Integrations\Listings\ListingState::class;
 
@@ -400,15 +335,8 @@
             $optRows = isset($optionRowsByProductId) ? $optionRowsByProductId->get($pid) : null;
             $variationCount = $optRows ? count($optRows) : 0;
 
-            // A product with no listing row begins at the create form,
-            // prefilled; one with a row opens it.
-            // The listing page carries this page's own URL (search, filters,
-            // page) as `back`, so Save and push and Cancel return here
-            // (the owner, 2026-09-06). App\Support\BackTo keeps it on this host.
-            // The product id is the key on every route (2026-09-07); a product with no row yet opens the same page.
             $editUrl = route('ext.lazada.products.edit', ['productId' => $pid, 'back' => request()->getRequestUri()]);
 
-            // What the operator is about to act on, for the confirms below.
             $rowLabel = $pName !== '' ? $pName : ($pSku !== '' ? $pSku : 'product ' . $pid);
         @endphp
         @include('partials.channel-error-row', ['error' => ($rowErrors ?? [])[(int) $pid] ?? null, 'cols' => $colCount])
@@ -416,12 +344,6 @@
         <tr>
             @if($canManageLazada)
             <td class="cc-col-check">
-                {{-- Bulk actions post product_ids[]; a product without a row is skipped by the action, so only a product that
-                     HAS a listing row can be ticked. No name attribute: the
-                     module injects the ticked ids into whichever bulk form
-                     is submitted. data-live carries the raw mirror word for
-                     the bulk toggle's verb filter; it is a wire, the
-                     rendered words come from the engine. --}}
                 @if($listing)
                 <input type="checkbox" class="cc-check" data-row-check value="{{ (string) $pid }}"
                        data-live="{{ $hasItemId ? (string) ($listing->live_status ?? '') : 'NOT_LISTED' }}"
@@ -443,9 +365,6 @@
                         @endif
                     </div>
                     <div class="co-item__body">
-                        {{-- The edit page is manage-gated, so a read-only
-                             operator gets the name as text rather than a link
-                             that would be refused. --}}
                         @if($canManageLazada)
                             <a class="x-row-link co-item__name" href="{{ $editUrl }}">{{ $pName ?: 'Unnamed product' }}</a>
                         @else
@@ -483,25 +402,15 @@
 
 
             <td class="cc-col-sync" data-label="Listing">
-                {{-- The engine's answer, rendered verbatim. This cell used
-                     to carry its own label map - the fourth status
-                     vocabulary on one channel, already drifted from the
-                     controller's - and a five-branch fallback ladder.
-                     Never checked reads as exactly that, not as a guess. --}}
                 @if($rowState === null)
                     <x-ui.badge tone="neutral">Not listed</x-ui.badge>
                 @elseif($rowState->state === $stateClass::UNKNOWN && $hasItemId && ($liveCounts ?? null) === null)
-                    {{-- No shop configured: the mirror cannot exist, and
-                         "Listed" is all the link can honestly say. --}}
                     <x-ui.badge tone="success">Listed</x-ui.badge>
                 @elseif($rowState->state === $stateClass::UNKNOWN)
                     <x-ui.badge tone="neutral" title="Press Refresh from Lazada to read its status">{{ $rowState->label() }}</x-ui.badge>
                 @elseif($rowState->state === $stateClass::NOT_LISTED)
                     <x-ui.badge :tone="$rowState->tone()">{{ $rowState->label() }}</x-ui.badge>
-                    {{-- Whether a push would pass is the Ready column's. --}}
                 @else
-                    {{-- The title rides a wrapping span: Blade cannot compile
-                         an @if inside a component tag's attribute list. --}}
                     <span @if($rowState->checkedAt) title="Checked {{ $rowState->checkedAt->diffForHumans() }}" @endif>
                         <x-ui.badge :tone="$rowState->tone()">{{ $rowState->label() }}</x-ui.badge>
                     </span>
@@ -516,12 +425,6 @@
 
             <td class="x-td-actions">
                 @if($canManageLazada)
-                {{-- The menu derives from the SAME state the badge wears
-                     (#188). The old ladder keyed on three booleans and a
-                     raw status, and rendered both toggles with one hidden -
-                     so a row could say one thing and offer the actions of
-                     another. Now: what the badge says decides what the
-                     menu holds, and only the applicable toggle exists. --}}
                 @php
                     $menu = [
                         'label' => "{$rowLabel} actions",
@@ -531,7 +434,6 @@
                     ];
                     if ($canManageLazada) {
                         if (!$listing || !$hasItemId || $isUnlinked) {
-                            // One push, and it opens the listing page first (#149), where Save and push sits under what is about to go up.
                             $menu['push'] = ['href' => $editUrl, 'label' => 'Send to Lazada'];
                             if ($listing) {
                                 $menu['link'] = ['action' => route('ext.lazada.products.sync_lazada_id', $pid)];
@@ -559,7 +461,6 @@
             </td>
         </tr>
         @if($variationCount > 0)
-            {{-- The variations as rows of this table, under the same headers (partials.channel-variation-rows). --}}
             @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManageLazada, 'trail' => ['cc-col-sync', 'x-td-actions']])
         @endif
     @endforeach
@@ -569,20 +470,10 @@
 
 @endif
 
-</div>{{-- /.lsm-layout__main --}}
-</div>{{-- /.lsm-layout --}}
+</div>
+</div>
 
-{{-- Work-in-progress overlay. An upload to Lazada is a multi-second round trip
-     and the page has to say so, or the operator clicks again. Rides
-     components/modals.css's .modal-backdrop show/hide mechanics, the same
-     single `.active` class partials/confirm-modal.blade.php and the orders
-     pages' own overlay already use. --}}
 <div id="lazada-listings-progress" class="modal-backdrop">
-    {{-- A dialog, and one that speaks. This overlay covers the page for
-         several seconds while a marketplace call is in flight and carried no
-         role, no name and no live region, so the only signal that anything
-         was happening was the spinner - which is to say, none at all for
-         anyone not looking at it. --}}
     <div class="modal co-modal co-modal--sm" role="dialog" aria-modal="true"
          aria-labelledby="lazada-progress-title" aria-describedby="lazada-progress-note">
         <div class="cc-progress" role="status" aria-live="polite">
@@ -595,11 +486,9 @@
     </div>
 </div>
 
-{{-- The Add products slide-over (#201, Draft C), manage-gated like its
-     button and every route it calls. --}}
 @if($canManageLazada)
     @include('ext-lazada::products._add-panel')
 @endif
 
-</div>{{-- /.cc-page --}}
+</div>
 @endsection

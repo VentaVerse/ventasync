@@ -2,31 +2,10 @@
 @section('title', $storeLabel . ' Orders')
 @section('breadcrumb', 'Orders')
 
-{{-- Leaves the .x-legacy content boundary, the same exit Shopee's, Lazada's
-     and TikTok's Orders pages took: this page is now built directly on the
-     design tokens and the x-ui components. The cross-marketplace tab strip
-     went with it. Inside a store's own workspace you are working one store,
-     and the workspace sidebar (which names the store in its head) and the
-     fulfilment hub are the two ways to reach another one. --}}
 @section('content')
 @php
-    // Orders is visible to view_venta_orders holders; Fetch and the bulk
-    // delete render only for the manage tier. The route middleware
-    // (perm:manage_venta_orders on every write in
-    // extensions/venta/routes/web.php) is the real gate; this flag only
-    // stops the page offering controls that would 403.
-    //
-    // The old page hardcoded this to true, the same defect Lazada's and
-    // TikTok's pages carried, which showed a read-only operator a fetch bar
-    // and a row of Delete buttons that all fail on submit.
-    //
-    // Read here rather than left to the panel because the ltrim mirror below
-    // branches on it, and because the deck above needs the scope label.
     $canManageVentaOrders = auth()->user()?->hasPermission('manage_venta/order') ?? false;
 
-    // The count in the deck names what is actually listed, so standing on a
-    // tab it says that tab (or the To Ship sub step) rather than the whole
-    // store, and a status alias names the status.
     $vtStatus = (string) ($filters['status'] ?? '');
     $vtTab = strtoupper((string) ($active_tab ?? 'TO_SHIP'));
     $vtScopeLabel = $vtStatus !== ''
@@ -47,21 +26,6 @@
     </div>
 </div>
 @php
-    // PhpEngine::evaluatePath() ltrim()s every view's own render() output
-    // (leading whitespace, not just newlines), so whatever blank lines and
-    // indentation used to precede the panel's first visible element are
-    // always stripped when it is @include'd below. Mirrors the same trap
-    // documented on the other three channels' index views: the command bar
-    // (unindented, one blank line above it) when manage-tier, the segment
-    // bar (preceded by a Blade comment, one blank line above the comment)
-    // otherwise. Reproducing that only works from this side of the include,
-    // and only by mirroring the same condition the moved markup branches on.
-    //
-    // The counts below were arrived at by HTML diff against the
-    // pre-extraction page, on both tiers and both stores, not by reading the
-    // file: the viewer branch is one newline longer because the command
-    // bar's own @if/@endif pair still contributed a line break when it
-    // rendered nothing.
     if ($canManageVentaOrders) {
         echo "\n\n";
     } else {
@@ -72,5 +36,5 @@
     'panelHiddenParams' => [],
 ])
 
-</div>{{-- /#venta-orders-page --}}
+</div>
 @endsection

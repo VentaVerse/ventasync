@@ -1,16 +1,3 @@
-/* Run now on the Automations tab (the owner, 2026-09-07): one shape for every
- * automation. Pressing Run now opens a modal with a loading state; when
- * the job ends, the modal says one sentence, success or failure, and
- * offers OK. OK reloads the tab so the row shows its new last run.
- *
- * Underneath, a job that can be walked in steps is driven ten units per
- * request (see App\Services\AutomationRunner), so nothing times out; a
- * job that cannot runs whole. The user never sees the difference, by
- * decision: unity over a bar that only some jobs could fill honestly.
- * Stop ends a stepped run after the step in flight and keeps what it did.
- *
- * Markup: the [data-automation-run] modal in partials/_automations_tab.
- */
 (function () {
     function csrf() {
         var m = document.querySelector('meta[name="csrf-token"]');
@@ -38,7 +25,6 @@
         var text = root.querySelector('[data-ar-text]');
         var stopBtn = root.querySelector('[data-ar-stop]');
         var okBtn = root.querySelector('[data-ar-ok]');
-        // An SVG element has no `hidden` property, so the marks are toggled by attribute.
         function setHidden(el, hidden) { if (!el) return; if (hidden) el.setAttribute('hidden', ''); else el.removeAttribute('hidden'); }
 
         var run = null;

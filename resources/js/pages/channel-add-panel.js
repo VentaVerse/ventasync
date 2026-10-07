@@ -1,32 +1,3 @@
-/*
- * The Add products slide-over (#201, Draft C - the owner 2026-09-05).
- *
- * Shared across channels and surfaces: the page renders the
- * <x-channel.add-panel> component, whose root carries every URL and every
- * label as a data- attribute, and this module binds to it. It is inert on
- * any page without that root. The same module serves a store's Listings
- * (Master Catalog into this store) and a product group's page (this
- * store's products into the group); only the endpoints and the words
- * differ, and the page owns both.
- *
- * What it does, and no more:
- *   - open on any [data-add-panel-open]; close on ✕, Done, the scrim, or Esc.
- *   - search (debounced, latest-request-wins) and render the rows with DOM
- *     construction, never markup strings.
- *   - add one product per press over fetch; the row flips to Added and the
- *     session count ticks up. A row the server marks `elsewhere` (owned by
- *     another group under the one-group rule) offers Move here instead of
- *     Add, and the POST says so, rather than surprising the operator with
- *     a refusal after the press.
- *   - when the panel closes after at least one add, reload: the table
- *     behind is server-rendered, and a reload is the one honest way to
- *     show the additions with every state the table already knows how to
- *     draw. Close with nothing added returns focus to the opener.
- *
- * The results are capped by the server; the meta line says "Showing n of N"
- * so a large list is narrowed by search rather than scrolled.
- */
-
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 function el(tag, className, text) {
@@ -65,7 +36,7 @@ export function initAddPanel() {
     if (!panel) return;
 
     const searchUrl = panel.dataset.searchUrl;
-    const addUrlTemplate = panel.dataset.addUrl; // carries __PID__
+    const addUrlTemplate = panel.dataset.addUrl;
     const inLabel = panel.dataset.inLabel || 'On this store';
     const scope = panel.dataset.scope || 'this store';
     const emptyDefault = panel.dataset.emptyDefault || 'Everything is already on ' + scope + '.';
@@ -75,7 +46,6 @@ export function initAddPanel() {
     const list = panel.querySelector('[data-add-panel-list]');
     const meta = panel.querySelector('[data-add-panel-meta]');
     const addedEl = panel.querySelector('[data-add-panel-added]');
-    // The product group the adds go into, when the page offers the choice.
     const groupPick = panel.querySelector('[data-add-panel-group]');
     const tokenInput = panel.querySelector('input[name="_token"]');
     const token = tokenInput ? tokenInput.value : '';
@@ -130,9 +100,6 @@ export function initAddPanel() {
         bits.push(item.quantity + ' in stock');
         if (item.price) bits.push(item.price);
         if (item.elsewhere) bits.push('In ' + item.elsewhere);
-        // A group's panel searches the Master Catalog (option 2, 2026-09-05):
-        // a product the store does not carry yet says so, and adding it
-        // lists it on the store as it joins the group.
         if (item.listed === false) bits.push('Not on this store yet');
         body.appendChild(el('span', 'cc-addpanel__meta2', bits.join(' · ')));
         li.appendChild(body);
@@ -185,7 +152,7 @@ export function initAddPanel() {
             const res = await fetch(url.toString(), { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' });
             if (!res.ok) throw new Error(String(res.status));
             const data = await res.json();
-            if (seq !== requestSeq) return; // a newer search superseded this one
+            if (seq !== requestSeq) return;
             render(data);
         } catch (err) {
             if (seq !== requestSeq) return;
@@ -233,7 +200,6 @@ export function initAddPanel() {
     panel.querySelectorAll('[data-add-panel-close], [data-add-panel-done]').forEach(function (btn) {
         btn.addEventListener('click', close);
     });
-    // The scrim (the backdrop itself), not the sheet, dismisses.
     panel.addEventListener('click', function (e) { if (e.target === panel) close(); });
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape' && panel.classList.contains('active')) close();

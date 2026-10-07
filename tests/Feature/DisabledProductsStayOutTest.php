@@ -12,12 +12,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * Disabled core products stay out of the channel listings (#197,
- * the owner). The wrinkle honoured: a disabled product still LISTED on the
- * channel stays visible - it likely needs unlisting, not hiding - and
- * the catalog-status filter still offers Disabled on purpose.
- */
 class DisabledProductsStayOutTest extends TestCase
 {
     use RefreshDatabase;
@@ -69,9 +63,6 @@ class DisabledProductsStayOutTest extends TestCase
 
     public function test_the_default_shopee_view_hides_disabled_unlisted_and_keeps_disabled_listed(): void
     {
-        // Every product here is ON THE STORE (#201): a listing record for the
-        // two never pushed, a link row for the one still on Shopee. The rule
-        // under test is about disabled products the store carries.
         $hidden = $this->seedProduct('DIS-HIDE', 'Disabled and nowhere', 0);
         \Extensions\shopee\Models\ShopeeListing::create(['product_id' => $hidden]);
         $listedDisabled = $this->seedProduct('DIS-KEEP', 'Disabled but still on Shopee', 0);
@@ -99,13 +90,6 @@ class DisabledProductsStayOutTest extends TestCase
         $this->seedProduct('DIS-TT', 'Disabled tiktok nowhere', 0);
         $user = $this->operator();
 
-        // Multi-store (the owner 2026-09-05): Lazada and TikTok pages are both
-        // store-scoped, so an enabled store must name the {store} segment.
-        // Seeded and passed here rather than in setUp: setUp's shopee tests
-        // share the single 'store' URL default, so a store seeded there would
-        // fill their shopee routes with the wrong id and 404 them. The store is
-        // passed explicitly per channel because the two share that same 'store'
-        // default and whichever was created last would otherwise win it.
         $lazadaStore = \Extensions\lazada\Models\LazadaSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
         $tiktokStore = \Extensions\tiktok\Models\TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
 

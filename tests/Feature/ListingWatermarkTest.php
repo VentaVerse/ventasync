@@ -10,10 +10,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
-/**
- * Which template marks a listing's pictures: its own, else its product
- * group's in the same store, and on which pictures.
- */
 class ListingWatermarkTest extends TestCase
 {
     use RefreshDatabase;

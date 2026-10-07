@@ -6,8 +6,6 @@
 @php
     $backUrl = request('back', route('products.index'));
 
-    // Movement type and origin are facts, not health states, so they are badge
-    // dots in neutral except where the row genuinely records stock leaving.
     $typeTone = fn (string $t) => match ($t) {
         'deduct'  => 'danger',
         'restore' => 'success',
@@ -66,8 +64,6 @@
         </div>
         <div class="fm-stat">
             <span class="fm-stat__k">Deducted, all time</span>
-            {{-- Deductions are the only figure here that gets colour: this is
-                 stock leaving. --}}
             <span class="fm-stat__v fm-neg">{{ number_format($totalDeducted) }}</span>
         </div>
     </div>
@@ -106,9 +102,6 @@
                     @endif
                 </td>
                 <td class="x-td-num" data-label="Before"><span class="x-num">{{ number_format($h->quantity_before) }}</span></td>
-                {{-- A negative change is stock leaving, so it carries the one
-                     colour on this page. A negative quantity_after is
-                     legitimate (an oversold variation) and is not flagged. --}}
                 <td class="x-td-num" data-label="Change">
                     <span class="x-num{{ $h->quantity_change < 0 ? ' fm-neg' : '' }}">{{ $h->quantity_change >= 0 ? '+' : '' }}{{ number_format($h->quantity_change) }}</span>
                 </td>

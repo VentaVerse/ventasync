@@ -16,7 +16,6 @@ return new class extends Migration {
             $table->unsignedBigInteger('lazada_product_id');
             $table->unsignedInteger('product_option_value_id')->nullable();
 
-            // Mapping fields (Phase 2)
             $table->string('seller_sku', 64)->nullable();
             $table->decimal('price', 15, 4)->nullable();
             $table->integer('quantity')->nullable();

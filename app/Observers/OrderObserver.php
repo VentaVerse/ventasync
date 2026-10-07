@@ -5,11 +5,6 @@ namespace App\Observers;
 use App\Events\OrderStatusChanged;
 use App\Models\Catalog\Order;
 
-/**
- * Announces every status move made through Eloquent (Order::create,
- * $order->save(), $order->update()). Query-builder writes do not reach an
- * observer; the syncs that use them announce with OrderStatusChanged::fire().
- */
 class OrderObserver
 {
     public function created(Order $order): void

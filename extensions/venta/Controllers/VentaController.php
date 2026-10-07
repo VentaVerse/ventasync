@@ -18,12 +18,10 @@ class VentaController extends Controller
 {
     public function index()
     {
-        // Legacy fallback — redirect to the first enabled store's per-store settings.
         $first = VentaSetting::query()->orderBy('id')->first();
         if ($first) {
             return redirect()->route('ext.venta.settings.show', ['store' => $first->id]);
         }
-        // No stores yet — bounce to the module page so the user can create one.
         return redirect()->route('channels.module', ['module' => 'venta']);
     }
 
@@ -31,15 +29,8 @@ class VentaController extends Controller
     {
         $active = VentaSetting::findOrFail($store);
 
-        // Keep the existing view's data shape — pass a single-element collection.
         $stores = collect([$active]);
 
-        // Paginated and scoped to this store. It used to take the newest 30
-        // across every store and filter them in the view, which meant a busy
-        // store could push a quiet one's runs off a list that was not even
-        // its own. `syncPage` is its own page name so it cannot collide with
-        // another paginator on this page, and withQueryString keeps ?tab=sync
-        // on every link so a page turn does not throw you back to Connection.
         $syncLogs = VentaSyncLog::query()
             ->where('venta_setting_id', $active->id)
             ->orderByDesc('created_at')
@@ -48,7 +39,6 @@ class VentaController extends Controller
 
         $syncLogCount = VentaSyncLog::where('venta_setting_id', $active->id)->count();
 
-        // #200: the shared log panel - errors-only and path filters, paged.
         $apiLogs = \App\Support\ApiLogPanel::paginate(
             VentaApiLog::query()->where('venta_setting_id', $active->id),
             'endpoint',
@@ -73,10 +63,6 @@ class VentaController extends Controller
         return view('ext-venta::settings.index', compact('stores', 'syncLogs', 'syncLogCount', 'apiLogs', 'orderStatusMaps', 'erpOrderStatuses', 'singleStore'));
     }
 
-    /**
-     * "Add New Store" modal target — minimal create with name + base_url only.
-     * The user fills in API token and the rest on the per-store settings page.
-     */
     public function createStore(Request $request)
     {
         $data = $request->validate([
@@ -102,10 +88,6 @@ class VentaController extends Controller
     public function save(Request $request)
     {
         $storeId = $request->input('store_id');
-        // Looked up ahead of validate() so the credential rule below can key
-        // off whether this store already has a stored token: the field is
-        // masked in the form, so a blank submission must not be forced
-        // through `required` just because the user didn't retype it.
         $existing = $storeId ? VentaSetting::findOrFail((int) $storeId) : null;
         $hasStoredToken = $existing !== null && $existing->api_token !== null && $existing->api_token !== '';
 
@@ -134,9 +116,6 @@ class VentaController extends Controller
                 'sync_last_days'   => $data['sync_last_days'] ?? $setting->sync_last_days,
                 'sync_orders_from' => $data['sync_orders_from'] ?? $setting->sync_orders_from,
             ]);
-            // Blank submission means "keep existing" -- never wipe the
-            // stored token just because the form was resaved without
-            // retyping it.
             if (!empty($data['api_token'])) {
                 $setting->api_token = $data['api_token'];
             }
@@ -156,16 +135,6 @@ class VentaController extends Controller
             ActivityLogger::log('created', 'Venta Store', $setting->id, $setting->store_name ?? $setting->base_url);
         }
 
-        // Back to the store that was just saved, not to ext.venta.index.
-        //
-        // That route is a legacy fallback which redirects to the FIRST store
-        // by id, so saving Shop B landed the operator on Shop A's
-        // settings, looking at another shop's credentials and with no sign
-        // that anything had moved. On a multi-store channel where every store
-        // is a live storefront, a save that silently changes which shop you
-        // are editing is worse than an inconvenience.
-        // Connected for the first time and nothing fetched yet: the page
-        // sets the store up (categories, brands, statuses) behind the popup.
         $setUp = trim((string) $setting->api_token) !== ''
             && ! VentaCategory::query()->where('venta_setting_id', $setting->id)->exists();
 
@@ -186,11 +155,6 @@ class VentaController extends Controller
         return redirect()->route('ext.venta.index')->with('status', 'Store deleted.');
     }
 
-    /**
-     * The typed-name hard delete behind "Delete this store" on Settings >
-     * Connection (the Shopee shape, #204, ported 2026-09-06). Everything the
-     * store owns in the ERP goes with it; sales already imported stay.
-     */
     public function destroyStore(Request $request, int $store, \Extensions\venta\Services\Venta\VentaStoreDeleter $deleter)
     {
         $setting = VentaSetting::findOrFail($store);
@@ -234,8 +198,6 @@ class VentaController extends Controller
 
         $client = new VentaClient($setting);
         $result = $client->ping();
-        // The flow's "Check the connection" step remembers that the store
-        // answered, the way WooCommerce's does.
         if (! empty($result['ok']) && $setting->exists) {
             $setting->forceFill(['connected_at' => now()])->save();
         }
@@ -243,10 +205,6 @@ class VentaController extends Controller
         return response()->json($result);
     }
 
-    /**
-     * One step of "Set up the store" (the Shopee shape, 2026-09-06): the
-     * setup popup runs categories, brands and statuses and reads a sentence back.
-     */
     public function setupStep(int $store, string $step, \Extensions\venta\Services\Venta\VentaStoreSetup $setup)
     {
         $setting = VentaSetting::findOrFail($store);
@@ -280,8 +238,6 @@ class VentaController extends Controller
                 ? response()->json(['ok' => false, 'error' => $out['message']])
                 : back()->with('error', $out['message']);
         }
-        // The flow's plain form comes back to the page with a sentence; the
-        // status-map script asks for JSON.
         if (! $request->expectsJson()) {
             return back()->with('status', $out['count'] . ' ' . \Illuminate\Support\Str::plural('category', $out['count']) . ' read from ' . ($setting->store_name ?: 'the store') . '.');
         }
@@ -323,8 +279,6 @@ class VentaController extends Controller
             return response()->json(['error' => $out['message']], str_contains($out['message'], 'no order statuses') ? 404 : 500);
         }
 
-        // Return persisted rows so the JS can render dropdowns with the
-        // current mappings already selected.
         $persisted = VentaOrderStatusMap::where('venta_setting_id', $setting->id)
             ->orderBy('venta_status_id')
             ->get(['venta_status_id', 'venta_status_name', 'order_status_id'])
@@ -371,25 +325,16 @@ class VentaController extends Controller
         return response()->json(['status' => 'Order status mapping saved.']);
     }
 
-    /** The three-way log mode (#200): everything / errors only / off. */
     public function setApiLogMode(Request $request, $id)
     {
         $data = $request->validate(['mode' => 'required|in:' . implode(',', \App\Support\ApiLogMode::MODES)]);
         $store = VentaSetting::findOrFail($id);
         $store->update(['api_log_mode' => $data['mode']]);
 
-        // ['tab' => 'logs'] so the operator lands back on the panel they
-        // pressed the control on (the old toggle bounced to Connection).
         return redirect()->route('ext.venta.settings.show', ['store' => $store->id, 'tab' => 'logs'])
             ->with('status', ($store->store_name ?: 'Venta') . ' API log now records: ' . \App\Support\ApiLogMode::labels()[$data['mode']] . '.');
     }
 
-    /**
-     * How much of this store's syncing is written down. Its own setting
-     * rather than the global one, because a store that syncs every two
-     * minutes should not force a quieter store to go silent with it. Blank
-     * follows the default in Settings, Website.
-     */
     public function setSyncLogLevel(Request $request, $id)
     {
         $store = VentaSetting::findOrFail($id);

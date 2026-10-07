@@ -1,23 +1,3 @@
-{{-- Lazada category attributes: one row per attribute Lazada defines for the
-     chosen category.
-
-     Rendered twice over, exactly like Shopee's: inline by the product group form, and
-     as the body of LazadaProductGroupController::fetchAttributesAjax()'s JSON
-     response when the operator changes the category. Its markup is part of
-     that endpoint's contract, so the row grammar lives in
-     resources/css/pages/group-form.css and nothing here needs a script to
-     restyle it after an injection.
-
-     What Lazada has and Shopee does not is the second way to fill a free-text
-     attribute: instead of typing a value, point it at a field on the
-     catalog product and let every push read it from there. That is the
-     `__map:<field>` prefix on the stored value, and it is the wire, unchanged.
-
-     Attributes keyed `brand` are skipped, as before: the brand is its own
-     control on the form and Lazada would take two conflicting answers.
-
-     `$canManage` defaults to true because the AJAX path is manage-tier only
-     (perm:manage_lazada on the fetch-attributes route). --}}
 @php
     $canManage = $canManage ?? true;
 @endphp
@@ -80,9 +60,6 @@
                                 <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
                             </div>
 
-                            {{-- The two ways to answer share one cell, so
-                                 swapping between them moves nothing else on
-                                 the row. --}}
                             <div class="gf-attr__value">
                                 <input id="{{ $controlId }}" class="x-input" data-attr-manual data-attr-manual-box
                                        value="{{ $typedValue }}" placeholder="Not set"
@@ -100,7 +77,6 @@
                                 </div>
                             </div>
 
-                            {{-- The only control in this row that submits. --}}
                             <input type="hidden" name="attributes[{{ $key }}]" data-attr-value value="{{ $value }}">
                         </div>
                     @endif

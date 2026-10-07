@@ -1,34 +1,3 @@
-/* Lazada Orders and Lazada Returns.
-   -------------------------------------------------------------------
-   The shared anatomy these pages are drawn on lives in
-   components/channel-orders.css under the `co-` prefix: the command bar,
-   the order band, the item rows, the money and status cells, the actions
-   cell, the modal shell and the mobile restack are the same picture Shopee
-   draws, so they are the same rules rather than a copy of them.
-
-   What is here is Lazada's own, and takes an `lz-` prefix so it can never
-   collide with another channel's page file: this channel's column widths,
-   its picking-document links, and the tracking timeline its module builds.
-
-   Nothing here carries a colour of its own. Lazada's blue lived on the old
-   .marketplace-lazada wrapper, where it repainted --bl-brand-deep for every control
-   on the page; channel identity is carried by the sidebar and the
-   breadcrumb, which already say Lazada, and the accent is spent on the one
-   thing that needs a human.
-   ------------------------------------------------------------------- */
-
-/* The legacy column format: Products | Qty | Price | Amount | Shipping |
-   Status | Actions, with the order facts banded above each order's item
-   rows.
-
-   Percentages, summing to 100, so the table's spare width spreads across
-   every column proportionally instead of pooling in one of them. Shopee's
-   cut is the starting point; Actions takes 26% here against Shopee's 20%
-   because Lazada's To Arrange step offers three controls where Shopee's
-   busiest status offers two, and Products, Price and Shipping each give up
-   a point or two to pay for it. At the 1400px content cap Products still
-   lands near 400px, which is enough for two lines of a long marketplace
-   title, so Qty keeps hugging the product text. */
 .lz-col-products { width: 29%; }
 .lz-col-qty      { width: 5%; }
 .lz-col-price    { width: 8%; }
@@ -37,9 +6,6 @@
 .lz-col-status   { width: 12%; }
 .lz-col-act      { width: 26%; }
 
-/* Returns has its own shape: no unit price, a per-line refund, an
-   order-level total, and the reverse parcel's tracking where Orders carries
-   the forward carrier. */
 .lz-col-rproducts { width: 30%; }
 .lz-col-rqty      { width: 6%; }
 .lz-col-refund    { width: 11%; }
@@ -48,14 +14,6 @@
 .lz-col-rstatus   { width: 14%; }
 .lz-col-ract      { width: 14%; }
 
-
-/* ------------------------------------------------------------------
-   Tracking timeline. The old modal put Lazada's trace in a bordered table
-   inside a modal inside a page that already has a table, which read as a
-   spreadsheet nested in a spreadsheet. Events are a sequence, so they are
-   drawn as one: a rule down the left, the timestamp in mono above the
-   status, and the courier's own description under it when there is one.
-   ------------------------------------------------------------------ */
 
 .lz-trace {
     display: flex;
@@ -70,8 +28,6 @@
     border-left: 2px solid var(--bl-rule-2);
 }
 
-/* The most recent event is the answer to the question the operator opened
-   this modal with, so it is the one the rule marks. */
 .lz-trace__event:first-child { border-left-color: var(--bl-brand-deep); }
 
 .lz-trace__time {
@@ -94,10 +50,6 @@
     color: var(--bl-ink-2);
 }
 
-/* ------------------------------------------------------------------
-   Returns: the reverse parcel's tracking code and the reason a buyer gave.
-   ------------------------------------------------------------------ */
-
 .lz-track {
     display: block;
     font-family: var(--font-mono);
@@ -114,25 +66,6 @@
     color: var(--bl-ink-3);
 }
 
-/* ==================================================================
-   Lazada order detail (`lzd-`)
-   ------------------------------------------------------------------
-   The page is the shared `od-` detail anatomy poured into the seller
-   center; everything here is genuinely Lazada's and nothing else. The
-   item grid is not among it: Lazada's five columns (image, product, qty,
-   unit price, paid) are exactly the anatomy's own five, so this channel
-   uses them rather than restating them.
-
-   Four things this channel has that the anatomy does not: order item ids
-   under a line (Lazada bills one id per unit and consolidating the units
-   is what makes the list readable), a per-item price composition, the
-   finance ledger of individual fee transactions, and the raw payload.
-   ================================================================== */
-
-/* Order item ids. Lazada returns one row per unit, so a two-unit line
-   carries two ids; they are identifiers, so they are mono, and they are
-   evidence for the line above rather than a figure of their own, so they
-   are muted and sit under the SKU. */
 .lzd-ids {
     display: flex;
     flex-wrap: wrap;
@@ -150,13 +83,6 @@
     color: var(--bl-ink-2);
     overflow-wrap: anywhere;
 }
-
-/* ------------------------------------------------------------------
-   Per-item price composition. What a line was worth before and after
-   Lazada's vouchers. Eight numbers per item read as a table on the old
-   page, which forced a horizontal scroll inside a card; as labelled
-   cells that wrap, the same numbers fit any column width.
-   ------------------------------------------------------------------ */
 
 .lzd-breakdown { margin-top: var(--bl-space-2); }
 
@@ -182,13 +108,6 @@
     gap: var(--bl-space-1) var(--bl-space-4);
     margin-top: var(--bl-space-2);
 }
-
-/* ------------------------------------------------------------------
-   Fee transactions. Lazada's finance ledger for this order: which
-   charges it actually posted, as against what the order came to. Four
-   fields per row, hairlines only, the amount right aligned in mono so a
-   column of charges can be read down rather than line by line.
-   ------------------------------------------------------------------ */
 
 .lzd-trx { display: flex; flex-direction: column; }
 
@@ -216,9 +135,6 @@
 
 .lzd-trx__name { font-size: 13px; color: var(--bl-ink); overflow-wrap: anywhere; }
 
-/* Lazada's own fee_type code. Useful when the fee name is empty or when
-   two names collide, but it is a code, so it rides quietly beside the
-   name rather than taking a column of its own. */
 .lzd-trx__type {
     margin-left: var(--bl-space-2);
     font-family: var(--font-mono);
@@ -244,25 +160,11 @@
     color: var(--bl-ink);
 }
 
-/* ------------------------------------------------------------------
-   Side column: the settlement summary and the parcel controls.
-   ------------------------------------------------------------------ */
-
-/* Waybill and tracking sit in the shipping card's foot. Two controls of
-   the same weight: neither is more the operator's move than the other,
-   and a solid button here would compete with the one in the page head. */
 .lzd-parcel {
     display: flex;
     flex-wrap: wrap;
     gap: var(--bl-space-2);
 }
-
-/* ------------------------------------------------------------------
-   Raw payload. Kept from the previous version of this page: when
-   Lazada's response and this page disagree, this is what settles it. It
-   scrolls in its own box so a 400-line payload cannot push the page
-   sideways.
-   ------------------------------------------------------------------ */
 
 .lzd-raw {
     max-height: 420px;
@@ -280,15 +182,6 @@
     overflow-wrap: anywhere;
 }
 
-/* ------------------------------------------------------------------
-   Responsive
-   ------------------------------------------------------------------ */
-
-/* The fee-transaction row responds to the main column's own width, not
-   the viewport's, for the same reason the anatomy's item row does: that
-   column is narrow at 1100px and wide at 1440px at the same breakpoint.
-   Below the threshold the four fields stack, the amount keeps its own
-   line, and the SKU and date share one. */
 @container odmain (max-width: 560px) {
     .lzd-trx__head { display: none; }
 
@@ -301,26 +194,11 @@
     .lzd-trx__when { text-align: right; }
 }
 
-/* Between the mobile restack and a comfortable desktop width the fixed
-   columns leave almost nothing for Products, the one column carrying
-   genuinely variable-length text. Shipping is the field this range can
-   afford to drop: courier and tracking both repeat on the order detail and
-   in the Tracking modal, which stays. Below the restack breakpoint the row
-   is a single stacked column with room for everything, so Shipping comes
-   back. */
 @media (min-width: 641px) and (max-width: 900px) {
     .lz-col-ship { display: none; }
     #lazada-orders-page .x-table td[data-label="Shipping"] { display: none; }
 }
 
-/* Once the row restacks there are no columns left to align on, so a
-   right-aligned figure just floats away from its own label. The shared
-   rules already do this for the order total; the per-line figures need it
-   too, or one money value in the stack sits left and the next sits right.
-   Scoped to this channel's pages rather than added to the shared file
-   because Shopee's finished pages carry the same gap, and moving their
-   pixels is not this task's to do; unifying it belongs to the review round
-   that can verify both channels at once. */
 @media (max-width: 640px) {
     #lazada-orders-page .x-table tbody td.x-td-num,
     #lazada-returns-page .x-table tbody td.x-td-num { text-align: left; }

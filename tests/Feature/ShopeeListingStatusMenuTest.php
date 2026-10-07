@@ -14,11 +14,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * The status menu on Shopee's Listings page: the tree replaces the
- * Listed-or-not select and sits beside Shopee's own tab row, the two
- * switches narrow it, and the item id rides the product's own line.
- */
 class ShopeeListingStatusMenuTest extends TestCase
 {
     use RefreshDatabase;
@@ -117,7 +112,6 @@ class ShopeeListingStatusMenuTest extends TestCase
         $this->actingAs($user)->get(route('ext.shopee.products.index', ['sync_status' => 'error']))
             ->assertOk()->assertSee('Listed but failed')->assertDontSee('Listed and fine')->assertSee('matches: Push failed', false);
 
-        // The retired eligibility rungs land on the half each belonged to.
         $this->actingAs($user)->get(route('ext.shopee.products.index', ['sync_status' => 'listed_not_ready']))
             ->assertOk()->assertSee('Listed and fine')->assertDontSee('Not on Shopee yet');
 
@@ -125,12 +119,6 @@ class ShopeeListingStatusMenuTest extends TestCase
             ->assertOk()->assertSee('Not on Shopee yet')->assertDontSee('Listed and fine');
     }
 
-    /**
-     * From the Listings page a ticked product moves into a group, from one
-     * group to another, and out of every group, and the page it was on is
-     * where the operator lands. Moving is a group permission: a listing
-     * manager without it sees no picker and is refused.
-     */
     public function test_a_ticked_product_moves_between_groups_from_the_listings_page(): void
     {
         $pid = $this->product('Movable pedal', 'SMV-1');
@@ -144,7 +132,6 @@ class ShopeeListingStatusMenuTest extends TestCase
         $back = parse_url(route('ext.shopee.products.index'), PHP_URL_PATH);
         $pivot = fn () => \Illuminate\Support\Facades\DB::table('shopee_product_group_products')->where('product_id', $pid)->pluck('shopee_product_group_id')->map(fn ($v) => (int) $v)->all();
 
-        // Without the group permission: no picker, and the move is refused with nothing changed.
         $this->actingAs($listingOnly)->get(route('ext.shopee.products.index'))->assertOk()->assertDontSee('Move to group');
         $this->actingAs($listingOnly)->post(route('ext.shopee.product-groups.move'), ['ids' => [$pid], 'group' => $groupA->id, '_return' => $back])->assertRedirect()->assertSessionHas('error');
         $this->assertSame([], $pivot());
@@ -155,12 +142,10 @@ class ShopeeListingStatusMenuTest extends TestCase
             ->assertRedirect($back)->assertSessionHas('status', '1 product moved to ' . $groupA->name . '.');
         $this->assertSame([$groupA->id], $pivot());
 
-        // A product belongs to one group, so choosing another moves it there.
         $this->actingAs($manager)->post(route('ext.shopee.product-groups.move'), ['ids' => [$pid], 'group' => $groupB->id, '_return' => $back])
             ->assertRedirect($back);
         $this->assertSame([$groupB->id], $pivot());
 
-        // Inside a group the same row can be taken straight out of it.
         $this->actingAs($manager)->get(route('ext.shopee.products.index', ['group' => $groupB->id]))->assertOk()->assertSee('Remove from group')->assertSee('Manage group');
 
         $this->actingAs($manager)->post(route('ext.shopee.product-groups.move'), ['ids' => [$pid], 'group' => 'none', '_return' => $back])
@@ -174,7 +159,6 @@ class ShopeeListingStatusMenuTest extends TestCase
         foreach ([$this->product('Run pedal one', 'SRN-1'), $this->product('Run pedal two', 'SRN-2')] as $pid) {
             \Extensions\shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $pid]);
         }
-        // A member this store does not carry is not on the page, so the group send leaves it out.
         $offList = $this->product('Not carried here', 'SRN-3');
         ShopeeListing::query()->where('product_id', $offList)->delete();
         \Extensions\shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $offList]);
@@ -191,11 +175,9 @@ class ShopeeListingStatusMenuTest extends TestCase
 
         $this->actingAs($manager)->get($page)->assertOk()->assertSee('Send group')
             ->assertSee('Send all 2 products in Fuzz to Shopee on group settings, rather than their own?');
-        // The Live tab narrows the list, not the group the button sends.
         $this->actingAs($manager)->get(route('ext.shopee.products.index', ['group' => $group->id, 'sync_status' => 'uploaded']))->assertOk()
             ->assertSee('Send all 2 products in Fuzz to Shopee on group settings, rather than their own?');
 
-        // The run reaches the group's own send, which refuses before touching anything.
         ShopeeSetting::query()->update(['access_token' => null]);
         $answer = $this->actingAs($manager)->postJson(route('ext.shopee.product-groups.send_run_begin', ['id' => $group->id]))->assertOk()->json();
         $this->assertSame('failed', $answer['run']['status']);

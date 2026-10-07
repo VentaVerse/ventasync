@@ -4,16 +4,8 @@ namespace Tests\Support;
 
 use Illuminate\Support\Facades\DB;
 
-/**
- * One core order row with every NOT NULL column filled, so a test can
- * seed sales by store without the sixty-column insert each time.
- */
 trait MakesCoreOrders
 {
-    /**
-     * @param array<string,mixed> $overrides columns to set; store_id, store_name,
-     *        marketplace_source, total and date_added are the usual ones.
-     */
     protected function coreOrder(array $overrides = []): int
     {
         $pfx = (string) config('catalog.prefix');
@@ -40,7 +32,6 @@ trait MakesCoreOrders
         return (int) DB::table($pfx . 'order')->insertGetId($row);
     }
 
-    /** A sold line on the order, so revenue and cost of goods have something to read. */
     protected function coreOrderLine(int $orderId, float $price = 100, float $cost = 40, int $qty = 1): void
     {
         DB::table(config('catalog.prefix') . 'order_product')->insert([

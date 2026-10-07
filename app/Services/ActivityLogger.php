@@ -7,24 +7,6 @@ use App\Support\Actor;
 
 class ActivityLogger
 {
-    /**
-     * Log an activity.
-     *
-     * @param string      $action       e.g. 'created', 'updated', 'deleted', 'login', 'logout'
-     * @param string|null $subjectType  e.g. 'Product', 'Order', 'User'
-     * @param int|null    $subjectId    e.g. the product_id
-     * @param string|null $subjectLabel e.g. "iPhone 15 Pro (SKU: IP15P)"
-     * @param array|null  $changes      e.g. ['name' => ['Old Name', 'New Name']]
-     */
-    /**
-     * Compute a field-level diff between a model's original and current attributes.
-     *
-     * @param  array  $original  Snapshot taken BEFORE save via $model->getAttributes()
-     * @param  array  $current   Snapshot taken AFTER save via $model->getAttributes()
-     * @param  array  $only      Only diff these fields (whitelist). Empty = all fields.
-     * @param  array  $except    Exclude these fields from diff.
-     * @return array|null        e.g. ['name' => ['Old', 'New']] or null if nothing changed
-     */
     public static function diff(
         array $original,
         array $current,
@@ -61,13 +43,10 @@ class ActivityLogger
         try {
             $actor = Actor::current();
 
-            // No person pressed anything when an application is the actor,
-            // whatever the caller assumed.
             if ($actor->isApplication() && $source === 'user') {
                 $source = 'api';
             }
 
-            // A person's change through the mobile app says so.
             $source = \App\Support\AppDoor::source($source);
 
             ActivityLog::create([
@@ -84,7 +63,6 @@ class ActivityLogger
                 'created_at'    => now(),
             ]);
         } catch (\Throwable $e) {
-            // Never let activity logging break the main flow
         }
     }
 }

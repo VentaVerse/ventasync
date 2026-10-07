@@ -1,13 +1,3 @@
-{{-- Setting up a store (the owner, 2026-09-05): the reads a store needs before
-     anything can be pushed (categories, couriers), run one after another
-     behind a progress popup the moment the store is authorised, and again
-     from the Set up store button whenever they need refreshing. The page
-     passes the steps as data; resources/js/pages/channel-setup.js runs them
-     and draws the bar. Each step answers a plain sentence, never a payload.
-
-     Rides .modal-backdrop's fixed scrim and .active show/hide, the mechanism
-     every other dialog uses. $run is whether to start on load (set right
-     after a successful authorisation). --}}
 @php $run = $run ?? false; $storeName = $storeName ?? ''; @endphp
 <div class="modal-backdrop cs-setup" data-channel-setup
      data-setup-steps="{{ json_encode(array_values($steps), JSON_UNESCAPED_SLASHES) }}"

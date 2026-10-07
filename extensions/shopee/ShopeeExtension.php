@@ -52,32 +52,16 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
 
     protected string $id = 'shopee';
 
-    /** The pushes that name one order (3 status, 4 tracking number) or one return (29). */
     private const ORDER_PUSH_TYPES = ['order_status', 'order_tracking', 'return_update'];
 
     public function boot(): void
     {
         parent::boot();
 
-        // Multi-store S4 (#194): let every route() call fill {store} even
-        // outside a Shopee page (hub, fulfilment tabs, test code).
         \Extensions\shopee\Models\ShopeeSetting::syncUrlDefault();
 
-        /* ONE LINK CHECK PER REQUEST (the owner, 2026-09-09). Its shop scan is
-         * memoised on the instance, and Shopee publishes no get-item-by-SKU,
-         * so the scan is about forty calls. A push of twenty ticked products
-         * resolving twenty instances would page the whole shop twenty times;
-         * one instance pages it once and every product after the first reads
-         * the memo. The batch check has always shared an instance this way -
-         * this is what makes the bulk push able to afford the guard too. */
         $this->app->scoped(\Extensions\shopee\Services\Shopee\ShopeeLinkCheck::class);
 
-        /* AN ORDER PUSH APPLIED THE MOMENT IT LANDS (2026-10-04). The
-         * webhook endpoint stores a push and answers Shopee; for a store that
-         * applies order pushes, this then brings that one order in after the
-         * answer has gone, so Shopee never waits on our read of the order.
-         * webhooks:process stays the fallback a minute later for any push
-         * this does not finish. */
         \App\Models\ChannelWebhookEvent::created(function (\App\Models\ChannelWebhookEvent $event) {
             if ($event->channel === 'shopee' && $event->signature_ok && in_array($event->event_type, self::ORDER_PUSH_TYPES, true)
                 && $this->webhookStore((array) $event->payload)?->apply_order_pushes) {
@@ -85,8 +69,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             }
         });
 
-        // Registered in every runtime, not only the console: the Automations
-        // tab's Run now calls Artisan inside a web request (live, 2026-09-07).
         $this->commands([
             \Extensions\shopee\Commands\ShopeePushStock::class,
             \Extensions\shopee\Commands\ShopeePushPrice::class,
@@ -100,8 +82,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
 
         $this->app->make(IntegrationRegistry::class)->register($this);
 
-        // Payouts (the owner, 2026-10-01): the report, the dashboard and the
-        // store's own page all list Shopee's switched-on stores from here.
         $this->app->make(\App\Services\Payouts\PayoutRegistry::class)->register(new \App\Services\Payouts\PayoutChannel(
             id: 'shopee',
             name: 'Shopee',
@@ -113,7 +93,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         ));
     }
 
-    /** A deleted catalog variation is forgotten here too (VariationForgetter, 2026-09-07). */
     public function forgetVariations(int $productId, array $skus): void
     {
         \Extensions\shopee\Services\Shopee\ShopeeVariationForgetter::forget($productId, $skus);
@@ -126,13 +105,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
 
     public function integrationCards(): array
     {
-        /* Multi-store S4 (#194): the converted shape Venta, OpenCart and
-         * Shopify wear. One card for the channel; one StoreLink per
-         * settings row with the store's own menu, every item carrying its
-         * {store}. The card-level menu keeps only Settings, which is the
-         * channel-global page (it is also Shopee's OAuth landing, pinned
-         * storeless by the Open Platform console). A store still being
-         * configured stays visible as setup_pending. */
         $stores = [];
         foreach ($this->allStores() as $store) {
             $p = ['store' => (int) $store->id];
@@ -148,12 +120,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                     new MenuItem('Description Templates', 'ext.shopee.description-templates.index', 'view_shopee/description_template', null, $p, 'Catalog'),
                     new MenuItem('Watermarks', 'ext.shopee.watermarks.index', 'view_shopee/watermark_template', null, $p, 'Catalog'),
                     new MenuItem('Categories', 'ext.shopee.categories.index', 'view_shopee/category', null, $p, 'Catalog'),
-                    // Catalog, not Channel (the owner, 2026-09-03): the enabled
-                    // couriers ride every listing payload's logistic_info,
-                    // so this is catalogue material even though it feels
-                    // settings-adjacent. Also leaves Settings alone in the
-                    // Channel group, so the menubar renders it as the same
-                    // Settings menu every other channel shows.
                     new MenuItem('Logistics', 'ext.shopee.logistics.index', 'view_shopee/logistics', null, $p, 'Catalog'),
                     new MenuItem('Import', 'ext.shopee.products.import', 'view_shopee/product', null, $p, 'Catalog'),
                     new MenuItem('Settings', 'ext.shopee.settings.show', 'view_shopee/settings', null, $p, 'Channel', children: [
@@ -175,15 +141,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                 tagline: 'Shopee marketplace integration. OAuth, products, orders, returns.',
                 icon: 'shopee',
                 accent: '#ee4d2d',
-                // Card + menu use the VIEW tier so read-only operators still
-                // see Shopee in the Integrations hub and contextual sidebar.
-                // User::hasPermission('view_shopee/dashboard') is satisfied by the
-                // view or the manage tier (manage implies view), so managers
-                // are not excluded by tightening this gate.
-                // The dashboard's own derived key (shopee/dashboard), not the
-                // legacy view_shopee: the card decides who sees this channel
-                // in the hub and the nav, and that must be the same answer
-                // the dashboard's door gives, or the menu offers a 404.
                 permission: 'view_shopee/dashboard',
                 menu: [
                     new MenuItem('Settings', 'ext.shopee.index', 'view_shopee/settings', group: 'Channel'),
@@ -198,13 +155,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         ];
     }
 
-    /**
-     * Every settings row, enabled or not - the Integrations UI keeps a
-     * freshly-created, still-disabled store visible so the operator can
-     * finish configuring it (Venta's allStores, verbatim in spirit).
-     *
-     * @return iterable<\Extensions\shopee\Models\ShopeeSetting>
-     */
     protected function allStores(): iterable
     {
         try {
@@ -220,11 +170,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
 
     public function orderTabs(): array
     {
-        /* Multi-store S4 (#194): one tab per enabled store, counters
-         * scoped to the store's own rows. With a single store the tab
-         * keeps the channel's name - renaming the owner's hub tab to "Main
-         * store" would say less, not more; the store names take over the
-         * moment a second store exists and the name has to distinguish. */
         if (! Schema::hasTable('shopee_settings')) {
             return [];
         }
@@ -254,10 +199,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                 accent: '#ee4d2d',
                 routeName: 'ext.shopee.orders.index',
                 routeParams: ['store' => $storeId],
-                // OrderTab visibility uses view tier so a Shopee Orders Viewer
-                // still sees the marketplace's orders tab on the unified Orders
-                // workspace. The destination route GETs are read-tier gated,
-                // and per-action write buttons are gated separately in the view.
                 permission: 'view_shopee/order',
                 unprocessedCounter: function () use ($storeId) {
                     if (!Schema::hasTable('shopee_orders')) {
@@ -265,26 +206,9 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                     }
                     return ShopeeOrder::query()
                         ->where('shopee_setting_id', $storeId)
-                    /* THE SAME STATUSES THE "To Ship" TAB GROUPS.
-                     *
-                     * This counted only the first sub-step, so the head
-                     * sentence and the tab strip 40px below it disagreed on
-                     * every channel: "Nothing waiting" over "To Ship 1",
-                     * because the one order sat at the second step. An order
-                     * awaiting collection is still an order the seller is
-                     * holding - it is waiting on them, which is the only
-                     * question this figure exists to answer.
-                     *
-                     * Kept identical to the tab map in the orders panel. If
-                     * one moves the other has to, and FoundationTest asserts
-                     * they still agree. */
                         ->whereIn('status', ['READY_TO_SHIP', 'PROCESSED'])
                         ->count();
                 },
-                /* The steps while the seller holds the parcel, each counted alone:
-                 * the fulfilment card leads with To Pack and prints To Handover beside
-                 * it, which the staff count against the shelf. The statuses are the
-                 * orders panel's own sub-tab map, so the card and the tab agree. */
                 stages: [
                     ['key' => 'to_pack', 'label' => 'to pack', 'counter' => fn () => $shopeeStatusCount(['READY_TO_SHIP'])],
                     ['key' => 'to_handover', 'label' => 'to handover', 'counter' => fn () => $shopeeStatusCount(['PROCESSED'])],
@@ -343,11 +267,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                     if (!Schema::hasTable('shopee_orders')) {
                         return [];
                     }
-                    // `raw` comes along because the buyer's name lives in it
-                    // and nowhere else on this table. Without it every Shopee
-                    // row on the fulfilment feed printed the "Guest" fallback,
-                    // which is not true of a marketplace order: there is a
-                    // buyer, the name was simply never read.
                     $orders = ShopeeOrder::query()
                         ->where('shopee_setting_id', $storeId)
                         ->orderByDesc('order_created_at')
@@ -364,10 +283,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                         reference: (string) $o->order_sn,
                         customerName: (function () use ($o) {
                             $raw = is_array($o->raw) ? $o->raw : [];
-                            // Shopee has shipped both spellings of this field
-                            // over the versions of the order API this
-                            // extension talks to; the orders table's own
-                            // buyer filter searches both for the same reason.
                             foreach (['buyer_username', 'buyer_user_name'] as $key) {
                                 $name = trim((string) ($raw[$key] ?? ''));
                                 if ($name !== '') {
@@ -386,10 +301,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             );
     }
 
-    /**
-     * React to a SKU change on a catalog product by pushing the new
-     * item_sku to every linked Shopee item via the Shopee API.
-     */
     public function pushSkuChanges(int $productId, array $skuChanges): ?string
     {
         $links = ShopeeProductLink::where('product_id', $productId)->get();
@@ -486,10 +397,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         }
     }
 
-    /**
-     * Shopee widgets for the core dashboard: pending order count and
-     * sync-status row pulled from the settings table.
-     */
     public function dashboardData(): array
     {
         $data = [
@@ -499,7 +406,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
 
         if (Schema::hasTable('shopee_orders')) {
             $data['shopeePending'] = (int) DB::table('shopee_orders')
-                // To Ship = to pack + to handover, the same set unprocessedCount() sums.
                 ->whereIn('status', ['READY_TO_SHIP', 'PROCESSED'])
                 ->count();
         }
@@ -507,22 +413,13 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         if (Schema::hasTable('shopee_settings')) {
             $spSetting = ShopeeSetting::defaultStore();
             if ($spSetting) {
-                /* The listing troubles ride the chip (Phase B, #184): a
-                 * violation or a vanished listing used to live only on a
-                 * page nobody opens daily. Counted by aggregate, and a
-                 * failure here must not take the dashboard down. */
                 $flags = null;
                 $attention = 0;
                 try {
                     $sum = app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->summary();
                     $attention = (int) $sum['attention'];
-                    /* Each figure carries where it goes (#240): the Listings page
-                       filtered by the same query that counted it. The words are
-                       written once, in App\Integrations\Listings\ListingTrouble,
-                       so the chip and the page it lands on say the same thing. */
                     $flags = \App\Integrations\Listings\ListingTrouble::figures($sum, fn (string $bucket) => route('ext.shopee.products.index', ['store' => $spSetting->id, 'state' => $bucket]));
                 } catch (\Throwable) {
-                    // the chip simply carries no flags line
                 }
 
                 $data['shopeeSyncStatus'] = (object) [
@@ -537,21 +434,11 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         }
 
 
-        // Per-store figures ride alongside the channel-level ones.
         $data += $this->perStoreDashboardFigures();
 
         return $data;
     }
 
-    /**
-     * Per-store dashboard figures (#194, 2026-09-07): with two stores of one
-     * channel the strip used to show one blended row on both, because the
-     * contribution was keyed by channel. Each store now reports its own
-     * waiting count and its own freshness under its tab id ("shopee:2"),
-     * which the dashboard prefers over the channel-level key.
-     *
-     * @return array{channelPending: array<string, int>, channelSyncStatuses: array<string, object>}
-     */
     private function perStoreDashboardFigures(): array
     {
         $pending = [];
@@ -565,12 +452,9 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             if (Schema::hasTable('shopee_orders')) {
                 $pending[$key] = (int) DB::table('shopee_orders')
                     ->where('shopee_setting_id', $store->id)
-                    // To Ship = to pack + to handover, matching unprocessedCount().
                     ->whereIn('status', ['READY_TO_SHIP', 'PROCESSED'])
                     ->count();
             }
-            /* The listing engine scopes to the bound store, so each store's
-             * flags are its own; a failure must not take the strip down. */
             $flags = null;
             $attention = 0;
             $previous = app()->bound('shopee.route-store') ? app('shopee.route-store') : null;
@@ -578,13 +462,8 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                 app()->instance('shopee.route-store', $store);
                 $sum = app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->summary();
                 $attention = (int) $sum['attention'];
-                /* Each figure carries where it goes (#240): the Listings page
-                   filtered by the same query that counted it. The words are
-                   written once, in App\Integrations\Listings\ListingTrouble,
-                   so the chip and the page it lands on say the same thing. */
                 $flags = \App\Integrations\Listings\ListingTrouble::figures($sum, fn (string $bucket) => route('ext.shopee.products.index', ['store' => $store->id, 'state' => $bucket]));
             } catch (\Throwable) {
-                // this store's chip simply carries no flags line
             } finally {
                 if ($previous !== null) {
                     app()->instance('shopee.route-store', $previous);
@@ -606,25 +485,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         return ['channelPending' => $pending, 'channelSyncStatuses' => $statuses];
     }
 
-    /**
-     * Shopee fees live in shopee_orders.fees['order_income'] from the
-     * Shopee escrow detail API. Returns commission / service / transaction
-     * fee / withholding tax as a structured breakdown.
-     */
-    /**
-     * What Shopee charged for this order, in core's four buckets.
-     *
-     * The itemisation matches what the Fee Analysis report has always
-     * shown, so normalizing changes no figure: commission on its own, the
-     * service and seller transaction fees together as "other", and
-     * withholding tax as the payment-side deduction.
-     *
-     * DELIVERY IS WHAT THE SELLER BORE, not what the courier charged.
-     * Shopee's payload carries both plus the rebate, and over 1,691 real
-     * orders the courier charged 99,261 while the seller bore 79. Counting
-     * the courier's price would understate net profit by about 99,340 on
-     * that sample alone.
-     */
     public function saleLinesForOrder(int $coreOrderId, float $itemsSubtotal, float $shipping): ?array
     {
         $order = \Extensions\shopee\Models\ShopeeOrder::query()->withoutGlobalScope('shopeeStore')->where('catalog_order_id', $coreOrderId)->first();
@@ -727,8 +587,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         return ['total' => round($total, 2), 'items' => $items, 'source' => 'shopee'];
     }
 
-    // ── Mobile API ─────────────────────────────────────────────
-
     public function mobilePlatformSlug(): string
     {
         return 'shopee';
@@ -743,7 +601,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             $pendingSub = '';
         }
 
-        // ?store= narrows the list to one store; without it, the default store's region as before.
         $storeId = $request->integer('store') ?: null;
         if ($storeId !== null) {
             $base = ShopeeOrder::query()->where('shopee_setting_id', $storeId);
@@ -879,22 +736,10 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         return app(\Extensions\shopee\Services\ShopeeAppFulfilment::class)->handle($action, $id, $request);
     }
 
-    // ── Layout banner + source label ───────────────────────────
-
     public function layoutBanners(): array
     {
         $banners = [];
 
-        /* Credential state is NOT answered here any more. It read
-           settings.expires_at directly - the LIVE column - while these
-           installs select their credential by `mode`, so a sandbox channel
-           with a healthy token was announced as expired from a leftover live
-           date. partials/integration-banners.blade.php asks ChannelWorkspace
-           instead, which is the same object the card, the head and the
-           channel sidebar read, so the four cannot disagree. This method
-           keeps operational notices only. */
-        /* Any paused store raises the banner (multi-store S3, #194); the
-         * legacy storeless key still counts during the transition. */
         $paused = Cache::get('shopee_sync_paused');
         $pausedLabel = null;
         foreach (ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get(['id', 'store_name']) as $ps) {
@@ -920,10 +765,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         return $source === 'shopee' ? 'Shopee' : null;
     }
 
-    /**
-     * Per-store reports (the owner, 2026-09-05): every store as a filter
-     * choice, paused ones included. A deleted store is simply gone.
-     */
     public function availableStoreOptions(): array
     {
         if (! Schema::hasTable('shopee_settings')) {
@@ -951,14 +792,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         ]];
     }
 
-    /**
-     * Claim the bare "/" URL when the request carries Shopee's OAuth
-     * callback params. Shopee's authorization flow requires a domain-
-     * level redirect URI (no path), so the bare APP_URL is registered
-     * as the callback in the Shopee developer console. When neither
-     * `code` nor `shop_id` is present, defer so core's HomeController
-     * can fall through to /dashboard.
-     */
     public function handleRootRoute(Request $request): mixed
     {
         if (!$request->query('code') && !$request->query('shop_id')) {
@@ -971,13 +804,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
 
     use RevealsCredentials;
 
-    /**
-     * Readable back, and nothing else is.
-     *
-     * Public identifiers are deliberately absent: app keys, partner ids and
-     * shop ids are not secrets, so they are printed in the settings page and
-     * there is nothing to reveal. Only what is genuinely hidden appears here.
-     */
     public function revealableCredentials(): array
     {
         return [
@@ -1002,17 +828,12 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         return 'manage_shopee/settings';
     }
 
-    /**
-     * Phase B (#184): the one answer to "where does this product stand on
-     * Shopee?", for core surfaces that render listing state.
-     */
     public function listingStates(array $productIds): array
     {
         return app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->forProducts($productIds);
     }
 
 
-    /** Every catalog product this shop currently lists (#197). */
     public function listedProductIds(): array
     {
         if (! Schema::hasTable('shopee_product_links')) {
@@ -1034,30 +855,15 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         return $out;
     }
 
-    // ── Webhooks (Phase E, #184) ────────────────────────────────────
-
     public function webhookChannel(): string
     {
         return 'shopee';
     }
 
-    /**
-     * Shopee signs each push HMAC-SHA256(key, url + '|' + body) into the
-     * Authorization header, the key being the app's push partner key.
-     * Checked against both the bare and the full URL, since the registered
-     * callback may carry a query, and against their https form, since
-     * behind a proxy the request may arrive as http.
-     */
+    // Shopee signs pushes with HMAC-SHA256(key, url|body); try bare, full and https forms of the URL.
     public function verifyWebhook(\Illuminate\Http\Request $request): bool
     {
-        /* Each store may sit under its own partner app. The store the
-         * payload names (shop_id) offers its keys first; every other
-         * enabled store's keys are tried after it, because stores under
-         * one app share them and the payload's store may be the second row
-         * holding them. Both environments' push keys are tried, since a
-         * store's mode says which app it calls, not which app may push to
-         * it. The partner key comes last, for an app with no push key of
-         * its own. An unmatched signature stays a refusal. */
+        // Try the payload store's keys first, then every other store's, in both environments; no match is refused.
         $received = (string) $request->header('Authorization', '');
         if ($received === '') {
             return false;
@@ -1093,7 +899,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         return false;
     }
 
-    /** The store a Shopee push names, by the shop_id every push carries. */
     private function webhookStore(array $payload): ?ShopeeSetting
     {
         $shopId = (int) ($payload['shop_id'] ?? 0);
@@ -1107,11 +912,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             ->orderBy('id')->first();
     }
 
-    /**
-     * Named by SHAPE, not by Shopee's numeric code list - the shape is
-     * what the handler needs, and an unrecognised code still gets an
-     * honest name in the inbox.
-     */
     public function webhookEventType(array $payload): ?string
     {
         $data = (array) ($payload['data'] ?? []);
@@ -1119,7 +919,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             return 'item_status';
         }
         $code = isset($payload['code']) ? (int) $payload['code'] : null;
-        // Order pushes off for the store the push names: named as before.
         if (! $this->webhookStore($payload)?->apply_order_pushes) {
             if (isset($data['ordersn'])) {
                 return 'order_status';
@@ -1127,7 +926,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
 
             return $code !== null ? 'code_' . $code : null;
         }
-        // The order pushes share a shape (an ordersn); their codes tell them apart.
         if ($code === 4 && isset($data['ordersn'])) {
             return 'order_tracking';
         }
@@ -1141,11 +939,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         return $code !== null ? 'code_' . $code : null;
     }
 
-    /**
-     * v1 applies only MIRRORS - surfaces with no side effects. An order
-     * push is recorded, never written: order status transitions carry
-     * stock movements, and those belong to the order sync's own path.
-     */
     public function handleWebhookEvent(\App\Models\ChannelWebhookEvent $event): string
     {
         $data = (array) ($event->payload['data'] ?? []);
@@ -1156,10 +949,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             if ($status === '') {
                 return 'item push without a status; nothing applied';
             }
-            // The push names its shop; the mirror write stays inside that
-            // store's links (multi-store S5, #194). A push naming no shop
-            // this install holds still updates by item id alone - Shopee
-            // item ids are platform-unique, so that is narrow already.
             $store = $this->webhookStore((array) $event->payload);
             $n = ShopeeProductLink::query()
                 ->when($store !== null, fn ($q) => $q->where('shopee_setting_id', $store->id))
@@ -1178,14 +967,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         return 'stored; no handler for ' . ($event->event_type ?? 'this shape') . ' yet';
     }
 
-    /**
-     * One order push: for a store that applies them, read that order (or
-     * return) from Shopee now and write it by the order sync's own path
-     * (ShopeeOrderIngest), stock included. The status the push carries is
-     * only named in the outcome, never applied: Shopee is asked for the
-     * current state. For any other store the push is recorded and the
-     * order sync applies the change, as before.
-     */
     private function applyOrderPush(\App\Models\ChannelWebhookEvent $event, array $data): string
     {
         $isReturn = $event->event_type === 'return_update';
@@ -1200,7 +981,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             return "order {$sn} moved to {$status} on Shopee; the next order sync applies it (stock rides that path)";
         }
         if (! $store->apply_order_pushes) {
-            // Off: recorded only, in the words it always had.
             return "order {$sn} moved to {$status} on Shopee; the next order sync applies it (stock rides that path)";
         }
         if ($isReturn && $returnSn === '') {
@@ -1244,13 +1024,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         return "failed: Shopee did not answer for {$what}";
     }
 
-    /**
-     * After the push's answer has gone (the endpoint's terminating phase),
-     * apply it at once rather than at the next webhooks:process. Marks the
-     * row as processed only if nothing else has, so the minute job does not
-     * apply it a second time; were it to anyway, applying is idempotent.
-     * Never throws: a push this cannot apply is left for the minute job.
-     */
     private function applyPushNow(int $eventId): void
     {
         try {
@@ -1260,12 +1033,12 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             }
             $store = $this->webhookStore((array) $event->payload);
             if (! $store || ! $store->apply_order_pushes) {
-                return; // off: recorded only, and the minute job says so on the row
+                return;
             }
 
             $outcome = $this->handleWebhookEvent($event);
             if (str_starts_with($outcome, 'failed:')) {
-                return; // left unprocessed, so webhooks:process tries it again
+                return;
             }
 
             \App\Models\ChannelWebhookEvent::query()
@@ -1276,8 +1049,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             Log::warning('Shopee push could not be applied on arrival; webhooks:process will', ['event' => $eventId, 'error' => $e->getMessage()]);
         }
     }
-
-    // ── A catalog delete forgets the product on this channel, inside VentaSync only (ProductRemover, 2026-09-07) ──
 
     public function productPresence(array $productIds): array
     {
@@ -1294,11 +1065,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         return app(\Extensions\shopee\Services\Shopee\ShopeeProductRemover::class)->stranded();
     }
 
-    /**
-     * Shopee's automations. Its commands work across the channel's stores
-     * themselves, so there is one set for the channel. An access token lives
-     * four hours, so the refresh runs every two.
-     */
     public function automations(): array
     {
         return [

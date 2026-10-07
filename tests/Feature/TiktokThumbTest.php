@@ -12,12 +12,6 @@ use Extensions\tiktok\TiktokExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * The Import page's lazy picture (the owner, 2026-09-07: "fetching the product
- * still doesn't get the images from TikTok, but importing does"). TikTok's
- * product search carries no pictures; the detail does, so a row asks for
- * it when it scrolls into view, and the answer is kept for a day.
- */
 class TiktokThumbTest extends TestCase
 {
     use RefreshDatabase;

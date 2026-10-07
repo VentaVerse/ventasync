@@ -3,45 +3,17 @@
 
 @section('title', 'Venta Settings')
 
-{{-- Leaves the .x-legacy content boundary, rebuilt on the token set.
-
-     Venta is multi-store and this page is store-scoped:
-     VentaController::showSettings() findOrFail()s the {store} segment and
-     hands the view a one-element $stores collection with $singleStore = true.
-     Every form on this page therefore carries that one store's id, either as
-     the hidden `store_id` the save reads or as a route parameter.
-
-     Venta has NO OAuth surface. It authenticates with a stored API token, so
-     nothing here is a registered redirect and nothing is exempt from the
-     /channels prefix.
-
-     The API token field below is always sent blank, both tiers:
-     VentaController::save() now keeps the stored token when the field posts
-     empty, the same blank-keeps-stored branch Shopee's and TikTok's save()
-     already carry, so the view no longer needs to echo the secret to mask
-     it in the DOM. --}}
 @section('content')
 @php
-    // Read tier on this route is `view_venta|manage_venta`; every write below
-    // (save, delete, test, fetch statuses, save mapping, logging toggle, log
-    // delete) is `manage_venta`. Replaces a hardcoded `true`, which offered a
-    // read-only operator every one of those controls.
     $canManageVenta = auth()->user()?->hasPermission('manage_venta/settings') ?? false;
 
-    // showSettings() always hands over exactly one store and $singleStore =
-    // true, so the pre-redesign store-selector rail and the "Add New Store"
-    // panel were both unreachable markup on this route. A new store is created
-    // from the modal on the workspace overview page, which posts to
-    // ext.venta.stores.store. Both are gone rather than redrawn.
     $store = $stores->first();
 
     $storeName = $store->store_name ?: 'Unnamed store';
     $storeHost = parse_url((string) $store->base_url, PHP_URL_HOST) ?: $store->base_url;
 
     $statusMap = $orderStatusMaps->get($store->id, collect());
-    // #200: the controller already scoped and paginated this store's log.
     $storeApiLogs = $apiLogs;
-    // Paginated by the controller and already scoped to this store.
     $storeSyncLogs = $syncLogs;
     $syncLevel = $store->sync_log_level;
     $syncLevelLabel = $syncLevel
@@ -49,23 +21,14 @@
         : \App\Support\LogRetention::LEVELS[\App\Support\LogRetention::level()] . ' (default)';
 
 
-    // The option list the fetch-statuses handler rebuilds its selects from.
-    // Data, not behaviour: JSON_HEX_TAG encodes < and > so a status literally
-    // named "</script>" cannot close the element.
     $jsonFlags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
     $erpStatusOptions = $erpOrderStatuses->map(fn ($s) => ['id' => (int) $s->order_status_id, 'name' => (string) $s->name])->values();
 @endphp
 
-{{-- The section shown, from the menubar's own ?tab= links (the
-     in-page tab strip retired 2026-09-03: the channel menubar carries the
-     sections now). Unknown sections fall to the default, so a hand-typed
-     URL can never land on a blank page. --}}
 @php
     $csKnown = ['connection', 'status', 'automations', 'logs', 'sync'];
     $csSection = in_array(request('tab'), $csKnown, true) ? request('tab') : ('connection');
 
-    // Connecting this store (draft C, ported from WooCommerce 2026-09-06):
-    // the steps a Venta store goes through, each with its state.
     $csHasToken = \App\Support\Credentials::length($store->api_token ?? null) > 0 && trim((string) $store->base_url) !== '';
     $csCategories = \Extensions\venta\Models\VentaCategory::query()->where('venta_setting_id', $store->id)->count();
     $csBrands = \Extensions\venta\Models\VentaBrand::query()->where('venta_setting_id', $store->id)->count();
@@ -78,12 +41,6 @@
         ['title' => 'Save the address and token', 'tone' => $csHasToken ? 'done' : 'todo',
          'hint' => 'The token is issued by the Venta store itself, under its own API settings. It has to allow reading orders and writing products, stock and prices.',
          'state' => $csHasToken ? 'Address and token saved' : 'Fill in the address and token below and save'],
-        /* The button for this step sits BESIDE Save connection, in the form
-           it tests, rather than up here (the owner, 2026-09-10: "the check
-           connection on top and the save connection feels that they should
-           belong together"). You type a token and check it in one place;
-           this line reports what happened, and the script brings it up to
-           date without a reload. */
         ['title' => 'Check the connection', 'tone' => $store->connected_at ? 'done' : 'todo',
          'key' => 'connected',
          'hint' => 'Asks the store for its category list with the saved token. A refusal here means the token or the address is wrong.',
@@ -92,10 +49,6 @@
          'hint' => 'Reads the categories and brands a product group picks from, and the order statuses the mapping needs. It runs on its own the first time the token is saved; press it again to refresh them. Nothing is written to the store.',
          'button' => $csHasToken ? ['label' => 'Set up store', 'variant' => $csSetUp ? 'secondary' : 'primary', 'attr' => 'data-setup-open'] : null,
          'state' => $csSetupState],
-        /* A store is created with syncing OFF and stays off until somebody
-           turns it on, so this is a real step in connecting one and it was
-           invisible: every fetch and every push refused, naming a switch
-           the operator had never been pointed at (the owner, 2026-09-10). */
         ['title' => 'Turn syncing on', 'tone' => $store->enabled ? 'done' : 'todo',
          'hint' => 'Until this is on, the store stays configured and nothing is fetched or pushed. The switch is at the bottom of the connection form.',
          'state' => $store->enabled ? 'Syncing' : 'Off, so nothing is fetched or pushed yet'],
@@ -114,10 +67,6 @@
      data-test-url="{{ $canManageVenta ? route('ext.venta.test') : '' }}"
      data-fetch-statuses-url="{{ $canManageVenta ? route('ext.venta.fetch_statuses') : '' }}"
      data-save-map-url="{{ $canManageVenta ? route('ext.venta.save_status_map') : '' }}"
-     {{-- fetchVentaStatuses() answers with `id` for the Venta status id and
-          `order_status_id` for what it is already mapped to. OpenCart's fetch
-          uses a different pair of keys for the same two things, which is why
-          both are stated rather than assumed. --}}
      data-map-id-field="venta_status_id"
      data-map-name-field="venta_status_name"
      data-map-server-id="id"
@@ -147,9 +96,6 @@
 </div>
 @endunless
 
-{{-- ================================================================
-     CONNECTION
-     ================================================================ --}}
 @if($canManageVenta)
     @include('partials.channel-setup', [
         'channelLabel' => 'Venta',
@@ -175,11 +121,6 @@
 
             <form method="POST" action="{{ route('ext.venta.save') }}">
                 @csrf
-                {{-- The store this page is scoped to. VentaController::save()
-                     branches on its presence: with it the row is updated, and
-                     without it a new store is created. It is always present
-                     here, which is what makes store 1's save unable to touch
-                     store 2's row. --}}
                 <input type="hidden" name="store_id" value="{{ $store->id }}">
 
                 <div class="fm-fields">
@@ -209,11 +150,6 @@
                     <x-ui.field label="Colour" for="vt-brand-color" name="brand_color"
                                 hint="Used wherever this store appears in a chart or a report.">
                         <div class="cs-colour" data-colour-pair>
-                            {{-- Only the colour input carries the name: the hex
-                                 box beside it is a second face on the same
-                                 value, exactly as before, and posting both
-                                 would give the controller two `brand_color`
-                                 fields. --}}
                             <input type="color" id="vt-brand-color" name="brand_color" class="cs-colour__swatch"
                                    value="{{ $store->brand_color ?: '#059669' }}" data-colour-input
                                    @disabled(!$canManageVenta) aria-label="Store colour">
@@ -248,11 +184,6 @@
                     </x-ui.field>
 
                     <div class="fm-field fm-field--wide">
-                        {{-- No hidden companion field, deliberately: save()
-                             reads $request->has('enabled'), so a hidden 0 in
-                             front of this box would make the store permanently
-                             enabled. An unchecked checkbox submits nothing,
-                             which is exactly what has() is testing for. --}}
                         <label class="fm-switch">
                             <input type="checkbox" class="fm-switch__input" name="enabled" value="1"
                                    @checked($store->enabled) @disabled(!$canManageVenta)>
@@ -266,12 +197,6 @@
                 </div>
 
                 @if($canManageVenta)
-                {{-- Save and Check together (the owner, 2026-09-10). The answer
-                     lands HERE, beside the button that asked for it: it used
-                     to be written next to Save while the button sat in the
-                     flow card at the top of the page, so pressing Check
-                     printed its verdict somewhere the reader was not
-                     looking. --}}
                 <div class="cs-actions">
                     <x-ui.button type="submit" variant="primary">Save connection</x-ui.button>
                     @if($csHasToken)
@@ -298,8 +223,6 @@
             </dl>
 
             @if($canManageVenta)
-            {{-- The one irreversible thing on the page sits last, in its own
-                 block, behind the typed-name sheet (the Shopee shape, #204). --}}
             <div class="cs-danger">
                 <div>
                     <span class="cs-danger__title">Remove this store <x-ui.hint label="What removal does">Everything this store holds in the ERP goes with it: listings, links, groups, categories, brands, Venta orders and its logs. Sales already imported stay under its name. Nothing on the Venta store is touched. There is no undo.</x-ui.hint></span>
@@ -320,9 +243,6 @@
     @endif
 </div>
 
-{{-- ================================================================
-     STATUS MAPPING
-     ================================================================ --}}
 <div id="vt-tab-status" class="cs-panel" @if($csSection !== 'status') hidden @endif>
     <section class="fm-section">
         <div class="fm-section__head">
@@ -390,9 +310,6 @@
     </section>
 </div>
 
-{{-- ================================================================
-     SCHEDULING
-     ================================================================ --}}
 <div id="vt-tab-automations" class="cs-panel" @if($csSection !== 'automations') hidden @endif>
     <section class="fm-section">
         <div class="fm-section__head">
@@ -400,33 +317,13 @@
             <x-ui.hint label="About the scheduled jobs">How often each Venta sync runs for {{ $storeName }}. Changes take effect the next time the scheduler wakes up.</x-ui.hint>
         </div>
 
-        {{-- The same control Shopee, Lazada and TikTok use.
-
-             This tab used to print three artisan commands to copy into the
-             hosting panel by hand, which meant Venta's jobs ran only if the
-             operator had pasted each one, and the ERP knew nothing about
-             whether they existed, when they last ran, or whether they had
-             failed. Every other channel keeps its jobs as scheduled_jobs rows
-             that App\Console\Kernel registers with Laravel's scheduler, so one
-             OS cron entry drives all of them and this tab edits cadence and
-             on/off directly.
-
-             storeId is passed because Venta is multi-store: each store has its
-             own three jobs, carrying --store on the command line, so the page
-             shows the jobs for the store being looked at and no other. --}}
         @include('partials._automations_tab', ['integration' => 'venta', 'storeId' => $store->id])
     </section>
 </div>
 
-{{-- ================================================================
-     API LOG
-     ================================================================ --}}
 <div id="vt-tab-logs" class="cs-panel" @if($csSection !== 'logs') hidden @endif>
 
 
-    {{-- #200: the shared API log panel - the three-way mode, All/Errors
-         and path filters that survive a refresh, pages of 50, and the
-         retention stated in words. --}}
     @include('partials.channel-api-log', [
         'logChannel' => $storeName,
         'canManage' => $canManageVenta,
@@ -444,14 +341,8 @@
     ])
 </div>
 
-{{-- ================================================================
-     SYNC LOG
-     ================================================================ --}}
 <div id="vt-tab-sync" class="cs-panel" @if($csSection !== 'sync') hidden @endif>
 
-    {{-- The same pair the API log tab carries: what gets written, and a way
-         to clear what already is. Per store, because one busy channel should
-         not have to silence the others (the owner, 2026-09-01). --}}
     <section class="fm-section">
         <div class="fm-section__head">
             <h2 class="fm-section__title">Recording</h2>
@@ -558,13 +449,10 @@
                 @endforeach
             </x-ui.table>
 
-            {{-- Its own page name (syncPage) and the tab kept on every link,
-                 so turning a page lands back on this tab and not on
-                 Connection. --}}
             <x-ui.pager :paginator="$storeSyncLogs" />
         @endif
     </section>
 </div>
 
-</div>{{-- /.cs-page --}}
+</div>
 @endsection

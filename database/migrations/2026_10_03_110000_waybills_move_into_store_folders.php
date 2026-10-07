@@ -5,11 +5,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Moves each waybill saved directly under {channel}-awb/ into its store's
- * folder. A file whose order cannot be tied to exactly one store is left
- * where it is: it is no longer read, and the next open fetches it again.
- */
 return new class extends Migration
 {
     private const CHANNELS = [

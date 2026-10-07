@@ -7,22 +7,12 @@ use Extensions\tiktok\Models\TikTokApiLog;
 use Extensions\tiktok\Models\TikTokCategory;
 use Extensions\tiktok\Models\TikTokSetting;
 
-/**
- * The reads a TikTok store needs before anything can be pushed: the shop
- * (its cipher, which nearly every call needs, and its sales warehouse)
- * and the category tree. One place for both (the owner 2026-09-06: every
- * channel initialises the same way, behind the setup popup, right after
- * authorisation and again on demand). Each method answers {ok, count,
- * message}: a plain sentence, never a payload; the payload is on the
- * API log.
- */
 class TikTokStoreSetup
 {
     public function __construct(private TikTokClient $client)
     {
     }
 
-    /** The live-or-sandbox credentials of the store, the way the controllers read them. */
     public static function creds(TikTokSetting $raw): array
     {
         $d = $raw->decrypted();

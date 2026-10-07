@@ -54,9 +54,6 @@ class LazadaSetting extends Model
         'last_review_sync_at' => 'datetime',
     ];
 
-    /**
-     * Return a read-only decrypted copy of this setting.
-     */
     public function decrypted(): object
     {
         $s = (object) $this->toArray();
@@ -66,7 +63,6 @@ class LazadaSetting extends Model
                 try {
                     $s->$k = decrypt($s->$k);
                 } catch (\Throwable $e) {
-                    // Leave as-is if decrypt fails
                 }
             }
         }
@@ -74,34 +70,6 @@ class LazadaSetting extends Model
         return $s;
     }
 
-    /**
-     * Pick the credentials Lazada API calls should use right now, based on
-     * the mode toggle. Every call site reads through this — if mode='sandbox'
-     * it gets sandbox_* values, if mode='live' it gets the live values.
-     *
-     * Always returns the full key set (mode, app_key, app_secret, access_token,
-     * refresh_token, expires_at, complete). Missing values are returned as null
-     * so call sites can safely do `!$creds['access_token']` without worrying
-     * about array-access errors. Check `$creds['complete']` to know whether
-     * the active mode has the minimum (app_key + app_secret + access_token).
-     *
-     * Falling back to the other mode's credentials is explicitly NOT done —
-     * that would defeat mode isolation. If sandbox is selected but sandbox
-     * credentials are missing, the call site sees nulls and refuses to call.
-     *
-     * Expects $this to be the decrypted() result. Calling on an encrypted
-     * row returns ciphertext, which Lazada will reject as InvalidSignature.
-     */
-    /**
-     * The store the request is standing in (bound by ResolveLazadaStore from
-     * the {store} route segment) outranks the first-enabled fallback: on a
-     * store page, "the store" is never ambiguous. Off a store page - the
-     * OAuth callback, a cron command - it is the first enabled store.
-     *
-     * This is what the ~100 storeless settings reads became on the
-     * multi-store conversion (the owner 2026-09-05): a storeless context keeps
-     * the old behaviour, a store-scoped one gets the right row.
-     */
     public static function defaultStore(): ?self
     {
         if (app()->bound('lazada.route-store')) {
@@ -111,35 +79,18 @@ class LazadaSetting extends Model
         return static::query()->where('enabled', true)->orderBy('id')->first();
     }
 
-    /** Every store, enabled or not - the Integrations card's store list. */
     public static function allStores(): \Illuminate\Support\Collection
     {
         return static::query()->orderBy('id')->get();
     }
 
-    /** Every enabled store - what the sync and cron paths iterate. */
     public static function enabledStores(): \Illuminate\Support\Collection
     {
         return static::query()->where('enabled', true)->orderBy('id')->get();
     }
 
-    /**
-     * Keep URL generation able to fill the {store} segment anywhere a link
-     * to a Lazada page is built OUTSIDE a Lazada store request - the
-     * channels hub, the fulfilment tabs, the OAuth callback view, test
-     * code. ResolveLazadaStore overrides this per-request with the route's
-     * own store. Without it, route('ext.lazada.index') off a store page
-     * has no {store} to fill and throws. (Multi-store, the owner 2026-09-05;
-     * ShopeeSetting::syncUrlDefault verbatim in spirit.)
-     */
     public static function syncUrlDefault(): void
     {
-        /* Never clobber the store this request is acting for (the owner, live
-         * 2026-09-07). This runs on every created/updated/deleted, so
-         * SAVING the second store's settings re-pointed URL generation at
-         * the FIRST enabled store, and the redirect that followed landed on
-         * store one. The bound store is the request's truth; this fallback
-         * exists only for pages built outside a store request. */
         if (app()->bound('lazada.route-store')) {
             return;
         }
@@ -147,7 +98,7 @@ class LazadaSetting extends Model
         try {
             $id = static::query()->where('enabled', true)->orderBy('id')->value('id');
         } catch (\Throwable $e) {
-            return; // no table yet (fresh install mid-migrate)
+            return;
         }
         if ($id !== null) {
             \Illuminate\Support\Facades\URL::defaults(['store' => (int) $id]);
@@ -184,9 +135,6 @@ class LazadaSetting extends Model
         $refreshToken = $isSandbox ? ($setting->sandbox_refresh_token ?? null) : ($setting->refresh_token ?? null);
         $expiresAt    = $isSandbox ? ($setting->sandbox_expires_at    ?? null) : ($setting->expires_at    ?? null);
 
-        // Region is a single shared column on lazada_settings (no
-        // sandbox_region) — Lazada uses the same regional API hosts
-        // for sandbox and production within a given country.
         $region = $setting->region ?? null;
 
         return [

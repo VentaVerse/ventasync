@@ -18,7 +18,6 @@ class CategoryController extends Controller
         $languageId = (int) config('catalog.default_language_id');
         $q = trim((string) $request->get('q', ''));
 
-        // Subquery that builds "Category 1 > Category 2 > Category 3" using category_path
         $pathsSub = $this->pathsSubquery($p, $languageId);
 
         $categories = DB::table($p.'category as c')
@@ -88,10 +87,7 @@ return view('catalog.categories.index', ['categories' => $categories, 'q' => $q]
             $cd->category_id = $c->category_id;
             $cd->language_id = $languageId;
             $cd->name = $request->name;
-            // Sanitised before persistence: Summernote stores raw HTML and
-            // re-executes it via jQuery .html() on the edit page (see
-            // App\Support\HtmlSanitizer's docblock), so hostile markup must
-            // never reach the database in the first place.
+            // Sanitize before saving: the editor stores raw HTML and re-runs it with jQuery .html().
             $cd->description = DescriptionHtml::store($request->input('description'));
             $cd->meta_title = $request->name;
             $cd->meta_description = '';
@@ -126,15 +122,11 @@ return view('catalog.categories.index', ['categories' => $categories, 'q' => $q]
 
         abort_if(!$category, 404);
 
-        // Render-boundary guard: rows saved before this sanitiser existed
-        // (or written directly to the DB) may still carry hostile HTML.
-        // Sanitising here neutralises them on display without rewriting
-        // the database. See App\Support\HtmlSanitizer's docblock.
+        // Sanitize on display too: older rows may hold hostile HTML.
         $category->description = DescriptionHtml::store($category->description ?? '');
 
         $parents = $this->parentOptions((int)$id);
 
-        // The way back (#189): the list URL, search intact; never the edit page itself.
         $cameFrom = \App\Support\BackTo::capture();
         $returnUrl = str_contains($cameFrom, '/categories') && !str_contains($cameFrom, '/categories/' . $id) ? $cameFrom : null;
         return view('catalog.categories.edit', compact('category','parents'))->with('returnUrl', $returnUrl);
@@ -176,8 +168,6 @@ return view('catalog.categories.index', ['categories' => $categories, 'q' => $q]
                 $cd->seo_h3 = '';
             }
             $cd->name = $request->name;
-            // Sanitised before persistence: see store() above and
-            // App\Support\HtmlSanitizer's docblock.
             $cd->description = DescriptionHtml::store($request->input('description'));
             $cd->meta_title = $request->name;
             $cd->save();
@@ -244,7 +234,6 @@ return view('catalog.categories.index', ['categories' => $categories, 'q' => $q]
         return redirect()->route('categories.index')->with('status', $newStatus === 1 ? 'Enabled selected categories.' : 'Disabled selected categories.');
     }
 
-    // AJAX lookup used by Product form typeahead
     public function lookup(Request $request)
     {
         $p = config('catalog.prefix');
@@ -333,7 +322,6 @@ return view('catalog.categories.index', ['categories' => $categories, 'q' => $q]
         $level = 0;
 
         if ($parentId > 0) {
-            // If parent doesn't have a path yet (common after manual imports), create it.
             $this->ensurePathExists($parentId);
 
             $parentPaths = DB::table($p.'category_path')

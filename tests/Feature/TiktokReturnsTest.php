@@ -14,12 +14,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * TikTok returns and refunds (#156, item 10): fetched from the
- * return_refund API and stored whole; listed in the workspace and on
- * the fulfilment hub through one panel; a mapped return status moves
- * the linked sales order with a history line.
- */
 class TiktokReturnsTest extends TestCase
 {
     use RefreshDatabase;
@@ -28,7 +22,6 @@ class TiktokReturnsTest extends TestCase
     public array $callResponses = [];
     private int $groupSeq = 0;
 
-    /** The store setUp seeds; raw DB inserts must carry its id to be found. */
     private TikTokSetting $tiktokStore;
 
     protected function setUp(): void
@@ -84,7 +77,6 @@ class TiktokReturnsTest extends TestCase
         ], $overrides);
     }
 
-    /** The "Sync Returns" automation: the same store as the button, on the cron. */
     public function test_the_returns_job_stores_returns_over_its_own_window(): void
     {
         $this->callResponses['POST /return_refund/202309/returns/search'] = function (array $body) {
@@ -103,8 +95,6 @@ class TiktokReturnsTest extends TestCase
         $this->assertCount(1, $this->sentCalls, 'returns only: the orders search was not called');
         $this->assertSame('/return_refund/202309/returns/search', $this->sentCalls[0]['path']);
 
-        // --no-returns leaves returns alone; there are no orders to fetch here,
-        // so the orders search answers empty and the command still exits 0.
         $this->sentCalls = [];
         $this->callResponses['POST /order/202309/orders/search'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'data' => ['orders' => []]]];
         $this->artisan('tiktok:sync-orders --no-returns')->assertExitCode(0);
@@ -168,7 +158,6 @@ class TiktokReturnsTest extends TestCase
         $this->assertSame(0, TikTokOrderStatusMap::where('context', 'return')->where('tiktok_status', 'REJECTED')->count());
     }
 
-    /** The catalog order table is OpenCart's: dozens of NOT NULL columns with no defaults. */
     private function orderColumnDefaults(): array
     {
         return [

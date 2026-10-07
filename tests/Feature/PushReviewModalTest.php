@@ -15,13 +15,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * The push-review modal's wires (cleanup 7+9, the owner-approved draft
- * 2026-09-03): the single review says exactly what goes up - price WITH
- * its arithmetic, names not ids - the bulk review leads with the verdict
- * and groups blockers BY GAP, and a fix writes only what answering on
- * each listing page would have written.
- */
 class PushReviewModalTest extends TestCase
 {
     use RefreshDatabase;
@@ -120,9 +113,6 @@ class PushReviewModalTest extends TestCase
         $pid = $this->seedProduct('Original name', 'ON-1');
         ShopeeListing::create(['product_id' => $pid, 'shopee_category_id' => 100200, 'logistic_ids' => [8003]]);
 
-        // The push itself will fail fast on missing credentials paths in
-        // this bare setup, but the override write happens FIRST - the same
-        // order Save and push uses, so a refusal never loses the typing.
         $this->actingAs($this->manager())->post(route('ext.shopee.products.push_direct', $pid), [
             'title' => 'Snappier Shopee name',
             'description' => 'Shopee-only words.',

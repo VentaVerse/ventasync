@@ -1,9 +1,5 @@
 <?php
 
-// Permission labels use the RESOURCE name only ("Venta", "Venta Orders").
-// The tier (View vs Manage) is communicated by the segmented pill UI on the
-// user-group edit screen — don't bake "(view)" / "(manage)" into the label
-// or it duplicates the segment text the operator is already reading.
 return [
     'view_venta' => [
         'label'       => 'Venta',

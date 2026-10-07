@@ -7,32 +7,6 @@ use Illuminate\Support\Facades\Schema;
 use App\Models\WatermarkTemplate;
 use Illuminate\Support\Facades\Storage;
 
-/**
- * SIZED COPIES OF A PICTURE, MADE ONCE AND KEPT, THE WAY OPENCART'S
- * image/cache WORKS.
- *
- * One folder, cache/, beside catalog/ on the public disk, so the media
- * library never lists it and a store can fetch a copy by URL. A copy keeps
- * the picture's own path with its size in the name:
- *
- *   catalog/Wampler/pedal.png  ->  cache/catalog/Wampler/pedal-200x200.jpg
- *
- * so it is found again without a lookup, and it is drawn again when the
- * picture changed after the copy was made.
- *
- * Every copy is a square JPEG on white, the picture fitted inside it and
- * never cropped, at one of three sizes set under Settings:
- *
- *   thumb    every small box: lists, order lines, variation rows
- *   preview  the larger boxes: image cards, zoom
- *   push     what every store is sent, and under 1 MB, which is Lazada's
- *            limit and the strictest of the three marketplaces
- *
- * A watermark is never kept here: it is stamped when a push needs it
- * (StampedImages).
- *
- * GD, because that is what the server has.
- */
 final class ImageCache
 {
     public const DIR = 'cache';
@@ -41,24 +15,17 @@ final class ImageCache
     public const PREVIEW = 'preview';
     public const PUSH = 'push';
 
-    /** The size each copy takes on a new install. */
     public const DEFAULTS = [self::THUMB => 200, self::PREVIEW => 500, self::PUSH => 1000];
 
-    /**
-     * The sizes Settings accepts. A push copy stays within what every store
-     * takes: TikTok Shop wants a main picture of 300 to 4000 px.
-     */
     public const LIMITS = [self::THUMB => [50, 1000], self::PREVIEW => [100, 2000], self::PUSH => [300, 4000]];
 
-    /** Lazada refuses a picture over 1 MB, the lowest limit of the three stores. */
+    // Lazada refuses pictures over 1 MB, the lowest limit of the three stores.
     public const PUSH_MAX_BYTES = 1000000;
 
     private const QUALITIES = [88, 82, 76, 70, 64, 58];
 
-    /** @var array<string, int>|null */
     private static ?array $sides = null;
 
-    /** The side, in pixels, of one kind of copy. */
     public static function side(string $kind): int
     {
         if (self::$sides === null) {
@@ -76,16 +43,11 @@ final class ImageCache
         return self::$sides[$kind] ?? self::DEFAULTS[self::THUMB];
     }
 
-    /** Read the sizes again, after Settings changed them. */
     public static function forget(): void
     {
         self::$sides = null;
     }
 
-    /**
-     * The copy's public URL, or the picture's own URL when no copy can be
-     * made, or null when there is no picture.
-     */
     public static function url(?string $path, string $kind = self::THUMB): ?string
     {
         $path = trim((string) $path);
@@ -96,11 +58,6 @@ final class ImageCache
         return self::publicUrl(self::path($path, $kind) ?? ltrim($path, '/'));
     }
 
-    /**
-     * The copy's URL for a phone: a phone opens https pictures only, and
-     * asset() takes the scheme of whatever request is running, which behind
-     * a proxy may be http. Null when there is no picture or no https URL.
-     */
     public static function appUrl(?string $path, string $kind = self::THUMB): ?string
     {
         $url = rescue(fn () => self::url($path, $kind), null, false);
@@ -111,18 +68,12 @@ final class ImageCache
         return $url !== null && str_starts_with($url, 'https://') ? $url : null;
     }
 
-    /**
-     * The copy's path on the public disk, made now when it does not exist or
-     * is older than the picture. Null when the picture is missing or cannot
-     * be read.
-     */
     public static function path(string $path, string $kind = self::THUMB): ?string
     {
         $source = self::safe($path);
         if ($source === null) {
             return null;
         }
-        // A copy, or a stamped picture made for one push, is already what it should be.
         if (str_starts_with($source, self::DIR . '/') || str_starts_with($source, StampedImages::DIR . '/')) {
             return $source;
         }
@@ -138,7 +89,6 @@ final class ImageCache
             return $target;
         }
 
-        // Every copy stays under the push limit, so two sizes that match share one file.
         $bytes = self::squareJpeg($disk->path($source), $side, self::PUSH_MAX_BYTES);
         if ($bytes === null) {
             return null;
@@ -148,10 +98,6 @@ final class ImageCache
         return $target;
     }
 
-    /**
-     * The copy's URL only when it has already been made, so a page can offer
-     * a picture without drawing thousands of copies in one request.
-     */
     public static function existing(string $path, string $kind = self::THUMB): ?string
     {
         $source = self::safe($path);
@@ -163,23 +109,11 @@ final class ImageCache
         return self::fresh($target, $source) ? self::publicUrl($target) : null;
     }
 
-    /**
-     * The pictures a store is sent, in the same order, each as its push
-     * copy. A picture no copy can be made of goes as it is, so the store
-     * names the problem.
-     *
-     * @param  list<string>  $paths
-     * @return list<string>
-     */
     public static function pushPaths(array $paths): array
     {
         return array_map(fn ($p) => self::path((string) $p, self::PUSH) ?? (string) $p, array_values($paths));
     }
 
-    /**
-     * The push copy of a picture given by its full path, for an upload that
-     * reads a file. A file off the public disk is returned as it is.
-     */
     public static function pushLocalFile(string $absolute): string
     {
         $disk = Storage::disk('public');
@@ -194,15 +128,6 @@ final class ImageCache
         return $absolute;
     }
 
-    /**
-     * Where the copy of this picture at this size lives, marked when a mark
-     * is named.
-     *
-     * The mark is part of the name, never a folder of its own: one flat cache
-     * mirroring the library, the way the size already reads. A template that
-     * is edited answers to a new name, so nothing is ever invalidated and the
-     * copies nobody wants become ordinary orphans.
-     */
     public static function target(string $source, int $side, string $mark = ''): string
     {
         $info = pathinfo($source);
@@ -212,11 +137,6 @@ final class ImageCache
         return self::DIR . '/' . $dir . $info['filename'] . '-' . $side . 'x' . $side . $stamp . '.jpg';
     }
 
-    /**
-     * The marked copy of this picture, made now when it does not exist or is
-     * older than the picture. Null when it cannot be made, which is never a
-     * reason to fail: the caller shows the plain copy instead.
-     */
     public static function marked(string $path, WatermarkTemplate $template, string $kind = self::THUMB): ?string
     {
         $source = self::safe($path);
@@ -235,7 +155,6 @@ final class ImageCache
             return $target;
         }
 
-        // The mark goes on the sized copy, so a mark is measured against what goes up.
         $plain = self::path($source, $kind);
         if ($plain === null) {
             return null;
@@ -254,7 +173,6 @@ final class ImageCache
         return $target;
     }
 
-    /** The marked copy's URL, or the plain one when it cannot be marked. */
     public static function markedUrl(?string $path, ?WatermarkTemplate $template, string $kind = self::THUMB): ?string
     {
         $path = trim((string) $path);
@@ -268,7 +186,6 @@ final class ImageCache
         return self::url($path, $kind);
     }
 
-    /** A copy exists and was made after the picture it copies last changed. */
     public static function fresh(string $target, string $source): bool
     {
         $disk = Storage::disk('public');
@@ -276,10 +193,6 @@ final class ImageCache
         return $disk->exists($target) && $disk->lastModified($target) >= $disk->lastModified($source);
     }
 
-    /**
-     * The picture as a square JPEG on white, fitted inside the square without
-     * cropping. With $maxBytes, compressed until it is under that size.
-     */
     public static function squareJpeg(string $absolute, int $side, ?int $maxBytes = null): ?string
     {
         $source = self::open($absolute);
@@ -289,7 +202,6 @@ final class ImageCache
 
         $width = imagesx($source);
         $height = imagesy($source);
-        // A picture no compression brings under the limit is drawn smaller, never below the stores' 300 px floor.
         for ($s = $side; $s >= min($side, self::LIMITS[self::PUSH][0]); $s = (int) floor($s * 0.85)) {
             $scale = $s / max($width, $height);
             $w = max(1, (int) round($width * $scale));
@@ -308,7 +220,6 @@ final class ImageCache
         return null;
     }
 
-    /** JPEG bytes that decode to a picture, recompressed under $maxBytes. */
     public static function compressed(string $bytes, int $maxBytes): ?string
     {
         if (strlen($bytes) <= $maxBytes) {
@@ -322,13 +233,11 @@ final class ImageCache
         return self::encode($image, $maxBytes);
     }
 
-    /** The public URL of a path on the public disk. */
     public static function publicUrl(string $path): string
     {
         return asset('storage/' . implode('/', array_map('rawurlencode', explode('/', ltrim($path, '/')))));
     }
 
-    /** A relative path on the public disk that climbs nowhere, or null. */
     private static function safe(string $path): ?string
     {
         $path = trim(str_replace('\\', '/', $path), '/');

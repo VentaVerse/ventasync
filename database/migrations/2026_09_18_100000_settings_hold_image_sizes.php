@@ -4,11 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * The sizes of the picture copies VentaSync keeps under cache/: the small
- * one every list shows, the larger preview, and the one every store is sent.
- * The defaults are sizes Shopee, Lazada and TikTok Shop all accept.
- */
 return new class extends Migration
 {
     public function up(): void

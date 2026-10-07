@@ -13,15 +13,6 @@ use Illuminate\Support\Facades\Storage;
 
 class SettingController extends Controller
 {
-    /**
-     * IA migration (2026-08-08, Task 3), spec decision 4: this method now
-     * backs four real routes (settings.general/.website/.mail/.maintenance),
-     * one per tab, sharing this action and the one view. The active tab is
-     * resolved from the route (a ->defaults('tab', …) on each registration
-     * in routes/web.php), never from the query string. Falls back to
-     * 'general' so a direct call without a bound route default still
-     * renders something sane.
-     */
     public function edit(Request $request)
     {
         $setting = Setting::singleton();
@@ -30,30 +21,8 @@ class SettingController extends Controller
         return view('settings.edit', compact('setting', 'activeTab'));
     }
 
-    /**
-     * The pre-split settings URI, and nothing but its 301.
-     *
-     * It was originally kept because layouts/app.blade.php (protected and
-     * byte-frozen at the time) called route('settings.edit') for its sidebar
-     * link and its $__bcRoutes breadcrumb table. Round F Task 4 deleted that
-     * layout, so no route('settings.edit') call site remains anywhere in the
-     * application. The redirect stays regardless: /settings/edit was a real
-     * URI for years and may be bookmarked or linked from outside, and this is
-     * cheaper than a 404. 301s a bare visit to the first tab, and an old
-     * ?tab=… link to that same tab's new route.
-     *
-     * The route keeps its name. Dropping it would change the route table,
-     * which IaMigrationTest::test_route_list_unchanged_by_the_split() pins
-     * against a fixture, and would buy nothing: an unnamed 301 shim behaves
-     * identically.
-     */
     public function redirectLegacyEdit(Request $request)
     {
-        // Literal route() calls per branch on purpose, not a variable name
-        // built up and passed once: RouteNameSweepTest's static half only
-        // verifies clean `route('literal')` call sites, and Task 0's own
-        // motivating incident was a route name assembled dynamically that
-        // nothing had asserted against.
         return match ($request->query('tab')) {
             'website' => redirect()->route('settings.website', [], 301),
             'mail' => redirect()->route('settings.mail', [], 301),
@@ -95,13 +64,9 @@ class SettingController extends Controller
             'image_thumb_size'    => ['nullable', 'integer', 'between:' . implode(',', \App\Services\Media\ImageCache::LIMITS['thumb'])],
             'image_preview_size'  => ['nullable', 'integer', 'between:' . implode(',', \App\Services\Media\ImageCache::LIMITS['preview'])],
             'image_push_size'     => ['nullable', 'integer', 'between:' . implode(',', \App\Services\Media\ImageCache::LIMITS['push'])],
-            /* How tall the logo stands in each place. A ceiling, never a
-               stretch: the logo is fitted inside it with its shape kept, and
-               the width it may use belongs to the column, not to Settings. */
             'logo_nav_h'          => ['nullable', 'integer', 'between:' . implode(',', \App\Services\Media\BrandImage::LIMITS['h'])],
             'logo_login_h'        => ['nullable', 'integer', 'between:' . implode(',', \App\Services\Media\BrandImage::LIMITS['h'])],
         ]);
-        // A size not on the page this save came from is left as it is.
         foreach ([
             'image_thumb_size', 'image_preview_size', 'image_push_size',
             'logo_nav_h', 'logo_login_h',
@@ -111,9 +76,6 @@ class SettingController extends Controller
             }
         }
 
-        /* Back to what the application ships with. The uploaded file goes
-           with the setting, so the folder never keeps a picture nothing
-           points at. */
         $remove = (string) $request->input('remove', '');
         foreach (['logo' => 'logo_path', 'favicon' => 'favicon_path'] as $what => $column) {
             if ($remove === $what && $setting->{$column}) {
@@ -129,9 +91,6 @@ class SettingController extends Controller
             $data['logo_path'] = $request->file('logo')->store('company', 'public');
         }
 
-        // Favicon: upload replaces. If no new file is sent, the existing
-        // favicon stays untouched (no UI option to revert to default -
-        // operators can upload again to replace).
         if ($request->hasFile('favicon')) {
             if ($setting->favicon_path) {
                 Storage::disk('public')->delete($setting->favicon_path);

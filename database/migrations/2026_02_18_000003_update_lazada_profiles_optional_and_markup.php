@@ -8,11 +8,9 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::table('lazada_profiles', function (Blueprint $table) {
-            // Make category optional (null = all products)
             $table->unsignedInteger('catalog_category_id')->nullable()->change();
 
-            // Markup to cover Lazada fees
-            $table->string('markup_type', 20)->nullable()->after('brand_name_override'); // 'fixed' or 'percent'
+            $table->string('markup_type', 20)->nullable()->after('brand_name_override');
             $table->decimal('markup_value', 12, 2)->nullable()->after('markup_type');
         });
     }

@@ -5,15 +5,8 @@ namespace Extensions\shopee\Services;
 use App\Services\Orders\Breakdown\OrderBreakdown;
 use App\Support\Money;
 
-/**
- * A Shopee order's income as Seller Center shows it, from the escrow detail
- * Shopee returns once it has worked out the payout. The bottom line is
- * Shopee's escrow amount; a deduction Shopee adds that is not listed here
- * still shows, as the not-itemised line.
- */
 final class ShopeeOrderBreakdown
 {
-    /** @param  array<string, mixed>  $income  the escrow detail's order_income */
     public static function from(array $income): ?OrderBreakdown
     {
         if (! isset($income['escrow_amount'])) {

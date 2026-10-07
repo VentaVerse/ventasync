@@ -11,13 +11,6 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-/**
- * The "Push Price" automation (the owner, 2026-09-07). The old
- * stock-and-price row sent stock only; price is its own row now, on every
- * channel. Every linked product on every enabled store goes up through
- * the rule the buttons use: the listing's own markup, else its group's,
- * else the catalog price as it is.
- */
 class ShopeePushPrice extends Command implements \App\Integrations\Contracts\SteppableAutomation
 {
     protected $signature = 'shopee:push-price';
@@ -37,7 +30,7 @@ class ShopeePushPrice extends Command implements \App\Integrations\Contracts\Ste
         foreach ($stores as $store) {
             $label = $store->store_name ?: ('#' . $store->id);
             $this->info("=== Shopee store: {$label} ===");
-            app()->instance('shopee.route-store', $store); // the listings and groups read below belong to THIS store
+            app()->instance('shopee.route-store', $store);
             try {
                 $worst = max($worst, $this->pushStore($store));
             } catch (\Throwable $e) {
@@ -87,15 +80,6 @@ class ShopeePushPrice extends Command implements \App\Integrations\Contracts\Ste
         return $results['err'] > 0 ? 1 : 0;
     }
 
-    /**
-     * The rule the buttons use, resolved once per product: the listing's
-     * own markup, else the group's through the inherited-settings fill,
-     * else the catalog price untouched. A product without variations starts
-     * from the listing's own Price when it has one.
-     *
-     * @param list<int> $productIds
-     * @return \Closure(int, float): float
-     */
     public static function priceRule(array $productIds): \Closure
     {
         $listings = ShopeeListing::query()->whereIn('product_id', $productIds ?: [0])->get()->keyBy('product_id');
@@ -111,7 +95,6 @@ class ShopeePushPrice extends Command implements \App\Integrations\Contracts\Ste
         };
     }
 
-    /** Run now walks this push ten products per request (SteppableAutomation, 2026-09-07). */
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
         return ['label' => 'products', 'units' => \Extensions\shopee\Services\Shopee\ShopeePushSteps::units()];

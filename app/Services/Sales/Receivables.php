@@ -9,34 +9,16 @@ use App\Support\Actor;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Accounts receivable: the orders marked for payment tracking, the payments
- * recorded against them, and what each customer still owes.
- *
- * An order's balance is its total less the sum of its payments. A payment
- * that covers several orders is split oldest order first, each order taking
- * what it still owes, so the oldest debt is always the first one cleared.
- * Nothing is ever recorded beyond what is owed: there is no customer credit.
- */
 final class Receivables
 {
-    /** How a customer can pay, as the order page offers it. */
     public const METHODS = ['Bank Transfer', 'GCash', 'Cash', 'Check', 'Maya', 'Other'];
 
-    /** Days since the order, for the aging totals. */
     private const AGES = ['0_30' => [0, 30], '31_60' => [31, 60], '61_90' => [61, 90], 'over_90' => [91, PHP_INT_MAX]];
 
     public function __construct(private readonly CustomerLedger $ledger)
     {
     }
 
-    /**
-     * Every tracked order with its paid and balance figures, oldest first.
-     *
-     * @param  list<string>  $customerKeys  only these customers (CustomerLedger keys); empty for everyone
-     * @param  list<int>  $orderIds  only these orders; empty for every tracked order
-     * @return Collection<int, array<string, mixed>>
-     */
     public function rows(array $customerKeys = [], array $orderIds = [], ?string $from = null, ?string $to = null, ?string $search = null): Collection
     {
         $pfx = (string) config('catalog.prefix');
@@ -103,7 +85,6 @@ final class Receivables
             ->values();
     }
 
-    /** What is owed in total, by age, and by customer, for a set of rows. */
     public function totals(Collection $rows): array
     {
         $unpaid = $rows->reject(fn ($r) => $r['is_paid']);
@@ -132,7 +113,6 @@ final class Receivables
         ];
     }
 
-    /** One order's payments, oldest first, or null when the order is not tracked. */
     public function ofOrder(int $orderId): ?array
     {
         $row = $this->rows([], [$orderId])->first();
@@ -157,12 +137,6 @@ final class Receivables
         ];
     }
 
-    /**
-     * Split an amount over unpaid rows, oldest first.
-     *
-     * @param  Collection<int, array<string, mixed>>  $rows
-     * @return list<array{order_id: int, amount: float, balance_before: float, balance_after: float}>
-     */
     public function split(Collection $rows, float $amount): array
     {
         $left = round($amount, 2);
@@ -186,14 +160,6 @@ final class Receivables
         return $plan;
     }
 
-    /**
-     * Record one payment, split over the given orders oldest first. The
-     * orders are locked and re-read inside the transaction, so two payments
-     * recorded at once can never both fill the same balance.
-     *
-     * @param  list<int>  $orderIds
-     * @return list<array<string, mixed>> the split as it was recorded
-     */
     public function record(array $orderIds, float $amount, string $method, string $date, ?string $reference, ?string $notes, string $reason): array
     {
         return DB::transaction(function () use ($orderIds, $amount, $method, $date, $reference, $notes, $reason) {

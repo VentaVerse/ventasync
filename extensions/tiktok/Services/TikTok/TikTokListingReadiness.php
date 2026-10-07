@@ -10,34 +10,10 @@ use Extensions\tiktok\Models\TikTokListing;
 use Extensions\tiktok\Models\TikTokProductGroupProduct;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Can this product's push to TikTok succeed? Answered from the ERP's
- * records before anything is pressed (#156, mirroring Shopee's #101), and
- * mirroring EXACTLY what the builder refuses before sending: the catalog
- * product enabled, a category id TikTok can read, the catalog's image
- * (for a first push), the category's cached attribute sheet and its
- * required attributes, and at most three variation axes. One computation
- * for the Ready column, the readiness filter and every push path (the owner,
- * 2026-09-06: Ready has to be absolutely sure). An update runs the same
- * builder with the ids injected, so a listed product answers the same
- * checklist less the image.
- *
- * A category whose sheet has never been read is NOT ready: its required
- * attributes are unknown, and a "Ready" that then fails on them is the
- * lie this exists to kill.
- */
 class TikTokListingReadiness
 {
     public function __construct(private TikTokAttributes $attributes) {}
 
-    /**
-     * Missing items come back twice: as sentences (missing) for prose -
-     * byte-identical to what the guards have always said, which tests pin -
-     * and as coded gaps so deep-links and the state engine key on codes,
-     * never on label text (#184 D, same contract as Shopee's and Lazada's).
-     *
-     * @return array<int, array{ready: bool, missing: array<string>, gaps: list<array{code: string, label: string}>, linked: bool}>
-     */
     public function forProducts(array $productIds): array
     {
         $categoryLabel = TikTokCategory::query()->exists() ? 'a TikTok category' : 'a TikTok category - none have been fetched for this store yet (fetch them on Catalog > Categories)';
@@ -50,26 +26,14 @@ class TikTokListingReadiness
         $listings = TikTokListing::query()->whereIn('product_id', $productIds)->get()->keyBy(fn ($l) => (int) $l->product_id);
         $linked = $listings->filter(fn ($l) => trim((string) ($l->tiktok_product_id ?? '')) !== '')->keys()->flip()
             ->union(TikTokProductGroupProduct::query()->onStore()->whereIn('product_id', $productIds)->whereNotNull('tiktok_product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->flip());
-        /* A group is a preset the product inherits (the owner, 2026-09-05): a
-         * blank category on the listing is filled from its group, in memory,
-         * the same way every push fills it now, and the group's attribute
-         * answers count as answered. */
         $inherit = app(TikTokInheritedSettings::class);
         $groups = $inherit->forProducts($productIds);
-        // No row yet: judged as the blank row a push would make, with the group's presets filled in.
         foreach ($productIds as $pid) {
             if (! $listings->has($pid)) {
                 $listings->put($pid, (new TikTokListing())->forceFill(['product_id' => $pid]));
             }
         }
         $listings = $listings->map(fn ($l) => $inherit->fill($l, $groups[(int) $l->product_id] ?? null)['listing']);
-        /* ANY_SKU: TikTok takes no parent SKU either, so a product with
-           only variation codes is fine and one with none is not - see the
-           Shopee engine's note for why. */
-        /* A listing that arranges its own pictures answers the image gap
-           itself: it is read off the listings already in hand, so this
-           costs no query. Shopee's rule since 2026-09-08, every channel's
-           since VENT2-131. */
         $ownPictures = $listings->filter(fn ($l) => ! empty($l->image_order))->pluck('product_id')
             ->map(fn ($v) => (int) $v)->all();
         $catalog = CatalogGaps::forProducts($productIds, [CatalogGaps::ENABLED, CatalogGaps::IMAGE, CatalogGaps::ANY_SKU], $ownPictures);
@@ -93,7 +57,7 @@ class TikTokListingReadiness
 
             foreach ($catalog[$productId] ?? [] as $gap) {
                 if ($isLinked && $gap['code'] === ListingState::GAP_IMAGE) {
-                    continue; // an edit keeps the pictures it has
+                    continue;
                 }
                 $gaps[] = $gap;
             }
@@ -102,7 +66,6 @@ class TikTokListingReadiness
             if ($categoryId === '') {
                 $gaps[] = ['code' => ListingState::GAP_CATEGORY, 'label' => $categoryLabel];
             } elseif (! preg_match('/^\d+$/', $categoryId)) {
-                // The builder refuses an id TikTok cannot read (2026-09-06).
                 $gaps[] = ['code' => ListingState::GAP_CATEGORY, 'label' => 'a TikTok category picked again (the saved one, "' . $categoryId . '", is not a category id TikTok can read)'];
             } else {
                 $template = $templates->get($categoryId);

@@ -7,14 +7,6 @@ use Extensions\venta\Models\VentaCategory;
 use Extensions\venta\Models\VentaOrderStatusMap;
 use Extensions\venta\Models\VentaSetting;
 
-/**
- * The reads a Venta store needs before anything can be pushed or mapped:
- * its categories, its brands and its order statuses. One place for the
- * three (the owner 2026-09-06: every channel initialises the same way, behind
- * the setup popup, right after the first successful connection and again
- * on demand). Each method answers {ok, count, message}: a plain sentence,
- * never a payload.
- */
 class VentaStoreSetup
 {
     public function categories(VentaSetting $setting): array
@@ -62,12 +54,6 @@ class VentaStoreSetup
         return ['ok' => true, 'count' => $n, 'message' => number_format($n) . ' ' . ($n === 1 ? 'brand' : 'brands') . ' fetched.'];
     }
 
-    /**
-     * The store's order statuses, delta-merged into the status map: an
-     * existing mapping is kept, a renamed status is renamed, a vanished one
-     * goes, a new one arrives unmapped (order_status_id 0) for the operator
-     * to pick under Status mapping.
-     */
     public function statuses(VentaSetting $setting): array
     {
         $result = (new VentaClient($setting))->get('order-statuses');

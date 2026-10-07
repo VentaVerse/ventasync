@@ -1,39 +1,6 @@
-/* ============================================================
-   PURCHASING (`po-`)
-
-   The ten purchasing views ride the shared anatomies: the list pages are
-   x-list-head / x-filters / x-ui.table / x-pager, the forms are `fm-`, the
-   purchase-order detail is `od-` with `co-` item grammar. This file adds
-   only the pieces those three have no equivalent for, all of which come
-   down to the same shape: a line-item editor with a lot of numeric columns.
-
-   Why those editors are not tables. A purchase-order line carries ten
-   fields (grip, image, description, two SKUs, qty, unit price, discount,
-   discount type, line total, remove). Ten columns of <input> cannot fit a
-   390px viewport, and .x-table's responsive restack is built for read-only
-   cells with data-label, not for a row of live controls. So each line is a
-   CSS grid that reflows to a stacked card below 900px, with the column
-   header strip hidden at that point and each field labelled in place. No
-   horizontal scrolling at any width.
-
-   Every figure is mono/tabular (.x-num, or the local --num inputs) so a
-   column of money aligns on the decimal. Colour does exactly one job on
-   these pages: the purchase order's lifecycle, through the status badge
-   (see App\Support\ChannelStatusTone's `purchasing.orders` surface).
-   Everything else, including the remove control on a line, is neutral until
-   hovered.
-   ============================================================ */
-
-/* ── Page flash ───────────────────────────────────────────────
-   layouts.shell renders no flash region of its own and this extension's
-   pages all redirect back to themselves with a session message. Same
-   grammar as fm-flash / od-flash; declared here because the purchasing
-   list pages use neither of those anatomies wholesale. */
 .po-flash { display: grid; gap: var(--bl-space-2); }
 .po-flash:not(:empty) { margin-bottom: var(--bl-space-4); }
 
-/* ── Product thumbnail ────────────────────────────────────────
-   Shared by the edit, show and receive line lists. */
 .po-thumb {
     width: 36px;
     height: 36px;
@@ -48,19 +15,14 @@
 
 .po-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-/* The empty state is a flat sunken tile, not a diagonal-stripe pattern.
-   A hatch reads as "broken" next to a real photo; absence should be quiet. */
 .po-thumb--empty { background: var(--bl-chrome); }
 
-/* ── Index columns ────────────────────────────────────────────
-   .x-table is table-layout: fixed, so these widths are the layout. */
 .po-col-ref   { width: 132px; }
 .po-col-cur   { width: 74px; }
 .po-col-total { width: 132px; }
 .po-col-stat  { width: 148px; }
 .po-col-date  { width: 104px; }
 
-/* Vendor index. */
 .po-col-id    { width: 64px; }
 .po-col-check { width: 36px; }
 .po-col-phone { width: 132px; }
@@ -68,10 +30,6 @@
 
 .po-check { width: 14px; height: 14px; accent-color: var(--bl-brand-deep); cursor: pointer; }
 
-/* A mailto in a table cell is still a link, but it is not an action worth
-   colouring: on these pages colour means the purchase order's lifecycle and
-   nothing else. So it inherits the cell's text colour and only earns an
-   underline on hover, the way Linear and Stripe treat inline references. */
 .po-link {
     color: inherit;
     text-decoration: none;
@@ -81,14 +39,9 @@
 
 .po-link:hover { border-bottom-color: var(--bl-rule-2); }
 
-/* .x-table is table-layout: fixed, so a column that is too narrow clips
-   rather than widening the table. Without an explicit overflow rule the
-   clipped text still paints over the next cell. */
 .po-col-mail,
 .po-col-phone { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Bulk bar. Destructive actions only exist once rows are selected, which is
-   why no vendor row carries a standing Delete. Mirrors .cat-bulkbar. */
 .po-bulkbar {
     position: sticky;
     top: var(--bl-space-2);
@@ -108,17 +61,10 @@
 .po-bulkbar__count { font-size: 13px; color: var(--bl-ink-2); }
 .po-bulkbar__actions { display: flex; gap: var(--bl-space-2); }
 
-/* ── Two-line cell (name over a muted second line) ────────────
-   The vendor cell on the PO list and the vendor list both carry a nickname
-   under the name. `co-item__name` / `co-item__meta` already say this, but
-   without the media slot those bring. */
 .po-idty { display: grid; gap: 1px; min-width: 0; }
 .po-idty__name { font-weight: 500; color: var(--bl-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .po-idty__sub { font-size: 12px; color: var(--bl-ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* ── Numeric inputs inside line editors ───────────────────────
-   fm-input--num exists for the form pages; these are the compact variants
-   the line grids need. */
 .po-in {
     width: 100%;
     height: var(--bl-control-h-sm);
@@ -141,15 +87,9 @@
     text-align: right;
 }
 
-/* Firefox and WebKit both put spinners on number inputs; in a dense grid of
-   them they eat a third of the field and invite mis-clicks. */
 .po-in--num::-webkit-outer-spin-button,
 .po-in--num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .po-in--num[type="number"] { -moz-appearance: textfield; appearance: textfield; }
-
-/* ============================================================
-   LINE EDITOR (purchase order create/edit)
-   ============================================================ */
 
 .po-lines {
     border: 1px solid var(--bl-rule);
@@ -158,7 +98,6 @@
     overflow: hidden;
 }
 
-/* Column track shared by the header strip and every line. */
 .po-lines__head,
 .po-line {
     display: grid;
@@ -172,7 +111,7 @@
         104px           /* unit price */
         124px           /* discount + type */
         104px           /* line total */
-        28px;           /* remove */
+        28px;
     gap: var(--bl-space-2);
     align-items: center;
     padding: var(--bl-space-2) var(--bl-space-3);
@@ -212,13 +151,10 @@
     color: var(--bl-ink);
 }
 
-/* Discount amount and its unit are one control, so they read as one. */
 .po-line__disc { display: flex; gap: var(--bl-space-1); align-items: center; }
 .po-line__disc .po-in--num { flex: 1 1 auto; min-width: 0; }
 .po-line__disc .po-in--unit { flex: 0 0 52px; padding: 0 var(--bl-space-1); text-align: center; font-size: 12px; }
 
-/* Remove is an icon, neutral until hovered. A red X on every one of fifty
-   lines is fifty destructive controls competing with the save button. */
 .po-line__x {
     display: grid;
     place-items: center;
@@ -242,8 +178,6 @@
     color: var(--bl-ink-3);
 }
 
-/* Ledger under the lines. Right-aligned pair rows, same grammar as
-   od-ledger but scoped to the editor's own width. */
 .po-lines__foot {
     border-top: 1px solid var(--bl-rule);
     background: var(--bl-paper);
@@ -255,10 +189,6 @@
 
 .po-sum { display: grid; grid-template-columns: auto 132px; gap: var(--bl-space-4); align-items: baseline; }
 
-/* The `hidden` attribute is only a UA `display: none` rule, and a class
-   selector setting `display: grid` out-specifies it. Every element in this
-   file that a script toggles with `hidden` needs its own opt-out, or it
-   stays on screen with the attribute set. */
 .po-sum[hidden] { display: none; }
 .po-sum__k { font-size: 13px; color: var(--bl-ink-2); text-align: right; }
 .po-sum__v {
@@ -274,8 +204,6 @@
 .po-sum--base .po-sum__k,
 .po-sum--base .po-sum__v { color: var(--bl-ink-3); font-size: 12px; }
 
-/* ── Add-a-line row ───────────────────────────────────────────
-   The product search and the free-text button sit above the lines. */
 .po-add {
     display: flex;
     gap: var(--bl-space-2);
@@ -286,8 +214,6 @@
 
 .po-add__search { position: relative; flex: 1 1 320px; max-width: 420px; }
 
-/* Result list. Same mechanics as fm-ta__list (absolutely positioned under
-   its input, hidden until there is something to show). */
 .po-ac {
     position: absolute;
     top: calc(100% + 2px);
@@ -321,18 +247,11 @@
 .po-ac__item:hover,
 .po-ac__item:focus-visible { background: var(--bl-chrome-2); }
 
-/* An option value belonging to a product group is indented under the
-   group's "add all" line so the hierarchy is visible without a rule. */
 .po-ac__item--child { padding-left: var(--bl-space-5); font-size: 12px; color: var(--bl-ink-2); }
 .po-ac__item--all { font-weight: 500; color: var(--bl-brand-deep); border-bottom: 1px solid var(--bl-rule); }
 .po-ac__sku { color: var(--bl-ink-3); font-family: var(--font-mono); font-size: 11px; }
 .po-ac__empty { padding: var(--bl-space-2) var(--bl-space-3); font-size: 13px; color: var(--bl-ink-3); }
 
-/* ── Vendor typeahead (create/edit header, matrix add form) ───
-   layouts.shell has no window.setupTypeahead (that lives inside the
-   protected layouts/app.blade.php), so purchasing ships its own in
-   resources/js/pages/purchasing.js and this is the list it renders into.
-   Same visual contract as fm-ta__list. */
 .po-ta { position: relative; }
 .po-ta__list {
     position: absolute;
@@ -368,13 +287,6 @@
 .po-ta__item:focus-visible { background: var(--bl-chrome-2); }
 .po-ta__empty { padding: var(--bl-space-2) var(--bl-space-3); font-size: 13px; color: var(--bl-ink-3); }
 
-/* ============================================================
-   RECEIVE
-   ============================================================ */
-
-/* The receive page is the one screen in this extension that writes cost
-   into the catalog, so it states what it is about to do rather than
-   presenting a bare grid of inputs. */
 .po-rcv__note {
     margin: 0 0 var(--bl-space-4);
     padding: var(--bl-space-3);
@@ -404,7 +316,7 @@
         80px            /* received so far */
         88px            /* remaining */
         158px           /* receive now */
-        92px;           /* update cost */
+        92px;
     gap: var(--bl-space-3);
     align-items: center;
     padding: var(--bl-space-2) var(--bl-space-3);
@@ -425,8 +337,6 @@
 
 .po-rcv-line + .po-rcv-line { border-top: 1px solid var(--bl-rule); }
 
-/* A line with nothing left to receive is not an error and not a success,
-   it is simply finished, so it recedes rather than turning green. */
 .po-rcv-line.is-done { color: var(--bl-ink-3); }
 .po-rcv-line.is-done .po-idty__name { color: var(--bl-ink-3); font-weight: 400; }
 
@@ -440,7 +350,6 @@
 
 .po-rcv-line.is-done .po-rcv__fig { color: var(--bl-ink-3); }
 
-/* Remaining is the number the operator is actually reading off the desk. */
 .po-rcv__fig--rem { font-weight: 600; }
 
 .po-rcv__in { display: flex; gap: var(--bl-space-1); align-items: center; }
@@ -460,8 +369,6 @@
 
 .po-rcv__spacer { flex: 1 1 auto; }
 
-/* Add to stock or record only: exactly two, mutually exclusive, asked on
-   every receipt. The petty cash Kind switch's shape. */
 .po-rcv__stock { display: flex; flex-wrap: wrap; align-items: center; gap: var(--bl-space-3); }
 .po-rcv__choice { display: inline-flex; padding: 2px; background: var(--bl-chrome); border-radius: var(--bl-r-ctrl); }
 .po-rcv__opt { position: relative; }
@@ -479,19 +386,11 @@
 .po-rcv__opt input:checked + .po-rcv__face { background: var(--bl-sheet); color: var(--bl-ink); font-weight: 500; box-shadow: var(--bl-lift); }
 .po-rcv__opt input:focus-visible + .po-rcv__face { outline: 2px solid var(--bl-brand-deep); outline-offset: 1px; }
 .po-rcv__where { min-width: 14rem; }
-/* The warehouse only matters when the stock is added. */
 .po-rcv__stock:has(input[value="0"]:checked) .po-rcv__where { opacity: .45; }
 @media (pointer: coarse) {
     .po-rcv__face { line-height: 42px; }
 }
 
-/* ============================================================
-   DETAIL (`od-` host) additions
-   ============================================================ */
-
-/* A purchase-order line is read-only on the detail page and carries a
-   different column set from a sales order line, so it gets its own grid
-   rather than bending od-item's. */
 .po-det__head,
 .po-det-line {
     display: grid;
@@ -502,7 +401,7 @@
         104px           /* received */
         112px           /* unit price */
         88px            /* discount */
-        112px;          /* total */
+        112px;
     gap: var(--bl-space-2);
     align-items: center;
     padding: var(--bl-space-2) 0;
@@ -523,9 +422,6 @@
 
 .po-det-line + .po-det-line { border-top: 1px solid var(--bl-rule); }
 
-/* On a read-only detail page the item name is the content, not a column to
-   be trimmed to fit: it wraps rather than ellipsing the way the same element
-   does inside a dense list row. */
 .po-det-line .po-idty__name,
 .po-rcv-line .po-idty__name { white-space: normal; overflow: visible; }
 .po-det-line .po-idty,
@@ -542,15 +438,11 @@
     justify-items: end;
 }
 
-/* The default-currency equivalent under a foreign unit price. Muted and
-   smaller: it is a reference figure, not the transacted one. */
 .po-det__fig-sub { font-size: 11px; color: var(--bl-ink-3); }
 
-/* Received count on a line. Full is stated in words, not a green tick. */
 .po-det__got { color: var(--bl-ink-2); }
 .po-det__got--full { color: var(--bl-ink); }
 
-/* Attachments and payments both list a few rows with one overflow action. */
 .po-rows { display: grid; }
 .po-row {
     display: grid;
@@ -563,11 +455,6 @@
 
 .po-row + .po-row { border-top: 1px solid var(--bl-rule); }
 
-/* .x-menu__trigger is invisible until revealed, and its own reveal rule is
-   written against `.x-table tbody tr:hover` (ui-table.css). Every anatomy
-   outside a table has to opt in or its overflow menu is unreachable, which
-   is what order-detail.css does for .od-pay and .od-card__head. These are
-   this file's equivalents. */
 .po-row:hover .x-menu__trigger { opacity: 1; }
 .po-row__main { display: grid; gap: 1px; min-width: 0; }
 .po-row__name { color: var(--bl-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -579,11 +466,6 @@
     color: var(--bl-ink);
 }
 
-/* Upload control. A bare <input type="file"> renders the OS button, which is
-   the loudest unstyled control a page can carry: grey bevel, "No file
-   chosen", a different face on every platform. ::file-selector-button lets
-   the real input keep its semantics while its button wears the same face as
-   every other secondary button here. */
 .po-upload { display: flex; gap: var(--bl-space-2); align-items: center; flex-wrap: wrap; margin-top: var(--bl-space-3); }
 .po-upload__field { flex: 1 1 240px; min-width: 0; height: auto; padding: var(--bl-space-1); font-size: 12px; }
 .po-upload__hint { margin: var(--bl-space-2) 0 0; font-size: 12px; color: var(--bl-ink-3); }
@@ -604,11 +486,6 @@
 
 .po-upload__field::file-selector-button:hover { background: var(--bl-chrome-2); }
 
-/* ── Timeline icon ────────────────────────────────────────────
-   The old page drew six coloured SVG paths inline, one hue per action, all
-   raw hex with no dark value. Colour has one job on these pages, so the
-   marker is a neutral dot on a hairline rail and the action is said in
-   words instead. */
 .po-time { display: grid; }
 .po-time__row {
     display: grid;
@@ -618,10 +495,6 @@
     position: relative;
 }
 
-/* Fix round, Minor 14: was --bl-rule-2 on --bl-sheet, 1.54:1 light /
-   1.50:1 dark, under the 3:1 WCAG 1.4.11 floor. --bl-ink-3 clears it
-   at 5.13:1 light / 4.87:1 dark against --bl-sheet (base/tokens.css's
-   own audited matrix). */
 .po-time__dot {
     width: 7px;
     height: 7px;
@@ -630,8 +503,6 @@
     background: var(--bl-ink-3);
 }
 
-/* The rail is drawn on the row, not between rows, so the last entry's tail
-   stops at its own dot. */
 .po-time__row:not(:last-child)::before {
     content: '';
     position: absolute;
@@ -646,27 +517,11 @@
 .po-time__text { font-size: 13px; color: var(--bl-ink); }
 .po-time__meta { font-size: 12px; color: var(--bl-ink-3); }
 
-/* ============================================================
-   REORDER SUGGESTIONS
-   ============================================================ */
-
 .po-sug__qty { width: 76px; }
 
-/* Deficit is the one figure on that page worth colour: it is the reason the
-   row is there at all. Warning, not danger, because being below a reorder
-   level is a thing to act on rather than a failure. */
 .po-sug__deficit { color: var(--bl-attn-fill); font-weight: 600; }
 
-/* Stock at or below zero has already cost a sale. */
 .po-sug__stock--out { color: var(--bl-bad); font-weight: 600; }
-
-/* ============================================================
-   RESPONSIVE
-
-   Below 900px every line grid restacks: the header strip is removed, each
-   line becomes a two-column card of label/value pairs, and the controls go
-   full width. Nothing scrolls sideways at 390px.
-   ============================================================ */
 
 @media (max-width: 900px) {
     .po-lines__head,
@@ -682,15 +537,10 @@
         align-items: start;
     }
 
-    /* Grip and drag reordering are a pointer affordance; on a touch layout
-       the handle has nothing to do, so it is removed from the flow rather
-       than left as a dead control. */
     .po-line__grip { display: none; }
 
     .po-line { grid-template-columns: 36px minmax(0, 1fr); }
 
-    /* Everything after the image and description spans the full width and
-       is labelled by its own field, so the row reads top to bottom. */
     .po-line > *:nth-child(n + 4),
     .po-rcv-line > *:nth-child(n + 3),
     .po-det-line > *:nth-child(n + 3) { grid-column: 1 / -1; }
@@ -701,8 +551,6 @@
 
     .po-det__fig { grid-auto-flow: column; gap: var(--bl-space-2); align-items: baseline; }
 
-    /* A label is generated from the field's own data-label so the stacked
-       card is readable without the header strip. */
     .po-line > [data-label]::before,
     .po-rcv-line > [data-label]::before,
     .po-det-line > [data-label]::before {

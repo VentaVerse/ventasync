@@ -19,12 +19,6 @@ class SetOrderCurrencyRateTest extends TestCase
         $this->p = (string) config('catalog.prefix');
     }
 
-    /**
-     * The legacy OpenCart-derived `order` table has many NOT NULL columns with
-     * no default; MySQL's default STRICT_TRANS_TABLES mode rejects an insert
-     * that omits them. These are irrelevant to currency conversion and exist
-     * only to satisfy the schema. Modeled on NormalizeOrderCurrencyTest::makeOrder().
-     */
     private function makeOrder(int $id, string $code, float $cv, float $total): void
     {
         DB::table($this->p.'order')->insert([
@@ -70,13 +64,6 @@ class SetOrderCurrencyRateTest extends TestCase
         ]);
     }
 
-    /**
-     * Reproduces order #44294's exact BEFORE state (lost-rate USD order,
-     * currency_value=1, foreign_* all NULL) so the AFTER assertions below can
-     * be compared field-for-field against the sandbox's already-converted row,
-     * closing the chain of custody by equivalence rather than by re-running
-     * the command against the live-ish sandbox.
-     */
     private function seed44294BeforeState(): void
     {
         $this->makeOrder(44294, 'USD', 1.00000000, 5000.0000);
@@ -144,9 +131,6 @@ class SetOrderCurrencyRateTest extends TestCase
         $this->assertEquals(1100.0000, (float) $gp150->foreign_total);
         $this->assertEquals(5000.0000, (float) $gp150->cost);
 
-        // order_total rows scale linearly with the rate (sub_total and total both
-        // equal the pre-conversion foreign total for this order, so both convert
-        // to the same converted order total).
         $subTotal = DB::table($this->p.'order_total')->where('order_total_id', 21046743)->first();
         $this->assertEquals(308071.4726, (float) $subTotal->value);
 
@@ -154,19 +138,6 @@ class SetOrderCurrencyRateTest extends TestCase
         $this->assertEquals(308071.4726, (float) $total->value);
     }
 
-    /**
-     * The brief's order_total conversion (`value = toBase(value, rate)` per row)
-     * is only ever exercised end-to-end by #44294, which has two rows (sub_total,
-     * total) that happen to carry the same value. That leaves the multi-row case
-     * - several additive components, including a negative one - unproven, even
-     * though it is exactly what a marketplace-synced lost-rate order looks like
-     * (marketplace syncs hardcode currency_value = 1 until Task 7, and OpenCart-
-     * style order_total sets commonly include shipping and partial_payment_total
-     * rows). This is a synthetic fixture, independent of #44294/#8827, built to
-     * prove per-row linear scaling preserves the additive identity
-     * (sub_total + shipping + partial_payment_total = total) under conversion,
-     * not just leave it unfalsified by absence of a counter-example.
-     */
     public function test_order_total_multi_code_rows_scale_and_preserve_the_additive_identity(): void
     {
         $rate = 61.61429452;
@@ -178,35 +149,24 @@ class SetOrderCurrencyRateTest extends TestCase
         $this->makeTotal(90000003, 900001, 'partial_payment_total', 'Partial Payment', -800.0000, 5);
         $this->makeTotal(90000004, 900001, 'total', 'Total', 4000.0000, 9);
 
-        // Sanity: the fixture's additive identity holds BEFORE conversion.
         $this->assertEqualsWithDelta(4000.0000, 4500.0000 + 300.0000 - 800.0000, 0.0001);
 
         $this->artisan("orders:currency-set-rate 900001 {$rate} --execute")->assertExitCode(0);
 
         $rows = DB::table($this->p.'order_total')->where('order_id', 900001)->get()->keyBy('code');
 
-        // 1. Every row scaled by the rate, using the exact production conversion
-        // (OrderCurrencyService::toBase) so this test tracks the real scale law
-        // rather than a hand-copied constant.
         $this->assertEqualsWithDelta(OrderCurrencyService::toBase(4500.0000, $rate), (float) $rows['sub_total']->value, 0.0001);
         $this->assertEqualsWithDelta(OrderCurrencyService::toBase(300.0000, $rate), (float) $rows['shipping']->value, 0.0001);
         $this->assertEqualsWithDelta(OrderCurrencyService::toBase(4000.0000, $rate), (float) $rows['total']->value, 0.0001);
 
-        // The negative row must stay negative and scale by magnitude, not flip
-        // sign or get clamped.
         $partial = (float) $rows['partial_payment_total']->value;
         $this->assertLessThan(0, $partial, 'partial_payment_total must remain negative after conversion');
         $this->assertEqualsWithDelta(OrderCurrencyService::toBase(-800.0000, $rate), $partial, 0.0001);
         $this->assertEqualsWithDelta(-OrderCurrencyService::toBase(800.0000, $rate), $partial, 0.0001);
 
-        // 2. The property that actually matters: the additive identity survives
-        // conversion. Per-row linear scaling preserves it mathematically; this
-        // proves the implementation actually does it, against real persisted
-        // values, not a recomputation.
         $convertedSum = (float) $rows['sub_total']->value + (float) $rows['shipping']->value + $partial;
         $this->assertEqualsWithDelta((float) $rows['total']->value, $convertedSum, 0.0001, 'converted components must still sum to the converted total');
 
-        // 3. order.total and the total-code row agree after conversion.
         $order = DB::table($this->p.'order')->where('order_id', 900001)->first();
         $this->assertEqualsWithDelta((float) $rows['total']->value, (float) $order->total, 0.0001, 'order.total must agree with the total-code order_total row');
         $this->assertEqualsWithDelta(4000.0000, (float) $order->foreign_total, 0.0001);
@@ -258,17 +218,6 @@ class SetOrderCurrencyRateTest extends TestCase
         $this->artisan('orders:currency-set-rate 999999 61.61429452 --execute')->assertExitCode(1);
     }
 
-    /**
-     * Critical fix: the command only checked "not default currency" and
-     * "foreign_total IS NULL" - it never verified the rate was actually
-     * lost. A legacy-convention order (money already in PHP, currency_value
-     * a real fraction like 0.02100927) satisfies both of those guards, so
-     * the old code would run it through toBase() and inflate an
-     * already-correct order by ~47x, then mark it normalized forever
-     * (foreign_total no longer NULL, so no other tool would ever revisit
-     * it). Reproduces the reviewer's exact repro: order 8827, USD,
-     * currency_value=0.02100927, total=6602.08 (already PHP).
-     */
     public function test_legacy_convention_order_is_refused_and_left_untouched(): void
     {
         $this->makeOrder(8827, 'USD', 0.02100927, 6602.0800);

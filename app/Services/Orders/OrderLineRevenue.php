@@ -5,10 +5,8 @@ namespace App\Services\Orders;
 use App\Services\OrderCurrencyService;
 use Illuminate\Support\Facades\DB;
 
-/** What an order's lines sold for, the revenue every report counts. */
 final class OrderLineRevenue
 {
-    /** In the order's own currency. */
     public static function foreign(int $coreOrderId): float
     {
         $pfx = (string) config('catalog.prefix');

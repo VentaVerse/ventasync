@@ -13,14 +13,6 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-/**
- * ONE state per product on a Venta store, from the ERP's own records and
- * never the store: the link, the mirror on the listing row, a Catalog
- * change on the listing's own copy, readiness for a first push, and the latest push failure.
- * The same contract Shopee's, Lazada's, TikTok's and WooCommerce's engines
- * answer, so the shared listing cell and the core products grid read Venta
- * the way they read every other channel (parity, 2026-09-06).
- */
 class VentaListingStates
 {
     public function __construct(private readonly int $storeId) {}
@@ -30,12 +22,6 @@ class VentaListingStates
         return new self($storeId);
     }
 
-    /**
-     * The store's listing troubles in two numbers, for the dashboard chip:
-     * how many products need a human, and how many show a Catalog change.
-     *
-     * @return array{attention: int, drift: int}
-     */
     public function summary(): array
     {
         return [
@@ -44,12 +30,6 @@ class VentaListingStates
         ];
     }
 
-    /**
-     * The listings showing a Catalog change: their catalog product moved
-     * since they were last compared, and the two differ.
-     *
-     * @return array<int, list<string>>  product id => the fields that differ
-     */
     private function catalogChanges(): array
     {
         return \App\Integrations\Listings\CatalogCopy::pending(
@@ -57,13 +37,6 @@ class VentaListingStates
         );
     }
 
-    /**
-     * The rows behind a figure, by the SAME query that counted them: the
-     * Listings page filters on this, so a dashboard number and the rows it
-     * leads to can never disagree.
-     *
-     * @return list<int>
-     */
     public function productIdsIn(string $bucket): array
     {
         if ($bucket === 'drift') {
@@ -75,7 +48,6 @@ class VentaListingStates
             ->map(fn ($v) => (int) $v)->unique()->values()->all();
     }
 
-    /** One definition of each bucket, counted and listed from here. */
     private function bucket(string $bucket): \Illuminate\Database\Eloquent\Builder
     {
         $pfx = (string) config('catalog.prefix');
@@ -90,12 +62,9 @@ class VentaListingStates
                     ->orWhereColumn('p.date_modified', '>', 'venta_listings.catalog_seen_at'));
         }
 
-        // The store no longer returns the product: the one condition on
-        // this channel that needs a human rather than a push.
         return $mine->where('live_status', VentaListing::STATUS_MISSING);
     }
 
-    /** @return array<int, ListingState> */
     public function forProducts(array $productIds): array
     {
         $productIds = array_values(array_unique(array_map('intval', $productIds)));
@@ -120,8 +89,6 @@ class VentaListingStates
                 $failedAt = $attempt->last_pushed_at ? Carbon::parse($attempt->last_pushed_at) : null;
                 $failure[] = 'Last push' . ($failedAt ? ' ' . $failedAt->diffForHumans() : '') . ' failed: ' . trim((string) $attempt->push_error);
             }
-            // The Ready column's answer: the push's own checklist, for a
-            // product on the store and one not yet on it alike (2026-09-06).
             $r = $readiness[$pid] ?? ['ready' => false, 'gaps' => []];
             if (! $link) {
                 $out[$pid] = new ListingState(state: ListingState::NOT_LISTED, inSync: $inSync, reasons: $failure, ready: (bool) $r['ready'], missing: $r['gaps'], pushedAt: $pushedAt);
@@ -145,16 +112,6 @@ class VentaListingStates
         return $out;
     }
 
-    /**
-     * The Error column (the owner, 2026-09-07): the message a listing on this store is
-     * carrying right now, or null when nothing is wrong. One question, one
-     * answer, no rule about how old a failure is: the scheduled refresh
-     * re-runs the link check, and a successful push or sync clears the
-     * message it wrote.
-     *
-     * @param list<int> $productIds
-     * @return array<int, ?string>
-     */
     public function errors(array $productIds): array
     {
         $productIds = array_values(array_unique(array_map('intval', $productIds)));
@@ -163,7 +120,6 @@ class VentaListingStates
         }
         $listings = VentaListing::query()->where('venta_setting_id', $this->storeId)->whereIn('product_id', $productIds)->get()->keyBy(fn ($l) => (int) $l->product_id);
         $attempts = $this->latestAttempts($productIds);
-        // A variation this store sells that its own item does not hold.
         $missing = ListingVariations::missing('venta', $this->storeId, $productIds);
         $storeName = $missing !== [] ? (string) VentaSetting::query()->whereKey($this->storeId)->value('store_name') : '';
 
@@ -175,8 +131,6 @@ class VentaListingStates
             if ($l && trim((string) ($l->last_push_error ?? '')) !== '') {
                 $found[] = [$l->last_push_failed_at ? Carbon::parse($l->last_push_failed_at) : Carbon::createFromTimestamp(0), trim((string) $l->last_push_error)];
             }
-            // A group push writes its refusal on the pivot row.
-            // A failure with no saved message still says it failed.
             if ($a && in_array((string) $a->sync_status, ['error', 'failed'], true)) {
                 $found[] = [$a->last_pushed_at ? Carbon::parse($a->last_pushed_at) : Carbon::createFromTimestamp(0),
                     trim((string) ($a->push_error ?? '')) ?: \App\Integrations\Push\PushLedger::NO_REASON];
@@ -188,11 +142,6 @@ class VentaListingStates
         return $out;
     }
 
-    /**
-     * The outcome of the latest thing done with this product on this store:
-     * null clears every error slot, a failure is written to the listing's
-     * own slot, dated now, so it is the newest the error line reads.
-     */
     public function recordOutcome(int $productId, ?string $failure): void
     {
         if ($failure === null) {
@@ -206,14 +155,6 @@ class VentaListingStates
             ->save();
     }
 
-    /**
-     * Every error slot errors() reads, cleared for these products on this
-     * store: the listing's own, and the store's group rows. A row that was
-     * failed reads as pushed when the product is linked here, else pending;
-     * an unlinked row is left as it is.
-     *
-     * @param  list<int>  $productIds
-     */
     public function clearErrors(array $productIds): void
     {
         $ids = array_values(array_unique(array_filter(array_map('intval', $productIds), fn ($v) => $v > 0)));
@@ -241,13 +182,6 @@ class VentaListingStates
             ->update(['push_error' => null]);
     }
 
-    /**
-     * The products on this store whose error line is showing: the one
-     * definition the error filter on the Listings page and the group page
-     * reads, so the filter and the red lines cannot disagree.
-     *
-     * @return list<int>
-     */
     public function erroredProductIds(): array
     {
         $groupIds = VentaProductGroup::query()->where('venta_setting_id', $this->storeId)->pluck('id')->all();
@@ -274,7 +208,6 @@ class VentaListingStates
         return $out;
     }
 
-    /** The newest group push attempt per product on this store's groups. */
     private function latestAttempts(array $productIds): \Illuminate\Support\Collection
     {
         $groupIds = VentaProductGroup::query()->where('venta_setting_id', $this->storeId)->pluck('id')->all();

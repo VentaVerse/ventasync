@@ -39,13 +39,6 @@ class VentaSetting extends Model
         'connected_at'         => 'datetime',
     ];
 
-    /**
-     * Can this store be asked anything? An address and a token, which is
-     * the pair every Venta call needs (VentaClient builds nothing without
-     * both). The name is the contract's - every channel's settings model
-     * answers isConnected(), and Venta's was the one that did not, so a
-     * page wanting to say "Missing settings" had to invent its own test.
-     */
     public function isConnected(): bool
     {
         return trim((string) ($this->base_url ?? '')) !== ''
@@ -96,18 +89,6 @@ class VentaSetting extends Model
         return $this->hasMany(VentaSyncLog::class, 'venta_setting_id');
     }
 
-    /**
-     * A store gets its three scheduled jobs the moment it exists.
-     *
-     * On the model rather than in the controller that happens to create most
-     * of them: a store made by a seeder, by tinker, or by a second code path
-     * added later needs the same rows, and relying on one call site to
-     * remember is how a store ends up with an empty Automations tab and syncs
-     * that never run, with nothing on screen explaining why.
-     *
-     * ensureFor() is idempotent, so this cannot duplicate rows or reset a
-     * cadence the operator has edited.
-     */
     protected static function booted(): void
     {
         static::created(function (self $store) {

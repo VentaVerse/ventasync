@@ -14,28 +14,10 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * The Lazada order detail page, rebuilt on the shared `od-` detail anatomy
- * inside the seller center (Task 3 of the order-detail redesign).
- *
- * Fixture discipline is ShopeeOrderDetailTest's, which is ChannelWorkspace
- * Test's: this file builds its own permission groups and its own orders
- * rather than leaning on whatever the test schema happens to hold, and the
- * setUp below is that file's, for the same reasons its docblocks give (the
- * extension must be installed, enabled and REGISTERED, and the router's name
- * lookups rebuilt, before any Lazada route resolves by name).
- *
- * No fixture here carries Lazada credentials, so LazadaOrderController@show
- * never calls the live API: `$hasCreds` is false, the detail pull, the item
- * sync and the fee extraction are all skipped, and every figure asserted
- * below comes from the stored payload. That is deliberate - a test that could
- * reach the network proves nothing repeatable about a view.
- */
 class LazadaOrderDetailTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** The store every store-scoped Lazada URL in this file names. */
     private LazadaSetting $lazadaStore;
 
     protected function setUp(): void
@@ -48,19 +30,11 @@ class LazadaOrderDetailTest extends TestCase
 
         $this->app->register(LazadaExtension::class);
 
-        // Routes registered after the RouteCollection last built its name
-        // lookup table are invisible to Route::has(), which ChannelWorkspace
-        // calls for every sidebar destination. See ChannelWorkspaceTest.
         $this->app['router']->getRoutes()->refreshNameLookups();
 
-        // Multi-store (the owner 2026-09-05): every Lazada page is store-scoped.
-        // An ENABLED store lets URL::defaults fill {store} on every
-        // route('ext.lazada.orders.show', ...) call, and its id names the
-        // store-scoped literal paths below - exactly like Shopee.
         $this->lazadaStore = LazadaSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
-    /** Read tier: can open the page, holds nothing that writes. */
     private function viewer(): User
     {
         $group = UserGroup::create(['name' => 'Lazada Detail Viewers']);
@@ -71,7 +45,6 @@ class LazadaOrderDetailTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    /** Manage tier: the refresh pull and every marketplace write are gated on this. */
     private function manager(): User
     {
         $group = UserGroup::create(['name' => 'Lazada Detail Managers']);
@@ -82,12 +55,6 @@ class LazadaOrderDetailTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    /**
-     * An order in the shape LazadaOrderController@show reads it: `region`
-     * 'ph' because with no LazadaSetting row the controller falls back to
-     * 'ph'. Two product rows of one SKU, because Lazada emits one row per
-     * unit and consolidating them is what this page does.
-     */
     private function order(string $status = 'packed', array $overrides = []): LazadaOrder
     {
         $orderId = $overrides['order_id'] ?? 'LZ-DETAIL-0001';
@@ -179,10 +146,6 @@ class LazadaOrderDetailTest extends TestCase
         return $order->fresh('products');
     }
 
-    // ------------------------------------------------------------------
-    // The page renders inside the seller center
-    // ------------------------------------------------------------------
-
     public function test_the_detail_page_renders_inside_the_workspace_for_the_read_tier(): void
     {
         $order = $this->order();
@@ -191,19 +154,14 @@ class LazadaOrderDetailTest extends TestCase
 
         $response->assertOk();
 
-        // Channel menubar present, global sidebar PRESENT (reversed
-        // 2026-09-03, the teleportation fix: one shell, the channel menu
-        // rides inside the page), no cross-marketplace strip.
         $response->assertSee('x-chnav', false);
         $response->assertSee('All channels');
         $response->assertSee('data-nav', false);
         $response->assertDontSee('All marketplaces');
 
-        // On the shared detail anatomy, outside the .x-legacy boundary.
         $response->assertSee('class="od-page"', false);
         $response->assertDontSee('x-content x-legacy', false);
 
-        // Breadcrumb leaf is the order number.
         $response->assertSee('<span class="x-crumb__part x-crumb__part--current">'.$order->order_id.'</span>', false);
     }
 
@@ -215,50 +173,41 @@ class LazadaOrderDetailTest extends TestCase
 
         $response->assertOk();
 
-        // Identity and stamps
         $response->assertSee($order->order_id);
-        $response->assertSee('To arrange shipment');   // ChannelStatusTone label for `packed`
+        $response->assertSee('To arrange shipment');
         $response->assertSee('2026-08-03 10:11');
         $response->assertSee('2026-08-06 16:20');
 
-        // Item line: two Lazada rows of one SKU consolidate to one line of
-        // qty 2, with both order item ids kept.
         $response->assertSee('Meridian Ceramic Pour-Over Dripper');
         $response->assertSee('SKU-LZ-01');
         $response->assertSee('Slate, 02 size');
         $response->assertSee('https://lzd-img.test/dripper.jpg', false);
         $response->assertSee('900001, 900002');
-        $response->assertSee(\App\Support\Money::foreign(1700.00, 'PHP'));   // unit price
-        $response->assertSee(\App\Support\Money::foreign(3240.00, 'PHP'));   // paid total
+        $response->assertSee(\App\Support\Money::foreign(1700.00, 'PHP'));
+        $response->assertSee(\App\Support\Money::foreign(3240.00, 'PHP'));
 
-        // Per-item price breakdown
         $response->assertSee('Price breakdown by order item (2)');
         $response->assertSee('Voucher (seller)');
         $response->assertSee(\App\Support\Money::foreign(1620.00, 'PHP'));
 
-        // Customer and delivery address
         $response->assertSee('Maria Santos');
         $response->assertSee('+639175550123');
         $response->assertSee('221 Rizal Avenue, Barangay Bagumbayan');
         $response->assertSee('Unit 4B, Sunrise Residences');
         $response->assertSee('Quezon City Metro Manila 1101 Philippines');
 
-        // Shipping
         $response->assertSee('LEX PH');
         $response->assertSee('LZDPH884120394');
 
-        // Fee ledger, both sides of the rule and the estimate
         $response->assertSee('Order income');
         $response->assertSee('Commission');
         $response->assertSee(\App\Support\Money::foreign(-162.00, 'PHP'));
         $response->assertSee('Fee type 112');
 
-        // Fee transactions
         $response->assertSee('Lazada platform fees');
         $response->assertSee('Fee type 112');
         $response->assertSee('2026-08-05');
 
-        // Raw payload disclosure
         $response->assertSee('Show the JSON Lazada returned');
     }
 
@@ -276,23 +225,11 @@ class LazadaOrderDetailTest extends TestCase
         $response->assertOk();
         $response->assertSee('No items synced yet. Items will be fetched on the next order sync.');
         $response->assertSee('Lazada has not settled this order yet.');
-        // A missing figure says so rather than printing a number nobody has.
         $response->assertSee('Not recorded');
-        // No fee block means no transaction section and no breakdown.
         $response->assertDontSee('Lazada platform fees');
         $response->assertDontSee('Price breakdown by order item');
     }
 
-    /**
-     * F3: an order whose `fees` payload holds ONLY array-valued data
-     * (`transaction_lines`, `other_fees`) with no scalar figure must not
-     * show "No fee data yet" beside a rendered transaction-lines table -
-     * the exact self-contradiction the review caught. $hasFees is scalar
-     * -only by design, so this fixture must also render with NO
-     * transaction table and no per-item breakdown, matching what the
-     * previous version of this page did (both were nested inside the same
-     * `@if($hasFees)`).
-     */
     public function test_a_reported_transaction_shows_the_breakdown_not_the_empty_state(): void
     {
         $order = LazadaOrder::create([
@@ -330,17 +267,12 @@ class LazadaOrderDetailTest extends TestCase
         $response = $this->actingAs($this->viewer())->get('/channels/lazada/'.$this->lazadaStore->id.'/orders/'.$order->order_id);
 
         $response->assertOk();
-        // A reported transaction is Lazada's breakdown, never the empty state; the two never both show.
         $response->assertSee('Order income');
         $response->assertSee(\App\Support\Money::foreign(-50.00, 'PHP'));
         $response->assertDontSee('Lazada has not settled this order yet.');
         $response->assertDontSee('Lazada platform fees');
         $response->assertDontSee('Price breakdown by order item');
     }
-
-    // ------------------------------------------------------------------
-    // Tier split, both directions, against the real middleware
-    // ------------------------------------------------------------------
 
     public function test_write_tier_controls_render_only_for_the_manage_tier(): void
     {
@@ -357,8 +289,6 @@ class LazadaOrderDetailTest extends TestCase
         $asViewer->assertDontSee($refreshUrl, false);
         $asViewer->assertDontSee('Refresh from Lazada');
 
-        // The read tier loses controls, not information: every figure the
-        // manager sees is still on their page.
         $asViewer->assertSee('Meridian Ceramic Pour-Over Dripper');
         $asViewer->assertSee('Order income');
         $asViewer->assertSee('LZDPH884120394');
@@ -368,10 +298,6 @@ class LazadaOrderDetailTest extends TestCase
     {
         $order = $this->order();
 
-        // Both routes sit in the read tier of extensions/lazada/routes/web.php
-        // (a stored PDF and a courier lookup change nothing), so the viewer
-        // keeps them. That is the previous page's behaviour too: it offered
-        // both to everyone.
         $response = $this->actingAs($this->viewer())->get('/channels/lazada/'.$this->lazadaStore->id.'/orders/'.$order->order_id);
 
         $response->assertSee(route('ext.lazada.orders.awb', ['orderId' => $order->order_id]), false);
@@ -394,11 +320,6 @@ class LazadaOrderDetailTest extends TestCase
     {
         $order = $this->order();
 
-        // No credentials are configured in the test schema, so the controller
-        // redirects back with its own "Missing Lazada credentials" result.
-        // That is the point: the response comes from the CONTROLLER, which
-        // means the gate let this user through, where the read tier above
-        // never reached it.
         $allowed = $this->actingAs($this->manager())
             ->postJson('/channels/lazada/'.$this->lazadaStore->id.'/orders/'.$order->order_id.'/rts');
 
@@ -406,23 +327,8 @@ class LazadaOrderDetailTest extends TestCase
         $allowed->assertSessionHas('lazada_orders_last_result.ok', false);
     }
 
-    // ------------------------------------------------------------------
-    // Standing constraints this page must not break
-    // ------------------------------------------------------------------
-
-    // ------------------------------------------------------------------
-    // F2: on Lazada the pull-and-persist branches are not solely gated on
-    // `refresh` - a thin stored payload triggers them on a plain GET with
-    // no query string at all. All three write branches in
-    // LazadaOrderController@show must therefore stay off for a view-tier
-    // operator regardless of the query string.
-    // ------------------------------------------------------------------
-
     private function configureLazadaCredentials(): LazadaSetting
     {
-        // Dresses the store setUp seeded; a second row would fight it for
-        // defaultStore() and win nothing (mirrors ShopeeOrderDetailTest's
-        // configureShopeeCredentials on the multi-store conversion).
         $s = LazadaSetting::query()->orderBy('id')->firstOrFail();
         $s->fill([
             'mode' => 'live',
@@ -435,7 +341,6 @@ class LazadaOrderDetailTest extends TestCase
         return $s;
     }
 
-    /** A stored payload thin enough that rawLikelyHasOrderDetail() is false. */
     private function thinOrder(string $orderId = 'LZ-THIN-0001'): LazadaOrder
     {
         return LazadaOrder::create([
@@ -453,7 +358,6 @@ class LazadaOrderDetailTest extends TestCase
 
         Http::fake();
 
-        // No `?refresh` at all: the hole this finding named specifically.
         $response = $this->actingAs($this->viewer())->get('/channels/lazada/'.$this->lazadaStore->id.'/orders/'.$order->order_id);
 
         $response->assertOk();
@@ -496,8 +400,6 @@ class LazadaOrderDetailTest extends TestCase
         $response->assertDontSee('alert(', false);
         $response->assertDontSee('onerror=', false);
         $response->assertDontSee('onclick=', false);
-        // No page-level inline script: the tracking flow is the lazada-orders
-        // module's, bound on this page's own root id.
         $response->assertSee('id="lazada-order-detail-page"', false);
     }
 
@@ -508,8 +410,6 @@ class LazadaOrderDetailTest extends TestCase
         $response = $this->actingAs($this->viewer())->get('/channels/lazada/'.$this->lazadaStore->id.'/orders');
 
         $response->assertOk();
-        // The stopgap is retired: the order number opens the detail page in
-        // this same workspace, so the sidebar and the filtered list survive.
         $response->assertSee(
             '<a class="co-sn" href="'.route('ext.lazada.orders.show', ['orderId' => $order->order_id]).'">'.$order->order_id.'</a>',
             false

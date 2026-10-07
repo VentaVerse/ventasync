@@ -5,14 +5,6 @@ namespace Tests\Feature;
 use App\Services\Media\Watermarker;
 use Tests\TestCase;
 
-/**
- * THE STAMPER (VENT2-128, W1).
- *
- * The rules the owner settled on 2026-09-07, each with a test: nothing is
- * cropped, nothing is shrunk, the transparent parts of the mark let the
- * photograph through, and a mark that cannot be used answers null rather
- * than failing a push and leaving the product unlisted.
- */
 class WatermarkerTest extends TestCase
 {
     private string $dir;
@@ -31,7 +23,6 @@ class WatermarkerTest extends TestCase
         parent::tearDown();
     }
 
-    /** A plain photograph, one flat colour. */
     private function photo(int $w = 400, int $h = 400, array $rgb = [10, 120, 200]): string
     {
         $im = imagecreatetruecolor($w, $h);
@@ -43,11 +34,6 @@ class WatermarkerTest extends TestCase
         return $path;
     }
 
-    /**
-     * A mark whose LEFT half is opaque red and right half fully
-     * transparent, so a test can prove the transparent side let the
-     * photograph through.
-     */
     private function mark(int $w = 100, int $h = 100): string
     {
         $im = imagecreatetruecolor($w, $h);
@@ -85,7 +71,6 @@ class WatermarkerTest extends TestCase
     public function test_the_transparent_half_of_the_mark_lets_the_photograph_through(): void
     {
         $wm = new Watermarker();
-        // Full frame, no margin: the mark's left half covers the picture's left half.
         $bytes = $wm->stamp($this->photo(400, 400), $this->mark(), 'middle-center', 100.0, 1.0, 0.0);
         $this->assertNotNull($bytes);
 
@@ -113,7 +98,6 @@ class WatermarkerTest extends TestCase
         $this->assertLessThan(60, $r3, 'A bottom-right mark reached the top left.');
     }
 
-    /** Opacity multiplies the mark's own alpha rather than replacing it. */
     public function test_opacity_softens_the_mark(): void
     {
         $wm = new Watermarker();
@@ -129,7 +113,6 @@ class WatermarkerTest extends TestCase
     public function test_a_mark_larger_than_the_picture_is_refused_rather_than_cropped(): void
     {
         $wm = new Watermarker();
-        // 400px photo, a mark asked to be 100% of a 400px edge but 2000px tall.
         $tall = $this->mark(100, 2000);
 
         $this->assertNull($wm->stamp($this->photo(400, 400), $tall, 'middle-center', 100.0),
@@ -147,35 +130,26 @@ class WatermarkerTest extends TestCase
         $this->assertNull($wm->stamp($this->dir . '/missing.jpg', $this->mark()));
     }
 
-    /**
-     * The offset moves the mark in the picture's own directions, the same
-     * way whichever corner it is anchored to: right and down are positive.
-     * Zero is flush against the anchor.
-     */
     public function test_the_offset_moves_the_mark_right_and_down_in_the_pictures_own_directions(): void
     {
         $wm = new Watermarker();
         $photo = $this->photo(400, 400);
 
-        // Top-left, a quarter-size mark: 100px wide, its opaque half 50px.
         $flush = $wm->stamp($photo, $this->mark(), 'top-left', 25.0, 1.0, 0.0, 0.0);
         [$r] = $this->pixel($flush, 5, 5);
         $this->assertGreaterThan(200, $r, 'At zero offset the mark sits flush in its corner.');
 
-        // Nudged 25% right and 25% down: now it starts 100px in on both axes.
         $moved = $wm->stamp($photo, $this->mark(), 'top-left', 25.0, 1.0, 25.0, 25.0);
         [$r2] = $this->pixel($moved, 5, 5);
         $this->assertLessThan(60, $r2, 'The mark did not leave the corner it was nudged away from.');
         [$r3] = $this->pixel($moved, 110, 110);
         $this->assertGreaterThan(200, $r3, 'The mark is not where a positive offset should have moved it.');
 
-        // A bottom-right mark nudged negative moves up and left, inward.
         $in = $wm->stamp($photo, $this->mark(), 'bottom-right', 25.0, 1.0, -25.0, -25.0);
         [$r4] = $this->pixel($in, 395, 395);
         $this->assertLessThan(60, $r4, 'A negative offset should pull a bottom-right mark away from its corner.');
     }
 
-    /** A nudge past the edge stops at the edge: the mark never leaves the picture. */
     public function test_an_offset_past_the_edge_pins_the_mark_inside_the_picture(): void
     {
         $bytes = (new Watermarker())->stamp($this->photo(400, 400), $this->mark(), 'top-left', 25.0, 1.0, -50.0, -50.0);
@@ -185,7 +159,6 @@ class WatermarkerTest extends TestCase
         $this->assertGreaterThan(200, $r, 'Pushed off the top-left, the mark should stop flush in that corner, not vanish.');
     }
 
-    /** The mark keeps its proportions: a ribbon must not come out square. */
     public function test_a_wide_mark_is_not_squashed(): void
     {
         $wm = new Watermarker();
@@ -194,7 +167,6 @@ class WatermarkerTest extends TestCase
         $bytes = $wm->stamp($this->photo(400, 400), $wide, 'top-left', 50.0, 1.0, 0.0);
         $this->assertNotNull($bytes);
 
-        // 50% of 400 = 200 wide, so a 200x50 mark is 50 tall: row 60 is clear.
         [$r] = $this->pixel($bytes, 5, 5);
         $this->assertGreaterThan(200, $r);
         [$r2] = $this->pixel($bytes, 5, 60);

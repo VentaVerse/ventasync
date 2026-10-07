@@ -1,27 +1,4 @@
-/* THE LISTING PAGE'S ONE LAYOUT (the owner, 2026-09-08, draft C).
- *
- * Every channel's listing page is a strip and a body. The strip is the
- * spine: the live state, the figures, the last push and the verbs that act
- * on the live item, in the channel's own colour. The body is quiet: one
- * sheet of ruled sections for what the listing says, and a labelled column
- * for what it costs. Only what you can operate carries an edge.
- *
- * The channel accent arrives on <body> from layouts/channel as --ch and
- * --ch-deep (App\Support\ChannelAccent computes --ch-deep against the text
- * that actually sits on it), so nothing here writes a colour per channel.
- *
- * Tokens: --bl-*. Anatomy: the fm-* classes still draw the fields inside;
- * this file only takes their containers away.
- */
-
-/* How tall the strip is. Declared here with the one-line height as its
-   value, and overwritten by resources/js/pages/listing-strip.js with what
-   the strip actually measures - a fourth verb or a longer status wraps it
-   taller. Declared rather than left to a var() fallback so the stylesheet
-   says what it depends on and FoundationTest can see it. */
 :root { --cl-strip-h: 63px; }
-
-/* ── The strip ──────────────────────────────────────────────────── */
 
 .cl-strip {
     display: flex;
@@ -36,28 +13,14 @@
     box-shadow: var(--bl-lift);
 }
 
-/* Pinned where there is room for two bars. On a phone the save bar is
-   already fixed to the bottom and a second pinned strip would take a
-   quarter of the screen, so there the strip sits at the top of the page
-   and scrolls with it.
-
-   The notes are a SIBLING of this element, not a child, because a sticky
-   element only travels inside its own parent: a bar wrapped together with
-   its notes stayed put exactly as long as the notes were on screen. */
 @media (min-width: 1001px) {
     .cl-strip {
         position: sticky;
-        /* UNDER the channel menubar, which is sticky at 0 and 43px tall.
-           At the page gutter alone the strip pinned into it and lost its
-           top 13px behind it. */
         top: calc(var(--bl-chband-h, 43px) + 10px);
         z-index: 3;
     }
 }
 
-/* Refusals, gaps and staleness sit under the strip in the page's own
-   voice, not on the coloured bar: a red note on an orange strip is two
-   alarms arguing. */
 .cl-notes {
     display: flex;
     flex-direction: column;
@@ -84,14 +47,6 @@
     background: currentColor;
 }
 
-/* The three states that are not "fine" carry their own fill, because a
-   white pill on a coloured strip cannot say "this listing is in trouble".
-
-   The text is a FIXED dark, not var(--bl-ink): the fills are hardcoded
-   light, and in the dark theme --bl-ink is #eef1f7, which put pale text on
-   a mint pill at 1.27:1 - the one word the strip exists to say, unreadable
-   for anyone on the dark theme (critique 2026-09-08). A fill that does not
-   follow the theme cannot borrow text that does. */
 .cl-strip__state--warning,
 .cl-strip__state--danger,
 .cl-strip__state--success {
@@ -123,10 +78,6 @@
     font-weight: var(--bl-lab-weight);
     letter-spacing: var(--bl-lab-track);
     text-transform: var(--bl-lab-case);
-    /* Full strength, not a faded white: --ch-deep is computed to clear
-       4.5:1 against --bl-paper and nothing else, so an alpha on top of it
-       drops a label to 3.4:1 (critique 2026-09-08). The label is told from
-       the figure by size, weight and case, which cost no contrast. */
     color: var(--bl-paper);
 }
 
@@ -153,9 +104,6 @@
     margin-left: auto;
 }
 
-/* The verbs are drawn on the strip, so they take the strip's own contrast
-   rather than the page's: outlined in the strip's own light, not in the
-   page's rule colour. */
 .cl-strip__verbs .x-btn {
     border-color: rgba(255, 255, 255, .38);
     background: transparent;
@@ -168,23 +116,6 @@
     color: var(--bl-paper);
 }
 
-/* THE PRIMARY VERB IS AN INVERTED PILL, NOT THE CHANNEL'S CTA.
- *
- * It used to keep var(--ch-cta), on the reasoning that a dark pill on
- * Shopee's orange is the only filled thing on a filled bar. True for
- * Shopee, and false for everyone else: cta() only walks a colour when it
- * is too near the alert red, so on Lazada, TikTok, Venta and WooCommerce
- * --ch-cta IS --ch-deep, and the primary button became a pill of the bar's
- * own colour on the bar - 1:1, the only verb with no edge, while the
- * secondaries kept their white outlines (critique 2026-09-08).
- *
- * Paper on the accent is the one contrast ChannelAccent actually
- * guarantees (deep() is computed against --bl-paper), so using it in
- * reverse is guaranteed on every channel by construction.
- *
- * Its own variant rather than x-btn--primary: the channel primary rule is
- * unlayered and would win over this file's layer whatever its specificity.
- */
 .cl-strip__verbs .x-btn--oncolor {
     border-color: transparent;
     background: var(--bl-paper);
@@ -204,18 +135,6 @@
     outline-offset: 2px;
 }
 
-/* ── The quiet strip ────────────────────────────────────────────────
- *
- * Health off (the owner, 2026-09-09: "just fields to edit. Nothing about
- * health"). With nothing left to report, a bar in the channel's own colour
- * still reads as a status banner, so the colour goes with the status: the
- * strip becomes a plain row of things you can do, on the page's own
- * surface.
- *
- * Every rule above dresses the verbs for paper-on-accent, which is
- * unreadable once the accent is gone. They are dressed back down here, in
- * the same order, so nothing is left inheriting a contrast that no longer
- * exists. */
 .cl-strip--quiet {
     background: var(--bl-sheet);
     color: var(--bl-ink);
@@ -245,9 +164,6 @@
     color: var(--bl-paper);
 }
 
-/* The brand cyan, not the channel's own colour: a channel accent on this
-   ground resolves to about 1.2:1 on the darker channels, well under the
-   3:1 WCAG 1.4.11 asks of a focus indicator. FoundationTest says so. */
 .cl-strip--quiet .cl-strip__verbs .x-btn:focus-visible {
     outline: 2px solid var(--bl-brand);
     outline-offset: 2px;
@@ -257,13 +173,6 @@
     margin: 0;
 }
 
-/* ── The body ───────────────────────────────────────────────────── */
-
-/* An anchor jump lands under a pinned strip unless the target says how
-   tall the strip is - and the strip's height is content, not a constant:
-   a fourth verb or a longer status wraps it taller. resources/js/pages/
-   listing-strip.js measures it into --cl-strip-h; the fallback is the
-   one-line height. */
 .cl-main > *,
 .cl-rail > * {
     scroll-margin-top: calc(var(--bl-chband-h) + var(--cl-strip-h) + 24px);
@@ -281,10 +190,6 @@
         grid-template-columns: minmax(0, 1fr) 300px;
     }
 
-    /* What it costs stays in sight while the sheet beside it is read: the
-       price rule is the one thing a seller checks against whatever section
-       they are editing, and it sat at the top where a long page left it
-       behind. Under the channel band and the strip, which stay above it. */
     .cl-rail {
         position: sticky;
         top: calc(var(--bl-chband-h, 43px) + var(--cl-strip-h, 0px) + 16px);
@@ -294,7 +199,6 @@
     }
 }
 
-/* The work: one sheet, sections told apart by a rule and by air. */
 .cl-main {
     display: flex;
     flex-direction: column;
@@ -307,9 +211,6 @@
     box-shadow: var(--bl-lift);
 }
 
-/* A card dropped in here is a section of this sheet, not a sheet of its
-   own. The shared partials keep their markup and lose their container, the
-   same way blotter.css already flattens a sheet inside a sheet. */
 .cl-main > .fm-section,
 .cl-main > .fm-card,
 .cl-rail > .fm-section,
@@ -327,20 +228,10 @@
     border-top: 1px solid var(--bl-rule);
 }
 
-/* A section hidden by its own [hidden] must not leave its rule behind. */
 .cl-main > [hidden] {
     display: none !important;
 }
 
-/* The rail is the same white sheet as the work beside it (the owner,
-   2026-09-08). It was a labelled column standing on the page ground, on
-   the reasoning that a box beside a sheet reads as a second sheet. What it
-   actually read as was the settings being left outside: one white panel
-   with the fields in it, and the price rule sitting on the grey next to it.
-
-   Same material, told apart by width and by what is inside: the work has
-   headings, the rail has labels. The ground is now the only thing on the
-   page that is not a surface you can touch. */
 .cl-rail {
     display: flex;
     flex-direction: column;
@@ -358,8 +249,6 @@
     border-top: 1px solid var(--bl-rule-2);
 }
 
-/* The rail's own titles ride the label vocabulary rather than the sheet's
-   heading, so the work keeps the page's only headings. */
 .cl-rail .fm-section__head {
     padding-bottom: 0;
     border-bottom: 0;
@@ -375,7 +264,6 @@
     color: var(--bl-ink-3);
 }
 
-/* In a 300px rail a pair of fields shares no row. */
 @media (min-width: 1001px) {
     .cl-rail .fm-fields--2,
     .cl-rail .fm-fields--3 {
@@ -383,18 +271,12 @@
     }
 }
 
-/* The figures inside the rail are figures, not framed panels: the frame
-   was doing the job the label now does. */
 .cl-rail .fm-stats {
     padding: 0;
     border: 0;
     background: none;
 }
 
-/* A 300px rail sits against the right edge, so a hint that opens rightward
-   opens off the page and the document scrolls sideways. Same answer the
-   command bar already uses (.bl-hint--end), applied by position rather
-   than by asking every shared partial to know where it was dropped. */
 @media (min-width: 901px) {
     .cl-rail .bl-hint__bubble {
         right: 0;
@@ -408,10 +290,6 @@
         width: 100%;
     }
 
-    /* The rail sits under the strip, not at the end of the document. On a
-       phone the page is 3,300px and the rail began at 2,384 - the price
-       rule, the one thing a phone check is FOR, was the last thing on the
-       page, behind eleven pictures and a parcel form. */
     .cl-rail {
         order: -1;
     }

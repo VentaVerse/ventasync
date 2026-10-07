@@ -7,10 +7,6 @@ use App\Support\Api\Refused;
 use App\Support\Money;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Orders as an application reads them: the list and one order in full.
- * The partner API and the assistant tools both run these.
- */
 final class OrderReads
 {
     public function index(Input $request): array
@@ -113,25 +109,10 @@ final class OrderReads
         return $this->json([
             'order' => $order,
             'items' => $items,
-            // Its payments when the order is in accounts receivable; null
-            // when it is not tracked there.
             'receivable' => app(\App\Services\Sales\Receivables::class)->ofOrder($id),
         ]);
     }
 
-    /**
-     * `total` is always the default currency; `currency_code` used to be
-     * echoed straight from the row, which reported the as-transacted
-     * currency next to a figure that is not in that currency. Re-labels
-     * `currency_code` to the default and moves the as-transacted figure
-     * (when one exists) into `transaction_currency` / `transaction_total`.
-     *
-     * `foreign_total` is only non-null once an order has been normalized
-     * to dual-currency storage, so a currency_code that has not (yet) been
-     * paired with a foreign_total is treated the same as a default-currency
-     * order here rather than asserting an unconverted, ambiguous figure is
-     * "the" transaction total.
-     */
     private static function applyCurrencyShape(object $row, string $defaultCode): object
     {
         $foreignTotal = $row->foreign_total;
@@ -144,12 +125,6 @@ final class OrderReads
         return $row;
     }
 
-    /**
-     * An answer, or a refusal when the status says the request was turned
-     * down: the message and status reach every door unchanged.
-     *
-     * @return array<string, mixed>
-     */
     private function json(mixed $data, int $status = 200): array
     {
         if ($status >= 400) {

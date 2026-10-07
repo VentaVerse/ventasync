@@ -4,19 +4,8 @@ namespace App\Support\Catalog;
 
 use Illuminate\Database\Eloquent\Builder;
 
-/**
- * Finds products the way a person types them: every word has to appear in
- * the name, SKU, model, brand or a variation's SKU, in any order, with
- * spaces, hyphens, dots, slashes and underscores ignored, so "ISO 8",
- * "ISO-8" and "iso8" ask for the same thing. The best matches come first.
- */
 final class ProductSearch
 {
-    /**
-     * Narrow and order a product query. A search with no words changes nothing.
-     *
-     * @param  Builder  $query  a query over the catalog product model
-     */
     public static function apply(Builder $query, string $search): Builder
     {
         $words = self::words($search);
@@ -26,7 +15,6 @@ final class ProductSearch
 
         $pfx = (string) config('catalog.prefix');
         $lang = (int) config('catalog.default_language_id');
-        // The product table as the model names it, prefix and all.
         $t = $query->getModel()->getTable();
         $name = self::compact('pd.name');
         $sku = self::compact($t . '.sku');
@@ -51,8 +39,6 @@ final class ProductSearch
             });
         }
 
-        // Best first: the SKU or model exactly, then a name holding the
-        // words together ("iso8"), then everything else.
         $whole = implode('', $words);
         $query->orderByRaw(
             "CASE WHEN {$sku} = ? OR {$model} = ? THEN 0 "
@@ -64,11 +50,6 @@ final class ProductSearch
         return $query;
     }
 
-    /**
-     * The words of a search, each reduced to letters and digits in lower case.
-     *
-     * @return list<string>
-     */
     public static function words(string $search): array
     {
         $words = [];
@@ -82,7 +63,6 @@ final class ProductSearch
         return array_values(array_unique($words));
     }
 
-    /** A column in lower case with its spaces, hyphens, dots, slashes and underscores taken out. */
     private static function compact(string $column): string
     {
         return "LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE({$column}, ''), ' ', ''), '-', ''), '_', ''), '.', ''), '/', ''))";

@@ -15,18 +15,7 @@
 
     $isForeign = strcasecmp((string) $currentCode, $defaultCode) !== 0;
 
-    /**
-     * order_product.price and .cost are stored in the DEFAULT currency (see
-     * OrderCurrencyService's storage rule) and are handed to the editor
-     * as-is. The rate field starts seeded with the order's own stored rate,
-     * so dividing by it reproduces exactly the figures the order was
-     * transacted at; switching currency afterwards re-derives from the same
-     * unchanged source rather than converting an already-converted number.
-     *
-     * Pre-converting here is what the page used to do, and it froze the
-     * displayed figure to the rate at load time, so changing currency
-     * without touching a line silently multiplied the whole order on save.
-     */
+    // Pass stored default-currency prices as-is; pre-converting here multiplied the order on save.
     $lines = $products->map(fn ($p) => [
         'product_id'      => (int) $p->product_id,
         'name'            => (string) $p->name,
@@ -150,9 +139,6 @@
         </div>
 
         <div class="fm-col fm-col--side">
-            {{-- The order's own facts first: status is what the
-                 operator came to set. Currency, which almost nobody
-                 touches, moved under it (critique, 2026-08-27). --}}
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Order</h2></div>
                 <div class="fm-card__body">

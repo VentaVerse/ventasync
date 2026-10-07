@@ -2,100 +2,29 @@
 
 namespace App\Support;
 
-/**
- * A channel's brand colour, in the two forms an interface needs.
- *
- * Every integration declares one accent on its IntegrationCard and its
- * OrderTab - Shopee's orange, Lazada's navy, TikTok's black. That single hex
- * is the channel's identity and it is the only place a colour is written
- * down; nothing here invents a second list, so adding a channel needs no
- * colour work beyond the manifest it already ships.
- *
- * The two forms exist because a brand colour has two jobs with different
- * rules:
- *
- *   RAW  is for marks that carry no text: a ring, an underline, a border.
- *        Nothing is read against it, so nothing constrains it and the
- *        channel gets its exact colour.
- *
- *   DEEP is for a fill that carries white text: a card's colour cap, the
- *        page's primary button. White at 12.5px needs 4.5:1, and most
- *        marketplace brand colours are nowhere near it - Shopee's orange
- *        measures 3.66, TikTok's pink 3.68, Shopify's green 2.14. Using the
- *        raw hex there ships a label a person cannot read.
- *
- * DESIGN.md already settled how this project answers that: "Every accent is
- * chosen against white text, not for its own sake... Adding an accent means
- * computing it, not eyeballing it." So deep() computes rather than storing a
- * hand-picked second hex per channel, which would drift the first time
- * somebody updated one and not the other.
- *
- * The computation is a straight walk down the value axis, which keeps the
- * hue and only spends lightness. A colour already clearing the floor comes
- * back untouched, so Lazada, TikTok and Venta pay nothing for this.
- */
 class ChannelAccent
 {
-    /** The contrast a 12.5px label needs against its own background. */
     private const FLOOR = 4.5;
 
-    /** Fallback when an extension ships a malformed accent. */
     private const NEUTRAL = '#0b1228';
 
-    /** The dark theme's sheet, which onDark() has to clear. */
     private const DARK_SHEET = [17, 24, 40];
 
-    /* THE ALERT RED A FILLED ACTION MUST NOT BE MISTAKEN FOR.
-     *
-     * Kept in sync with --bl-bad in blotter.css; FoundationTest asserts the
-     * two agree, the same way LIGHT_INK_ON_ACCENT is held to --bl-paper. */
     private const ALERT = [203, 51, 39];
 
-    /* How near is too near, as a straight-line distance in RGB.
-     *
-     * Crude on purpose. A perceptual metric would be more correct and this
-     * question does not need one: the case it exists for is Shopee, whose
-     * deep orange lands 14.6 away from the alert red - the two are the same
-     * colour to any reader - while the next nearest channel, Lazada's navy,
-     * sits at 203. Nothing real falls between, so a threshold anywhere in
-     * that gap answers it, and 60 is comfortably inside. */
     private const ALERT_CLEARANCE = 60.0;
 
-    /* THE TEXT THAT ACTUALLY SITS ON THESE COLOURS.
-     *
-     * deep() used to measure against pure white, and the UI never paints
-     * pure white on an accent - the primary button carries --bl-paper
-     * (#eef2f8), which is a shade darker. The difference decides the answer:
-     * Shopee's #d14428 clears 4.597 against #ffffff, so the walk stopped
-     * there and called it compliant, while the button it produces measures
-     * 4.09 against the paper it is really printed in. The guarantee was
-     * computed against a colour that never reaches the screen.
-     *
-     * Kept in sync with --bl-paper in blotter.css; FoundationTest asserts
-     * the two agree. */
     private const LIGHT_INK_ON_ACCENT = [238, 242, 248];
 
-    /**
-     * The channel's own colour, for marks that carry no text.
-     */
     public static function raw(?string $hex): string
     {
         return self::normalise($hex) ?? self::NEUTRAL;
     }
 
-    /**
-     * The darkest step of the channel's colour that still holds the light ink.
-     *
-     * Returns the colour unchanged when it already clears the floor.
-     */
     public static function deep(?string $hex): string
     {
         $rgb = self::rgb(self::normalise($hex) ?? self::NEUTRAL);
 
-        // 100 steps is finer than the eye resolves and cheap enough to run
-        // per request; the first step that clears the floor wins, so the
-        // result is the lightest compliant version rather than an
-        // arbitrarily dark one.
         for ($step = 100; $step >= 0; $step--) {
             $factor = $step / 100;
             $candidate = [
@@ -112,30 +41,6 @@ class ChannelAccent
         return self::NEUTRAL;
     }
 
-    /**
-     * The channel's colour for a FILLED PRIMARY ACTION, which is the one
-     * place it can be mistaken for a warning.
-     *
-     * A channel states itself on the card cap, the segment underline and the
-     * page's primary button. That is settled and it is right - but the
-     * primary button is the only one of the three that shares a shape and a
-     * weight with the destructive button in a confirm dialog. On Shopee the
-     * two also share a colour: deep() lands its orange on #c33f25 and the
-     * alert red is #cb3327, which is eight parts in 255. "New listing" and
-     * "Delete this listing from Shopee - this cannot be undone" arrive in the
-     * same red, and the dialog opens on top of the page carrying the other
-     * one.
-     *
-     * This is not a fault in deep(). Shopee's brand simply IS a red-orange,
-     * and walking it down the value axis keeps the hue, as it should. So the
-     * fix is not a second hand-picked hex for Shopee - this class exists to
-     * avoid exactly that list - but a rule that any channel is measured
-     * against: a fill that cannot be told from the alert colour gives up the
-     * channel and takes the neutral ink, which is what a non-channel page's
-     * primary button wears anyway. Only the filled CTA yields. The cap, the
-     * underline and the ring keep the channel, because none of them is ever
-     * confused for a button.
-     */
     public static function cta(?string $hex): string
     {
         $deep = self::deep($hex);
@@ -145,7 +50,6 @@ class ChannelAccent
             : $deep;
     }
 
-    /** Straight-line distance between two colours in RGB. */
     private static function distance(array $a, array $b): float
     {
         return sqrt(
@@ -155,22 +59,6 @@ class ChannelAccent
         );
     }
 
-    /**
-     * The lightest-touch step of the channel's colour that stays legible on
-     * the DARK theme's sheet.
-     *
-     * deep() solves the light theme by walking down; it cannot solve the
-     * dark one, because a colour dark enough to hold white text disappears
-     * against a near-black surface. Lazada's navy is the clearest case: it
-     * clears white at 15.66:1 and sits at barely 1.3:1 on the dark sheet, so
-     * the order references on a Lazada page vanished the moment the theme
-     * switched. This walks the other way, toward white, until the colour
-     * clears the same floor against that sheet.
-     *
-     * Used for text on a dark surface, and as the FILL of the primary button
-     * in dark mode - where the button inverts to a light fill with dark
-     * text, the way --bl-ink already does.
-     */
     public static function onDark(?string $hex): string
     {
         $rgb = self::rgb(self::normalise($hex) ?? self::NEUTRAL);
@@ -191,11 +79,6 @@ class ChannelAccent
         return '#ffffff';
     }
 
-    /**
-     * Accept #abc, #aabbcc and the same without the hash; reject anything
-     * else rather than guessing, so a typo in a manifest reads as the
-     * neutral rather than as a colour nobody chose.
-     */
     private static function normalise(?string $hex): ?string
     {
         $value = strtolower(trim((string) $hex));
@@ -208,7 +91,6 @@ class ChannelAccent
         return preg_match('/^[0-9a-f]{6}$/', $value) ? '#'.$value : null;
     }
 
-    /** @return array{0:int,1:int,2:int} */
     private static function rgb(string $hex): array
     {
         $hex = ltrim($hex, '#');
@@ -220,20 +102,11 @@ class ChannelAccent
         ];
     }
 
-    /**
-     * @param  array{0:int,1:int,2:int}  $rgb
-     */
     private static function contrastWithPaper(array $rgb): float
     {
         return self::contrast($rgb, self::LIGHT_INK_ON_ACCENT);
     }
 
-    /**
-     * WCAG 2.1 contrast ratio between two colours.
-     *
-     * @param  array{0:int,1:int,2:int}  $a
-     * @param  array{0:int,1:int,2:int}  $b
-     */
     private static function contrast(array $a, array $b): float
     {
         $luminance = static function (array $rgb): float {

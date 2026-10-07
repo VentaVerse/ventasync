@@ -4,40 +4,16 @@ namespace Extensions\tiktok\Services\TikTok;
 
 use Extensions\tiktok\Models\TikTokApiLog;
 
-/**
- * The one builder of a TikTok product payload (#156): the group push,
- * the group update, and the listing page's own push and update all
- * hand it a catalog product and their settings and get back what
- * TikTok is sent. Images, title and description shaping, package
- * figures, SKUs (TikTokVariationPush), category, brand and attribute
- * answers (TikTokAttributes) live here once, so the four paths cannot
- * drift.
- *
- * Settings ($opts):
- *   category_id   string, required
- *   brand_id      ?string
- *   attributes    array  product_attributes already built by TikTokAttributes::payload()
- *   priceFor      \Closure float $base => float
- *   warehouse_id  ?string
- *   title         ?string override; description ?string override
- */
 class TikTokProductPush
 {
-    /** How many main images TikTok Shop takes on a product; the push sends the first nine and says so. */
-
     public function __construct(
         private TikTokVariationPush $variations,
         private TikTokVariationRename $rename,
         private TikTokDescriptionImages $descriptionImages,
     ) {}
 
-    /** @return array{payload?: array, built?: array, refused?: string} */
     public function build(object $erp, array $opts, array $c, TikTokClient $client, ?array $existingIds = null): array
     {
-        /* TikTok reads category_id as an Int64: anything else comes back as
-         * "CategoryId is invalid, the value must be convertible to Int64"
-         * after the images were already uploaded (the owner, 2026-09-06). Said
-         * here, first, with the value that was about to go. */
         $categoryId = trim((string) ($opts['category_id'] ?? ''));
         if ($categoryId === '' || ! preg_match('/^\d+$/', $categoryId)) {
             return ['refused' => $categoryId === ''
@@ -46,7 +22,6 @@ class TikTokProductPush
         }
 
         $uploadUri = function (string $imgPath) use ($client, $c): ?string {
-            // The square push copy, so the squaring below has nothing left to do.
             $imgPath = \App\Services\Media\ImageCache::path($imgPath, \App\Services\Media\ImageCache::PUSH) ?? $imgPath;
             $fullPath = public_path('storage/' . ltrim($imgPath, '/'));
             if (!file_exists($fullPath)) {
@@ -63,15 +38,6 @@ class TikTokProductPush
             return ($imgResult['ok'] ?? false) ? ($imgResult['body']['data']['uri'] ?? null) : null;
         };
 
-        /* The pictures, in the order this listing sends them: its own
-         * arrangement when it has one, the catalog product's gallery when
-         * it does not. The order is decided in one place for every channel
-         * (App\Support\Catalog\ProductImages) since VENT2-131; only the
-         * upload is TikTok's own, because TikTok is handed bytes.
-         *
-         * A group push carries no listing, so the product's own row is
-         * read for it - the arrangement belongs to the listing whatever
-         * pressed the button. */
         $own = array_key_exists('image_order', $opts)
             ? $opts['image_order']
             : \Extensions\tiktok\Models\TikTokListing::query()->where('product_id', (int) $erp->product_id)->value('image_order');
@@ -97,8 +63,6 @@ class TikTokProductPush
 
         $title = trim((string) ($opts['title'] ?? '')) !== '' ? trim((string) $opts['title']) : ($erp->name ?: ('Product ' . $erp->product_id));
         $title = html_entity_decode($title, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        // TikTok wants 25 characters at least; the model or the id finishes
-        // a short name in words that belong to the product.
         if (mb_strlen($title) < 25) {
             $title = rtrim($title . ' ' . ($erp->model ?: $erp->sku ?: ('#' . $erp->product_id)));
             while (mb_strlen($title) < 25) {
@@ -107,9 +71,6 @@ class TikTokProductPush
         }
         $title = mb_substr($title, 0, 255);
 
-        /* TikTok takes a rich description: paragraphs, headings, lists and
-         * up to thirty pictures. Only what TikTok forbids is dropped;
-         * App\Integrations\Listings\RichDescription owns the allowance. */
         $rawDesc = trim((string) ($opts['description'] ?? '')) !== '' ? (string) $opts['description'] : (string) ($erp->description ?? '');
         $desc = \App\Integrations\Listings\RichDescription::forTikTok($rawDesc);
         $leftOut = max(0, \App\Integrations\Listings\RichDescription::imageCount($rawDesc) - \App\Integrations\Listings\RichDescription::imageCount($desc));
@@ -118,14 +79,11 @@ class TikTokProductPush
             $desc = $title;
         }
 
-        // The store's prefix and suffix templates: its own words above and below whatever description won.
         $ttListing = \Extensions\tiktok\Models\TikTokListing::query()->where('product_id', (int) $erp->product_id)->first();
         $desc = \App\Integrations\Listings\ListingContent::wrapDescription(
             $desc, 'tiktok', (int) ($ttListing->tiktok_setting_id ?? 0), $ttListing
         );
 
-        /* TikTok shows only the description pictures it hosts, so each one
-         * is uploaded and its src replaced; one that cannot be is left out. */
         $store = ($c['setting'] ?? null) instanceof \Extensions\tiktok\Models\TikTokSetting ? $c['setting'] : \Extensions\tiktok\Models\TikTokSetting::defaultStore();
         $hosted = $this->descriptionImages->host($desc, $c, $client, (int) ($store?->id ?? 0));
         $desc = $hosted['html'];
@@ -136,11 +94,7 @@ class TikTokProductPush
 
         $desc = mb_substr($desc, 0, 10000);
 
-        // The parcel: the listing's own figure for each field it fills, the catalog's for each it leaves blank.
         $weight = (float) ($ttListing?->weight ?? 0) > 0 ? (float) $ttListing->weight : (float) ($erp->weight ?? 0);
-        /* TikTok keeps two places on a dimension, so the figure is rounded to
-           that rather than cast to a whole number: a listing measured at
-           10.5 cm went up as 10 cm and nobody was told. */
         $side = fn (string $own, string $core): string => (string) \App\Integrations\Listings\ParcelPrecision::of(
             $ttListing?->{$own}, $erp->{$core} ?? 0, \App\Integrations\Listings\ParcelPrecision::TIKTOK['dimension']
         );
@@ -172,7 +126,6 @@ class TikTokProductPush
         return ['payload' => $payload, 'built' => $built, 'left_out' => $leftOut];
     }
 
-    /** The note for description pictures that did not reach TikTok, or null when all of them did. */
     public static function picturesNote(int $leftOut): ?string
     {
         if ($leftOut <= 0) {
@@ -184,11 +137,6 @@ class TikTokProductPush
             : $leftOut . ' pictures in the description could not be sent to TikTok Shop and were left out.';
     }
 
-    /**
-     * pictures is set when description pictures were left out, and says how many.
-     *
-     * @return array{ok: bool, message: string, product_id?: string, sku_ids?: ?string, pictures?: ?string, warning?: ?string, result: array}
-     */
     public function create(object $erp, array $opts, array $c, TikTokClient $client): array
     {
         $b = $this->build($erp, $opts, $c, $client, null);
@@ -217,23 +165,11 @@ class TikTokProductPush
         ];
     }
 
-    /**
-     * warning is set when the update went up with the item's variation
-     * names kept, or with description pictures left out, and says why.
-     * pictures carries the second part alone.
-     *
-     * @return array{ok: bool, message: string, sku_ids?: ?string, pictures?: ?string, warning?: ?string, result: array}
-     */
     public function edit(object $erp, string $tiktokProductId, ?string $existingRaw, array $opts, array $c, TikTokClient $client): array
     {
         $existing = TikTokVariationPush::existingIds($existingRaw);
         $builtIn = $this->builtInTypes((string) ($opts['category_id'] ?? ''), $client, $c);
 
-        /* An item with variations is read first, so its variation types
-         * can be paired with the catalog's options (TikTokVariationRename).
-         * An edit overwrites every variation it sends and cannot leave them
-         * out, so an item that cannot be read is refused before any
-         * picture is uploaded. */
         $live = null;
         $probe = $this->variations->skus($erp, $opts['priceFor'], $opts['warehouse_id'] ?? null, null, $existing);
         if (!$probe['refused'] && $probe['kind'] !== 'single') {
@@ -257,7 +193,6 @@ class TikTokProductPush
         $skipped = $shaped['skipped'];
         $result = $this->sendEdit($client, $c, $tiktokProductId, $b['payload']);
 
-        // TikTok answered no to an edit with a rename in it: the same update once more, under the item's own names.
         if (!$this->ok($result) && $shaped['renamed'] && (int) ($result['status'] ?? 0) > 0) {
             $kept = $this->rename->shape($built, $live, $builtIn, 'TikTok Shop refused them (' . $this->message($result) . ')');
             $b['payload']['skus'] = $kept['skus'];
@@ -277,7 +212,6 @@ class TikTokProductPush
         $skuIds = !empty($result['body']['data']['skus'])
             ? $this->variations->storedIds($b['built'], $result['body']['data']['skus'])
             : null;
-        // An answer without SKUs: the item is read again, so the map follows the ids it holds now.
         if ($skuIds === null && $live !== null) {
             $skuIds = $this->heldIds((new TikTokLiveListing($client))->variationSkus($tiktokProductId, $c)['skus'] ?? []);
         }
@@ -297,7 +231,6 @@ class TikTokProductPush
         return $result;
     }
 
-    /** seller_sku => id for every SKU the item holds, as the stored map keeps it; null when none. */
     private function heldIds(array $liveSkus): ?string
     {
         $map = [];
@@ -312,7 +245,6 @@ class TikTokProductPush
         return $map ? json_encode($map) : null;
     }
 
-    /** The category's own variation type ids, read once and only when a pairing asks. */
     private function builtInTypes(string $categoryId, TikTokClient $client, array $c): \Closure
     {
         $asked = false;
@@ -336,7 +268,6 @@ class TikTokProductPush
 
     private function message(array $result): string
     {
-        // The one reader that knows where every channel hides its reason.
         return \App\Support\MarketplaceAnswer::errorText('TikTok Shop', $result);
     }
 
@@ -352,7 +283,6 @@ class TikTokProductPush
         ]);
     }
 
-    /** TikTok wants square pictures; a rectangle is centred on a white canvas. */
     private function squareImage(string $filePath): ?string
     {
         $info = @getimagesize($filePath);

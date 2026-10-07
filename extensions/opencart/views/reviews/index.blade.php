@@ -5,17 +5,10 @@
 @php
     use App\Support\ChannelStatusTone;
 
-    // Every write on this page sits behind `perm:manage_reviews` (see
-    // extensions/opencart/routes/web.php). The page is behind
-    // `view_reviews|manage_reviews`, so a read-tier operator gets here and
-    // must not be shown a control the middleware would turn away. Replaces
-    // a hardcoded `$canManageReviews = true`.
     $canManage = auth()->user()?->hasPermission('manage_opencart/review') ?? false;
 
     $hasFilters = $q !== '' || $rating > 0 || $syncStatus !== '' || $hasMedia !== '' || $dateFrom !== '' || $dateTo !== '';
 
-    // Only pending and error rows can be pushed: pushToOpenCart() and
-    // bulkPush() both refuse anything else, so nothing else gets a tick box.
     $pushable = ['pending', 'error'];
 @endphp
 
@@ -47,8 +40,6 @@
     @include('ext-opencart::reviews.partials.flash')
 
     @if($canManage)
-    {{-- An in-place panel rather than a standing bar of controls. Fetching
-         is an errand you run occasionally, not a thing the page is for. --}}
     <div class="rv-fetch" id="rv-fetch" hidden>
         <form method="POST" action="{{ route('ext.opencart.reviews.fetch') }}" class="rv-fetch__row">
             @csrf
@@ -80,8 +71,6 @@
     </div>
     @endif
 
-    {{-- Channel tabs. The counts come from the controller and are not
-         filtered, so they say how many exist, not how many match. --}}
     <div class="x-segment-bar">
         <div class="x-segment">
             @foreach($platforms as $key => $definition)
@@ -164,10 +153,6 @@
         <x-ui.empty title="{{ $hasFilters ? 'No reviews match those filters' : 'No reviews stored yet' }}"
                     description="{{ $hasFilters ? 'Try a different search, any rating, or a wider date range.' : 'Use Fetch reviews to pull what Shopee and Lazada already hold for your listings.' }}" />
     @else
-        {{-- The bulk bar exists only once something is ticked. Its submit
-             button and every row checkbox belong to the same form through
-             the form="" attribute, so the browser collects `ids[]` itself
-             and nothing has to be assembled in JavaScript. --}}
         @if($canManage)
         <form method="POST" action="{{ route('ext.opencart.reviews.bulk_push') }}" id="rv-bulk-form"
               data-confirm="Push the selected reviews to OpenCart?">@csrf</form>
@@ -215,9 +200,6 @@
                     @endif
 
                     <td class="rv-col-date x-cell-muted x-num" data-label="Reviewed">
-                        {{-- The row itself is the link. No View button: a View
-                             button on every row is fifty controls doing what
-                             clicking the row already does. --}}
                         <a class="x-row-link" href="{{ route('ext.opencart.reviews.show', $review->id) }}">
                             {{ $review->reviewed_at ? $review->reviewed_at->format('Y-m-d') : 'Unknown' }}
                         </a>
@@ -229,8 +211,7 @@
                     <td class="rv-col-rate" data-label="Rating">
                         @include('ext-opencart::reviews.partials.stars', ['rating' => $review->rating])
                     </td>
-                    {{-- Customer-written text. Blade escapes it; it is never
-                         rendered as markup anywhere on either page. --}}
+                    {{-- Customer-written text: keep it escaped, never raw. --}}
                     <td data-label="Comment">
                         <span class="rv-snippet">{{ $review->comment ?: 'No comment' }}</span>
                     </td>
@@ -274,12 +255,6 @@
 
         <x-ui.pager :paginator="$reviews" />
 
-        {{-- ===== OUT OF BAND FORMS =====
-             A <form> cannot be nested inside the menu panel it is driven
-             from, and a row's form cannot live inside a <tr> (the browser
-             hoists it out of table markup, which is the structural bug Task
-             2 fixed on the petty cash settings page). Each is rendered only
-             for a review whose state the controller accepts. --}}
         @if($canManage)
             @foreach($reviews as $review)
                 @if(in_array($review->oc_sync_status, $pushable, true))

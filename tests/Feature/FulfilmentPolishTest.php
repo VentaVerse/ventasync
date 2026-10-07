@@ -14,11 +14,6 @@ use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * The fulfilment polish of 2026-08-26: the variation names its axis
- * ("Color/Finish: Red"), and the marketplace cards lead with To Pack and
- * print To Handover beside it for the shelf count.
- */
 class FulfilmentPolishTest extends TestCase
 {
     use RefreshDatabase;
@@ -27,7 +22,6 @@ class FulfilmentPolishTest extends TestCase
     {
         parent::setUp();
 
-        // Multi-store S4 (#194): shopee's tabs and {store} routes need a store.
         \Extensions\shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
 
         $manager = $this->app->make(ExtensionManager::class);
@@ -37,7 +31,6 @@ class FulfilmentPolishTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalogue');
 
-        // A connected, freshly synced shop, so the card carries no caveat.
         DB::table('shopee_settings')->insert([
             'partner_id' => 1, 'partner_key' => encrypt('k'), 'shop_id' => 2,
             'access_token' => encrypt('t'), 'refresh_token' => encrypt('r'), 'mode' => 'production',
@@ -45,8 +38,6 @@ class FulfilmentPolishTest extends TestCase
             'last_order_sync_at' => now()->subMinutes(10), 'created_at' => now(), 'updated_at' => now(),
         ]);
     }
-
-    // ── The variation names its axis ──
 
     public function test_a_combination_sku_resolves_to_every_axis_it_sits_on(): void
     {
@@ -86,7 +77,6 @@ class FulfilmentPolishTest extends TestCase
         );
         $this->assertSame([['name' => 'Size', 'value' => 'M']], CatalogVariations::pairsFor('GP200-SIZE-M'), 'a single-axis option value SKU');
 
-        // A SKU the catalog does not know: what the marketplace sent, read as far as it goes.
         $this->assertSame([['name' => 'Color Family', 'value' => 'Red'], ['name' => 'Size', 'value' => 'M']], CatalogVariations::pairsFor('NOPE', 'Color Family:Red, Size:M'));
         $this->assertSame([['name' => '', 'value' => 'Red']], CatalogVariations::pairsFor('NOPE', 'Red'));
         $this->assertSame([['name' => '', 'value' => 'Graphite, US layout']], CatalogVariations::pairsFor('NOPE', 'Graphite, US layout'), 'a bare string is not split: nothing says where one value ends');
@@ -98,16 +88,12 @@ class FulfilmentPolishTest extends TestCase
         $this->assertSame('', trim(Blade::render('<x-fulfilment.variation sku="" fallback="" />')), 'nothing to say prints nothing');
     }
 
-    // ── Top products today: ten, decided, with the tail named ──
-
     public function test_top_products_rank_by_quantity_then_revenue_then_name_and_show_ten_with_the_tail(): void
     {
         $order = ShopeeOrder::create(['region' => 'ph', 'order_sn' => 'TOP-TODAY', 'status' => 'READY_TO_SHIP', 'order_created_at' => now(), 'raw' => []]);
         $rows = [
-            // Same count, different money: the dearer one ranks first.
             ['sku' => 'TIE-CHEAP', 'name' => 'Tie cheap', 'quantity' => 3, 'price' => 100],
             ['sku' => 'TIE-DEAR', 'name' => 'Tie dear', 'quantity' => 3, 'price' => 900, 'variation' => 'Red'],
-            // Same count and money: alphabetical.
             ['sku' => 'SAME-B', 'name' => 'Same b', 'quantity' => 2, 'price' => 50],
             ['sku' => 'SAME-A', 'name' => 'Same a', 'quantity' => 2, 'price' => 50],
         ];
@@ -128,11 +114,9 @@ class FulfilmentPolishTest extends TestCase
         $this->assertCount(10, $m[1], 'ten rows, never a blank slot');
         $this->assertSame(['TIE-DEAR', 'TIE-CHEAP', 'SAME-A', 'SAME-B'], array_slice($m[1], 0, 4));
         $this->assertStringContainsString('more products sold today', $html);
-        // The variation rides on the row, in the same chip the order rows carry.
         $this->assertMatchesRegularExpression('/fh-top__meta">\s*<span class="co-var">\s*<span class="co-var__value">Red<\/span>/', $html);
         $this->assertMatchesRegularExpression('/and <span class="x-num">2<\/span> more products sold today/', $html);
 
-        // The same page a second time ranks the same way: nothing is left to the scan order.
         $again = $this->actingAs($user)->get('/channels/fulfilment')->getContent();
         preg_match_all('/<span class="fh-top__sku">([^<]+)<\/span>/', $again, $m2);
         $this->assertSame($m[1], $m2[1]);
@@ -154,8 +138,6 @@ class FulfilmentPolishTest extends TestCase
         $this->assertStringNotContainsString('more products sold today', $html);
     }
 
-    // ── Ship-by sort: the option Lazada had, on every marketplace ──
-
     public function test_shopee_offers_the_ship_by_sort_as_an_option_and_keeps_its_default(): void
     {
         foreach ([['SB-LATE', 3, 200], ['SB-SOON', 1, 100]] as [$sn, $daysLeft, $qty]) {
@@ -168,14 +150,11 @@ class FulfilmentPolishTest extends TestCase
 
         $html = $this->actingAs($user)->get('/channels/fulfilment?channel=shopee:' . \Extensions\shopee\Models\ShopeeSetting::query()->value('id') . '&tab=PENDING')->assertOk()->getContent();
         $this->assertStringContainsString('Ship-by time, soonest first', $html);
-        // Default order is still arrival, oldest first on To Ship: SB-LATE arrived first.
         $this->assertLessThan(strpos($html, 'SB-SOON'), strpos($html, 'SB-LATE'));
 
         $sorted = $this->actingAs($user)->get('/channels/fulfilment?channel=shopee:' . \Extensions\shopee\Models\ShopeeSetting::query()->value('id') . '&tab=PENDING&sort=ship_by_asc')->assertOk()->getContent();
         $this->assertLessThan(strpos($sorted, 'SB-LATE'), strpos($sorted, 'SB-SOON'), 'soonest deadline first when asked');
     }
-
-    // ── The cards lead with To Pack and print To Handover beside it ──
 
     public function test_the_shopee_card_counts_to_pack_and_to_handover_separately(): void
     {
@@ -189,16 +168,12 @@ class FulfilmentPolishTest extends TestCase
 
         $html = $this->actingAs($user)->get('/channels/fulfilment')->assertOk()->getContent();
 
-        // Two figures across the card: To Pack (2) on the left, To Handover
-        // (1) on the right; never the whole waiting count (3) as one number.
         $this->assertMatchesRegularExpression('/fh-card__fig-l">to pack<\/span>\s*<span class="fh-card__fig-n x-num[^>]*>2</', $html);
         $this->assertMatchesRegularExpression('/fh-card__fig-l">to handover<\/span>\s*<span class="fh-card__fig-n x-num[^>]*>1</', $html);
         $this->assertStringNotContainsString('fh-card__lead x-num', $html, 'the one-number lead is gone from a channel with stages');
-        // The head sentence still counts everything the seller holds.
         $this->assertStringContainsString('3 orders waiting', $html);
     }
 
-    /** The sidebar badge counts To Pack only (the owner, 2026-08-27): a packed parcel waiting for the courier is not untouched work. */
     public function test_the_sidebar_badge_counts_to_pack_only(): void
     {
         foreach (['READY_TO_SHIP', 'READY_TO_SHIP', 'PROCESSED', 'PROCESSED', 'PROCESSED'] as $i => $status) {

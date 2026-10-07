@@ -3,7 +3,6 @@ import './sla-countdown';
 import './invoice-copy';
 import './permission-pill';
 import './credential-mask';
-// Before the confirm dialog, so the count comes first.
 import './packing-check';
 import './confirm-modal';
 import './busy-overlay';
@@ -75,14 +74,6 @@ import credentialField from './credential-field';
 
 import Alpine from 'alpinejs';
 
-// app.js is a module script, deferred like the rest of the document, so it
-// runs after HTML parsing completes - after first paint, not before. It
-// cannot be what prevents the open/closed flash on load; that is now
-// handled pre-paint by partials/nav-boot.blade.php (a synchronous inline
-// script in <head>, same pattern as theme-boot.blade.php) together with the
-// matching rules in layout/shell.css. What initNavGroups() still owns: it
-// applies the .is-open class so state stays correct for the click handler
-// below, and it is where localStorage gets written back on toggle.
 initNavGroups();
 
 window.Alpine = Alpine;
@@ -91,15 +82,6 @@ Alpine.data('pettyCash', pettyCash);
 Alpine.data('credentialField', credentialField);
 Alpine.start();
 
-/**
- * Mark the shell ready one frame after load.
- *
- * The nav's collapse animates on `.bl-app.is-ready` only. Without this the
- * open group transitioned open on every page load, so clicking a child link
- * looked like the sidebar collapsed and re-opened itself. The open state is
- * rendered by the server, so the first paint is already correct and static;
- * from the next frame on, every toggle animates as before.
- */
 requestAnimationFrame(() => {
     requestAnimationFrame(() => document.querySelector('.bl-app')?.classList.add('is-ready'));
 });

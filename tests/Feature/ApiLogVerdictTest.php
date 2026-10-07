@@ -11,11 +11,6 @@ use Extensions\tiktok\Models\TikTokApiLog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * Green or red by the marketplace's own verdict (the owner, 2026-09-06). Shopee,
- * Lazada and TikTok answer HTTP 200 with the refusal in the body; the API
- * log and the outcome line read that body, never the HTTP status alone.
- */
 class ApiLogVerdictTest extends TestCase
 {
     use RefreshDatabase;
@@ -47,7 +42,6 @@ class ApiLogVerdictTest extends TestCase
             'response_body' => ['code' => 12052901, 'message' => 'Product not found'], 'user_id' => null]);
         $this->assertDatabaseHas('tiktok_api_logs', ['api_path' => '/product/202309/products', 'ok' => 0]);
 
-        // A true success stays green.
         LazadaApiLog::safeCreate(['pack' => 'lazada.product.create', 'method' => 'POST', 'api_path' => '/product/create-ok', 'auth_required' => true, 'request_params' => [], 'response_status' => 200, 'ok' => true,
             'response_body' => ['code' => '0', 'data' => ['item_id' => 5]], 'user_id' => null]);
         $this->assertDatabaseHas('lazada_api_logs', ['api_path' => '/product/create-ok', 'ok' => 1]);

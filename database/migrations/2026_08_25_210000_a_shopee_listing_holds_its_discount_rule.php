@@ -4,14 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Quest 2, Shopee half (#146). The same rule Lazada carries - percent
- * off with a window, never a stored price - plus one Shopee-specific
- * fact: which of Shopee's NAMED discount objects currently carries this
- * listing. Shopee wants a promotion object with a server-side window;
- * VentaSync manages one object per window and listings join it, so ten
- * listings on one sale share one object instead of spawning ten.
- */
 return new class extends Migration
 {
     public function up(): void

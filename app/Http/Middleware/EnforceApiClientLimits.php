@@ -8,12 +8,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * An application's own limits, on every door it can use: the partner API,
- * each extension's API and /mcp. It must be active, call from an address
- * it allows, and stay within its calls per minute, counted once across
- * all doors. A person's token passes through untouched.
- */
 class EnforceApiClientLimits
 {
     public function handle(Request $request, Closure $next): Response

@@ -10,28 +10,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-/**
- * Import a Shopee item into the core catalog (#196, the owner's spec):
- * everything with a core field maps to the core - name, SKU, price,
- * stock, parcel, description, images, variations with their own SKUs
- * and prices; everything Shopee-only rides the product's shopee
- * listing record (category, attributes) instead of being dropped; and
- * the new product is linked so it immediately behaves like any listed
- * product.
- *
- * The variations are written by the SAME writer the product form uses
- * (saveAbsoluteOptions), so an import cannot invent a second way of
- * building combinations. Images are fetched from Shopee's CDN onto the
- * public disk - a photo that fails to download is skipped, never a
- * reason to fail the import.
- */
 class ShopeeItemImport
 {
     public function __construct(private readonly ShopeeClient $client)
     {
     }
 
-    /** @return array{ok: bool, product_id?: int, message: string} */
     public function import(array $auth, int $itemId): array
     {
         $base = $this->fetchBase($auth, $itemId);
@@ -57,10 +41,6 @@ class ShopeeItemImport
         $qty = (int) (data_get($item, 'stock_info_v2.summary_info.total_available_stock') ?? 0);
 
         try {
-            /* Ready the moment it lands (the owner, 2026-09-07): the category's
-             * attribute sheet is read now, so readiness can check the answers
-             * the item brought, instead of asking for the listing page to be
-             * opened once. A sheet Shopee will not hand over changes nothing. */
             try {
                 app(\Extensions\shopee\Controllers\ShopeeProductGroupController::class)->ensureTemplate((int) ($item['category_id'] ?? 0), $this->client);
             } catch (\Throwable) {
@@ -72,9 +52,6 @@ class ShopeeItemImport
                     'sku' => $sku,
                     'quantity' => $qty,
                     'price' => $price,
-                    /* Imported items are LIVE on Shopee already - arriving
-                     * disabled would misstate reality and hide them from the
-                     * very page the operator is standing on. */
                     'status' => 1,
                     'image' => '',
                     'weight' => (float) ($item['weight'] ?? 0),
@@ -89,7 +66,6 @@ class ShopeeItemImport
                     'product_id' => $productId,
                     'language_id' => $langId,
                     'name' => Str::limit($name, 250, ''),
-                    // A plain-text description keeps its line breaks; an extended one brings its text fields.
                     'description' => \App\Support\Catalog\DescriptionHtml::store(
                         str_contains(\Extensions\shopee\Services\Shopee\ShopeeDescription::textOf($item), '<')
                             ? \Extensions\shopee\Services\Shopee\ShopeeDescription::textOf($item)
@@ -99,7 +75,6 @@ class ShopeeItemImport
                     'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
                 ]);
 
-                // Images: main first, the rest as gallery rows.
                 $paths = $this->downloadImages((array) data_get($item, 'image.image_url_list', []), $itemId);
                 if ($paths !== []) {
                     DB::table($pfx . 'product')->where('product_id', $productId)->update(['image' => $paths[0]]);
@@ -114,15 +89,11 @@ class ShopeeItemImport
                     $this->writeVariations($productId, $sku, $models, $itemId);
                 }
 
-                /* Shopee-only details ride the listing record, not the
-                 * floor: category, attributes, brand - the fields a future
-                 * Update on Shopee is built from. */
                 ShopeeListing::updateOrCreate(
                     ['product_id' => $productId],
                     [
                         'shopee_category_id' => (int) ($item['category_id'] ?? 0) ?: null,
                         'shopee_brand_id' => (int) data_get($item, 'brand.brand_id', 0) ?: null,
-                        // The couriers the item ships with, so the listing is ready at once.
                         'logistic_ids' => collect((array) ($item['logistic_info'] ?? []))
                             ->filter(fn ($l) => is_array($l) && ! empty($l['enabled']) && (int) ($l['logistic_id'] ?? 0) > 0)
                             ->map(fn ($l) => (int) $l['logistic_id'])->values()->all() ?: null,
@@ -134,7 +105,6 @@ class ShopeeItemImport
                     ]
                 );
 
-                // The links, so pushes and checks treat it as listed at once.
                 $liveStatus = strtoupper((string) ($item['item_status'] ?? '')) ?: null;
                 ShopeeProductLink::updateOrCreate(
                     ['product_id' => $productId, 'shopee_item_id' => $itemId, 'shopee_model_id' => null],
@@ -153,14 +123,6 @@ class ShopeeItemImport
             return ['ok' => false, 'message' => 'Not imported: ' . implode(' ', collect($e->errors())->flatten()->take(3)->all())];
         }
 
-        // The queue column is an enum from the link era; an imported item
-        // IS linked, and linked_product_id says to what.
-
-        /* A product this application holds always has a code
-         * (the owner, 2026-09-09). The store is free to have none;
-         * the SKU is what every push sends and every link check
-         * searches by, so a blank one is minted from the
-         * product's own id and said out loud below. */
         $minted = \App\Support\Catalog\SkuFallback::fill((int) $productId);
 
         return [
@@ -172,7 +134,6 @@ class ShopeeItemImport
         ];
     }
 
-    /** @return array{item: array}|array{error: string} */
     private function fetchBase(array $auth, int $itemId): array
     {
         $res = $this->client->shopGet(
@@ -189,7 +150,6 @@ class ShopeeItemImport
         return ['item' => $item];
     }
 
-    /** @return array{models: array, tiers: array}|array{error: string} */
     private function fetchModels(array $auth, int $itemId): array
     {
         $res = $this->client->shopGet(
@@ -209,12 +169,6 @@ class ShopeeItemImport
         ];
     }
 
-    /**
-     * The variations, through the SAME writer the product form uses. The
-     * tier structure becomes the exact request shape saveAbsoluteOptions
-     * reads, so one axis or two, the combinations land the way a hand
-     * save would have landed them.
-     */
     private function writeVariations(int $productId, string $parentSku, array $models, int $itemId): void
     {
         $tiers = $models['tiers'];
@@ -275,7 +229,6 @@ class ShopeeItemImport
             ->saveAbsoluteOptions($productId, Request::create('/', 'POST', $data));
     }
 
-    /** @return list<string> public-disk relative paths, in the order given */
     private function downloadImages(array $urls, int $itemId, string $suffix = ''): array
     {
         $paths = [];
@@ -284,13 +237,8 @@ class ShopeeItemImport
             if ($url === '' || ! preg_match('#^https://#i', $url)) {
                 continue;
             }
-            /* The shared SSRF guard (App\Support\RemoteImage,
-             * 2026-09-04): the URL is the channel's data, so it is
-             * https-only, resolved-and-checked against private ranges,
-             * and never allowed to redirect. */
             $img = \App\Support\RemoteImage::fetch($url);
             if ($img === null) {
-                // A photo is never a reason to fail an import.
                 continue;
             }
             $rel = 'catalog/import/shopee/' . $itemId . '/' . ($suffix !== '' ? $suffix . '-' : '') . $i . '.' . $img['ext'];

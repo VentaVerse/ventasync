@@ -4,7 +4,6 @@
 
 @section('content')
 @php
-    // Default to no expiry, matching the pre-redesign form.
     $noExpiry = (bool) old('no_expiry', '1');
 @endphp
 

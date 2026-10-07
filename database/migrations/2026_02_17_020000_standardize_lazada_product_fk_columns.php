@@ -14,15 +14,12 @@ return new class extends Migration {
 
     public function up(): void
     {
-        // Standardize FK columns to lazada_product_id (remove legacy lazada_listing_id)
         $this->standardizeAttributesTable();
         $this->standardizeVariantsTable();
     }
 
     public function down(): void
     {
-        // Intentionally no down migration.
-        // This project standardizes on lazada_product_id going forward.
     }
 
     private function standardizeAttributesTable(): void
@@ -32,7 +29,6 @@ return new class extends Migration {
             return;
         }
 
-        // If already standardized, nothing to do.
         if (Schema::hasColumn($table, 'lazada_product_id')) {
             return;
         }
@@ -40,19 +36,14 @@ return new class extends Migration {
             return;
         }
 
-        // Drop FK(s) on lazada_listing_id (constraint names can vary)
         $this->dropForeignKeysOnColumn($table, 'lazada_listing_id');
 
-        // Drop legacy unique index if present
         $this->dropIndexIfExists($table, 'lazada_listing_attr_unique');
 
-        // Rename column with explicit type to avoid doctrine/dbal dependency
         DB::statement("ALTER TABLE `{$table}` CHANGE `lazada_listing_id` `lazada_product_id` BIGINT UNSIGNED NOT NULL");
 
-        // Create new unique index (if missing)
         $this->createUniqueIfMissing($table, 'lazada_product_attr_unique', ['lazada_product_id', 'attribute_key']);
 
-        // Create FK (if missing)
         $this->createForeignKeyIfMissing(
             table: $table,
             fkName: 'fk_lazada_product_attributes_product',
