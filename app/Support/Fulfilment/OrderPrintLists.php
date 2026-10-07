@@ -42,7 +42,7 @@ class OrderPrintLists
 
     public static function supports(string $channel): bool
     {
-        return array_key_exists($channel, self::CHANNELS);
+        return array_key_exists($channel, self::CHANNELS) && class_exists(self::CHANNELS[$channel]['model']);
     }
 
     public static function label(string $channel): string

@@ -80,7 +80,7 @@ class IntegrationController extends Controller
 
         $class = self::ORDER_PANEL_SERVICES[$base] ?? null;
 
-        if ($class === null) {
+        if ($class === null || ! class_exists($class)) {
             return null;
         }
 

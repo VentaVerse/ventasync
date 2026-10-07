@@ -59,14 +59,14 @@ return new class extends Migration
             ]);
         }
 
-        if (Schema::hasTable('extensions') && !DB::table('extensions')->where('id', 'pettycash')->exists()) {
+        if (Schema::hasTable('extensions') && file_exists(base_path('extensions/pettycash/extension.json')) && !DB::table('extensions')->where('id', 'pettycash')->exists()) {
             DB::table('extensions')->insert([
                 'id'          => 'pettycash',
                 'name'        => 'Petty Cash',
                 'version'     => '1.1.0',
                 'description' => 'Staff petty cash tracking: credits and expense logging',
                 'author'      => 'VentaSync',
-                'enabled'     => 1,
+                'enabled'     => 0,
                 'created_at'  => now(),
                 'updated_at'  => now(),
             ]);
