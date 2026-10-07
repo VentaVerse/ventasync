@@ -17,6 +17,10 @@ class TikTokItemImport
 
     public function import(array $c, string $tiktokProductId): array
     {
+        if ($refused = \App\Plans\Quota::importRefusal()) {
+            return $refused;
+        }
+
         try {
             $r = $this->client->getProduct($c['app_key'], $c['app_secret'], $c['token'], $tiktokProductId, ($c['shop_cipher'] ?? null) ?: null);
         } catch (\Throwable $e) {

@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class VentaCartSetting extends Model
 {
+    use \App\Plans\CountsAsStore;
+
     protected $table = 'ventacart_settings';
 
     protected $fillable = [

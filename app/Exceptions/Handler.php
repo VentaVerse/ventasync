@@ -17,5 +17,14 @@ class Handler extends ExceptionHandler
     {
         $this->reportable(function (Throwable $e) {
         });
+
+        $this->dontReport(\App\Plans\PlanLimitReached::class);
+        $this->renderable(function (\App\Plans\PlanLimitReached $e, $request) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+
+            return back()->withInput()->with('error', $e->getMessage());
+        });
     }
 }

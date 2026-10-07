@@ -171,7 +171,8 @@ class UserGroupController extends Controller
 
         $before = $group->permissions()->pluck('key', 'permissions.id');
 
-        $disabled = \App\Models\Extension::where('enabled', false)->pluck('id')->all();
+        $running = app(\App\Extensions\ExtensionManager::class)->getEnabledIds();
+        $disabled = \App\Models\Extension::pluck('id')->diff($running)->values()->all();
         $unseen = $before->filter(function ($key) use ($disabled) {
             $area = preg_match('/^(?:view|manage)_([a-z0-9_]+)\//', (string) $key, $m) ? $m[1] : '';
 

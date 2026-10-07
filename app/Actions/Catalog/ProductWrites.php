@@ -325,6 +325,10 @@ final class ProductWrites
 
     public function store(array $input): array
     {
+        if ($full = \App\Plans\Quota::refusal('products')) {
+            throw ValidationException::withMessages(['product' => [$full]]);
+        }
+
         $maxImages = ProductCreator::MAX_IMAGES;
         $maxVariations = self::MAX_VARIATIONS;
 

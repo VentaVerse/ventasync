@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Extensions\ExtensionManager;
 use App\Models\Extension;
 use App\Services\ActivityLogger;
+use App\Plans\Plan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
@@ -54,17 +55,21 @@ class ExtensionController extends Controller
             return back()->with('error', "Extension '{$extension}' is not installed.");
         }
 
-        if ($row->enabled) {
+        if ($row->enabled && Plan::allowsExtension($extension)) {
             $manager->disable($extension);
             return back()->with('success', "Extension '{$row->name}' disabled.");
         }
 
-        $manager->enable($extension);
+        if (!$manager->enable($extension)) {
+            return back()->with('error', "{$row->name} is not in your plan.");
+        }
         return back()->with('success', "Extension '{$row->name}' enabled.");
     }
 
     public function install(Request $request, ExtensionManager $manager)
     {
+        abort_unless(Plan::allowsUploads(), 403);
+
         $request->validate([
             'file' => 'required|file|max:51200',
         ]);
@@ -176,7 +181,9 @@ class ExtensionController extends Controller
 
     public function reinstall(ExtensionManager $manager, string $extension)
     {
-        $manager->install($extension);
+        if (!$manager->install($extension)) {
+            return back()->with('error', "Extension '{$extension}' is not in your plan.");
+        }
 
         Artisan::call('migrate', ['--force' => true]);
 

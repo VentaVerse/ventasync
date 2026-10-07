@@ -1,6 +1,7 @@
 @php
     $mailOverrides = ! empty($setting->mail_from_address);
-    $retention = old('activity_log_retention_days', $setting->activity_log_retention_days ?? 90);
+    $activityCap = ($cap = \App\Plans\Plan::limit('activity_days')) === null ? 3650 : max(1, $cap);
+    $retention = min((int) old('activity_log_retention_days', $setting->activity_log_retention_days ?? 90), $activityCap);
 
     // Pass the hint via :hint so it is escaped once; hint="{{ }}" double-encodes.
     $fromHint = $mailOverrides
@@ -41,7 +42,7 @@
             <div class="fm-fields fm-fields--2">
                 <x-ui.field label="Keep activity for (days)" for="st-retention" name="activity_log_retention_days" :required="true">
                     <x-ui.input type="number" id="st-retention" name="activity_log_retention_days"
-                                min="7" max="3650" class="fm-input--num st-days" :readonly="$ro"
+                                min="{{ min(7, $activityCap) }}" max="{{ $activityCap }}" class="fm-input--num st-days" :readonly="$ro"
                                 value="{{ $retention }}" />
                 </x-ui.field>
             </div>

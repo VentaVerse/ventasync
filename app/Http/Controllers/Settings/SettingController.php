@@ -48,7 +48,7 @@ class SettingController extends Controller
             'country'                     => ['nullable', 'string', 'max:128'],
             'from_email'                  => ['required', 'email', 'max:255'],
             'timezone'                    => ['required', 'string', 'timezone'],
-            'activity_log_retention_days' => ['required', 'integer', 'min:7', 'max:3650'],
+            'activity_log_retention_days' => ['required', 'integer', 'min:' . min(7, $this->activityCap()), 'max:' . $this->activityCap()],
             'logo'                        => ['nullable', 'image', 'max:2048'],
             'favicon'                     => ['nullable', 'image', 'mimes:png,jpg,jpeg,gif,svg,webp,ico,x-icon,vnd.microsoft.icon', 'max:512'],
             'mail_mailer'         => ['required', 'in:smtp,sendmail'],
@@ -153,5 +153,12 @@ class SettingController extends Controller
                 'message' => $e->getMessage(),
             ]);
         }
+    }
+
+    private function activityCap(): int
+    {
+        $cap = \App\Plans\Plan::limit('activity_days');
+
+        return $cap === null ? 3650 : max(1, $cap);
     }
 }

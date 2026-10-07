@@ -13,6 +13,10 @@ class VentaCartItemImport
 {
     public function import(VentaCartSetting $setting, string $importSku): array
     {
+        if ($refused = \App\Plans\Quota::importRefusal()) {
+            return $refused;
+        }
+
         $client = new VentaCartClient($setting);
 
         $answer = $client->getProduct($importSku);

@@ -18,6 +18,7 @@ final class LogRetention
     public static function tables(): array
     {
         $default = (int) config('logs.default_keep_days', 30);
+        $cap = \App\Plans\Plan::limit('log_days');
         $out = [];
 
         foreach ((array) config('logs.core', []) as $table => $days) {
@@ -34,6 +35,12 @@ final class LogRetention
                     'keep_days' => (int) ($meta['keep_days'] ?? $default),
                     'owner' => $id,
                 ];
+            }
+        }
+
+        if ($cap !== null) {
+            foreach ($out as $table => $meta) {
+                $out[$table]['keep_days'] = min($meta['keep_days'], max(1, $cap));
             }
         }
 

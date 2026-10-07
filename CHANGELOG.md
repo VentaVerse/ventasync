@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Hosted servers follow their plan: VENTASYNC_EXT_* switches decide which extensions run, VENTASYNC_MAX_* values cap products, users, stores, API apps and orders a month, and retention days clear old logs, activity and waybills. Self-hosted installs set none of these and are not limited.
 - Settings, Error log no longer fills with notices that Laravel and Symfony silence on purpose; real warnings and errors still show.
 
 ## 0.30.0 (2026-10-07)

@@ -11,6 +11,15 @@ class ApiClient extends Model implements HasApiTokensContract
 {
     use HasApiTokens;
 
+    protected static function booted(): void
+    {
+        static::creating(function () {
+            if ($full = \App\Plans\Quota::refusal('api_apps')) {
+                throw new \App\Plans\PlanLimitReached($full);
+            }
+        });
+    }
+
     protected $fillable = ['name', 'description', 'active', 'created_by', 'mcp_enabled', 'assistant', 'allowed_ips', 'calls_per_minute'];
 
     protected $hidden = ['token_secret'];

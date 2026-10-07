@@ -14,7 +14,8 @@
 #   VENTASYNC_AUTO_MIGRATE=true     : entrypoint runs `migrate --force` and
 #                                   the seed, which makes no user
 #
-# Per-tenant env vars (APP_KEY, APP_URL, DB credentials) are set by the
+# Per-tenant env vars (APP_KEY, APP_URL, DB credentials, and the plan:
+# VENTASYNC_EXT_* and VENTASYNC_MAX_*, see config/plans.php) are set by the
 # hosting platform. The first person to open the install creates the
 # administrator.
 

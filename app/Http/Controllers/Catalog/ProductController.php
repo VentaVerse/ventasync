@@ -299,6 +299,9 @@ if ($q !== '') {
 
     public function create()
     {
+        if ($full = \App\Plans\Quota::refusal('products')) {
+            return redirect()->route('products.index')->with('error', $full);
+        }
 
         $productImages = [];
 $pfx = config('catalog.prefix');
@@ -464,6 +467,10 @@ $pfx = config('catalog.prefix');
 
     public function store(Request $request)
     {
+        if ($full = \App\Plans\Quota::refusal('products')) {
+            return redirect()->route('products.index')->with('error', $full);
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
             'model' => 'nullable|string|max:64',

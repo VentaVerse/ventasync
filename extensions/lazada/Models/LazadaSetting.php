@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class LazadaSetting extends Model
 {
+    use \App\Plans\CountsAsStore;
+
     protected $table = 'lazada_settings';
 
     protected $fillable = [
