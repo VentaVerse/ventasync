@@ -42,11 +42,34 @@ class VersioningTest extends TestCase
         $this->actingAs(User::factory()->create());
 
         $this->get(route('dashboard'))->assertOk()
-            ->assertSee('VentaSync ' . AppVersion::current())
+            ->assertSee(AppVersion::label())
             ->assertSee(route('changelog'), false);
 
         $this->get(route('changelog'))->assertOk()
-            ->assertSee('VentaSync ' . AppVersion::current())
+            ->assertSee(AppVersion::label())
             ->assertSee(AppVersion::changelog(base_path('CHANGELOG.md'))[0]['lines'][0]);
+    }
+
+    public function test_the_edition_file_says_pro_and_its_absence_says_community(): void
+    {
+        $file = base_path('EDITION');
+        $original = is_file($file) ? file_get_contents($file) : null;
+
+        try {
+            file_put_contents($file, "Pro\n");
+            AppVersion::forget();
+            $this->assertSame('VentaSync Pro ' . AppVersion::current(), AppVersion::label());
+
+            unlink($file);
+            AppVersion::forget();
+            $this->assertSame('VentaSync Community ' . AppVersion::current(), AppVersion::label());
+
+            file_put_contents($file, "Enterprise\n");
+            AppVersion::forget();
+            $this->assertSame('Community', AppVersion::edition(), 'only the word Pro makes it Pro');
+        } finally {
+            $original === null ? @unlink($file) : file_put_contents($file, $original);
+            AppVersion::forget();
+        }
     }
 }

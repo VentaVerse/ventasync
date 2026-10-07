@@ -37,7 +37,7 @@
             @include('partials.nav-blotter', ['navGroups' => \App\Support\Navigation::groups()])
         </div>
 
-        <a class="bl-version" href="{{ route('changelog') }}">VentaSync {{ \App\Support\AppVersion::current() }}</a>
+        <a class="bl-version" href="{{ route('changelog') }}">{{ \App\Support\AppVersion::label() }}</a>
 
     </aside>
 

@@ -6,6 +6,8 @@ final class AppVersion
 {
     private static ?string $current = null;
 
+    private static ?string $edition = null;
+
     public static function current(): string
     {
         if (self::$current === null) {
@@ -14,6 +16,28 @@ final class AppVersion
         }
 
         return self::$current;
+    }
+
+    public static function edition(): string
+    {
+        if (self::$edition === null) {
+            $file = base_path('EDITION');
+            $word = is_file($file) ? trim((string) file_get_contents($file)) : '';
+            self::$edition = $word === 'Pro' ? 'Pro' : 'Community';
+        }
+
+        return self::$edition;
+    }
+
+    public static function label(): string
+    {
+        return 'VentaSync ' . self::edition() . ' ' . self::current();
+    }
+
+    public static function forget(): void
+    {
+        self::$current = null;
+        self::$edition = null;
     }
 
     public static function changelog(string $file): array

@@ -6,7 +6,7 @@
 <div class="cl-page">
     <div class="x-list-head">
         <div>
-            <h1 class="x-page-title">VentaSync {{ $version }}</h1>
+            <h1 class="x-page-title">{{ \App\Support\AppVersion::label() }}</h1>
             <p class="x-page-sub">What changed in each release.</p>
         </div>
     </div>

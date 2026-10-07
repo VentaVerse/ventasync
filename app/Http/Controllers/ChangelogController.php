@@ -23,7 +23,6 @@ class ChangelogController extends Controller
         usort($installed, fn ($a, $b) => strcmp($a['name'], $b['name']));
 
         return view('changelog', [
-            'version' => AppVersion::current(),
             'releases' => AppVersion::changelog(base_path('CHANGELOG.md')),
             'extensions' => $installed,
         ]);
