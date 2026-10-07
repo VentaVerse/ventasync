@@ -3981,11 +3981,9 @@
         border-top: 1px solid var(--bl-side-rule);
         font-size: 11px;
         font-variant-numeric: tabular-nums;
+        margin: 0;
         color: var(--bl-side-ink);
-        text-decoration: none;
     }
-
-    .bl-version:hover { color: #fff; }
 
     .auth__logo {
         max-width: 100%;
