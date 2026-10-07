@@ -1,7 +1,7 @@
 {
     "id": "opencart",
     "name": "OpenCart",
-    "version": "1.0.0",
+    "version": "0.30.0",
     "description": "OpenCart store integration: product sync, order sync, product groups, and marketplace reviews",
     "logs": {
         "opencart_sync_log": {

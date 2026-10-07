@@ -37,6 +37,8 @@
             @include('partials.nav-blotter', ['navGroups' => \App\Support\Navigation::groups()])
         </div>
 
+        <a class="bl-version" href="{{ route('changelog') }}">VentaSync {{ \App\Support\AppVersion::current() }}</a>
+
     </aside>
 
     <div x-show="nav" x-cloak @click="nav = false"
