@@ -61,7 +61,7 @@ foreach (['orders', 'products', 'product-groups', 'categories'] as $family) {
     $channelFamily('pedallion', $family);
 }
 
-foreach (['venta', 'opencart', 'shopify'] as $channel) {
+foreach (['ventacart', 'opencart', 'shopify'] as $channel) {
     Route::get("/{$channel}/settings/{store}", fn (string $store) => redirect($withQuery("/channels/{$channel}/{$store}/settings"), 301))
         ->whereNumber('store');
 
@@ -90,3 +90,6 @@ Route::get('integrations/{path?}', function (?string $path = null) use ($withQue
 
     return redirect($withQuery('/channels' . ($path === '' ? '' : '/' . $path)), 301);
 })->where('path', '.*')->name('channels.legacy');
+
+Route::get('/channels/venta/{any?}', fn (?string $any = null) => redirect($withQuery('/channels/ventacart'.($any ? '/'.$any : '')), 301))
+    ->where('any', '.*');

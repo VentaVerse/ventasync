@@ -6,9 +6,9 @@ use App\Extensions\ExtensionManager;
 use App\Support\ApiLogMode;
 use Extensions\shopee\Models\ShopeeApiLog;
 use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\venta\Models\VentaApiLog;
-use Extensions\venta\Models\VentaSetting;
-use Extensions\venta\Services\Venta\VentaClient;
+use Extensions\ventacart\Models\VentaCartApiLog;
+use Extensions\ventacart\Models\VentaCartSetting;
+use Extensions\ventacart\Services\VentaCart\VentaCartClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -22,7 +22,7 @@ class ApiLogModeTest extends TestCase
         parent::setUp();
 
         $manager = $this->app->make(ExtensionManager::class);
-        foreach (['shopee', 'venta'] as $ext) {
+        foreach (['shopee', 'ventacart'] as $ext) {
             $manager->install($ext);
             $manager->enable($ext);
         }
@@ -104,22 +104,22 @@ class ApiLogModeTest extends TestCase
 
     public function test_a_client_writer_respects_the_mode_too(): void
     {
-        $setting = VentaSetting::create([
+        $setting = VentaCartSetting::create([
             'store_name' => 'One', 'enabled' => true,
-            'base_url' => 'https://one.venta.test', 'api_token' => 't',
+            'base_url' => 'https://one.ventacart.test', 'api_token' => 't',
             'api_log_mode' => 'errors',
         ]);
 
         Http::fake([
-            'https://one.venta.test/api/v1/ping' => Http::response(['pong' => true]),
-            'https://one.venta.test/api/v1/broken' => Http::response(['error' => 'no'], 500),
+            'https://one.ventacart.test/api/v1/ping' => Http::response(['pong' => true]),
+            'https://one.ventacart.test/api/v1/broken' => Http::response(['error' => 'no'], 500),
         ]);
 
-        $client = new VentaClient($setting);
+        $client = new VentaCartClient($setting);
         $client->get('ping');
         $client->get('broken');
 
-        $this->assertSame(1, VentaApiLog::count(), 'errors only on a client writer: the success stays out');
-        $this->assertSame(500, (int) VentaApiLog::first()->status_code);
+        $this->assertSame(1, VentaCartApiLog::count(), 'errors only on a client writer: the success stays out');
+        $this->assertSame(500, (int) VentaCartApiLog::first()->status_code);
     }
 }

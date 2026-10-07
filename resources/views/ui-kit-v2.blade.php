@@ -30,7 +30,7 @@
         @endforeach
     </div>
     <div class="x-kit-row">
-        @foreach(['lazada','shopee','tiktok','venta','opencart','shopify','pedallion'] as $t)
+        @foreach(['lazada','shopee','tiktok','ventacart','opencart','shopify','pedallion'] as $t)
             <x-ui.badge :tone="$t" :dot="false">{{ ucfirst($t) }}</x-ui.badge>
         @endforeach
     </div>

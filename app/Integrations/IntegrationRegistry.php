@@ -69,7 +69,7 @@ class IntegrationRegistry
             'shopee'    => 2,
             'tiktok'    => 3,
             'shopify'   => 4,
-            'venta'     => 5,
+            'ventacart'     => 5,
             'opencart'  => 6,
             'pedallion' => 7,
         ];

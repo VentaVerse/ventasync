@@ -1,6 +1,6 @@
 # VentaSync
 
-**One ERP for sellers on Shopee, Lazada, TikTok Shop, Shopify, WooCommerce, OpenCart and Venta.**
+**One ERP for sellers on Shopee, Lazada, TikTok Shop, Shopify, WooCommerce, OpenCart and VentaCart.**
 
 One catalog pushed to every store, every order in one list with its profit, stock deducted as orders come in, and purchasing, warehousing and reports on the same data. Open source, self-hosted, your data on your server.
 

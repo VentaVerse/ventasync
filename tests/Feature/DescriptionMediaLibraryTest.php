@@ -8,8 +8,8 @@ use App\Models\Admin\UserGroup;
 use App\Models\DescriptionTemplate;
 use App\Models\User;
 use App\Support\Catalog\DescriptionHtml;
-use Extensions\venta\Models\VentaListing;
-use Extensions\venta\Models\VentaSetting;
+use Extensions\ventacart\Models\VentaCartListing;
+use Extensions\ventacart\Models\VentaCartSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -19,7 +19,7 @@ class DescriptionMediaLibraryTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const BASE = 'https://one.venta.test';
+    private const BASE = 'https://one.ventacart.test';
 
     private const LABEL = 'Insert picture from the media library';
 
@@ -27,9 +27,9 @@ class DescriptionMediaLibraryTest extends TestCase
     {
         parent::setUp();
         $manager = $this->app->make(ExtensionManager::class);
-        $manager->install('venta');
-        $manager->enable('venta');
-        $this->app->register(\Extensions\venta\VentaExtension::class);
+        $manager->install('ventacart');
+        $manager->enable('ventacart');
+        $this->app->register(\Extensions\ventacart\VentaCartExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalogue');
         Http::preventStrayRequests();
@@ -48,18 +48,18 @@ class DescriptionMediaLibraryTest extends TestCase
         return $this->user(['view_catalog/product', 'manage_catalog/product', 'view_catalog/product_image']);
     }
 
-    private function ventaManager(bool $library = true): User
+    private function ventaCartManager(bool $library = true): User
     {
         return $this->user(array_merge(
-            ['view_venta/listing', 'manage_venta/listing', 'view_venta/product_group',
-                'view_venta/description_template', 'manage_venta/description_template'],
+            ['view_ventacart/listing', 'manage_ventacart/listing', 'view_ventacart/product_group',
+                'view_ventacart/description_template', 'manage_ventacart/description_template'],
             $library ? ['view_catalog/product_image'] : []
         ));
     }
 
-    private function store(): VentaSetting
+    private function store(): VentaCartSetting
     {
-        return VentaSetting::create(['store_name' => 'Gear Depot', 'base_url' => self::BASE, 'api_token' => 't', 'enabled' => true]);
+        return VentaCartSetting::create(['store_name' => 'Gear Depot', 'base_url' => self::BASE, 'api_token' => 't', 'enabled' => true]);
     }
 
     private function product(string $description): int
@@ -92,7 +92,7 @@ class DescriptionMediaLibraryTest extends TestCase
         $pid = $this->product($description);
         Http::fake([self::BASE . '/*' => Http::response(['error' => 'Product not found'], 404)]);
 
-        $html = $this->actingAs($this->ventaManager())->get(route('ext.venta.listings.edit', [$store->id, $pid]))
+        $html = $this->actingAs($this->ventaCartManager())->get(route('ext.ventacart.listings.edit', [$store->id, $pid]))
             ->assertOk()->getContent();
 
         return $this->textarea($html, 'vl-description');
@@ -120,7 +120,7 @@ class DescriptionMediaLibraryTest extends TestCase
         $pid = $this->product('<p>Words</p>');
         Http::fake([self::BASE . '/*' => Http::response(['error' => 'Product not found'], 404)]);
 
-        $this->actingAs($this->ventaManager())->get(route('ext.venta.listings.edit', [$store->id, $pid]))->assertOk()
+        $this->actingAs($this->ventaCartManager())->get(route('ext.ventacart.listings.edit', [$store->id, $pid]))->assertOk()
             ->assertSee(self::LABEL, false)
             ->assertSee('data-ilp-url="' . route('products.images.browse') . '"', false);
     }
@@ -129,7 +129,7 @@ class DescriptionMediaLibraryTest extends TestCase
     {
         $store = $this->store();
 
-        $this->actingAs($this->ventaManager())->get(route('ext.venta.description-templates.index', ['store' => $store->id]))->assertOk()
+        $this->actingAs($this->ventaCartManager())->get(route('ext.ventacart.description-templates.index', ['store' => $store->id]))->assertOk()
             ->assertSee(self::LABEL, false)
             ->assertSee('class="x-input wysiwyg"', false)
             ->assertSee('data-ilp-url="' . route('products.images.browse') . '"', false);
@@ -139,7 +139,7 @@ class DescriptionMediaLibraryTest extends TestCase
     {
         $store = $this->store();
 
-        $this->actingAs($this->ventaManager(library: false))->get(route('ext.venta.description-templates.index', ['store' => $store->id]))->assertOk()
+        $this->actingAs($this->ventaCartManager(library: false))->get(route('ext.ventacart.description-templates.index', ['store' => $store->id]))->assertOk()
             ->assertDontSee('data-ilp-url=', false);
     }
 
@@ -191,15 +191,15 @@ class DescriptionMediaLibraryTest extends TestCase
         $pid = $this->product('<p>The catalogue description.</p>');
         $img = '<img src="' . asset('storage/catalog/demo/front.jpg') . '" alt="">';
 
-        $this->actingAs($this->ventaManager())
-            ->put(route('ext.venta.listings.update', [$store->id, $pid]), [
+        $this->actingAs($this->ventaCartManager())
+            ->put(route('ext.ventacart.listings.update', [$store->id, $pid]), [
                 'name' => 'Listing name',
                 'description' => '<p>The catalogue description.</p><p>' . $img . '</p>',
                 'description_edited' => '1',
             ])
             ->assertRedirect();
 
-        $saved = (string) VentaListing::where('venta_setting_id', $store->id)->where('product_id', $pid)->value('description');
+        $saved = (string) VentaCartListing::where('ventacart_setting_id', $store->id)->where('product_id', $pid)->value('description');
         $this->assertStringContainsString($img, $saved);
     }
 
@@ -208,8 +208,8 @@ class DescriptionMediaLibraryTest extends TestCase
         $store = $this->store();
         $img = '<img src="' . asset('storage/catalog/demo/badge.png') . '" alt="">';
 
-        $this->actingAs($this->ventaManager())
-            ->post(route('ext.venta.description-templates.store', ['store' => $store->id]), ['name' => 'Badge', 'body' => '<p>' . $img . '</p>'])
+        $this->actingAs($this->ventaCartManager())
+            ->post(route('ext.ventacart.description-templates.store', ['store' => $store->id]), ['name' => 'Badge', 'body' => '<p>' . $img . '</p>'])
             ->assertRedirect();
 
         $this->assertStringContainsString($img, (string) DescriptionTemplate::where('name', 'Badge')->value('body'));

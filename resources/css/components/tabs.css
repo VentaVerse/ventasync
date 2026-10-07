@@ -28,5 +28,5 @@
 .tab-btn:hover { color: var(--bl-ink); background: var(--bl-chrome); }
 .tab-btn.active { color: var(--bl-brand-deep); border-bottom-color: var(--bl-brand-deep); }
 .tab-btn svg { flex-shrink: 0; }
-.venta-tabs .tab-pane { display: none; }
-.venta-tabs .tab-pane.active { display: block; }
+.ventacart-tabs .tab-pane { display: none; }
+.ventacart-tabs .tab-pane.active { display: block; }

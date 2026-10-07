@@ -591,6 +591,66 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "api/ventacart-stores",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/ventacart/{store}/orders",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/ventacart/{store}/orders/{id}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/ventacart/{store}/orders/{id}/awb",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/ventacart/{store}/orders/{id}/book",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/ventacart/{store}/orders/{id}/book-manual",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/ventacart/{store}/orders/{id}/estimate",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/ventacart/{store}/orders/{id}/pickup-slots",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/ventacart/{store}/orders/{id}/serviceability",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/ventacart/{store}/orders/{id}/tracking",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/ventacart/{store}/pickup-addresses",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/ventacart/{store}/shipping-couriers",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "api/warehousing/products",
         "name": null
     },
@@ -3240,529 +3300,534 @@
         "name": "ext.tiktok.watermarks.edit"
     },
     {
-        "method": "POST",
-        "uri": "channels/venta/fetch-brands",
-        "name": "ext.venta.fetch_brands"
+        "method": "GET|HEAD",
+        "uri": "channels/venta/{any?}",
+        "name": null
     },
     {
         "method": "POST",
-        "uri": "channels/venta/fetch-categories",
-        "name": "ext.venta.fetch_categories"
+        "uri": "channels/ventacart/fetch-brands",
+        "name": "ext.ventacart.fetch_brands"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/fetch-statuses",
-        "name": "ext.venta.fetch_statuses"
+        "uri": "channels/ventacart/fetch-categories",
+        "name": "ext.ventacart.fetch_categories"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/reviews/push-all",
-        "name": "ext.venta.reviews.push_all"
+        "uri": "channels/ventacart/fetch-statuses",
+        "name": "ext.ventacart.fetch_statuses"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/reviews/{id}/push",
-        "name": "ext.venta.reviews.push"
+        "uri": "channels/ventacart/reviews/push-all",
+        "name": "ext.ventacart.reviews.push_all"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/save",
-        "name": "ext.venta.save"
+        "uri": "channels/ventacart/reviews/{id}/push",
+        "name": "ext.ventacart.reviews.push"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/save-status-map",
-        "name": "ext.venta.save_status_map"
+        "uri": "channels/ventacart/save",
+        "name": "ext.ventacart.save"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/ventacart/save-status-map",
+        "name": "ext.ventacart.save_status_map"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/settings",
-        "name": "ext.venta.index"
+        "uri": "channels/ventacart/settings",
+        "name": "ext.ventacart.index"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/stores",
-        "name": "ext.venta.stores.store"
+        "uri": "channels/ventacart/stores",
+        "name": "ext.ventacart.stores.store"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/test",
-        "name": "ext.venta.test"
+        "uri": "channels/ventacart/test",
+        "name": "ext.ventacart.test"
     },
     {
         "method": "DELETE",
-        "uri": "channels/venta/{id}",
-        "name": "ext.venta.destroy"
+        "uri": "channels/ventacart/{id}",
+        "name": "ext.ventacart.destroy"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{id}/api-log-mode",
-        "name": "ext.venta.api_log_mode"
+        "uri": "channels/ventacart/{id}/api-log-mode",
+        "name": "ext.ventacart.api_log_mode"
     },
     {
         "method": "DELETE",
-        "uri": "channels/venta/{id}/api-logs",
-        "name": "ext.venta.clear_api_logs"
+        "uri": "channels/ventacart/{id}/api-logs",
+        "name": "ext.ventacart.clear_api_logs"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{id}/sync-log-level",
-        "name": "ext.venta.set_sync_log_level"
+        "uri": "channels/ventacart/{id}/sync-log-level",
+        "name": "ext.ventacart.set_sync_log_level"
     },
     {
         "method": "DELETE",
-        "uri": "channels/venta/{id}/sync-logs",
-        "name": "ext.venta.clear_sync_logs"
+        "uri": "channels/ventacart/{id}/sync-logs",
+        "name": "ext.ventacart.clear_sync_logs"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/{store?}",
-        "name": "ext.venta.dashboard"
+        "uri": "channels/ventacart/{store?}",
+        "name": "ext.ventacart.dashboard"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/delete",
-        "name": "ext.venta.stores.destroy"
+        "uri": "channels/ventacart/{store}/delete",
+        "name": "ext.ventacart.stores.destroy"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/{store}/description-templates",
-        "name": "ext.venta.description-templates.index"
+        "uri": "channels/ventacart/{store}/description-templates",
+        "name": "ext.ventacart.description-templates.index"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/description-templates",
-        "name": "ext.venta.description-templates.store"
+        "uri": "channels/ventacart/{store}/description-templates",
+        "name": "ext.ventacart.description-templates.store"
     },
     {
         "method": "DELETE",
-        "uri": "channels/venta/{store}/description-templates/{template}",
-        "name": "ext.venta.description-templates.destroy"
+        "uri": "channels/ventacart/{store}/description-templates/{template}",
+        "name": "ext.ventacart.description-templates.destroy"
     },
     {
         "method": "PUT",
-        "uri": "channels/venta/{store}/description-templates/{template}",
-        "name": "ext.venta.description-templates.update"
+        "uri": "channels/ventacart/{store}/description-templates/{template}",
+        "name": "ext.ventacart.description-templates.update"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/{store}/listings",
-        "name": "ext.venta.listings.index"
+        "uri": "channels/ventacart/{store}/listings",
+        "name": "ext.ventacart.listings.index"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/listings/bulk-toggle",
-        "name": "ext.venta.listings.bulk_toggle"
+        "uri": "channels/ventacart/{store}/listings/bulk-toggle",
+        "name": "ext.ventacart.listings.bulk_toggle"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/listings/bulk/push",
-        "name": "ext.venta.listings.bulk_push"
+        "uri": "channels/ventacart/{store}/listings/bulk/push",
+        "name": "ext.ventacart.listings.bulk_push"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/listings/bulk/push-prices",
-        "name": "ext.venta.listings.bulk_push_prices"
+        "uri": "channels/ventacart/{store}/listings/bulk/push-prices",
+        "name": "ext.ventacart.listings.bulk_push_prices"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/listings/bulk/push-stock",
-        "name": "ext.venta.listings.bulk_push_stock"
+        "uri": "channels/ventacart/{store}/listings/bulk/push-stock",
+        "name": "ext.ventacart.listings.bulk_push_stock"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/{store}/listings/categories/children",
-        "name": "ext.venta.listings.category_children"
+        "uri": "channels/ventacart/{store}/listings/categories/children",
+        "name": "ext.ventacart.listings.category_children"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/{store}/listings/categories/path",
-        "name": "ext.venta.listings.category_path"
+        "uri": "channels/ventacart/{store}/listings/categories/path",
+        "name": "ext.ventacart.listings.category_path"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/{store}/listings/categories/search",
-        "name": "ext.venta.listings.category_search"
+        "uri": "channels/ventacart/{store}/listings/categories/search",
+        "name": "ext.ventacart.listings.category_search"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/listings/check",
-        "name": "ext.venta.listings.check"
+        "uri": "channels/ventacart/{store}/listings/check",
+        "name": "ext.ventacart.listings.check"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/listings/refresh-status",
-        "name": "ext.venta.listings.refresh_status"
+        "uri": "channels/ventacart/{store}/listings/refresh-status",
+        "name": "ext.ventacart.listings.refresh_status"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/{store}/listings/{productId}",
-        "name": "ext.venta.listings.edit"
+        "uri": "channels/ventacart/{store}/listings/{productId}",
+        "name": "ext.ventacart.listings.edit"
     },
     {
         "method": "PUT",
-        "uri": "channels/venta/{store}/listings/{productId}",
-        "name": "ext.venta.listings.update"
+        "uri": "channels/ventacart/{store}/listings/{productId}",
+        "name": "ext.ventacart.listings.update"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/listings/{productId}/catalog-change",
-        "name": "ext.venta.listings.catalog_change_save"
+        "uri": "channels/ventacart/{store}/listings/{productId}/catalog-change",
+        "name": "ext.ventacart.listings.catalog_change_save"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/listings/{productId}/catalog-change/ignore",
-        "name": "ext.venta.listings.catalog_change_ignore"
+        "uri": "channels/ventacart/{store}/listings/{productId}/catalog-change/ignore",
+        "name": "ext.ventacart.listings.catalog_change_ignore"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/listings/{productId}/push",
-        "name": "ext.venta.listings.push"
+        "uri": "channels/ventacart/{store}/listings/{productId}/push",
+        "name": "ext.ventacart.listings.push"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/listings/{productId}/push-price",
-        "name": "ext.venta.listings.push_price"
+        "uri": "channels/ventacart/{store}/listings/{productId}/push-price",
+        "name": "ext.ventacart.listings.push_price"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/listings/{productId}/push-stock",
-        "name": "ext.venta.listings.push_stock"
+        "uri": "channels/ventacart/{store}/listings/{productId}/push-stock",
+        "name": "ext.ventacart.listings.push_stock"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/listings/{productId}/toggle",
-        "name": "ext.venta.listings.toggle"
+        "uri": "channels/ventacart/{store}/listings/{productId}/toggle",
+        "name": "ext.ventacart.listings.toggle"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/{store}/orders",
-        "name": "ext.venta.orders.index"
+        "uri": "channels/ventacart/{store}/orders",
+        "name": "ext.ventacart.orders.index"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/orders/bulk-delete",
-        "name": "ext.venta.orders.bulk_delete"
+        "uri": "channels/ventacart/{store}/orders/bulk-delete",
+        "name": "ext.ventacart.orders.bulk_delete"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/orders/fetch",
-        "name": "ext.venta.orders.fetch"
+        "uri": "channels/ventacart/{store}/orders/fetch",
+        "name": "ext.ventacart.orders.fetch"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/orders/fetch-runs",
-        "name": "ext.venta.orders.fetch_run_begin"
+        "uri": "channels/ventacart/{store}/orders/fetch-runs",
+        "name": "ext.ventacart.orders.fetch_run_begin"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/{store}/orders/fetch-runs/{run}",
-        "name": "ext.venta.orders.fetch_run_state"
+        "uri": "channels/ventacart/{store}/orders/fetch-runs/{run}",
+        "name": "ext.ventacart.orders.fetch_run_state"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/orders/fetch-runs/{run}/step",
-        "name": "ext.venta.orders.fetch_run_step"
+        "uri": "channels/ventacart/{store}/orders/fetch-runs/{run}/step",
+        "name": "ext.ventacart.orders.fetch_run_step"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/orders/fetch-runs/{run}/stop",
-        "name": "ext.venta.orders.fetch_run_stop"
+        "uri": "channels/ventacart/{store}/orders/fetch-runs/{run}/stop",
+        "name": "ext.ventacart.orders.fetch_run_stop"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/{store}/orders/pickup-addresses",
-        "name": "ext.venta.orders.pickup_addresses"
+        "uri": "channels/ventacart/{store}/orders/pickup-addresses",
+        "name": "ext.ventacart.orders.pickup_addresses"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/{store}/orders/shipping-couriers",
-        "name": "ext.venta.orders.shipping_couriers"
+        "uri": "channels/ventacart/{store}/orders/shipping-couriers",
+        "name": "ext.ventacart.orders.shipping_couriers"
     },
     {
         "method": "DELETE",
-        "uri": "channels/venta/{store}/orders/{order}",
-        "name": "ext.venta.orders.destroy"
+        "uri": "channels/ventacart/{store}/orders/{order}",
+        "name": "ext.ventacart.orders.destroy"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/{store}/orders/{order}/awb",
-        "name": "ext.venta.orders.awb"
+        "uri": "channels/ventacart/{store}/orders/{order}/awb",
+        "name": "ext.ventacart.orders.awb"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/orders/{order}/book",
-        "name": "ext.venta.orders.book"
+        "uri": "channels/ventacart/{store}/orders/{order}/book",
+        "name": "ext.ventacart.orders.book"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/orders/{order}/book-manual",
-        "name": "ext.venta.orders.book_manual"
+        "uri": "channels/ventacart/{store}/orders/{order}/book-manual",
+        "name": "ext.ventacart.orders.book_manual"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/orders/{order}/cancel-booking",
-        "name": "ext.venta.orders.cancel_booking"
+        "uri": "channels/ventacart/{store}/orders/{order}/cancel-booking",
+        "name": "ext.ventacart.orders.cancel_booking"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/orders/{order}/clear-manual",
-        "name": "ext.venta.orders.clear_manual"
+        "uri": "channels/ventacart/{store}/orders/{order}/clear-manual",
+        "name": "ext.ventacart.orders.clear_manual"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/orders/{order}/estimate",
-        "name": "ext.venta.orders.estimate"
+        "uri": "channels/ventacart/{store}/orders/{order}/estimate",
+        "name": "ext.ventacart.orders.estimate"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/{store}/orders/{order}/pickup-slots",
-        "name": "ext.venta.orders.pickup_slots"
+        "uri": "channels/ventacart/{store}/orders/{order}/pickup-slots",
+        "name": "ext.ventacart.orders.pickup_slots"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/{store}/orders/{order}/serviceability",
-        "name": "ext.venta.orders.serviceability"
+        "uri": "channels/ventacart/{store}/orders/{order}/serviceability",
+        "name": "ext.ventacart.orders.serviceability"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/{store}/orders/{order}/tracking",
-        "name": "ext.venta.orders.tracking"
+        "uri": "channels/ventacart/{store}/orders/{order}/tracking",
+        "name": "ext.ventacart.orders.tracking"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/{store}/product-groups",
-        "name": "ext.venta.product-groups.index"
+        "uri": "channels/ventacart/{store}/product-groups",
+        "name": "ext.ventacart.product-groups.index"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/product-groups",
-        "name": "ext.venta.product-groups.store"
+        "uri": "channels/ventacart/{store}/product-groups",
+        "name": "ext.ventacart.product-groups.store"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/{store}/product-groups/create",
-        "name": "ext.venta.product-groups.create"
+        "uri": "channels/ventacart/{store}/product-groups/create",
+        "name": "ext.ventacart.product-groups.create"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/product-groups/move",
-        "name": "ext.venta.product-groups.move"
+        "uri": "channels/ventacart/{store}/product-groups/move",
+        "name": "ext.ventacart.product-groups.move"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/{store}/product-groups/search-products",
-        "name": "ext.venta.product-groups.searchProducts"
+        "uri": "channels/ventacart/{store}/product-groups/search-products",
+        "name": "ext.ventacart.product-groups.searchProducts"
     },
     {
         "method": "DELETE",
-        "uri": "channels/venta/{store}/product-groups/{group}",
-        "name": "ext.venta.product-groups.destroy"
+        "uri": "channels/ventacart/{store}/product-groups/{group}",
+        "name": "ext.ventacart.product-groups.destroy"
     },
     {
         "method": "PUT",
-        "uri": "channels/venta/{store}/product-groups/{group}",
-        "name": "ext.venta.product-groups.update"
+        "uri": "channels/ventacart/{store}/product-groups/{group}",
+        "name": "ext.ventacart.product-groups.update"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/product-groups/{group}/add-products",
-        "name": "ext.venta.product-groups.addProducts"
+        "uri": "channels/ventacart/{store}/product-groups/{group}/add-products",
+        "name": "ext.ventacart.product-groups.addProducts"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/product-groups/{group}/check",
-        "name": "ext.venta.product-groups.check"
+        "uri": "channels/ventacart/{store}/product-groups/{group}/check",
+        "name": "ext.ventacart.product-groups.check"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/product-groups/{group}/delete-from-venta",
-        "name": "ext.venta.product-groups.bulk-delete-from-venta"
+        "uri": "channels/ventacart/{store}/product-groups/{group}/delete-from-ventacart",
+        "name": "ext.ventacart.product-groups.bulk-delete-from-ventacart"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/{store}/product-groups/{group}/edit",
-        "name": "ext.venta.product-groups.edit"
+        "uri": "channels/ventacart/{store}/product-groups/{group}/edit",
+        "name": "ext.ventacart.product-groups.edit"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/product-groups/{group}/mass-remove",
-        "name": "ext.venta.product-groups.mass-remove"
+        "uri": "channels/ventacart/{store}/product-groups/{group}/mass-remove",
+        "name": "ext.ventacart.product-groups.mass-remove"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/{store}/product-groups/{group}/orphans",
-        "name": "ext.venta.product-groups.orphans"
+        "uri": "channels/ventacart/{store}/product-groups/{group}/orphans",
+        "name": "ext.ventacart.product-groups.orphans"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/{store}/product-groups/{group}/products",
-        "name": "ext.venta.product-groups.products"
+        "uri": "channels/ventacart/{store}/product-groups/{group}/products",
+        "name": "ext.ventacart.product-groups.products"
     },
     {
         "method": "DELETE",
-        "uri": "channels/venta/{store}/product-groups/{group}/products/{product}",
-        "name": "ext.venta.product-groups.removeProduct"
+        "uri": "channels/ventacart/{store}/product-groups/{group}/products/{product}",
+        "name": "ext.ventacart.product-groups.removeProduct"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/product-groups/{group}/products/{product}/delete-from-venta",
-        "name": "ext.venta.product-groups.deleteFromVenta"
+        "uri": "channels/ventacart/{store}/product-groups/{group}/products/{product}/delete-from-ventacart",
+        "name": "ext.ventacart.product-groups.deleteFromVenta"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/product-groups/{group}/products/{product}/link",
-        "name": "ext.venta.product-groups.link"
+        "uri": "channels/ventacart/{store}/product-groups/{group}/products/{product}/link",
+        "name": "ext.ventacart.product-groups.link"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/product-groups/{group}/products/{product}/sync-id",
-        "name": "ext.venta.product-groups.sync-id"
+        "uri": "channels/ventacart/{store}/product-groups/{group}/products/{product}/sync-id",
+        "name": "ext.ventacart.product-groups.sync-id"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/product-groups/{group}/products/{product}/unlink",
-        "name": "ext.venta.product-groups.unlink"
+        "uri": "channels/ventacart/{store}/product-groups/{group}/products/{product}/unlink",
+        "name": "ext.ventacart.product-groups.unlink"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/product-groups/{group}/push",
-        "name": "ext.venta.product-groups.push"
+        "uri": "channels/ventacart/{store}/product-groups/{group}/push",
+        "name": "ext.ventacart.product-groups.push"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/product-groups/{group}/push-prices",
-        "name": "ext.venta.product-groups.push-prices"
+        "uri": "channels/ventacart/{store}/product-groups/{group}/push-prices",
+        "name": "ext.ventacart.product-groups.push-prices"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/product-groups/{group}/push-stock",
-        "name": "ext.venta.product-groups.push-stock"
+        "uri": "channels/ventacart/{store}/product-groups/{group}/push-stock",
+        "name": "ext.ventacart.product-groups.push-stock"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/product-groups/{group}/send-runs",
-        "name": "ext.venta.product-groups.send_run_begin"
+        "uri": "channels/ventacart/{store}/product-groups/{group}/send-runs",
+        "name": "ext.ventacart.product-groups.send_run_begin"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/product-groups/{group}/send-runs/{run}/step",
-        "name": "ext.venta.product-groups.send_run_step"
+        "uri": "channels/ventacart/{store}/product-groups/{group}/send-runs/{run}/step",
+        "name": "ext.ventacart.product-groups.send_run_step"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/product-groups/{group}/send-runs/{run}/stop",
-        "name": "ext.venta.product-groups.send_run_stop"
+        "uri": "channels/ventacart/{store}/product-groups/{group}/send-runs/{run}/stop",
+        "name": "ext.ventacart.product-groups.send_run_stop"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/products/add-to-store",
-        "name": "ext.venta.products.add_to_store_bulk"
+        "uri": "channels/ventacart/{store}/products/add-to-store",
+        "name": "ext.ventacart.products.add_to_store_bulk"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/products/add-to-store/{productId}",
-        "name": "ext.venta.products.add_to_store"
+        "uri": "channels/ventacart/{store}/products/add-to-store/{productId}",
+        "name": "ext.ventacart.products.add_to_store"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/products/bulk/delete",
-        "name": "ext.venta.products.bulk_delete"
+        "uri": "channels/ventacart/{store}/products/bulk/delete",
+        "name": "ext.ventacart.products.bulk_delete"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/products/bulk/remove-from-store",
-        "name": "ext.venta.products.bulk_remove_from_store"
+        "uri": "channels/ventacart/{store}/products/bulk/remove-from-store",
+        "name": "ext.ventacart.products.bulk_remove_from_store"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/{store}/products/catalogue-search",
-        "name": "ext.venta.products.catalogue_search"
+        "uri": "channels/ventacart/{store}/products/catalogue-search",
+        "name": "ext.ventacart.products.catalogue_search"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/{store}/products/import",
-        "name": "ext.venta.products.import"
+        "uri": "channels/ventacart/{store}/products/import",
+        "name": "ext.ventacart.products.import"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/products/import-one",
-        "name": "ext.venta.products.import_one"
+        "uri": "channels/ventacart/{store}/products/import-one",
+        "name": "ext.ventacart.products.import_one"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/products/import-selected",
-        "name": "ext.venta.products.import_selected"
+        "uri": "channels/ventacart/{store}/products/import-selected",
+        "name": "ext.ventacart.products.import_selected"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/products/link-item",
-        "name": "ext.venta.products.link_item"
+        "uri": "channels/ventacart/{store}/products/link-item",
+        "name": "ext.ventacart.products.link_item"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/products/remove-from-store/{productId}",
-        "name": "ext.venta.products.remove_from_store"
+        "uri": "channels/ventacart/{store}/products/remove-from-store/{productId}",
+        "name": "ext.ventacart.products.remove_from_store"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/{store}/products/search-catalog",
-        "name": "ext.venta.products.search_catalog"
+        "uri": "channels/ventacart/{store}/products/search-catalog",
+        "name": "ext.ventacart.products.search_catalog"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/products/{productId}/delete",
-        "name": "ext.venta.products.delete"
+        "uri": "channels/ventacart/{store}/products/{productId}/delete",
+        "name": "ext.ventacart.products.delete"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/products/{productId}/unlink",
-        "name": "ext.venta.products.unlink"
+        "uri": "channels/ventacart/{store}/products/{productId}/unlink",
+        "name": "ext.ventacart.products.unlink"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/{store}/settings",
-        "name": "ext.venta.settings.show"
+        "uri": "channels/ventacart/{store}/settings",
+        "name": "ext.ventacart.settings.show"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/setup/{step}",
-        "name": "ext.venta.setup_step"
+        "uri": "channels/ventacart/{store}/setup/{step}",
+        "name": "ext.ventacart.setup_step"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/{store}/watermarks",
-        "name": "ext.venta.watermarks.index"
+        "uri": "channels/ventacart/{store}/watermarks",
+        "name": "ext.ventacart.watermarks.index"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/watermarks",
-        "name": "ext.venta.watermarks.store"
+        "uri": "channels/ventacart/{store}/watermarks",
+        "name": "ext.ventacart.watermarks.store"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/{store}/watermarks/create",
-        "name": "ext.venta.watermarks.create"
+        "uri": "channels/ventacart/{store}/watermarks/create",
+        "name": "ext.ventacart.watermarks.create"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/{store}/watermarks/preview",
-        "name": "ext.venta.watermarks.preview"
+        "uri": "channels/ventacart/{store}/watermarks/preview",
+        "name": "ext.ventacart.watermarks.preview"
     },
     {
         "method": "DELETE",
-        "uri": "channels/venta/{store}/watermarks/{template}",
-        "name": "ext.venta.watermarks.destroy"
+        "uri": "channels/ventacart/{store}/watermarks/{template}",
+        "name": "ext.ventacart.watermarks.destroy"
     },
     {
         "method": "PUT",
-        "uri": "channels/venta/{store}/watermarks/{template}",
-        "name": "ext.venta.watermarks.update"
+        "uri": "channels/ventacart/{store}/watermarks/{template}",
+        "name": "ext.ventacart.watermarks.update"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/venta/{store}/watermarks/{template}/edit",
-        "name": "ext.venta.watermarks.edit"
+        "uri": "channels/ventacart/{store}/watermarks/{template}/edit",
+        "name": "ext.ventacart.watermarks.edit"
     },
     {
         "method": "POST",
@@ -5271,17 +5336,17 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "venta",
+        "uri": "ventacart",
         "name": null
     },
     {
         "method": "GET|HEAD",
-        "uri": "venta/settings/{store}",
+        "uri": "ventacart/settings/{store}",
         "name": null
     },
     {
         "method": "GET|HEAD",
-        "uri": "venta/{store}/{any}",
+        "uri": "ventacart/{store}/{any}",
         "name": null
     },
     {

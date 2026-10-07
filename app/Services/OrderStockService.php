@@ -42,7 +42,7 @@ class OrderStockService
             'shopee_sync'   => 'Shopee',
             'tiktok_sync'   => 'TikTok',
             'opencart_sync' => 'OpenCart',
-            'venta_sync'    => 'Venta',
+            'ventacart_sync'    => 'VentaCart',
             default         => '',
         };
         $orderLabel = 'Order #' . $order->order_id . ($sourceLabel !== '' ? " ($sourceLabel)" : '');

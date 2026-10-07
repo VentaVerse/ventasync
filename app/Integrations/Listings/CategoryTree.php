@@ -11,7 +11,7 @@ final class CategoryTree
         'shopee' => ['table' => 'shopee_categories', 'id' => 'category_id', 'parent' => 'parent_id', 'leaf' => 'leaf', 'store' => null, 'root' => 0],
         'lazada' => ['table' => 'lazada_categories', 'id' => 'category_id', 'parent' => 'parent_id', 'leaf' => 'leaf', 'store' => null, 'root' => 0],
         'tiktok' => ['table' => 'tiktok_categories', 'id' => 'id', 'parent' => 'parent_id', 'leaf' => 'is_leaf', 'store' => null, 'root' => null],
-        'venta' => ['table' => 'venta_categories', 'id' => 'venta_category_id', 'parent' => 'parent_id', 'leaf' => null, 'store' => 'venta_setting_id', 'root' => 0],
+        'ventacart' => ['table' => 'ventacart_categories', 'id' => 'ventacart_category_id', 'parent' => 'parent_id', 'leaf' => null, 'store' => 'ventacart_setting_id', 'root' => 0],
         'woocommerce' => ['table' => 'woocommerce_categories', 'id' => 'woo_category_id', 'parent' => 'parent_id', 'leaf' => null, 'store' => 'woocommerce_setting_id', 'root' => 0],
     ];
 

@@ -50,6 +50,7 @@ class Kernel extends HttpKernel
         'perm' => \App\Http\Middleware\EnsurePermission::class,
         'app.person' => \App\Http\Middleware\EnsureAppPerson::class,
         'app.once' => \App\Http\Middleware\AnswerAppRepeatsOnce::class,
+        'app.former-names' => \App\Http\Middleware\AppDoorFormerNames::class,
         'packing.check' => \App\Http\Middleware\RequirePackingCheck::class,
         'booking.lock' => \App\Http\Middleware\OneBookingAtATime::class,
 

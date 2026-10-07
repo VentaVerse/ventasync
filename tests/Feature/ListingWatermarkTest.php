@@ -74,17 +74,17 @@ class ListingWatermarkTest extends TestCase
         $a = $this->template('store-a');
         $b = $this->template('store-b');
         DB::statement('SET FOREIGN_KEY_CHECKS=0');
-        $groupA = DB::table('venta_product_groups')->insertGetId(['venta_setting_id' => 1, 'name' => 'A', 'watermark_template_id' => $a->id, 'created_at' => now(), 'updated_at' => now()]);
-        $groupB = DB::table('venta_product_groups')->insertGetId(['venta_setting_id' => 2, 'name' => 'B', 'watermark_template_id' => $b->id, 'created_at' => now(), 'updated_at' => now()]);
-        DB::table('venta_product_group_products')->insert([
-            ['venta_product_group_id' => $groupA, 'product_id' => 77, 'created_at' => now(), 'updated_at' => now()],
-            ['venta_product_group_id' => $groupB, 'product_id' => 77, 'created_at' => now(), 'updated_at' => now()],
+        $groupA = DB::table('ventacart_product_groups')->insertGetId(['ventacart_setting_id' => 1, 'name' => 'A', 'watermark_template_id' => $a->id, 'created_at' => now(), 'updated_at' => now()]);
+        $groupB = DB::table('ventacart_product_groups')->insertGetId(['ventacart_setting_id' => 2, 'name' => 'B', 'watermark_template_id' => $b->id, 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('ventacart_product_group_products')->insert([
+            ['ventacart_product_group_id' => $groupA, 'product_id' => 77, 'created_at' => now(), 'updated_at' => now()],
+            ['ventacart_product_group_id' => $groupB, 'product_id' => 77, 'created_at' => now(), 'updated_at' => now()],
         ]);
         DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
-        $args = ['venta_product_groups', 'venta_product_group_products', 'venta_product_group_id', 77, 'venta_setting_id'];
+        $args = ['ventacart_product_groups', 'ventacart_product_group_products', 'ventacart_product_group_id', 77, 'ventacart_setting_id'];
         $this->assertSame($a->id, ListingWatermark::groupTemplateId(...[...$args, 1]));
         $this->assertSame($b->id, ListingWatermark::groupTemplateId(...[...$args, 2]));
-        $this->assertNull(ListingWatermark::groupTemplateId('venta_product_groups', 'venta_product_group_products', 'venta_product_group_id', 999, 'venta_setting_id', 1));
+        $this->assertNull(ListingWatermark::groupTemplateId('ventacart_product_groups', 'ventacart_product_group_products', 'ventacart_product_group_id', 999, 'ventacart_setting_id', 1));
     }
 }

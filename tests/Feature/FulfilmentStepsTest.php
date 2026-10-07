@@ -42,7 +42,7 @@ class FulfilmentStepsTest extends TestCase
             'Some Store Invented This' => 3,
             'Start Pickup' => 4,
             'And This' => 1,
-        ], 'venta.orders');
+        ], 'ventacart.orders');
 
         $this->assertSame(
             ['Start Pickup', 'Delivered', 'Some Store Invented This', 'And This'],
@@ -60,7 +60,7 @@ class FulfilmentStepsTest extends TestCase
             'Start Pickup' => 1,
             'Shipped' => 2,
             'In Transit to Manila' => 1,
-        ], 'venta.orders'));
+        ], 'ventacart.orders'));
 
         $this->assertSame('Start Pickup', $ordered[0],
             'the one step that is somebody\'s move must not sit behind Delivered and Cancelled');
@@ -69,15 +69,15 @@ class FulfilmentStepsTest extends TestCase
 
     public function test_a_status_is_matched_however_the_store_spelled_it(): void
     {
-        $this->assertSame('to_handover', FulfilmentSteps::stepFor('venta.orders', 'Start Pickup'));
-        $this->assertSame('to_handover', FulfilmentSteps::stepFor('venta.orders', 'START_PICKUP'));
-        $this->assertSame('to_handover', FulfilmentSteps::stepFor('venta.orders', '  start pickup '));
-        $this->assertNull(FulfilmentSteps::stepFor('venta.orders', 'Nothing Knows This'));
+        $this->assertSame('to_handover', FulfilmentSteps::stepFor('ventacart.orders', 'Start Pickup'));
+        $this->assertSame('to_handover', FulfilmentSteps::stepFor('ventacart.orders', 'START_PICKUP'));
+        $this->assertSame('to_handover', FulfilmentSteps::stepFor('ventacart.orders', '  start pickup '));
+        $this->assertNull(FulfilmentSteps::stepFor('ventacart.orders', 'Nothing Knows This'));
     }
 
     public function test_bucket_sorts_raw_statuses_into_every_step_with_zeros_kept(): void
     {
-        $buckets = FulfilmentSteps::bucket('venta.orders', [
+        $buckets = FulfilmentSteps::bucket('ventacart.orders', [
             'Processing' => 3,
             'Order Processed' => 2,
             'Start Pickup' => 1,
@@ -102,12 +102,12 @@ class FulfilmentStepsTest extends TestCase
 
     public function test_the_storefront_places_pending_under_unpaid_and_shipped_under_shipping(): void
     {
-        $this->assertSame('unpaid', FulfilmentSteps::stepFor('venta.orders', 'Pending'));
-        $this->assertSame('to_pack', FulfilmentSteps::stepFor('venta.orders', 'Order Processed'));
-        $this->assertSame('to_handover', FulfilmentSteps::stepFor('venta.orders', 'Order Being Shipped'));
-        $this->assertSame('shipping', FulfilmentSteps::stepFor('venta.orders', 'In Transit to Manila'));
-        $this->assertSame('cancelled', FulfilmentSteps::stepFor('venta.orders', 'Canceled'));
-        $this->assertSame('failed', FulfilmentSteps::stepFor('venta.orders', 'Returned'));
+        $this->assertSame('unpaid', FulfilmentSteps::stepFor('ventacart.orders', 'Pending'));
+        $this->assertSame('to_pack', FulfilmentSteps::stepFor('ventacart.orders', 'Order Processed'));
+        $this->assertSame('to_handover', FulfilmentSteps::stepFor('ventacart.orders', 'Order Being Shipped'));
+        $this->assertSame('shipping', FulfilmentSteps::stepFor('ventacart.orders', 'In Transit to Manila'));
+        $this->assertSame('cancelled', FulfilmentSteps::stepFor('ventacart.orders', 'Canceled'));
+        $this->assertSame('failed', FulfilmentSteps::stepFor('ventacart.orders', 'Returned'));
     }
 
     public function test_no_channel_writes_its_own_word_for_a_shared_step(): void

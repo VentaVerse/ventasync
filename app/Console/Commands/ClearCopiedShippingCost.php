@@ -10,7 +10,7 @@ class ClearCopiedShippingCost extends Command
     protected $signature = 'orders:clear-copied-shipping-cost
         {--apply : Clear the values; without it the command only reports what it would change}';
 
-    protected $description = "Clear Venta and WooCommerce shipping costs that were copied from the buyer's shipping charge";
+    protected $description = "Clear VentaCart and WooCommerce shipping costs that were copied from the buyer's shipping charge";
 
     public function handle(): int
     {
@@ -21,7 +21,7 @@ class ClearCopiedShippingCost extends Command
                 $join->on('ot.order_id', '=', 'o.order_id')->where('ot.code', '=', 'shipping');
             })
             ->where(function ($query) {
-                $query->where('o.marketplace_source', 'like', 'venta:%')
+                $query->where('o.marketplace_source', 'like', 'ventacart:%')
                     ->orWhere('o.marketplace_source', 'like', 'woocommerce:%');
             })
             ->where('o.shipping_cost', '>', 0)

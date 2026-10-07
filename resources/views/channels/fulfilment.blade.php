@@ -261,9 +261,9 @@
                 ])
             @endif
         </div>
-    @elseif($selectedChannelBase === 'venta')
-        <div class="x-fh-panel co-page" data-desk-scope id="venta-orders-page">
-            @include('ext-venta::orders._panel', [
+    @elseif($selectedChannelBase === 'ventacart')
+        <div class="x-fh-panel co-page" data-desk-scope id="ventacart-orders-page">
+            @include('ext-ventacart::orders._panel', [
                 'panelBaseUrl' => route('channels.fulfilment'),
                 'panelHiddenParams' => ['channel' => $selectedChannel],
             ])

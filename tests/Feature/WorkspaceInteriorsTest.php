@@ -29,12 +29,12 @@ use Extensions\tiktok\Models\TikTokCategory;
 use Extensions\tiktok\Models\TikTokProductGroup;
 use Extensions\tiktok\Models\TikTokSetting;
 use Extensions\tiktok\TiktokExtension;
-use Extensions\venta\Models\VentaApiLog;
-use Extensions\venta\Models\VentaOrderStatusMap;
-use Extensions\venta\Models\VentaProductGroup;
-use Extensions\venta\Models\VentaSetting;
-use Extensions\venta\Models\VentaSyncLog;
-use Extensions\venta\VentaExtension;
+use Extensions\ventacart\Models\VentaCartApiLog;
+use Extensions\ventacart\Models\VentaCartOrderStatusMap;
+use Extensions\ventacart\Models\VentaCartProductGroup;
+use Extensions\ventacart\Models\VentaCartSetting;
+use Extensions\ventacart\Models\VentaCartSyncLog;
+use Extensions\ventacart\VentaCartExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -55,15 +55,15 @@ class WorkspaceInteriorsTest extends TestCase
         $manager->enable('lazada');
         $manager->install('tiktok');
         $manager->enable('tiktok');
-        $manager->install('venta');
-        $manager->enable('venta');
+        $manager->install('ventacart');
+        $manager->enable('ventacart');
         $manager->install('opencart');
         $manager->enable('opencart');
 
         $this->app->register(ShopeeExtension::class);
         $this->app->register(LazadaExtension::class);
         $this->app->register(TiktokExtension::class);
-        $this->app->register(VentaExtension::class);
+        $this->app->register(VentaCartExtension::class);
         $this->app->register(OpencartExtension::class);
 
         $this->app['router']->getRoutes()->refreshNameLookups();
@@ -1300,8 +1300,8 @@ class WorkspaceInteriorsTest extends TestCase
 
     private function tiktokViewer(): User { return $this->tierUser('TikTok Viewer', ['view_tiktok/settings', 'view_tiktok/product_group', 'view_tiktok/dashboard']); }
     private function tiktokManager(): User { return $this->tierUser('TikTok Manager', ['manage_tiktok/settings', 'manage_tiktok/product_group', 'manage_tiktok/dashboard']); }
-    private function ventaViewer(): User { return $this->tierUser('Venta Viewer', ['view_venta/settings', 'view_venta/product_group', 'view_venta/dashboard']); }
-    private function ventaManager(): User { return $this->tierUser('Venta Manager', ['manage_venta/settings', 'manage_venta/product_group', 'manage_venta/review', 'manage_venta/dashboard']); }
+    private function ventaCartViewer(): User { return $this->tierUser('VentaCart Viewer', ['view_ventacart/settings', 'view_ventacart/product_group', 'view_ventacart/dashboard']); }
+    private function ventaCartManager(): User { return $this->tierUser('VentaCart Manager', ['manage_ventacart/settings', 'manage_ventacart/product_group', 'manage_ventacart/review', 'manage_ventacart/dashboard']); }
     private function opencartViewer(): User { return $this->tierUser('OpenCart Viewer', ['view_opencart/settings', 'view_opencart/product_group', 'view_opencart/dashboard']); }
     private function opencartManager(): User { return $this->tierUser('OpenCart Manager', ['manage_opencart/settings', 'manage_opencart/product_group', 'manage_opencart/dashboard']); }
 
@@ -1326,10 +1326,10 @@ class WorkspaceInteriorsTest extends TestCase
 
     private function seedVentaStores(): array
     {
-        $one = VentaSetting::create([
+        $one = VentaCartSetting::create([
             'store_name' => 'Gear Depot',
-            'base_url' => 'https://one.venta.test',
-            'api_token' => 'venta-token-one',
+            'base_url' => 'https://one.ventacart.test',
+            'api_token' => 'ventacart-token-one',
             'enabled' => true,
             'api_log_mode' => 'all',
             'sync_last_days' => 30,
@@ -1337,10 +1337,10 @@ class WorkspaceInteriorsTest extends TestCase
             'brand_color' => '#059669',
         ]);
 
-        $two = VentaSetting::create([
+        $two = VentaCartSetting::create([
             'store_name' => 'Switch Bazaar',
-            'base_url' => 'https://two.venta.test',
-            'api_token' => 'venta-token-two',
+            'base_url' => 'https://two.ventacart.test',
+            'api_token' => 'ventacart-token-two',
             'enabled' => true,
             'api_log_mode' => 'off',
             'sync_last_days' => 14,
@@ -1405,13 +1405,13 @@ class WorkspaceInteriorsTest extends TestCase
         ];
     }
 
-    private function ventaInteriorUrls(int $store, int $group): array
+    private function ventaCartInteriorUrls(int $store, int $group): array
     {
         return [
-            'settings'          => route('ext.venta.settings.show', ['store' => $store]),
-            'product-groups'    => route('ext.venta.product-groups.index', $store),
-            'group-form'        => route('ext.venta.product-groups.edit', [$store, $group]),
-            'group-products'    => route('ext.venta.product-groups.products', [$store, $group]),
+            'settings'          => route('ext.ventacart.settings.show', ['store' => $store]),
+            'product-groups'    => route('ext.ventacart.product-groups.index', $store),
+            'group-form'        => route('ext.ventacart.product-groups.edit', [$store, $group]),
+            'group-products'    => route('ext.ventacart.product-groups.products', [$store, $group]),
         ];
     }
 
@@ -1793,134 +1793,134 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertSame('all', TikTokSetting::query()->first()->api_log_mode);
     }
 
-    public function test_every_venta_interior_renders_for_both_tiers(): void
+    public function test_every_ventacart_interior_renders_for_both_tiers(): void
     {
         [$one] = $this->seedVentaStores();
-        $group = VentaProductGroup::create(['venta_setting_id' => $one, 'name' => 'Pedals']);
+        $group = VentaCartProductGroup::create(['ventacart_setting_id' => $one, 'name' => 'Pedals']);
 
-        foreach ([$this->ventaManager(), $this->ventaViewer()] as $user) {
-            foreach ($this->ventaInteriorUrls($one, $group->id) as $label => $url) {
+        foreach ([$this->ventaCartManager(), $this->ventaCartViewer()] as $user) {
+            foreach ($this->ventaCartInteriorUrls($one, $group->id) as $label => $url) {
                 $this->actingAs($user)->get($url)->assertOk();
             }
         }
     }
 
-    public function test_no_venta_interior_still_carries_the_legacy_boundary(): void
+    public function test_no_ventacart_interior_still_carries_the_legacy_boundary(): void
     {
         [$one] = $this->seedVentaStores();
-        $group = VentaProductGroup::create(['venta_setting_id' => $one, 'name' => 'Pedals']);
-        $user = $this->ventaManager();
+        $group = VentaCartProductGroup::create(['ventacart_setting_id' => $one, 'name' => 'Pedals']);
+        $user = $this->ventaCartManager();
 
-        foreach ($this->ventaInteriorUrls($one, $group->id) as $label => $url) {
+        foreach ($this->ventaCartInteriorUrls($one, $group->id) as $label => $url) {
             $html = $this->actingAs($user)->get($url)->assertOk()->getContent();
-            $this->assertBoundaryDropped($html, "Venta {$label}");
+            $this->assertBoundaryDropped($html, "VentaCart {$label}");
         }
     }
 
-    public function test_every_venta_self_link_carries_the_store_it_arrived_on(): void
+    public function test_every_ventacart_self_link_carries_the_store_it_arrived_on(): void
     {
         [$one, $two] = $this->seedVentaStores();
-        $groupTwo = VentaProductGroup::create(['venta_setting_id' => $two, 'name' => 'Switches']);
-        $user = $this->ventaManager();
+        $groupTwo = VentaCartProductGroup::create(['ventacart_setting_id' => $two, 'name' => 'Switches']);
+        $user = $this->ventaCartManager();
 
-        foreach ($this->ventaInteriorUrls($two, $groupTwo->id) as $label => $url) {
+        foreach ($this->ventaCartInteriorUrls($two, $groupTwo->id) as $label => $url) {
             $html = $this->actingAs($user)->get($url)->assertOk()->getContent();
-            $content = $this->pageContent($html, "Venta {$label}");
+            $content = $this->pageContent($html, "VentaCart {$label}");
 
-            $this->assertStringNotContainsString('/channels/venta/'.$one.'/', $content,
-                "Venta {$label} for store {$two} leaked a link to store {$one}.");
+            $this->assertStringNotContainsString('/channels/ventacart/'.$one.'/', $content,
+                "VentaCart {$label} for store {$two} leaked a link to store {$one}.");
             $this->assertStringNotContainsString('name="store_id" value="'.$one.'"', $content,
-                "Venta {$label} for store {$two} posts store {$one}'s id.");
+                "VentaCart {$label} for store {$two} posts store {$one}'s id.");
 
             if ($label === 'settings') {
                 $this->assertStringContainsString('name="store_id" value="'.$two.'"', $content,
-                    'Venta settings does not post the store it was asked for.');
+                    'VentaCart settings does not post the store it was asked for.');
                 $this->assertStringContainsString('data-store-id="'.$two.'"', $content,
-                    'Venta settings does not scope its AJAX calls to the store it was asked for.');
+                    'VentaCart settings does not scope its AJAX calls to the store it was asked for.');
             } else {
-                $this->assertStringContainsString('/channels/venta/'.$two.'/', $content,
-                    "Venta {$label} emitted no link scoped to the store it was asked for.");
+                $this->assertStringContainsString('/channels/ventacart/'.$two.'/', $content,
+                    "VentaCart {$label} emitted no link scoped to the store it was asked for.");
             }
         }
     }
 
-    public function test_every_venta_interior_names_its_store_in_the_content(): void
+    public function test_every_ventacart_interior_names_its_store_in_the_content(): void
     {
         [, $two] = $this->seedVentaStores();
-        $groupTwo = VentaProductGroup::create(['venta_setting_id' => $two, 'name' => 'Switches']);
-        $user = $this->ventaManager();
+        $groupTwo = VentaCartProductGroup::create(['ventacart_setting_id' => $two, 'name' => 'Switches']);
+        $user = $this->ventaCartManager();
 
-        foreach ($this->ventaInteriorUrls($two, $groupTwo->id) as $label => $url) {
+        foreach ($this->ventaCartInteriorUrls($two, $groupTwo->id) as $label => $url) {
             $html = $this->actingAs($user)->get($url)->assertOk()->getContent();
-            $content = $this->pageContent($html, "Venta {$label}");
+            $content = $this->pageContent($html, "VentaCart {$label}");
 
             $this->assertStringContainsString('Switch Bazaar', $content,
-                "Venta {$label} does not name its store anywhere in the page body.");
+                "VentaCart {$label} does not name its store anywhere in the page body.");
             $this->assertStringNotContainsString('Gear Depot', $content,
-                "Venta {$label} names the wrong store.");
+                "VentaCart {$label} names the wrong store.");
         }
     }
 
-    public function test_an_operator_with_no_venta_permission_is_refused_every_venta_interior(): void
+    public function test_an_operator_with_no_ventacart_permission_is_refused_every_ventacart_interior(): void
     {
         [$one] = $this->seedVentaStores();
-        $group = VentaProductGroup::create(['venta_setting_id' => $one, 'name' => 'Pedals']);
+        $group = VentaCartProductGroup::create(['ventacart_setting_id' => $one, 'name' => 'Pedals']);
         $user = $this->outsider();
 
-        foreach ($this->ventaInteriorUrls($one, $group->id) as $label => $url) {
+        foreach ($this->ventaCartInteriorUrls($one, $group->id) as $label => $url) {
             $this->assertDenied($this->actingAs($user)->get($url), $label);
         }
     }
 
-    public function test_guests_are_redirected_away_from_every_venta_interior(): void
+    public function test_guests_are_redirected_away_from_every_ventacart_interior(): void
     {
         [$one] = $this->seedVentaStores();
-        $group = VentaProductGroup::create(['venta_setting_id' => $one, 'name' => 'Pedals']);
+        $group = VentaCartProductGroup::create(['ventacart_setting_id' => $one, 'name' => 'Pedals']);
 
-        foreach ($this->ventaInteriorUrls($one, $group->id) as $label => $url) {
+        foreach ($this->ventaCartInteriorUrls($one, $group->id) as $label => $url) {
             $this->get($url)->assertRedirect(route('login'));
         }
     }
 
-    public function test_the_venta_read_tier_is_not_offered_write_controls(): void
+    public function test_the_ventacart_read_tier_is_not_offered_write_controls(): void
     {
         [$one] = $this->seedVentaStores();
-        $group = VentaProductGroup::create(['venta_setting_id' => $one, 'name' => 'Pedals']);
-        $user = $this->ventaViewer();
+        $group = VentaCartProductGroup::create(['ventacart_setting_id' => $one, 'name' => 'Pedals']);
+        $user = $this->ventaCartViewer();
 
-        $groups = $this->actingAs($user)->get(route('ext.venta.product-groups.index', $one))->assertOk();
-        $groups->assertDontSee(route('ext.venta.product-groups.create', $one), false);
+        $groups = $this->actingAs($user)->get(route('ext.ventacart.product-groups.index', $one))->assertOk();
+        $groups->assertDontSee(route('ext.ventacart.product-groups.create', $one), false);
         $groups->assertDontSee('Delete group');
 
-        $form = $this->actingAs($user)->get(route('ext.venta.product-groups.edit', [$one, $group->id]))->assertOk();
+        $form = $this->actingAs($user)->get(route('ext.ventacart.product-groups.edit', [$one, $group->id]))->assertOk();
         $form->assertDontSee('Save product group');
         $this->assertMatchesRegularExpression('/name="name"[^>]*\bdisabled\b/', $form->getContent());
 
-        $products = $this->actingAs($user)->get(route('ext.venta.product-groups.products', [$one, $group->id]))->assertOk();
-        $products->assertDontSee(route('ext.venta.product-groups.push', [$one, $group->id]), false);
-        $products->assertDontSee(route('ext.venta.product-groups.addProducts', [$one, $group->id]), false);
+        $products = $this->actingAs($user)->get(route('ext.ventacart.product-groups.products', [$one, $group->id]))->assertOk();
+        $products->assertDontSee(route('ext.ventacart.product-groups.push', [$one, $group->id]), false);
+        $products->assertDontSee(route('ext.ventacart.product-groups.addProducts', [$one, $group->id]), false);
 
         \Illuminate\Support\Facades\Http::fake([
             '*' => \Illuminate\Support\Facades\Http::response(['data' => [
-                ['id' => 901, 'sku' => 'ORPHAN-1', 'name' => 'Made in Venta directly'],
+                ['id' => 901, 'sku' => 'ORPHAN-1', 'name' => 'Made in VentaCart directly'],
                 ['id' => 902, 'sku' => 'ORPHAN-2', 'name' => 'Left behind by a removed link'],
             ]], 200),
         ]);
 
-        $this->actingAs($user)->get(route('ext.venta.product-groups.orphans', [$one, $group->id]))
+        $this->actingAs($user)->get(route('ext.ventacart.product-groups.orphans', [$one, $group->id]))
             ->assertOk()
             ->assertSee('ORPHAN-1')
-            ->assertSee('Made in Venta directly')
+            ->assertSee('Made in VentaCart directly')
             ->assertDontSee('Adopt')
-            ->assertDontSee(route('ext.venta.product-groups.check', [$one, $group->id]), false);
+            ->assertDontSee(route('ext.ventacart.product-groups.check', [$one, $group->id]), false);
 
-        $settings = $this->actingAs($user)->get(route('ext.venta.settings.show', ['store' => $one]))->assertOk();
+        $settings = $this->actingAs($user)->get(route('ext.ventacart.settings.show', ['store' => $one]))->assertOk();
         foreach ([
-            route('ext.venta.test'),
-            route('ext.venta.fetch_statuses'),
-            route('ext.venta.save_status_map'),
-            route('ext.venta.api_log_mode', $one),
-            route('ext.venta.clear_api_logs', $one),
+            route('ext.ventacart.test'),
+            route('ext.ventacart.fetch_statuses'),
+            route('ext.ventacart.save_status_map'),
+            route('ext.ventacart.api_log_mode', $one),
+            route('ext.ventacart.clear_api_logs', $one),
         ] as $url) {
             $settings->assertDontSee($url, false);
         }
@@ -1928,7 +1928,7 @@ class WorkspaceInteriorsTest extends TestCase
         $settings->assertDontSee('Save connection');
         $settings->assertDontSee('Test connection');
         $settings->assertDontSee('Delete store');
-        $settings->assertDontSee('action="'.e(route('ext.venta.destroy', $one)).'"', false);
+        $settings->assertDontSee('action="'.e(route('ext.ventacart.destroy', $one)).'"', false);
 
         $html = $settings->getContent();
         foreach (['store_name', 'base_url', 'api_token', 'warehouse_id', 'sync_last_days', 'sync_orders_from', 'enabled'] as $field) {
@@ -1938,74 +1938,74 @@ class WorkspaceInteriorsTest extends TestCase
                 "The {$field} control is editable for an operator who cannot save it."
             );
         }
-        $this->assertStringNotContainsString('venta-token-one', $html,
+        $this->assertStringNotContainsString('ventacart-token-one', $html,
             'The read tier was sent the store API token.');
     }
 
-    public function test_the_venta_manage_tier_is_offered_those_same_controls(): void
+    public function test_the_ventacart_manage_tier_is_offered_those_same_controls(): void
     {
         [$one] = $this->seedVentaStores();
-        $group = VentaProductGroup::create(['venta_setting_id' => $one, 'name' => 'Pedals']);
-        VentaApiLog::create([
-            'venta_setting_id' => $one, 'method' => 'GET', 'endpoint' => '/api/orders',
+        $group = VentaCartProductGroup::create(['ventacart_setting_id' => $one, 'name' => 'Pedals']);
+        VentaCartApiLog::create([
+            'ventacart_setting_id' => $one, 'method' => 'GET', 'endpoint' => '/api/orders',
             'status_code' => 200, 'response_time_ms' => 12, 'ok' => true,
             'request_body' => null, 'response_body' => [],
         ]);
-        $user = $this->ventaManager();
+        $user = $this->ventaCartManager();
 
-        $this->actingAs($user)->get(route('ext.venta.product-groups.index', $one))
-            ->assertOk()->assertSee(route('ext.venta.product-groups.create', $one), false);
+        $this->actingAs($user)->get(route('ext.ventacart.product-groups.index', $one))
+            ->assertOk()->assertSee(route('ext.ventacart.product-groups.create', $one), false);
 
-        $this->actingAs($user)->get(route('ext.venta.product-groups.edit', [$one, $group->id]))
+        $this->actingAs($user)->get(route('ext.ventacart.product-groups.edit', [$one, $group->id]))
             ->assertOk()->assertSee('Save product group');
 
-        $products = $this->actingAs($user)->get(route('ext.venta.product-groups.products', [$one, $group->id]))->assertOk();
+        $products = $this->actingAs($user)->get(route('ext.ventacart.product-groups.products', [$one, $group->id]))->assertOk();
         foreach ([
-            route('ext.venta.product-groups.push', [$one, $group->id]),
-            route('ext.venta.product-groups.check', [$one, $group->id]),
-            route('ext.venta.product-groups.mass-remove', [$one, $group->id]),
-            route('ext.venta.product-groups.addProducts', [$one, $group->id]),
+            route('ext.ventacart.product-groups.push', [$one, $group->id]),
+            route('ext.ventacart.product-groups.check', [$one, $group->id]),
+            route('ext.ventacart.product-groups.mass-remove', [$one, $group->id]),
+            route('ext.ventacart.product-groups.addProducts', [$one, $group->id]),
         ] as $url) {
             $products->assertSee($url, false);
         }
 
-        $settings = $this->actingAs($user)->get(route('ext.venta.settings.show', ['store' => $one]))->assertOk();
+        $settings = $this->actingAs($user)->get(route('ext.ventacart.settings.show', ['store' => $one]))->assertOk();
         foreach ([
-            route('ext.venta.save'),
-            route('ext.venta.test'),
-            route('ext.venta.fetch_statuses'),
-            route('ext.venta.save_status_map'),
-            route('ext.venta.api_log_mode', $one),
-            route('ext.venta.clear_api_logs', $one),
+            route('ext.ventacart.save'),
+            route('ext.ventacart.test'),
+            route('ext.ventacart.fetch_statuses'),
+            route('ext.ventacart.save_status_map'),
+            route('ext.ventacart.api_log_mode', $one),
+            route('ext.ventacart.clear_api_logs', $one),
         ] as $url) {
             $settings->assertSee($url, false);
         }
     }
 
-    public function test_the_venta_write_routes_refuse_the_read_tier_on_their_own(): void
+    public function test_the_ventacart_write_routes_refuse_the_read_tier_on_their_own(): void
     {
         [$one] = $this->seedVentaStores();
-        $group = VentaProductGroup::create(['venta_setting_id' => $one, 'name' => 'Pedals']);
-        $user = $this->ventaViewer();
+        $group = VentaCartProductGroup::create(['ventacart_setting_id' => $one, 'name' => 'Pedals']);
+        $user = $this->ventaCartViewer();
 
-        $this->assertDenied($this->actingAs($user)->post(route('ext.venta.save'), [
+        $this->assertDenied($this->actingAs($user)->post(route('ext.ventacart.save'), [
             'store_id' => $one, 'base_url' => 'https://x.test', 'api_token' => 'x',
         ]), 'save');
-        $this->assertDenied($this->actingAs($user)->delete(route('ext.venta.destroy', $one)), 'destroy');
-        $this->assertDenied($this->actingAs($user)->post(route('ext.venta.test'), ['store_id' => $one]), 'test');
-        $this->assertDenied($this->actingAs($user)->post(route('ext.venta.fetch_statuses'), ['store_id' => $one]), 'fetch_statuses');
-        $this->assertDenied($this->actingAs($user)->post(route('ext.venta.save_status_map'), ['store_id' => $one]), 'save_status_map');
-        $this->assertDenied($this->actingAs($user)->post(route('ext.venta.api_log_mode', $one)), 'api_log_mode');
-        $this->assertDenied($this->actingAs($user)->delete(route('ext.venta.clear_api_logs', $one)), 'clear_api_logs');
-        $this->assertDenied($this->actingAs($user)->get(route('ext.venta.product-groups.create', $one)), 'product-groups.create');
-        $this->assertDenied($this->actingAs($user)->post(route('ext.venta.product-groups.push', [$one, $group->id])), 'product-groups.push');
+        $this->assertDenied($this->actingAs($user)->delete(route('ext.ventacart.destroy', $one)), 'destroy');
+        $this->assertDenied($this->actingAs($user)->post(route('ext.ventacart.test'), ['store_id' => $one]), 'test');
+        $this->assertDenied($this->actingAs($user)->post(route('ext.ventacart.fetch_statuses'), ['store_id' => $one]), 'fetch_statuses');
+        $this->assertDenied($this->actingAs($user)->post(route('ext.ventacart.save_status_map'), ['store_id' => $one]), 'save_status_map');
+        $this->assertDenied($this->actingAs($user)->post(route('ext.ventacart.api_log_mode', $one)), 'api_log_mode');
+        $this->assertDenied($this->actingAs($user)->delete(route('ext.ventacart.clear_api_logs', $one)), 'clear_api_logs');
+        $this->assertDenied($this->actingAs($user)->get(route('ext.ventacart.product-groups.create', $one)), 'product-groups.create');
+        $this->assertDenied($this->actingAs($user)->post(route('ext.ventacart.product-groups.push', [$one, $group->id])), 'product-groups.push');
     }
 
-    public function test_a_venta_save_for_one_store_leaves_the_other_store_untouched(): void
+    public function test_a_ventacart_save_for_one_store_leaves_the_other_store_untouched(): void
     {
         [$one, $two] = $this->seedVentaStores();
 
-        $before = VentaSetting::findOrFail($two);
+        $before = VentaCartSetting::findOrFail($two);
         $beforeTwo = [
             'store_name' => $before->store_name,
             'base_url' => $before->base_url,
@@ -2016,29 +2016,29 @@ class WorkspaceInteriorsTest extends TestCase
             'brand_color' => $before->brand_color,
         ];
 
-        $this->actingAs($this->ventaManager())->post(route('ext.venta.save'), [
+        $this->actingAs($this->ventaCartManager())->post(route('ext.ventacart.save'), [
             'store_id' => $one,
             'store_name' => 'Gear Depot Renamed',
             'brand_color' => '#aabbcc',
-            'base_url' => 'https://renamed.venta.test',
-            'api_token' => 'venta-token-one-rotated',
+            'base_url' => 'https://renamed.ventacart.test',
+            'api_token' => 'ventacart-token-one-rotated',
             'warehouse_id' => 11,
             'sync_last_days' => 45,
             'sync_orders_from' => '2026-01-15',
             'enabled' => '1',
-        ])->assertRedirect(route('ext.venta.settings.show', ['store' => $one]));
+        ])->assertRedirect(route('ext.ventacart.settings.show', ['store' => $one]));
 
-        $saved = VentaSetting::findOrFail($one);
+        $saved = VentaCartSetting::findOrFail($one);
         $this->assertSame('Gear Depot Renamed', $saved->store_name);
         $this->assertSame('#aabbcc', $saved->brand_color);
-        $this->assertSame('https://renamed.venta.test', $saved->base_url);
-        $this->assertSame('venta-token-one-rotated', $saved->api_token);
+        $this->assertSame('https://renamed.ventacart.test', $saved->base_url);
+        $this->assertSame('ventacart-token-one-rotated', $saved->api_token);
         $this->assertSame(11, (int) $saved->warehouse_id);
         $this->assertSame(45, (int) $saved->sync_last_days);
         $this->assertSame('2026-01-15', $saved->sync_orders_from->format('Y-m-d'));
         $this->assertTrue((bool) $saved->enabled);
 
-        $after = VentaSetting::findOrFail($two);
+        $after = VentaCartSetting::findOrFail($two);
         $this->assertSame($beforeTwo['store_name'], $after->store_name);
         $this->assertSame($beforeTwo['base_url'], $after->base_url);
         $this->assertSame($beforeTwo['api_token'], $after->api_token);
@@ -2048,138 +2048,138 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertSame($beforeTwo['brand_color'], $after->brand_color);
     }
 
-    public function test_a_venta_save_with_a_blank_token_keeps_the_stored_one(): void
+    public function test_a_ventacart_save_with_a_blank_token_keeps_the_stored_one(): void
     {
         [$one] = $this->seedVentaStores();
 
-        $this->actingAs($this->ventaManager())->post(route('ext.venta.save'), [
+        $this->actingAs($this->ventaCartManager())->post(route('ext.ventacart.save'), [
             'store_id' => $one,
             'store_name' => 'Gear Depot Renamed',
-            'base_url' => 'https://one.venta.test',
+            'base_url' => 'https://one.ventacart.test',
             'api_token' => '',
-        ])->assertRedirect(route('ext.venta.settings.show', ['store' => $one]));
+        ])->assertRedirect(route('ext.ventacart.settings.show', ['store' => $one]));
 
-        $saved = VentaSetting::findOrFail($one);
+        $saved = VentaCartSetting::findOrFail($one);
         $this->assertSame('Gear Depot Renamed', $saved->store_name, 'The rest of the form still saved.');
-        $this->assertSame('venta-token-one', $saved->api_token, 'The stored token survived a blank submission.');
+        $this->assertSame('ventacart-token-one', $saved->api_token, 'The stored token survived a blank submission.');
     }
 
-    public function test_a_venta_save_with_a_new_token_replaces_the_stored_one(): void
+    public function test_a_ventacart_save_with_a_new_token_replaces_the_stored_one(): void
     {
         [$one] = $this->seedVentaStores();
 
-        $this->actingAs($this->ventaManager())->post(route('ext.venta.save'), [
+        $this->actingAs($this->ventaCartManager())->post(route('ext.ventacart.save'), [
             'store_id' => $one,
-            'base_url' => 'https://one.venta.test',
-            'api_token' => 'venta-token-one-replaced',
-        ])->assertRedirect(route('ext.venta.settings.show', ['store' => $one]));
+            'base_url' => 'https://one.ventacart.test',
+            'api_token' => 'ventacart-token-one-replaced',
+        ])->assertRedirect(route('ext.ventacart.settings.show', ['store' => $one]));
 
-        $this->assertSame('venta-token-one-replaced', VentaSetting::findOrFail($one)->api_token);
+        $this->assertSame('ventacart-token-one-replaced', VentaCartSetting::findOrFail($one)->api_token);
     }
 
-    public function test_a_new_venta_store_still_requires_the_api_token(): void
+    public function test_a_new_ventacart_store_still_requires_the_api_token(): void
     {
-        $this->actingAs($this->ventaManager())->post(route('ext.venta.save'), [
-            'base_url' => 'https://new.venta.test',
+        $this->actingAs($this->ventaCartManager())->post(route('ext.ventacart.save'), [
+            'base_url' => 'https://new.ventacart.test',
         ])->assertSessionHasErrors('api_token');
 
-        $this->assertSame(0, VentaSetting::query()->count());
+        $this->assertSame(0, VentaCartSetting::query()->count());
     }
 
-    public function test_the_venta_api_token_never_reaches_the_page_source_for_either_tier(): void
+    public function test_the_ventacart_api_token_never_reaches_the_page_source_for_either_tier(): void
     {
         [$one] = $this->seedVentaStores();
 
-        foreach ([$this->ventaManager(), $this->ventaViewer()] as $user) {
-            $html = $this->actingAs($user)->get(route('ext.venta.settings.show', ['store' => $one]))
+        foreach ([$this->ventaCartManager(), $this->ventaCartViewer()] as $user) {
+            $html = $this->actingAs($user)->get(route('ext.ventacart.settings.show', ['store' => $one]))
                 ->assertOk()->getContent();
 
-            $this->assertStringNotContainsString('venta-token-one', $html,
+            $this->assertStringNotContainsString('ventacart-token-one', $html,
                 'The stored API token reached the page source.');
         }
     }
 
-    public function test_the_venta_enabled_switch_can_actually_be_turned_off(): void
+    public function test_the_ventacart_enabled_switch_can_actually_be_turned_off(): void
     {
         [$one] = $this->seedVentaStores();
 
-        $html = $this->actingAs($this->ventaManager())
-            ->get(route('ext.venta.settings.show', ['store' => $one]))->assertOk()->getContent();
+        $html = $this->actingAs($this->ventaCartManager())
+            ->get(route('ext.ventacart.settings.show', ['store' => $one]))->assertOk()->getContent();
 
         $this->assertStringNotContainsString('name="enabled" value="0"', $html,
             'A hidden companion field would make $request->has(\'enabled\') always true.');
 
-        $this->actingAs($this->ventaManager())->post(route('ext.venta.save'), [
+        $this->actingAs($this->ventaCartManager())->post(route('ext.ventacart.save'), [
             'store_id' => $one,
-            'base_url' => 'https://one.venta.test',
-            'api_token' => 'venta-token-one',
+            'base_url' => 'https://one.ventacart.test',
+            'api_token' => 'ventacart-token-one',
         ])->assertRedirect();
 
-        $this->assertFalse((bool) VentaSetting::findOrFail($one)->enabled);
+        $this->assertFalse((bool) VentaCartSetting::findOrFail($one)->enabled);
     }
 
-    public function test_the_venta_status_map_save_is_scoped_to_its_own_store(): void
+    public function test_the_ventacart_status_map_save_is_scoped_to_its_own_store(): void
     {
         [$one, $two] = $this->seedVentaStores();
 
-        VentaOrderStatusMap::create([
-            'venta_setting_id' => $two, 'venta_status_id' => 3,
-            'venta_status_name' => 'Shipped', 'order_status_id' => 3,
+        VentaCartOrderStatusMap::create([
+            'ventacart_setting_id' => $two, 'ventacart_status_id' => 3,
+            'ventacart_status_name' => 'Shipped', 'order_status_id' => 3,
         ]);
 
-        $this->actingAs($this->ventaManager())->postJson(route('ext.venta.save_status_map'), [
+        $this->actingAs($this->ventaCartManager())->postJson(route('ext.ventacart.save_status_map'), [
             'store_id' => $one,
             'mappings' => [
-                ['venta_status_id' => 3, 'venta_status_name' => 'Shipped', 'order_status_id' => 5],
+                ['ventacart_status_id' => 3, 'ventacart_status_name' => 'Shipped', 'order_status_id' => 5],
             ],
         ])->assertOk();
 
-        $this->assertSame(5, (int) VentaOrderStatusMap::where('venta_setting_id', $one)
-            ->where('venta_status_id', 3)->value('order_status_id'));
-        $this->assertSame(3, (int) VentaOrderStatusMap::where('venta_setting_id', $two)
-            ->where('venta_status_id', 3)->value('order_status_id'));
+        $this->assertSame(5, (int) VentaCartOrderStatusMap::where('ventacart_setting_id', $one)
+            ->where('ventacart_status_id', 3)->value('order_status_id'));
+        $this->assertSame(3, (int) VentaCartOrderStatusMap::where('ventacart_setting_id', $two)
+            ->where('ventacart_status_id', 3)->value('order_status_id'));
     }
 
-    public function test_venta_interiors_render_their_seeded_records(): void
+    public function test_ventacart_interiors_render_their_seeded_records(): void
     {
         [$one] = $this->seedVentaStores();
         $productId = $this->seedCatalogProduct('Overdrive Pedal', 'OD-808');
 
-        $group = VentaProductGroup::create([
-            'venta_setting_id' => $one, 'name' => 'Pedal Batch',
+        $group = VentaCartProductGroup::create([
+            'ventacart_setting_id' => $one, 'name' => 'Pedal Batch',
             'markup_percent' => 5, 'markup_fixed' => 100,
         ]);
-        DB::table('venta_product_group_products')->insert([
-            'venta_product_group_id' => $group->id, 'product_id' => $productId,
+        DB::table('ventacart_product_group_products')->insert([
+            'ventacart_product_group_id' => $group->id, 'product_id' => $productId,
             'created_at' => now(), 'updated_at' => now(),
         ]);
 
-        VentaOrderStatusMap::create([
-            'venta_setting_id' => $one, 'venta_status_id' => 7,
-            'venta_status_name' => 'Awaiting pickup', 'order_status_id' => 0,
+        VentaCartOrderStatusMap::create([
+            'ventacart_setting_id' => $one, 'ventacart_status_id' => 7,
+            'ventacart_status_name' => 'Awaiting pickup', 'order_status_id' => 0,
         ]);
-        VentaApiLog::create([
-            'venta_setting_id' => $one, 'method' => 'GET', 'endpoint' => '/api/orders',
+        VentaCartApiLog::create([
+            'ventacart_setting_id' => $one, 'method' => 'GET', 'endpoint' => '/api/orders',
             'status_code' => 200, 'response_time_ms' => 84, 'ok' => true,
             'request_body' => null, 'response_body' => ['data' => []],
         ]);
-        VentaSyncLog::create([
-            'venta_setting_id' => $one, 'entity_type' => 'orders', 'direction' => 'pull',
+        VentaCartSyncLog::create([
+            'ventacart_setting_id' => $one, 'entity_type' => 'orders', 'direction' => 'pull',
             'status' => 'completed', 'started_at' => now()->subMinute(), 'completed_at' => now(),
             'records_processed' => 12, 'records_updated' => 4, 'records_failed' => 0,
         ]);
 
-        $user = $this->ventaManager();
+        $user = $this->ventaCartManager();
 
-        $groups = $this->actingAs($user)->get(route('ext.venta.product-groups.index', $one))->assertOk();
+        $groups = $this->actingAs($user)->get(route('ext.ventacart.product-groups.index', $one))->assertOk();
         $groups->assertSee('Pedal Batch');
         $groups->assertSee('5% of price');
 
-        $products = $this->actingAs($user)->get(route('ext.venta.product-groups.products', [$one, $group->id]))->assertOk();
+        $products = $this->actingAs($user)->get(route('ext.ventacart.product-groups.products', [$one, $group->id]))->assertOk();
         $products->assertSee('Overdrive Pedal');
         $products->assertSee('OD-808');
 
-        $settings = $this->actingAs($user)->get(route('ext.venta.settings.show', ['store' => $one]))->assertOk();
+        $settings = $this->actingAs($user)->get(route('ext.ventacart.settings.show', ['store' => $one]))->assertOk();
         $settings->assertSee('Awaiting pickup');
         $settings->assertSee('/api/orders');
         $settings->assertSee('Sync Orders');
@@ -2190,28 +2190,28 @@ class WorkspaceInteriorsTest extends TestCase
         $settings->assertDontSee('schedule:run');
     }
 
-    public function test_venta_channel_sourced_names_are_escaped(): void
+    public function test_ventacart_channel_sourced_names_are_escaped(): void
     {
         [$one] = $this->seedVentaStores();
         $payload = '<img src=x onerror=alert(1)>';
 
-        $group = VentaProductGroup::create(['venta_setting_id' => $one, 'name' => $payload]);
-        VentaOrderStatusMap::create([
-            'venta_setting_id' => $one, 'venta_status_id' => 9,
-            'venta_status_name' => $payload, 'order_status_id' => 0,
+        $group = VentaCartProductGroup::create(['ventacart_setting_id' => $one, 'name' => $payload]);
+        VentaCartOrderStatusMap::create([
+            'ventacart_setting_id' => $one, 'ventacart_status_id' => 9,
+            'ventacart_status_name' => $payload, 'order_status_id' => 0,
         ]);
-        VentaApiLog::create([
-            'venta_setting_id' => $one, 'method' => 'GET', 'endpoint' => $payload,
+        VentaCartApiLog::create([
+            'ventacart_setting_id' => $one, 'method' => 'GET', 'endpoint' => $payload,
             'status_code' => 500, 'response_time_ms' => 3, 'ok' => false,
             'request_body' => null, 'response_body' => ['error' => $payload],
         ]);
 
-        $user = $this->ventaManager();
+        $user = $this->ventaCartManager();
 
         foreach ([
-            route('ext.venta.product-groups.index', $one),
-            route('ext.venta.product-groups.edit', [$one, $group->id]),
-            route('ext.venta.settings.show', ['store' => $one]),
+            route('ext.ventacart.product-groups.index', $one),
+            route('ext.ventacart.product-groups.edit', [$one, $group->id]),
+            route('ext.ventacart.settings.show', ['store' => $one]),
         ] as $url) {
             $html = $this->actingAs($user)->get($url)->assertOk()->getContent();
             $this->assertStringNotContainsString('<img src=x onerror=', $html, "Unescaped output on {$url}");
@@ -2633,22 +2633,22 @@ class WorkspaceInteriorsTest extends TestCase
     {
         $this->seedSetting();
         $this->seedTiktokSetting();
-        [$ventaStore] = $this->seedVentaStores();
+        [$ventaCartStore] = $this->seedVentaStores();
         [$opencartStore] = $this->seedOpencartStores();
 
-        $ventaGroup = VentaProductGroup::create(['venta_setting_id' => $ventaStore, 'name' => 'Pedals']);
+        $ventaCartGroup = VentaCartProductGroup::create(['ventacart_setting_id' => $ventaCartStore, 'name' => 'Pedals']);
         $opencartGroup = OpenCartProductGroup::create(['opencart_setting_id' => $opencartStore, 'name' => 'Cables']);
 
         $shopeeUrls = $this->interiorUrls();
         $tiktokUrls = $this->tiktokInteriorUrls();
-        $ventaUrls = $this->ventaInteriorUrls($ventaStore, $ventaGroup->id);
+        $ventaCartUrls = $this->ventaCartInteriorUrls($ventaCartStore, $ventaCartGroup->id);
         $opencartUrls = $this->opencartInteriorUrls($opencartStore, $opencartGroup->id);
 
         $matrix = [
-            'shopee manager' => [$this->manager(), array_merge($tiktokUrls, $ventaUrls, $opencartUrls)],
-            'tiktok manager' => [$this->tiktokManager(), array_merge($shopeeUrls, $ventaUrls, $opencartUrls)],
-            'venta manager' => [$this->ventaManager(), array_merge($shopeeUrls, $tiktokUrls, $opencartUrls)],
-            'opencart manager' => [$this->opencartManager(), array_merge($shopeeUrls, $tiktokUrls, $ventaUrls)],
+            'shopee manager' => [$this->manager(), array_merge($tiktokUrls, $ventaCartUrls, $opencartUrls)],
+            'tiktok manager' => [$this->tiktokManager(), array_merge($shopeeUrls, $ventaCartUrls, $opencartUrls)],
+            'ventacart manager' => [$this->ventaCartManager(), array_merge($shopeeUrls, $tiktokUrls, $opencartUrls)],
+            'opencart manager' => [$this->opencartManager(), array_merge($shopeeUrls, $tiktokUrls, $ventaCartUrls)],
         ];
 
         foreach ($matrix as $who => [$user, $urls]) {
@@ -2658,36 +2658,36 @@ class WorkspaceInteriorsTest extends TestCase
         }
     }
 
-    public function test_the_venta_save_gate_separates_the_two_tiers_on_one_route(): void
+    public function test_the_ventacart_save_gate_separates_the_two_tiers_on_one_route(): void
     {
         [$one] = $this->seedVentaStores();
 
         $payload = [
             'store_id' => $one,
             'store_name' => 'Renamed By Test',
-            'base_url' => 'https://gate.venta.test',
+            'base_url' => 'https://gate.ventacart.test',
             'api_token' => 'gate-token',
         ];
 
         $this->assertDenied(
-            $this->actingAs($this->ventaViewer())->post(route('ext.venta.save'), $payload),
-            'venta save, viewer'
+            $this->actingAs($this->ventaCartViewer())->post(route('ext.ventacart.save'), $payload),
+            'ventacart save, viewer'
         );
-        $this->assertSame('Gear Depot', VentaSetting::findOrFail($one)->store_name);
+        $this->assertSame('Gear Depot', VentaCartSetting::findOrFail($one)->store_name);
 
-        $this->actingAs($this->ventaManager())->post(route('ext.venta.save'), $payload)->assertRedirect();
-        $this->assertSame('Renamed By Test', VentaSetting::findOrFail($one)->store_name);
+        $this->actingAs($this->ventaCartManager())->post(route('ext.ventacart.save'), $payload)->assertRedirect();
+        $this->assertSame('Renamed By Test', VentaCartSetting::findOrFail($one)->store_name);
     }
 
     public function test_a_channel_that_contributes_no_banners_shows_no_other_channels_banners(): void
     {
         $this->seedTiktokSetting(['expires_at' => now()->subWeeks(2)]);
 
-        [$ventaStore] = $this->seedVentaStores();
-        $ventaGroup = VentaProductGroup::create(['venta_setting_id' => $ventaStore, 'name' => 'Pedals']);
+        [$ventaCartStore] = $this->seedVentaStores();
+        $ventaCartGroup = VentaCartProductGroup::create(['ventacart_setting_id' => $ventaCartStore, 'name' => 'Pedals']);
 
-        foreach ($this->ventaInteriorUrls($ventaStore, $ventaGroup->id) as $label => $url) {
-            $this->actingAs($this->ventaManager())->get($url)->assertOk()
+        foreach ($this->ventaCartInteriorUrls($ventaCartStore, $ventaCartGroup->id) as $label => $url) {
+            $this->actingAs($this->ventaCartManager())->get($url)->assertOk()
                 ->assertDontSee('TikTok Shop: Sign-in expired.', false);
         }
 

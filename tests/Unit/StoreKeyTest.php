@@ -15,7 +15,7 @@ class StoreKeyTest extends TestCase
     public function test_a_source_that_already_names_the_store_parses_to_the_source_alone(): void
     {
         $this->assertSame(['source' => 'opencart:1', 'store_id' => null], StoreKey::parse('opencart:1'));
-        $this->assertSame(['source' => 'venta:3', 'store_id' => null], StoreKey::parse('venta:3'));
+        $this->assertSame(['source' => 'ventacart:3', 'store_id' => null], StoreKey::parse('ventacart:3'));
     }
 
     public function test_a_channel_alone_means_every_store_of_it(): void

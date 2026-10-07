@@ -13,7 +13,7 @@ class OrderPrintController extends Controller
         'shopee' => 'shopee',
         'lazada' => 'lazada',
         'tiktok' => 'tiktok',
-        'venta' => 'venta',
+        'ventacart' => 'ventacart',
         'woocommerce' => 'woocommerce',
     ];
 

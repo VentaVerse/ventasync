@@ -13,8 +13,8 @@ use Extensions\shopee\Models\ShopeeOrder;
 use Extensions\shopee\Models\ShopeeSetting;
 use Extensions\tiktok\Models\TikTokOrder;
 use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\venta\Models\VentaOrder;
-use Extensions\venta\Models\VentaSetting;
+use Extensions\ventacart\Models\VentaCartOrder;
+use Extensions\ventacart\Models\VentaCartSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
@@ -33,7 +33,7 @@ class PackingCheckTest extends TestCase
         foreach (['lazada' => \Extensions\lazada\LazadaExtension::class,
             'shopee' => \Extensions\shopee\ShopeeExtension::class,
             'tiktok' => \Extensions\tiktok\TiktokExtension::class,
-            'venta' => \Extensions\venta\VentaExtension::class] as $id => $provider) {
+            'ventacart' => \Extensions\ventacart\VentaCartExtension::class] as $id => $provider) {
             $manager->install($id);
             $manager->enable($id);
             $this->app->register($provider);
@@ -47,7 +47,7 @@ class PackingCheckTest extends TestCase
         Cache::flush();
     }
 
-    private function packer(array $keys = ['manage_lazada/order', 'manage_shopee/order', 'manage_tiktok/order', 'manage_venta/order']): User
+    private function packer(array $keys = ['manage_lazada/order', 'manage_shopee/order', 'manage_tiktok/order', 'manage_ventacart/order']): User
     {
         $group = UserGroup::create(['name' => 'Packers ' . uniqid()]);
         $group->permissions()->attach(Permission::whereIn('key', $keys)->pluck('id')->all());
@@ -214,10 +214,10 @@ class PackingCheckTest extends TestCase
         $this->actingAs($packer)->post(route('ext.tiktok.orders.ship', ['store' => $tiktok->id, 'id' => $tt->id]))
             ->assertSessionHas('error', 'Count the items before booking this order.');
 
-        $venta = VentaSetting::query()->create(['store_name' => 'Shop A', 'enabled' => true, 'base_url' => 'https://shop.test', 'api_token' => 'x']);
-        $vo = VentaOrder::query()->create(['venta_setting_id' => $venta->id, 'venta_order_id' => 77, 'venta_order_number' => 77, 'status' => 'processing', 'raw' => []]);
-        foreach (['ext.venta.orders.book', 'ext.venta.orders.book_manual'] as $name) {
-            $this->actingAs($packer)->postJson(route($name, ['store' => $venta->id, 'order' => $vo->id]), [])
+        $ventacart = VentaCartSetting::query()->create(['store_name' => 'Shop A', 'enabled' => true, 'base_url' => 'https://shop.test', 'api_token' => 'x']);
+        $vo = VentaCartOrder::query()->create(['ventacart_setting_id' => $ventacart->id, 'ventacart_order_id' => 77, 'ventacart_order_number' => 77, 'status' => 'processing', 'raw' => []]);
+        foreach (['ext.ventacart.orders.book', 'ext.ventacart.orders.book_manual'] as $name) {
+            $this->actingAs($packer)->postJson(route($name, ['store' => $ventacart->id, 'order' => $vo->id]), [])
                 ->assertStatus(422)->assertJsonPath('message', 'Count the items before booking this order.');
         }
 
@@ -275,7 +275,7 @@ class PackingCheckTest extends TestCase
             'extensions/shopee/views/orders/_panel.blade.php' => ['data-pc-channel="shopee" data-pc-order'],
             'extensions/shopee/views/orders/show.blade.php' => ['data-pc-channel="shopee" data-pc-order'],
             'extensions/tiktok/views/orders/_panel.blade.php' => ['data-pc-channel="tiktok" data-pc-order'],
-            'extensions/venta/views/orders/_panel.blade.php' => ['data-pc-channel="venta" data-pc-order'],
+            'extensions/ventacart/views/orders/_panel.blade.php' => ['data-pc-channel="ventacart" data-pc-order'],
         ] as $file => $needles) {
             $src = file_get_contents(base_path($file));
             $this->assertIsString($src, $file);

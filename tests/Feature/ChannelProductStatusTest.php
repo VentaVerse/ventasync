@@ -125,7 +125,7 @@ class ChannelProductStatusTest extends TestCase
 
     public function test_every_channel_routes_its_status_writes_through_one_place(): void
     {
-        foreach (['shopee', 'lazada', 'tiktok', 'venta'] as $channel) {
+        foreach (['shopee', 'lazada', 'tiktok', 'ventacart'] as $channel) {
             $path = glob(base_path("extensions/{$channel}/Controllers/*ProductGroupController.php"))[0] ?? null;
 
             $this->assertNotNull($path, "No product-group controller found for {$channel}.");

@@ -21,7 +21,7 @@ final class FulfilmentSteps
     ];
 
     private const STATUS_STEPS = [
-        'venta.orders' => [
+        'ventacart.orders' => [
             'UNPAID' => 'unpaid',
             'QUOTE_READY_FOR_PAYMENT' => 'unpaid',
             'PENDING' => 'unpaid',

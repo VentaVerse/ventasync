@@ -190,7 +190,7 @@ function initManualAdd(section) {
 
 document.addEventListener('DOMContentLoaded', function () {
     [
-        ['#venta-group-progress', 'Venta'],
+        ['#ventacart-group-progress', 'VentaCart'],
         ['#opencart-group-progress', 'OpenCart'],
         ['#shopee-group-progress', 'Shopee'],
         ['#lazada-group-progress', 'Lazada'],

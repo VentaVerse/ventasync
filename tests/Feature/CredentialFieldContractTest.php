@@ -9,7 +9,7 @@ use Tests\TestCase;
 
 class CredentialFieldContractTest extends TestCase
 {
-    private const CHANNELS = ['shopee', 'lazada', 'tiktok', 'venta', 'opencart', 'shopify', 'pedallion'];
+    private const CHANNELS = ['shopee', 'lazada', 'tiktok', 'ventacart', 'opencart', 'shopify', 'pedallion'];
 
     private function extensionSource(string $channel): string
     {

@@ -297,19 +297,19 @@ class OrderController extends Controller
                 ->count();
         }
 
-        $ventaPending = [];
-        if (Schema::hasTable('venta_orders') && Schema::hasTable('venta_settings')) {
-            $enabledStoreIds = DB::table('venta_settings')
+        $ventaCartPending = [];
+        if (Schema::hasTable('ventacart_orders') && Schema::hasTable('ventacart_settings')) {
+            $enabledStoreIds = DB::table('ventacart_settings')
                 ->where('enabled', true)
                 ->pluck('id');
 
             $pendingCoreIds = $pendingStatuses;
 
             if ($enabledStoreIds->isNotEmpty()) {
-                $pendingVentaStatuses = DB::table('venta_order_status_map')
-                    ->whereIn('venta_setting_id', $enabledStoreIds)
+                $pendingVentaStatuses = DB::table('ventacart_order_status_map')
+                    ->whereIn('ventacart_setting_id', $enabledStoreIds)
                     ->whereIn('order_status_id', $pendingCoreIds)
-                    ->pluck('venta_status_name', 'venta_setting_id')
+                    ->pluck('ventacart_status_name', 'ventacart_setting_id')
                     ->groupBy(fn ($val, $key) => $key);
 
                 foreach ($enabledStoreIds as $storeId) {
@@ -318,13 +318,13 @@ class OrderController extends Controller
                         : [];
 
                     if (! empty($mappedStatuses)) {
-                        $ventaPending[(string) $storeId] = DB::table('venta_orders')
-                            ->where('venta_setting_id', $storeId)
+                        $ventaCartPending[(string) $storeId] = DB::table('ventacart_orders')
+                            ->where('ventacart_setting_id', $storeId)
                             ->whereIn('status', $mappedStatuses)
                             ->count();
                     } else {
-                        $ventaPending[(string) $storeId] = DB::table('venta_orders')
-                            ->where('venta_setting_id', $storeId)
+                        $ventaCartPending[(string) $storeId] = DB::table('ventacart_orders')
+                            ->where('ventacart_setting_id', $storeId)
                             ->where(function ($q) {
                                 $q->where('status', 'like', '%pending%')
                                     ->orWhere('status', 'like', '%processing%');
@@ -340,7 +340,7 @@ class OrderController extends Controller
             'lazada_pending' => $lazadaPending,
             'shopee_pending' => $shopeePending,
             'tiktok_pending' => $tiktokPending,
-            'venta_pending'  => (object) $ventaPending,
+            'ventacart_pending'  => (object) $ventaCartPending,
             'lazada_pending_by_store' => $this->waitingByStore('lazada_orders', 'lazada_settings', 'lazada_setting_id', ['pending', 'repacked']),
             'shopee_pending_by_store' => $this->waitingByStore('shopee_orders', 'shopee_settings', 'shopee_setting_id', ['READY_TO_SHIP']),
             'tiktok_pending_by_store' => $this->waitingByStore('tiktok_orders', 'tiktok_settings', 'tiktok_setting_id', ['AWAITING_SHIPMENT']),

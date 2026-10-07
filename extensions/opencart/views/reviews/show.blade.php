@@ -11,9 +11,9 @@
     $canManageVenta = $user?->hasPermission('manage_opencart/review') ?? false;
 
     $ocOpen = in_array($review->oc_sync_status, ['pending', 'error'], true);
-    $ventaStatus = $review->venta_sync_status ?? 'pending';
-    $ventaOpen = in_array($ventaStatus, ['pending', 'error'], true)
-        && Route::has('ext.venta.reviews.push')
+    $ventaCartStatus = $review->ventacart_sync_status ?? 'pending';
+    $ventaCartOpen = in_array($ventaCartStatus, ['pending', 'error'], true)
+        && Route::has('ext.ventacart.reviews.push')
         && $canManageVenta;
     $wcStatus = $review->woocommerce_sync_status ?? 'pending';
     $wcOpen = in_array($wcStatus, ['pending', 'error'], true)
@@ -48,10 +48,10 @@
                 </x-ui.button>
             @endif
 
-            @if(($canManage && $ocOpen) || $ventaOpen || $wcOpen)
+            @if(($canManage && $ocOpen) || $ventaCartOpen || $wcOpen)
             <x-ui.menu label="Review actions">
-                @if($ventaOpen)
-                    <button type="submit" class="x-menu__item" form="rv-venta">Push to Venta</button>
+                @if($ventaCartOpen)
+                    <button type="submit" class="x-menu__item" form="rv-ventacart">Push to VentaCart</button>
                 @endif
                 @if($wcOpen)
                     <button type="submit" class="x-menu__item" form="rv-woocommerce">Push to WooCommerce</button>
@@ -189,34 +189,34 @@
 
             <section class="od-card">
                 <div class="od-card__head">
-                    <h2 class="od-card__title">Venta</h2>
+                    <h2 class="od-card__title">VentaCart</h2>
                 </div>
                 <div class="od-card__body od-card__body--tight">
                     <div class="od-fact">
                         <span class="od-fact__k">State</span>
-                        <span class="od-fact__v">{{ ChannelStatusTone::labelFor('opencart.reviews', $ventaStatus) }}</span>
+                        <span class="od-fact__v">{{ ChannelStatusTone::labelFor('opencart.reviews', $ventaCartStatus) }}</span>
                     </div>
-                    @if($review->venta_setting_id)
+                    @if($review->ventacart_setting_id)
                         <div class="od-fact">
                             <span class="od-fact__k">Store</span>
-                            <span class="od-fact__v od-fact__v--mono">{{ $review->venta_setting_id }}</span>
+                            <span class="od-fact__v od-fact__v--mono">{{ $review->ventacart_setting_id }}</span>
                         </div>
                     @endif
-                    @if($review->venta_review_id)
+                    @if($review->ventacart_review_id)
                         <div class="od-fact">
                             <span class="od-fact__k">Review ID there</span>
-                            <span class="od-fact__v od-fact__v--mono">{{ $review->venta_review_id }}</span>
+                            <span class="od-fact__v od-fact__v--mono">{{ $review->ventacart_review_id }}</span>
                         </div>
                     @endif
-                    @if($review->venta_pushed_at)
+                    @if($review->ventacart_pushed_at)
                         <div class="od-fact">
                             <span class="od-fact__k">Pushed</span>
-                            <span class="od-fact__v">{{ $review->venta_pushed_at->format('Y-m-d H:i') }}</span>
+                            <span class="od-fact__v">{{ $review->ventacart_pushed_at->format('Y-m-d H:i') }}</span>
                         </div>
                     @endif
-                    @if($review->venta_push_error)
+                    @if($review->ventacart_push_error)
                         <hr class="od-divider">
-                        <p class="od-note od-note--fail"><span class="od-note__body">{{ $review->venta_push_error }}</span></p>
+                        <p class="od-note od-note--fail"><span class="od-note__body">{{ $review->ventacart_push_error }}</span></p>
                     @endif
                 </div>
             </section>
@@ -293,8 +293,8 @@
         <form id="rv-push" method="POST" action="{{ route('ext.opencart.reviews.push', $review->id) }}" class="x-sr">@csrf</form>
         <form id="rv-skip" method="POST" action="{{ route('ext.opencart.reviews.skip', $review->id) }}" class="x-sr">@csrf</form>
     @endif
-    @if($ventaOpen)
-        <form id="rv-venta" method="POST" action="{{ route('ext.venta.reviews.push', $review->id) }}" class="x-sr">@csrf</form>
+    @if($ventaCartOpen)
+        <form id="rv-ventacart" method="POST" action="{{ route('ext.ventacart.reviews.push', $review->id) }}" class="x-sr">@csrf</form>
     @endif
     @if($wcOpen)
         <form id="rv-woocommerce" method="POST" action="{{ route('ext.woocommerce.reviews.push', $review->id) }}" class="x-sr">@csrf</form>

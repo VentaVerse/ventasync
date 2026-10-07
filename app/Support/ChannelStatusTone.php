@@ -96,7 +96,7 @@ class ChannelStatusTone
             'CANCELLED'  => 'danger',
             'FAILED'     => 'danger',
         ],
-        'venta.orders' => [
+        'ventacart.orders' => [
             'PENDING'              => 'info',
             'FOR_VERIFICATION'     => 'warning',
             'PROCESSING'           => 'warning',
@@ -215,7 +215,7 @@ class ChannelStatusTone
             'REFUNDED'   => 'Refunded',
             'FAILED'     => 'Failed',
         ],
-        'venta.orders' => [
+        'ventacart.orders' => [
             'PENDING'              => 'Unpaid',
             'FOR_VERIFICATION'     => 'Checking payment',
             'PROCESSING'           => 'To pack',

@@ -11,8 +11,8 @@ use App\Models\User;
 use App\Support\ChannelWorkspace;
 use Extensions\opencart\Models\OpenCartSetting;
 use Extensions\opencart\OpencartExtension;
-use Extensions\venta\Models\VentaSetting;
-use Extensions\venta\VentaExtension;
+use Extensions\ventacart\Models\VentaCartSetting;
+use Extensions\ventacart\VentaCartExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -27,7 +27,7 @@ class MultistoreWorkspaceTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
 
         $providers = [
-            'venta' => VentaExtension::class,
+            'ventacart' => VentaCartExtension::class,
             'opencart' => OpencartExtension::class,
             'shopee' => \Extensions\shopee\ShopeeExtension::class,
         ];
@@ -45,15 +45,15 @@ class MultistoreWorkspaceTest extends TestCase
 
     private function seedStores(): void
     {
-        VentaSetting::updateOrCreate(
+        VentaCartSetting::updateOrCreate(
             ['store_name' => 'Gear Depot'],
-            ['base_url' => 'https://one.venta.test', 'api_token' => 'venta-token-one',
+            ['base_url' => 'https://one.ventacart.test', 'api_token' => 'ventacart-token-one',
              'enabled' => true, 'last_order_sync_at' => now()->subMinutes(5)]
         );
 
-        VentaSetting::updateOrCreate(
+        VentaCartSetting::updateOrCreate(
             ['store_name' => 'Switch Bazaar'],
-            ['base_url' => 'https://two.venta.test', 'api_token' => 'venta-token-two',
+            ['base_url' => 'https://two.ventacart.test', 'api_token' => 'ventacart-token-two',
              'enabled' => true, 'last_order_sync_at' => null]
         );
 
@@ -72,15 +72,15 @@ class MultistoreWorkspaceTest extends TestCase
 
     private function storeId(string $channel, string $name): int
     {
-        return (int) ($channel === 'venta'
-            ? VentaSetting::where('store_name', $name)->firstOrFail()->id
+        return (int) ($channel === 'ventacart'
+            ? VentaCartSetting::where('store_name', $name)->firstOrFail()->id
             : OpenCartSetting::where('store_name', $name)->firstOrFail()->id);
     }
 
     private function storeIds(string $channel): array
     {
-        return $channel === 'venta'
-            ? [$this->storeId('venta', 'Gear Depot'), $this->storeId('venta', 'Switch Bazaar')]
+        return $channel === 'ventacart'
+            ? [$this->storeId('ventacart', 'Gear Depot'), $this->storeId('ventacart', 'Switch Bazaar')]
             : [$this->storeId('opencart', 'Parts Yard'), $this->storeId('opencart', 'Cable Loft')];
     }
 
@@ -142,7 +142,7 @@ class MultistoreWorkspaceTest extends TestCase
 
     public static function channelProvider(): array
     {
-        return ['venta' => ['venta'], 'opencart' => ['opencart']];
+        return ['ventacart' => ['ventacart'], 'opencart' => ['opencart']];
     }
 
     private function visibleChrome(string $html): string
@@ -161,8 +161,8 @@ class MultistoreWorkspaceTest extends TestCase
         $rows = [
             ['Sell', 'Orders', route('ext.'.$channel.'.orders.index', ['store' => $storeId])],
         ];
-        if ($channel === 'venta') {
-            $rows[] = ['Catalog', 'Listings', route('ext.venta.listings.index', ['store' => $storeId])];
+        if ($channel === 'ventacart') {
+            $rows[] = ['Catalog', 'Listings', route('ext.ventacart.listings.index', ['store' => $storeId])];
         }
         $rows[] = ['Catalog', 'Product Groups', route('ext.'.$channel.'.product-groups.index', ['store' => $storeId])];
         if (\Illuminate\Support\Facades\Route::has('ext.'.$channel.'.description-templates.index')) {
@@ -206,8 +206,8 @@ class MultistoreWorkspaceTest extends TestCase
     #[\PHPUnit\Framework\Attributes\DataProvider('channelProvider')]
     public function test_a_channel_with_no_stores_has_no_workspace(string $channel): void
     {
-        $channel === 'venta'
-            ? VentaSetting::query()->delete()
+        $channel === 'ventacart'
+            ? VentaCartSetting::query()->delete()
             : OpenCartSetting::query()->delete();
 
         $this->assertFalse(app(ChannelWorkspace::class)->hasWorkspace($this->card($channel)));
@@ -269,14 +269,14 @@ class MultistoreWorkspaceTest extends TestCase
     public function test_each_store_reports_its_own_state(): void
     {
         $workspace = app(ChannelWorkspace::class);
-        $venta = $this->card('venta');
+        $ventacart = $this->card('ventacart');
         $opencart = $this->card('opencart');
 
-        [$ventaOne, $ventaTwo] = $this->storeIds('venta');
+        [$ventaCartOne, $ventaCartTwo] = $this->storeIds('ventacart');
         [$ocOne, $ocTwo] = $this->storeIds('opencart');
 
-        $this->assertSame('connected', $workspace->state($venta, 'venta:'.$ventaOne));
-        $this->assertSame('attention', $workspace->state($venta, 'venta:'.$ventaTwo));
+        $this->assertSame('connected', $workspace->state($ventacart, 'ventacart:'.$ventaCartOne));
+        $this->assertSame('attention', $workspace->state($ventacart, 'ventacart:'.$ventaCartTwo));
 
         $this->assertSame('connected', $workspace->state($opencart, 'opencart:'.$ocOne));
         $this->assertSame('setup', $workspace->state($opencart, 'opencart:'.$ocTwo));
@@ -285,8 +285,8 @@ class MultistoreWorkspaceTest extends TestCase
     public function test_each_store_reports_its_own_last_sync(): void
     {
         $workspace = app(ChannelWorkspace::class);
-        $card = $this->card('venta');
-        [$first, $second] = $this->storeIds('venta');
+        $card = $this->card('ventacart');
+        [$first, $second] = $this->storeIds('ventacart');
 
         $lastSync = function (array $health) {
             foreach ($health as $row) {
@@ -297,8 +297,8 @@ class MultistoreWorkspaceTest extends TestCase
             return null;
         };
 
-        $this->assertNotNull($lastSync($workspace->health($card, 'venta:'.$first)));
-        $this->assertNull($lastSync($workspace->health($card, 'venta:'.$second)));
+        $this->assertNotNull($lastSync($workspace->health($card, 'ventacart:'.$first)));
+        $this->assertNull($lastSync($workspace->health($card, 'ventacart:'.$second)));
     }
 
     #[\PHPUnit\Framework\Attributes\DataProvider('channelProvider')]
@@ -315,7 +315,7 @@ class MultistoreWorkspaceTest extends TestCase
             $response->assertOk();
             $response->assertSee($store->label);
             $response->assertSee('>Orders</a>', false);
-            if ($channel === 'venta') {
+            if ($channel === 'ventacart') {
                 $response->assertSee('data-chnav-group="Catalog"', false);
             } else {
                 $response->assertSee('>Product Groups</a>', false);
@@ -381,20 +381,20 @@ class MultistoreWorkspaceTest extends TestCase
         $this->assertStringNotContainsString('>Reviews</a>', $chrome);
     }
 
-    private function keysThatMustNotResolve(int $ventaStoreId, int $opencartStoreId): array
+    private function keysThatMustNotResolve(int $ventaCartStoreId, int $opencartStoreId): array
     {
         return [
-            'a bare multi-store channel' => 'venta',
+            'a bare multi-store channel' => 'ventacart',
             'a bare multi-store channel (opencart)' => 'opencart',
-            'an unknown venta store' => 'venta:'.($ventaStoreId + 9000),
+            'an unknown ventacart store' => 'ventacart:'.($ventaCartStoreId + 9000),
             'an unknown opencart store' => 'opencart:'.($opencartStoreId + 9000),
-            'an empty store' => 'venta:',
-            'a non numeric store' => 'venta:abc',
-            'a second suffix after a real store' => 'venta:'.$ventaStoreId.':3',
-            'a real store with trailing text' => 'venta:'.$ventaStoreId.'x',
-            'store zero' => 'venta:0',
-            'a negative store' => 'venta:-'.$ventaStoreId,
-            'a suffix on a single-store channel' => 'shopee:'.$ventaStoreId,
+            'an empty store' => 'ventacart:',
+            'a non numeric store' => 'ventacart:abc',
+            'a second suffix after a real store' => 'ventacart:'.$ventaCartStoreId.':3',
+            'a real store with trailing text' => 'ventacart:'.$ventaCartStoreId.'x',
+            'store zero' => 'ventacart:0',
+            'a negative store' => 'ventacart:-'.$ventaCartStoreId,
+            'a suffix on a single-store channel' => 'shopee:'.$ventaCartStoreId,
         ];
     }
 
@@ -402,20 +402,20 @@ class MultistoreWorkspaceTest extends TestCase
     {
         $group = UserGroup::create(['name' => 'Multistore Broad Operators']);
         $group->permissions()->attach(
-            Permission::whereIn('key', ['view_venta/dashboard', 'view_opencart/dashboard', 'view_venta/settings', 'view_venta/product_group', 'view_venta/order', 'view_opencart/settings', 'view_opencart/product_group', 'view_opencart/order', 'view_shopee/settings', 'view_shopee/category', 'view_shopee/category_attribute', 'view_shopee/logistics', 'view_shopee/product_group', 'view_shopee/product', 'view_shopee/dashboard'])
+            Permission::whereIn('key', ['view_ventacart/dashboard', 'view_opencart/dashboard', 'view_ventacart/settings', 'view_ventacart/product_group', 'view_ventacart/order', 'view_opencart/settings', 'view_opencart/product_group', 'view_opencart/order', 'view_shopee/settings', 'view_shopee/category', 'view_shopee/category_attribute', 'view_shopee/logistics', 'view_shopee/product_group', 'view_shopee/product', 'view_shopee/dashboard'])
                 ->pluck('id')
                 ->all()
         );
         $user = User::factory()->create(['user_group_id' => $group->id]);
 
-        [$ventaStore] = $this->storeIds('venta');
+        [$ventaCartStore] = $this->storeIds('ventacart');
         [$opencartStore] = $this->storeIds('opencart');
 
-        $this->actingAs($user)->get('/channels/venta/'.$ventaStore)->assertOk();
+        $this->actingAs($user)->get('/channels/ventacart/'.$ventaCartStore)->assertOk();
         $this->actingAs($user)->get('/channels/opencart/'.$opencartStore)->assertOk();
         $this->actingAs($user)->get('/channels/shopee')->assertOk();
 
-        foreach ($this->keysThatMustNotResolve($ventaStore, $opencartStore) as $name => $key) {
+        foreach ($this->keysThatMustNotResolve($ventaCartStore, $opencartStore) as $name => $key) {
             $this->actingAs($user)
                 ->get('/channels/'.ChannelWorkspace::pathKey($key))
                 ->assertNotFound('Expected '.$name.' ('.$key.') to be not found.');
@@ -598,13 +598,13 @@ class MultistoreWorkspaceTest extends TestCase
 
     public function test_the_board_gives_each_store_a_products_link_to_its_own_listings(): void
     {
-        $card = $this->card('venta');
-        $response = $this->actingAs($this->operator('venta'))->get('/channels')->assertOk();
+        $card = $this->card('ventacart');
+        $response = $this->actingAs($this->operator('ventacart'))->get('/channels')->assertOk();
         $links = collect($response->viewData('channels'))->pluck('productsUrl')->filter()->values()->all();
 
         $this->assertNotEmpty($card->stores);
         foreach ($card->stores as $store) {
-            $url = route('ext.venta.listings.index', ['store' => (int) (explode(':', (string) $store->id, 2)[1] ?? 0)]);
+            $url = route('ext.ventacart.listings.index', ['store' => (int) (explode(':', (string) $store->id, 2)[1] ?? 0)]);
             $this->assertContains($url, $links, 'each store links to its own Listings page');
             $response->assertSee('href="' . e($url) . '"', false);
         }
@@ -632,12 +632,12 @@ class MultistoreWorkspaceTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    private function ventaOrder(int $storeId, string $customer, string $status): \Extensions\venta\Models\VentaOrder
+    private function ventaCartOrder(int $storeId, string $customer, string $status): \Extensions\ventacart\Models\VentaCartOrder
     {
-        return \Extensions\venta\Models\VentaOrder::create([
-            'venta_setting_id'   => $storeId,
-            'venta_order_id'     => ($storeId * 100000) + random_int(1, 99999),
-            'venta_order_number' => ($storeId * 100000) + random_int(1, 99999),
+        return \Extensions\ventacart\Models\VentaCartOrder::create([
+            'ventacart_setting_id'   => $storeId,
+            'ventacart_order_id'     => ($storeId * 100000) + random_int(1, 99999),
+            'ventacart_order_number' => ($storeId * 100000) + random_int(1, 99999),
             'status'             => $status,
             'status_id'          => 1,
             'customer_name'      => $customer,
@@ -718,27 +718,27 @@ class MultistoreWorkspaceTest extends TestCase
         );
     }
 
-    public function test_a_venta_stores_orders_page_holds_none_of_the_other_stores_orders(): void
+    public function test_a_ventacart_stores_orders_page_holds_none_of_the_other_stores_orders(): void
     {
-        [$first, $second] = $this->storeIds('venta');
+        [$first, $second] = $this->storeIds('ventacart');
 
-        $mine = $this->ventaOrder($first, 'Depot Buyer', 'Processing');
-        $theirs = $this->ventaOrder($second, 'Bazaar Buyer', 'Processing');
+        $mine = $this->ventaCartOrder($first, 'Depot Buyer', 'Processing');
+        $theirs = $this->ventaCartOrder($second, 'Bazaar Buyer', 'Processing');
 
-        $response = $this->actingAs($this->ordersManager('venta'))
-            ->get('/channels/venta/'.$first.'/orders');
+        $response = $this->actingAs($this->ordersManager('ventacart'))
+            ->get('/channels/ventacart/'.$first.'/orders');
 
         $response->assertOk();
 
         $chrome = $this->visibleChrome($response->getContent());
 
         $this->assertStringContainsString('Depot Buyer', $chrome);
-        $this->assertStringContainsString((string) $mine->venta_order_number, $chrome);
+        $this->assertStringContainsString((string) $mine->ventacart_order_number, $chrome);
 
         $this->assertStringNotContainsString('Bazaar Buyer', $chrome);
-        $this->assertStringNotContainsString((string) $theirs->venta_order_number, $chrome);
-        $this->assertStringNotContainsString(route('ext.venta.orders.fetch', ['store' => $second]), $chrome);
-        $this->assertStringNotContainsString(route('ext.venta.orders.bulk_delete', ['store' => $second]), $chrome);
+        $this->assertStringNotContainsString((string) $theirs->ventacart_order_number, $chrome);
+        $this->assertStringNotContainsString(route('ext.ventacart.orders.fetch', ['store' => $second]), $chrome);
+        $this->assertStringNotContainsString(route('ext.ventacart.orders.bulk_delete', ['store' => $second]), $chrome);
     }
 
     public function test_an_opencart_stores_orders_page_holds_none_of_the_other_stores_orders(): void
@@ -764,28 +764,28 @@ class MultistoreWorkspaceTest extends TestCase
         $this->assertStringNotContainsString('href="'.e(route('orders.show', $theirsId)).'"', $chrome);
     }
 
-    public function test_only_the_manage_tier_gets_the_venta_write_controls(): void
+    public function test_only_the_manage_tier_gets_the_ventacart_write_controls(): void
     {
-        [$first] = $this->storeIds('venta');
-        $this->ventaOrder($first, 'Depot Buyer', 'Processing');
+        [$first] = $this->storeIds('ventacart');
+        $this->ventaCartOrder($first, 'Depot Buyer', 'Processing');
 
-        $manager = $this->ordersManager('venta');
-        $viewer = $this->operator('venta');
+        $manager = $this->ordersManager('ventacart');
+        $viewer = $this->operator('ventacart');
 
-        $this->assertTrue($manager->hasPermission('manage_venta/order'));
-        $this->assertFalse($viewer->hasPermission('manage_venta/order'));
+        $this->assertTrue($manager->hasPermission('manage_ventacart/order'));
+        $this->assertFalse($viewer->hasPermission('manage_ventacart/order'));
 
-        $managerView = $this->actingAs($manager)->get('/channels/venta/'.$first.'/orders');
+        $managerView = $this->actingAs($manager)->get('/channels/ventacart/'.$first.'/orders');
         $managerView->assertOk();
         $managerView->assertSee('id="formFetchVentaOrders"', false);
-        $managerView->assertSee(e(route('ext.venta.orders.fetch', ['store' => $first])), false);
-        $managerView->assertSee(e(route('ext.venta.orders.bulk_delete', ['store' => $first])), false);
+        $managerView->assertSee(e(route('ext.ventacart.orders.fetch', ['store' => $first])), false);
+        $managerView->assertSee(e(route('ext.ventacart.orders.bulk_delete', ['store' => $first])), false);
         $managerView->assertSee('data-confirm=', false);
 
-        $viewerView = $this->actingAs($viewer)->get('/channels/venta/'.$first.'/orders');
+        $viewerView = $this->actingAs($viewer)->get('/channels/ventacart/'.$first.'/orders');
         $viewerView->assertOk();
         $viewerView->assertDontSee('id="formFetchVentaOrders"', false);
-        $viewerView->assertDontSee(e(route('ext.venta.orders.bulk_delete', ['store' => $first])), false);
+        $viewerView->assertDontSee(e(route('ext.ventacart.orders.bulk_delete', ['store' => $first])), false);
     }
 
     public function test_the_opencart_orders_page_has_no_command_bar_and_core_gated_row_actions(): void
@@ -808,19 +808,19 @@ class MultistoreWorkspaceTest extends TestCase
         $viewerView->assertDontSee('href="'.e(route('orders.edit', $orderId)).'"', false);
     }
 
-    public function test_the_venta_panels_own_links_stay_on_this_store(): void
+    public function test_the_ventacart_panels_own_links_stay_on_this_store(): void
     {
-        [$first, $second] = $this->storeIds('venta');
-        $this->ventaOrder($first, 'Depot Buyer', 'Processing');
+        [$first, $second] = $this->storeIds('ventacart');
+        $this->ventaCartOrder($first, 'Depot Buyer', 'Processing');
 
-        $response = $this->actingAs($this->ordersManager('venta'))
-            ->get('/channels/venta/'.$first.'/orders');
+        $response = $this->actingAs($this->ordersManager('ventacart'))
+            ->get('/channels/ventacart/'.$first.'/orders');
 
         $response->assertOk();
 
         $chrome = $this->visibleChrome($response->getContent());
-        $own = route('ext.venta.orders.index', ['store' => $first]);
-        $sibling = route('ext.venta.orders.index', ['store' => $second]);
+        $own = route('ext.ventacart.orders.index', ['store' => $first]);
+        $sibling = route('ext.ventacart.orders.index', ['store' => $second]);
 
         $this->assertMatchesRegularExpression(
             '/href="'.preg_quote(e($own), '/').'\?[^"]*tab=/',

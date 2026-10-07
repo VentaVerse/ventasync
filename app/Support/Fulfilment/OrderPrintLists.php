@@ -26,9 +26,9 @@ class OrderPrintLists
             'buyer' => 'buyer_name',
             'label' => 'TikTok',
         ],
-        'venta' => [
-            'model' => \Extensions\venta\Models\VentaOrder::class,
-            'ref' => 'venta_order_number',
+        'ventacart' => [
+            'model' => \Extensions\ventacart\Models\VentaCartOrder::class,
+            'ref' => 'ventacart_order_number',
             'buyer' => 'customer_name',
             'label' => 'Storefront',
         ],

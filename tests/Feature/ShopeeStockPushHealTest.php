@@ -401,7 +401,7 @@ class ShopeeStockPushHealTest extends TestCase
             'shopee/Commands/ShopeePushStock', 'shopee/Commands/ShopeePushPrice',
             'lazada/Commands/LazadaPushStock', 'lazada/Commands/LazadaPushPrice',
             'tiktok/Commands/TikTokPushStock', 'tiktok/Commands/TikTokPushPrice',
-            'venta/Commands/VentaPushStock', 'venta/Commands/VentaPushPrice',
+            'ventacart/Commands/VentaCartPushStock', 'ventacart/Commands/VentaCartPushPrice',
             'woocommerce/Commands/WoocommercePushStock', 'woocommerce/Commands/WoocommercePushPrice',
             'opencart/Commands/OpenCartPushQty', 'opencart/Commands/OpenCartPushPrice',
         ] as $file) {

@@ -457,7 +457,7 @@ class FoundationTest extends TestCase
             'Shopee\'s orange reads as the alert red on a filled button and must fall back to the neutral'
         );
 
-        foreach (['#0F146D' => 'Lazada', '#000000' => 'TikTok', '#1a8f5f' => 'Venta'] as $hex => $name) {
+        foreach (['#0F146D' => 'Lazada', '#000000' => 'TikTok', '#1a8f5f' => 'VentaCart'] as $hex => $name) {
             $this->assertSame(
                 \App\Support\ChannelAccent::deep($hex),
                 \App\Support\ChannelAccent::cta($hex),
@@ -481,7 +481,7 @@ class FoundationTest extends TestCase
             'shopee' => '#ee4d2d',
             'lazada' => '#0f146d',
             'tiktok' => '#1e1e1e',
-            'venta'  => '#7c3aed',
+            'ventacart'  => '#7c3aed',
         ];
 
         $failures = [];

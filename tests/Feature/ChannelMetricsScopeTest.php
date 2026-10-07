@@ -17,7 +17,7 @@ class ChannelMetricsScopeTest extends TestCase
         $this->coreOrder(['marketplace_source' => 'shopee', 'store_id' => 1, 'store_name' => 'Main store', 'total' => 100]);
         $this->coreOrder(['marketplace_source' => 'shopee', 'store_id' => 1, 'store_name' => 'Main store', 'total' => 250]);
         $this->coreOrder(['marketplace_source' => 'shopee', 'store_id' => 2, 'store_name' => 'Outlet', 'total' => 900]);
-        $this->coreOrder(['marketplace_source' => 'venta:3', 'store_id' => 3, 'store_name' => 'Gear Depot', 'total' => 40]);
+        $this->coreOrder(['marketplace_source' => 'ventacart:3', 'store_id' => 3, 'store_name' => 'Gear Depot', 'total' => 40]);
         $metrics = app(ChannelMetrics::class);
 
         $main = $metrics->trend('shopee:1');
@@ -28,7 +28,7 @@ class ChannelMetricsScopeTest extends TestCase
         $this->assertNotNull($outlet);
         $this->assertSame(1, (int) $outlet['totalOrders']);
 
-        $this->assertNotNull($metrics->trend('venta:3'));
+        $this->assertNotNull($metrics->trend('ventacart:3'));
         $this->assertNull($metrics->trend('shopee:9'));
     }
 

@@ -18,11 +18,11 @@
     .x-badge--lazada .x-badge__dot { background: #0f146d; }
     .x-badge--tiktok { color: var(--bl-ink); }
     .x-badge--tiktok .x-badge__dot { background: #111111; box-shadow: 0 0 0 1px var(--bl-rule-2); }
-    .x-badge--venta { color: #2b4b7a; }
-    .x-badge--venta .x-badge__dot { background: #2b4b7a; }
+    .x-badge--ventacart { color: #2b4b7a; }
+    .x-badge--ventacart .x-badge__dot { background: #2b4b7a; }
     [data-theme='dark'] .x-badge--shopee { color: #ff8a70; }
     [data-theme='dark'] .x-badge--lazada { color: #a3a9ff; }
-    [data-theme='dark'] .x-badge--venta { color: #8fb6e6; }
+    [data-theme='dark'] .x-badge--ventacart { color: #8fb6e6; }
 
     .x-menu__trigger {
         display: inline-flex;

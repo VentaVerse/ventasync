@@ -414,7 +414,7 @@ class ChannelWorkspace
         }
 
         $tokenColumn = match ($channelId) {
-            'venta' => 'api_token',
+            'ventacart' => 'api_token',
             'opencart' => 'api_key',
             'shopify' => 'access_token',
             default => null,
@@ -430,10 +430,10 @@ class ChannelWorkspace
 
         $errors24h = null;
 
-        if ($row && $channelId === 'venta') {
+        if ($row && $channelId === 'ventacart') {
             $errors24h = ((($row->api_log_mode ?? 'off') !== 'off'))
-                ? DB::table('venta_api_logs')
-                    ->where('venta_setting_id', $row->id)
+                ? DB::table('ventacart_api_logs')
+                    ->where('ventacart_setting_id', $row->id)
                     ->where('created_at', '>=', $since)
                     ->where('ok', 0)
                     ->count()

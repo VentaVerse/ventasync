@@ -57,7 +57,7 @@ class ExtensionImagesTest extends TestCase
 
     public function test_every_channel_ships_the_square_mark_the_add_store_modal_shows(): void
     {
-        foreach (['shopee', 'lazada', 'tiktok', 'venta'] as $channel) {
+        foreach (['shopee', 'lazada', 'tiktok', 'ventacart'] as $channel) {
             $this->assertTrue(ExtensionImages::has($channel, 'logo.png'), "{$channel} has no square mark");
         }
     }
@@ -69,7 +69,7 @@ class ExtensionImagesTest extends TestCase
         $this->assertStringContainsString("ExtensionImages::isTransparent(\$mbChannelId, 'logo-wide.png')", $bar, 'a lockup on its own background would be a block of colour on the bar');
         $this->assertStringContainsString("ExtensionImages::has(\$mbChannelId, 'logo.png')", $bar);
         $this->assertStringContainsString('x-chnav__markname', $bar, 'a channel without a wide logo is named beside its mark');
-        $this->assertTrue(ExtensionImages::has('venta', 'logo-wide.png'), 'Venta ships the wide logo the bar shows');
+        $this->assertTrue(ExtensionImages::has('ventacart', 'logo-wide.png'), 'VentaCart ships the wide logo the bar shows');
     }
 
     public function test_the_hub_cards_carry_the_channels_mark(): void

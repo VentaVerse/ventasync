@@ -7,13 +7,13 @@ use App\Http\Controllers\Api\MarketplaceConfigController;
 use App\Http\Controllers\Api\OrderController as ApiOrderController;
 use App\Http\Controllers\Api\MarketplaceOrderController as ApiMarketplaceOrderController;
 use App\Http\Controllers\Api\ProductController as ApiProductController;
-use Extensions\venta\Controllers\Api\VentaOrderApiController;
+use Extensions\ventacart\Controllers\Api\VentaCartOrderApiController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+Route::post('/login', [AuthController::class, 'login'])->middleware(['throttle:10,1', 'app.former-names']);
 
-Route::middleware(['auth:sanctum', 'app.person', 'app.once'])->group(function () {
+Route::middleware(['auth:sanctum', 'app.person', 'app.once', 'app.former-names'])->group(function () {
     Route::get('/user', function (Request $request) {
         return $request->user();
     });
@@ -58,10 +58,13 @@ Route::middleware(['auth:sanctum', 'app.person', 'app.once'])->group(function ()
         }
     });
 
-    Route::middleware('perm:manage_venta/order')->group(function () {
-        Route::get('/venta-stores', [VentaOrderApiController::class, 'stores']);
-        Route::get('/venta/{store}/orders', [VentaOrderApiController::class, 'index']);
-        Route::get('/venta/{store}/orders/{id}', [VentaOrderApiController::class, 'show']);
+    // "venta" is the channel's former name, kept while phone apps still call it.
+    Route::middleware('perm:manage_ventacart/order')->group(function () {
+        foreach (['ventacart', 'venta'] as $channel) {
+            Route::get('/' . $channel . '-stores', [VentaCartOrderApiController::class, 'stores']);
+            Route::get('/' . $channel . '/{store}/orders', [VentaCartOrderApiController::class, 'index']);
+            Route::get('/' . $channel . '/{store}/orders/{id}', [VentaCartOrderApiController::class, 'show']);
+        }
     });
 
     Route::middleware('perm:manage_catalog/product')->group(function () {

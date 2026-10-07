@@ -15,14 +15,14 @@ class IntegrationController extends Controller
         'shopee'   => \Extensions\shopee\Services\ShopeeOrdersPanel::class,
         'lazada'   => \Extensions\lazada\Services\LazadaOrdersPanel::class,
         'tiktok'   => \Extensions\tiktok\Services\TikTokOrdersPanel::class,
-        'venta'    => \Extensions\venta\Services\VentaOrdersPanel::class,
+        'ventacart'    => \Extensions\ventacart\Services\VentaCartOrdersPanel::class,
         'opencart' => \Extensions\opencart\Services\OpenCartOrdersPanel::class,
         'shopify'  => \Extensions\shopify\Services\ShopifyOrdersPanel::class,
         'pedallion' => \Extensions\pedallion\Services\PedallionOrdersPanel::class,
         'woocommerce' => \Extensions\woocommerce\Services\WooOrdersPanel::class,
     ];
 
-    private const ORDER_PANEL_STORE_SCOPED = ['venta', 'opencart', 'shopify', 'shopee', 'lazada', 'tiktok', 'woocommerce'];
+    private const ORDER_PANEL_STORE_SCOPED = ['ventacart', 'opencart', 'shopify', 'shopee', 'lazada', 'tiktok', 'woocommerce'];
 
     private const RETURNS_PANEL_SERVICES = [
         'shopee' => \Extensions\shopee\Services\ShopeeReturnsPanel::class,
@@ -342,9 +342,9 @@ class IntegrationController extends Controller
                         'menu' => $store?->menu ?? $card->menu,
                     ];
                 }
-            } elseif (in_array($baseId, ['venta', 'opencart', 'shopify', 'pedallion', 'woocommerce'], true)) {
+            } elseif (in_array($baseId, ['ventacart', 'opencart', 'shopify', 'pedallion', 'woocommerce'], true)) {
                 $tokenColumn = match ($baseId) {
-                    'venta' => 'api_token',
+                    'ventacart' => 'api_token',
                     'opencart' => 'api_key',
                     'shopify' => 'access_token',
                     'pedallion' => 'api_key',
@@ -359,9 +359,9 @@ class IntegrationController extends Controller
                         : DB::table($baseId . '_settings')->first();
 
                     $errors24h = null;
-                    if ($row && $baseId === 'venta') {
+                    if ($row && $baseId === 'ventacart') {
                         $errors24h = ((($row->api_log_mode ?? 'off') !== 'off'))
-                            ? DB::table('venta_api_logs')->where('venta_setting_id', $row->id)->where('created_at', '>=', $staleAfter)->where('ok', 0)->count()
+                            ? DB::table('ventacart_api_logs')->where('ventacart_setting_id', $row->id)->where('created_at', '>=', $staleAfter)->where('ok', 0)->count()
                             : null;
                     } elseif ($row && $baseId === 'shopify') {
                         $errors24h = ((($row->api_log_mode ?? 'off') !== 'off'))

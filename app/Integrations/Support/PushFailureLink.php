@@ -11,7 +11,7 @@ final class PushFailureLink
         'shopee' => 'ext.shopee.products.index',
         'lazada' => 'ext.lazada.products.index',
         'tiktok' => 'ext.tiktok.products.index',
-        'venta' => 'ext.venta.listings.index',
+        'ventacart' => 'ext.ventacart.listings.index',
         'woocommerce' => 'ext.woocommerce.listings.index',
     ];
 
