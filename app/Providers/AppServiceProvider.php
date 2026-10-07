@@ -110,6 +110,10 @@ class AppServiceProvider extends ServiceProvider
 
         $previous = null;
         $previous = set_error_handler(function ($severity, $message, $file = null, $line = null) use (&$previous, $logPath) {
+            if (! (error_reporting() & $severity)) {
+                return $previous ? (bool) call_user_func($previous, $severity, $message, $file, $line) : false;
+            }
+
             try {
             $severityName = match ($severity) {
                 E_ERROR => 'E_ERROR',
