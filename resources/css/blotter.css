@@ -12,7 +12,6 @@
 @import './pages/automations.css' layer(vocabulary);
 @import './pages/warehousing.css' layer(vocabulary);
 @import './pages/reviews.css' layer(vocabulary);
-@import './pages/changelog.css' layer(vocabulary);
 @import './pages/lazada-orders.css' layer(vocabulary);
 @import './pages/shopee-orders.css' layer(vocabulary);
 @import './pages/product-vendors.css' layer(vocabulary);

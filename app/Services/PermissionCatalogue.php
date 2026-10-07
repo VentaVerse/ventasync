@@ -16,7 +16,6 @@ class PermissionCatalogue
         'App\Http\Controllers\HomeController',
         'App\Http\Controllers\SearchController',
         'App\Http\Controllers\PaletteController',
-        'App\Http\Controllers\ChangelogController',
         'App\\Http\\Controllers\\Integrations\\',
         'App\\Http\\Controllers\\AutomationsController',
         'App\\Http\\Controllers\\Fulfilment\\',

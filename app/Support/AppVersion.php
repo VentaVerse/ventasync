@@ -49,7 +49,10 @@ final class AppVersion
         $releases = [];
         $current = null;
         foreach (preg_split('/\R/', (string) file_get_contents($file)) as $line) {
-            if (preg_match('/^## (\d+\.\d+\.\d+)(?: \(([\d-]+)\))?\s*$/', $line, $m)) {
+            if (preg_match('/^## Unreleased\s*$/i', $line)) {
+                $releases[] = ['version' => 'Unreleased', 'date' => null, 'lines' => []];
+                $current = array_key_last($releases);
+            } elseif (preg_match('/^## (\d+\.\d+\.\d+)(?: \(([\d-]+)\))?\s*$/', $line, $m)) {
                 $releases[] = ['version' => $m[1], 'date' => $m[2] ?? null, 'lines' => []];
                 $current = array_key_last($releases);
             } elseif ($current !== null && preg_match('/^- (.+)$/', $line, $m)) {

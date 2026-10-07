@@ -6,8 +6,6 @@ use App\Http\Controllers\DashboardController;
 Route::get('/', [\App\Http\Controllers\HomeController::class, 'index'])->name('root');
 
 Route::middleware(['auth'])->group(function () {
-    Route::get('/changelog', [\App\Http\Controllers\ChangelogController::class, 'index'])->name('changelog');
-
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     Route::get('/ui-kit-v2', fn () => view('ui-kit-v2'))->name('ui_kit_v2');
