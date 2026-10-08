@@ -14,7 +14,7 @@
         <h1 class="x-page-title">Product Groups</h1>
         <p class="x-page-sub">
             {{ number_format($groups->count()) }} {{ $groups->count() === 1 ? 'product group' : 'product groups' }}.
-            <x-ui.hint label="What a product group is">A product group holds the shared TikTok Shop settings a push starts from - category and price markup. Keep products under it and push them from here, or work per listing on the Listings page.</x-ui.hint>
+            <x-ui.hint label="What a product group is">A product group holds the shared TikTok Shop settings a push starts from - category and price markup. Keep products under it and push them from here, or work per listing on the Products page.</x-ui.hint>
         </p>
     </div>
     @if($canManageTiktok)

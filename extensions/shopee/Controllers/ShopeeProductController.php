@@ -1021,7 +1021,7 @@ class ShopeeProductController extends Controller
 
         if (!$listing || !$listing->pushable()) {
             return ['ok' => false, 'message' => 'Push failed: this product has no Shopee listing settings yet. '
-                . 'Open its listing (Listings → Open listing) and save its category, couriers and price rule, '
+                . 'Open its listing (Products → Open listing) and save its category, couriers and price rule, '
                 . 'or push it from its product group.'];
         }
 

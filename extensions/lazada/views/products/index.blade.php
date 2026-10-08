@@ -1,7 +1,7 @@
 @extends('layouts.channel')
-@section('breadcrumb', 'Listings')
+@section('breadcrumb', 'Products')
 
-@section('title', 'Lazada Listings')
+@section('title', 'Lazada Products')
 
 @section('content')
 @php
@@ -47,7 +47,7 @@
 
 <div class="x-list-head">
     <div>
-        <h1 class="x-page-title">Listings</h1>
+        <h1 class="x-page-title">Products</h1>
         <p class="x-page-sub">
             @if($hasFilters)
                 {{ number_format($paginator->total()) }} {{ $paginator->total() === 1 ? 'product matches' : 'products match' }}@if($statusMenu['label'] ?? null): {{ $statusMenu['label'] }}@endif

@@ -219,7 +219,7 @@ class LazadaAddToStoreTest extends TestCase
 
         $this->assertStringContainsString('Catalogue only widget', $html);
         $this->assertStringContainsString('Add to store', $html);
-        $this->assertStringContainsString('Back to Listings', $html);
+        $this->assertStringContainsString('Back to Products', $html);
         $this->assertStringNotContainsString('cc-worktab', $html);
     }
 

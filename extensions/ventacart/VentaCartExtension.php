@@ -71,7 +71,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Integrations\
                         ['label' => 'API log', 'section' => 'logs'],
                         ['label' => 'Sync log', 'section' => 'sync'],
                     ]),
-                    new MenuItem('Listings', 'ext.ventacart.listings.index', 'view_ventacart/listing', null, ['store' => $store->id], 'Catalog'),
+                    new MenuItem('Products', 'ext.ventacart.listings.index', 'view_ventacart/listing', null, ['store' => $store->id], 'Catalog'),
                     new MenuItem('Product Groups', 'ext.ventacart.product-groups.index', 'view_ventacart/product_group', null, ['store' => $store->id], 'Catalog'),
                     new MenuItem('Description Templates', 'ext.ventacart.description-templates.index', 'view_ventacart/description_template', null, ['store' => $store->id], 'Catalog'),
                     new MenuItem('Watermarks', 'ext.ventacart.watermarks.index', 'view_ventacart/watermark_template', null, ['store' => $store->id], 'Catalog'),

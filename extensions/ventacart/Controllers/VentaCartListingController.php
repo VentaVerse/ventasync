@@ -620,7 +620,7 @@ class VentaCartListingController extends Controller
             return response()->json(['ok' => true, 'product_id' => $productId, 'added' => ! $wasOn]);
         }
 
-        return redirect()->back()->with('status', 'Added to this store. Configure and push it from Listings whenever you are ready.');
+        return redirect()->back()->with('status', 'Added to this store. Configure and push it from Products whenever you are ready.');
     }
 
     public function addToStoreBulk(Request $request, int $store)

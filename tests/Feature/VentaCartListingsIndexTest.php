@@ -97,7 +97,7 @@ class VentaCartListingsIndexTest extends TestCase
         $labels = collect($cards[0]->stores ?? [])->first()?->menu ?? [];
         $labels = array_map(fn ($m) => [$m->label, $m->routeName, $m->group], (array) $labels);
 
-        $this->assertContains(['Listings', 'ext.ventacart.listings.index', 'Catalog'], $labels);
+        $this->assertContains(['Products', 'ext.ventacart.listings.index', 'Catalog'], $labels);
     }
 
     public function test_the_index_shows_the_menu_from_the_mirror_and_links_every_row_to_its_page(): void

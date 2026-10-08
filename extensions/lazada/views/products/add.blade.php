@@ -1,5 +1,5 @@
 @extends('layouts.channel')
-@section('breadcrumb', 'Listings')
+@section('breadcrumb', 'Products')
 @section('title', 'Add products to Lazada')
 
 @section('content')
@@ -28,7 +28,7 @@
         </p>
     </div>
     <div class="cc-head-actions">
-        <x-ui.button variant="secondary" :href="route('ext.lazada.products.index')">Back to Listings</x-ui.button>
+        <x-ui.button variant="secondary" :href="route('ext.lazada.products.index')">Back to Products</x-ui.button>
     </div>
 </div>
 

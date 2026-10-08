@@ -37,7 +37,7 @@
     <div class="fm-head">
         <div class="fm-head__main">
             <a class="fm-back" href="{{ \App\Support\BackTo::safe(request('back'), route('ext.shopee.products.index')) }}" data-guard-leave>
-                <x-ui.icon name="chevron-left" size="14" /> Listings
+                <x-ui.icon name="chevron-left" size="14" /> Products
             </a>
             <h1 class="fm-title">{{ $product->name !== '' ? $product->name : 'Product ' . $product->product_id }}</h1>
             <div class="fm-stamps">

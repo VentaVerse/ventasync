@@ -15,7 +15,7 @@
         <h1 class="x-page-title">Product Groups</h1>
         <p class="x-page-sub">
             {{ number_format($groups->count()) }} {{ $groups->count() === 1 ? 'product group' : 'product groups' }}.
-            <x-ui.hint label="What a product group is">A product group holds the shared Shopee settings a push starts from - category, attributes, couriers, markup. Load it from the push review on the Listings page, or keep products under it and push them from here.</x-ui.hint>
+            <x-ui.hint label="What a product group is">A product group holds the shared Shopee settings a push starts from - category, attributes, couriers, markup. Load it from the push review on the Products page, or keep products under it and push them from here.</x-ui.hint>
         </p>
     </div>
     @if($canManageShopee)

@@ -241,7 +241,7 @@ class ShopeeAddToStoreTest extends TestCase
 
         $this->assertStringContainsString('Catalogue only widget', $html);
         $this->assertStringContainsString('Add to store', $html);
-        $this->assertStringContainsString('Back to Listings', $html);
+        $this->assertStringContainsString('Back to Products', $html);
     }
 
     public function test_remove_from_store_takes_the_product_off_the_store_freely(): void

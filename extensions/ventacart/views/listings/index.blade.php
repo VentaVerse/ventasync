@@ -1,6 +1,6 @@
 @extends('layouts.channel')
-@section('breadcrumb', 'Listings')
-@section('title', $setting->store_name . ' Listings')
+@section('breadcrumb', 'Products')
+@section('title', $setting->store_name . ' Products')
 
 @section('content')
 @php
@@ -32,7 +32,7 @@
 
 <div class="x-list-head">
     <div>
-        <h1 class="x-page-title">Listings</h1>
+        <h1 class="x-page-title">Products</h1>
         <p class="x-page-sub">
             @if($hasFilters)
                 {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product matches' : 'products match' }}@if($statusMenu['label'] ?? null): {{ $statusMenu['label'] }}@endif

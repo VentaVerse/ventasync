@@ -162,7 +162,7 @@ class MultistoreWorkspaceTest extends TestCase
             ['Sell', 'Orders', route('ext.'.$channel.'.orders.index', ['store' => $storeId])],
         ];
         if ($channel === 'ventacart') {
-            $rows[] = ['Catalog', 'Listings', route('ext.ventacart.listings.index', ['store' => $storeId])];
+            $rows[] = ['Catalog', 'Products', route('ext.ventacart.listings.index', ['store' => $storeId])];
         }
         $rows[] = ['Catalog', 'Product Groups', route('ext.'.$channel.'.product-groups.index', ['store' => $storeId])];
         if (\Illuminate\Support\Facades\Route::has('ext.'.$channel.'.description-templates.index')) {

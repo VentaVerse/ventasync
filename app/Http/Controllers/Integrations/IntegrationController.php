@@ -435,7 +435,7 @@ class IntegrationController extends Controller
                         : route('channels.module', ['module' => $baseId]),
                     'actionLabel' => $ordersUrl ? 'View orders' : null,
                     'actionUrl' => $ordersUrl,
-                    'productsUrl' => $menuUrl($entry['menu'], 'Listings'),
+                    'productsUrl' => $menuUrl($entry['menu'], 'Products'),
                 ];
             }
         }
