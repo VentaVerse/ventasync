@@ -177,30 +177,6 @@ class OpenCartProductGroupController extends Controller
             ->get()
             ->keyBy('product_id');
 
-        $otherOcLinks = OpenCartProductLink::where('opencart_setting_id', '!=', $store)
-            ->whereIn('product_id', $productIds)
-            ->get()
-            ->groupBy('product_id');
-
-        $otherStoreNames = DB::table('opencart_settings')
-            ->where('id', '!=', $store)
-            ->where('enabled', true)
-            ->pluck('store_name', 'id');
-
-        $shopeeLinked = DB::table('shopee_product_links')
-            ->whereIn('product_id', $productIds)
-            ->pluck('shopee_item_id', 'product_id');
-
-        $lazadaLinked = DB::table('lazada_products')
-            ->whereIn('product_id', $productIds)
-            ->where('product_id', '>', 0)
-            ->pluck('lazada_item_id', 'product_id');
-
-        $tiktokLinked = DB::table('tiktok_product_group_products')
-            ->whereIn('product_id', $productIds)
-            ->whereNotNull('tiktok_product_id')
-            ->pluck('tiktok_product_id', 'product_id');
-
         $manualIds = $g->groupProducts()->pluck('product_id')->toArray();
 
         return view('ext-opencart::product-groups.products', [
@@ -208,11 +184,6 @@ class OpenCartProductGroupController extends Controller
             'group' => $g,
             'products' => $products,
             'links' => $links,
-            'otherOcLinks' => $otherOcLinks,
-            'otherStoreNames' => $otherStoreNames,
-            'shopeeLinked' => $shopeeLinked,
-            'lazadaLinked' => $lazadaLinked,
-            'tiktokLinked' => $tiktokLinked,
             'manualIds' => $manualIds,
             'q' => $q,
         ]);
