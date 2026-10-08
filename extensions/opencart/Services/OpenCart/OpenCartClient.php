@@ -4,7 +4,6 @@ namespace Extensions\opencart\Services\OpenCart;
 
 use Extensions\opencart\Models\OpenCartSetting;
 use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class OpenCartClient
@@ -18,7 +17,7 @@ class OpenCartClient
 
     private function http(): PendingRequest
     {
-        return Http::timeout(30)->connectTimeout(5)
+        return \App\Support\Net\StoreRequest::to((string) $this->setting->base_url)->timeout(30)->connectTimeout(5)
             ->retry(2, 300)
             ->withHeaders([
                 'X-ERP-API-Key' => $this->setting->api_key,
