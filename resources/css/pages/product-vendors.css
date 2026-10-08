@@ -74,6 +74,35 @@
 .po-mx-row__what { min-width: 0; display: grid; gap: 1px; }
 .po-mx-row__name { font-size: 13px; color: var(--bl-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .po-mx-row__sku { font-family: var(--font-mono); font-size: 11px; color: var(--bl-ink-3); }
+.po-mx-row__desc {
+    display: block;
+    max-width: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 12px;
+    color: var(--bl-ink-3);
+    text-align: left;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.po-mx-row__desc:hover,
+.po-mx-row__desc:focus-visible { color: var(--bl-ink); }
+
+.po-mx-desc {
+    display: grid;
+    gap: var(--bl-space-2);
+    padding: var(--bl-space-2) var(--bl-space-3) var(--bl-space-4);
+    border-bottom: 1px solid var(--bl-rule);
+}
+.po-mx-desc[hidden] { display: none; }
+.po-mx-desc__foot { display: flex; gap: var(--bl-space-2); align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.po-mx-desc__copy { max-width: 280px; }
 
 .po-mx-row__act { display: flex; gap: var(--bl-space-1); align-items: center; justify-content: flex-end; }
 .po-mx-row__save[hidden] { display: none; }

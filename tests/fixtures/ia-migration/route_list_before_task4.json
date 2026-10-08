@@ -1206,6 +1206,11 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "catalog/products/{id}/vendors",
+        "name": "ext.purchasing.products.vendors.manage"
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "catalog/reviews",
         "name": "ext.opencart.reviews.index"
     },
@@ -4915,6 +4920,11 @@
         "name": "ext.purchasing.products.vendors.update"
     },
     {
+        "method": "PUT",
+        "uri": "purchasing/api/products/{productId}/vendors/{id}/description",
+        "name": "ext.purchasing.products.vendors.update_description"
+    },
+    {
         "method": "GET|HEAD",
         "uri": "purchasing/api/purchase-orders/products",
         "name": "ext.purchasing.api.purchase_orders.products"
@@ -4923,11 +4933,6 @@
         "method": "GET|HEAD",
         "uri": "purchasing/api/vendors",
         "name": "ext.purchasing.api.vendors"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "purchasing/products/{id}/vendors",
-        "name": "ext.purchasing.products.vendors.manage"
     },
     {
         "method": "GET|HEAD",
@@ -4973,6 +4978,11 @@
         "method": "GET|HEAD",
         "uri": "purchasing/purchase-orders/{id}/attachments/{attachmentId}/download",
         "name": "ext.purchasing.purchase_orders.download_attachment"
+    },
+    {
+        "method": "PUT",
+        "uri": "purchasing/purchase-orders/{id}/charges",
+        "name": "ext.purchasing.purchase_orders.update_charges"
     },
     {
         "method": "POST",

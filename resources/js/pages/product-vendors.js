@@ -48,6 +48,28 @@ export default function initProductVendors(root) {
     try { currencies = JSON.parse(root.dataset.currencies || '[]'); } catch (e) { currencies = []; }
     try { optionValues = JSON.parse(root.dataset.optionValues || '[]'); } catch (e) { optionValues = []; }
 
+    const descUrlTemplate = root.dataset.descUrl || '';
+
+    function descPanel(id) {
+        return root.querySelector('[data-po-mx-desc="' + CSS.escape(String(id)) + '"]');
+    }
+
+    function rich(textarea) {
+        return (window.jQuery && window.jQuery(textarea).data('summernote')) ? window.jQuery(textarea) : null;
+    }
+
+    function readDesc(textarea) {
+        const editor = rich(textarea);
+        if (!editor) return textarea.value;
+        return editor.summernote('isEmpty') ? '' : editor.summernote('code');
+    }
+
+    function writeDesc(textarea, html) {
+        const editor = rich(textarea);
+        if (editor) editor.summernote('code', html);
+        textarea.value = html;
+    }
+
     function rowUrl(id) {
         return rowUrlTemplate.replace(ROW_ID_TOKEN, encodeURIComponent(id));
     }
@@ -197,6 +219,45 @@ export default function initProductVendors(root) {
                 return;
             }
 
+            const descToggle = e.target.closest('[data-po-mx-desc-toggle]');
+            if (descToggle) {
+                const panel = descPanel(descToggle.closest('[data-po-mx-row]').dataset.poMxRow);
+                if (panel) {
+                    panel.hidden = !panel.hidden;
+                    descToggle.setAttribute('aria-expanded', panel.hidden ? 'false' : 'true');
+                }
+                return;
+            }
+
+            const descSave = e.target.closest('[data-po-mx-desc-save]');
+            if (descSave) {
+                const panel = descSave.closest('[data-po-mx-desc]');
+                const id = panel.dataset.poMxDesc;
+                const row = list.querySelector('[data-po-mx-row="' + CSS.escape(id) + '"]');
+                descSave.disabled = true;
+                clearSay();
+                json(descUrlTemplate.replace(ROW_ID_TOKEN, encodeURIComponent(id)), 'PUT', {
+                    supplier_description: readDesc(panel.querySelector('[data-po-mx-desc-input]')),
+                })
+                    .then(function (res) {
+                        descSave.disabled = false;
+                        if (!res.ok) {
+                            say(apiError(res, 'That description could not be saved.'), 'fail');
+                            return;
+                        }
+                        const preview = row ? row.querySelector('[data-po-mx-desc-preview]') : null;
+                        if (preview) {
+                            preview.textContent = res.data.preview ? 'Supplier description: ' + res.data.preview : 'Add a supplier description';
+                        }
+                        say('Description saved.', 'ok');
+                    })
+                    .catch(function () {
+                        descSave.disabled = false;
+                        say('That description could not be saved. Check your connection and try again.', 'fail');
+                    });
+                return;
+            }
+
             const removeRow = e.target.closest('[data-po-mx-remove-row]');
             if (removeRow) {
                 const row = removeRow.closest('[data-po-mx-row]');
@@ -209,6 +270,8 @@ export default function initProductVendors(root) {
                             say(apiError(res, 'That price could not be removed.'), 'fail');
                             return;
                         }
+                        const panel = descPanel(row.dataset.poMxRow);
+                        if (panel) panel.remove();
                         row.remove();
                         retallyGroup(group);
                     });
@@ -243,6 +306,15 @@ export default function initProductVendors(root) {
         });
 
         list.addEventListener('change', function (e) {
+            const copy = e.target.closest('[data-po-mx-desc-copy]');
+            if (copy) {
+                const source = descPanel(copy.value);
+                const target = copy.closest('[data-po-mx-desc]').querySelector('[data-po-mx-desc-input]');
+                if (source && target) writeDesc(target, readDesc(source.querySelector('[data-po-mx-desc-input]')));
+                copy.value = '';
+                return;
+            }
+
             const row = e.target.closest('[data-po-mx-row]');
             if (!row) return;
             const save = row.querySelector('[data-po-mx-save]');

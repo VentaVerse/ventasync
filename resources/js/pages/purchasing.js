@@ -104,6 +104,7 @@ function initPoLines(form) {
     const subtotalEl = form.querySelector('[data-po-subtotal]');
     const discountEl = form.querySelector('[data-po-discount]');
     const totalEl = form.querySelector('[data-po-total]');
+    const chargesEl = form.querySelector('[data-po-charges-total]');
     const baseRow = form.querySelector('[data-po-base-row]');
     const baseTotalEl = form.querySelector('[data-po-base-total]');
     const currency = form.querySelector('[data-po-currency]');
@@ -131,8 +132,14 @@ function initPoLines(form) {
             discount += lineDisc;
         });
 
-        const total = subtotal - discount;
+        let charges = 0;
+        form.querySelectorAll('[data-po-charge-amount]').forEach(function (input) {
+            charges += parseFloat(input.value) || 0;
+        });
+
+        const total = subtotal - discount + charges;
         if (subtotalEl) subtotalEl.textContent = fmt(subtotal);
+        if (chargesEl) chargesEl.textContent = fmt(charges);
         if (discountEl) discountEl.textContent = fmt(discount);
         if (totalEl) totalEl.textContent = fmt(total);
 
@@ -384,6 +391,7 @@ function initPoLines(form) {
 
     if (currency) currency.addEventListener('change', recalc);
     if (rate) rate.addEventListener('input', recalc);
+    form.addEventListener('po:charges', recalc);
 
     let dragging = null;
 
@@ -443,6 +451,50 @@ function initPoLines(form) {
     }
 
     recalc();
+}
+
+function initPoCharges(root) {
+    const body = root.querySelector('[data-po-charges-body]');
+    const template = root.querySelector('[data-po-charge-template]');
+    const add = root.querySelector('[data-po-charge-add]');
+    if (!body || !template || !add) return;
+
+    function changed() {
+        root.dispatchEvent(new CustomEvent('po:charges', { bubbles: true }));
+    }
+
+    function reindex() {
+        body.querySelectorAll('[data-po-charge]').forEach(function (row, i) {
+            row.querySelectorAll('[name]').forEach(function (el) {
+                el.name = el.name.replace(/charges\[[^\]]+\]/, 'charges[' + i + ']');
+            });
+            row.querySelectorAll('[id]').forEach(function (el) {
+                el.id = el.id.replace(/po-charge-[^-]+-/, 'po-charge-' + i + '-');
+            });
+            row.querySelectorAll('label[for]').forEach(function (el) {
+                el.htmlFor = el.htmlFor.replace(/po-charge-[^-]+-/, 'po-charge-' + i + '-');
+            });
+        });
+    }
+
+    add.addEventListener('click', function () {
+        const row = template.content.firstElementChild.cloneNode(true);
+        body.appendChild(row);
+        reindex();
+        const name = row.querySelector('input[name$="[name]"]');
+        if (name) name.focus();
+        changed();
+    });
+
+    body.addEventListener('click', function (e) {
+        const btn = e.target.closest('[data-po-charge-remove]');
+        if (!btn) return;
+        btn.closest('[data-po-charge]').remove();
+        reindex();
+        changed();
+    });
+
+    body.addEventListener('input', changed);
 }
 
 function initReceive(root) {
@@ -522,6 +574,8 @@ document.addEventListener('DOMContentLoaded', function () {
         initPoHeader(form);
         if (form.hasAttribute('data-po-lines-form')) initPoLines(form);
     });
+
+    document.querySelectorAll('[data-po-charges]').forEach(initPoCharges);
 
     const receive = document.querySelector('[data-po-receive]');
     if (receive) initReceive(receive);
