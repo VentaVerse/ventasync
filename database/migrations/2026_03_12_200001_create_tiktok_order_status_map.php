@@ -21,6 +21,7 @@ return new class extends Migration {
         $now = now();
         DB::table('tiktok_order_status_map')->insert([
             ['tiktok_status' => 'UNPAID',              'context' => 'order', 'order_status_id' => 11, 'created_at' => $now, 'updated_at' => $now],
+            ['tiktok_status' => 'ON_HOLD',             'context' => 'order', 'order_status_id' => 1,  'created_at' => $now, 'updated_at' => $now],
             ['tiktok_status' => 'AWAITING_SHIPMENT',   'context' => 'order', 'order_status_id' => 1,  'created_at' => $now, 'updated_at' => $now],
             ['tiktok_status' => 'AWAITING_COLLECTION', 'context' => 'order', 'order_status_id' => 2,  'created_at' => $now, 'updated_at' => $now],
             ['tiktok_status' => 'IN_TRANSIT',          'context' => 'order', 'order_status_id' => 3,  'created_at' => $now, 'updated_at' => $now],

@@ -23,7 +23,10 @@ return new class extends Migration {
             ['shopee_status' => 'SHIPPED',          'order_status_id' => 3,  'created_at' => $now, 'updated_at' => $now],
             ['shopee_status' => 'COMPLETED',        'order_status_id' => 9,  'created_at' => $now, 'updated_at' => $now],
             ['shopee_status' => 'CANCELLED',        'order_status_id' => 5,  'created_at' => $now, 'updated_at' => $now],
-            ['shopee_status' => 'IN_CANCEL',        'order_status_id' => 5,  'created_at' => $now, 'updated_at' => $now],
+            ['shopee_status' => 'IN_CANCEL',        'order_status_id' => 1,  'created_at' => $now, 'updated_at' => $now],
+            ['shopee_status' => 'RETRY_SHIP',       'order_status_id' => 3,  'created_at' => $now, 'updated_at' => $now],
+            ['shopee_status' => 'TO_CONFIRM_RECEIVE', 'order_status_id' => 9, 'created_at' => $now, 'updated_at' => $now],
+            ['shopee_status' => 'TO_RETURN',        'order_status_id' => 3,  'created_at' => $now, 'updated_at' => $now],
             ['shopee_status' => 'INVOICE_PENDING',  'order_status_id' => 1,  'created_at' => $now, 'updated_at' => $now],
         ]);
     }
