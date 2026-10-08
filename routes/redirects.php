@@ -93,3 +93,6 @@ Route::get('integrations/{path?}', function (?string $path = null) use ($withQue
 
 Route::get('/channels/venta/{any?}', fn (?string $any = null) => redirect($withQuery('/channels/ventacart'.($any ? '/'.$any : '')), 301))
     ->where('any', '.*');
+
+Route::get('/petty-cash/{any?}', fn (?string $any = null) => redirect($withQuery('/finance/petty-cash'.($any ? '/'.$any : '')), 301))
+    ->where('any', '.*');

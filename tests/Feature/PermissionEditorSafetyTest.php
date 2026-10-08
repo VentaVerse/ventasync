@@ -177,7 +177,7 @@ class PermissionEditorSafetyTest extends TestCase
 
         $this->assertNotSame('', $catalog->warningFor('lazada/api_explorer'));
         $this->assertSame('', $catalog->warningFor('lazada/settings'));
-        $this->assertSame('', $catalog->warningFor('pettycash/ledger'));
+        $this->assertSame('', $catalog->warningFor('finance/petty_cash_ledger'));
         $this->assertSame('', $catalog->warningFor('settings/currency'));
 
         $warned = 0;
