@@ -71,7 +71,7 @@ class Navigation
 
             ...self::extensionEntries(),
 
-            ['label' => 'AI Tools', 'icon' => 'sparkles', 'route' => 'ext.assistant.index',
+            ['label' => 'AI Tools', 'icon' => 'sparkles', 'route' => 'ext.mcp.index',
              'keywords' => ['ai', 'assistant', 'mcp', 'claude', 'cursor', 'chatgpt']],
 
             ['label' => 'Settings', 'icon' => 'shield', 'route' => 'settings.hub',
