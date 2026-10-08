@@ -75,7 +75,7 @@ class ShopeeVariationPush
         if (empty($shopeeModels)) {
             $r = $this->pushForProduct($client, $auth, $itemId, $productId, $priceFor, $uploadImageId);
             if ($r === null) {
-                return ['ok' => true, 'message' => 'The catalogue has no variations for this product; nothing to add.', 'added' => 0];
+                return ['ok' => true, 'message' => 'The Master Catalog has no variations for this product; nothing to add.', 'added' => 0];
             }
 
             return ['ok' => (bool) $r['ok'], 'message' => $r['ok']
@@ -92,7 +92,7 @@ class ShopeeVariationPush
         $hidden = \App\Integrations\Listings\ListingVariations::hidden('shopee', (int) ($auth['store_id'] ?? 0), [$productId]);
         $combos = $combos->filter(fn ($c) => \App\Integrations\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
         if ($combos->isEmpty()) {
-            return ['ok' => true, 'message' => 'The catalogue has no variations for this product; nothing to add.', 'added' => 0];
+            return ['ok' => true, 'message' => 'The Master Catalog has no variations for this product; nothing to add.', 'added' => 0];
         }
 
         $existingSkus = [];
@@ -108,7 +108,7 @@ class ShopeeVariationPush
             return $sku !== '' && !isset($existingSkus[$sku]);
         })->values();
         if ($missing->isEmpty()) {
-            return ['ok' => true, 'message' => 'Every catalogue variation is already on Shopee.', 'added' => 0];
+            return ['ok' => true, 'message' => 'Every Master Catalog variation is already on Shopee.', 'added' => 0];
         }
 
         $values = DB::table('product_option_combination_values as cv')
@@ -130,7 +130,7 @@ class ShopeeVariationPush
         $axisIds = array_keys($axisSet);
 
         if (count($axisIds) !== count($shopeeTiers)) {
-            return ['ok' => false, 'message' => 'The catalogue arranges this product in ' . count($axisIds)
+            return ['ok' => false, 'message' => 'The Master Catalog arranges this product in ' . count($axisIds)
                 . ' option ' . (count($axisIds) === 1 ? 'axis' : 'axes') . ' but the Shopee listing has ' . count($shopeeTiers)
                 . ' tier' . (count($shopeeTiers) === 1 ? '' : 's') . '. Restructuring a live listing is not safe to do blind - adjust it in Seller Centre, then press Re-read variations.', 'added' => 0];
         }
@@ -168,7 +168,7 @@ class ShopeeVariationPush
                 $valueName = trim((string) ($comboValues[(int) $combo->id][$axisId] ?? ''));
                 if ($valueName === '') {
                     return ['ok' => false, 'message' => 'Variation ' . trim((string) $combo->sku)
-                        . ' is missing a value on one of its option axes, so it cannot be placed on the tiers. Fix the variation in the catalogue first.', 'added' => 0];
+                        . ' is missing a value on one of its option axes, so it cannot be placed on the tiers. Fix the variation in the Master Catalog first.', 'added' => 0];
                 }
                 $found = null;
                 foreach ($newTiers[$tierN]['option_list'] as $i => $entry) {

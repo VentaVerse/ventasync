@@ -87,7 +87,7 @@
                 </span>
                 @if($mode === 'edit' && $listing->product_id)
                     <span class="fm-stamp">
-                        <span class="fm-stamp__k">Catalog product</span>
+                        <span class="fm-stamp__k">Master Catalog product</span>
                         <a class="fm-stamp__v" href="{{ route('products.edit', $listing->product_id) }}">{{ $listing->product_id }}</a>
                     </span>
                 @endif
@@ -220,13 +220,13 @@
 
                     <div class="fm-fields" data-catalog-picker
                          data-search-url="{{ route('ext.lazada.products.search_catalog') }}">
-                        <x-ui.field label="Catalog product" for="lz-search" name="product_id" :required="true" wide
+                        <x-ui.field label="Master Catalog product" for="lz-search" name="product_id" :required="true" wide
                                     hint="Type at least two characters, then pick one from the list. Every Lazada payload is built from this product.">
                             <div class="fm-ta">
                                 <x-ui.input id="lz-search" type="search" autocomplete="off"
                                             data-unmatched-search
                                             placeholder="Search by name, model or SKU" />
-                                <div class="fm-ta__list" data-unmatched-results role="listbox" aria-label="Catalog matches"></div>
+                                <div class="fm-ta__list" data-unmatched-results role="listbox" aria-label="Master Catalog matches"></div>
                             </div>
                             <input type="hidden" name="product_id" data-unmatched-id value="{{ old('product_id', $listing->product_id) }}">
                         </x-ui.field>
@@ -401,9 +401,9 @@
                                         <thead>
                                             <tr>
                                                 <th scope="col" class="fm-vcol-name">Variation</th>
-                                                <th scope="col" class="fm-vcol-sku">Catalog SKU</th>
-                                                <th scope="col" class="fm-vcol-price fm-vcol-num">Catalog price</th>
-                                                <th scope="col" class="fm-vcol-qty fm-vcol-num">Catalog stock</th>
+                                                <th scope="col" class="fm-vcol-sku">Master Catalog SKU</th>
+                                                <th scope="col" class="fm-vcol-price fm-vcol-num">Master Catalog price</th>
+                                                <th scope="col" class="fm-vcol-qty fm-vcol-num">Master Catalog stock</th>
                                                 <th scope="col" class="fm-vcol-price fm-vcol-num">Lazada price</th>
                                             </tr>
                                         </thead>
@@ -418,9 +418,9 @@
                                                 @endphp
                                                 <tr>
                                                     <td class="fm-vcol-name" data-label="Variation">{{ $variantLabel }}</td>
-                                                    <td class="fm-vcol-sku" data-label="Catalog SKU"><span class="x-num">{{ $variant->sku ?: 'None' }}</span></td>
-                                                    <td class="fm-vcol-price fm-num" data-label="Catalog price">{{ number_format((float) ($variant->absolute_price ?? 0), 2) }}</td>
-                                                    <td class="fm-vcol-qty fm-num" data-label="Catalog stock">{{ $variant->quantity }}</td>
+                                                    <td class="fm-vcol-sku" data-label="Master Catalog SKU"><span class="x-num">{{ $variant->sku ?: 'None' }}</span></td>
+                                                    <td class="fm-vcol-price fm-num" data-label="Master Catalog price">{{ number_format((float) ($variant->absolute_price ?? 0), 2) }}</td>
+                                                    <td class="fm-vcol-qty fm-num" data-label="Master Catalog stock">{{ $variant->quantity }}</td>
                                                     <td class="fm-vcol-price fm-vcol-num" data-label="Lazada price">
                                                         <input class="x-input fm-num" name="variants[{{ $variantId }}][price]"
                                                                type="number" step="0.01" min="0"

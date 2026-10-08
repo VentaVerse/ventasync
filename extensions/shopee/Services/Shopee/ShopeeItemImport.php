@@ -132,7 +132,7 @@ class ShopeeItemImport
         return [
             'ok' => true,
             'product_id' => $productId,
-            'message' => "Imported \"{$name}\" as catalog product #{$productId}"
+            'message' => "Imported \"{$name}\" as Master Catalog product #{$productId}"
                 . ($models !== null ? ' with ' . count($models['models']) . ' variations' : '')
                 . ', linked to Shopee item ' . $itemId . '.' . (\App\Support\Catalog\SkuFallback::note($minted) !== '' ? ' ' . \App\Support\Catalog\SkuFallback::note($minted) : ''),
         ];

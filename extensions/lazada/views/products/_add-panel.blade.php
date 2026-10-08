@@ -9,6 +9,6 @@
     in-label="On this store"
     scope="this store"
     empty-default="Every enabled product is already on this store."
-    empty-all="Your catalogue has no enabled products."
-    list-label="Catalogue products"
+    empty-all="Your Master Catalog has no enabled products."
+    list-label="Master Catalog products"
     :full-url="route('ext.lazada.products.index', ['list' => 'add'])" />

@@ -125,7 +125,7 @@ class OpenCartImportController extends Controller
 
         $pfx = (string) config('catalog.prefix');
         if (! DB::table($pfx . 'product')->where('product_id', (int) $data['product_id'])->exists()) {
-            return redirect()->back()->with('error', 'That catalog product does not exist.');
+            return redirect()->back()->with('error', 'That Master Catalog product does not exist.');
         }
 
         OpenCartProductLink::updateOrCreate(
@@ -133,7 +133,7 @@ class OpenCartImportController extends Controller
             ['product_id' => (int) $data['product_id'], 'sku' => trim((string) ($data['sku'] ?? '')) ?: null]
         );
 
-        return redirect()->back()->with('status', 'Linked OpenCart product #' . $data['ref'] . ' to catalog product #' . $data['product_id'] . '.');
+        return redirect()->back()->with('status', 'Linked OpenCart product #' . $data['ref'] . ' to Master Catalog product #' . $data['product_id'] . '.');
     }
 
     public function searchCatalog(Request $request, int $store)

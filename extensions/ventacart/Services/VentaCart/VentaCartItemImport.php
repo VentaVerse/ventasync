@@ -101,7 +101,7 @@ class VentaCartItemImport
         return [
             'ok' => true,
             'product_id' => $productId,
-            'message' => "Imported \"{$name}\" as catalog product #{$productId}"
+            'message' => "Imported \"{$name}\" as Master Catalog product #{$productId}"
                 . ($variants !== [] ? ' with ' . count($variants) . ' variations' : '')
                 . ', linked to ' . ($setting->store_name ?: 'VentaCart') . '.' . (\App\Support\Catalog\SkuFallback::note($minted) !== '' ? ' ' . \App\Support\Catalog\SkuFallback::note($minted) : ''),
         ];

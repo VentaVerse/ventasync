@@ -88,7 +88,7 @@ class ShopeePreflightTest extends TestCase
 
         $r->assertSessionHas('error');
         $this->assertStringContainsString('a package weight', session('error'));
-        $this->assertStringContainsString('Add them on the catalog product', session('error'));
+        $this->assertStringContainsString('Add them on the Master Catalog product', session('error'));
         $this->assertSame([], $this->calls, 'the marketplace was never asked - that is the whole point');
     }
 

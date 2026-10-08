@@ -101,7 +101,7 @@ class VentaCartReconcileTest extends TestCase
         $this->assertStringContainsString('images_unavailable', $source);
         $this->assertStringContainsString('will not create a product it cannot fetch images for', $source,
             'VentaCart refusing to create a product without fetchable images is shown as a raw envelope.');
-        $this->assertStringContainsString('Nothing in the catalog needs fixing', $source,
+        $this->assertStringContainsString('Nothing in the Master Catalog needs fixing', $source,
             'The refusal does not tell the operator where the problem is not, so they will go hunting in the product.');
     }
 

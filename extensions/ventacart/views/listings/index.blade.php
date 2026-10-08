@@ -65,7 +65,7 @@
 <div class="x-segment-bar">
     <div class="x-segment-groups">
         <div class="x-segment-group">
-            <span class="x-segment-group__k">Your catalogue</span>
+            <span class="x-segment-group__k">Your Master Catalog</span>
             <nav class="x-segment" aria-label="Catalogue">
                 <a href="{{ $indexUrl($tabQuery) }}"
                    class="x-segment__item {{ $ventaCartTab === 'all' ? 'is-active' : '' }}"
@@ -149,8 +149,8 @@
     @endif
     <x-ui.input type="search" name="q" class="x-filters__search" value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search listings" />
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
-        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by catalogue status">
-            <option value="all" @selected($erpStatus === 'all')>Any catalogue status</option>
+        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by Master Catalog status">
+            <option value="all" @selected($erpStatus === 'all')>Any Master Catalog status</option>
             <option value="enabled" @selected($erpStatus === 'enabled')>Enabled</option>
             <option value="disabled" @selected($erpStatus === 'disabled')>Disabled</option>
         </select>
@@ -372,8 +372,8 @@
         in-label="On this store"
         scope="this store"
         empty-default="Every enabled product is already on this store."
-        empty-all="Your catalog has no enabled products."
-        list-label="Catalog products" />
+        empty-all="Your Master Catalog has no enabled products."
+        list-label="Master Catalog products" />
 @endif
 </div>
 @endsection

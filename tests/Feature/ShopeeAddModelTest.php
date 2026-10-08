@@ -451,7 +451,7 @@ class ShopeeAddModelTest extends TestCase
 
         $status = (string) session('status');
         $this->assertStringStartsWith('Update pushed.', $status);
-        $this->assertStringContainsString('Variation names were not changed: none of the item\'s variations on Shopee carries a SKU the catalog holds.', $status);
+        $this->assertStringContainsString('Variation names were not changed: none of the item\'s variations on Shopee carries a SKU the Master Catalog holds.', $status);
         $this->assertNull($this->postIndex('/api/v2/product/update_tier_variation'));
         $this->assertNotNull($this->postIndex('/api/v2/product/update_item'), 'A skipped rename never holds the update back.');
         $this->assertNull(ShopeeListing::query()->where('product_id', $pid)->value('last_push_error'), 'The update succeeded, so the success is recorded.');

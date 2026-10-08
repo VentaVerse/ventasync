@@ -270,7 +270,7 @@ export function initCatalogPicker(form) {
                 .then((response) => response.json())
                 .then((items) => {
                     if (!Array.isArray(items) || !items.length) {
-                        message('No catalog product matches that.');
+                        message('No Master Catalog product matches that.');
                         return;
                     }
                     list.textContent = '';

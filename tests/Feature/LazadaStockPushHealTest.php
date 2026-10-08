@@ -259,7 +259,7 @@ class LazadaStockPushHealTest extends TestCase
         $this->actingAs($this->manager())->post(route('ext.lazada.products.check'), ['product_ids' => [$other]])->assertRedirect();
 
         $this->assertNull($row->fresh()->lazada_item_id, 'an item another product holds is never adopted');
-        $this->assertStringContainsString('linked to catalog product #' . $holder, (string) $this->line($other));
+        $this->assertStringContainsString('linked to Master Catalog product #' . $holder, (string) $this->line($other));
         $this->assertNotNull(session('error'));
     }
 

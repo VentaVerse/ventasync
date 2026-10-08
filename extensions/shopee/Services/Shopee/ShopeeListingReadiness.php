@@ -106,7 +106,7 @@ class ShopeeListingReadiness
             $width = (float) (($listing?->package_width) ?? ($parcel->width ?? 0));
             $height = (float) (($listing?->package_height) ?? ($parcel->height ?? 0));
             if ($weight <= 0 || $length <= 0 || $width <= 0 || $height <= 0) {
-                $gaps[] = ['code' => ListingState::GAP_PARCEL, 'label' => 'a package weight and size (L×W×H) on the catalog product'];
+                $gaps[] = ['code' => ListingState::GAP_PARCEL, 'label' => 'a package weight and size (L×W×H) on the Master Catalog product'];
             }
 
             if ($isLinked) {

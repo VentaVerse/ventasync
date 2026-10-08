@@ -198,7 +198,7 @@ class LazadaListingStateTest extends TestCase
         $this->assertNull($states[$inSync]->driftLabel());
 
         $this->assertFalse($states[$behind]->inSync);
-        $this->assertSame('Catalog change', $states[$behind]->driftLabel());
+        $this->assertSame('Master Catalog change', $states[$behind]->driftLabel());
 
         $this->assertTrue($states[$savedUnchanged]->inSync, 'a catalog saved with nothing different raises nothing');
         $this->assertNull($states[$noListing]->inSync ?? null, 'no listing: nothing to compare');

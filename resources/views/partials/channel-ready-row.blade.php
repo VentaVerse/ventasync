@@ -12,7 +12,7 @@
             <span class="cc-warn-lead">Needs details{{ $summary !== '' ? ':' : '' }}</span>
             {{ $summary }}
             @if($fixHref !== null)
-                <a class="cc-warn-fix" href="{{ $fixHref }}">Fix in the catalog</a>
+                <a class="cc-warn-fix" href="{{ $fixHref }}">Fix in Master Catalog</a>
             @endif
         </td>
     </tr>

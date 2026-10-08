@@ -82,7 +82,7 @@
         var save = panel.querySelector('[data-lcx-save]');
         if (save) {
             var mark = function () {
-                save.setAttribute('data-confirm', 'Save the changes to the catalog product too?');
+                save.setAttribute('data-confirm', 'Save the changes to the Master Catalog product too?');
                 save.setAttribute('data-confirm-tone', 'primary');
                 save.setAttribute('data-confirm-verb', 'Save');
             };

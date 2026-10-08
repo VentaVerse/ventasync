@@ -900,25 +900,25 @@ class TikTokProductController extends Controller
 
         $pfx = (string) config('catalog.prefix');
         if (! DB::table($pfx . 'product')->where('product_id', $productId)->exists()) {
-            return redirect()->back()->with('error', 'Catalog product not found.');
+            return redirect()->back()->with('error', 'Master Catalog product not found.');
         }
 
         $held = TikTokListing::query()->where('product_id', $productId)->whereNotNull('tiktok_product_id')->value('tiktok_product_id')
             ?: TikTokProductGroupProduct::query()->onStore()->where('product_id', $productId)->whereNotNull('tiktok_product_id')->value('tiktok_product_id');
         if ($held && (string) $held !== (string) $data['ref']) {
-            return redirect()->back()->with('error', 'Catalog product #' . $productId . ' is already linked to TikTok product ' . $held . '. Unlink it first.');
+            return redirect()->back()->with('error', 'Master Catalog product #' . $productId . ' is already linked to TikTok product ' . $held . '. Unlink it first.');
         }
         $taken = TikTokListing::query()->where('tiktok_product_id', (string) $data['ref'])->where('product_id', '!=', $productId)->value('product_id')
             ?: TikTokProductGroupProduct::query()->onStore()->where('tiktok_product_id', (string) $data['ref'])->where('product_id', '!=', $productId)->value('product_id');
         if ($taken) {
-            return redirect()->back()->with('error', 'TikTok product ' . $data['ref'] . ' is already linked to catalog product #' . $taken . '. Unlink that product first.');
+            return redirect()->back()->with('error', 'TikTok product ' . $data['ref'] . ' is already linked to Master Catalog product #' . $taken . '. Unlink that product first.');
         }
         TikTokListing::updateOrCreate(
             ['product_id' => $productId],
             ['tiktok_product_id' => (string) $data['ref'], 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null]
         );
 
-        return redirect()->back()->with('status', 'Linked TikTok product #' . $data['ref'] . ' to catalog product #' . $productId . '.');
+        return redirect()->back()->with('status', 'Linked TikTok product #' . $data['ref'] . ' to Master Catalog product #' . $productId . '.');
     }
 
     public function bulkPushStock(Request $request, TikTokClient $client)

@@ -407,7 +407,7 @@ class VentaCartProductPush
             ->first();
 
         if ($conflict) {
-            return "VentaCart product {$ventaCartProductId} is already linked to catalog product "
+            return "VentaCart product {$ventaCartProductId} is already linked to Master Catalog product "
                 . "#{$conflict->product_id}. Unlink that product first, then try this one again.";
         }
 
@@ -423,7 +423,7 @@ class VentaCartProductPush
     {
         $prod = $this->product($productId);
         if (! $prod) {
-            return self::outcome(false, 'failed', 'The catalog product no longer exists.');
+            return self::outcome(false, 'failed', 'The Master Catalog product no longer exists.');
         }
 
         if (\App\Integrations\Listings\ListingVariations::noneSold('ventacart', (int) $this->setting->id, $productId)) {
@@ -586,11 +586,11 @@ class VentaCartProductPush
         if (stripos($raw, 'images_unavailable') !== false) {
             return 'VentaCart will not create a product it cannot fetch images for, so nothing was listed. '
                 . 'It reads images over the web from the address this ERP publishes, and that address is a '
-                . 'private one, so the images never reach it. Nothing in the catalog needs fixing.';
+                . 'private one, so the images never reach it. Nothing in the Master Catalog needs fixing.';
         }
 
         if (stripos($raw, 'sku has already been taken') !== false) {
-            return "VentaCart already has a product with SKU {$sku} that this catalog product is not linked to. "
+            return "VentaCart already has a product with SKU {$sku} that this Master Catalog product is not linked to. "
                 . 'Press Send again and it will find that product and link to it.';
         }
 

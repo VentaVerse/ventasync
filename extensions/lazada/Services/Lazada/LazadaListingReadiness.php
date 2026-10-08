@@ -213,7 +213,7 @@ class LazadaListingReadiness
 
         $needsPrice = in_array('price', array_map(fn ($k) => strtolower((string) $k), $requiredKeys), true);
         if ($needsPrice && array_filter($prices, fn ($p) => $p <= 0) !== []) {
-            $gaps[] = ['code' => ListingState::GAP_PRICE, 'label' => 'a price above zero on the catalog product and every variation'];
+            $gaps[] = ['code' => ListingState::GAP_PRICE, 'label' => 'a price above zero on the Master Catalog product and every variation'];
         }
 
         return $gaps;

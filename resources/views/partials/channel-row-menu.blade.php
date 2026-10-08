@@ -44,7 +44,7 @@
         <a class="x-menu__item" href="{{ $m['edit'] }}">Edit listing</a>
     @endif
     @if(! empty($m['catalog']))
-        <a class="x-menu__item" href="{{ $m['catalog'] }}">Edit in catalog</a>
+        <a class="x-menu__item" href="{{ $m['catalog'] }}">Edit in Master Catalog</a>
     @endif
 
     @if(! empty($m['push']))

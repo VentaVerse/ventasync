@@ -172,7 +172,7 @@ class TikTokListingStateTest extends TestCase
 
         $this->assertTrue($states[$inSync]->inSync, 'a catalog save that changed nothing is not a change');
         $this->assertFalse($states[$behind]->inSync);
-        $this->assertSame('Catalog change', $states[$behind]->driftLabel());
+        $this->assertSame('Master Catalog change', $states[$behind]->driftLabel());
         $this->assertSame([], $states[$behind]->reasons, 'the button says it; no reason line repeats it');
         $this->assertFalse($states[$notListed]->inSync, 'a listing not on TikTok yet keeps its own copy too');
         $this->assertNull($states[$pivotOnly]->inSync, 'no listing row: nothing to compare');

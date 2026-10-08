@@ -106,7 +106,7 @@ class OpenCartItemImport
         return [
             'ok' => true,
             'product_id' => $productId,
-            'message' => "Imported \"{$name}\" as catalog product #{$productId}"
+            'message' => "Imported \"{$name}\" as Master Catalog product #{$productId}"
                 . ($optionValues !== [] && ! $multiOption ? ' with ' . count($optionValues) . ' variations' : '')
                 . ($multiOption ? ' (its ' . count($optionNames) . ' independent option sets could not be carried; set variations up by hand)' : '')
                 . ', linked to ' . ($setting->store_name ?: 'OpenCart') . '.' . (\App\Support\Catalog\SkuFallback::note($minted) !== '' ? ' ' . \App\Support\Catalog\SkuFallback::note($minted) : ''),

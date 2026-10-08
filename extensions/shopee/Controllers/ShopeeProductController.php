@@ -799,7 +799,7 @@ class ShopeeProductController extends Controller
                     'Nothing was published: Shopee will refuse ' . (count($heldBack) === 1 ? 'it' : 'all of them') . ' without a parcel. '
                     . implode('; ', array_slice($heldBack, 0, 5))
                     . (count($heldBack) > 5 ? '; and ' . (count($heldBack) - 5) . ' more' : '')
-                    . '. Add weight and size on the catalog products first.');
+                    . '. Add weight and size on the Master Catalog products first.');
             }
         }
 
@@ -1973,18 +1973,18 @@ class ShopeeProductController extends Controller
 
         $pfx = (string) config('catalog.prefix');
         if (! DB::table($pfx . 'product')->where('product_id', (int) $data['product_id'])->exists()) {
-            return redirect()->back()->with('error', 'Catalog product not found.');
+            return redirect()->back()->with('error', 'Master Catalog product not found.');
         }
 
         $storeId = (int) (ShopeeSetting::defaultStore()?->id ?? 0);
         $scoped = fn () => ShopeeProductLink::query()->whereNull('shopee_model_id')->when($storeId > 0, fn ($q) => $q->where('shopee_setting_id', $storeId));
         $held = $scoped()->where('product_id', (int) $data['product_id'])->whereNotNull('shopee_item_id')->first();
         if ($held && (string) $held->shopee_item_id !== (string) $data['ref']) {
-            return redirect()->back()->with('error', 'Catalog product #' . $data['product_id'] . ' is already linked to Shopee item ' . $held->shopee_item_id . '. Unlink it first.');
+            return redirect()->back()->with('error', 'Master Catalog product #' . $data['product_id'] . ' is already linked to Shopee item ' . $held->shopee_item_id . '. Unlink it first.');
         }
         $taken = $scoped()->where('shopee_item_id', (string) $data['ref'])->where('product_id', '!=', (int) $data['product_id'])->first();
         if ($taken) {
-            return redirect()->back()->with('error', 'Shopee item ' . $data['ref'] . ' is already linked to catalog product #' . $taken->product_id . '. Unlink that product first.');
+            return redirect()->back()->with('error', 'Shopee item ' . $data['ref'] . ' is already linked to Master Catalog product #' . $taken->product_id . '. Unlink that product first.');
         }
         if (! $held) {
             ShopeeProductLink::create([
@@ -1995,7 +1995,7 @@ class ShopeeProductController extends Controller
             ]);
         }
 
-        return redirect()->back()->with('status', 'Linked Shopee item #' . $data['ref'] . ' to catalog product #' . $data['product_id'] . '.');
+        return redirect()->back()->with('status', 'Linked Shopee item #' . $data['ref'] . ' to Master Catalog product #' . $data['product_id'] . '.');
     }
 
     public function searchCatalogProducts(Request $request)
@@ -2880,7 +2880,7 @@ class ShopeeProductController extends Controller
             $this->listingStates()->recordOutcome($productId, 'Not published: Shopee will refuse it without ' . $parcelGap . '.');
             return redirect()->back()->with('error',
                 'Not published: Shopee will refuse it without ' . $parcelGap
-                . '. Add them on the catalog product (Catalog, Products, edit), then publish.');
+                . '. Add them on the Master Catalog product (Master Catalog, Products, edit), then publish.');
         }
 
         $result = $this->unlistItems($client, $auth, [(int) $link->shopee_item_id], $unlist);

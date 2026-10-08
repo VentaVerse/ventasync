@@ -43,17 +43,17 @@ final class CatalogGaps
                     self::ENABLED => (! $p || (int) $p->status !== 1)
                         ? ['code' => ListingState::GAP_DISABLED, 'label' => self::DISABLED_LABEL] : null,
                     self::NAME => (! $p || trim(html_entity_decode((string) ($p->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8')) === '')
-                        ? ['code' => ListingState::GAP_NAME, 'label' => 'a name on the catalog product'] : null,
+                        ? ['code' => ListingState::GAP_NAME, 'label' => 'a name on the Master Catalog product'] : null,
                     self::DESCRIPTION => (! $p || trim(strip_tags(html_entity_decode((string) ($p->description ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8'))) === '')
-                        ? ['code' => ListingState::GAP_DESCRIPTION, 'label' => 'a description on the catalog product'] : null,
+                        ? ['code' => ListingState::GAP_DESCRIPTION, 'label' => 'a description on the Master Catalog product'] : null,
                     self::PRICE => (! $p || (float) $p->price <= 0)
-                        ? ['code' => ListingState::GAP_PRICE, 'label' => 'a price above zero on the catalog product'] : null,
+                        ? ['code' => ListingState::GAP_PRICE, 'label' => 'a price above zero on the Master Catalog product'] : null,
                     self::SKU, self::ANY_SKU => (! $p || trim((string) ($p->sku ?? '')) === '')
-                        ? ['code' => ListingState::GAP_SKU, 'label' => 'an SKU on the catalog product'] : null,
+                        ? ['code' => ListingState::GAP_SKU, 'label' => 'an SKU on the Master Catalog product'] : null,
                     self::IMAGE => (! $p || (trim((string) $p->image) === '' && ! isset($ownPictures[$pid])))
-                        ? ['code' => ListingState::GAP_IMAGE, 'label' => 'a product image on the catalog product'] : null,
+                        ? ['code' => ListingState::GAP_IMAGE, 'label' => 'a product image on the Master Catalog product'] : null,
                     self::PARCEL => (! $p || (float) $p->weight <= 0 || (float) $p->length <= 0 || (float) $p->width <= 0 || (float) $p->height <= 0)
-                        ? ['code' => ListingState::GAP_PARCEL, 'label' => 'a package weight and size (L×W×H) on the catalog product'] : null,
+                        ? ['code' => ListingState::GAP_PARCEL, 'label' => 'a package weight and size (L×W×H) on the Master Catalog product'] : null,
                     default => null,
                 };
                 if ($gap !== null) {
@@ -66,7 +66,7 @@ final class CatalogGaps
         return $out;
     }
 
-    public const DISABLED_LABEL = 'product in catalog is disabled';
+    public const DISABLED_LABEL = 'product in Master Catalog is disabled';
 
     public static function refusal(array $readiness, string $verb = 'push'): string
     {

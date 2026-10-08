@@ -180,7 +180,7 @@ class ShopeeReadinessTest extends TestCase
         $this->assertFalse($out[$bare]['ready']);
         $this->assertContains('a Shopee category', $out[$bare]['missing']);
         $this->assertContains('at least one courier', $out[$bare]['missing']);
-        $this->assertContains('a product image on the catalog product', $out[$bare]['missing']);
+        $this->assertContains('a product image on the Master Catalog product', $out[$bare]['missing']);
 
         $this->assertFalse($out[$unanswered]['ready']);
         $this->assertContains('answers for 1 required attribute (Warranty Type)', $out[$unanswered]['missing']);

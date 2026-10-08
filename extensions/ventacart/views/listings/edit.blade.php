@@ -195,7 +195,7 @@
                 <section class="fm-section" id="vl-only">
                     <div class="fm-section__head"><h2 class="fm-section__title">Only on {{ $storeName }}</h2></div>
                     <div class="fm-sub">
-                        <h3 class="fm-sub__title">Search engines <x-ui.hint label="About the meta fields">What search engines show for the product's page on the store. Empty fields follow the catalogue's.</x-ui.hint></h3>
+                        <h3 class="fm-sub__title">Search engines <x-ui.hint label="About the meta fields">What search engines show for the product's page on the store. Empty fields follow the Master Catalog's.</x-ui.hint></h3>
                         <div class="fm-fields">
                             <x-ui.field label="Meta title" for="vl-meta-title" name="meta_title" wide>
                                 <x-ui.input id="vl-meta-title" name="meta_title" :value="old('meta_title', $listing->meta_title ?? '')" :placeholder="$product->meta_title ?? $product->name" maxlength="255" :disabled="!$canManage" />

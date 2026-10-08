@@ -102,8 +102,8 @@ class TikTokLinkCheck
                 $this->writeProductStatus($groupIds, (int) $productId, ['tiktok_product_id' => $hit, 'sync_status' => 'pushed']);
                 $verdicts['linked']++;
             } elseif ($hit !== null) {
-                $states->recordOutcome((int) $productId, 'TikTok Shop product ' . $hit . ' is already linked to catalog product #' . $holder . '. Unlink that product first.');
-                $problems[] = "#{$productId}: TikTok Shop product {$hit} is already linked to catalog product #{$holder}";
+                $states->recordOutcome((int) $productId, 'TikTok Shop product ' . $hit . ' is already linked to Master Catalog product #' . $holder . '. Unlink that product first.');
+                $problems[] = "#{$productId}: TikTok Shop product {$hit} is already linked to Master Catalog product #{$holder}";
                 $verdicts['taken']++;
             } else {
                 $verdicts['not_on_tiktok']++;

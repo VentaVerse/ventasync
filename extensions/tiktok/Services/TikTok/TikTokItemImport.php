@@ -134,7 +134,7 @@ class TikTokItemImport
         return [
             'ok' => true,
             'product_id' => $productId,
-            'message' => "Imported \"{$name}\" as catalog product #{$productId}"
+            'message' => "Imported \"{$name}\" as Master Catalog product #{$productId}"
                 . ($hasVariations ? ' with ' . count($skus) . ' variations' : '')
                 . ', linked to TikTok Shop product ' . $tiktokProductId . '.' . (\App\Support\Catalog\SkuFallback::note($minted) !== '' ? ' ' . \App\Support\Catalog\SkuFallback::note($minted) : ''),
         ];

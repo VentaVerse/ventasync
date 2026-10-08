@@ -330,7 +330,7 @@ class TiktokListingsTest extends TestCase
         $r = $this->actingAs($this->manager())->post(route('ext.tiktok.products.push_direct', $productId));
 
         $r->assertSessionHas('error');
-        $this->assertStringContainsString('product in catalog is disabled', session('error'));
+        $this->assertStringContainsString('product in Master Catalog is disabled', session('error'));
         $this->assertSame([], $this->callsFor('POST', '/product/202309/products'));
     }
 

@@ -3072,19 +3072,19 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
         $pfx = (string) config('catalog.prefix');
         if (! DB::table($pfx . 'product')->where('product_id', $productId)->exists()) {
-            return redirect()->back()->with('error', 'Catalog product not found.');
+            return redirect()->back()->with('error', 'Master Catalog product not found.');
         }
 
         $listing = LazadaProduct::query()->where('product_id', $productId)->first();
         $heldItem = $listing && ! empty($listing->lazada_item_id) && is_null($listing->lazada_deleted_at) && is_null($listing->unlinked_at)
             ? (string) $listing->lazada_item_id : '';
         if ($heldItem !== '' && $heldItem !== (string) $data['ref']) {
-            return redirect()->back()->with('error', 'Catalog product #' . $productId . ' is already linked to Lazada item ' . $heldItem . '. Unlink it first.');
+            return redirect()->back()->with('error', 'Master Catalog product #' . $productId . ' is already linked to Lazada item ' . $heldItem . '. Unlink it first.');
         }
         $taken = LazadaProduct::query()->where('lazada_item_id', (string) $data['ref'])->where('product_id', '!=', $productId)
             ->whereNull('lazada_deleted_at')->whereNull('unlinked_at')->first();
         if ($taken) {
-            return redirect()->back()->with('error', 'Lazada item ' . $data['ref'] . ' is already linked to catalog product #' . $taken->product_id . '. Unlink that product first.');
+            return redirect()->back()->with('error', 'Lazada item ' . $data['ref'] . ' is already linked to Master Catalog product #' . $taken->product_id . '. Unlink that product first.');
         }
         if ($listing) {
             $listing->lazada_item_id = (string) $data['ref'];
@@ -3099,7 +3099,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         }
         $this->states()->recordOutcome($productId, null);
 
-        return redirect()->back()->with('status', 'Linked Lazada item #' . $data['ref'] . ' to catalog product #' . $productId . '.');
+        return redirect()->back()->with('status', 'Linked Lazada item #' . $data['ref'] . ' to Master Catalog product #' . $productId . '.');
     }
 
     public function searchCatalogProducts(Request $request)

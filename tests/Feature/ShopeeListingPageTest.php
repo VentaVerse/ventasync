@@ -197,8 +197,8 @@ class ShopeeListingPageTest extends TestCase
         foreach ([
             'Not on Shopee' => 'the live state word',
             'Last push' => 'the last push figure',
-            'an SKU on the catalog product' => 'the readiness warning',
-            'Open the catalog product' => "the warning's button",
+            'an SKU on the Master Catalog product' => 'the readiness warning',
+            'Open the Master Catalog product' => "the warning's button",
         ] as $gone => $what) {
             $this->assertStringNotContainsString($gone, $html, "The page still reports {$what}.");
         }
@@ -415,7 +415,7 @@ class ShopeeListingPageTest extends TestCase
 
         $readiness = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class);
         $before = $readiness->forProducts([$productId])[$productId]['missing'] ?? [];
-        $this->assertContains('a product image on the catalog product', $before);
+        $this->assertContains('a product image on the Master Catalog product', $before);
 
         ShopeeListing::query()->updateOrCreate(
             ['product_id' => $productId],
@@ -424,7 +424,7 @@ class ShopeeListingPageTest extends TestCase
 
         $after = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)
             ->forProducts([$productId])[$productId]['missing'] ?? [];
-        $this->assertNotContains('a product image on the catalog product', $after);
+        $this->assertNotContains('a product image on the Master Catalog product', $after);
     }
 
     private function seedRealImages(int $productId, int $count): array

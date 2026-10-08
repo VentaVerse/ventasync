@@ -241,7 +241,7 @@ class ShopeeListingStateTest extends TestCase
         $s = $this->states([$moved])[$moved];
         $this->assertSame(ListingState::LIVE, $s->state);
         $this->assertFalse($s->inSync);
-        $this->assertSame('Catalog change', $s->driftLabel());
+        $this->assertSame('Master Catalog change', $s->driftLabel());
         $this->assertSame([], $s->reasons, 'a Catalog change is a button, not a reason');
 
         $steady = $this->product('STEADY');

@@ -64,7 +64,7 @@ final class ListingState
 
     public function driftLabel(): ?string
     {
-        return $this->inSync === false ? 'Catalog change' : null;
+        return $this->inSync === false ? 'Master Catalog change' : null;
     }
 
     public function missingSummary(): string

@@ -53,7 +53,7 @@ class ShopeeVariationRename
 
         $axisIds = array_keys($catalog['axes']);
         if (count($axisIds) !== count($tiers)) {
-            return $this->refuse('the catalog has ' . count($axisIds) . ' variation ' . (count($axisIds) === 1 ? 'type' : 'types')
+            return $this->refuse('the Master Catalog has ' . count($axisIds) . ' variation ' . (count($axisIds) === 1 ? 'type' : 'types')
                 . ' and the Shopee item has ' . count($tiers));
         }
         if (!in_array(false, array_column($tiers, 'standard'), true)) {
@@ -188,7 +188,7 @@ class ShopeeVariationRename
             $evidence[] = ['index' => array_map('intval', $index), 'values' => $catalog['combos'][$sku]];
         }
         if ($evidence === []) {
-            return ['refused' => 'none of the item\'s variations on Shopee carries a SKU the catalog holds'];
+            return ['refused' => 'none of the item\'s variations on Shopee carries a SKU the Master Catalog holds'];
         }
 
         $fits = [];
@@ -237,7 +237,7 @@ class ShopeeVariationRename
             return $fits[$best];
         }
 
-        return ['refused' => 'the item\'s SKUs do not show which of its variation types is which catalog option'];
+        return ['refused' => 'the item\'s SKUs do not show which of its variation types is which Master Catalog option'];
     }
 
     private function orders(array $axisIds): array

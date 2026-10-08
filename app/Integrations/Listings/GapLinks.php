@@ -67,7 +67,7 @@ final class GapLinks
             if (in_array($code, self::CATALOG_OWNED, true) && ! isset($anchors[$code])) {
                 return [
                     'href' => route('products.edit', $productId),
-                    'label' => 'Open the catalog product',
+                    'label' => 'Open the Master Catalog product',
                     'onPage' => false,
                 ];
             }

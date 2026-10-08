@@ -183,8 +183,8 @@
 
 
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
-        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by catalog status">
-            <option value="all" @selected($erpStatus === 'all')>Any catalog status</option>
+        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by Master Catalog status">
+            <option value="all" @selected($erpStatus === 'all')>Any Master Catalog status</option>
             <option value="enabled" @selected($erpStatus === 'enabled')>Enabled</option>
             <option value="disabled" @selected($erpStatus === 'disabled')>Disabled</option>
         </select>

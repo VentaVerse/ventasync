@@ -43,7 +43,7 @@
             revert.addEventListener('click', function () {
                 pathField.value = '';
                 offField.value = '0';
-                settled('This store will follow the catalog again. Save to keep it.');
+                settled('This store will follow the Master Catalog again. Save to keep it.');
             });
         }
 

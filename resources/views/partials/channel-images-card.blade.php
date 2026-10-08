@@ -7,7 +7,7 @@
     $imageWords = $imageCount === 0
         ? ($editable
             ? 'No pictures yet.'
-            : 'The catalog product has no images, so none go up.')
+            : 'The Master Catalog product has no images, so none go up.')
         : ''
             . ($fetchesOverWeb ? ' ' . $storeName . ' fetches them from this ERP\'s address.' : '');
 
@@ -33,7 +33,7 @@
                 <x-ui.button type="button" size="sm" data-images-add>
                     <x-ui.icon name="image" size="14" /> Add from library
                 </x-ui.button>
-                <x-ui.button type="button" size="sm" data-images-reset hidden>Follow the catalog</x-ui.button>
+                <x-ui.button type="button" size="sm" data-images-reset hidden>Follow the Master Catalog</x-ui.button>
             </div>
         @endif
     </div>

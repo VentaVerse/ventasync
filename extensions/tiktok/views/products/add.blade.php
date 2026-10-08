@@ -35,7 +35,7 @@
 <form method="GET" action="{{ route('ext.tiktok.products.index') }}" class="x-filters" id="tiktok-add-filter">
     <input type="hidden" name="list" value="add">
     <x-ui.input type="search" name="q" class="x-filters__search"
-                value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search your catalogue" />
+                value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search your Master Catalog" />
 
     <div class="x-select-wrap x-filters__select">
         <select name="manufacturer" class="x-input" data-autosubmit aria-label="Filter by manufacturer">
@@ -90,11 +90,11 @@
 
 @if($products->count() === 0)
     <x-ui.empty
-        title="{{ $hasFilters ? 'Nothing matches those filters' : ($onStore === 'off' ? 'Every product is already on this store' : 'Your catalogue is empty') }}"
+        title="{{ $hasFilters ? 'Nothing matches those filters' : ($onStore === 'off' ? 'Every product is already on this store' : 'Your Master Catalog is empty') }}"
         :description="$hasFilters
             ? 'Try clearing the search, or widening the manufacturer and group filters.'
             : ($onStore === 'off'
-                ? 'There is nothing left to add: every catalogue product is already on this store.'
+                ? 'There is nothing left to add: every Master Catalog product is already on this store.'
                 : 'Add a product to your Master Catalog and it will be ready to add to this store.')">
         @if($hasFilters)
             <x-slot:action>

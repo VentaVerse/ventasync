@@ -85,7 +85,7 @@
                         <a class="x-menu__item" href="{{ route('ext.lazada.product-groups.edit', $g->id) }}">Edit product group</a>
                         <div class="x-menu__sep"></div>
                         <button type="button" class="x-menu__item x-menu__item--danger"
-                                data-confirm="Delete the product group {{ $g->name }}? Listings in no other product group that were never uploaded to Lazada are removed from this list with it. Nothing changes in the catalog, and nothing already live on Lazada is touched."
+                                data-confirm="Delete the product group {{ $g->name }}? Listings in no other product group that were never uploaded to Lazada are removed from this list with it. Nothing changes in the Master Catalog, and nothing already live on Lazada is touched."
                                 data-confirm-submit="lpg-del-{{ $g->id }}">Delete product group</button>
                     @endif
                 </x-ui.menu>

@@ -487,7 +487,7 @@ class ShopeeLinkCheck
             ->value('product_id');
 
         if ($otherHolder) {
-            $held = "Shopee item {$found} is already linked to catalog product #{$otherHolder}. "
+            $held = "Shopee item {$found} is already linked to Master Catalog product #{$otherHolder}. "
                 .'Unlink that product first, then send this one again.';
             $this->recordFailure($productId, $held);
 

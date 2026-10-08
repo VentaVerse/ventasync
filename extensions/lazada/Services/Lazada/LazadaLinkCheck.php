@@ -81,7 +81,7 @@ class LazadaLinkCheck
                     $this->markPushed($pivots);
                     $verdicts['confirmed']++;
                 } elseif ($hitItemId !== null && ($holder = $this->holderOf($setting, $hitItemId, (int) $productId)) !== null) {
-                    $line = "Lazada item {$hitItemId} holds this product's SKU but is linked to catalog product #{$holder}.";
+                    $line = "Lazada item {$hitItemId} holds this product's SKU but is linked to Master Catalog product #{$holder}.";
                     $states->recordOutcome((int) $productId, $line);
                     $problems[] = "#{$productId}: " . $line;
                     $verdicts['taken']++;
@@ -103,7 +103,7 @@ class LazadaLinkCheck
             }
 
             if ($hitItemId !== null && ($holder = $this->holderOf($setting, $hitItemId, (int) $productId)) !== null) {
-                $line = "Lazada item {$hitItemId} holds this product's SKU but is linked to catalog product #{$holder}.";
+                $line = "Lazada item {$hitItemId} holds this product's SKU but is linked to Master Catalog product #{$holder}.";
                 if ($listing) {
                     $states->recordOutcome((int) $productId, $line);
                 }

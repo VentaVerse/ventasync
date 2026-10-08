@@ -94,7 +94,7 @@
                         <a class="x-menu__item" href="{{ route('ext.shopee.product-groups.edit', $p->id) }}">Edit product group</a>
                         <div class="x-menu__sep"></div>
                         <button type="button" class="x-menu__item x-menu__item--danger"
-                                data-confirm="Delete the product group {{ $p->name }}? Its products stay in the catalog and stay listed on Shopee. Only the grouping is removed."
+                                data-confirm="Delete the product group {{ $p->name }}? Its products stay in the Master Catalog and stay listed on Shopee. Only the grouping is removed."
                                 data-confirm-submit="spg-del-{{ $p->id }}">Delete product group</button>
                     @endif
                 </x-ui.menu>

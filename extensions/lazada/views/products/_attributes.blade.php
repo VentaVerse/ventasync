@@ -111,7 +111,7 @@
                 @endif
 
                 @if(!$isSelect && !$isMapped && empty($saved[$key] ?? null) && empty(old('attributes.' . $key)) && !empty($suggestion))
-                    <p class="gf-attr__note">The catalog suggests {{ $suggestion }}.</p>
+                    <p class="gf-attr__note">The Master Catalog suggests {{ $suggestion }}.</p>
                 @endif
 
                 @if(isset($errors) && $errors->has('attributes.' . $key))

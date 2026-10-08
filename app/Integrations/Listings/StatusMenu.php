@@ -130,7 +130,7 @@ final class StatusMenu
         $flags = [
             ['key' => 'failed', 'label' => 'Push failed', 'count' => (int) ($counts['failed'] ?? 0), 'tone' => 'bad', 'on' => $failed,
                 'url' => $to(['failed' => $failed ? null : 1, 'sync_status' => $stand === 'all' ? null : $stand])],
-            ['key' => 'change', 'label' => 'Catalog change', 'count' => (int) ($counts['change'] ?? 0), 'tone' => 'attn', 'on' => $change,
+            ['key' => 'change', 'label' => 'Master Catalog change', 'count' => (int) ($counts['change'] ?? 0), 'tone' => 'attn', 'on' => $change,
                 'url' => $to(['change' => $change ? null : 1])],
         ];
 
@@ -147,7 +147,7 @@ final class StatusMenu
             $parts[] = 'Push failed';
         }
         if ($change) {
-            $parts[] = 'Catalog change';
+            $parts[] = 'Master Catalog change';
         }
 
         return [

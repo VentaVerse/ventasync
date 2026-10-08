@@ -495,7 +495,7 @@ class LazadaPushPayload
             foreach ($skus as $s) {
                 if (empty($s['SellerSku'])) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
-                        'variants' => 'SellerSku is mandatory. Please set the SKU on the catalog product.'
+                        'variants' => 'SellerSku is mandatory. Please set the SKU on the Master Catalog product.'
                     ]);
                 }
             }

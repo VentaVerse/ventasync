@@ -55,8 +55,8 @@
                 value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search products in this product group" />
 
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
-        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by catalog status">
-            <option value="all" @selected($erpStatus === 'all')>Any catalog status</option>
+        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by Master Catalog status">
+            <option value="all" @selected($erpStatus === 'all')>Any Master Catalog status</option>
             <option value="enabled" @selected($erpStatus === 'enabled')>Enabled</option>
             <option value="disabled" @selected($erpStatus === 'disabled')>Disabled</option>
         </select>
@@ -96,7 +96,7 @@
             ['action' => route('ext.lazada.products.bulk_toggle'), 'field' => 'product_ids[]', 'verb' => 'activate', 'codes' => 'inactive', 'label' => 'Activate :n on Lazada', 'button' => 'Activate on Lazada', 'fields' => ['action' => 'activate'], 'confirm' => 'Activate the selected items on Lazada? Buyers see them again once Lazada applies it.'],
         ],
         'delete' => ['action' => route('ext.lazada.product-groups.deleteFromLazada', $group->id), 'label' => 'Delete from Lazada', 'fields' => $gf, 'confirm' => 'Delete the selected products from Lazada? They are removed at the marketplace and this cannot be undone.'],
-        'remove' => ['action' => route('ext.lazada.product-groups.massRemove', $group->id), 'label' => 'Remove from product group', 'fields' => $gf, 'confirm' => 'Take the selected products out of this product group? Nothing is deleted from the catalog, and nothing already live on Lazada is touched.'],
+        'remove' => ['action' => route('ext.lazada.product-groups.massRemove', $group->id), 'label' => 'Remove from product group', 'fields' => $gf, 'confirm' => 'Take the selected products out of this product group? Nothing is deleted from the Master Catalog, and nothing already live on Lazada is touched.'],
     ];
 @endphp
 @include('partials.channel-bulk-bar', ['bulk' => $bulk])
@@ -105,7 +105,7 @@
 @if($products->count() === 0)
     <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : 'No products in this product group' }}"
                 :description="$hasFilters
-                    ? 'Try clearing the search, or widening the catalog and push filters.'
+                    ? 'Try clearing the search, or widening the Master Catalog and push filters.'
                     : 'Nothing is in this product group yet. Add products from this store\'s list and they take the group\'s category, brand and markup on the next push.'">
         @if($canManageLazada && !$hasFilters)
         <x-slot:action>
@@ -132,7 +132,7 @@
             <th scope="col" class="cc-col-qty x-td-num">Stock</th>
             <th scope="col" class="cc-col-price x-td-num">Price</th>
             <th scope="col" class="cc-col-chanid">Lazada ID</th>
-            <th scope="col" class="cc-col-stat">Catalog</th>
+            <th scope="col" class="cc-col-stat">Master Catalog</th>
             <th scope="col" class="cc-col-sync">Listing</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
@@ -268,7 +268,7 @@
                         $menu['delete'] = ['action' => route('ext.lazada.product-groups.deleteFromLazada', $group->id), 'fields' => $gf, 'confirm' => "Delete {$pName} from Lazada? It is removed at the marketplace and this cannot be undone."];
                     }
                     if ($isManual) {
-                        $menu['remove'] = ['action' => route('ext.lazada.product-groups.removeProduct', [$group->id, $p->product_id]), 'method' => 'DELETE', 'fields' => ['_return' => $returnTo], 'label' => 'Remove from product group', 'verb' => 'Remove', 'tone' => 'primary', 'confirm' => "Take {$pName} out of the product group? Nothing is deleted from the catalog, and nothing already live on Lazada is touched."];
+                        $menu['remove'] = ['action' => route('ext.lazada.product-groups.removeProduct', [$group->id, $p->product_id]), 'method' => 'DELETE', 'fields' => ['_return' => $returnTo], 'label' => 'Remove from product group', 'verb' => 'Remove', 'tone' => 'primary', 'confirm' => "Take {$pName} out of the product group? Nothing is deleted from the Master Catalog, and nothing already live on Lazada is touched."];
                     }
                 @endphp
                 @include('partials.channel-row-menu', ['menu' => $menu])
@@ -307,8 +307,8 @@
         toggle-label="Show products already in this group"
         in-label="In this group"
         scope="this group"
-        empty-default="Every product in your catalog is already in this group."
-        empty-all="Your catalog has no enabled products yet."
+        empty-default="Every product in your Master Catalog is already in this group."
+        empty-all="Your Master Catalog has no enabled products yet."
         list-label="Products" />
 @endif
 
