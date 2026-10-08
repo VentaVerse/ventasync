@@ -25,6 +25,12 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Auth\Events\Login::class, function (\Illuminate\Auth\Events\Login $event) {
+            if (request()->hasSession()) {
+                request()->session()->forget('password_hash_' . $event->guard);
+            }
+        });
+
 
         // migrate:fresh and db:wipe drop every table. Allowed only on a database whose name ends in _test.
         $database = (string) config('database.connections.'.config('database.default').'.database');

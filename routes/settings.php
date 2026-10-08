@@ -79,6 +79,7 @@ Route::prefix('settings')->group(function () {
         ->defaults('permission_tier', 'manage');
         Route::put('/users/{id}', [UserController::class, 'update'])->name('users.update');
         Route::delete('/users/{id}', [UserController::class, 'destroy'])->name('users.destroy');
+        Route::post('/users/{id}/unlock', [UserController::class, 'unlock'])->whereNumber('id')->name('users.unlock');
     });
 
     Route::group([], function () {

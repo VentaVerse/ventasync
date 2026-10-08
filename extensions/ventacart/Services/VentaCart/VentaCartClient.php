@@ -7,7 +7,6 @@ use Extensions\ventacart\Models\VentaCartSetting;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class VentaCartClient
@@ -21,7 +20,7 @@ class VentaCartClient
 
     private function http(): PendingRequest
     {
-        return Http::timeout(30)->connectTimeout(5)
+        return \App\Support\Net\StoreRequest::to((string) $this->setting->base_url)->timeout(30)->connectTimeout(5)
             ->retry(2, 300, function ($exception) {
                 return $exception instanceof ConnectionException
                     || ($exception instanceof RequestException && $exception->response->status() >= 500);

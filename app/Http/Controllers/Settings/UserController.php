@@ -107,6 +107,14 @@ class UserController extends Controller
         return redirect()->route('users.index')->with('status','User updated');
     }
 
+    public function unlock($id)
+    {
+        $user = User::findOrFail((int) $id);
+        \App\Support\Auth\AccountLock::unlock($user);
+
+        return redirect()->route('users.index')->with('success', $user->name . ' is unlocked.');
+    }
+
     public function destroy($id)
     {
         $user = User::findOrFail((int)$id);

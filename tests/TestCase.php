@@ -25,4 +25,12 @@ abstract class TestCase extends BaseTestCase
         parent::setUp();
     }
 
+    public function be(\Illuminate\Contracts\Auth\Authenticatable $user, $guard = null)
+    {
+        if ($this->app->bound('session.store')) {
+            $this->app['session.store']->forget('password_hash_' . ($guard ?? $this->app['auth']->getDefaultDriver()));
+        }
+
+        return parent::be($user, $guard);
+    }
 }
