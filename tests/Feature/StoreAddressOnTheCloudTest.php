@@ -43,7 +43,11 @@ class StoreAddressOnTheCloudTest extends TestCase
     {
         $this->hosted();
 
-        foreach (['https://127.0.0.1', 'https://10.0.0.5', 'https://169.254.169.254/latest', 'https://[::1]'] as $url) {
+        foreach ([
+            'https://127.0.0.1', 'https://10.0.0.5', 'https://169.254.169.254/latest', 'https://[::1]',
+            'https://[::ffff:7f00:1]', 'https://[::ffff:127.0.0.1]', 'https://[::ffff:a00:5]', 'https://[64:ff9b::a9fe:a9fe]',
+            'https://[::a00:5]', 'https://100.64.1.1', 'https://198.18.0.1', 'https://192.0.0.8', 'https://[fd00::1]',
+        ] as $url) {
             $this->assertSame(StoreRequest::REFUSED, StoreRequest::refusal($url), $url);
         }
 

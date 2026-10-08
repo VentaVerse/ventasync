@@ -10,6 +10,9 @@ final class PublicAddress
         '172.16.0.0/12',
         '192.168.0.0/16',
         '169.254.0.0/16',
+        '100.64.0.0/10',
+        '198.18.0.0/15',
+        '192.0.0.0/24',
         '0.0.0.0/8',
         '224.0.0.0/4',
         '240.0.0.0/4',
@@ -81,14 +84,8 @@ final class PublicAddress
     }
     private static function isBlockedAddress(string $address): bool
     {
-        $address = trim($address, '[]');
-
-        if (str_starts_with(strtolower($address), '::ffff:')
-            && filter_var(substr($address, 7), FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-            $address = substr($address, 7);
-        }
-
-        if (! filter_var($address, FILTER_VALIDATE_IP)) {
+        $address = self::unwrapIpv4(trim($address, '[]'));
+        if ($address === null) {
             return true;
         }
 
@@ -98,7 +95,27 @@ final class PublicAddress
             }
         }
 
-        return false;
+        return filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false;
+    }
+
+    // An IPv6 address can carry an IPv4 one (::ffff:a.b.c.d, ::a.b.c.d, 64:ff9b::a.b.c.d, in hex too); check the IPv4 inside.
+    private static function unwrapIpv4(string $address): ?string
+    {
+        $bin = @inet_pton($address);
+        if ($bin === false) {
+            return null;
+        }
+        if (strlen($bin) !== 16) {
+            return $address;
+        }
+
+        $prefix = substr($bin, 0, 12);
+        $carriers = [str_repeat("\0", 10) . "\xff\xff", str_repeat("\0", 12), "\x00\x64\xff\x9b" . str_repeat("\0", 8)];
+        if (in_array($prefix, $carriers, true) && substr($bin, 12) !== "\0\0\0\0" && substr($bin, 12) !== "\0\0\0\1") {
+            return (string) inet_ntop(substr($bin, 12));
+        }
+
+        return (string) inet_ntop($bin);
     }
     private static function addressInCidr(string $address, string $cidr): bool
     {
