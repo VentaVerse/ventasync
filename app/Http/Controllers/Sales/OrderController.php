@@ -567,7 +567,9 @@ class OrderController extends Controller
             'date_modified'      => now(),
         ]);
 
+        $stockBefore = null;
         if ($request->has('products')) {
+            $stockBefore = OrderStockService::snapshot($order);
             $products = $request->input('products', []);
             $pfx = (string) config('catalog.prefix');
 
@@ -660,7 +662,9 @@ class OrderController extends Controller
             'date_added'      => now(),
         ]));
 
-        if ((int) $oldStatusId !== (int) $request->order_status_id) {
+        if ($stockBefore !== null) {
+            OrderStockService::reconcile($order, $stockBefore, (int) $oldStatusId, (int) $request->order_status_id);
+        } elseif ((int) $oldStatusId !== (int) $request->order_status_id) {
             OrderStockService::adjustStock($order, (int) $oldStatusId, (int) $request->order_status_id);
         }
 

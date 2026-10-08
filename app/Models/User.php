@@ -13,6 +13,16 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
+    protected static function booted(): void
+    {
+        static::updated(function (User $user) {
+            if ($user->wasChanged('password')) {
+                \App\Support\SignOutEverywhere::apps($user);
+                \App\Support\Auth\AccountLock::clear($user);
+            }
+        });
+    }
+
     protected $fillable = [
         'name',
         'username',
@@ -31,6 +41,7 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'last_login_at' => 'datetime',
+        'locked_until' => 'datetime',
         'password' => 'hashed',
     ];
 

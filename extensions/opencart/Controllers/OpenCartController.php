@@ -59,7 +59,7 @@ class OpenCartController extends Controller
     {
         $data = $request->validate([
             'store_name' => ['required', 'string', 'max:128'],
-            'base_url'   => ['required', 'url', 'max:255'],
+            'base_url'   => ['required', 'url', 'max:255', new \App\Rules\StoreAddress],
         ]);
 
         $setting = OpenCartSetting::create([
@@ -86,7 +86,7 @@ class OpenCartController extends Controller
             'store_id'         => ['nullable', 'integer'],
             'store_name'       => ['nullable', 'string', 'max:128'],
             'brand_color'      => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
-            'base_url'         => ['required', 'string', 'max:255'],
+            'base_url'         => ['required', 'string', 'max:255', new \App\Rules\StoreAddress],
             'api_key'          => [$hasStoredKey ? 'nullable' : 'required', 'string', 'max:128'],
             'enabled'          => ['nullable'],
             'sync_orders_from' => ['nullable', 'date'],

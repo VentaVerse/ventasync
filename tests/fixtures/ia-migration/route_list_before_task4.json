@@ -5570,6 +5570,11 @@
         "name": "users.edit"
     },
     {
+        "method": "POST",
+        "uri": "settings/users/{id}/unlock",
+        "name": "users.unlock"
+    },
+    {
         "method": "GET|HEAD",
         "uri": "settings/website",
         "name": "settings.website"

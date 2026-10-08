@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Support\Auth\AccountLock;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
@@ -26,16 +27,25 @@ class LoginRequest extends FormRequest
 
     public function authenticate(): void
     {
+        $account = \App\Models\User::where('username', (string) $this->input('username'))->first();
+        if ($account && AccountLock::isLocked($account)) {
+            throw ValidationException::withMessages(['username' => AccountLock::message($account)]);
+        }
+
         $this->ensureIsNotRateLimited();
 
         if (! Auth::attempt($this->only('username','password'), $this->boolean('remember'))) {
             RateLimiter::hit($this->throttleKey());
+            if ($account) {
+                AccountLock::failed($account);
+            }
 
             throw ValidationException::withMessages([
-                'username' => trans('auth.failed'),
+                'username' => $account && AccountLock::isLocked($account->fresh()) ? AccountLock::message($account->fresh()) : trans('auth.failed'),
             ]);
         }
 
+        AccountLock::clear(Auth::user());
         RateLimiter::clear($this->throttleKey());
     }
 

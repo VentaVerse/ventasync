@@ -6,7 +6,6 @@ use App\Services\ActivityLogger;
 use App\Support\FulfilmentSteps;
 use Extensions\ventacart\Models\VentaCartOrder;
 use Extensions\ventacart\Models\VentaCartSetting;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class VentaCartFulfilment
@@ -348,7 +347,7 @@ class VentaCartFulfilment
             }
 
             try {
-                $file = Http::timeout(30)->get($url);
+                $file = \App\Support\Net\StoreRequest::to($url)->timeout(30)->get($url);
             } catch (\Throwable $e) {
                 Log::warning('VentaCart waybill download failed', ['url' => $url, 'error' => $e->getMessage()]);
 

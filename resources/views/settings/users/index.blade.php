@@ -90,7 +90,9 @@
                 @endif
             </td>
             <td class="st-col-when" data-label="Last sign-in">
-                @if($u->last_login_at)
+                @if(\App\Support\Auth\AccountLock::isLocked($u))
+                    <x-ui.badge tone="danger" :dot="false">Locked until {{ $u->locked_until->format('H:i') }}</x-ui.badge>
+                @elseif($u->last_login_at)
                     <span class="x-num">{{ $u->last_login_at->format('Y-m-d H:i') }}</span>
                 @else
                     <span class="st-note">Never</span>
@@ -100,6 +102,9 @@
                 @if($canManageUsers)
                 <div class="bl-rowactions">
                     <a class="x-btn x-btn--sm" href="{{ route('users.edit', $u->id) }}">Edit</a>
+                    @if(\App\Support\Auth\AccountLock::isLocked($u))
+                        <button type="submit" class="x-btn x-btn--sm" form="st-user-unlock-{{ $u->id }}">Unlock</button>
+                    @endif
                     @if(Route::has('ext.audit.activity-log.index'))
                         <a class="x-btn x-btn--sm" href="{{ route('ext.audit.activity-log.index', ['user_id' => $u->id]) }}">Activity log</a>
                     @endif
@@ -117,6 +122,9 @@
 
 @if($canManageUsers)
     @foreach($users as $u)
+        @if(\App\Support\Auth\AccountLock::isLocked($u))
+            <form id="st-user-unlock-{{ $u->id }}" method="POST" action="{{ route('users.unlock', $u->id) }}" class="x-sr">@csrf</form>
+        @endif
         @if(($u->userGroup->name ?? '') !== 'Administrator' && (int) auth()->id() !== (int) $u->id)
             <form id="st-user-del-{{ $u->id }}" method="POST" action="{{ route('users.destroy', $u->id) }}" class="x-sr">
                 @csrf
