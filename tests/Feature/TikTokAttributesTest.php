@@ -6,13 +6,13 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\tiktok\Models\TikTokCategory;
-use Extensions\tiktok\Models\TikTokCategoryTemplate;
-use Extensions\tiktok\Models\TikTokListing;
-use Extensions\tiktok\Models\TikTokProductGroup;
-use Extensions\tiktok\Models\TikTokProductGroupProduct;
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\Services\TikTok\TikTokClient;
+use Extensions\TikTok\Models\TikTokCategory;
+use Extensions\TikTok\Models\TikTokCategoryTemplate;
+use Extensions\TikTok\Models\TikTokListing;
+use Extensions\TikTok\Models\TikTokProductGroup;
+use Extensions\TikTok\Models\TikTokProductGroupProduct;
+use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -32,7 +32,7 @@ class TikTokAttributesTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('tiktok');
         $manager->enable('tiktok');
-        $this->app->register(\Extensions\tiktok\TikTokExtension::class);
+        $this->app->register(\Extensions\TikTok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
@@ -245,7 +245,7 @@ class TikTokAttributesTest extends TestCase
         $group = TikTokProductGroup::create(['name' => 'Live group', 'tiktok_category_id' => '900009']);
         TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => $productId, 'tiktok_product_id' => 'tt-556', 'sync_status' => 'pushed']);
         TikTokListing::query()->create(['product_id' => $productId, 'tiktok_product_id' => 'tt-556']);
-        \Extensions\tiktok\Models\TikTokCategoryTemplate::create(['category_id' => '900009', 'attributes' => [], 'fetched_at' => now()]);
+        \Extensions\TikTok\Models\TikTokCategoryTemplate::create(['category_id' => '900009', 'attributes' => [], 'fetched_at' => now()]);
         $user = $this->manager();
         $user->userGroup->permissions()->attach(Permission::whereIn('key', ['manage_tiktok/product', 'view_tiktok/product'])->pluck('id')->all());
 

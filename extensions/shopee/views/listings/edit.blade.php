@@ -52,7 +52,7 @@
                 @if($link)
                     <span class="fm-stamp">
                         <span class="fm-stamp__k">Item ID</span>
-                        @php $liveUrl = \Extensions\shopee\Models\ShopeeSetting::publicListingUrl($link->shopee_item_id); @endphp
+                        @php $liveUrl = \Extensions\Shopee\Models\ShopeeSetting::publicListingUrl($link->shopee_item_id); @endphp
                         @if($liveUrl)
                             <a class="fm-stamp__v" href="{{ $liveUrl }}" target="_blank" rel="noopener">{{ $link->shopee_item_id }}<x-ui.icon name="external-link" size="10" class="x-extlink" /><span class="x-sr"> (opens Shopee in a new tab)</span></a>
                         @else
@@ -366,7 +366,7 @@
     @include('catalog.products.partials.wysiwyg')
     @include('partials.catalog-change-panel', [
         'listing' => $listing,
-        'storeLabel' => \App\Support\StoreLabel::of('Shopee', \Extensions\shopee\Models\ShopeeSetting::query()->find($listing->shopee_setting_id)?->store_name),
+        'storeLabel' => \App\Support\StoreLabel::of('Shopee', \Extensions\Shopee\Models\ShopeeSetting::query()->find($listing->shopee_setting_id)?->store_name),
         'saveUrl' => route('ext.shopee.listings.catalog_change_save', $listing->product_id),
         'ignoreUrl' => route('ext.shopee.listings.catalog_change_ignore', $listing->product_id),
         'back' => request()->boolean('compare') ? \App\Support\BackTo::safe(request('back'), request()->getRequestUri()) : request()->getRequestUri(),

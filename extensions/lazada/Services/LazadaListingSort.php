@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\lazada\Services;
+namespace Extensions\Lazada\Services;
 
 use App\Integrations\Listings\ListingSort;
 use App\Support\StoreKey;

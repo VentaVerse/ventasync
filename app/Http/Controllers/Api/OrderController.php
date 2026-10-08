@@ -55,8 +55,8 @@ class OrderController extends Controller
             ->orderBy($sort, $dir)
             ->paginate(25);
 
-        $ocStoreNames = class_exists(\Extensions\opencart\Models\OpenCartSetting::class)
-            ? \Extensions\opencart\Models\OpenCartSetting::pluck('store_name', 'id')->toArray()
+        $ocStoreNames = class_exists(\Extensions\OpenCart\Models\OpenCartSetting::class)
+            ? \Extensions\OpenCart\Models\OpenCartSetting::pluck('store_name', 'id')->toArray()
             : [];
 
         $defaultCode = Money::defaultCode();
@@ -112,8 +112,8 @@ class OrderController extends Controller
 
         $productImages = $this->resolveProductImages($products);
 
-        $ocStoreNames = class_exists(\Extensions\opencart\Models\OpenCartSetting::class)
-            ? \Extensions\opencart\Models\OpenCartSetting::pluck('store_name', 'id')->toArray()
+        $ocStoreNames = class_exists(\Extensions\OpenCart\Models\OpenCartSetting::class)
+            ? \Extensions\OpenCart\Models\OpenCartSetting::pluck('store_name', 'id')->toArray()
             : [];
 
         return [

@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\lazada\Services;
+namespace Extensions\Lazada\Services;
 
 use App\Support\Fulfilment\CourierTally;
 use App\Support\FulfilmentSteps;
-use Extensions\lazada\Models\LazadaOrder;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaOrder;
+use Extensions\Lazada\Models\LazadaSetting;
 use Illuminate\Http\Request;
 
 class LazadaOrdersPanel

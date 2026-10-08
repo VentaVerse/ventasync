@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\ventacart\Services\VentaCart;
+namespace Extensions\VentaCart\Services\VentaCart;
 
 use App\Support\FulfilmentSteps;
-use Extensions\ventacart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartSetting;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;

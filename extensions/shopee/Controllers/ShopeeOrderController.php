@@ -1,19 +1,19 @@
 <?php
 
-namespace Extensions\shopee\Controllers;
+namespace Extensions\Shopee\Controllers;
 
 use App\Http\Controllers\Controller;
 
-use Extensions\shopee\Models\ShopeeApiLog;
-use Extensions\shopee\Models\ShopeeOrder;
-use Extensions\shopee\Models\ShopeeOrderProduct;
-use Extensions\shopee\Models\ShopeeReturn;
-use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeOrder;
+use Extensions\Shopee\Models\ShopeeOrderProduct;
+use Extensions\Shopee\Models\ShopeeReturn;
+use Extensions\Shopee\Models\ShopeeSetting;
 use App\Services\ActivityLogger;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
-use Extensions\shopee\Services\ShopeeCatalogOrderSync;
-use Extensions\shopee\Services\ShopeeOrdersPanel;
-use Extensions\shopee\Services\ShopeeReturnsPanel;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Services\ShopeeCatalogOrderSync;
+use Extensions\Shopee\Services\ShopeeOrdersPanel;
+use Extensions\Shopee\Services\ShopeeReturnsPanel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
@@ -274,7 +274,7 @@ class ShopeeOrderController extends Controller
 
         return view('ext-shopee::orders.show', [
             'order' => $order,
-            'breakdown' => \Extensions\shopee\Services\ShopeeOrderBreakdown::from(is_array($order->fees['order_income'] ?? null) ? $order->fees['order_income'] : (is_array($order->fees) ? $order->fees : [])),
+            'breakdown' => \Extensions\Shopee\Services\ShopeeOrderBreakdown::from(is_array($order->fees['order_income'] ?? null) ? $order->fees['order_income'] : (is_array($order->fees) ? $order->fees : [])),
             'breakdownCurrency' => (string) ((is_array($order->raw) ? ($order->raw['currency'] ?? null) : null) ?: \App\Support\Money::defaultCode()),
             'setting_region' => $region,
             'api_error' => $apiError,
@@ -400,7 +400,7 @@ class ShopeeOrderController extends Controller
                 if ($orderSn === '') continue;
                 $read++;
                 // Check and create under the order's lock so a push and the sync cannot make two rows.
-                \Extensions\shopee\Services\Shopee\ShopeeOrderIngest::locked($orderSn, function () use ($auth, $orderSn, $o, $skipStock, &$created, &$failed) {
+                \Extensions\Shopee\Services\Shopee\ShopeeOrderIngest::locked($orderSn, function () use ($auth, $orderSn, $o, $skipStock, &$created, &$failed) {
                     if (ShopeeOrder::query()->where('region', $auth['region'] ?? 'ph')->where('order_sn', $orderSn)->exists()) {
                         return;
                     }
@@ -545,7 +545,7 @@ class ShopeeOrderController extends Controller
                 if ($orderSn === '') continue;
 
                 // Write under the order's lock, as every Shopee order write does.
-                \Extensions\shopee\Services\Shopee\ShopeeOrderIngest::locked($orderSn, function () use ($auth, $orderSn, $o, &$updated, &$skipped) {
+                \Extensions\Shopee\Services\Shopee\ShopeeOrderIngest::locked($orderSn, function () use ($auth, $orderSn, $o, &$updated, &$skipped) {
                     $existing = ShopeeOrder::query()
                         ->where('region', $auth['region'] ?? 'ph')
                         ->where('order_sn', $orderSn)
@@ -801,8 +801,8 @@ class ShopeeOrderController extends Controller
         }
 
         // Take the order's lock: Shopee's push for this change lands a second later and writes the order too.
-        \Extensions\shopee\Services\Shopee\ShopeeOrderIngest::locked($orderSn, function () use ($order) {
-            $pushesOn = \Extensions\shopee\Services\Shopee\ShopeeOrderIngest::pushesOn();
+        \Extensions\Shopee\Services\Shopee\ShopeeOrderIngest::locked($orderSn, function () use ($order) {
+            $pushesOn = \Extensions\Shopee\Services\Shopee\ShopeeOrderIngest::pushesOn();
             if ($pushesOn) {
                 $order->refresh();
             }
@@ -912,7 +912,7 @@ class ShopeeOrderController extends Controller
         $trackResp = $trackBody['response'] ?? $trackBody;
         $trackingNo = trim((string) ($trackResp['tracking_number'] ?? ''));
 
-        $order = \Extensions\shopee\Models\ShopeeOrder::where('order_sn', $orderSn)->first();
+        $order = \Extensions\Shopee\Models\ShopeeOrder::where('order_sn', $orderSn)->first();
         $raw = is_array($order->raw ?? null) ? $order->raw : [];
         $carrier = (string) ($raw['shipping_carrier'] ?? '');
 

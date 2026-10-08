@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\shopee\Commands;
+namespace Extensions\Shopee\Commands;
 
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -252,7 +252,7 @@ class ShopeeFindDuplicates extends Command
             'shopee.product.delete_item.bulk',
         ];
 
-        $rows = \Extensions\shopee\Models\ShopeeApiLog::query()
+        $rows = \Extensions\Shopee\Models\ShopeeApiLog::query()
             ->whereIn('pack', $packs)
             ->orderByDesc('id')
             ->limit(60)
@@ -293,7 +293,7 @@ class ShopeeFindDuplicates extends Command
             ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
-            ->whereIn('p.product_id', \Extensions\shopee\Services\ShopeeStoreProducts::query())
+            ->whereIn('p.product_id', \Extensions\Shopee\Services\ShopeeStoreProducts::query())
             ->where(fn ($q) => $q->whereNull('p.sku')->orWhere('p.sku', ''))
             ->where(fn ($q) => $q->whereNull('p.model')->orWhere('p.model', ''))
             ->orderBy('p.product_id')

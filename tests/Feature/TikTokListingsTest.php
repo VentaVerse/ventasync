@@ -6,13 +6,13 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\tiktok\Models\TikTokCategory;
-use Extensions\tiktok\Models\TikTokCategoryTemplate;
-use Extensions\tiktok\Models\TikTokListing;
-use Extensions\tiktok\Models\TikTokProductGroup;
-use Extensions\tiktok\Models\TikTokProductGroupProduct;
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\Services\TikTok\TikTokClient;
+use Extensions\TikTok\Models\TikTokCategory;
+use Extensions\TikTok\Models\TikTokCategoryTemplate;
+use Extensions\TikTok\Models\TikTokListing;
+use Extensions\TikTok\Models\TikTokProductGroup;
+use Extensions\TikTok\Models\TikTokProductGroupProduct;
+use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -33,7 +33,7 @@ class TikTokListingsTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('tiktok');
         $manager->enable('tiktok');
-        $this->app->register(\Extensions\tiktok\TikTokExtension::class);
+        $this->app->register(\Extensions\TikTok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
@@ -240,7 +240,7 @@ class TikTokListingsTest extends TestCase
         $this->assertNotNull(TikTokCategoryTemplate::where('category_id', '900111')->first());
         $this->assertNull(TikTokCategoryTemplate::where('category_id', '900222')->first(), 'a refused read files nothing');
         $this->assertCount(0, $this->callsFor('GET', '/product/202309/categories/900009/attributes'), 'a sheet already read is not read again');
-        $state = app(\Extensions\tiktok\Services\TikTok\TikTokListingReadiness::class)->forProducts([$own]);
+        $state = app(\Extensions\TikTok\Services\TikTok\TikTokListingReadiness::class)->forProducts([$own]);
         $this->assertNotContains(\App\Integrations\Listings\ListingState::GAP_SHEET, array_column($state[$own]['gaps'], 'code'));
     }
 
@@ -291,7 +291,7 @@ class TikTokListingsTest extends TestCase
 
         $listing = TikTokListing::where('product_id', $productId)->first();
         $this->assertNull($listing->tiktok_category_id);
-        $inherit = app(\Extensions\tiktok\Services\TikTok\TikTokInheritedSettings::class);
+        $inherit = app(\Extensions\TikTok\Services\TikTok\TikTokInheritedSettings::class);
         $this->assertSame('900009', (string) $inherit->fill($listing, $inherit->forProducts([$productId])[$productId] ?? null)['listing']->tiktok_category_id);
         $this->assertSame('Valeton', $listing->brand_name);
         $this->assertSame(10.0, $listing->markup_percent);

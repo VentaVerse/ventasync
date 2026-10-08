@@ -4,11 +4,11 @@ namespace Tests\Feature;
 
 use App\Extensions\ExtensionManager;
 use App\Support\ApiLogMode;
-use Extensions\shopee\Models\ShopeeApiLog;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\ventacart\Models\VentaCartApiLog;
-use Extensions\ventacart\Models\VentaCartSetting;
-use Extensions\ventacart\Services\VentaCart\VentaCartClient;
+use Extensions\Shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\VentaCart\Models\VentaCartApiLog;
+use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Services\VentaCart\VentaCartClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -26,7 +26,7 @@ class ApiLogModeTest extends TestCase
             $manager->install($ext);
             $manager->enable($ext);
         }
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
     }
 

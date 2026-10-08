@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
-use Extensions\shopee\Models\ShopeeApiLog;
-use Extensions\shopee\Models\ShopeeOrder;
-use Extensions\shopee\Models\ShopeeOrderProduct;
-use Extensions\shopee\Models\ShopeeReturn;
-use Extensions\shopee\Services\ShopeeCatalogOrderSync;
+use Extensions\Shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeOrder;
+use Extensions\Shopee\Models\ShopeeOrderProduct;
+use Extensions\Shopee\Models\ShopeeReturn;
+use Extensions\Shopee\Services\ShopeeCatalogOrderSync;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -300,7 +300,7 @@ class ShopeeOrderIngest
     {
         static $on = null;
 
-        return $on ??= \Extensions\shopee\Models\ShopeeSetting::query()
+        return $on ??= \Extensions\Shopee\Models\ShopeeSetting::query()
             ->where('enabled', true)
             ->where('apply_order_pushes', true)
             ->exists();

@@ -6,7 +6,7 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\shopee\ShopeeExtension;
+use Extensions\Shopee\ShopeeExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
@@ -19,7 +19,7 @@ class ShopeeReturnSolutionsTest extends TestCase
     {
         parent::setUp();
 
-        \Extensions\shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        \Extensions\Shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
 
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');

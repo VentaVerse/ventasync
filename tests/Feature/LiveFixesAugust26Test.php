@@ -28,7 +28,7 @@ class LiveFixesAugust26Test extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
     }
@@ -104,7 +104,7 @@ class LiveFixesAugust26Test extends TestCase
 
     public function test_shopee_stamps_the_refresh_token_life_at_each_grant(): void
     {
-        $this->assertSame(30, \Extensions\shopee\Models\ShopeeSetting::REFRESH_TOKEN_DAYS);
+        $this->assertSame(30, \Extensions\Shopee\Models\ShopeeSetting::REFRESH_TOKEN_DAYS);
         foreach (['extensions/shopee/Controllers/ShopeeController.php', 'extensions/shopee/Commands/ShopeeRefreshToken.php'] as $file) {
             $src = file_get_contents(base_path($file));
             $this->assertNotFalse($src, $file);

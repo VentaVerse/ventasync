@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\shopee\Services;
+namespace Extensions\Shopee\Services;
 
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;

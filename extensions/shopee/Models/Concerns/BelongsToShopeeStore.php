@@ -1,8 +1,8 @@
 <?php
 
-namespace Extensions\shopee\Models\Concerns;
+namespace Extensions\Shopee\Models\Concerns;
 
-use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeSetting;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 

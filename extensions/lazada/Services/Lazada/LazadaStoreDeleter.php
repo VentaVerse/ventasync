@@ -1,8 +1,8 @@
 <?php
 
-namespace Extensions\lazada\Services\Lazada;
+namespace Extensions\Lazada\Services\Lazada;
 
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaSetting;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 

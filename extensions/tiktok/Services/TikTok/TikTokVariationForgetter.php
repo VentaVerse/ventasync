@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\tiktok\Services\TikTok;
+namespace Extensions\TikTok\Services\TikTok;
 
-use Extensions\tiktok\Models\TikTokListing;
-use Extensions\tiktok\Models\TikTokProductGroupProduct;
+use Extensions\TikTok\Models\TikTokListing;
+use Extensions\TikTok\Models\TikTokProductGroupProduct;
 
 final class TikTokVariationForgetter
 {

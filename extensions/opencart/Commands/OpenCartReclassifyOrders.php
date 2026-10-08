@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\opencart\Commands;
+namespace Extensions\OpenCart\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;

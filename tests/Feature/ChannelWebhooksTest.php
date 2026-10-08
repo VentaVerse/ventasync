@@ -4,10 +4,10 @@ namespace Tests\Feature;
 
 use App\Extensions\ExtensionManager;
 use App\Models\ChannelWebhookEvent;
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\tiktok\Models\TikTokListing;
-use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\TikTok\Models\TikTokListing;
+use Extensions\TikTok\Models\TikTokSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -25,8 +25,8 @@ class ChannelWebhooksTest extends TestCase
             $manager->install($ext);
             $manager->enable($ext);
         }
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
-        $this->app->register(\Extensions\tiktok\TikTokExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\TikTok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 

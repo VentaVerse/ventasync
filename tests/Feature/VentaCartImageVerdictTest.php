@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use Extensions\ventacart\Controllers\VentaCartProductGroupController;
+use Extensions\VentaCart\Controllers\VentaCartProductGroupController;
 use ReflectionMethod;
 use Tests\TestCase;
 

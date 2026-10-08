@@ -1,16 +1,16 @@
 <?php
 
-namespace Extensions\ventacart\Controllers;
+namespace Extensions\VentaCart\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Services\ActivityLogger;
-use Extensions\ventacart\Models\VentaCartApiLog;
-use Extensions\ventacart\Models\VentaCartBrand;
-use Extensions\ventacart\Models\VentaCartCategory;
-use Extensions\ventacart\Models\VentaCartOrderStatusMap;
-use Extensions\ventacart\Models\VentaCartSetting;
-use Extensions\ventacart\Models\VentaCartSyncLog;
-use Extensions\ventacart\Services\VentaCart\VentaCartClient;
+use Extensions\VentaCart\Models\VentaCartApiLog;
+use Extensions\VentaCart\Models\VentaCartBrand;
+use Extensions\VentaCart\Models\VentaCartCategory;
+use Extensions\VentaCart\Models\VentaCartOrderStatusMap;
+use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartSyncLog;
+use Extensions\VentaCart\Services\VentaCart\VentaCartClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -144,7 +144,7 @@ class VentaCartController extends Controller
             ->with('settings_setup', $setUp);
     }
 
-    public function destroy($id, \Extensions\ventacart\Services\VentaCart\VentaCartStoreDeleter $deleter)
+    public function destroy($id, \Extensions\VentaCart\Services\VentaCart\VentaCartStoreDeleter $deleter)
     {
         $setting = VentaCartSetting::findOrFail((int) $id);
         $name = $setting->store_name ?? $setting->base_url;
@@ -155,7 +155,7 @@ class VentaCartController extends Controller
         return redirect()->route('ext.ventacart.index')->with('status', 'Store deleted.');
     }
 
-    public function destroyStore(Request $request, int $store, \Extensions\ventacart\Services\VentaCart\VentaCartStoreDeleter $deleter)
+    public function destroyStore(Request $request, int $store, \Extensions\VentaCart\Services\VentaCart\VentaCartStoreDeleter $deleter)
     {
         $setting = VentaCartSetting::findOrFail($store);
         $request->validate([
@@ -205,7 +205,7 @@ class VentaCartController extends Controller
         return response()->json($result);
     }
 
-    public function setupStep(int $store, string $step, \Extensions\ventacart\Services\VentaCart\VentaCartStoreSetup $setup)
+    public function setupStep(int $store, string $step, \Extensions\VentaCart\Services\VentaCart\VentaCartStoreSetup $setup)
     {
         $setting = VentaCartSetting::findOrFail($store);
         if (trim((string) $setting->api_token) === '' || trim((string) $setting->base_url) === '') {
@@ -222,7 +222,7 @@ class VentaCartController extends Controller
         return response()->json($out);
     }
 
-    public function fetchCategories(Request $request, \Extensions\ventacart\Services\VentaCart\VentaCartStoreSetup $setup)
+    public function fetchCategories(Request $request, \Extensions\VentaCart\Services\VentaCart\VentaCartStoreSetup $setup)
     {
         $storeId = $request->input('store_id');
         if (!$storeId) {
@@ -245,7 +245,7 @@ class VentaCartController extends Controller
         return response()->json(['ok' => true, 'count' => $out['count']]);
     }
 
-    public function fetchBrands(Request $request, \Extensions\ventacart\Services\VentaCart\VentaCartStoreSetup $setup)
+    public function fetchBrands(Request $request, \Extensions\VentaCart\Services\VentaCart\VentaCartStoreSetup $setup)
     {
         $storeId = $request->input('store_id');
         if (!$storeId) {
@@ -274,7 +274,7 @@ class VentaCartController extends Controller
             return response()->json(['error' => 'Store not found.'], 404);
         }
 
-        $out = app(\Extensions\ventacart\Services\VentaCart\VentaCartStoreSetup::class)->statuses($setting);
+        $out = app(\Extensions\VentaCart\Services\VentaCart\VentaCartStoreSetup::class)->statuses($setting);
         if (! $out['ok']) {
             return response()->json(['error' => $out['message']], str_contains($out['message'], 'no order statuses') ? 404 : 500);
         }

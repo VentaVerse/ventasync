@@ -1,13 +1,13 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
 use App\Support\PayoutStatus;
-use Extensions\shopee\Models\ShopeeApiLog;
-use Extensions\shopee\Models\ShopeeOrder;
+use Extensions\Shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeOrder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeSetting;
 
 class ShopeePayoutSync
 {

@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\lazada\Services\Lazada;
+namespace Extensions\Lazada\Services\Lazada;
 
 use App\Integrations\Listings\SheetReads;
-use Extensions\lazada\Controllers\LazadaProductController;
-use Extensions\lazada\Models\LazadaCategoryTemplate;
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaProductGroup;
+use Extensions\Lazada\Controllers\LazadaProductController;
+use Extensions\Lazada\Models\LazadaCategoryTemplate;
+use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaProductGroup;
 
 class LazadaSheetReads
 {

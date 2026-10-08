@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\shopee\Services;
+namespace Extensions\Shopee\Services;
 
-use Extensions\shopee\Models\ShopeeOrder;
-use Extensions\shopee\Models\ShopeeOrderStatusMap;
+use Extensions\Shopee\Models\ShopeeOrder;
+use Extensions\Shopee\Models\ShopeeOrderStatusMap;
 use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderHistory;
 use App\Models\Catalog\OrderOption;
@@ -92,7 +92,7 @@ class ShopeeCatalogOrderSync
             }
 
             $storeId = (int) $shopeeOrder->shopee_setting_id;
-            $storeName = mb_substr((string) (\Extensions\shopee\Models\ShopeeSetting::query()->find($storeId)?->store_name ?? ''), 0, 64);
+            $storeName = mb_substr((string) (\Extensions\Shopee\Models\ShopeeSetting::query()->find($storeId)?->store_name ?? ''), 0, 64);
 
             $orderData = [
                 'invoice_no'            => 0,
@@ -299,7 +299,7 @@ class ShopeeCatalogOrderSync
             OrderTotal::where('order_id', $catalogOrder->order_id)->delete();
 
             $sortOrder = 1;
-            foreach (\Extensions\shopee\Services\ShopeeSaleLines::lines(is_array($orderIncome) ? $orderIncome : [], $subTotal, $shippingTotal) as $line) {
+            foreach (\Extensions\Shopee\Services\ShopeeSaleLines::lines(is_array($orderIncome) ? $orderIncome : [], $subTotal, $shippingTotal) as $line) {
                 OrderTotal::create([
                     'order_id'   => $catalogOrder->order_id,
                     'code'       => $line['code'],

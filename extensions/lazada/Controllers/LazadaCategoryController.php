@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\lazada\Controllers;
+namespace Extensions\Lazada\Controllers;
 
 use App\Http\Controllers\Controller;
 
-use Extensions\lazada\Models\LazadaCategory;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\lazada\Services\Lazada\LazadaClient;
+use Extensions\Lazada\Models\LazadaCategory;
+use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 

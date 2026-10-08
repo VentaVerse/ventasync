@@ -202,7 +202,7 @@ class PermissionCatalog
     private function keyFor(string $class): string
     {
         if (preg_match('#^Extensions\\\\([A-Za-z0-9_]+)\\\\Controllers\\\\(.+)$#', $class, $m)) {
-            $area = Str::snake($m[1]);
+            $area = strtolower($m[1]);
             $leaf = str_replace('\\', '', $m[2]);
             $leaf = preg_replace('/Controller$/', '', $leaf);
             $leaf = preg_replace('/^' . preg_quote($m[1], '/') . '/i', '', $leaf);

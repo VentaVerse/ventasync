@@ -1,8 +1,8 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
-use Extensions\shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeApiLog;
 use Illuminate\Support\Facades\DB;
 
 class ShopeeVariationRename

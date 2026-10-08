@@ -1,14 +1,14 @@
 <?php
 
-namespace Extensions\tiktok\Commands;
+namespace Extensions\TikTok\Commands;
 
-use Extensions\tiktok\Models\TikTokApiLog;
-use Extensions\tiktok\Models\TikTokOrder;
-use Extensions\tiktok\Models\TikTokOrderProduct;
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\Services\TikTok\TikTokClient;
-use Extensions\tiktok\Services\TikTok\TikTokReturnSync;
-use Extensions\tiktok\Services\TikTokCatalogOrderSync;
+use Extensions\TikTok\Models\TikTokApiLog;
+use Extensions\TikTok\Models\TikTokOrder;
+use Extensions\TikTok\Models\TikTokOrderProduct;
+use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Services\TikTok\TikTokClient;
+use Extensions\TikTok\Services\TikTok\TikTokReturnSync;
+use Extensions\TikTok\Services\TikTokCatalogOrderSync;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -27,7 +27,7 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
 
     public function handle(): int
     {
-        $stores = \Extensions\tiktok\Models\TikTokSetting::enabledStores();
+        $stores = \Extensions\TikTok\Models\TikTokSetting::enabledStores();
         if ($stores->isEmpty()) { $this->error('No enabled TikTok store. Configure TikTok settings first.'); return 1; }
         $worst = 0;
         foreach ($stores as $store) {
@@ -46,7 +46,7 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
         return $worst;
     }
 
-    private function handleStore(\Extensions\tiktok\Models\TikTokSetting $store): int
+    private function handleStore(\Extensions\TikTok\Models\TikTokSetting $store): int
     {
         $raw = $store;
 

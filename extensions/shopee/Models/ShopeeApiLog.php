@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\shopee\Models;
+namespace Extensions\Shopee\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Schema;
 
 class ShopeeApiLog extends Model
 {
-    use \Extensions\shopee\Models\Concerns\BelongsToShopeeStore;
+    use \Extensions\Shopee\Models\Concerns\BelongsToShopeeStore;
 
     protected $table = 'shopee_api_logs';
 

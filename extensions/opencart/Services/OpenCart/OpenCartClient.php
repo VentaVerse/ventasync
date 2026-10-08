@@ -1,8 +1,8 @@
 <?php
 
-namespace Extensions\opencart\Services\OpenCart;
+namespace Extensions\OpenCart\Services\OpenCart;
 
-use Extensions\opencart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartSetting;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Log;
 

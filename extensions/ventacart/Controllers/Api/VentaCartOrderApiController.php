@@ -1,17 +1,17 @@
 <?php
 
-namespace Extensions\ventacart\Controllers\Api;
+namespace Extensions\VentaCart\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Support\Fulfilment\AppFulfilment;
 use App\Support\FulfilmentSteps;
 use App\Support\Money;
-use Extensions\ventacart\Models\VentaCartOrder;
-use Extensions\ventacart\Models\VentaCartOrderStatusMap;
-use Extensions\ventacart\Models\VentaCartSetting;
-use Extensions\ventacart\Services\VentaCart\VentaCartFulfilment;
-use Extensions\ventacart\Services\VentaCart\VentaCartStatusPlacements;
-use Extensions\ventacart\VentaCartExtension;
+use Extensions\VentaCart\Models\VentaCartOrder;
+use Extensions\VentaCart\Models\VentaCartOrderStatusMap;
+use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Services\VentaCart\VentaCartFulfilment;
+use Extensions\VentaCart\Services\VentaCart\VentaCartStatusPlacements;
+use Extensions\VentaCart\VentaCartExtension;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;

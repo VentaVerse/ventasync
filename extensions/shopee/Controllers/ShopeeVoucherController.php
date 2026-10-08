@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\shopee\Controllers;
+namespace Extensions\Shopee\Controllers;
 
 use App\Http\Controllers\Controller;
-use Extensions\shopee\Models\ShopeeApiLog;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Http\Request;
 
 class ShopeeVoucherController extends Controller

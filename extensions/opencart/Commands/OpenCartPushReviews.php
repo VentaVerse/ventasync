@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\opencart\Commands;
+namespace Extensions\OpenCart\Commands;
 
-use Extensions\opencart\Models\MarketplaceReview;
-use Extensions\opencart\Models\OpenCartProductLink;
-use Extensions\opencart\Models\OpenCartSetting;
-use Extensions\opencart\Services\OpenCart\OpenCartClient;
+use Extensions\OpenCart\Models\MarketplaceReview;
+use Extensions\OpenCart\Models\OpenCartProductLink;
+use Extensions\OpenCart\Models\OpenCartSetting;
+use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 

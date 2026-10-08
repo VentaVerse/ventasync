@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\lazada\Models;
+namespace Extensions\Lazada\Models;
 
 use Illuminate\Database\Eloquent\Model;
 

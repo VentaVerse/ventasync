@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
 use Carbon\Carbon;
-use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeSetting;
 
 class ShopeeBalance
 {

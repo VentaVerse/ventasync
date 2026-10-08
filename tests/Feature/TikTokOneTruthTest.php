@@ -6,9 +6,9 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\tiktok\Models\TikTokProductGroup;
-use Extensions\tiktok\Models\TikTokProductGroupProduct;
-use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokProductGroup;
+use Extensions\TikTok\Models\TikTokProductGroupProduct;
+use Extensions\TikTok\Models\TikTokSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -26,7 +26,7 @@ class TikTokOneTruthTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('tiktok');
         $manager->enable('tiktok');
-        $this->app->register(\Extensions\tiktok\TikTokExtension::class);
+        $this->app->register(\Extensions\TikTok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
@@ -76,7 +76,7 @@ class TikTokOneTruthTest extends TestCase
             'last_pushed_at' => now()->subMinutes(37),
         ]);
 
-        \Extensions\tiktok\Models\TikTokListing::create([
+        \Extensions\TikTok\Models\TikTokListing::create([
             'product_id' => $productId, 'tiktok_product_id' => 'tt-990077',
             'last_pushed_at' => now()->subMinutes(5),
             'last_push_source' => 'group:Truth group A',

@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\ventacart\Services\VentaCart;
+namespace Extensions\VentaCart\Services\VentaCart;
 
 use App\Services\ActivityLogger;
 use App\Support\FulfilmentSteps;
-use Extensions\ventacart\Models\VentaCartOrder;
-use Extensions\ventacart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartOrder;
+use Extensions\VentaCart\Models\VentaCartSetting;
 use Illuminate\Support\Facades\Log;
 
 class VentaCartFulfilment

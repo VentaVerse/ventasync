@@ -1,14 +1,14 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
 use App\Integrations\Listings\ListingState;
 use App\Integrations\Listings\ListingVariations;
 use App\Integrations\Push\PushLedger;
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeProductGroup;
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeProductGroup;
+use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeSetting;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;

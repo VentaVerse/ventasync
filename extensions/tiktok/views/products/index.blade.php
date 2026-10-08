@@ -58,7 +58,7 @@
     </div>
 @elseif(($liveCounts ?? null) !== null)
     @php
-        $tabDefs = \Extensions\tiktok\Services\TikTok\TikTokLiveListing::TABS;
+        $tabDefs = \Extensions\TikTok\Services\TikTok\TikTokLiveListing::TABS;
         $tabQuery = request()->except('page', 'tiktok_tab');
     @endphp
     <div class="x-segment-bar">

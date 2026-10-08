@@ -8,10 +8,10 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use App\Support\ChannelWorkspace;
-use Extensions\tiktok\Models\TikTokOrder;
-use Extensions\tiktok\Models\TikTokOrderProduct;
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\TikTokExtension;
+use Extensions\TikTok\Models\TikTokOrder;
+use Extensions\TikTok\Models\TikTokOrderProduct;
+use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\TikTokExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 

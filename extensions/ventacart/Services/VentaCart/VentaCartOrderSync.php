@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\ventacart\Services\VentaCart;
+namespace Extensions\VentaCart\Services\VentaCart;
 
 use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderHistory;
@@ -10,11 +10,11 @@ use App\Models\Catalog\OrderTotal;
 use App\Services\OrderStockService;
 use App\Events\OrderStatusChanged;
 use App\Services\ActivityLogger;
-use Extensions\ventacart\Models\VentaCartOrder;
-use Extensions\ventacart\Models\VentaCartOrderProduct;
-use Extensions\ventacart\Models\VentaCartOrderStatusMap;
-use Extensions\ventacart\Models\VentaCartSetting;
-use Extensions\ventacart\Models\VentaCartSyncLog;
+use Extensions\VentaCart\Models\VentaCartOrder;
+use Extensions\VentaCart\Models\VentaCartOrderProduct;
+use Extensions\VentaCart\Models\VentaCartOrderStatusMap;
+use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartSyncLog;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 

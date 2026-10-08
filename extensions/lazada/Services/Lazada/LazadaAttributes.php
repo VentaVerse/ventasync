@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\lazada\Services\Lazada;
+namespace Extensions\Lazada\Services\Lazada;
 
-use Extensions\lazada\Models\LazadaBrand;
-use Extensions\lazada\Models\LazadaCategoryTemplate;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaBrand;
+use Extensions\Lazada\Models\LazadaCategoryTemplate;
+use Extensions\Lazada\Models\LazadaSetting;
 
 class LazadaAttributes
 {

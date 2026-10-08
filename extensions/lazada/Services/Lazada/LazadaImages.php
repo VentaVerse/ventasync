@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\lazada\Services\Lazada;
+namespace Extensions\Lazada\Services\Lazada;
 
-use Extensions\lazada\Models\LazadaApiLog;
-use Extensions\lazada\Models\LazadaImageLink;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaApiLog;
+use Extensions\Lazada\Models\LazadaImageLink;
+use Extensions\Lazada\Models\LazadaSetting;
 use Illuminate\Support\Str;
 
 class LazadaImages

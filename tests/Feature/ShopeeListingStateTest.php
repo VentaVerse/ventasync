@@ -5,13 +5,13 @@ namespace Tests\Feature;
 use App\Extensions\ExtensionManager;
 use App\Integrations\IntegrationRegistry;
 use App\Integrations\Listings\ListingState;
-use Extensions\shopee\Models\ShopeeCategoryTemplate;
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
-use Extensions\shopee\Services\Shopee\ShopeeListingStates;
-use Extensions\shopee\Services\Shopee\ShopeeLiveListing;
+use Extensions\Shopee\Models\ShopeeCategoryTemplate;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Services\Shopee\ShopeeListingStates;
+use Extensions\Shopee\Services\Shopee\ShopeeLiveListing;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -28,7 +28,7 @@ class ShopeeListingStateTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
@@ -211,7 +211,7 @@ class ShopeeListingStateTest extends TestCase
             \Illuminate\Support\Facades\DB::table($pfx . 'product_image')->insert(['product_id' => $pid, 'image' => "catalog/g{$i}.png", 'sort_order' => $i]);
         }
         $product = \Illuminate\Support\Facades\DB::table($pfx . 'product')->where('product_id', $pid)->first();
-        $create = app(\Extensions\shopee\Services\Shopee\ShopeeItemCreate::class);
+        $create = app(\Extensions\Shopee\Services\Shopee\ShopeeItemCreate::class);
 
         $paths = $create->catalogImagePaths($product);
 
@@ -353,7 +353,7 @@ class ShopeeListingStateTest extends TestCase
         ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 1201, 'sku' => 'DASH',
             'live_status' => 'BANNED', 'live_checked_at' => now()]);
 
-        $data = (new \Extensions\shopee\ShopeeExtension(app()))->dashboardData();
+        $data = (new \Extensions\Shopee\ShopeeExtension(app()))->dashboardData();
         $flags = $data['shopeeSyncStatus']->listing_flags;
 
         $this->assertCount(1, $flags);
@@ -364,7 +364,7 @@ class ShopeeListingStateTest extends TestCase
         $this->assertStringContainsString('/shopee/', (string) $flags[0]['href']);
 
         ShopeeProductLink::query()->update(['live_status' => 'NORMAL']);
-        $data = (new \Extensions\shopee\ShopeeExtension(app()))->dashboardData();
+        $data = (new \Extensions\Shopee\ShopeeExtension(app()))->dashboardData();
         $this->assertSame([], $data['shopeeSyncStatus']->listing_flags);
     }
 
@@ -378,7 +378,7 @@ class ShopeeListingStateTest extends TestCase
         ShopeeProductLink::create(['product_id' => $fine, 'shopee_item_id' => 1302, 'sku' => 'WELL',
             'live_status' => 'NORMAL', 'live_checked_at' => now()]);
 
-        $engine = app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class);
+        $engine = app(\Extensions\Shopee\Services\Shopee\ShopeeListingStates::class);
         $this->assertSame([$troubled], $engine->productIdsIn('attention'),
             'The rows behind the figure must be the rows the figure counted.');
         $this->assertSame(1, $engine->summary()['attention']);
@@ -451,8 +451,8 @@ class ShopeeListingStateTest extends TestCase
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
         ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 3003, 'sku' => 'TGL-GRP', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
-        $grp = \Extensions\shopee\Models\ShopeeProductGroup::create(['name' => 'Toggle group', 'shopee_category_id' => 100139]);
-        \Extensions\shopee\Models\ShopeeProductGroupProduct::create([
+        $grp = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Toggle group', 'shopee_category_id' => 100139]);
+        \Extensions\Shopee\Models\ShopeeProductGroupProduct::create([
             'shopee_product_group_id' => $grp->id, 'product_id' => $pid,
             'shopee_item_id' => 3003, 'sync_status' => 'pushed',
         ]);

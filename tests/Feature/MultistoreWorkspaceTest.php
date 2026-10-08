@@ -9,10 +9,10 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use App\Support\ChannelWorkspace;
-use Extensions\opencart\Models\OpenCartSetting;
-use Extensions\opencart\OpenCartExtension;
-use Extensions\ventacart\Models\VentaCartSetting;
-use Extensions\ventacart\VentaCartExtension;
+use Extensions\OpenCart\Models\OpenCartSetting;
+use Extensions\OpenCart\OpenCartExtension;
+use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\VentaCartExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -29,7 +29,7 @@ class MultistoreWorkspaceTest extends TestCase
         $providers = [
             'ventacart' => VentaCartExtension::class,
             'opencart' => OpenCartExtension::class,
-            'shopee' => \Extensions\shopee\ShopeeExtension::class,
+            'shopee' => \Extensions\Shopee\ShopeeExtension::class,
         ];
 
         foreach ($providers as $id => $class) {
@@ -632,9 +632,9 @@ class MultistoreWorkspaceTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    private function ventaCartOrder(int $storeId, string $customer, string $status): \Extensions\ventacart\Models\VentaCartOrder
+    private function ventaCartOrder(int $storeId, string $customer, string $status): \Extensions\VentaCart\Models\VentaCartOrder
     {
-        return \Extensions\ventacart\Models\VentaCartOrder::create([
+        return \Extensions\VentaCart\Models\VentaCartOrder::create([
             'ventacart_setting_id'   => $storeId,
             'ventacart_order_id'     => ($storeId * 100000) + random_int(1, 99999),
             'ventacart_order_number' => ($storeId * 100000) + random_int(1, 99999),

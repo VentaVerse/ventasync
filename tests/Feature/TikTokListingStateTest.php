@@ -8,12 +8,12 @@ use App\Integrations\Listings\ListingState;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\tiktok\Models\TikTokListing;
-use Extensions\tiktok\Models\TikTokProductGroup;
-use Extensions\tiktok\Models\TikTokProductGroupProduct;
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\Services\TikTok\TikTokListingStates;
-use Extensions\tiktok\TikTokExtension;
+use Extensions\TikTok\Models\TikTokListing;
+use Extensions\TikTok\Models\TikTokProductGroup;
+use Extensions\TikTok\Models\TikTokProductGroupProduct;
+use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Services\TikTok\TikTokListingStates;
+use Extensions\TikTok\TikTokExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -285,17 +285,17 @@ class TikTokListingStateTest extends TestCase
     public function test_the_last_push_refusal_and_the_last_sync_are_one_answer(): void
     {
         $pid = $this->seedProduct('Refused one', 'RF-1');
-        \Extensions\tiktok\Models\TikTokListing::query()->create(['product_id' => $pid]);
+        \Extensions\TikTok\Models\TikTokListing::query()->create(['product_id' => $pid]);
 
-        app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)->recordOutcome($pid, 'Main image is required.');
-        $states = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class);
+        app(\Extensions\TikTok\Services\TikTok\TikTokListingStates::class)->recordOutcome($pid, 'Main image is required.');
+        $states = app(\Extensions\TikTok\Services\TikTok\TikTokListingStates::class);
         $s = $states->forProducts([$pid])[$pid];
         $this->assertStringContainsString('failed: Main image is required', implode(' ', $s->reasons));
         $this->assertStringContainsString('Main image is required', (string) $states->errors([$pid])[$pid]);
 
-        \Extensions\tiktok\Models\TikTokListing::recordPush($pid, 'tt-1', null, 'listing');
+        \Extensions\TikTok\Models\TikTokListing::recordPush($pid, 'tt-1', null, 'listing');
         $this->assertNull($states->errors([$pid])[$pid]);
-        $this->assertNull(\Extensions\tiktok\Models\TikTokListing::query()->where('product_id', $pid)->value('last_push_error'));
+        $this->assertNull(\Extensions\TikTok\Models\TikTokListing::query()->where('product_id', $pid)->value('last_push_error'));
 
         $never = $this->seedProduct('Never one', 'NV-1');
         $this->assertNull($states->errors([$never])[$never]);
@@ -334,12 +334,12 @@ class TikTokListingStateTest extends TestCase
             'sync_status' => 'pending',
         ]);
 
-        $inherit = app(\Extensions\tiktok\Services\TikTok\TikTokInheritedSettings::class);
+        $inherit = app(\Extensions\TikTok\Services\TikTok\TikTokInheritedSettings::class);
         $filled = $inherit->fill($listing, $inherit->forProducts([$pid])[$pid] ?? null);
         $this->assertSame('900009', $filled['listing']->tiktok_category_id);
         $this->assertSame(['category' => 'Preset group'], $filled['inherited']);
 
-        $codes = array_column(app(\Extensions\tiktok\Services\TikTok\TikTokListingReadiness::class)
+        $codes = array_column(app(\Extensions\TikTok\Services\TikTok\TikTokListingReadiness::class)
             ->forProducts([$pid])[$pid]['gaps'], 'code');
         $this->assertNotContains(\App\Integrations\Listings\ListingState::GAP_CATEGORY, $codes);
         $this->assertContains(\App\Integrations\Listings\ListingState::GAP_SHEET, $codes, 'the inherited category is judged like its own: its sheet is still unread');
@@ -553,7 +553,7 @@ class TikTokListingStateTest extends TestCase
         $pid = $this->linkedSingle('Cron cleared', 'CC-1', 'tt-401');
         $this->engine()->recordOutcome($pid, 'Update refused.');
 
-        \Extensions\tiktok\Services\TikTok\TikTokStockPricePush::recordOutcomes('stock', [$pid => ['ok' => true, 'error' => null]], TikTokSetting::defaultStore());
+        \Extensions\TikTok\Services\TikTok\TikTokStockPricePush::recordOutcomes('stock', [$pid => ['ok' => true, 'error' => null]], TikTokSetting::defaultStore());
 
         $this->assertNull($this->engine()->errors([$pid])[$pid]);
         $this->assertNull(TikTokListing::query()->where('product_id', $pid)->value('last_push_error'));

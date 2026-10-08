@@ -1,8 +1,8 @@
 <?php
 
-namespace Extensions\lazada\Models\Concerns;
+namespace Extensions\Lazada\Models\Concerns;
 
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaSetting;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 

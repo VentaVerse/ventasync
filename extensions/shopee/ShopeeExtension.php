@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\shopee;
+namespace Extensions\Shopee;
 
 use App\Extensions\ExtensionProvider;
 use App\Integrations\Contracts\DashboardContributor;
@@ -20,11 +20,11 @@ use App\Integrations\IntegrationProvider;
 use App\Integrations\IntegrationRegistry;
 use App\Integrations\MenuItem;
 use App\Integrations\OrderTab;
-use Extensions\shopee\Models\ShopeeApiLog;
-use Extensions\shopee\Models\ShopeeOrder;
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeOrder;
+use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -58,9 +58,9 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
     {
         parent::boot();
 
-        \Extensions\shopee\Models\ShopeeSetting::syncUrlDefault();
+        \Extensions\Shopee\Models\ShopeeSetting::syncUrlDefault();
 
-        $this->app->scoped(\Extensions\shopee\Services\Shopee\ShopeeLinkCheck::class);
+        $this->app->scoped(\Extensions\Shopee\Services\Shopee\ShopeeLinkCheck::class);
 
         \App\Models\ChannelWebhookEvent::created(function (\App\Models\ChannelWebhookEvent $event) {
             if ($event->channel === 'shopee' && $event->signature_ok && in_array($event->event_type, self::ORDER_PUSH_TYPES, true)
@@ -70,14 +70,14 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         });
 
         $this->commands([
-            \Extensions\shopee\Commands\ShopeePushStock::class,
-            \Extensions\shopee\Commands\ShopeePushPrice::class,
-            \Extensions\shopee\Commands\ShopeeFindDuplicates::class,
-            \Extensions\shopee\Commands\ShopeeRefreshListingStatus::class,
-            \Extensions\shopee\Commands\ShopeeRefreshToken::class,
-            \Extensions\shopee\Commands\ShopeeSyncOrders::class,
-            \Extensions\shopee\Commands\ShopeeSyncPayouts::class,
-            \Extensions\shopee\Commands\ShopeeSyncReviews::class,
+            \Extensions\Shopee\Commands\ShopeePushStock::class,
+            \Extensions\Shopee\Commands\ShopeePushPrice::class,
+            \Extensions\Shopee\Commands\ShopeeFindDuplicates::class,
+            \Extensions\Shopee\Commands\ShopeeRefreshListingStatus::class,
+            \Extensions\Shopee\Commands\ShopeeRefreshToken::class,
+            \Extensions\Shopee\Commands\ShopeeSyncOrders::class,
+            \Extensions\Shopee\Commands\ShopeeSyncPayouts::class,
+            \Extensions\Shopee\Commands\ShopeeSyncReviews::class,
         ]);
 
         $this->app->make(IntegrationRegistry::class)->register($this);
@@ -86,16 +86,16 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             id: 'shopee',
             name: 'Shopee',
             accent: '#EE4D2D',
-            attention: \Extensions\shopee\Services\Shopee\ShopeePayoutSync::attention(),
-            stores: fn () => \Extensions\shopee\Models\ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get(),
-            readBalance: fn (object $store) => app(\Extensions\shopee\Services\Shopee\ShopeeBalance::class)->read($store),
+            attention: \Extensions\Shopee\Services\Shopee\ShopeePayoutSync::attention(),
+            stores: fn () => \Extensions\Shopee\Models\ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get(),
+            readBalance: fn (object $store) => app(\Extensions\Shopee\Services\Shopee\ShopeeBalance::class)->read($store),
             pageRoute: 'ext.shopee.dashboard',
         ));
     }
 
     public function forgetVariations(int $productId, array $skus): void
     {
-        \Extensions\shopee\Services\Shopee\ShopeeVariationForgetter::forget($productId, $skus);
+        \Extensions\Shopee\Services\Shopee\ShopeeVariationForgetter::forget($productId, $skus);
     }
 
     public function integrationId(): string
@@ -383,7 +383,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                 'last_sync_error_message' => $isOk ? null : (string) ($result['body']['message'] ?? ''),
             ]);
             if ($isOk) {
-                app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)
+                app(\Extensions\Shopee\Services\Shopee\ShopeeListingStates::class)
                     ->forStore((int) $link->shopee_setting_id)->recordOutcome((int) $link->product_id, null);
             }
 
@@ -416,7 +416,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                 $flags = null;
                 $attention = 0;
                 try {
-                    $sum = app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->summary();
+                    $sum = app(\Extensions\Shopee\Services\Shopee\ShopeeListingStates::class)->summary();
                     $attention = (int) $sum['attention'];
                     $flags = \App\Integrations\Listings\ListingTrouble::figures($sum, fn (string $bucket) => route('ext.shopee.products.index', ['store' => $spSetting->id, 'state' => $bucket]));
                 } catch (\Throwable) {
@@ -460,7 +460,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             $previous = app()->bound('shopee.route-store') ? app('shopee.route-store') : null;
             try {
                 app()->instance('shopee.route-store', $store);
-                $sum = app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->summary();
+                $sum = app(\Extensions\Shopee\Services\Shopee\ShopeeListingStates::class)->summary();
                 $attention = (int) $sum['attention'];
                 $flags = \App\Integrations\Listings\ListingTrouble::figures($sum, fn (string $bucket) => route('ext.shopee.products.index', ['store' => $store->id, 'state' => $bucket]));
             } catch (\Throwable) {
@@ -487,14 +487,14 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
 
     public function saleLinesForOrder(int $coreOrderId, float $itemsSubtotal, float $shipping): ?array
     {
-        $order = \Extensions\shopee\Models\ShopeeOrder::query()->withoutGlobalScope('shopeeStore')->where('catalog_order_id', $coreOrderId)->first();
+        $order = \Extensions\Shopee\Models\ShopeeOrder::query()->withoutGlobalScope('shopeeStore')->where('catalog_order_id', $coreOrderId)->first();
         if (! $order) {
             return null;
         }
         $fees = is_array($order->fees) ? $order->fees : [];
         $income = $fees['order_income'] ?? $fees;
 
-        return \Extensions\shopee\Services\ShopeeSaleLines::lines(is_array($income) ? $income : [], $itemsSubtotal, $shipping);
+        return \Extensions\Shopee\Services\ShopeeSaleLines::lines(is_array($income) ? $income : [], $itemsSubtotal, $shipping);
     }
 
     public function feeBucketsForOrder(int $coreOrderId): ?array
@@ -524,7 +524,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             - $amount('seller_shipping_discount');
 
         $other = $amount('service_fee') + $amount('seller_transaction_fee');
-        $unitemised = \Extensions\shopee\Services\ShopeeOrderBreakdown::from($income)?->unitemised() ?? 0.0;
+        $unitemised = \Extensions\Shopee\Services\ShopeeOrderBreakdown::from($income)?->unitemised() ?? 0.0;
         if ($unitemised < 0) {
             $other += abs($unitemised);
         }
@@ -663,7 +663,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                 'payment_method'  => $raw['payment_method'] ?? null,
                 'tracking_number' => $raw['tracking_number'] ?? null,
                 'date'            => $order->order_created_at?->format('Y-m-d H:i'),
-                'fulfilment'      => \Extensions\shopee\Services\ShopeeAppFulfilment::block($order),
+                'fulfilment'      => \Extensions\Shopee\Services\ShopeeAppFulfilment::block($order),
             ];
         });
 
@@ -722,18 +722,18 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                 ]))),
             'date'              => $order->order_created_at?->format('Y-m-d H:i'),
             'products'          => $products->values(),
-            'fulfilment'        => \Extensions\shopee\Services\ShopeeAppFulfilment::block($order),
+            'fulfilment'        => \Extensions\Shopee\Services\ShopeeAppFulfilment::block($order),
         ];
     }
 
     public function mobileFulfilmentActions(): array
     {
-        return \Extensions\shopee\Services\ShopeeAppFulfilment::ACTIONS;
+        return \Extensions\Shopee\Services\ShopeeAppFulfilment::ACTIONS;
     }
 
     public function mobileFulfilmentAction(string $action, int $id, Request $request): \Symfony\Component\HttpFoundation\Response
     {
-        return app(\Extensions\shopee\Services\ShopeeAppFulfilment::class)->handle($action, $id, $request);
+        return app(\Extensions\Shopee\Services\ShopeeAppFulfilment::class)->handle($action, $id, $request);
     }
 
     public function layoutBanners(): array
@@ -798,7 +798,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             return null;
         }
 
-        return app(\Extensions\shopee\Controllers\ShopeeController::class)
+        return app(\Extensions\Shopee\Controllers\ShopeeController::class)
             ->root($request, app(ShopeeClient::class));
     }
 
@@ -820,7 +820,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
 
     protected function credentialSettingsModel(): string
     {
-        return \Extensions\shopee\Models\ShopeeSetting::class;
+        return \Extensions\Shopee\Models\ShopeeSetting::class;
     }
 
     public function credentialManagePermission(): string
@@ -830,7 +830,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
 
     public function listingStates(array $productIds): array
     {
-        return app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->forProducts($productIds);
+        return app(\Extensions\Shopee\Services\Shopee\ShopeeListingStates::class)->forProducts($productIds);
     }
 
 
@@ -840,7 +840,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             return [];
         }
 
-        return \Extensions\shopee\Models\ShopeeProductLink::query()
+        return \Extensions\Shopee\Models\ShopeeProductLink::query()
             ->whereNotNull('shopee_item_id')
             ->distinct()->pluck('product_id')->map(fn ($v) => (int) $v)->all();
     }
@@ -999,7 +999,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             return "{$what}: the store is paused after a Shopee error ({$paused}); the next sync applies it";
         }
 
-        $ingest = app(\Extensions\shopee\Services\Shopee\ShopeeOrderIngest::class);
+        $ingest = app(\Extensions\Shopee\Services\Shopee\ShopeeOrderIngest::class);
 
         if ($isReturn) {
             $error = $ingest->returnBySn($setting, $auth, $returnSn);
@@ -1052,17 +1052,17 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
 
     public function productPresence(array $productIds): array
     {
-        return app(\Extensions\shopee\Services\Shopee\ShopeeProductRemover::class)->presence($productIds);
+        return app(\Extensions\Shopee\Services\Shopee\ShopeeProductRemover::class)->presence($productIds);
     }
 
     public function removeProduct(int $productId): array
     {
-        return app(\Extensions\shopee\Services\Shopee\ShopeeProductRemover::class)->remove($productId);
+        return app(\Extensions\Shopee\Services\Shopee\ShopeeProductRemover::class)->remove($productId);
     }
 
     public function strandedProductIds(): array
     {
-        return app(\Extensions\shopee\Services\Shopee\ShopeeProductRemover::class)->stranded();
+        return app(\Extensions\Shopee\Services\Shopee\ShopeeProductRemover::class)->stranded();
     }
 
     public function automations(): array

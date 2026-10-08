@@ -1,14 +1,14 @@
 <?php
 
-namespace Extensions\lazada\Commands;
+namespace Extensions\Lazada\Commands;
 
-use Extensions\lazada\Models\LazadaApiLog;
-use Extensions\lazada\Models\LazadaOrder;
-use Extensions\lazada\Models\LazadaOrderProduct;
-use Extensions\lazada\Models\LazadaReverseOrder;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\lazada\Services\Lazada\LazadaClient;
-use Extensions\lazada\Services\LazadaCatalogOrderSync;
+use Extensions\Lazada\Models\LazadaApiLog;
+use Extensions\Lazada\Models\LazadaOrder;
+use Extensions\Lazada\Models\LazadaOrderProduct;
+use Extensions\Lazada\Models\LazadaReverseOrder;
+use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Services\Lazada\LazadaClient;
+use Extensions\Lazada\Services\LazadaCatalogOrderSync;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -28,7 +28,7 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
 
     public function handle(LazadaClient $client): int
     {
-        $stores = \Extensions\lazada\Models\LazadaSetting::enabledStores();
+        $stores = \Extensions\Lazada\Models\LazadaSetting::enabledStores();
         if ($stores->isEmpty()) { $this->error('No enabled Lazada store. Configure Lazada settings first.'); return 1; }
         $worst = 0;
         foreach ($stores as $store) {
@@ -47,7 +47,7 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
         return $worst;
     }
 
-    private function handleStore(LazadaClient $client, \Extensions\lazada\Models\LazadaSetting $store): int
+    private function handleStore(LazadaClient $client, \Extensions\Lazada\Models\LazadaSetting $store): int
     {
         $setting = $store->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
@@ -660,7 +660,7 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
         $returnsOnly = ! empty($args['--returns']);
         $skipReturns = ! empty($args['--no-returns']);
         $units = [];
-        foreach (\Extensions\lazada\Models\LazadaSetting::enabledStores() as $store) {
+        foreach (\Extensions\Lazada\Models\LazadaSetting::enabledStores() as $store) {
             foreach (array_values(array_filter(['orders', 'fees', 'returns'], fn ($p) => $returnsOnly ? $p === 'returns' : ($p !== 'returns' || ! $skipReturns))) as $phase) {
                 $units[] = $store->id . ':' . $phase;
             }
@@ -683,7 +683,7 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
         $notes = [];
         foreach ($units as $unit) {
             [$sid, $phase] = array_pad(explode(':', (string) $unit, 2), 2, '');
-            $store = \Extensions\lazada\Models\LazadaSetting::query()->find((int) $sid);
+            $store = \Extensions\Lazada\Models\LazadaSetting::query()->find((int) $sid);
             if (! $store) {
                 $failed++;
                 continue;

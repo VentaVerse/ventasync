@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\ventacart\Controllers;
+namespace Extensions\VentaCart\Controllers;
 
 class VentaCartWatermarkTemplateController extends \App\Http\Controllers\Channels\WatermarkTemplateController
 {

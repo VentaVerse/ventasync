@@ -1,13 +1,13 @@
 <?php
 
-namespace Extensions\lazada\Services\Lazada;
+namespace Extensions\Lazada\Services\Lazada;
 
-use Extensions\lazada\Models\LazadaBrand;
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaCategoryTemplate;
-use Extensions\lazada\Models\LazadaProductAttribute;
-use Extensions\lazada\Models\LazadaProductVariant;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaBrand;
+use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaCategoryTemplate;
+use Extensions\Lazada\Models\LazadaProductAttribute;
+use Extensions\Lazada\Models\LazadaProductVariant;
+use Extensions\Lazada\Models\LazadaSetting;
 use Illuminate\Support\Facades\DB;
 
 class LazadaPushPayload
@@ -572,7 +572,7 @@ class LazadaPushPayload
 
         try {
             return (new LazadaLiveListing($client))->itemShape(
-                $setting, \Extensions\lazada\Models\LazadaSetting::activeCredentials($setting), $itemId
+                $setting, \Extensions\Lazada\Models\LazadaSetting::activeCredentials($setting), $itemId
             );
         } catch (\RuntimeException $e) {
             throw \Illuminate\Validation\ValidationException::withMessages([

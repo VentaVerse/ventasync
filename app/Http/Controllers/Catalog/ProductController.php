@@ -1150,10 +1150,10 @@ $pfx = config('catalog.prefix');
             }
         }
 
-        if (class_exists(\Extensions\warehousing\Services\WarehouseStockService::class)) {
-            $defaultWh = \Extensions\warehousing\Services\WarehouseStockService::getDefaultWarehouse();
+        if (class_exists(\Extensions\Warehousing\Services\WarehouseStockService::class)) {
+            $defaultWh = \Extensions\Warehousing\Services\WarehouseStockService::getDefaultWarehouse();
             if ($defaultWh && isset($updatedAttrs['quantity'])) {
-                $inv = \Extensions\warehousing\Services\WarehouseStockService::getOrCreateInventory($defaultWh->id, (int) $id, 0);
+                $inv = \Extensions\Warehousing\Services\WarehouseStockService::getOrCreateInventory($defaultWh->id, (int) $id, 0);
                 $inv->update(['quantity' => (int) $updatedAttrs['quantity']]);
             }
         }

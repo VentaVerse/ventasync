@@ -6,10 +6,10 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -31,7 +31,7 @@ class ShopeeListingPageTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
@@ -213,11 +213,11 @@ class ShopeeListingPageTest extends TestCase
     public function test_the_band_picks_the_group_and_the_fields_show_what_it_gives(): void
     {
         $productId = $this->seedProduct();
-        $group = \Extensions\shopee\Models\ShopeeProductGroup::create([
+        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create([
             'name' => 'Guitar pedals', 'shopee_category_id' => 100013,
             'logistic_ids' => [8003], 'markup_percent' => 50, 'markup_fixed' => 0,
         ]);
-        \Extensions\shopee\Models\ShopeeProductGroupProduct::create([
+        \Extensions\Shopee\Models\ShopeeProductGroupProduct::create([
             'shopee_product_group_id' => $group->id, 'product_id' => $productId,
         ]);
 
@@ -252,7 +252,7 @@ class ShopeeListingPageTest extends TestCase
         $this->assertSame($reversed, $listing->fresh()->image_order);
         $this->assertSame(
             $reversed,
-            app(\Extensions\shopee\Services\Shopee\ShopeeItemCreate::class)
+            app(\Extensions\Shopee\Services\Shopee\ShopeeItemCreate::class)
                 ->catalogImagePaths((object) ['product_id' => $productId], $listing->fresh()),
             'The push sends the arrangement, not the catalog order.'
         );
@@ -413,7 +413,7 @@ class ShopeeListingPageTest extends TestCase
         $paths = $this->seedRealImages($productId, 2);
         DB::table($pfx . 'product')->where('product_id', $productId)->update(['image' => '']);
 
-        $readiness = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class);
+        $readiness = app(\Extensions\Shopee\Services\Shopee\ShopeeListingReadiness::class);
         $before = $readiness->forProducts([$productId])[$productId]['missing'] ?? [];
         $this->assertContains('a product image on the Master Catalog product', $before);
 
@@ -422,7 +422,7 @@ class ShopeeListingPageTest extends TestCase
             ['shopee_category_id' => 100013, 'logistic_ids' => [8003], 'image_order' => $paths]
         );
 
-        $after = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)
+        $after = app(\Extensions\Shopee\Services\Shopee\ShopeeListingReadiness::class)
             ->forProducts([$productId])[$productId]['missing'] ?? [];
         $this->assertNotContains('a product image on the Master Catalog product', $after);
     }
@@ -653,8 +653,8 @@ class ShopeeListingPageTest extends TestCase
     public function test_refresh_reads_the_attribute_sheets_its_listings_need(): void
     {
         $productId = $this->seedProduct();
-        \Extensions\shopee\Models\ShopeeListing::query()->updateOrCreate(['product_id' => $productId], ['shopee_category_id' => 555001]);
-        \Extensions\shopee\Models\ShopeeProductGroup::query()->create(['name' => 'Unread group', 'shopee_category_id' => 555002]);
+        \Extensions\Shopee\Models\ShopeeListing::query()->updateOrCreate(['product_id' => $productId], ['shopee_category_id' => 555001]);
+        \Extensions\Shopee\Models\ShopeeProductGroup::query()->create(['name' => 'Unread group', 'shopee_category_id' => 555002]);
         $this->fakeItemList(['NORMAL' => [], 'UNLIST' => [], 'BANNED' => [], 'REVIEWING' => [], 'SELLER_DELETE' => [], 'SHOPEE_DELETE' => []]);
         $this->getResponses['/api/v2/product/get_attribute_tree'] = fn (array $q) => (int) ($q['category_id'] ?? 0) === 555001
             ? ['ok' => true, 'status' => 200, 'body' => ['response' => ['attribute_list' => [['attribute_id' => 1, 'original_attribute_name' => 'Material', 'is_mandatory' => false]]]]]
@@ -665,8 +665,8 @@ class ShopeeListingPageTest extends TestCase
         $status = (string) session('status');
         $this->assertStringContainsString('Read 1 attribute sheet.', $status);
         $this->assertStringContainsString('1 attribute sheet could not be read.', $status);
-        $this->assertTrue(\Extensions\shopee\Models\ShopeeCategoryTemplate::where('category_id', 555001)->exists());
-        $this->assertFalse(\Extensions\shopee\Models\ShopeeCategoryTemplate::where('category_id', 555002)->exists(), 'an error answer is not filed as a sheet');
+        $this->assertTrue(\Extensions\Shopee\Models\ShopeeCategoryTemplate::where('category_id', 555001)->exists());
+        $this->assertFalse(\Extensions\Shopee\Models\ShopeeCategoryTemplate::where('category_id', 555002)->exists(), 'an error answer is not filed as a sheet');
     }
 
     public function test_refresh_leaves_the_mirror_alone_when_shopee_does_not_answer(): void
@@ -937,7 +937,7 @@ class ShopeeListingPageTest extends TestCase
         $productId = $this->catalogDescriptionWithTwoPictures();
         $this->liveItemWithDescription('extended', [['field_type' => 'text', 'text' => 'Old words.']]);
         $this->fakeUploads([2]);
-        $states = app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class);
+        $states = app(\Extensions\Shopee\Services\Shopee\ShopeeListingStates::class);
         $states->recordOutcome($productId, 'An earlier refusal.');
         $this->assertContains($productId, $states->erroredProductIds());
 
@@ -946,7 +946,7 @@ class ShopeeListingPageTest extends TestCase
             ->assertSessionMissing('error')
             ->assertSessionHas('warning', fn (string $m) => str_contains($m, '1 description picture could not be uploaded and was left out.'));
 
-        $this->assertNotContains($productId, app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->erroredProductIds(),
+        $this->assertNotContains($productId, app(\Extensions\Shopee\Services\Shopee\ShopeeListingStates::class)->erroredProductIds(),
             'The update went, so its line clears: a picture left out is a warning, never the error line.');
 
         $sent = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/update_item');
@@ -961,7 +961,7 @@ class ShopeeListingPageTest extends TestCase
     public function test_a_group_send_says_a_left_out_picture_as_a_warning(): void
     {
         $productId = $this->catalogDescriptionWithTwoPictures();
-        $group = \Extensions\shopee\Models\ShopeeProductGroup::create([
+        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create([
             'name' => 'Description pictures',
             'shopee_category_id' => 100013, 'logistic_ids' => [8003], 'markup_percent' => 0, 'markup_fixed' => 0,
         ]);
@@ -970,7 +970,7 @@ class ShopeeListingPageTest extends TestCase
         ]);
         $this->liveItemWithDescription('extended', [['field_type' => 'text', 'text' => 'Old words.']]);
         $this->fakeUploads([2]);
-        app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->recordOutcome($productId, 'An earlier refusal.');
+        app(\Extensions\Shopee\Services\Shopee\ShopeeListingStates::class)->recordOutcome($productId, 'An earlier refusal.');
 
         $this->actingAs($this->userWith(['manage_shopee/product', 'view_shopee/product', 'manage_shopee/product_group', 'view_shopee/product_group']))
             ->post(route('ext.shopee.product-groups.send', $group->id), ['ids' => [$productId]])
@@ -984,7 +984,7 @@ class ShopeeListingPageTest extends TestCase
             ['field_type' => 'image', 'image_info' => ['image_id' => 'desc-1']],
             ['field_type' => 'text', 'text' => "Middle words.\n\nLast words."],
         ], $sent['body']['description_info']['extended_description']['field_list']);
-        $this->assertNotContains($productId, app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->erroredProductIds(),
+        $this->assertNotContains($productId, app(\Extensions\Shopee\Services\Shopee\ShopeeListingStates::class)->erroredProductIds(),
             'A picture left out is never the error line.');
     }
 
@@ -1022,7 +1022,7 @@ class ShopeeListingPageTest extends TestCase
 
     public function test_the_words_of_an_extended_item_are_its_text_fields(): void
     {
-        $this->assertSame("First part.\n\nSecond part.", \Extensions\shopee\Services\Shopee\ShopeeDescription::textOf([
+        $this->assertSame("First part.\n\nSecond part.", \Extensions\Shopee\Services\Shopee\ShopeeDescription::textOf([
             'description' => '',
             'description_info' => ['extended_description' => ['field_list' => [
                 ['field_type' => 'text', 'text' => 'First part.'],
@@ -1030,7 +1030,7 @@ class ShopeeListingPageTest extends TestCase
                 ['field_type' => 'text', 'text' => 'Second part.'],
             ]]],
         ]));
-        $this->assertSame('Plain words.', \Extensions\shopee\Services\Shopee\ShopeeDescription::textOf(['description' => 'Plain words.']));
+        $this->assertSame('Plain words.', \Extensions\Shopee\Services\Shopee\ShopeeDescription::textOf(['description' => 'Plain words.']));
     }
 
     public function test_push_update_refuses_a_product_that_is_not_on_shopee(): void
@@ -1050,7 +1050,7 @@ class ShopeeListingPageTest extends TestCase
         ShopeeProductLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1',
         ]);
-        \Extensions\shopee\Models\ShopeeBrand::query()->create([
+        \Extensions\Shopee\Models\ShopeeBrand::query()->create([
             'category_id' => 106755, 'brand_id' => 5511, 'name' => 'G7th',
         ]);
         ShopeeListing::query()->create([
@@ -1069,8 +1069,8 @@ class ShopeeListingPageTest extends TestCase
 
     public function test_the_brand_search_answers_this_categorys_brands_only(): void
     {
-        \Extensions\shopee\Models\ShopeeBrand::query()->create(['category_id' => 106755, 'brand_id' => 5511, 'name' => 'G7th']);
-        \Extensions\shopee\Models\ShopeeBrand::query()->create(['category_id' => 106755, 'brand_id' => 5512, 'name' => 'Dunlop']);
+        \Extensions\Shopee\Models\ShopeeBrand::query()->create(['category_id' => 106755, 'brand_id' => 5511, 'name' => 'G7th']);
+        \Extensions\Shopee\Models\ShopeeBrand::query()->create(['category_id' => 106755, 'brand_id' => 5512, 'name' => 'Dunlop']);
 
         $r = $this->actingAs($this->userWith(['view_shopee/product']))
             ->get(route('ext.shopee.products.brandsForCategory', ['category_id' => 106755, 'q' => 'G7', 'limit' => 25]));
@@ -1096,7 +1096,7 @@ class ShopeeListingPageTest extends TestCase
         ShopeeProductLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1',
         ]);
-        $group = \Extensions\shopee\Models\ShopeeProductGroup::create([
+        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create([
             'name' => 'Check stampers',
             'shopee_category_id' => 100013, 'logistic_ids' => [41003],
         ]);
@@ -1152,7 +1152,7 @@ class ShopeeListingPageTest extends TestCase
     public function test_the_row_menu_push_asks_before_publishing(): void
     {
         $productId = $this->seedProduct();
-        \Extensions\shopee\Models\ShopeeProductGroup::create([
+        \Extensions\Shopee\Models\ShopeeProductGroup::create([
             'name' => 'Confirm scope',
             'shopee_category_id' => 100013, 'logistic_ids' => [8003],
         ]);
@@ -1164,7 +1164,7 @@ class ShopeeListingPageTest extends TestCase
         $this->getResponses['/api/v2/product/get_item_base_info'] =
             ['ok' => true, 'status' => 200, 'body' => ['response' => ['item_list' => []]]];
 
-        \Extensions\shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 100013], ['attributes' => []]);
+        \Extensions\Shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 100013], ['attributes' => []]);
 
         $this->actingAs($this->manager())
             ->get(route('ext.shopee.products.index'))
@@ -1175,8 +1175,8 @@ class ShopeeListingPageTest extends TestCase
     public function test_an_unready_rows_push_leads_into_the_listing_editor(): void
     {
         $productId = $this->seedProduct();
-        \Extensions\shopee\Models\ShopeeListing::create(['product_id' => $productId]);
-        \Extensions\shopee\Models\ShopeeProductGroup::create([
+        \Extensions\Shopee\Models\ShopeeListing::create(['product_id' => $productId]);
+        \Extensions\Shopee\Models\ShopeeProductGroup::create([
             'name' => 'Unready scope',
             'shopee_category_id' => 100013, 'logistic_ids' => [8003],
         ]);
@@ -1266,9 +1266,9 @@ class ShopeeListingPageTest extends TestCase
             'access_token' => 't2', 'refresh_token' => 'r2', 'mode' => 'production',
         ]);
         ShopeeListing::query()->create(['shopee_setting_id' => $other->id, 'product_id' => $plain, 'item_name' => 'Qable elsewhere']);
-        $group = \Extensions\shopee\Models\ShopeeProductGroup::create(['name' => 'Titled pedals', 'shopee_category_id' => 100013, 'logistic_ids' => [8003]]);
+        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Titled pedals', 'shopee_category_id' => 100013, 'logistic_ids' => [8003]]);
         foreach ([$titled, $plain] as $pid) {
-            \Extensions\shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $pid, 'sync_status' => 'pending']);
+            \Extensions\Shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $pid, 'sync_status' => 'pending']);
         }
         $user = $this->userWith(['manage_shopee/product', 'view_shopee/product', 'view_shopee/product_group']);
 

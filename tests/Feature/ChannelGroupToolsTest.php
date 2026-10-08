@@ -6,16 +6,16 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaProductGroup;
-use Extensions\lazada\Models\LazadaProductGroupProduct;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\lazada\Services\Lazada\LazadaClient;
-use Extensions\tiktok\Models\TikTokListing;
-use Extensions\tiktok\Models\TikTokProductGroup;
-use Extensions\tiktok\Models\TikTokProductGroupProduct;
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\Services\TikTok\TikTokClient;
+use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaProductGroup;
+use Extensions\Lazada\Models\LazadaProductGroupProduct;
+use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Services\Lazada\LazadaClient;
+use Extensions\TikTok\Models\TikTokListing;
+use Extensions\TikTok\Models\TikTokProductGroup;
+use Extensions\TikTok\Models\TikTokProductGroupProduct;
+use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -41,8 +41,8 @@ class ChannelGroupToolsTest extends TestCase
             $manager->install($ext);
             $manager->enable($ext);
         }
-        $this->app->register(\Extensions\lazada\LazadaExtension::class);
-        $this->app->register(\Extensions\tiktok\TikTokExtension::class);
+        $this->app->register(\Extensions\Lazada\LazadaExtension::class);
+        $this->app->register(\Extensions\TikTok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 

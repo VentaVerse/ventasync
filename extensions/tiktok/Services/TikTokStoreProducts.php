@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\tiktok\Services;
+namespace Extensions\TikTok\Services;
 
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;

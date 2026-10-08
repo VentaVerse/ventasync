@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\tiktok;
+namespace Extensions\TikTok;
 
 use App\Extensions\ExtensionProvider;
 use App\Integrations\Contracts\DashboardContributor;
@@ -18,11 +18,11 @@ use App\Integrations\IntegrationProvider;
 use App\Integrations\IntegrationRegistry;
 use App\Integrations\MenuItem;
 use App\Integrations\OrderTab;
-use Extensions\tiktok\Models\TikTokApiLog;
-use Extensions\tiktok\Models\TikTokOrder;
-use Extensions\tiktok\Models\TikTokProductGroupProduct;
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\Services\TikTok\TikTokClient;
+use Extensions\TikTok\Models\TikTokApiLog;
+use Extensions\TikTok\Models\TikTokOrder;
+use Extensions\TikTok\Models\TikTokProductGroupProduct;
+use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -54,13 +54,13 @@ class TikTokExtension extends ExtensionProvider implements IntegrationProvider, 
         TikTokSetting::syncUrlDefault();
 
         $this->commands([
-            \Extensions\tiktok\Commands\TikTokPushStock::class,
-            \Extensions\tiktok\Commands\TikTokPushPrice::class,
-            \Extensions\tiktok\Commands\TikTokRefreshListingStatus::class,
-            \Extensions\tiktok\Commands\TikTokRefreshToken::class,
-            \Extensions\tiktok\Commands\TikTokSyncOrders::class,
-            \Extensions\tiktok\Commands\TikTokSyncPayouts::class,
-            \Extensions\tiktok\Commands\TikTokBackfillPayouts::class,
+            \Extensions\TikTok\Commands\TikTokPushStock::class,
+            \Extensions\TikTok\Commands\TikTokPushPrice::class,
+            \Extensions\TikTok\Commands\TikTokRefreshListingStatus::class,
+            \Extensions\TikTok\Commands\TikTokRefreshToken::class,
+            \Extensions\TikTok\Commands\TikTokSyncOrders::class,
+            \Extensions\TikTok\Commands\TikTokSyncPayouts::class,
+            \Extensions\TikTok\Commands\TikTokBackfillPayouts::class,
         ]);
 
         $this->app->make(IntegrationRegistry::class)->register($this);
@@ -69,16 +69,16 @@ class TikTokExtension extends ExtensionProvider implements IntegrationProvider, 
             id: 'tiktok',
             name: 'TikTok Shop',
             accent: '#111111',
-            attention: \Extensions\tiktok\Services\TikTok\TikTokPayoutSync::attention(),
-            stores: fn () => \Extensions\tiktok\Models\TikTokSetting::enabledStores(),
-            readBalance: fn (object $store) => app(\Extensions\tiktok\Services\TikTok\TikTokBalance::class)->read($store),
+            attention: \Extensions\TikTok\Services\TikTok\TikTokPayoutSync::attention(),
+            stores: fn () => \Extensions\TikTok\Models\TikTokSetting::enabledStores(),
+            readBalance: fn (object $store) => app(\Extensions\TikTok\Services\TikTok\TikTokBalance::class)->read($store),
             pageRoute: 'ext.tiktok.dashboard',
         ));
     }
 
     public function forgetVariations(int $productId, array $skus): void
     {
-        \Extensions\tiktok\Services\TikTok\TikTokVariationForgetter::forget($productId, $skus);
+        \Extensions\TikTok\Services\TikTok\TikTokVariationForgetter::forget($productId, $skus);
     }
 
     public function integrationId(): string
@@ -351,7 +351,7 @@ class TikTokExtension extends ExtensionProvider implements IntegrationProvider, 
                 $flags = null;
                 $attention = 0;
                 try {
-                    $sum = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)->summary();
+                    $sum = app(\Extensions\TikTok\Services\TikTok\TikTokListingStates::class)->summary();
                     $attention = (int) $sum['attention'];
                     $flags = \App\Integrations\Listings\ListingTrouble::figures($sum, fn (string $bucket) => route('ext.tiktok.products.index', ['store' => $ttSetting->id, 'state' => $bucket]));
                 } catch (\Throwable) {
@@ -400,7 +400,7 @@ class TikTokExtension extends ExtensionProvider implements IntegrationProvider, 
             $previous = app()->bound('tiktok.route-store') ? app('tiktok.route-store') : null;
             try {
                 app()->instance('tiktok.route-store', $store);
-                $sum = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)->summary();
+                $sum = app(\Extensions\TikTok\Services\TikTok\TikTokListingStates::class)->summary();
                 $attention = (int) $sum['attention'];
                 $flags = \App\Integrations\Listings\ListingTrouble::figures($sum, fn (string $bucket) => route('ext.tiktok.products.index', ['store' => $store->id, 'state' => $bucket]));
             } catch (\Throwable) {
@@ -430,20 +430,20 @@ class TikTokExtension extends ExtensionProvider implements IntegrationProvider, 
         if ($marketplaceSource !== 'tiktok') {
             return null;
         }
-        $row = \Extensions\tiktok\Models\TikTokOrder::query()->withoutGlobalScope('tiktokStore')->where('order_id', $marketplaceOrderId)->first(['id', 'tiktok_setting_id']);
+        $row = \Extensions\TikTok\Models\TikTokOrder::query()->withoutGlobalScope('tiktokStore')->where('order_id', $marketplaceOrderId)->first(['id', 'tiktok_setting_id']);
 
         return ['display' => $marketplaceOrderId, 'url' => $row && $row->tiktok_setting_id ? route('ext.tiktok.orders.show', ['store' => $row->tiktok_setting_id, 'id' => $row->id]) : null];
     }
 
     public function saleLinesForOrder(int $coreOrderId, float $itemsSubtotal, float $shipping): ?array
     {
-        $order = \Extensions\tiktok\Models\TikTokOrder::query()->withoutGlobalScope('tiktokStore')->where('catalog_order_id', $coreOrderId)->first();
+        $order = \Extensions\TikTok\Models\TikTokOrder::query()->withoutGlobalScope('tiktokStore')->where('catalog_order_id', $coreOrderId)->first();
         if (! $order) {
             return null;
         }
         $raw = is_array($order->raw) ? $order->raw : [];
 
-        return \Extensions\tiktok\Services\TikTokSaleLines::lines(is_array($raw['payment'] ?? null) ? $raw['payment'] : [], $itemsSubtotal, $shipping);
+        return \Extensions\TikTok\Services\TikTokSaleLines::lines(is_array($raw['payment'] ?? null) ? $raw['payment'] : [], $itemsSubtotal, $shipping);
     }
 
     public function feeBucketsForOrder(int $coreOrderId): ?array
@@ -452,7 +452,7 @@ class TikTokExtension extends ExtensionProvider implements IntegrationProvider, 
             return null;
         }
 
-        $row = \Extensions\tiktok\Models\TikTokOrder::query()->withoutGlobalScope('tiktokStore')
+        $row = \Extensions\TikTok\Models\TikTokOrder::query()->withoutGlobalScope('tiktokStore')
             ->where('catalog_order_id', $coreOrderId)->first();
         if (! $row) {
             return null;
@@ -465,7 +465,7 @@ class TikTokExtension extends ExtensionProvider implements IntegrationProvider, 
 
         $payment = is_array($row->raw['payment'] ?? null) ? $row->raw['payment'] : [];
         $sellerDiscount = 0.0;
-        foreach (\Extensions\tiktok\Services\TikTokSaleLines::lines($payment, 0, 0) as $line) {
+        foreach (\Extensions\TikTok\Services\TikTokSaleLines::lines($payment, 0, 0) as $line) {
             if ($line['code'] === \App\Services\Orders\SaleLines\AbstractSaleLines::SELLER_DISCOUNT) {
                 $sellerDiscount = abs($line['value']);
             }
@@ -579,7 +579,7 @@ class TikTokExtension extends ExtensionProvider implements IntegrationProvider, 
                 'payment_method'  => $raw['payment']['payment_method_name'] ?? null,
                 'tracking_number' => $raw['tracking_number'] ?? null,
                 'date'            => $order->order_created_at?->format('Y-m-d H:i'),
-                'fulfilment'      => \Extensions\tiktok\Services\TikTokAppFulfilment::block($order),
+                'fulfilment'      => \Extensions\TikTok\Services\TikTokAppFulfilment::block($order),
             ];
         });
 
@@ -642,18 +642,18 @@ class TikTokExtension extends ExtensionProvider implements IntegrationProvider, 
                 ]))),
             'date'              => $order->order_created_at?->format('Y-m-d H:i'),
             'products'          => $products->values(),
-            'fulfilment'        => \Extensions\tiktok\Services\TikTokAppFulfilment::block($order),
+            'fulfilment'        => \Extensions\TikTok\Services\TikTokAppFulfilment::block($order),
         ];
     }
 
     public function mobileFulfilmentActions(): array
     {
-        return \Extensions\tiktok\Services\TikTokAppFulfilment::ACTIONS;
+        return \Extensions\TikTok\Services\TikTokAppFulfilment::ACTIONS;
     }
 
     public function mobileFulfilmentAction(string $action, int $id, Request $request): \Symfony\Component\HttpFoundation\Response
     {
-        return app(\Extensions\tiktok\Services\TikTokAppFulfilment::class)->handle($action, $id, $request);
+        return app(\Extensions\TikTok\Services\TikTokAppFulfilment::class)->handle($action, $id, $request);
     }
 
     public function layoutBanners(): array
@@ -672,7 +672,7 @@ class TikTokExtension extends ExtensionProvider implements IntegrationProvider, 
             return [];
         }
 
-        return \Extensions\tiktok\Models\TikTokSetting::query()->orderBy('id')->get(['id', 'store_name'])->map(fn ($s) => [
+        return \Extensions\TikTok\Models\TikTokSetting::query()->orderBy('id')->get(['id', 'store_name'])->map(fn ($s) => [
             'key'        => \App\Support\StoreKey::of('tiktok', (int) $s->id),
             'label'      => $s->store_name ?: ('Store #' . $s->id),
             'channel'    => 'TikTok',
@@ -709,7 +709,7 @@ class TikTokExtension extends ExtensionProvider implements IntegrationProvider, 
 
     protected function credentialSettingsModel(): string
     {
-        return \Extensions\tiktok\Models\TikTokSetting::class;
+        return \Extensions\TikTok\Models\TikTokSetting::class;
     }
 
     public function credentialManagePermission(): string
@@ -719,7 +719,7 @@ class TikTokExtension extends ExtensionProvider implements IntegrationProvider, 
 
     public function listingStates(array $productIds): array
     {
-        return app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)->forProducts($productIds);
+        return app(\Extensions\TikTok\Services\TikTok\TikTokListingStates::class)->forProducts($productIds);
     }
 
 
@@ -729,9 +729,9 @@ class TikTokExtension extends ExtensionProvider implements IntegrationProvider, 
             return [];
         }
 
-        return \Extensions\tiktok\Models\TikTokListing::query()
+        return \Extensions\TikTok\Models\TikTokListing::query()
             ->whereNotNull('tiktok_product_id')->pluck('product_id')
-            ->merge(\Extensions\tiktok\Models\TikTokProductGroupProduct::query()
+            ->merge(\Extensions\TikTok\Models\TikTokProductGroupProduct::query()
                 ->whereNotNull('tiktok_product_id')->pluck('product_id'))
             ->map(fn ($v) => (int) $v)->unique()->values()->all();
     }
@@ -788,7 +788,7 @@ class TikTokExtension extends ExtensionProvider implements IntegrationProvider, 
             if ($status === '') {
                 return 'product push without a status; nothing applied';
             }
-            $n = \Extensions\tiktok\Models\TikTokListing::query()
+            $n = \Extensions\TikTok\Models\TikTokListing::query()
                 ->where('tiktok_product_id', $productId)
                 ->update(['live_status' => $status, 'live_checked_at' => now()]);
 
@@ -809,17 +809,17 @@ class TikTokExtension extends ExtensionProvider implements IntegrationProvider, 
 
     public function productPresence(array $productIds): array
     {
-        return app(\Extensions\tiktok\Services\TikTok\TikTokProductRemover::class)->presence($productIds);
+        return app(\Extensions\TikTok\Services\TikTok\TikTokProductRemover::class)->presence($productIds);
     }
 
     public function removeProduct(int $productId): array
     {
-        return app(\Extensions\tiktok\Services\TikTok\TikTokProductRemover::class)->remove($productId);
+        return app(\Extensions\TikTok\Services\TikTok\TikTokProductRemover::class)->remove($productId);
     }
 
     public function strandedProductIds(): array
     {
-        return app(\Extensions\tiktok\Services\TikTok\TikTokProductRemover::class)->stranded();
+        return app(\Extensions\TikTok\Services\TikTok\TikTokProductRemover::class)->stranded();
     }
 
     public function automations(): array

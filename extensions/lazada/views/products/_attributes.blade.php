@@ -8,7 +8,7 @@
             $suggestion = $suggested[$key] ?? null;
             $rawSaved = $saved[$key] ?? '';
         @endphp
-        @continue(\Extensions\lazada\Services\Lazada\LazadaAttributes::isAutoFilledAttributeKey($key)
+        @continue(\Extensions\Lazada\Services\Lazada\LazadaAttributes::isAutoFilledAttributeKey($key)
             && (trim((string) $rawSaved) === '' || str_starts_with((string) $rawSaved, '__map:')))
         @php
             $fromGroup = !array_key_exists($key, ($productOwnAttrs ?? []))

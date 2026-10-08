@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\ventacart\Commands;
+namespace Extensions\VentaCart\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;

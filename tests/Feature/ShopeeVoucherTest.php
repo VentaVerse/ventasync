@@ -6,8 +6,8 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -26,7 +26,7 @@ class ShopeeVoucherTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 

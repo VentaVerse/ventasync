@@ -280,7 +280,7 @@
 
             $vtTone = \App\Support\ChannelStatusTone::toneFor('ventacart.orders', $vtStatusRaw);
 
-            $vtStep = \Extensions\ventacart\Services\VentaCart\VentaCartStatusPlacements::stepFor((int) $storeId, $vtStatusRaw);
+            $vtStep = \Extensions\VentaCart\Services\VentaCart\VentaCartStatusPlacements::stepFor((int) $storeId, $vtStatusRaw);
             $vtIsToPack = $vtStep === 'to_pack';
             $vtIsToHandover = $vtStep === 'to_handover';
             $vtBooked = $o->isBooked();
@@ -288,7 +288,7 @@
             $vtIsManual = $o->isManualShipment();
             $vtCourierName = $vtIsManual && trim((string) $o->courier_name) !== ''
                 ? trim((string) $o->courier_name)
-                : \Extensions\ventacart\Services\VentaCart\VentaCartCouriers::name((string) ($o->courier_provider ?? ''));
+                : \Extensions\VentaCart\Services\VentaCart\VentaCartCouriers::name((string) ($o->courier_provider ?? ''));
 
             $vtAddr = is_array($o->shipping_address) ? $o->shipping_address : [];
             $vtParcel = \App\Support\Fulfilment\PackedParcel::fromItems(array_map(function ($it) use ($vtImages) {

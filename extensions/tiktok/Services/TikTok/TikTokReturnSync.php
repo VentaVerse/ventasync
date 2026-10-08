@@ -1,13 +1,13 @@
 <?php
 
-namespace Extensions\tiktok\Services\TikTok;
+namespace Extensions\TikTok\Services\TikTok;
 
 use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderHistory;
-use Extensions\tiktok\Models\TikTokApiLog;
-use Extensions\tiktok\Models\TikTokOrderStatusMap;
-use Extensions\tiktok\Models\TikTokReturn;
-use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokApiLog;
+use Extensions\TikTok\Models\TikTokOrderStatusMap;
+use Extensions\TikTok\Models\TikTokReturn;
+use Extensions\TikTok\Models\TikTokSetting;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;

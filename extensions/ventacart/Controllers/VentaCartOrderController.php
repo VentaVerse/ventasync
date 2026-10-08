@@ -1,16 +1,16 @@
 <?php
 
-namespace Extensions\ventacart\Controllers;
+namespace Extensions\VentaCart\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Services\ActivityLogger;
-use Extensions\ventacart\Models\VentaCartOrder;
-use Extensions\ventacart\Models\VentaCartOrderProduct;
-use Extensions\ventacart\Models\VentaCartSetting;
-use Extensions\ventacart\Services\VentaCart\VentaCartClient;
-use Extensions\ventacart\Services\VentaCart\VentaCartFulfilment;
-use Extensions\ventacart\Services\VentaCart\VentaCartOrderSync;
-use Extensions\ventacart\Services\VentaCartOrdersPanel;
+use Extensions\VentaCart\Models\VentaCartOrder;
+use Extensions\VentaCart\Models\VentaCartOrderProduct;
+use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Services\VentaCart\VentaCartClient;
+use Extensions\VentaCart\Services\VentaCart\VentaCartFulfilment;
+use Extensions\VentaCart\Services\VentaCart\VentaCartOrderSync;
+use Extensions\VentaCart\Services\VentaCartOrdersPanel;
 use Illuminate\Http\Request;
 
 class VentaCartOrderController extends Controller

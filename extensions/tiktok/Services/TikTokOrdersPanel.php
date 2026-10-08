@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\tiktok\Services;
+namespace Extensions\TikTok\Services;
 
 use App\Support\Fulfilment\CourierTally;
 use App\Support\FulfilmentSteps;
-use Extensions\tiktok\Models\TikTokOrder;
-use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokOrder;
+use Extensions\TikTok\Models\TikTokSetting;
 use Illuminate\Http\Request;
 
 class TikTokOrdersPanel

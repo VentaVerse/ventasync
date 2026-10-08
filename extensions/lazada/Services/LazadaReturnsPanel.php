@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\lazada\Services;
+namespace Extensions\Lazada\Services;
 
-use Extensions\lazada\Models\LazadaReverseOrder;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaReverseOrder;
+use Extensions\Lazada\Models\LazadaSetting;
 use Illuminate\Http\Request;
 
 class LazadaReturnsPanel

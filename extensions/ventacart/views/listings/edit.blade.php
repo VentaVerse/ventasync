@@ -11,9 +11,9 @@
     $onStore = $link && $link->ventacart_product_id;
 
     $statusWords = [
-        \Extensions\ventacart\Models\VentaCartListing::STATUS_ACTIVE => ['Active', 'success'],
-        \Extensions\ventacart\Models\VentaCartListing::STATUS_INACTIVE => ['Unlisted', 'warning'],
-        \Extensions\ventacart\Models\VentaCartListing::STATUS_MISSING => ['Not on the store', 'neutral'],
+        \Extensions\VentaCart\Models\VentaCartListing::STATUS_ACTIVE => ['Active', 'success'],
+        \Extensions\VentaCart\Models\VentaCartListing::STATUS_INACTIVE => ['Unlisted', 'warning'],
+        \Extensions\VentaCart\Models\VentaCartListing::STATUS_MISSING => ['Not on the store', 'neutral'],
     ];
     [$statusLabel, $statusTone] = $live && $live['status'] ? ($statusWords[$live['status']] ?? [ucfirst($live['status']), 'neutral']) : ['Unknown', 'neutral'];
 
@@ -84,7 +84,7 @@
     <x-channel.listing-strip :channel="$storeName" :health="false" :linked="(bool) $onStore">
         @if($canManage && $setting->enabled && ($onStore || !$noSku))
             <x-slot:verbs>
-                @if($found && $live['status'] === \Extensions\ventacart\Models\VentaCartListing::STATUS_ACTIVE)
+                @if($found && $live['status'] === \Extensions\VentaCart\Models\VentaCartListing::STATUS_ACTIVE)
                     <form method="POST" action="{{ route('ext.ventacart.listings.toggle', [$setting->id, $product->product_id]) }}"
                           data-guard-stale data-confirm="Unlist this product on {{ $storeName }}? Buyers stop seeing it. It can be relisted at any time."
                           data-confirm-verb="Unlist" data-busy="Unlisting on {{ $storeName }}">
@@ -92,7 +92,7 @@
                         <input type="hidden" name="action" value="unlist">
                         <x-ui.button type="submit" size="sm">Unlist on {{ $storeName }}</x-ui.button>
                     </form>
-                @elseif($found && $live['status'] === \Extensions\ventacart\Models\VentaCartListing::STATUS_INACTIVE)
+                @elseif($found && $live['status'] === \Extensions\VentaCart\Models\VentaCartListing::STATUS_INACTIVE)
                     <form method="POST" action="{{ route('ext.ventacart.listings.toggle', [$setting->id, $product->product_id]) }}"
                           data-guard-stale data-confirm="Relist this product on {{ $storeName }}? Buyers see it again at once."
                           data-confirm-tone="primary" data-confirm-verb="Relist" data-busy="Relisting on {{ $storeName }}">

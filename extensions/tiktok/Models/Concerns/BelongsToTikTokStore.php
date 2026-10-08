@@ -1,8 +1,8 @@
 <?php
 
-namespace Extensions\tiktok\Models\Concerns;
+namespace Extensions\TikTok\Models\Concerns;
 
-use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokSetting;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 

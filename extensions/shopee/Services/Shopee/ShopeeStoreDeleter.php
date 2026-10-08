@@ -1,8 +1,8 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
-use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeSetting;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 

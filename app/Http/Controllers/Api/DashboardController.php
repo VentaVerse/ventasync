@@ -39,8 +39,8 @@ class DashboardController extends Controller
               ->orWhere('name', 'like', '%processing%');
         })->pluck('order_status_id');
 
-        $ocStores = class_exists(\Extensions\opencart\Models\OpenCartSetting::class)
-            ? \Extensions\opencart\Models\OpenCartSetting::where('enabled', true)->get(['id', 'store_name'])
+        $ocStores = class_exists(\Extensions\OpenCart\Models\OpenCartSetting::class)
+            ? \Extensions\OpenCart\Models\OpenCartSetting::where('enabled', true)->get(['id', 'store_name'])
             : collect();
         $storePending = [];
         foreach ($ocStores as $store) {

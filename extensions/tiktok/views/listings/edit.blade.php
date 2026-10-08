@@ -248,7 +248,7 @@
 @if(!empty($catalogChange))
     @include('partials.catalog-change-panel', [
         'listing' => $listing,
-        'storeLabel' => \App\Support\StoreLabel::of('TikTok', \Extensions\tiktok\Models\TikTokSetting::query()->find($listing->tiktok_setting_id)?->store_name),
+        'storeLabel' => \App\Support\StoreLabel::of('TikTok', \Extensions\TikTok\Models\TikTokSetting::query()->find($listing->tiktok_setting_id)?->store_name),
         'saveUrl' => route('ext.tiktok.listings.catalog_change_save', $listing->product_id),
         'ignoreUrl' => route('ext.tiktok.listings.catalog_change_ignore', $listing->product_id),
         'back' => request()->boolean('compare') ? \App\Support\BackTo::safe(request('back'), request()->getRequestUri()) : request()->getRequestUri(),

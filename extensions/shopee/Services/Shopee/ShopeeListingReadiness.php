@@ -1,14 +1,14 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
 use App\Integrations\Listings\CatalogGaps;
 use App\Integrations\Listings\ListingState;
-use Extensions\shopee\Models\ShopeeCategory;
-use Extensions\shopee\Models\ShopeeCategoryTemplate;
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeLogistic;
-use Extensions\shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeCategory;
+use Extensions\Shopee\Models\ShopeeCategoryTemplate;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeLogistic;
+use Extensions\Shopee\Models\ShopeeProductLink;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -71,7 +71,7 @@ class ShopeeListingReadiness
 
         $variations = app(ShopeeVariationPush::class);
         $withVariations = ShopeeListing::withVariations($productIds);
-        $shopeeStoreId = (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0);
+        $shopeeStoreId = (int) (\Extensions\Shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0);
 
         $out = [];
         foreach ($productIds as $productId) {

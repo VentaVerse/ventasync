@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\lazada\Services\Lazada;
+namespace Extensions\Lazada\Services\Lazada;
 
 use App\Support\PayoutStatus;
 use Carbon\Carbon;
-use Extensions\lazada\Models\LazadaOrder;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaOrder;
+use Extensions\Lazada\Models\LazadaSetting;
 
 class LazadaPayoutSync
 {

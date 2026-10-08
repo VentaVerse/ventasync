@@ -6,13 +6,13 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaProductAttribute;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\lazada\Services\Lazada\LazadaClient;
-use Extensions\tiktok\Models\TikTokListing;
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\Services\TikTok\TikTokClient;
+use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaProductAttribute;
+use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Services\Lazada\LazadaClient;
+use Extensions\TikTok\Models\TikTokListing;
+use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -33,8 +33,8 @@ class ChannelItemImportTest extends TestCase
             $manager->install($ext);
             $manager->enable($ext);
         }
-        $this->app->register(\Extensions\lazada\LazadaExtension::class);
-        $this->app->register(\Extensions\tiktok\TikTokExtension::class);
+        $this->app->register(\Extensions\Lazada\LazadaExtension::class);
+        $this->app->register(\Extensions\TikTok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
@@ -143,8 +143,8 @@ class ChannelItemImportTest extends TestCase
         $this->assertSame('Nylon', LazadaProductAttribute::where('lazada_product_id', $listing->id)->where('attribute_key', 'material')->value('value'),
             'a Lazada-only field the core has no column for rides the listing record, not the floor');
 
-        $this->assertTrue(\Extensions\lazada\Models\LazadaCategoryTemplate::query()->where('primary_category_id', 10099)->exists());
-        $ready = app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class)->forListings(collect([$listing]))[$listing->id];
+        $this->assertTrue(\Extensions\Lazada\Models\LazadaCategoryTemplate::query()->where('primary_category_id', 10099)->exists());
+        $ready = app(\Extensions\Lazada\Services\Lazada\LazadaListingReadiness::class)->forListings(collect([$listing]))[$listing->id];
         $this->assertTrue($ready['ready'], 'not ready: ' . implode('; ', $ready['missing']));
     }
 
@@ -174,8 +174,8 @@ class ChannelItemImportTest extends TestCase
         $this->assertSame('b-77', (string) $listing->brand_id);
         $this->assertSame('Strapco', (string) $listing->brand_name);
         $this->assertSame(['100392' => 'Leather'], $listing->attribute_values, 'keyed the way the sheet keys them');
-        $this->assertTrue(\Extensions\tiktok\Models\TikTokCategoryTemplate::query()->where('category_id', '900009')->exists(), 'the sheet was read during the import');
-        $ready = app(\Extensions\tiktok\Services\TikTok\TikTokListingReadiness::class)->forProducts([$product->product_id])[$product->product_id];
+        $this->assertTrue(\Extensions\TikTok\Models\TikTokCategoryTemplate::query()->where('category_id', '900009')->exists(), 'the sheet was read during the import');
+        $ready = app(\Extensions\TikTok\Services\TikTok\TikTokListingReadiness::class)->forProducts([$product->product_id])[$product->product_id];
         $this->assertTrue($ready['ready'], 'not ready: ' . implode('; ', $ready['missing']));
     }
 

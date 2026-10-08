@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\tiktok\Services\TikTok;
+namespace Extensions\TikTok\Services\TikTok;
 
 use Illuminate\Support\Facades\DB;
 
@@ -29,7 +29,7 @@ class TikTokVariationPush
             ->orderBy('sort_order')
             ->get(['id', 'sku', 'quantity', 'absolute_price', 'image', 'status']);
 
-        $hidden = \App\Integrations\Listings\ListingVariations::hidden('tiktok', (int) (\Extensions\tiktok\Models\TikTokSetting::defaultStore()?->id ?? 0), [$productId]);
+        $hidden = \App\Integrations\Listings\ListingVariations::hidden('tiktok', (int) (\Extensions\TikTok\Models\TikTokSetting::defaultStore()?->id ?? 0), [$productId]);
         if ($combos->isNotEmpty()) {
             $combos = $combos->filter(fn ($c) => \App\Integrations\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
             if ($combos->isEmpty()) {
@@ -126,7 +126,7 @@ class TikTokVariationPush
         }
 
         $sellerSku = $erp->sku ?: ($erp->model ?: (string) $productId);
-        $startPrice = \Extensions\tiktok\Models\TikTokListing::ownPrices([$productId])[$productId] ?? $basePrice;
+        $startPrice = \Extensions\TikTok\Models\TikTokListing::ownPrices([$productId])[$productId] ?? $basePrice;
         $sku = [
             'seller_sku' => $sellerSku,
             'price' => $money($priceFor($startPrice)),

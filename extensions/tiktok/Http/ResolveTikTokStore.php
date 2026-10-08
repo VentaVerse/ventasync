@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\tiktok\Http;
+namespace Extensions\TikTok\Http;
 
 use Closure;
-use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
 

@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\lazada\Commands;
+namespace Extensions\Lazada\Commands;
 
 use App\Support\PayoutStatus;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\lazada\Services\Lazada\LazadaPayoutSync;
+use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Services\Lazada\LazadaPayoutSync;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 

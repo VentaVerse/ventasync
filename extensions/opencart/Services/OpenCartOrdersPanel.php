@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\opencart\Services;
+namespace Extensions\OpenCart\Services;
 
 use App\Http\Controllers\Sales\OrderController;
 use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderStatus;
-use Extensions\opencart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartSetting;
 use Illuminate\Http\Request;
 
 class OpenCartOrdersPanel

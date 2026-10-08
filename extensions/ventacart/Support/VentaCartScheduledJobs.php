@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\ventacart\Support;
+namespace Extensions\VentaCart\Support;
 
 use App\Integrations\Support\StoreScheduledJobs;
 

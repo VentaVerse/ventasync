@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
-use Extensions\shopee\Models\ShopeeApiLog;
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeProductLink;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -23,11 +23,11 @@ class ShopeeLinkCheck
 
     public function storeProductIds(int $storeId): array
     {
-        $listings = \Extensions\shopee\Models\ShopeeListing::query()
+        $listings = \Extensions\Shopee\Models\ShopeeListing::query()
             ->withoutGlobalScope('shopeeStore')->where('shopee_setting_id', $storeId)
             ->pluck('product_id');
 
-        return \Extensions\shopee\Models\ShopeeProductLink::query()
+        return \Extensions\Shopee\Models\ShopeeProductLink::query()
             ->withoutGlobalScope('shopeeStore')->where('shopee_setting_id', $storeId)
             ->whereNotNull('shopee_item_id')->pluck('product_id')
             ->merge($listings)
@@ -46,7 +46,7 @@ class ShopeeLinkCheck
     private function myGroupIds(): ?array
     {
         return $this->actingStore > 0
-            ? \Extensions\shopee\Models\ShopeeProductGroup::query()->withoutGlobalScope('shopeeStore')
+            ? \Extensions\Shopee\Models\ShopeeProductGroup::query()->withoutGlobalScope('shopeeStore')
                 ->where('shopee_setting_id', $this->actingStore)->pluck('id')->map(fn ($v) => (int) $v)->all()
             : null;
     }

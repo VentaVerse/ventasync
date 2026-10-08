@@ -1,14 +1,14 @@
 <?php
 
-namespace Extensions\lazada\Controllers;
+namespace Extensions\Lazada\Controllers;
 
 use App\Http\Controllers\Controller;
 
-use Extensions\lazada\Models\LazadaApiLog;
-use Extensions\lazada\Models\LazadaCategory;
-use Extensions\lazada\Models\LazadaCategoryTemplate;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\lazada\Services\Lazada\LazadaClient;
+use Extensions\Lazada\Models\LazadaApiLog;
+use Extensions\Lazada\Models\LazadaCategory;
+use Extensions\Lazada\Models\LazadaCategoryTemplate;
+use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Illuminate\Http\Request;
 
 class LazadaCategoryAttributeController extends Controller
@@ -30,7 +30,7 @@ class LazadaCategoryAttributeController extends Controller
                 ->first();
 
             if ($template && $template->template_body) {
-                $attributes = app(\Extensions\lazada\Services\Lazada\LazadaAttributes::class)->extractAttributes($template->template_body, questionsOnly: false, withRaw: true);
+                $attributes = app(\Extensions\Lazada\Services\Lazada\LazadaAttributes::class)->extractAttributes($template->template_body, questionsOnly: false, withRaw: true);
             }
         }
 

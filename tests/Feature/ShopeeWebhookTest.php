@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\ChannelWebhookEvent;
-use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -18,7 +18,7 @@ class ShopeeWebhookTest extends TestCase
         $manager = $this->app->make(\App\Extensions\ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
     }
 

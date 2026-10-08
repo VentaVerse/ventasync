@@ -1,16 +1,16 @@
 <?php
 
-namespace Extensions\ventacart\Services\VentaCart;
+namespace Extensions\VentaCart\Services\VentaCart;
 
-use Extensions\ventacart\Models\VentaCartProductGroup;
-use Extensions\ventacart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartProductGroup;
+use Extensions\VentaCart\Models\VentaCartSetting;
 use Illuminate\Support\Facades\DB;
 
 class VentaCartLinkCheck
 {
     public function runNext(VentaCartSetting $setting): ?array
     {
-        $linked = \Extensions\ventacart\Models\VentaCartProductLink::query()->where('ventacart_setting_id', $setting->id)
+        $linked = \Extensions\VentaCart\Models\VentaCartProductLink::query()->where('ventacart_setting_id', $setting->id)
             ->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
         $linked = \App\Integrations\Support\LinkCheckCursor::rotate('ventacart:' . (int) $setting->id, $linked);
 

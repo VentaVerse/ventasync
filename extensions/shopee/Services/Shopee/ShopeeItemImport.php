@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
 use App\Support\MarketplaceAnswer;
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeProductLink;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -46,7 +46,7 @@ class ShopeeItemImport
 
         try {
             try {
-                app(\Extensions\shopee\Controllers\ShopeeProductGroupController::class)->ensureTemplate((int) ($item['category_id'] ?? 0), $this->client);
+                app(\Extensions\Shopee\Controllers\ShopeeProductGroupController::class)->ensureTemplate((int) ($item['category_id'] ?? 0), $this->client);
             } catch (\Throwable) {
             }
 
@@ -71,9 +71,9 @@ class ShopeeItemImport
                     'language_id' => $langId,
                     'name' => Str::limit($name, 250, ''),
                     'description' => \App\Support\Catalog\DescriptionHtml::store(
-                        str_contains(\Extensions\shopee\Services\Shopee\ShopeeDescription::textOf($item), '<')
-                            ? \Extensions\shopee\Services\Shopee\ShopeeDescription::textOf($item)
-                            : nl2br(\Extensions\shopee\Services\Shopee\ShopeeDescription::textOf($item))
+                        str_contains(\Extensions\Shopee\Services\Shopee\ShopeeDescription::textOf($item), '<')
+                            ? \Extensions\Shopee\Services\Shopee\ShopeeDescription::textOf($item)
+                            : nl2br(\Extensions\Shopee\Services\Shopee\ShopeeDescription::textOf($item))
                     ),
                     'meta_title' => Str::limit($name, 250, ''),
                     'meta_description' => '', 'meta_keyword' => '', 'tag' => '',

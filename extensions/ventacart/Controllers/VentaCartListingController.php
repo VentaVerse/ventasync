@@ -1,16 +1,16 @@
 <?php
 
-namespace Extensions\ventacart\Controllers;
+namespace Extensions\VentaCart\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Services\ActivityLogger;
-use Extensions\ventacart\Models\VentaCartListing;
-use Extensions\ventacart\Models\VentaCartProductGroup;
-use Extensions\ventacart\Models\VentaCartProductGroupProduct;
-use Extensions\ventacart\Models\VentaCartProductLink;
-use Extensions\ventacart\Models\VentaCartSetting;
-use Extensions\ventacart\Services\VentaCart\VentaCartListingMirror;
-use Extensions\ventacart\Services\VentaCart\VentaCartProductPush;
+use Extensions\VentaCart\Models\VentaCartListing;
+use Extensions\VentaCart\Models\VentaCartProductGroup;
+use Extensions\VentaCart\Models\VentaCartProductGroupProduct;
+use Extensions\VentaCart\Models\VentaCartProductLink;
+use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Services\VentaCart\VentaCartListingMirror;
+use Extensions\VentaCart\Services\VentaCart\VentaCartProductPush;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -56,7 +56,7 @@ class VentaCartListingController extends Controller
         return route('ext.ventacart.listings.edit', [$this->catalogChangeStore, $productId]);
     }
 
-    public function checkAgainstVenta(Request $request, int $store, \Extensions\ventacart\Services\VentaCart\VentaCartLinkCheck $check)
+    public function checkAgainstVenta(Request $request, int $store, \Extensions\VentaCart\Services\VentaCart\VentaCartLinkCheck $check)
     {
         $setting = VentaCartSetting::findOrFail($store);
         if (! $setting->enabled) {
@@ -66,7 +66,7 @@ class VentaCartListingController extends Controller
 
         $ids = array_values(array_unique(array_map('intval', array_filter((array) $request->input('product_ids', [])))));
         if (empty($ids)) {
-            $ids = \Extensions\ventacart\Models\VentaCartProductLink::query()
+            $ids = \Extensions\VentaCart\Models\VentaCartProductLink::query()
                 ->where('ventacart_setting_id', $store)
                 ->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
         }
@@ -103,7 +103,7 @@ class VentaCartListingController extends Controller
             return [null, 'That VentaCart store is turned off, so nothing was fetched.'];
         }
 
-        $client = new \Extensions\ventacart\Services\VentaCart\VentaCartClient($setting);
+        $client = new \Extensions\VentaCart\Services\VentaCart\VentaCartClient($setting);
         $known = $this->knownSkus();
 
         $found = 0;
@@ -144,7 +144,7 @@ class VentaCartListingController extends Controller
         return [['found' => $found, 'rows' => $rows], null];
     }
 
-    public function importOne(Request $request, int $store, \Extensions\ventacart\Services\VentaCart\VentaCartItemImport $import)
+    public function importOne(Request $request, int $store, \Extensions\VentaCart\Services\VentaCart\VentaCartItemImport $import)
     {
         $data = $request->validate(['ref' => 'required|string|max:191']);
         $setting = VentaCartSetting::findOrFail($store);
@@ -154,7 +154,7 @@ class VentaCartListingController extends Controller
         return redirect()->back()->with($r['ok'] ? 'status' : 'error', $r['message']);
     }
 
-    public function importSelected(Request $request, int $store, \Extensions\ventacart\Services\VentaCart\VentaCartItemImport $import)
+    public function importSelected(Request $request, int $store, \Extensions\VentaCart\Services\VentaCart\VentaCartItemImport $import)
     {
         $data = $request->validate(['refs' => 'required|array|min:1', 'refs.*' => 'string|max:191']);
         $setting = VentaCartSetting::findOrFail($store);
@@ -204,7 +204,7 @@ class VentaCartListingController extends Controller
             ['ventacart_setting_id' => $store, 'product_id' => (int) $data['product_id']],
             ['ventacart_product_id' => $ventaCartId, 'sku' => $data['ref']]
         );
-        \Extensions\ventacart\Services\VentaCart\VentaCartListingStates::for($store)->recordOutcome((int) $data['product_id'], null);
+        \Extensions\VentaCart\Services\VentaCart\VentaCartListingStates::for($store)->recordOutcome((int) $data['product_id'], null);
 
         return redirect()->back()->with('status', 'Linked "' . $data['ref'] . '" to Master Catalog product #' . $data['product_id'] . '.');
     }
@@ -272,7 +272,7 @@ class VentaCartListingController extends Controller
             ->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->all();
         $linkedProductIds = VentaCartProductLink::where('ventacart_setting_id', $store)->whereNotNull('ventacart_product_id')
             ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
-        $scopeIds = array_values(array_unique(array_merge($pivotProductIds, $linkedProductIds, \Extensions\ventacart\Services\VentaCart\VentaCartStoreProducts::ids($store))));
+        $scopeIds = array_values(array_unique(array_merge($pivotProductIds, $linkedProductIds, \Extensions\VentaCart\Services\VentaCart\VentaCartStoreProducts::ids($store))));
 
         $groupsByProductId = DB::table('ventacart_product_group_products as gp')
             ->join('ventacart_product_groups as g', 'g.id', '=', 'gp.ventacart_product_group_id')
@@ -320,7 +320,7 @@ class VentaCartListingController extends Controller
                         ->select('product_id'));
             });
         }
-        $states = \Extensions\ventacart\Services\VentaCart\VentaCartListingStates::for($store);
+        $states = \Extensions\VentaCart\Services\VentaCart\VentaCartListingStates::for($store);
 
         $troubleFilter = \App\Integrations\Listings\ListingTrouble::asked($request->query('state'));
         if ($troubleFilter !== null) {
@@ -434,7 +434,7 @@ class VentaCartListingController extends Controller
         $applyTab($query);
 
         $storeId = \App\Integrations\Listings\ListingStore::id('ventacart');
-        $sortMenu = \Extensions\ventacart\Services\VentaCartListingSort::columns($storeId);
+        $sortMenu = \Extensions\VentaCart\Services\VentaCartListingSort::columns($storeId);
         $order = \App\Integrations\Listings\ListingSort::chosen($request, 'ventacart.listings.' . $storeId);
         if ($request->filled('sort')) {
             $query->orderBy($sortColumns[$sort], $dir);
@@ -442,7 +442,7 @@ class VentaCartListingController extends Controller
                 $query->orderBy('p.product_id', 'asc');
             }
         } else {
-            \Extensions\ventacart\Services\VentaCartListingSort::join($query, $storeId);
+            \Extensions\VentaCart\Services\VentaCartListingSort::join($query, $storeId);
             \App\Integrations\Listings\ListingSort::apply($query, $order, $sortMenu);
         }
         $products = $query->paginate(50)->withQueryString();
@@ -495,7 +495,7 @@ class VentaCartListingController extends Controller
             'catalogTotal' => $catalogTotal,
             'failedFlag' => $failedFlag,
             'changeFlag' => $changeFlag,
-            'groupSize' => ctype_digit((string) $groupFilter) ? app(\Extensions\ventacart\Controllers\VentaCartProductGroupController::class)->groupSendSize((int) $groupFilter) : null,
+            'groupSize' => ctype_digit((string) $groupFilter) ? app(\Extensions\VentaCart\Controllers\VentaCartProductGroupController::class)->groupSendSize((int) $groupFilter) : null,
             'statusMenu' => \App\Integrations\Listings\StatusMenu::build([
                 'url' => fn (array $params) => route('ext.ventacart.listings.index', array_merge(['store' => $store], $params)),
                 'query' => $request->query(),
@@ -561,7 +561,7 @@ class VentaCartListingController extends Controller
 
     private function ventaCartReadinessCompute(array $ids): array
     {
-        $readiness = \Extensions\ventacart\Services\VentaCart\VentaCartListingReadiness::forProducts($ids);
+        $readiness = \Extensions\VentaCart\Services\VentaCart\VentaCartListingReadiness::forProducts($ids);
         $out = [];
         foreach ($ids as $pid) {
             $gaps = array_values((array) ($readiness[(int) $pid]['gaps'] ?? []));
@@ -581,7 +581,7 @@ class VentaCartListingController extends Controller
         $limit = 25;
         $query = DB::table($pfx . 'product as p')
             ->leftJoin($pfx . 'product_description as pd', fn ($j) => $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId))
-            ->leftJoinSub(\Extensions\ventacart\Services\VentaCart\VentaCartStoreProducts::query($store), 'os', 'os.product_id', '=', 'p.product_id')
+            ->leftJoinSub(\Extensions\VentaCart\Services\VentaCart\VentaCartStoreProducts::query($store), 'os', 'os.product_id', '=', 'p.product_id')
             ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.model', 'p.quantity', 'p.price', 'os.product_id as on_store_pid')
             ->where('p.status', 1);
         if ($q !== '') {
@@ -609,7 +609,7 @@ class VentaCartListingController extends Controller
     {
         VentaCartSetting::findOrFail($store);
         abort_unless(DB::table((string) config('catalog.prefix') . 'product')->where('product_id', $productId)->exists(), 404);
-        $wasOn = \Extensions\ventacart\Services\VentaCart\VentaCartStoreProducts::has($store, $productId);
+        $wasOn = \Extensions\VentaCart\Services\VentaCart\VentaCartStoreProducts::has($store, $productId);
         VentaCartListing::query()->firstOrCreate(['ventacart_setting_id' => $store, 'product_id' => $productId]);
 
         $groupId = (int) $request->input('group', 0);
@@ -630,7 +630,7 @@ class VentaCartListingController extends Controller
         $valid = DB::table((string) config('catalog.prefix') . 'product')->whereIn('product_id', array_map('intval', $data['product_ids']))->pluck('product_id')->all();
         $added = 0;
         foreach ($valid as $pid) {
-            $wasOn = \Extensions\ventacart\Services\VentaCart\VentaCartStoreProducts::has($store, (int) $pid);
+            $wasOn = \Extensions\VentaCart\Services\VentaCart\VentaCartStoreProducts::has($store, (int) $pid);
             VentaCartListing::query()->firstOrCreate(['ventacart_setting_id' => $store, 'product_id' => (int) $pid]);
             $added += $wasOn ? 0 : 1;
         }
@@ -641,7 +641,7 @@ class VentaCartListingController extends Controller
     public function removeFromStore(int $store, int $productId)
     {
         VentaCartSetting::findOrFail($store);
-        abort_unless(\Extensions\ventacart\Services\VentaCart\VentaCartStoreProducts::has($store, $productId), 404);
+        abort_unless(\Extensions\VentaCart\Services\VentaCart\VentaCartStoreProducts::has($store, $productId), 404);
         $ventaCartIds = VentaCartProductLink::query()->where('ventacart_setting_id', $store)->where('product_id', $productId)->pluck('ventacart_product_id')->filter()->unique();
         VentaCartProductGroupProduct::query()->where('product_id', $productId)
             ->whereIn('ventacart_product_group_id', VentaCartProductGroup::query()->where('ventacart_setting_id', $store)->select('id'))->delete();
@@ -664,7 +664,7 @@ class VentaCartListingController extends Controller
         if ($result['error'] !== null) {
             return redirect()->back()->with('error', $result['error'] . ' The statuses shown are from the last refresh.');
         }
-        $checked = app(\Extensions\ventacart\Services\VentaCart\VentaCartLinkCheck::class)->runNext($setting);
+        $checked = app(\Extensions\VentaCart\Services\VentaCart\VentaCartLinkCheck::class)->runNext($setting);
 
         $parts = [];
         foreach ($result['counts'] as $status => $n) {
@@ -704,11 +704,11 @@ class VentaCartListingController extends Controller
         if ($ids === []) {
             return redirect()->back()->with('error', 'No products selected.');
         }
-        $r = \Extensions\ventacart\Services\VentaCart\VentaCartStockPricePush::for($setting)->push($ids, $stock, $price);
-        \Extensions\ventacart\Services\VentaCart\VentaCartStockPricePush::recordOutcomes($store, $r['outcomes']);
+        $r = \Extensions\VentaCart\Services\VentaCart\VentaCartStockPricePush::for($setting)->push($ids, $stock, $price);
+        \Extensions\VentaCart\Services\VentaCart\VentaCartStockPricePush::recordOutcomes($store, $r['outcomes']);
 
         return redirect()->back()->with($r['failed'] > 0 ? ($r['ok'] > 0 ? 'warning' : 'error') : 'status',
-            \Extensions\ventacart\Services\VentaCart\VentaCartStockPricePush::sentence($r, $what, (string) $setting->store_name));
+            \Extensions\VentaCart\Services\VentaCart\VentaCartStockPricePush::sentence($r, $what, (string) $setting->store_name));
     }
 
     public function unlink(int $store, int $productId)
@@ -719,7 +719,7 @@ class VentaCartListingController extends Controller
         VentaCartProductGroupProduct::query()->where('product_id', $productId)
             ->whereIn('ventacart_product_group_id', VentaCartProductGroup::query()->where('ventacart_setting_id', $store)->select('id'))
             ->update(['sync_status' => 'pending', 'push_error' => null]);
-        \Extensions\ventacart\Services\VentaCart\VentaCartListingStates::for($store)->clearErrors([$productId]);
+        \Extensions\VentaCart\Services\VentaCart\VentaCartListingStates::for($store)->clearErrors([$productId]);
 
         return redirect()->back()->with('status', $removed > 0
             ? 'Unlinked. The store product stays up; Link ID or a push connects this product again.'
@@ -745,10 +745,10 @@ class VentaCartListingController extends Controller
         if ($ids === []) {
             return redirect()->back()->with('error', 'No products selected.');
         }
-        $r = \Extensions\ventacart\Services\VentaCart\VentaCartStoreDelete::for($setting)->delete($ids);
+        $r = \Extensions\VentaCart\Services\VentaCart\VentaCartStoreDelete::for($setting)->delete($ids);
 
         return redirect()->back()->with($r['errors'] ? ($r['deleted'] > 0 ? 'warning' : 'error') : 'status',
-            \Extensions\ventacart\Services\VentaCart\VentaCartStoreDelete::sentence($r, (string) $setting->store_name));
+            \Extensions\VentaCart\Services\VentaCart\VentaCartStoreDelete::sentence($r, (string) $setting->store_name));
     }
 
     public function bulkRemoveFromStore(Request $request, int $store)
@@ -757,7 +757,7 @@ class VentaCartListingController extends Controller
         $ids = $this->tickedIds($request);
         $n = 0;
         foreach ($ids as $pid) {
-            if (! \Extensions\ventacart\Services\VentaCart\VentaCartStoreProducts::has($store, $pid)) {
+            if (! \Extensions\VentaCart\Services\VentaCart\VentaCartStoreProducts::has($store, $pid)) {
                 continue;
             }
             VentaCartProductGroupProduct::query()->where('product_id', $pid)
@@ -800,7 +800,7 @@ class VentaCartListingController extends Controller
         }
 
         $push = VentaCartProductPush::for($setting);
-        $states = \Extensions\ventacart\Services\VentaCart\VentaCartListingStates::for($store);
+        $states = \Extensions\VentaCart\Services\VentaCart\VentaCartListingStates::for($store);
         $done = 0;
         $refused = [];
         foreach ($linked as $productId) {
@@ -893,7 +893,7 @@ class VentaCartListingController extends Controller
         $pushPrice = VentaCartListing::ruleFor($listing, $group)(VentaCartListing::startFor($listing, (float) $product->price, $hasVariations));
 
         return view('ext-ventacart::listings.edit', \App\Integrations\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('ventacart_product_groups', 'ventacart_product_group_products', 'ventacart_product_group_id', $productId, 'ventacart_setting_id', $store), 'ventacart', \App\Integrations\Listings\ListingStore::id('ventacart')) + [
-            'readiness' => \Extensions\ventacart\Services\VentaCart\VentaCartListingReadiness::forProducts([$productId])[$productId] ?? null,
+            'readiness' => \Extensions\VentaCart\Services\VentaCart\VentaCartListingReadiness::forProducts([$productId])[$productId] ?? null,
             'setting' => $setting,
             'product' => $product,
             'sku' => VentaCartProductPush::skuOf($product),
@@ -906,7 +906,7 @@ class VentaCartListingController extends Controller
                 ($live['state'] ?? '') === 'found' ? collect($live['variants'] ?? [])->pluck('sku')->all() : ($link ? null : [])
             ),
             'groupBand' => $groupBand,
-            'storeCategories' => \Extensions\ventacart\Models\VentaCartCategory::query()->where('ventacart_setting_id', $store)
+            'storeCategories' => \Extensions\VentaCart\Models\VentaCartCategory::query()->where('ventacart_setting_id', $store)
                 ->orderBy('name')->get(['ventacart_category_id', 'name']),
             'shownCategoryId' => $shownCategoryId,
             'markupPercent' => $markupPercent,
@@ -964,7 +964,7 @@ class VentaCartListingController extends Controller
                 'groups' => 'ventacart_product_groups', 'storeFk' => 'ventacart_setting_id', 'storeId' => $store,
             ], $productId, $picked['id'], ['created_at' => now(), 'updated_at' => now()]);
             if ($picked['id'] === null) {
-                \Extensions\ventacart\Services\VentaCart\VentaCartListingStates::for($store)->clearErrors([$productId]);
+                \Extensions\VentaCart\Services\VentaCart\VentaCartListingStates::for($store)->clearErrors([$productId]);
             }
         }
 
@@ -1065,7 +1065,7 @@ class VentaCartListingController extends Controller
             VentaCartListing::categoryFor($listing, $group)
         );
 
-        $states = \Extensions\ventacart\Services\VentaCart\VentaCartListingStates::for($store);
+        $states = \Extensions\VentaCart\Services\VentaCart\VentaCartListingStates::for($store);
         if (! $outcome['ok']) {
             $states->recordOutcome($productId, 'Push failed: ' . (string) $outcome['message']);
 
@@ -1145,7 +1145,7 @@ class VentaCartListingController extends Controller
         }
 
         $result = VentaCartProductPush::for($setting)->setActive($productId, $active);
-        \Extensions\ventacart\Services\VentaCart\VentaCartListingStates::for($store)->recordOutcome($productId,
+        \Extensions\VentaCart\Services\VentaCart\VentaCartListingStates::for($store)->recordOutcome($productId,
             $result['ok'] ? null : ($active ? 'Relist' : 'Unlist') . ' failed: ' . $result['message']);
         if (! $result['ok']) {
             return redirect()->back()->with('error', ($active ? 'Relist' : 'Unlist') . ' failed: ' . $result['message']);

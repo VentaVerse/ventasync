@@ -7,7 +7,7 @@ use App\Models\Admin\UserGroup;
 use App\Models\Setting;
 use App\Models\User;
 use App\Support\LogRetention;
-use Extensions\ventacart\Models\VentaCartSyncLog;
+use Extensions\VentaCart\Models\VentaCartSyncLog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -23,7 +23,7 @@ class LogRetentionTest extends TestCase
         $manager = $this->app->make(\App\Extensions\ExtensionManager::class);
         $manager->install('ventacart');
         $manager->enable('ventacart');
-        $this->app->register(\Extensions\ventacart\VentaCartExtension::class);
+        $this->app->register(\Extensions\VentaCart\VentaCartExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
 
         $this->artisan('permissions:sync-catalog');
@@ -106,10 +106,10 @@ class LogRetentionTest extends TestCase
     public function test_a_store_sets_its_own_level_and_it_beats_the_default(): void
     {
         config(['logs.sync_level' => 'all']);
-        $store = \Extensions\ventacart\Models\VentaCartSetting::create([
+        $store = \Extensions\VentaCart\Models\VentaCartSetting::create([
             'store_name' => 'Loud store', 'base_url' => 'https://loud.test', 'api_token' => 't', 'enabled' => true,
         ]);
-        $quiet = \Extensions\ventacart\Models\VentaCartSetting::create([
+        $quiet = \Extensions\VentaCart\Models\VentaCartSetting::create([
             'store_name' => 'Quiet store', 'base_url' => 'https://quiet.test', 'api_token' => 't', 'enabled' => true,
             'sync_log_level' => 'off',
         ]);
@@ -125,7 +125,7 @@ class LogRetentionTest extends TestCase
 
     public function test_the_sync_tab_carries_the_same_controls_as_the_api_log_tab(): void
     {
-        $store = \Extensions\ventacart\Models\VentaCartSetting::create([
+        $store = \Extensions\VentaCart\Models\VentaCartSetting::create([
             'store_name' => 'Depot', 'base_url' => 'https://depot.test', 'api_token' => 't', 'enabled' => true,
         ]);
         DB::table('ventacart_sync_logs')->insert([

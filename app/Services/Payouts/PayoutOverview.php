@@ -45,7 +45,7 @@ class PayoutOverview
 
         return route('ext.reports.payouts', array_filter([
             'store' => [$channel->id . ':' . (int) $store->id],
-            'date_from' => \Extensions\reports\Services\ReportPeriod::ALL_TIME_FROM,
+            'date_from' => \Extensions\Reports\Services\ReportPeriod::ALL_TIME_FROM,
             'date_to' => now()->format('Y-m-d'),
             'payout_status' => $unpaid ? [PayoutStatusAlias::RELEASING, PayoutStatusAlias::NO_PAYOUT, PayoutStatusAlias::FAILED] : null,
         ]));

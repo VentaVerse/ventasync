@@ -1,14 +1,14 @@
 <?php
 
-namespace Extensions\ventacart\Services\VentaCart;
+namespace Extensions\VentaCart\Services\VentaCart;
 
 use App\Integrations\Listings\ListingState;
 use App\Integrations\Listings\ListingVariations;
-use Extensions\ventacart\Models\VentaCartListing;
-use Extensions\ventacart\Models\VentaCartProductGroup;
-use Extensions\ventacart\Models\VentaCartProductGroupProduct;
-use Extensions\ventacart\Models\VentaCartProductLink;
-use Extensions\ventacart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartListing;
+use Extensions\VentaCart\Models\VentaCartProductGroup;
+use Extensions\VentaCart\Models\VentaCartProductGroupProduct;
+use Extensions\VentaCart\Models\VentaCartProductLink;
+use Extensions\VentaCart\Models\VentaCartSetting;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;

@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\tiktok\Models;
+namespace Extensions\TikTok\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Extensions\tiktok\Models\Concerns\BelongsToTikTokStore;
+use Extensions\TikTok\Models\Concerns\BelongsToTikTokStore;
 
 class TikTokListing extends Model
 {
@@ -106,10 +106,10 @@ class TikTokListing extends Model
         );
 
         if ($answered && $skuIds !== null && $skuIds !== '') {
-            \Extensions\tiktok\Services\TikTok\TikTokListingStates::rememberHeld(
+            \Extensions\TikTok\Services\TikTok\TikTokListingStates::rememberHeld(
                 (int) ($row->tiktok_setting_id ?? 0),
                 $productId,
-                array_keys(\Extensions\tiktok\Services\TikTok\TikTokVariationPush::existingIds($skuIds))
+                array_keys(\Extensions\TikTok\Services\TikTok\TikTokVariationPush::existingIds($skuIds))
             );
         }
     }

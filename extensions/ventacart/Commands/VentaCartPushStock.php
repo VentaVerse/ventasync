@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\ventacart\Commands;
+namespace Extensions\VentaCart\Commands;
 
-use Extensions\ventacart\Models\VentaCartProductLink;
-use Extensions\ventacart\Models\VentaCartSetting;
-use Extensions\ventacart\Services\VentaCart\VentaCartStockPricePush;
+use Extensions\VentaCart\Models\VentaCartProductLink;
+use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Services\VentaCart\VentaCartStockPricePush;
 use Illuminate\Console\Command;
 
 class VentaCartPushStock extends Command implements \App\Integrations\Contracts\SteppableAutomation
@@ -54,11 +54,11 @@ class VentaCartPushStock extends Command implements \App\Integrations\Contracts\
 
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
-        return ['label' => 'products', 'units' => \Extensions\ventacart\Services\VentaCart\VentaCartPushSteps::units($job)];
+        return ['label' => 'products', 'units' => \Extensions\VentaCart\Services\VentaCart\VentaCartPushSteps::units($job)];
     }
 
     public function automationStep(\App\Models\ScheduledJob $job, array $units): array
     {
-        return \Extensions\ventacart\Services\VentaCart\VentaCartPushSteps::step('stock', $units);
+        return \Extensions\VentaCart\Services\VentaCart\VentaCartPushSteps::step('stock', $units);
     }
 }

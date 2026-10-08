@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\opencart\Services\OpenCart;
+namespace Extensions\OpenCart\Services\OpenCart;
 
 use App\Models\Catalog\Order;
-use Extensions\opencart\Models\OpenCartOrderStatusMap;
-use Extensions\opencart\Models\OpenCartSetting;
-use Extensions\opencart\Models\OpenCartSyncLog;
+use Extensions\OpenCart\Models\OpenCartOrderStatusMap;
+use Extensions\OpenCart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartSyncLog;
 use App\Events\OrderStatusChanged;
 use App\Services\OrderStockService;
 use App\Services\ActivityLogger;

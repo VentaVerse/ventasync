@@ -192,9 +192,9 @@ class AutomationsController extends Controller
     private function settingClassFor(string $integration): ?string
     {
         $map = [
-            'shopee' => \Extensions\shopee\Models\ShopeeSetting::class,
-            'lazada' => \Extensions\lazada\Models\LazadaSetting::class,
-            'tiktok' => \Extensions\tiktok\Models\TikTokSetting::class,
+            'shopee' => \Extensions\Shopee\Models\ShopeeSetting::class,
+            'lazada' => \Extensions\Lazada\Models\LazadaSetting::class,
+            'tiktok' => \Extensions\TikTok\Models\TikTokSetting::class,
         ];
         $class = $map[$integration] ?? null;
         return ($class && class_exists($class)) ? $class : null;

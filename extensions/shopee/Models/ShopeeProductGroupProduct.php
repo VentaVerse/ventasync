@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\shopee\Models;
+namespace Extensions\Shopee\Models;
 
 use Illuminate\Database\Eloquent\Model;
 

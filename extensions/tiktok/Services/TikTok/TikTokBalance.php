@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\tiktok\Services\TikTok;
+namespace Extensions\TikTok\Services\TikTok;
 
 use Carbon\Carbon;
-use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokSetting;
 
 class TikTokBalance
 {

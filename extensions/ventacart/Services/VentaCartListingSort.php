@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\ventacart\Services;
+namespace Extensions\VentaCart\Services;
 
 use App\Integrations\Listings\ListingSort;
 use App\Support\StoreKey;

@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\shopee\Http;
+namespace Extensions\Shopee\Http;
 
 use Closure;
-use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
 

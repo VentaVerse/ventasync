@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\tiktok\Services;
+namespace Extensions\TikTok\Services;
 
 use App\Support\Fulfilment\AppFulfilment;
-use Extensions\tiktok\Controllers\TikTokOrderController;
-use Extensions\tiktok\Models\TikTokOrder;
-use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\TikTok\Controllers\TikTokOrderController;
+use Extensions\TikTok\Models\TikTokOrder;
+use Extensions\TikTok\Models\TikTokSetting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;

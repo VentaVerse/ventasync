@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
 use App\Support\MarketplaceAnswer;
-use Extensions\shopee\Controllers\ShopeeProductGroupController;
-use Extensions\shopee\Models\ShopeeApiLog;
-use Extensions\shopee\Models\ShopeeListing;
+use Extensions\Shopee\Controllers\ShopeeProductGroupController;
+use Extensions\Shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeListing;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 

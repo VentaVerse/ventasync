@@ -6,8 +6,8 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\ventacart\Models\VentaCartProductLink;
-use Extensions\ventacart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartProductLink;
+use Extensions\VentaCart\Models\VentaCartSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -26,7 +26,7 @@ class VentaCartItemImportTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('ventacart');
         $manager->enable('ventacart');
-        $this->app->register(\Extensions\ventacart\VentaCartExtension::class);
+        $this->app->register(\Extensions\VentaCart\VentaCartExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
     }

@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
 use App\Support\MarketplaceAnswer;
-use Extensions\shopee\Models\ShopeeApiLog;
-use Extensions\shopee\Models\ShopeeLogistic;
+use Extensions\Shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeLogistic;
 use Illuminate\Support\Facades\DB;
 
 class ShopeeStoreSetup

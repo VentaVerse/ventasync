@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\shopee\Models;
+namespace Extensions\Shopee\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
 class ShopeeItemCache extends Model
 {
-    use \Extensions\shopee\Models\Concerns\BelongsToShopeeStore;
+    use \Extensions\Shopee\Models\Concerns\BelongsToShopeeStore;
 
     protected $table = 'shopee_item_cache';
 

@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\opencart\Models;
+namespace Extensions\OpenCart\Models;
 
 use App\Models\Catalog\Product;
-use Extensions\opencart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartSetting;
 use Illuminate\Database\Eloquent\Model;
 
 class MarketplaceReview extends Model

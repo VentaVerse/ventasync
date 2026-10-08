@@ -6,12 +6,12 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\tiktok\Models\TikTokListing;
-use Extensions\tiktok\Models\TikTokProductGroup;
-use Extensions\tiktok\Models\TikTokProductGroupProduct;
-use Extensions\tiktok\Services\TikTokStoreProducts;
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\TikTokExtension;
+use Extensions\TikTok\Models\TikTokListing;
+use Extensions\TikTok\Models\TikTokProductGroup;
+use Extensions\TikTok\Models\TikTokProductGroupProduct;
+use Extensions\TikTok\Services\TikTokStoreProducts;
+use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\TikTokExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -336,8 +336,8 @@ class TikTokAddToStoreTest extends TestCase
 
     public function test_the_edit_form_is_the_groups_settings_only(): void
     {
-        \Extensions\tiktok\Models\TikTokCategory::create(['id' => '900001', 'name' => 'Helmets', 'parent_id' => null, 'is_leaf' => true]);
-        \Extensions\tiktok\Models\TikTokCategoryTemplate::create(['category_id' => '900001', 'attributes' => [], 'fetched_at' => now()]);
+        \Extensions\TikTok\Models\TikTokCategory::create(['id' => '900001', 'name' => 'Helmets', 'parent_id' => null, 'is_leaf' => true]);
+        \Extensions\TikTok\Models\TikTokCategoryTemplate::create(['category_id' => '900001', 'attributes' => [], 'fetched_at' => now()]);
         $group = $this->group();
         $pid = $this->seedProduct('Already grouped', 'G-1');
         $this->onStore($pid);

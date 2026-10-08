@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\tiktok\Services\TikTok;
+namespace Extensions\TikTok\Services\TikTok;
 
 use Illuminate\Support\Facades\DB;
 
@@ -37,7 +37,7 @@ class TikTokStockPushService
         $povByOvId = $povs->map(fn ($rows) => $rows->keyBy(fn ($r) => (string) $r->option_value_id));
         $povBySku = $povs->map(fn ($rows) => $rows->filter(fn ($r) => trim((string) $r->sku) !== '')->keyBy(fn ($r) => trim((string) $r->sku)));
 
-        $ownPrices = \Extensions\tiktok\Models\TikTokListing::ownPrices($productIds);
+        $ownPrices = \Extensions\TikTok\Models\TikTokListing::ownPrices($productIds);
         $varied = TikTokVariationPush::withVariations($productIds);
 
         $priceFor ??= fn (float $base, object $pivot) => $base;

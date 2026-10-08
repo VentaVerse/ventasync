@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
-use Extensions\shopee\Models\ShopeeApiLog;
-use Extensions\shopee\Models\ShopeeItemCache;
-use Extensions\shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeItemCache;
+use Extensions\Shopee\Models\ShopeeProductLink;
 use Illuminate\Support\Facades\DB;
 
 class ShopeeVariationPush
@@ -428,7 +428,7 @@ class ShopeeVariationPush
         }
         if ($answered !== []) {
             ShopeeListingStates::rememberHeld(
-                (int) ($auth['store_id'] ?? 0) ?: (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0),
+                (int) ($auth['store_id'] ?? 0) ?: (int) (\Extensions\Shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0),
                 $productId,
                 array_map(fn ($m) => (string) ($m['model_sku'] ?? ''), $answered)
             );

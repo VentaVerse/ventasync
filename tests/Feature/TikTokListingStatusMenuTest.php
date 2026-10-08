@@ -6,11 +6,11 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\tiktok\Models\TikTokCategory;
-use Extensions\tiktok\Models\TikTokCategoryTemplate;
-use Extensions\tiktok\Models\TikTokListing;
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\Services\TikTok\TikTokListingStates;
+use Extensions\TikTok\Models\TikTokCategory;
+use Extensions\TikTok\Models\TikTokCategoryTemplate;
+use Extensions\TikTok\Models\TikTokListing;
+use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Services\TikTok\TikTokListingStates;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -26,7 +26,7 @@ class TikTokListingStatusMenuTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('tiktok');
         $manager->enable('tiktok');
-        $this->app->register(\Extensions\tiktok\TikTokExtension::class);
+        $this->app->register(\Extensions\TikTok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
@@ -141,8 +141,8 @@ class TikTokListingStatusMenuTest extends TestCase
     {
         $pid = $this->product('Movable pedal', 'TMV-1');
         TikTokListing::query()->create(['product_id' => $pid]);
-        $groupA = \Extensions\tiktok\Models\TikTokProductGroup::create(['name' => 'Fuzz', 'tiktok_category_id' => '900009']);
-        $groupB = \Extensions\tiktok\Models\TikTokProductGroup::create(['name' => 'Delay', 'tiktok_category_id' => '900009']);
+        $groupA = \Extensions\TikTok\Models\TikTokProductGroup::create(['name' => 'Fuzz', 'tiktok_category_id' => '900009']);
+        $groupB = \Extensions\TikTok\Models\TikTokProductGroup::create(['name' => 'Delay', 'tiktok_category_id' => '900009']);
         $manager = $this->manager();
         $manager->userGroup->permissions()->attach(Permission::whereIn('key', ['manage_tiktok/product_group', 'view_tiktok/product_group'])->pluck('id')->all());
         $listingOnlyGroup = UserGroup::create(['name' => 'Listings without groups']);
@@ -175,11 +175,11 @@ class TikTokListingStatusMenuTest extends TestCase
     public function test_a_whole_group_sends_as_a_run_from_the_listings_page(): void
     {
         \Illuminate\Support\Facades\Http::fake();
-        $group = \Extensions\tiktok\Models\TikTokProductGroup::create(['name' => 'Fuzz', 'tiktok_category_id' => '900009']);
+        $group = \Extensions\TikTok\Models\TikTokProductGroup::create(['name' => 'Fuzz', 'tiktok_category_id' => '900009']);
         $pids = [$this->product('Run pedal one', 'TRN-1'), $this->product('Run pedal two', 'TRN-2')];
         foreach ($pids as $pid) {
             TikTokListing::query()->create(['product_id' => $pid]);
-            \Extensions\tiktok\Models\TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => $pid, 'sync_status' => 'pending']);
+            \Extensions\TikTok\Models\TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => $pid, 'sync_status' => 'pending']);
         }
         $manager = $this->manager();
         $manager->userGroup->permissions()->attach(Permission::whereIn('key', ['manage_tiktok/product_group', 'view_tiktok/product_group'])->pluck('id')->all());
@@ -199,6 +199,6 @@ class TikTokListingStatusMenuTest extends TestCase
         $this->assertSame('done', $answer['run']['status']);
         $this->assertSame(2, $answer['run']['total']);
         $this->assertSame('2 products: 0 ok, 2 failed.', $answer['outcome']);
-        $this->assertSame(['error', 'error'], \Extensions\tiktok\Models\TikTokProductGroupProduct::query()->where('tiktok_product_group_id', $group->id)->orderBy('product_id')->pluck('sync_status')->all());
+        $this->assertSame(['error', 'error'], \Extensions\TikTok\Models\TikTokProductGroupProduct::query()->where('tiktok_product_group_id', $group->id)->orderBy('product_id')->pluck('sync_status')->all());
     }
 }

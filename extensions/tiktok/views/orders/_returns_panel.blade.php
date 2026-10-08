@@ -26,8 +26,8 @@
         'opened_desc' => 'Opened, newest first',
         'opened_asc' => 'Opened, oldest first',
     ];
-    $statusMap = \Extensions\tiktok\Services\TikTokReturnsPanel::STATUS_MAP;
-    $typeMap = \Extensions\tiktok\Services\TikTokReturnsPanel::TYPE_MAP;
+    $statusMap = \Extensions\TikTok\Services\TikTokReturnsPanel::STATUS_MAP;
+    $typeMap = \Extensions\TikTok\Services\TikTokReturnsPanel::TYPE_MAP;
     $activeFilters = (int) ($openedFromFilter !== '') + (int) ($openedToFilter !== '') + (int) (($sort ?? 'updated_desc') !== 'updated_desc') + (int) ($perPage !== 10);
 @endphp
 

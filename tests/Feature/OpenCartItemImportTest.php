@@ -6,8 +6,8 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\opencart\Models\OpenCartProductLink;
-use Extensions\opencart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartProductLink;
+use Extensions\OpenCart\Models\OpenCartSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -26,7 +26,7 @@ class OpenCartItemImportTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('opencart');
         $manager->enable('opencart');
-        $this->app->register(\Extensions\opencart\OpenCartExtension::class);
+        $this->app->register(\Extensions\OpenCart\OpenCartExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
     }

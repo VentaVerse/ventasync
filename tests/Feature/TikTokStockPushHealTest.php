@@ -6,11 +6,11 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\tiktok\Models\TikTokListing;
-use Extensions\tiktok\Models\TikTokProductGroup;
-use Extensions\tiktok\Models\TikTokProductGroupProduct;
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\Services\TikTok\TikTokClient;
+use Extensions\TikTok\Models\TikTokListing;
+use Extensions\TikTok\Models\TikTokProductGroup;
+use Extensions\TikTok\Models\TikTokProductGroupProduct;
+use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -32,7 +32,7 @@ class TikTokStockPushHealTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('tiktok');
         $manager->enable('tiktok');
-        $this->app->register(\Extensions\tiktok\TikTokExtension::class);
+        $this->app->register(\Extensions\TikTok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
@@ -123,7 +123,7 @@ class TikTokStockPushHealTest extends TestCase
             ],
         ]]];
 
-        $r = app(\Extensions\tiktok\Services\TikTok\TikTokSkuMapRepair::class)
+        $r = app(\Extensions\TikTok\Services\TikTok\TikTokSkuMapRepair::class)
             ->forProduct(['app_key' => 'k', 'app_secret' => 's', 'token' => 't', 'shop_cipher' => 'c'], $pid, 'tt-rm');
         $this->assertArrayNotHasKey('error', $r);
         $this->assertSame(['RM-3'], $missing());

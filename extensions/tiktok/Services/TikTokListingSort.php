@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\tiktok\Services;
+namespace Extensions\TikTok\Services;
 
 use App\Integrations\Listings\ListingSort;
 use App\Support\StoreKey;

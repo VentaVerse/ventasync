@@ -6,7 +6,7 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\lazada\LazadaExtension;
+use Extensions\Lazada\LazadaExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -26,7 +26,7 @@ class LazadaBulkPackTest extends TestCase
 
         $this->app['router']->getRoutes()->refreshNameLookups();
 
-        \Extensions\lazada\Models\LazadaSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        \Extensions\Lazada\Models\LazadaSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
     private function userWith(array $permissionKeys): User

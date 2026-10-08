@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\shopee\Services;
+namespace Extensions\Shopee\Services;
 
-use Extensions\shopee\Models\ShopeeReturn;
-use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeReturn;
+use Extensions\Shopee\Models\ShopeeSetting;
 use Illuminate\Http\Request;
 
 class ShopeeReturnsPanel

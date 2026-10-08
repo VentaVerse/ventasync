@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\lazada\Controllers;
+namespace Extensions\Lazada\Controllers;
 
 use App\Http\Controllers\Controller;
 
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\lazada\Models\LazadaApiLog;
-use Extensions\lazada\Services\Lazada\LazadaClient;
+use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaApiLog;
+use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -113,7 +113,7 @@ class LazadaController extends Controller
             $row->model = html_entity_decode((string)($row->model ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         }
 
-        $orderStatusMap = \Extensions\lazada\Models\LazadaOrderStatusMap::where('context', 'order')->pluck('order_status_id', 'lazada_status')->all();
+        $orderStatusMap = \Extensions\Lazada\Models\LazadaOrderStatusMap::where('context', 'order')->pluck('order_status_id', 'lazada_status')->all();
 
         $erpOrderStatuses = DB::table($pfx . 'order_status')
             ->where('language_id', $langId)
@@ -152,7 +152,7 @@ class LazadaController extends Controller
             'cancelled'           => 'Cancelled',
         ];
 
-        $reverseStatusMap = \Extensions\lazada\Models\LazadaOrderStatusMap::where('context', 'return')
+        $reverseStatusMap = \Extensions\Lazada\Models\LazadaOrderStatusMap::where('context', 'return')
             ->whereIn('lazada_status', array_keys($reverseStatuses))
             ->pluck('order_status_id', 'lazada_status')
             ->all();
@@ -187,7 +187,7 @@ class LazadaController extends Controller
                 continue;
             }
 
-            \Extensions\lazada\Models\LazadaOrderStatusMap::updateOrCreate(
+            \Extensions\Lazada\Models\LazadaOrderStatusMap::updateOrCreate(
                 ['lazada_status' => $lazadaStatus, 'context' => 'order'],
                 ['order_status_id' => $orderStatusId]
             );
@@ -213,13 +213,13 @@ class LazadaController extends Controller
             }
 
             if ($orderStatusId <= 0) {
-                \Extensions\lazada\Models\LazadaOrderStatusMap::where('lazada_status', $lazadaStatus)
+                \Extensions\Lazada\Models\LazadaOrderStatusMap::where('lazada_status', $lazadaStatus)
                     ->where('context', 'return')
                     ->delete();
                 continue;
             }
 
-            \Extensions\lazada\Models\LazadaOrderStatusMap::updateOrCreate(
+            \Extensions\Lazada\Models\LazadaOrderStatusMap::updateOrCreate(
                 ['lazada_status' => $lazadaStatus, 'context' => 'return'],
                 ['order_status_id' => $orderStatusId]
             );
@@ -250,7 +250,7 @@ class LazadaController extends Controller
         return $this->toSettingsTab('logs')->with('status', "Deleted {$count} Lazada API log entries.");
     }
 
-    public function setupStep(string $step, \Extensions\lazada\Services\Lazada\LazadaStoreSetup $setup)
+    public function setupStep(string $step, \Extensions\Lazada\Services\Lazada\LazadaStoreSetup $setup)
     {
         $store = LazadaSetting::defaultStore();
         $setting = $store?->decrypted();
@@ -268,10 +268,10 @@ class LazadaController extends Controller
         return response()->json($out);
     }
 
-    public function destroyStore(Request $request, \Extensions\lazada\Services\Lazada\LazadaStoreDeleter $deleter)
+    public function destroyStore(Request $request, \Extensions\Lazada\Services\Lazada\LazadaStoreDeleter $deleter)
     {
         abort_unless($request->user()?->hasPermission('manage_lazada/settings'), 403);
-        $store = \Extensions\lazada\Models\LazadaSetting::defaultStore();
+        $store = \Extensions\Lazada\Models\LazadaSetting::defaultStore();
         abort_if(! $store, 404);
 
         $request->validate([

@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\opencart;
+namespace Extensions\OpenCart;
 
 use App\Extensions\ExtensionProvider;
 use App\Integrations\Contracts\DashboardContributor;
@@ -17,11 +17,11 @@ use App\Integrations\MenuItem;
 use App\Integrations\OrderTab;
 use App\Integrations\StoreLink;
 use App\Models\Catalog\OrderStatus;
-use Extensions\opencart\Models\OpenCartProductLink;
-use Extensions\opencart\Models\OpenCartSetting;
-use Extensions\opencart\Models\OpenCartSyncLog;
-use Extensions\opencart\Services\OpenCart\OpenCartClient;
-use Extensions\opencart\Services\OpenCart\OpenCartProductSync;
+use Extensions\OpenCart\Models\OpenCartProductLink;
+use Extensions\OpenCart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartSyncLog;
+use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
+use Extensions\OpenCart\Services\OpenCart\OpenCartProductSync;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -38,14 +38,14 @@ class OpenCartExtension extends ExtensionProvider implements IntegrationProvider
         parent::boot();
 
         $this->commands([
-            \Extensions\opencart\Commands\OpenCartSync::class,
-            \Extensions\opencart\Commands\OpenCartPush::class,
-            \Extensions\opencart\Commands\OpenCartPushQty::class,
-            \Extensions\opencart\Commands\OpenCartPushPrice::class,
-            \Extensions\opencart\Commands\OpenCartPullQty::class,
-            \Extensions\opencart\Commands\OpenCartImportOrders::class,
-            \Extensions\opencart\Commands\OpenCartReclassifyOrders::class,
-            \Extensions\opencart\Commands\OpenCartPushReviews::class,
+            \Extensions\OpenCart\Commands\OpenCartSync::class,
+            \Extensions\OpenCart\Commands\OpenCartPush::class,
+            \Extensions\OpenCart\Commands\OpenCartPushQty::class,
+            \Extensions\OpenCart\Commands\OpenCartPushPrice::class,
+            \Extensions\OpenCart\Commands\OpenCartPullQty::class,
+            \Extensions\OpenCart\Commands\OpenCartImportOrders::class,
+            \Extensions\OpenCart\Commands\OpenCartReclassifyOrders::class,
+            \Extensions\OpenCart\Commands\OpenCartPushReviews::class,
         ]);
 
         $this->app->make(IntegrationRegistry::class)->register($this);
@@ -409,7 +409,7 @@ class OpenCartExtension extends ExtensionProvider implements IntegrationProvider
 
     protected function credentialSettingsModel(): string
     {
-        return \Extensions\opencart\Models\OpenCartSetting::class;
+        return \Extensions\OpenCart\Models\OpenCartSetting::class;
     }
 
     protected function credentialIsMultiStore(): bool
@@ -424,26 +424,26 @@ class OpenCartExtension extends ExtensionProvider implements IntegrationProvider
 
     public function productPresence(array $productIds): array
     {
-        return app(\Extensions\opencart\Services\OpenCart\OpenCartProductRemover::class)->presence($productIds);
+        return app(\Extensions\OpenCart\Services\OpenCart\OpenCartProductRemover::class)->presence($productIds);
     }
 
     public function removeProduct(int $productId): array
     {
-        return app(\Extensions\opencart\Services\OpenCart\OpenCartProductRemover::class)->remove($productId);
+        return app(\Extensions\OpenCart\Services\OpenCart\OpenCartProductRemover::class)->remove($productId);
     }
 
     public function strandedProductIds(): array
     {
-        return app(\Extensions\opencart\Services\OpenCart\OpenCartProductRemover::class)->stranded();
+        return app(\Extensions\OpenCart\Services\OpenCart\OpenCartProductRemover::class)->stranded();
     }
 
     public function automations(): array
     {
-        return \Extensions\opencart\Support\OpenCartScheduledJobs::JOBS;
+        return \Extensions\OpenCart\Support\OpenCartScheduledJobs::JOBS;
     }
 
     public function automationStoreIds(): ?array
     {
-        return \Extensions\opencart\Models\OpenCartSetting::query()->pluck('id')->map(fn ($id) => (int) $id)->all();
+        return \Extensions\OpenCart\Models\OpenCartSetting::query()->pluck('id')->map(fn ($id) => (int) $id)->all();
     }
 }

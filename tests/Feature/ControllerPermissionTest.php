@@ -21,7 +21,7 @@ class ControllerPermissionTest extends TestCase
         $manager = $this->app->make(\App\Extensions\ExtensionManager::class);
         $manager->install('lazada');
         $manager->enable('lazada');
-        $this->app->register(\Extensions\lazada\LazadaExtension::class);
+        $this->app->register(\Extensions\Lazada\LazadaExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
 
         $this->artisan('permissions:sync-catalog');

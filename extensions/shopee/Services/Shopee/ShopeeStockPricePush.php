@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
-use Extensions\shopee\Models\ShopeeApiLog;
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Services\ShopeeStockPushService;
+use Extensions\Shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Services\ShopeeStockPushService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 

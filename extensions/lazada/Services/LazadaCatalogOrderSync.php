@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\lazada\Services;
+namespace Extensions\Lazada\Services;
 
-use Extensions\lazada\Models\LazadaOrder;
-use Extensions\lazada\Models\LazadaOrderStatusMap;
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaProductVariant;
+use Extensions\Lazada\Models\LazadaOrder;
+use Extensions\Lazada\Models\LazadaOrderStatusMap;
+use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaProductVariant;
 use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderHistory;
 use App\Models\Catalog\OrderOption;
@@ -107,7 +107,7 @@ class LazadaCatalogOrderSync
             }
 
             $storeId = (int) $lazadaOrder->lazada_setting_id;
-            $storeName = mb_substr((string) (\Extensions\lazada\Models\LazadaSetting::query()->find($storeId)?->store_name ?? ''), 0, 64);
+            $storeName = mb_substr((string) (\Extensions\Lazada\Models\LazadaSetting::query()->find($storeId)?->store_name ?? ''), 0, 64);
 
             $orderData = [
                 'invoice_no'            => 0,
@@ -302,7 +302,7 @@ class LazadaCatalogOrderSync
             OrderTotal::where('order_id', $catalogOrder->order_id)->delete();
 
             $sortOrder = 1;
-            foreach (\Extensions\lazada\Services\LazadaSaleLines::lines($raw, $subTotal, $shippingTotal) as $line) {
+            foreach (\Extensions\Lazada\Services\LazadaSaleLines::lines($raw, $subTotal, $shippingTotal) as $line) {
                 OrderTotal::create([
                     'order_id'   => $catalogOrder->order_id,
                     'code'       => $line['code'],

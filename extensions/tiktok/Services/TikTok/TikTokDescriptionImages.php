@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\tiktok\Services\TikTok;
+namespace Extensions\TikTok\Services\TikTok;
 
 use App\Integrations\Listings\RichDescription;
 use App\Services\Media\StoreReadyImages;
-use Extensions\tiktok\Models\TikTokApiLog;
-use Extensions\tiktok\Models\TikTokDescriptionImage;
+use Extensions\TikTok\Models\TikTokApiLog;
+use Extensions\TikTok\Models\TikTokDescriptionImage;
 use Illuminate\Support\Facades\Storage;
 
 class TikTokDescriptionImages

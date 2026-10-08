@@ -3,9 +3,9 @@
 namespace Tests\Feature;
 
 use App\Integrations\OneGroupRule;
-use Extensions\shopee\Models\ShopeeProductGroup;
-use Extensions\shopee\Models\ShopeeProductGroupProduct;
-use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeProductGroup;
+use Extensions\Shopee\Models\ShopeeProductGroupProduct;
+use Extensions\Shopee\Models\ShopeeSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 

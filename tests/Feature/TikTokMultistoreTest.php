@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use Extensions\tiktok\Models\TikTokOrder;
-use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokOrder;
+use Extensions\TikTok\Models\TikTokSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -18,7 +18,7 @@ class TikTokMultistoreTest extends TestCase
         $manager = $this->app->make(\App\Extensions\ExtensionManager::class);
         $manager->install('tiktok');
         $manager->enable('tiktok');
-        $this->app->register(\Extensions\tiktok\TikTokExtension::class);
+        $this->app->register(\Extensions\TikTok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
     }
 
@@ -157,7 +157,7 @@ class TikTokMultistoreTest extends TestCase
         $one = $this->storeWithCreds('Main store');
         $two = $this->storeWithCreds('Outlet');
 
-        $fake = new class extends \Extensions\tiktok\Services\TikTok\TikTokClient {
+        $fake = new class extends \Extensions\TikTok\Services\TikTok\TikTokClient {
             public function __construct() {}
             public function getToken(string $appKey, string $appSecret, string $authCode): array
             {
@@ -169,9 +169,9 @@ class TikTokMultistoreTest extends TestCase
                 ]]];
             }
         };
-        $this->app->instance(\Extensions\tiktok\Services\TikTok\TikTokClient::class, $fake);
+        $this->app->instance(\Extensions\TikTok\Services\TikTok\TikTokClient::class, $fake);
 
-        $state = \Extensions\tiktok\Controllers\TikTokController::oauthStateToken($two->id, false);
+        $state = \Extensions\TikTok\Controllers\TikTokController::oauthStateToken($two->id, false);
         $this->get(route('ext.tiktok.callback', ['code' => 'the-code', 'state' => $state]));
 
         $this->assertSame('granted-token', decrypt($two->fresh()->access_token),
@@ -225,7 +225,7 @@ class TikTokMultistoreTest extends TestCase
         TikTokOrder::create(['tiktok_setting_id' => $two->id, 'region' => 'PH', 'order_id' => 'W-2', 'status' => 'AWAITING_SHIPMENT']);
         TikTokOrder::create(['tiktok_setting_id' => $two->id, 'region' => 'PH', 'order_id' => 'W-3', 'status' => 'AWAITING_SHIPMENT']);
 
-        $data = $this->app->make(\Extensions\tiktok\TikTokExtension::class, ['app' => $this->app])->dashboardData();
+        $data = $this->app->make(\Extensions\TikTok\TikTokExtension::class, ['app' => $this->app])->dashboardData();
 
         $this->assertSame(1, $data['channelPending']['tiktok:' . $one->id] ?? null, "the first store reports its own waiting count");
         $this->assertSame(2, $data['channelPending']['tiktok:' . $two->id] ?? null, "the second store reports its own");
@@ -250,7 +250,7 @@ class TikTokMultistoreTest extends TestCase
     {
         $one = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
         $two = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Outlet']);
-        $group = fn ($store, string $name) => tap((new \Extensions\tiktok\Models\TikTokProductGroup())->forceFill(['tiktok_setting_id' => $store->id, 'name' => $name, 'tiktok_category_id' => '900001']))->save();
+        $group = fn ($store, string $name) => tap((new \Extensions\TikTok\Models\TikTokProductGroup())->forceFill(['tiktok_setting_id' => $store->id, 'name' => $name, 'tiktok_category_id' => '900001']))->save();
         $x = $group($one, 'Group X');
         $y = $group($one, 'Group Y');
         $onOutlet = $group($two, 'Group Y outlet');

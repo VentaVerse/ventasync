@@ -50,7 +50,7 @@ final class Counters
         $models = [];
 
         foreach (glob(base_path('extensions/*/Models/*.php')) ?: [] as $file) {
-            $class = 'Extensions\\' . basename(dirname($file, 2)) . '\\Models\\' . basename($file, '.php');
+            $class = \App\Extensions\ExtensionNamespace::for(basename(dirname($file, 2))) . '\\Models\\' . basename($file, '.php');
             if (class_exists($class) && in_array(CountsAsStore::class, class_uses_recursive($class), true)) {
                 $models[] = $class;
             }

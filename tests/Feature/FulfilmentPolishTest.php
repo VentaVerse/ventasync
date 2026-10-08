@@ -7,8 +7,8 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use App\Support\CatalogVariations;
-use Extensions\shopee\Models\ShopeeOrder;
-use Extensions\shopee\ShopeeExtension;
+use Extensions\Shopee\Models\ShopeeOrder;
+use Extensions\Shopee\ShopeeExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\DB;
@@ -22,7 +22,7 @@ class FulfilmentPolishTest extends TestCase
     {
         parent::setUp();
 
-        \Extensions\shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        \Extensions\Shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
 
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
@@ -148,11 +148,11 @@ class FulfilmentPolishTest extends TestCase
         $group->permissions()->attach(Permission::whereIn('key', ['view_shopee/dashboard', 'view_shopee/order'])->pluck('id')->all());
         $user = User::factory()->create(['user_group_id' => $group->id]);
 
-        $html = $this->actingAs($user)->get('/channels/fulfilment?channel=shopee:' . \Extensions\shopee\Models\ShopeeSetting::query()->value('id') . '&tab=PENDING')->assertOk()->getContent();
+        $html = $this->actingAs($user)->get('/channels/fulfilment?channel=shopee:' . \Extensions\Shopee\Models\ShopeeSetting::query()->value('id') . '&tab=PENDING')->assertOk()->getContent();
         $this->assertStringContainsString('Ship-by time, soonest first', $html);
         $this->assertLessThan(strpos($html, 'SB-SOON'), strpos($html, 'SB-LATE'));
 
-        $sorted = $this->actingAs($user)->get('/channels/fulfilment?channel=shopee:' . \Extensions\shopee\Models\ShopeeSetting::query()->value('id') . '&tab=PENDING&sort=ship_by_asc')->assertOk()->getContent();
+        $sorted = $this->actingAs($user)->get('/channels/fulfilment?channel=shopee:' . \Extensions\Shopee\Models\ShopeeSetting::query()->value('id') . '&tab=PENDING&sort=ship_by_asc')->assertOk()->getContent();
         $this->assertLessThan(strpos($sorted, 'SB-LATE'), strpos($sorted, 'SB-SOON'), 'soonest deadline first when asked');
     }
 

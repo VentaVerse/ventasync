@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\shopee\Commands;
+namespace Extensions\Shopee\Commands;
 
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeLiveListing;
+use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Services\Shopee\ShopeeLiveListing;
 use Illuminate\Console\Command;
 
 class ShopeeRefreshListingStatus extends Command
@@ -38,13 +38,13 @@ class ShopeeRefreshListingStatus extends Command
             }
 
 
-            $checked = app(\Extensions\shopee\Services\Shopee\ShopeeLinkCheck::class)
-                ->runNext(app(\Extensions\shopee\Services\Shopee\ShopeeClient::class), $auth, (int) $store->id);
+            $checked = app(\Extensions\Shopee\Services\Shopee\ShopeeLinkCheck::class)
+                ->runNext(app(\Extensions\Shopee\Services\Shopee\ShopeeClient::class), $auth, (int) $store->id);
 
             app()->instance('shopee.route-store', $store);
             try {
-                $sheets = app(\Extensions\shopee\Services\Shopee\ShopeeSheetReads::class)
-                    ->readMissing($auth, app(\Extensions\shopee\Services\Shopee\ShopeeClient::class));
+                $sheets = app(\Extensions\Shopee\Services\Shopee\ShopeeSheetReads::class)
+                    ->readMissing($auth, app(\Extensions\Shopee\Services\Shopee\ShopeeClient::class));
             } finally {
                 app()->forgetInstance('shopee.route-store');
             }

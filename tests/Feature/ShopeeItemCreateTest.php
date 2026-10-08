@@ -2,9 +2,9 @@
 
 namespace Tests\Feature;
 
-use Extensions\shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Extensions\shopee\Services\Shopee\ShopeeItemCreate;
+use Extensions\Shopee\Services\Shopee\ShopeeItemCreate;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 

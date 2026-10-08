@@ -6,10 +6,10 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeListingStates;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Services\Shopee\ShopeeListingStates;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -25,7 +25,7 @@ class ShopeeListingStatusMenuTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
@@ -122,8 +122,8 @@ class ShopeeListingStatusMenuTest extends TestCase
     public function test_a_ticked_product_moves_between_groups_from_the_listings_page(): void
     {
         $pid = $this->product('Movable pedal', 'SMV-1');
-        $groupA = \Extensions\shopee\Models\ShopeeProductGroup::create(['name' => 'Fuzz', 'shopee_category_id' => 100013, 'logistic_ids' => [8003]]);
-        $groupB = \Extensions\shopee\Models\ShopeeProductGroup::create(['name' => 'Delay', 'shopee_category_id' => 100013, 'logistic_ids' => [8003]]);
+        $groupA = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Fuzz', 'shopee_category_id' => 100013, 'logistic_ids' => [8003]]);
+        $groupB = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Delay', 'shopee_category_id' => 100013, 'logistic_ids' => [8003]]);
         $manager = $this->manager();
         $manager->userGroup->permissions()->attach(Permission::whereIn('key', ['manage_shopee/product_group', 'view_shopee/product_group'])->pluck('id')->all());
         $listingOnlyGroup = UserGroup::create(['name' => 'Listings without groups']);
@@ -155,13 +155,13 @@ class ShopeeListingStatusMenuTest extends TestCase
 
     public function test_a_whole_group_sends_as_a_run_from_the_listings_page(): void
     {
-        $group = \Extensions\shopee\Models\ShopeeProductGroup::create(['name' => 'Fuzz', 'shopee_category_id' => 100013, 'logistic_ids' => [8003]]);
+        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Fuzz', 'shopee_category_id' => 100013, 'logistic_ids' => [8003]]);
         foreach ([$this->product('Run pedal one', 'SRN-1'), $this->product('Run pedal two', 'SRN-2')] as $pid) {
-            \Extensions\shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $pid]);
+            \Extensions\Shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $pid]);
         }
         $offList = $this->product('Not carried here', 'SRN-3');
         ShopeeListing::query()->where('product_id', $offList)->delete();
-        \Extensions\shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $offList]);
+        \Extensions\Shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $offList]);
         $manager = $this->manager();
         $manager->userGroup->permissions()->attach(Permission::whereIn('key', ['manage_shopee/product_group', 'view_shopee/product_group'])->pluck('id')->all());
         $listingOnlyGroup = UserGroup::create(['name' => 'Listings without groups']);

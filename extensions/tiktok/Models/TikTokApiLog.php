@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\tiktok\Models;
+namespace Extensions\TikTok\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;

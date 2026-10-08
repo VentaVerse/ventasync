@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\ventacart\Services\VentaCart;
+namespace Extensions\VentaCart\Services\VentaCart;
 
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;

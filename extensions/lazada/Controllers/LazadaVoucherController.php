@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\lazada\Controllers;
+namespace Extensions\Lazada\Controllers;
 
 use App\Http\Controllers\Controller;
-use Extensions\lazada\Models\LazadaApiLog;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\lazada\Services\Lazada\LazadaClient;
+use Extensions\Lazada\Models\LazadaApiLog;
+use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Illuminate\Http\Request;
 
 class LazadaVoucherController extends Controller

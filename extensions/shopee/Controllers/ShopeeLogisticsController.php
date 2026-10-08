@@ -1,13 +1,13 @@
 <?php
 
-namespace Extensions\shopee\Controllers;
+namespace Extensions\Shopee\Controllers;
 
 use App\Http\Controllers\Controller;
 
-use Extensions\shopee\Models\ShopeeApiLog;
-use Extensions\shopee\Models\ShopeeLogistic;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeLogistic;
+use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Http\Request;
 
 class ShopeeLogisticsController extends Controller
@@ -34,7 +34,7 @@ class ShopeeLogisticsController extends Controller
                 ->with('error', "Missing Shopee {$modeLabel} settings. Configure Partner ID, Partner Key, Access Token and Shop ID first.");
         }
 
-        $out = app(\Extensions\shopee\Services\Shopee\ShopeeStoreSetup::class)->couriers($auth);
+        $out = app(\Extensions\Shopee\Services\Shopee\ShopeeStoreSetup::class)->couriers($auth);
 
         return redirect()->route('ext.shopee.logistics.index')
             ->with($out['ok'] ? 'status' : 'error', $out['message']);

@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\opencart\Support;
+namespace Extensions\OpenCart\Support;
 
 use App\Integrations\Support\StoreScheduledJobs;
 

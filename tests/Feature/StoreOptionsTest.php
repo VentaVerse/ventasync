@@ -7,8 +7,8 @@ use App\Integrations\IntegrationRegistry;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Shopee\Models\ShopeeSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -24,8 +24,8 @@ class StoreOptionsTest extends TestCase
             $m->install($e);
             $m->enable($e);
         }
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
-        $this->app->register(\Extensions\lazada\LazadaExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Lazada\LazadaExtension::class);
         $this->artisan('permissions:sync-catalog');
     }
 

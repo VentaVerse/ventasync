@@ -8,8 +8,8 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use App\Support\ChannelWorkspace;
-use Extensions\lazada\LazadaExtension;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\LazadaExtension;
+use Extensions\Lazada\Models\LazadaSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -321,7 +321,7 @@ class LazadaWorkspaceTest extends TestCase
         $out = [];
 
         foreach (['unpaid', 'pending', 'repacked', 'packed', 'ready_to_ship', 'shipped', 'delivered', 'canceled', 'failed_delivery'] as $status) {
-            $out[$status] = \Extensions\lazada\Models\LazadaOrder::create([
+            $out[$status] = \Extensions\Lazada\Models\LazadaOrder::create([
                 'region' => 'ph',
                 'order_id' => 'T2-' . strtoupper($status),
                 'status' => $status,

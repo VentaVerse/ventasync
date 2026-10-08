@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\shopee\Controllers;
+namespace Extensions\Shopee\Controllers;
 
 use App\Http\Controllers\Integrations\ChannelDashboardController;
 

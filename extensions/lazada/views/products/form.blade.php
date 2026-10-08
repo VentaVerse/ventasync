@@ -30,10 +30,10 @@
     $basePrice = isset($productRow->price) ? (float) $productRow->price : null;
 
     $hasVariations = ($variants ?? collect())->count() > 0;
-    $pushPrice = \Extensions\lazada\Services\Lazada\LazadaPushPayload::computeFinalPrice(
+    $pushPrice = \Extensions\Lazada\Services\Lazada\LazadaPushPayload::computeFinalPrice(
         $hasVariations
             ? (float) $basePrice
-            : \Extensions\lazada\Services\Lazada\LazadaPushPayload::startingPrice($listing, (float) $basePrice),
+            : \Extensions\Lazada\Services\Lazada\LazadaPushPayload::startingPrice($listing, (float) $basePrice),
         is_numeric($effectiveFixed) ? (float) $effectiveFixed : null,
         is_numeric($effectivePercent) ? (float) $effectivePercent : null
     );
@@ -483,7 +483,7 @@
 @if(!empty($catalogChange))
     @include('partials.catalog-change-panel', [
         'listing' => $listing,
-        'storeLabel' => \App\Support\StoreLabel::of('Lazada', \Extensions\lazada\Models\LazadaSetting::query()->find($listing->lazada_setting_id)?->store_name),
+        'storeLabel' => \App\Support\StoreLabel::of('Lazada', \Extensions\Lazada\Models\LazadaSetting::query()->find($listing->lazada_setting_id)?->store_name),
         'saveUrl' => route('ext.lazada.products.catalog_change_save', $listing->product_id),
         'ignoreUrl' => route('ext.lazada.products.catalog_change_ignore', $listing->product_id),
         'back' => request()->boolean('compare') ? \App\Support\BackTo::safe(request('back'), request()->getRequestUri()) : request()->getRequestUri(),

@@ -7,8 +7,8 @@ use App\Models\ActivityLog;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\lazada\LazadaExtension;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\LazadaExtension;
+use Extensions\Lazada\Models\LazadaSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 

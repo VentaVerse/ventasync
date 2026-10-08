@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\ventacart\Services;
+namespace Extensions\VentaCart\Services;
 
 use Illuminate\Support\Facades\DB;
 use App\Support\FulfilmentSteps;
-use Extensions\ventacart\Models\VentaCartOrder;
-use Extensions\ventacart\Models\VentaCartSetting;
-use Extensions\ventacart\Services\VentaCart\VentaCartStatusPlacements;
+use Extensions\VentaCart\Models\VentaCartOrder;
+use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Services\VentaCart\VentaCartStatusPlacements;
 use Illuminate\Http\Request;
 
 class VentaCartOrdersPanel

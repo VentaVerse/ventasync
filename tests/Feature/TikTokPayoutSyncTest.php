@@ -3,8 +3,8 @@
 namespace Tests\Feature;
 
 use App\Extensions\ExtensionManager;
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\Services\TikTok\TikTokClient;
+use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -26,7 +26,7 @@ class TikTokPayoutSyncTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('tiktok');
         $manager->enable('tiktok');
-        $this->app->register(\Extensions\tiktok\TikTokExtension::class);
+        $this->app->register(\Extensions\TikTok\TikTokExtension::class);
 
         $this->tiktokStore = TikTokSetting::create([
             'mode' => 'production', 'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't',
@@ -276,7 +276,7 @@ class TikTokPayoutSyncTest extends TestCase
             'the retired 202309 version is never called');
         $this->assertSame(2, DB::table('tiktok_api_logs')->where('pack', 'fee-sync')->where('ok', 1)->count());
 
-        $this->assertNotNull(\Extensions\tiktok\Services\TikTokOrderBreakdown::from($fees));
+        $this->assertNotNull(\Extensions\TikTok\Services\TikTokOrderBreakdown::from($fees));
     }
 
     public function test_a_refused_fee_call_is_logged_red(): void
@@ -295,7 +295,7 @@ class TikTokPayoutSyncTest extends TestCase
     public function test_run_now_on_sync_orders_no_longer_walks_payouts(): void
     {
         $job = new \App\Models\ScheduledJob(['command' => 'tiktok:sync-orders']);
-        $units = app(\Extensions\tiktok\Commands\TikTokSyncOrders::class)->automationUnits($job)['units'];
+        $units = app(\Extensions\TikTok\Commands\TikTokSyncOrders::class)->automationUnits($job)['units'];
 
         $id = $this->tiktokStore->id;
         $this->assertSame(["{$id}:orders", "{$id}:returns"], $units, 'the same order Shopee and Lazada walk');

@@ -95,8 +95,8 @@
     @endif
 
     @php
-        $csCategories = \Extensions\lazada\Models\LazadaCategory::query()->count();
-        $csBrands = \Extensions\lazada\Models\LazadaBrand::query()->where('region', (string) ($setting->region ?? ''))->count();
+        $csCategories = \Extensions\Lazada\Models\LazadaCategory::query()->count();
+        $csBrands = \Extensions\Lazada\Models\LazadaBrand::query()->where('region', (string) ($setting->region ?? ''))->count();
         $csSetUp = $csCategories > 0 && $csBrands > 0;
         $csSetupState = $csSetUp || $csCategories > 0 || $csBrands > 0
             ? number_format($csCategories) . ' ' . \Illuminate\Support\Str::plural('category', $csCategories) . ' and ' . number_format($csBrands) . ' ' . \Illuminate\Support\Str::plural('brand', $csBrands) . ' on file'

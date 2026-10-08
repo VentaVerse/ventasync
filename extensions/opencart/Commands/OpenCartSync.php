@@ -1,14 +1,14 @@
 <?php
 
-namespace Extensions\opencart\Commands;
+namespace Extensions\OpenCart\Commands;
 
-use Extensions\opencart\Models\OpenCartSetting;
-use Extensions\opencart\Services\OpenCart\OpenCartClient;
-use Extensions\opencart\Services\OpenCart\OpenCartCategorySync;
-use Extensions\opencart\Services\OpenCart\OpenCartManufacturerSync;
-use Extensions\opencart\Services\OpenCart\OpenCartOptionSync;
-use Extensions\opencart\Services\OpenCart\OpenCartOrderSync;
-use Extensions\opencart\Services\OpenCart\OpenCartProductSync;
+use Extensions\OpenCart\Models\OpenCartSetting;
+use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
+use Extensions\OpenCart\Services\OpenCart\OpenCartCategorySync;
+use Extensions\OpenCart\Services\OpenCart\OpenCartManufacturerSync;
+use Extensions\OpenCart\Services\OpenCart\OpenCartOptionSync;
+use Extensions\OpenCart\Services\OpenCart\OpenCartOrderSync;
+use Extensions\OpenCart\Services\OpenCart\OpenCartProductSync;
 use Illuminate\Console\Command;
 
 class OpenCartSync extends Command implements \App\Integrations\Contracts\SteppableAutomation

@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\tiktok\Services\TikTok;
+namespace Extensions\TikTok\Services\TikTok;
 
-use Extensions\tiktok\Models\TikTokListing;
-use Extensions\tiktok\Models\TikTokProductGroupProduct;
+use Extensions\TikTok\Models\TikTokListing;
+use Extensions\TikTok\Models\TikTokProductGroupProduct;
 use Illuminate\Support\Facades\DB;
 
 class TikTokLinkCheck
@@ -14,8 +14,8 @@ class TikTokLinkCheck
 
     public function runNext(array $c, int $storeId): ?array
     {
-        $linked = \Extensions\tiktok\Models\TikTokListing::query()->whereNotNull('tiktok_product_id')->pluck('product_id')
-            ->merge(\Extensions\tiktok\Models\TikTokProductGroupProduct::query()->onStore($storeId)->whereNotNull('tiktok_product_id')->pluck('product_id'))
+        $linked = \Extensions\TikTok\Models\TikTokListing::query()->whereNotNull('tiktok_product_id')->pluck('product_id')
+            ->merge(\Extensions\TikTok\Models\TikTokProductGroupProduct::query()->onStore($storeId)->whereNotNull('tiktok_product_id')->pluck('product_id'))
             ->map(fn ($v) => (int) $v)->unique()->sort()->values()->all();
         $linked = \App\Integrations\Support\LinkCheckCursor::rotate('tiktok:' . $storeId, $linked);
 
@@ -24,7 +24,7 @@ class TikTokLinkCheck
 
     public function run(array $c, array $productIds, ?int $storeId = null): array
     {
-        $storeId ??= isset($c['setting']) ? (int) $c['setting']->id : (int) (\Extensions\tiktok\Models\TikTokSetting::defaultStore()?->id ?? 0);
+        $storeId ??= isset($c['setting']) ? (int) $c['setting']->id : (int) (\Extensions\TikTok\Models\TikTokSetting::defaultStore()?->id ?? 0);
         $groupIds = TikTokProductGroupProduct::groupIdsOn($storeId);
         $states = app(TikTokListingStates::class)->forStore($storeId);
 

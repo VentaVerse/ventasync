@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\shopee\Models;
+namespace Extensions\Shopee\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
 class ShopeeListing extends Model
 {
-    use \Extensions\shopee\Models\Concerns\BelongsToShopeeStore, \App\Integrations\Listings\KeepsItsOwnCopy;
+    use \Extensions\Shopee\Models\Concerns\BelongsToShopeeStore, \App\Integrations\Listings\KeepsItsOwnCopy;
 
     protected $table = 'shopee_listings';
 

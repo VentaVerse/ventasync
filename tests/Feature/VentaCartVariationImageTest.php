@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Extensions\ExtensionManager;
-use Extensions\ventacart\Services\VentaCart\VentaCartProductPush;
+use Extensions\VentaCart\Services\VentaCart\VentaCartProductPush;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -19,7 +19,7 @@ class VentaCartVariationImageTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('ventacart');
         $manager->enable('ventacart');
-        $this->app->register(\Extensions\ventacart\VentaCartExtension::class);
+        $this->app->register(\Extensions\VentaCart\VentaCartExtension::class);
     }
 
     private function seedProduct(): int

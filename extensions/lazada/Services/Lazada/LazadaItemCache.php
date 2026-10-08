@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\lazada\Services\Lazada;
+namespace Extensions\Lazada\Services\Lazada;
 
-use Extensions\lazada\Models\LazadaApiLog;
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaProductVariant;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaApiLog;
+use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaProductVariant;
+use Extensions\Lazada\Models\LazadaSetting;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -248,7 +248,7 @@ public function resolveSkuIds(LazadaProduct $listing, object $setting, LazadaCli
     return $map;
 }
 
-public function fetchSkuIdListByItemId(\Extensions\lazada\Services\Lazada\LazadaClient $client, string $region, string $appKey, string $appSecret, string $accessToken, string $itemId): array
+public function fetchSkuIdListByItemId(\Extensions\Lazada\Services\Lazada\LazadaClient $client, string $region, string $appKey, string $appSecret, string $accessToken, string $itemId): array
 {
     $apiPath = '/product/item/get';
     $timestamp = (string) round(microtime(true) * 1000);

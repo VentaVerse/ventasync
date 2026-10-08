@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\ventacart\Services\VentaCart;
+namespace Extensions\VentaCart\Services\VentaCart;
 
-use Extensions\ventacart\Models\VentaCartBrand;
-use Extensions\ventacart\Models\VentaCartCategory;
-use Extensions\ventacart\Models\VentaCartOrderStatusMap;
-use Extensions\ventacart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartBrand;
+use Extensions\VentaCart\Models\VentaCartCategory;
+use Extensions\VentaCart\Models\VentaCartOrderStatusMap;
+use Extensions\VentaCart\Models\VentaCartSetting;
 
 class VentaCartStoreSetup
 {

@@ -7,10 +7,10 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\Catalog\Order;
 use App\Models\User;
-use Extensions\ventacart\Models\VentaCartOrder;
-use Extensions\ventacart\Models\VentaCartSetting;
-use Extensions\ventacart\Services\VentaCart\VentaCartClient;
-use Extensions\ventacart\Services\VentaCart\VentaCartOrderSync;
+use Extensions\VentaCart\Models\VentaCartOrder;
+use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Services\VentaCart\VentaCartClient;
+use Extensions\VentaCart\Services\VentaCart\VentaCartOrderSync;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use ReflectionMethod;
 use Tests\TestCase;
@@ -58,7 +58,7 @@ class VentaCartCustomerGroupTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('ventacart');
         $manager->enable('ventacart');
-        $this->app->register(\Extensions\ventacart\VentaCartExtension::class);
+        $this->app->register(\Extensions\VentaCart\VentaCartExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 

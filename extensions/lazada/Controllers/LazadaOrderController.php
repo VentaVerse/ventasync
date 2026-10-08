@@ -1,19 +1,19 @@
 <?php
 
-namespace Extensions\lazada\Controllers;
+namespace Extensions\Lazada\Controllers;
 
 use App\Http\Controllers\Controller;
 
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\lazada\Models\LazadaApiLog;
-use Extensions\lazada\Models\LazadaOrder;
-use Extensions\lazada\Models\LazadaOrderProduct;
-use Extensions\lazada\Models\LazadaReverseOrder;
+use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaApiLog;
+use Extensions\Lazada\Models\LazadaOrder;
+use Extensions\Lazada\Models\LazadaOrderProduct;
+use Extensions\Lazada\Models\LazadaReverseOrder;
 use App\Services\ActivityLogger;
-use Extensions\lazada\Services\Lazada\LazadaClient;
-use Extensions\lazada\Services\LazadaCatalogOrderSync;
-use Extensions\lazada\Services\LazadaOrdersPanel;
-use Extensions\lazada\Services\LazadaReturnsPanel;
+use Extensions\Lazada\Services\Lazada\LazadaClient;
+use Extensions\Lazada\Services\LazadaCatalogOrderSync;
+use Extensions\Lazada\Services\LazadaOrdersPanel;
+use Extensions\Lazada\Services\LazadaReturnsPanel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -366,7 +366,7 @@ class LazadaOrderController extends Controller
 
         return view('ext-lazada::orders.show', [
             'order' => $order,
-            'breakdown' => \Extensions\lazada\Services\LazadaOrderBreakdown::from(is_array($order->fees) ? $order->fees : []),
+            'breakdown' => \Extensions\Lazada\Services\LazadaOrderBreakdown::from(is_array($order->fees) ? $order->fees : []),
             'breakdownCurrency' => (string) ((is_array($order->raw) ? ($order->raw['currency'] ?? null) : null) ?: \App\Support\Money::defaultCode()),
             'setting_region' => $region,
             'detail' => $detail,

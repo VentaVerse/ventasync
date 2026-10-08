@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\ventacart\Models;
+namespace Extensions\VentaCart\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -94,7 +94,7 @@ class VentaCartSetting extends Model
     protected static function booted(): void
     {
         static::created(function (self $store) {
-            \Extensions\ventacart\Support\VentaCartScheduledJobs::ensureFor((int) $store->id);
+            \Extensions\VentaCart\Support\VentaCartScheduledJobs::ensureFor((int) $store->id);
         });
     }
 }

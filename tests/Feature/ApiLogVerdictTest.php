@@ -3,11 +3,11 @@
 namespace Tests\Feature;
 
 use App\Support\MarketplaceVerdict;
-use Extensions\lazada\Models\LazadaApiLog;
-use Extensions\lazada\Services\Lazada\LazadaAttributes;
-use Extensions\lazada\Services\Lazada\LazadaPushPayload;
-use Extensions\shopee\Models\ShopeeApiLog;
-use Extensions\tiktok\Models\TikTokApiLog;
+use Extensions\Lazada\Models\LazadaApiLog;
+use Extensions\Lazada\Services\Lazada\LazadaAttributes;
+use Extensions\Lazada\Services\Lazada\LazadaPushPayload;
+use Extensions\Shopee\Models\ShopeeApiLog;
+use Extensions\TikTok\Models\TikTokApiLog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 

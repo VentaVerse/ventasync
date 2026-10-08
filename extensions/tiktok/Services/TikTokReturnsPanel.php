@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\tiktok\Services;
+namespace Extensions\TikTok\Services;
 
-use Extensions\tiktok\Models\TikTokReturn;
-use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokReturn;
+use Extensions\TikTok\Models\TikTokSetting;
 use Illuminate\Http\Request;
 
 class TikTokReturnsPanel

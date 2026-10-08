@@ -205,10 +205,10 @@ class ProductController extends Controller
 
                 $totalQty += $qty;
 
-                if (class_exists(\Extensions\warehousing\Services\WarehouseStockService::class)) {
-                    $defaultWh = \Extensions\warehousing\Services\WarehouseStockService::getDefaultWarehouse();
+                if (class_exists(\Extensions\Warehousing\Services\WarehouseStockService::class)) {
+                    $defaultWh = \Extensions\Warehousing\Services\WarehouseStockService::getDefaultWarehouse();
                     if ($defaultWh) {
-                        $inv = \Extensions\warehousing\Services\WarehouseStockService::getOrCreateInventory($defaultWh->id, $id, $povId);
+                        $inv = \Extensions\Warehousing\Services\WarehouseStockService::getOrCreateInventory($defaultWh->id, $id, $povId);
                         $inv->update(['quantity' => $qty]);
                     }
                 }
@@ -279,10 +279,10 @@ class ProductController extends Controller
                 );
             }
 
-            if (class_exists(\Extensions\warehousing\Services\WarehouseStockService::class)) {
-                $defaultWh = \Extensions\warehousing\Services\WarehouseStockService::getDefaultWarehouse();
+            if (class_exists(\Extensions\Warehousing\Services\WarehouseStockService::class)) {
+                $defaultWh = \Extensions\Warehousing\Services\WarehouseStockService::getDefaultWarehouse();
                 if ($defaultWh) {
-                    $inv = \Extensions\warehousing\Services\WarehouseStockService::getOrCreateInventory($defaultWh->id, $id, 0);
+                    $inv = \Extensions\Warehousing\Services\WarehouseStockService::getOrCreateInventory($defaultWh->id, $id, 0);
                     $inv->update(['quantity' => $newQty]);
                 }
             }

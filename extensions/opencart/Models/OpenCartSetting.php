@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\opencart\Models;
+namespace Extensions\OpenCart\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
@@ -63,7 +63,7 @@ class OpenCartSetting extends Model
     protected static function booted(): void
     {
         static::created(function (self $store) {
-            \Extensions\opencart\Support\OpenCartScheduledJobs::ensureFor((int) $store->id);
+            \Extensions\OpenCart\Support\OpenCartScheduledJobs::ensureFor((int) $store->id);
         });
     }
 }

@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\tiktok\Commands;
+namespace Extensions\TikTok\Commands;
 
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\Services\TikTok\TikTokPayoutSync;
-use Extensions\tiktok\Services\TikTok\TikTokReturnSync;
+use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Services\TikTok\TikTokPayoutSync;
+use Extensions\TikTok\Services\TikTok\TikTokReturnSync;
 use Illuminate\Console\Command;
 
 class TikTokBackfillPayouts extends Command

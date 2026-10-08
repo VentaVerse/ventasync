@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\lazada\Commands;
+namespace Extensions\Lazada\Commands;
 
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\lazada\Services\Lazada\LazadaInheritedSettings;
-use Extensions\lazada\Services\Lazada\LazadaPushPayload;
-use Extensions\lazada\Services\Lazada\LazadaStockPricePush;
+use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Services\Lazada\LazadaInheritedSettings;
+use Extensions\Lazada\Services\Lazada\LazadaPushPayload;
+use Extensions\Lazada\Services\Lazada\LazadaStockPricePush;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -102,11 +102,11 @@ class LazadaPushPrice extends Command implements \App\Integrations\Contracts\Ste
 
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
-        return ['label' => 'products', 'units' => \Extensions\lazada\Services\Lazada\LazadaPushSteps::units()];
+        return ['label' => 'products', 'units' => \Extensions\Lazada\Services\Lazada\LazadaPushSteps::units()];
     }
 
     public function automationStep(\App\Models\ScheduledJob $job, array $units): array
     {
-        return \Extensions\lazada\Services\Lazada\LazadaPushSteps::step('price', $units);
+        return \Extensions\Lazada\Services\Lazada\LazadaPushSteps::step('price', $units);
     }
 }

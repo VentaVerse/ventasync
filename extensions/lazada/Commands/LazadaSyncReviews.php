@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\lazada\Commands;
+namespace Extensions\Lazada\Commands;
 
-use Extensions\lazada\Models\LazadaApiLog;
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\opencart\Models\MarketplaceReview;
-use Extensions\lazada\Services\Lazada\LazadaClient;
+use Extensions\Lazada\Models\LazadaApiLog;
+use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\OpenCart\Models\MarketplaceReview;
+use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;

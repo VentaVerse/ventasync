@@ -94,8 +94,8 @@
     @endif
 
     @php
-        $csCategories = \Extensions\shopee\Models\ShopeeCategory::query()->count();
-        $csCouriers = \Extensions\shopee\Models\ShopeeLogistic::query()->count();
+        $csCategories = \Extensions\Shopee\Models\ShopeeCategory::query()->count();
+        $csCouriers = \Extensions\Shopee\Models\ShopeeLogistic::query()->count();
         $csSetUp = $csCategories > 0 && $csCouriers > 0;
         $csSetupState = $csSetUp || $csCategories > 0 || $csCouriers > 0
             ? number_format($csCategories) . ' ' . \Illuminate\Support\Str::plural('category', $csCategories) . ' and ' . number_format($csCouriers) . ' ' . \Illuminate\Support\Str::plural('courier', $csCouriers) . ' on file'

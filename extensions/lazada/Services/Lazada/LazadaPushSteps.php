@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\lazada\Services\Lazada;
+namespace Extensions\Lazada\Services\Lazada;
 
-use Extensions\lazada\Commands\LazadaPushPrice;
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Commands\LazadaPushPrice;
+use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaSetting;
 
 final class LazadaPushSteps
 {

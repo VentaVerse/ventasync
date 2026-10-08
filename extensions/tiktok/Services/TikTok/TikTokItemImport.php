@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\tiktok\Services\TikTok;
+namespace Extensions\TikTok\Services\TikTok;
 
 use App\Support\MarketplaceAnswer;
-use Extensions\tiktok\Models\TikTokListing;
+use Extensions\TikTok\Models\TikTokListing;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;

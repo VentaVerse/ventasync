@@ -6,9 +6,9 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\lazada\Models\LazadaOrder;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\lazada\Services\Lazada\LazadaClient;
+use Extensions\Lazada\Models\LazadaOrder;
+use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -29,7 +29,7 @@ class LazadaOrderActionsTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('lazada');
         $manager->enable('lazada');
-        $this->app->register(\Extensions\lazada\LazadaExtension::class);
+        $this->app->register(\Extensions\Lazada\LazadaExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 

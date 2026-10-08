@@ -6,8 +6,8 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -25,7 +25,7 @@ class CatalogChangeTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('lazada');
         $manager->enable('lazada');
-        $this->app->register(\Extensions\lazada\LazadaExtension::class);
+        $this->app->register(\Extensions\Lazada\LazadaExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 

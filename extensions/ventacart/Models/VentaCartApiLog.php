@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\ventacart\Models;
+namespace Extensions\VentaCart\Models;
 
 use Illuminate\Database\Eloquent\Model;
 

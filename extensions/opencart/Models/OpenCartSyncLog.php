@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\opencart\Models;
+namespace Extensions\OpenCart\Models;
 
 use Illuminate\Database\Eloquent\Model;
 

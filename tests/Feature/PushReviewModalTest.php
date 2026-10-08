@@ -6,11 +6,11 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\shopee\Models\ShopeeCategory;
-use Extensions\shopee\Models\ShopeeCategoryTemplate;
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeLogistic;
-use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeCategory;
+use Extensions\Shopee\Models\ShopeeCategoryTemplate;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeLogistic;
+use Extensions\Shopee\Models\ShopeeSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -26,7 +26,7 @@ class PushReviewModalTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 

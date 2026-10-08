@@ -1,13 +1,13 @@
 <?php
 
-namespace Extensions\lazada\Services\Lazada;
+namespace Extensions\Lazada\Services\Lazada;
 
 use App\Integrations\Listings\ListingState;
 use App\Integrations\Listings\ListingVariations;
 use App\Integrations\Push\PushLedger;
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaProductGroupProduct;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaProductGroupProduct;
+use Extensions\Lazada\Models\LazadaSetting;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;

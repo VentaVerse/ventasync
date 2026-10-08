@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
 use App\Integrations\Listings\ListingVariations;
 use App\Integrations\Push\PushLedger;
-use Extensions\shopee\Models\ShopeeApiLog;
-use Extensions\shopee\Models\ShopeeItemCache;
-use Extensions\shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeItemCache;
+use Extensions\Shopee\Models\ShopeeProductLink;
 use Illuminate\Support\Facades\DB;
 
 final class ShopeeVariationSwitches
@@ -283,7 +283,7 @@ final class ShopeeVariationSwitches
 
     private function storeId(array $auth): int
     {
-        return (int) ($auth['store_id'] ?? 0) ?: (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0);
+        return (int) ($auth['store_id'] ?? 0) ?: (int) (\Extensions\Shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0);
     }
 
     private function key(mixed $sku): string

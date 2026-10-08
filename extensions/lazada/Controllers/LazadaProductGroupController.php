@@ -1,27 +1,27 @@
 <?php
 
-namespace Extensions\lazada\Controllers;
+namespace Extensions\Lazada\Controllers;
 
 use App\Http\Controllers\Controller;
 
-use Extensions\lazada\Models\LazadaApiLog;
-use Extensions\lazada\Models\LazadaCategoryTemplate;
-use Extensions\lazada\Models\LazadaCategory;
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaProductAttribute;
-use Extensions\lazada\Models\LazadaProductGroup;
-use Extensions\lazada\Models\LazadaProductGroupAttribute;
-use Extensions\lazada\Models\LazadaProductGroupProduct;
-use Extensions\lazada\Models\LazadaProductVariant;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaApiLog;
+use Extensions\Lazada\Models\LazadaCategoryTemplate;
+use Extensions\Lazada\Models\LazadaCategory;
+use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaProductAttribute;
+use Extensions\Lazada\Models\LazadaProductGroup;
+use Extensions\Lazada\Models\LazadaProductGroupAttribute;
+use Extensions\Lazada\Models\LazadaProductGroupProduct;
+use Extensions\Lazada\Models\LazadaProductVariant;
+use Extensions\Lazada\Models\LazadaSetting;
 use App\Services\ActivityLogger;
-use Extensions\lazada\Services\Lazada\LazadaAttributes;
-use Extensions\lazada\Services\Lazada\LazadaClient;
-use Extensions\lazada\Services\Lazada\LazadaItemCache;
-use Extensions\lazada\Services\Lazada\LazadaPushPayload;
-use Extensions\lazada\Services\LazadaStockPushService;
-use Extensions\lazada\Services\Lazada\LazadaLiveListing;
-use Extensions\lazada\Services\Lazada\LazadaVariationSwitch;
+use Extensions\Lazada\Services\Lazada\LazadaAttributes;
+use Extensions\Lazada\Services\Lazada\LazadaClient;
+use Extensions\Lazada\Services\Lazada\LazadaItemCache;
+use Extensions\Lazada\Services\Lazada\LazadaPushPayload;
+use Extensions\Lazada\Services\LazadaStockPushService;
+use Extensions\Lazada\Services\Lazada\LazadaLiveListing;
+use Extensions\Lazada\Services\Lazada\LazadaVariationSwitch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -44,7 +44,7 @@ class LazadaProductGroupController extends Controller
     {
         $group = LazadaProductGroup::query()->where('lazada_setting_id', (int) LazadaSetting::defaultStore()?->id)->findOrFail($groupId);
 
-        return $group->groupProducts()->whereIn('product_id', \Extensions\lazada\Models\LazadaProduct::query()->whereNotNull('product_id')->select('product_id'))->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+        return $group->groupProducts()->whereIn('product_id', \Extensions\Lazada\Models\LazadaProduct::query()->whereNotNull('product_id')->select('product_id'))->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->all();
     }
 
     protected function groupSendChunk(int $groupId, array $productIds): array
@@ -72,7 +72,7 @@ class LazadaProductGroupController extends Controller
             $attributes
         );
 
-        $states = \Extensions\lazada\Services\Lazada\LazadaListingStates::on($storeId);
+        $states = \Extensions\Lazada\Services\Lazada\LazadaListingStates::on($storeId);
         if (($attributes['sync_status'] ?? null) === 'error') {
             $states->recordOutcome($productId, (string) ($attributes['push_error'] ?? ''));
         } elseif (($attributes['sync_status'] ?? null) === 'pushed') {
@@ -80,9 +80,9 @@ class LazadaProductGroupController extends Controller
         }
     }
 
-    private function states(LazadaProductGroup $group): \Extensions\lazada\Services\Lazada\LazadaListingStates
+    private function states(LazadaProductGroup $group): \Extensions\Lazada\Services\Lazada\LazadaListingStates
     {
-        return \Extensions\lazada\Services\Lazada\LazadaListingStates::on((int) $group->lazada_setting_id);
+        return \Extensions\Lazada\Services\Lazada\LazadaListingStates::on((int) $group->lazada_setting_id);
     }
 
     private function recordGroupFailure(LazadaProductGroup $group, ?LazadaProductGroupProduct $pivot, int $productId, string $message): void
@@ -162,7 +162,7 @@ class LazadaProductGroupController extends Controller
 
         $selectedBrandName = '';
         if ($group->brand_id) {
-            $brand = \Extensions\lazada\Models\LazadaBrand::query()->where('brand_id', $group->brand_id)->first();
+            $brand = \Extensions\Lazada\Models\LazadaBrand::query()->where('brand_id', $group->brand_id)->first();
             if ($brand) $selectedBrandName = $brand->name;
         }
 
@@ -345,9 +345,9 @@ class LazadaProductGroupController extends Controller
         }
 
         $storeId = \App\Integrations\Listings\ListingStore::id('lazada');
-        $sortMenu = ['added' => 'gp.id', 'pushed' => 'gp.last_pushed_at'] + \Extensions\lazada\Services\LazadaListingSort::columns($storeId);
+        $sortMenu = ['added' => 'gp.id', 'pushed' => 'gp.last_pushed_at'] + \Extensions\Lazada\Services\LazadaListingSort::columns($storeId);
         $order = \App\Integrations\Listings\ListingSort::chosen($request, 'lazada.group.' . $group->id);
-        \Extensions\lazada\Services\LazadaListingSort::join($query, $storeId);
+        \Extensions\Lazada\Services\LazadaListingSort::join($query, $storeId);
         \App\Integrations\Listings\ListingSort::apply($query, $order, $sortMenu);
 
         $products = $query->paginate(50)->appends($request->except('page'));
@@ -359,7 +359,7 @@ class LazadaProductGroupController extends Controller
             ->get()
             ->keyBy('product_id');
 
-        $optionRowsByProductId = \App\Support\VariationRows::forListing($pivotProductIds, 'lazada', (int) (\Extensions\lazada\Models\LazadaSetting::defaultStore()?->id ?? 0));
+        $optionRowsByProductId = \App\Support\VariationRows::forListing($pivotProductIds, 'lazada', (int) (\Extensions\Lazada\Models\LazadaSetting::defaultStore()?->id ?? 0));
 
         $manualIds = $group->groupProducts()->whereNotNull('product_id')->pluck('product_id')->toArray();
 
@@ -376,7 +376,7 @@ class LazadaProductGroupController extends Controller
             'pivotMap' => $pivotMap,
             'order' => $order,
             'orderOptions' => \App\Integrations\Listings\ListingSort::options(array_keys($sortMenu)),
-            'listingStates' => app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)
+            'listingStates' => app(\Extensions\Lazada\Services\Lazada\LazadaListingStates::class)
                 ->forProducts(array_map('intval', $pivotProductIds)),
             'rowErrors' => $states->errors(array_map('intval', $pivotProductIds)),
             'optionRowsByProductId' => $optionRowsByProductId,
@@ -457,7 +457,7 @@ class LazadaProductGroupController extends Controller
             ->get(['pv.product_id', 'g.name'])
             ->keyBy('product_id');
 
-        $images = app(\Extensions\lazada\Services\Lazada\LazadaImages::class);
+        $images = app(\Extensions\Lazada\Services\Lazada\LazadaImages::class);
         $items = $rows->map(function ($r) use ($inGroup, $owners, $images) {
             $pid = (int) $r->product_id;
 
@@ -545,7 +545,7 @@ class LazadaProductGroupController extends Controller
         }
 
         $pfx = (string) config('catalog.prefix');
-        $client = app(\Extensions\lazada\Services\Lazada\LazadaClient::class);
+        $client = app(\Extensions\Lazada\Services\Lazada\LazadaClient::class);
 
         $product = DB::table($pfx . 'product')->where('product_id', $productId)->first(['sku', 'model']);
         $skus = [];
@@ -784,10 +784,10 @@ class LazadaProductGroupController extends Controller
                 'attributes' => LazadaProductGroupAttribute::where('lazada_product_group_id', $group->id)->pluck('value', 'attribute_key')->toArray(),
             ];
             $gateRow = $listing ?: (new LazadaProduct())->forceFill(['product_id' => $productId, 'primary_category_id' => $group->lazada_category_id, 'brand_name_override' => 'No Brand']);
-            if ($group->lazada_category_id && !\Extensions\lazada\Models\LazadaCategoryTemplate::query()->where('region', (string) $setting->region)->where('primary_category_id', (int) $group->lazada_category_id)->whereNotNull('template_body')->exists()) {
-                app(\Extensions\lazada\Controllers\LazadaProductController::class)->readCategoryTemplate((int) $group->lazada_category_id, $client);
+            if ($group->lazada_category_id && !\Extensions\Lazada\Models\LazadaCategoryTemplate::query()->where('region', (string) $setting->region)->where('primary_category_id', (int) $group->lazada_category_id)->whereNotNull('template_body')->exists()) {
+                app(\Extensions\Lazada\Controllers\LazadaProductController::class)->readCategoryTemplate((int) $group->lazada_category_id, $client);
             }
-            $readiness = app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class)->forListings(collect([$gateRow]), $gateOverrides)[(int) $gateRow->id] ?? ['ready' => false, 'missing' => []];
+            $readiness = app(\Extensions\Lazada\Services\Lazada\LazadaListingReadiness::class)->forListings(collect([$gateRow]), $gateOverrides)[(int) $gateRow->id] ?? ['ready' => false, 'missing' => []];
             if (!$readiness['ready']) {
                 $refusal = \App\Integrations\Listings\CatalogGaps::refusal($readiness);
                 $errors[] = "#{$productId}: {$refusal}";
@@ -827,8 +827,8 @@ class LazadaProductGroupController extends Controller
 
             try {
                 [$productPayload, $preview] = $this->payload()->buildLazadaProductCreatePayload($listing, $setting, $client, $groupOverrides);
-                $productPayload = app(\Extensions\lazada\Services\Lazada\LazadaImages::class)->ensureLazadaInlinkImages($productPayload, $setting, $client);
-                [$productPayload, $picturesLeftOut] = app(\Extensions\lazada\Services\Lazada\LazadaImages::class)->ensureLazadaDescriptionImages($productPayload, $setting, $client);
+                $productPayload = app(\Extensions\Lazada\Services\Lazada\LazadaImages::class)->ensureLazadaInlinkImages($productPayload, $setting, $client);
+                [$productPayload, $picturesLeftOut] = app(\Extensions\Lazada\Services\Lazada\LazadaImages::class)->ensureLazadaDescriptionImages($productPayload, $setting, $client);
             } catch (\Illuminate\Validation\ValidationException $e) {
                 $msg = implode('; ', array_map(fn($m) => implode(', ', $m), $e->errors()));
                 $errors[] = "#{$productId}: {$msg}";
@@ -896,7 +896,7 @@ class LazadaProductGroupController extends Controller
                 ActivityLogger::log('created', 'Lazada Product', $listing->id,
                     'Pushed ERP #' . $productId . ' to Lazada via product group');
 
-                $pictureNote = \Extensions\lazada\Services\Lazada\LazadaImages::descriptionNote($picturesLeftOut);
+                $pictureNote = \Extensions\Lazada\Services\Lazada\LazadaImages::descriptionNote($picturesLeftOut);
                 if ($pictureNote !== null) {
                     $notes[] = "#{$productId}: " . $pictureNote;
                     $picturesWarned = true;
@@ -998,7 +998,7 @@ class LazadaProductGroupController extends Controller
                     ->pluck('value', 'attribute_key')->toArray(),
             ];
 
-            $readiness = app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class)->forListings(collect([$listing]), $groupOverrides)[(int) $listing->id] ?? ['ready' => false, 'missing' => []];
+            $readiness = app(\Extensions\Lazada\Services\Lazada\LazadaListingReadiness::class)->forListings(collect([$listing]), $groupOverrides)[(int) $listing->id] ?? ['ready' => false, 'missing' => []];
             if (!$readiness['ready']) {
                 $refusal = \App\Integrations\Listings\CatalogGaps::refusal($readiness, 'update');
                 $this->recordGroupFailure($group, $pivot, $productId, $refusal);
@@ -1008,8 +1008,8 @@ class LazadaProductGroupController extends Controller
 
             try {
                 [$productPayload, $preview] = $this->payload()->buildLazadaProductCreatePayload($listing, $setting, $client, $groupOverrides);
-                $productPayload = app(\Extensions\lazada\Services\Lazada\LazadaImages::class)->ensureLazadaInlinkImages($productPayload, $setting, $client);
-                [$productPayload, $picturesLeftOut] = app(\Extensions\lazada\Services\Lazada\LazadaImages::class)->ensureLazadaDescriptionImages($productPayload, $setting, $client);
+                $productPayload = app(\Extensions\Lazada\Services\Lazada\LazadaImages::class)->ensureLazadaInlinkImages($productPayload, $setting, $client);
+                [$productPayload, $picturesLeftOut] = app(\Extensions\Lazada\Services\Lazada\LazadaImages::class)->ensureLazadaDescriptionImages($productPayload, $setting, $client);
             } catch (\Illuminate\Validation\ValidationException $e) {
                 $msg = implode('; ', array_map(fn($m) => implode(', ', $m), $e->errors()));
                 $this->recordGroupFailure($group, $pivot, $productId, $msg);
@@ -1081,7 +1081,7 @@ class LazadaProductGroupController extends Controller
                 ActivityLogger::log('updated', 'Lazada Product', $listing->id,
                     'Updated ERP #' . $productId . ' on Lazada via product group');
 
-                $pictureNote = \Extensions\lazada\Services\Lazada\LazadaImages::descriptionNote($picturesLeftOut);
+                $pictureNote = \Extensions\Lazada\Services\Lazada\LazadaImages::descriptionNote($picturesLeftOut);
 
                 return $kept === null
                     ? ['ok' => true, 'message' => 'updated', 'warning' => LazadaVariationSwitch::line($switchNote, $pictureNote, $this->payload()->renameWarning($preview)), 'pictures_left_out' => $pictureNote !== null]
@@ -1095,7 +1095,7 @@ class LazadaProductGroupController extends Controller
 
     }
 
-    public function checkAgainstLazada(Request $request, int $id, \Extensions\lazada\Services\Lazada\LazadaLinkCheck $check)
+    public function checkAgainstLazada(Request $request, int $id, \Extensions\Lazada\Services\Lazada\LazadaLinkCheck $check)
     {
         try { @set_time_limit(0); } catch (\Throwable $e) {}
 
@@ -1166,9 +1166,9 @@ class LazadaProductGroupController extends Controller
         $pfx = (string) config('catalog.prefix');
         $listings = LazadaProduct::query()->whereNotNull('product_id')->whereIn('product_id', $ids)->get();
 
-        $results = app(\Extensions\lazada\Services\Lazada\LazadaStockPricePush::class)
+        $results = app(\Extensions\Lazada\Services\Lazada\LazadaStockPricePush::class)
             ->push('price', $setting, $creds, $listings, $pfx,
-                \Extensions\lazada\Commands\LazadaPushPrice::priceRule($listings));
+                \Extensions\Lazada\Commands\LazadaPushPrice::priceRule($listings));
 
         foreach ($results['outcomes'] as $pid => $outcome) {
             LazadaProductGroupProduct::query()
@@ -1182,7 +1182,7 @@ class LazadaProductGroupController extends Controller
             \App\Integrations\Push\PushLedger::batchTone($results['ok'], $results['err']),
             "Sync Price: {$results['ok']} ok, {$results['err']} failed"
                 . ($results['skipped'] > 0 ? ", {$results['skipped']} skipped (disabled)" : '') . '.'
-                . \Extensions\lazada\Services\Lazada\LazadaStockPricePush::ledgerClause($results)
+                . \Extensions\Lazada\Services\Lazada\LazadaStockPricePush::ledgerClause($results)
         );
     }
 
@@ -1203,7 +1203,7 @@ class LazadaProductGroupController extends Controller
         $pfx = (string) config('catalog.prefix');
         $listings = LazadaProduct::query()->whereNotNull('product_id')->whereIn('product_id', $ids)->get();
 
-        $results = app(\Extensions\lazada\Services\Lazada\LazadaStockPricePush::class)
+        $results = app(\Extensions\Lazada\Services\Lazada\LazadaStockPricePush::class)
             ->push('stock', $setting, $creds, $listings, $pfx);
 
         foreach ($results['outcomes'] as $pid => $outcome) {
@@ -1218,7 +1218,7 @@ class LazadaProductGroupController extends Controller
             \App\Integrations\Push\PushLedger::batchTone($results['ok'], $results['err']),
             "Sync Qty: {$results['ok']} ok, {$results['err']} failed"
                 . ($results['skipped'] > 0 ? ", {$results['skipped']} skipped (disabled)" : '') . '.'
-                . \Extensions\lazada\Services\Lazada\LazadaStockPricePush::ledgerClause($results)
+                . \Extensions\Lazada\Services\Lazada\LazadaStockPricePush::ledgerClause($results)
         );
     }
 
@@ -1584,7 +1584,7 @@ class LazadaProductGroupController extends Controller
         );
 
         $attributes = $this->attrs()->extractAttributes($template->template_body);
-        $erpSourceFields = \Extensions\lazada\Controllers\LazadaAttributes::ERP_SOURCE_FIELDS;
+        $erpSourceFields = \Extensions\Lazada\Controllers\LazadaAttributes::ERP_SOURCE_FIELDS;
 
         $html = view('ext-lazada::product-groups._attributes', [
             'attributes' => $attributes,

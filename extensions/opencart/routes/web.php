@@ -1,8 +1,8 @@
 <?php
 
-use Extensions\opencart\Controllers\OpenCartSettingsController;
-use Extensions\opencart\Controllers\OpenCartProductGroupController;
-use Extensions\opencart\Controllers\ReviewController;
+use Extensions\OpenCart\Controllers\OpenCartSettingsController;
+use Extensions\OpenCart\Controllers\OpenCartProductGroupController;
+use Extensions\OpenCart\Controllers\ReviewController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth'])->prefix('channels')->group(function () {
@@ -45,7 +45,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
 });
 
 Route::middleware(['auth'])->prefix('channels')->group(function () {
-    Route::get('/opencart/{store}/orders', [\Extensions\opencart\Controllers\OpenCartOrderController::class, 'index'])->name('ext.opencart.orders.index');
+    Route::get('/opencart/{store}/orders', [\Extensions\OpenCart\Controllers\OpenCartOrderController::class, 'index'])->name('ext.opencart.orders.index');
 });
 
 Route::middleware(['auth'])->group(function () {
@@ -63,15 +63,15 @@ Route::middleware(['auth'])->group(function () {
 });
 
 Route::middleware(['auth'])->prefix('channels')->group(function () {
-    Route::get('/opencart/{store}/products/import', [\Extensions\opencart\Controllers\OpenCartImportController::class, 'importPage'])->whereNumber('store')->name('ext.opencart.products.import');
-    Route::get('/opencart/{store}/products/search-catalog', [\Extensions\opencart\Controllers\OpenCartImportController::class, 'searchCatalog'])->whereNumber('store')->name('ext.opencart.products.search_catalog');
-    Route::post('/opencart/{store}/products/import-one', [\Extensions\opencart\Controllers\OpenCartImportController::class, 'importOne'])->whereNumber('store')->name('ext.opencart.products.import_one');
-    Route::post('/opencart/{store}/products/import-selected', [\Extensions\opencart\Controllers\OpenCartImportController::class, 'importSelected'])->whereNumber('store')->name('ext.opencart.products.import_selected');
-    Route::post('/opencart/{store}/products/link-item', [\Extensions\opencart\Controllers\OpenCartImportController::class, 'linkItem'])->whereNumber('store')->name('ext.opencart.products.link_item');
+    Route::get('/opencart/{store}/products/import', [\Extensions\OpenCart\Controllers\OpenCartImportController::class, 'importPage'])->whereNumber('store')->name('ext.opencart.products.import');
+    Route::get('/opencart/{store}/products/search-catalog', [\Extensions\OpenCart\Controllers\OpenCartImportController::class, 'searchCatalog'])->whereNumber('store')->name('ext.opencart.products.search_catalog');
+    Route::post('/opencart/{store}/products/import-one', [\Extensions\OpenCart\Controllers\OpenCartImportController::class, 'importOne'])->whereNumber('store')->name('ext.opencart.products.import_one');
+    Route::post('/opencart/{store}/products/import-selected', [\Extensions\OpenCart\Controllers\OpenCartImportController::class, 'importSelected'])->whereNumber('store')->name('ext.opencart.products.import_selected');
+    Route::post('/opencart/{store}/products/link-item', [\Extensions\OpenCart\Controllers\OpenCartImportController::class, 'linkItem'])->whereNumber('store')->name('ext.opencart.products.link_item');
 });
 
 Route::middleware(['auth'])->prefix('channels')->group(function () {
-    Route::get('/opencart/{store?}', [\Extensions\opencart\Controllers\OpenCartDashboardController::class, 'show'])
+    Route::get('/opencart/{store?}', [\Extensions\OpenCart\Controllers\OpenCartDashboardController::class, 'show'])
         ->where('store', '[0-9]+')
         ->defaults('permission_denial', '404')
         ->name('ext.opencart.dashboard');

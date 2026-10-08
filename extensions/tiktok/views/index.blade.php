@@ -94,7 +94,7 @@
     @endif
 
     @php
-        $csCategories = \Extensions\tiktok\Models\TikTokCategory::query()->count();
+        $csCategories = \Extensions\TikTok\Models\TikTokCategory::query()->count();
         $csHasShop = $isSandbox ? !empty($setting->sandbox_shop_cipher ?? '') : $hasShop;
         $csShopName = $isSandbox
             ? (string) (($setting->sandbox_shop_name ?? '') ?: ($setting->sandbox_shop_id ?? ''))

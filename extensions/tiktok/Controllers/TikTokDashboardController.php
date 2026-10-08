@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\tiktok\Controllers;
+namespace Extensions\TikTok\Controllers;
 
 use App\Http\Controllers\Integrations\ChannelDashboardController;
 

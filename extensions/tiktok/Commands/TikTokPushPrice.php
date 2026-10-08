@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\tiktok\Commands;
+namespace Extensions\TikTok\Commands;
 
-use Extensions\tiktok\Models\TikTokListing;
-use Extensions\tiktok\Models\TikTokProductGroup;
-use Extensions\tiktok\Models\TikTokProductGroupProduct;
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\Services\TikTok\TikTokStockPricePush;
+use Extensions\TikTok\Models\TikTokListing;
+use Extensions\TikTok\Models\TikTokProductGroup;
+use Extensions\TikTok\Models\TikTokProductGroupProduct;
+use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Services\TikTok\TikTokStockPricePush;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -118,11 +118,11 @@ class TikTokPushPrice extends Command implements \App\Integrations\Contracts\Ste
 
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
-        return ['label' => 'products', 'units' => \Extensions\tiktok\Services\TikTok\TikTokPushSteps::units()];
+        return ['label' => 'products', 'units' => \Extensions\TikTok\Services\TikTok\TikTokPushSteps::units()];
     }
 
     public function automationStep(\App\Models\ScheduledJob $job, array $units): array
     {
-        return \Extensions\tiktok\Services\TikTok\TikTokPushSteps::step('price', $units);
+        return \Extensions\TikTok\Services\TikTok\TikTokPushSteps::step('price', $units);
     }
 }

@@ -7,12 +7,12 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use App\Support\Fulfilment\Waybills;
-use Extensions\lazada\Models\LazadaOrder;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\shopee\Models\ShopeeOrder;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\tiktok\Models\TikTokOrder;
-use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\Lazada\Models\LazadaOrder;
+use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Shopee\Models\ShopeeOrder;
+use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\TikTok\Models\TikTokOrder;
+use Extensions\TikTok\Models\TikTokSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -33,9 +33,9 @@ class WaybillStoreFoldersTest extends TestCase
             $manager->install($id);
             $manager->enable($id);
         }
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
-        $this->app->register(\Extensions\lazada\LazadaExtension::class);
-        $this->app->register(\Extensions\tiktok\TikTokExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Lazada\LazadaExtension::class);
+        $this->app->register(\Extensions\TikTok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
     }
 

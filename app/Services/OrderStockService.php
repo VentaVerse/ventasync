@@ -179,11 +179,11 @@ class OrderStockService
 
     private static function resolveDefaultWarehouse(): ?object
     {
-        if (!class_exists(\Extensions\warehousing\Services\WarehouseStockService::class)) {
+        if (!class_exists(\Extensions\Warehousing\Services\WarehouseStockService::class)) {
             return null;
         }
 
-        return \Extensions\warehousing\Services\WarehouseStockService::getDefaultWarehouse();
+        return \Extensions\Warehousing\Services\WarehouseStockService::getDefaultWarehouse();
     }
 
     private static function syncWarehouseInventory(?object $warehouse, int $productId, int $povId, int $delta): void
@@ -192,7 +192,7 @@ class OrderStockService
             return;
         }
 
-        $inv = \Extensions\warehousing\Services\WarehouseStockService::getOrCreateInventory(
+        $inv = \Extensions\Warehousing\Services\WarehouseStockService::getOrCreateInventory(
             $warehouse->id,
             $productId,
             $povId,

@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\shopee\Services;
+namespace Extensions\Shopee\Services;
 
 use App\Services\Orders\SaleLines\AbstractSaleLines;
 

@@ -8,7 +8,7 @@ use RuntimeException;
 
 final class StockArrival
 {
-    private const WAREHOUSES = \Extensions\warehousing\Services\WarehouseStockService::class;
+    private const WAREHOUSES = \Extensions\Warehousing\Services\WarehouseStockService::class;
 
     public function locations(): array
     {

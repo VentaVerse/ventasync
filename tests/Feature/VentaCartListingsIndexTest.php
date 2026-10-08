@@ -6,13 +6,13 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\ventacart\Models\VentaCartListing;
-use Extensions\ventacart\Models\VentaCartProductGroup;
-use Extensions\ventacart\Models\VentaCartProductGroupProduct;
-use Extensions\ventacart\Models\VentaCartProductLink;
-use Extensions\ventacart\Models\VentaCartSetting;
-use Extensions\ventacart\Services\VentaCart\VentaCartListingMirror;
-use Extensions\ventacart\VentaCartExtension;
+use Extensions\VentaCart\Models\VentaCartListing;
+use Extensions\VentaCart\Models\VentaCartProductGroup;
+use Extensions\VentaCart\Models\VentaCartProductGroupProduct;
+use Extensions\VentaCart\Models\VentaCartProductLink;
+use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Services\VentaCart\VentaCartListingMirror;
+use Extensions\VentaCart\VentaCartExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -348,7 +348,7 @@ class VentaCartListingsIndexTest extends TestCase
         VentaCartListing::where('product_id', $errored)->first()->forceFill(['last_push_error' => 'Stock push failed: Product not found', 'last_push_failed_at' => now()])->save();
         Http::fake([self::BASE . '/*' => Http::response(['id' => 32, 'sku' => 'E-1', 'quantity' => 3])]);
 
-        $this->assertEqualsCanonicalizing([$tee, $errored], \Extensions\ventacart\Services\VentaCart\VentaCartListingStates::for($store->id)->erroredProductIds());
+        $this->assertEqualsCanonicalizing([$tee, $errored], \Extensions\VentaCart\Services\VentaCart\VentaCartListingStates::for($store->id)->erroredProductIds());
 
         $markers = [
             route('ext.ventacart.listings.index', ['store' => $store->id, 'sync_status' => 'error']) => 'lsm-item lsm-flag is-on',
@@ -444,7 +444,7 @@ class VentaCartListingsIndexTest extends TestCase
         $group = VentaCartProductGroup::create(['ventacart_setting_id' => $store->id, 'name' => 'Fuzz']);
         foreach ([$this->product('RN-1', 'Run pedal one'), $this->product('RN-2', 'Run pedal two')] as $pid) {
             VentaCartListing::create(['ventacart_setting_id' => $store->id, 'product_id' => $pid]);
-            \Extensions\ventacart\Models\VentaCartProductGroupProduct::create(['ventacart_product_group_id' => $group->id, 'product_id' => $pid]);
+            \Extensions\VentaCart\Models\VentaCartProductGroupProduct::create(['ventacart_product_group_id' => $group->id, 'product_id' => $pid]);
         }
         $manager = $this->userWith(['view_ventacart/listing', 'manage_ventacart/listing', 'view_ventacart/product_group', 'manage_ventacart/product_group']);
         $listingOnly = $this->manager();

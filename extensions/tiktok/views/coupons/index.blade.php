@@ -5,7 +5,7 @@
 @section('content')
 @php
     $canManage = auth()->user()?->hasPermission('manage_tiktok/coupon') ?? false;
-    $statusMap = \Extensions\tiktok\Controllers\TikTokCouponController::STATUS_MAP;
+    $statusMap = \Extensions\TikTok\Controllers\TikTokCouponController::STATUS_MAP;
     $money = fn ($v) => is_numeric($v) ? number_format((float) $v, 2) : (string) $v;
 @endphp
 

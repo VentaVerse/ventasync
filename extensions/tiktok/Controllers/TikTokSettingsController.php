@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\tiktok\Controllers;
+namespace Extensions\TikTok\Controllers;
 
 use Illuminate\Http\Request;
 
@@ -20,10 +20,10 @@ class TikTokSettingsController extends TikTokController
                 continue;
             }
             if ($orderStatusId <= 0) {
-                \Extensions\tiktok\Models\TikTokOrderStatusMap::where('tiktok_status', $tiktokStatus)->where('context', 'return')->delete();
+                \Extensions\TikTok\Models\TikTokOrderStatusMap::where('tiktok_status', $tiktokStatus)->where('context', 'return')->delete();
                 continue;
             }
-            \Extensions\tiktok\Models\TikTokOrderStatusMap::updateOrCreate(
+            \Extensions\TikTok\Models\TikTokOrderStatusMap::updateOrCreate(
                 ['tiktok_status' => $tiktokStatus, 'context' => 'return'],
                 ['order_status_id' => $orderStatusId]
             );

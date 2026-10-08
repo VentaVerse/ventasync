@@ -1,13 +1,13 @@
 <?php
 
-namespace Extensions\lazada\Services\Lazada;
+namespace Extensions\Lazada\Services\Lazada;
 
 use App\Integrations\Listings\CatalogGaps;
 use App\Integrations\Listings\ListingState;
-use Extensions\lazada\Models\LazadaCategory;
-use Extensions\lazada\Models\LazadaCategoryTemplate;
-use Extensions\lazada\Models\LazadaProductAttribute;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaCategory;
+use Extensions\Lazada\Models\LazadaCategoryTemplate;
+use Extensions\Lazada\Models\LazadaProductAttribute;
+use Extensions\Lazada\Models\LazadaSetting;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;

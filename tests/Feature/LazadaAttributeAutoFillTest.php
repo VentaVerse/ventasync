@@ -6,11 +6,11 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\lazada\Models\LazadaCategoryTemplate;
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaProductAttribute;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\lazada\Services\Lazada\LazadaListingReadiness;
+use Extensions\Lazada\Models\LazadaCategoryTemplate;
+use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaProductAttribute;
+use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Services\Lazada\LazadaListingReadiness;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -26,7 +26,7 @@ class LazadaAttributeAutoFillTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('lazada');
         $manager->enable('lazada');
-        $this->app->register(\Extensions\lazada\LazadaExtension::class);
+        $this->app->register(\Extensions\Lazada\LazadaExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
@@ -375,7 +375,7 @@ class LazadaAttributeAutoFillTest extends TestCase
             'lazada_product_id' => $listing->id, 'attribute_key' => 'warranty_type', 'value' => 'No Warranty',
         ]);
 
-        [$payload] = app(\Extensions\lazada\Services\Lazada\LazadaPushPayload::class)
+        [$payload] = app(\Extensions\Lazada\Services\Lazada\LazadaPushPayload::class)
             ->buildLazadaProductCreatePayload($listing->fresh());
 
         $attrs = $payload['Request']['Product']['Attributes'];

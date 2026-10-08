@@ -6,11 +6,11 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\shopee\Models\ShopeeItemCache;
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Models\ShopeeItemCache;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -32,7 +32,7 @@ class ShopeeStockPushHealTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
@@ -118,7 +118,7 @@ class ShopeeStockPushHealTest extends TestCase
                 ['model_id' => 73, 'model_sku' => 'STRANGER'],
             ]],
         ]];
-        $repair = app(\Extensions\shopee\Services\Shopee\ShopeeModelLinkRepair::class);
+        $repair = app(\Extensions\Shopee\Services\Shopee\ShopeeModelLinkRepair::class);
 
         $this->assertSame('models', $repair->forItem($auth, $pid, 900, ['rr-1', 'rr-2', 'rr-3'])['mode']);
         $missing = \App\Integrations\Listings\ListingVariations::missing('shopee', $storeId, [$pid]);
@@ -300,8 +300,8 @@ class ShopeeStockPushHealTest extends TestCase
 
         $b = $this->productWithVariations(['B-1' => 5]);
         ShopeeProductLink::create(['product_id' => $b, 'shopee_item_id' => 902, 'shopee_model_id' => 2, 'sku' => 'B-1']);
-        $group = \Extensions\shopee\Models\ShopeeProductGroup::create(['name' => 'Grouped', 'shopee_category_id' => 100200, 'markup_percent' => 20, 'markup_fixed' => 0]);
-        \Extensions\shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $b]);
+        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Grouped', 'shopee_category_id' => 100200, 'markup_percent' => 20, 'markup_fixed' => 0]);
+        \Extensions\Shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $b]);
 
         $c = $this->productWithVariations(['C-1' => 5]);
         ShopeeProductLink::create(['product_id' => $c, 'shopee_item_id' => 903, 'shopee_model_id' => 3, 'sku' => 'C-1']);
@@ -447,8 +447,8 @@ class ShopeeStockPushHealTest extends TestCase
     {
         $pid = $this->productWithVariations(['G-1' => 5]);
         ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 920, 'shopee_model_id' => 1, 'sku' => 'G-1']);
-        $group = \Extensions\shopee\Models\ShopeeProductGroup::create(['name' => 'Priced group', 'shopee_category_id' => 100200, 'markup_percent' => 25, 'markup_fixed' => 0]);
-        \Extensions\shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $pid]);
+        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Priced group', 'shopee_category_id' => 100200, 'markup_percent' => 25, 'markup_fixed' => 0]);
+        \Extensions\Shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $pid]);
 
         $this->actingAs($this->manager())->post(route('ext.shopee.products.sync_price', $pid))->assertRedirect();
 
@@ -483,7 +483,7 @@ class ShopeeStockPushHealTest extends TestCase
         $this->assertSame([550.0], $sent());
 
         $storeId = (int) ShopeeSetting::query()->value('id');
-        \Extensions\shopee\Services\Shopee\ShopeePushSteps::step('price', [$storeId . ':' . $pid]);
+        \Extensions\Shopee\Services\Shopee\ShopeePushSteps::step('price', [$storeId . ':' . $pid]);
         $this->assertSame([550.0], $sent());
     }
 

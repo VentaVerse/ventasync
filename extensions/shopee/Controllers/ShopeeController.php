@@ -1,13 +1,13 @@
 <?php
 
-namespace Extensions\shopee\Controllers;
+namespace Extensions\Shopee\Controllers;
 
 use App\Http\Controllers\Controller;
 
-use Extensions\shopee\Models\ShopeeApiLog;
-use Extensions\shopee\Models\ShopeeOrderStatusMap;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeOrderStatusMap;
+use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -485,7 +485,7 @@ public function buildAuthUrl(ShopeeClient $client)
         ]);
     }
 
-    public function setupStep(string $step, \Extensions\shopee\Services\Shopee\ShopeeStoreSetup $setup)
+    public function setupStep(string $step, \Extensions\Shopee\Services\Shopee\ShopeeStoreSetup $setup)
     {
         $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
@@ -503,7 +503,7 @@ public function buildAuthUrl(ShopeeClient $client)
         return response()->json($out);
     }
 
-    public function destroyStore(Request $request, \Extensions\shopee\Services\Shopee\ShopeeStoreDeleter $deleter)
+    public function destroyStore(Request $request, \Extensions\Shopee\Services\Shopee\ShopeeStoreDeleter $deleter)
     {
         abort_unless($request->user()?->hasPermission('manage_shopee/settings'), 403);
         $store = ShopeeSetting::defaultStore();

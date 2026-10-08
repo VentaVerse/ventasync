@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\ventacart\Services\VentaCart;
+namespace Extensions\VentaCart\Services\VentaCart;
 
 use App\Services\Orders\SaleLines\AbstractSaleLines;
 

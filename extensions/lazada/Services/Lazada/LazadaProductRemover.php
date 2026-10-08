@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\lazada\Services\Lazada;
+namespace Extensions\Lazada\Services\Lazada;
 
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaProductAttribute;
-use Extensions\lazada\Models\LazadaProductGroupProduct;
-use Extensions\lazada\Models\LazadaProductVariant;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaProductAttribute;
+use Extensions\Lazada\Models\LazadaProductGroupProduct;
+use Extensions\Lazada\Models\LazadaProductVariant;
+use Extensions\Lazada\Models\LazadaSetting;
 use Illuminate\Support\Facades\DB;
 
 final class LazadaProductRemover

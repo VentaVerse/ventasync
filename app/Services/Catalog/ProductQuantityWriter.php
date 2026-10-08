@@ -157,16 +157,16 @@ final class ProductQuantityWriter
 
     private function warehouse(int $productId, int $povId, int $quantity): void
     {
-        if (! class_exists(\Extensions\warehousing\Services\WarehouseStockService::class)) {
+        if (! class_exists(\Extensions\Warehousing\Services\WarehouseStockService::class)) {
             return;
         }
 
-        $warehouse = \Extensions\warehousing\Services\WarehouseStockService::getDefaultWarehouse();
+        $warehouse = \Extensions\Warehousing\Services\WarehouseStockService::getDefaultWarehouse();
         if (! $warehouse) {
             return;
         }
 
-        \Extensions\warehousing\Services\WarehouseStockService::getOrCreateInventory($warehouse->id, $productId, $povId)
+        \Extensions\Warehousing\Services\WarehouseStockService::getOrCreateInventory($warehouse->id, $productId, $povId)
             ->update(['quantity' => $quantity]);
     }
 

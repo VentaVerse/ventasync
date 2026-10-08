@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\ventacart\Controllers;
+namespace Extensions\VentaCart\Controllers;
 
 use App\Http\Controllers\Integrations\ChannelDashboardController;
 

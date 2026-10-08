@@ -269,7 +269,7 @@ class ExtensionManager
 
         $filename = basename($files[0], '.php');
 
-        return 'Extensions\\' . $id . '\\' . $filename;
+        return ExtensionNamespace::for($id) . '\\' . $filename;
     }
 
     public function claimedPermissionKeys(): array

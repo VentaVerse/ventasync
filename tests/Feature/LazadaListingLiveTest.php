@@ -6,9 +6,9 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\lazada\Services\Lazada\LazadaClient;
+use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -30,7 +30,7 @@ class LazadaListingLiveTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('lazada');
         $manager->enable('lazada');
-        $this->app->register(\Extensions\lazada\LazadaExtension::class);
+        $this->app->register(\Extensions\Lazada\LazadaExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
@@ -176,7 +176,7 @@ class LazadaListingLiveTest extends TestCase
 
     private function skusSent(LazadaProduct $listing): array
     {
-        [$payload] = app(\Extensions\lazada\Services\Lazada\LazadaPushPayload::class)
+        [$payload] = app(\Extensions\Lazada\Services\Lazada\LazadaPushPayload::class)
             ->buildLazadaProductCreatePayload($listing, LazadaSetting::defaultStore()->decrypted(), app(LazadaClient::class));
 
         return $payload['Request']['Product']['Skus']['Sku'];
@@ -210,7 +210,7 @@ class LazadaListingLiveTest extends TestCase
     {
         $pid = $this->productWithPicture('QB-TWO');
         $length = $this->addOption($pid, 'Length', ['1ft', '3ft']);
-        $color = $this->addOption($pid, 'Color', ['Black']);
+        $color = $this->addOption($pid, 'Shade', ['Black']);
         foreach (['1ft', '3ft'] as $i => $value) {
             $comboId = DB::table('product_option_combinations')->insertGetId([
                 'product_id' => $pid, 'sku' => 'QB-TWO-' . $value, 'status' => 1, 'quantity' => 5,
@@ -266,7 +266,7 @@ class LazadaListingLiveTest extends TestCase
 
     private function payloadSent(LazadaProduct $listing): array
     {
-        return app(\Extensions\lazada\Services\Lazada\LazadaPushPayload::class)
+        return app(\Extensions\Lazada\Services\Lazada\LazadaPushPayload::class)
             ->buildLazadaProductCreatePayload($listing, LazadaSetting::defaultStore()->decrypted(), app(LazadaClient::class));
     }
 
@@ -314,7 +314,7 @@ class LazadaListingLiveTest extends TestCase
 
     public function test_orders_the_names_cannot_settle_are_refused_with_nothing_sent(): void
     {
-        $pid = $this->twoOptionProduct('QB-KNOT', 'Size', ['S', 'M'], 'Color', 'Black');
+        $pid = $this->twoOptionProduct('QB-KNOT', 'Size', ['S', 'M'], 'Shade', 'Black');
         $this->liveItemSkus([
             ['SkuId' => 1, 'SellerSku' => 'QB-KNOT-S', 'saleProp' => ['Color' => 'Black', 'Size' => 'S']],
             ['SkuId' => 2, 'SellerSku' => 'QB-KNOT-M', 'saleProp' => ['Color' => 'Black', 'Size' => 'M']],
@@ -326,7 +326,7 @@ class LazadaListingLiveTest extends TestCase
         } catch (\Illuminate\Validation\ValidationException $e) {
             $said = implode(' ', $e->errors()['variants'] ?? []);
             $this->assertStringContainsString('in the order Color, Size', $said);
-            $this->assertStringContainsString('your product has Size, Color', $said);
+            $this->assertStringContainsString('your product has Size, Shade', $said);
         }
         $this->assertEmpty($this->sentPosts, 'nothing is sent');
     }
@@ -441,7 +441,7 @@ class LazadaListingLiveTest extends TestCase
         $this->assertSame([], $preview['variation_renames']);
 
         $color = $this->productWithPicture('QB-CF');
-        $this->addOption($color, 'Color', ['Black', 'Red'], ['Black' => 'QB-CF-B', 'Red' => 'QB-CF-R']);
+        $this->addOption($color, 'Shade', ['Black', 'Red'], ['Black' => 'QB-CF-B', 'Red' => 'QB-CF-R']);
         $this->liveItem([
             ['SkuId' => 1, 'SellerSku' => 'QB-CF-B', 'saleProp' => ['color_family' => 'Black']],
             ['SkuId' => 2, 'SellerSku' => 'QB-CF-R', 'saleProp' => ['color_family' => 'Red']],
@@ -455,7 +455,7 @@ class LazadaListingLiveTest extends TestCase
     {
         $pid = $this->cableLengthProduct($sku);
         $this->listingOn($pid, '2712258176');
-        \Extensions\lazada\Models\LazadaCategoryTemplate::create([
+        \Extensions\Lazada\Models\LazadaCategoryTemplate::create([
             'region' => 'ph', 'primary_category_id' => 9257,
             'template_body' => ['data' => ['attributes' => []]], 'fetched_at' => now(),
         ]);
@@ -491,7 +491,7 @@ class LazadaListingLiveTest extends TestCase
             'variation2' => ['has_image' => 'false', 'name' => 'Cable Length', 'options' => [], 'customize' => 'true'],
         ]]);
 
-        $states = app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class);
+        $states = app(\Extensions\Lazada\Services\Lazada\LazadaListingStates::class);
         $this->assertSame('Lazada kept Length and added Cable Length. Remove one in Seller Center.', $states->errors([$pid])[$pid]);
     }
 
@@ -499,7 +499,7 @@ class LazadaListingLiveTest extends TestCase
     {
         $pid = $this->cableLengthProduct('QB-BLIND');
         $this->listingOn($pid, '2712258176');
-        \Extensions\lazada\Models\LazadaCategoryTemplate::create([
+        \Extensions\Lazada\Models\LazadaCategoryTemplate::create([
             'region' => 'ph', 'primary_category_id' => 9257,
             'template_body' => ['data' => ['attributes' => []]], 'fetched_at' => now(),
         ]);
@@ -517,7 +517,7 @@ class LazadaListingLiveTest extends TestCase
         $sent = json_decode($update['params']['payload'], true)['Request']['Product'];
         $this->assertArrayNotHasKey('variation', $sent);
         $this->assertSame(['1ft', '3ft'], array_column($sent['Skus']['Sku'], 'Length'));
-        $this->assertNull(app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)->errors([$pid])[$pid]);
+        $this->assertNull(app(\Extensions\Lazada\Services\Lazada\LazadaListingStates::class)->errors([$pid])[$pid]);
     }
 
     public function test_a_read_back_showing_only_the_old_name_records_nothing(): void
@@ -526,13 +526,13 @@ class LazadaListingLiveTest extends TestCase
             'variation1' => ['has_image' => 'false', 'name' => 'Length', 'options' => [], 'customize' => 'true'],
         ]]);
 
-        $states = app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class);
+        $states = app(\Extensions\Lazada\Services\Lazada\LazadaListingStates::class);
         $this->assertNull($states->errors([$pid])[$pid]);
     }
 
     public function test_an_option_name_that_names_no_type_gets_no_guessed_key(): void
     {
-        $attributes = app(\Extensions\lazada\Services\Lazada\LazadaAttributes::class);
+        $attributes = app(\Extensions\Lazada\Services\Lazada\LazadaAttributes::class);
 
         $this->assertSame([], $attributes->guessLazadaVariantKeysFromOptionName(''));
         $this->assertSame([], $attributes->guessLazadaVariantKeysFromOptionName('Finish'));
@@ -596,7 +596,7 @@ class LazadaListingLiveTest extends TestCase
                 'variants' => [$povId => ['seller_sku' => 'LZ-RED', 'price' => '199.5', 'quantity' => '7']],
             ])->assertSessionHasNoErrors();
 
-        $variant = \Extensions\lazada\Models\LazadaProductVariant::query()
+        $variant = \Extensions\Lazada\Models\LazadaProductVariant::query()
             ->where('lazada_product_id', $listing->id)->where('product_option_value_id', $povId)->first();
         $this->assertNotNull($variant, 'the listing form saves the variation price');
         $this->assertEquals(199.5, (float) $variant->price);
@@ -615,12 +615,12 @@ class LazadaListingLiveTest extends TestCase
         $this->assertEquals(550.0, (float) $skus[0]['price'], 'the listing price with 10 percent added');
 
         $listing->forceFill(['lazada_item_id' => '9001'])->save();
-        \Extensions\lazada\Models\LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-OWNPRICE', 'sku_id' => 77]);
+        \Extensions\Lazada\Models\LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-OWNPRICE', 'sku_id' => 77]);
         $listings = LazadaProduct::query()->whereKey($listing->id)->get();
         $setting = LazadaSetting::defaultStore()->decrypted();
-        app(\Extensions\lazada\Services\Lazada\LazadaStockPricePush::class)->push(
+        app(\Extensions\Lazada\Services\Lazada\LazadaStockPricePush::class)->push(
             'price', $setting, LazadaSetting::activeCredentials($setting), $listings,
-            (string) config('catalog.prefix'), \Extensions\lazada\Commands\LazadaPushPrice::priceRule($listings)
+            (string) config('catalog.prefix'), \Extensions\Lazada\Commands\LazadaPushPrice::priceRule($listings)
         );
 
         $sent = collect($this->sentPosts)->firstWhere('path', '/product/price_quantity/update');
@@ -711,7 +711,7 @@ class LazadaListingLiveTest extends TestCase
         $pid = $this->productWithPicture('LZ-OVR');
         $povs = $this->addOption($pid, 'Color', ['Black', 'Red'], ['Black' => 'LZ-OVR-B', 'Red' => 'LZ-OVR-R']);
         $listing = $this->listingOn($pid, null);
-        \Extensions\lazada\Models\LazadaProductVariant::create([
+        \Extensions\Lazada\Models\LazadaProductVariant::create([
             'lazada_product_id' => $listing->id, 'product_option_value_id' => $povs['Red'],
             'seller_sku' => 'LZ-TYPED', 'quantity' => 99, 'price' => 150,
         ]);
@@ -840,7 +840,7 @@ class LazadaListingLiveTest extends TestCase
     {
         LazadaProduct::query()->create(['product_id' => $this->seedProduct('Unread sheet product', 'LZT-S'), 'primary_category_id' => 7001]);
         LazadaProduct::query()->create(['product_id' => $this->seedProduct('Read sheet product', 'LZT-R'), 'primary_category_id' => 7002]);
-        \Extensions\lazada\Models\LazadaCategoryTemplate::query()->create(['region' => 'ph', 'primary_category_id' => 7002, 'template_body' => ['code' => '0', 'data' => []], 'fetched_at' => now()]);
+        \Extensions\Lazada\Models\LazadaCategoryTemplate::query()->create(['region' => 'ph', 'primary_category_id' => 7002, 'template_body' => ['code' => '0', 'data' => []], 'fetched_at' => now()]);
         $this->getResponses['/products/get'] = fn () => ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => ['total_products' => 0, 'products' => []]]];
         $asked = [];
         $this->getResponses['/category/attributes/get'] = function (array $params) use (&$asked) {
@@ -853,7 +853,7 @@ class LazadaListingLiveTest extends TestCase
 
         $this->assertStringContainsString('Read 1 attribute sheet.', (string) session('status'));
         $this->assertSame(['7001'], $asked, 'only the unread sheet is asked for');
-        $this->assertTrue(\Extensions\lazada\Models\LazadaCategoryTemplate::where('region', 'ph')->where('primary_category_id', 7001)->exists());
+        $this->assertTrue(\Extensions\Lazada\Models\LazadaCategoryTemplate::where('region', 'ph')->where('primary_category_id', 7001)->exists());
     }
 
     public function test_refresh_leaves_the_mirror_alone_when_lazada_does_not_answer(): void
@@ -926,10 +926,10 @@ class LazadaListingLiveTest extends TestCase
             'product_id' => $productId, 'lazada_item_id' => '990077',
             'last_pushed_at' => now()->subMinutes(5), 'last_push_source' => 'listing',
         ]);
-        $group = \Extensions\lazada\Models\LazadaProductGroup::create([
+        $group = \Extensions\Lazada\Models\LazadaProductGroup::create([
             'name' => 'Truth group', 'lazada_category_id' => 12345,
         ]);
-        \Extensions\lazada\Models\LazadaProductGroupProduct::create([
+        \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
             'lazada_product_group_id' => $group->id, 'product_id' => $productId,
             'lazada_product_id' => $listing->id,
             'sync_status' => 'error', 'push_error' => 'Special characters are not allowed.',
@@ -957,25 +957,25 @@ class LazadaListingLiveTest extends TestCase
             'product_id' => $productId, 'primary_category_id' => 111,
         ]);
         $listing->forceFill(['markup_fixed' => 5])->save();
-        \Extensions\lazada\Models\LazadaProductAttribute::create([
+        \Extensions\Lazada\Models\LazadaProductAttribute::create([
             'lazada_product_id' => $listing->id, 'attribute_key' => 'material', 'value' => 'Maple',
         ]);
 
-        $group = \Extensions\lazada\Models\LazadaProductGroup::create([
+        $group = \Extensions\Lazada\Models\LazadaProductGroup::create([
             'name' => 'Dressing group', 'lazada_category_id' => 222,
             'markup_fixed' => 20,
         ]);
-        \Extensions\lazada\Models\LazadaProductGroupProduct::create([
+        \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
             'lazada_product_group_id' => $group->id, 'product_id' => $productId,
             'lazada_product_id' => $listing->id, 'sync_status' => 'pending',
         ]);
-        \Extensions\lazada\Models\LazadaProductGroupAttribute::create([
+        \Extensions\Lazada\Models\LazadaProductGroupAttribute::create([
             'lazada_product_group_id' => $group->id, 'attribute_key' => 'material', 'value' => 'Rosewood',
         ]);
-        \Extensions\lazada\Models\LazadaProductGroupAttribute::create([
+        \Extensions\Lazada\Models\LazadaProductGroupAttribute::create([
             'lazada_product_group_id' => $group->id, 'attribute_key' => 'warranty_type', 'value' => 'No Warranty',
         ]);
-        \Extensions\lazada\Models\LazadaCategoryTemplate::create([
+        \Extensions\Lazada\Models\LazadaCategoryTemplate::create([
             'region' => 'ph', 'primary_category_id' => 111,
             'template_body' => ['data' => ['attributes' => []]], 'fetched_at' => now(),
         ]);
@@ -984,7 +984,7 @@ class LazadaListingLiveTest extends TestCase
             'code' => '0', 'data' => ['image' => ['url' => 'https://sg-live.slatic.net/p/fake.jpg']],
         ]];
 
-        $states = app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class);
+        $states = app(\Extensions\Lazada\Services\Lazada\LazadaListingStates::class);
         $states->recordOutcome($productId, 'Upload refused: an earlier refusal');
         $this->assertNotNull($states->errors([$productId])[$productId]);
 
@@ -1005,10 +1005,10 @@ class LazadaListingLiveTest extends TestCase
         $listing->refresh();
         $this->assertSame(111, (int) $listing->primary_category_id, "the listing's own category is untouched");
         $this->assertSame(5.0, (float) $listing->markup_fixed);
-        $this->assertSame('Maple', \Extensions\lazada\Models\LazadaProductAttribute::query()
+        $this->assertSame('Maple', \Extensions\Lazada\Models\LazadaProductAttribute::query()
             ->where('lazada_product_id', $listing->id)->where('attribute_key', 'material')->value('value'),
             "the listing's own attribute value is untouched");
-        $this->assertFalse(\Extensions\lazada\Models\LazadaProductAttribute::query()
+        $this->assertFalse(\Extensions\Lazada\Models\LazadaProductAttribute::query()
             ->where('lazada_product_id', $listing->id)->where('attribute_key', 'warranty_type')->exists(),
             "the group's answer is sent, never written into the listing");
     }
@@ -1100,7 +1100,7 @@ class LazadaListingLiveTest extends TestCase
         $asked = array_filter($this->migratedUrls(), fn ($url) => str_contains($url, 'desc/pic.png'));
         $this->assertCount(1, $asked, 'the second push reuses the link instead of migrating again');
         $this->assertStringContainsString('<img src="https://sg-live.slatic.net/p/pic.png">', $this->updateAttributes(1)['description']);
-        $this->assertSame(1, \Extensions\lazada\Models\LazadaImageLink::query()
+        $this->assertSame(1, \Extensions\Lazada\Models\LazadaImageLink::query()
             ->where('region', 'ph')->where('original_url', 'https://shop.example.com/storage/catalog/desc/pic.png')->count());
     }
 
@@ -1119,7 +1119,7 @@ class LazadaListingLiveTest extends TestCase
         $attributes = $this->updateAttributes();
         $this->assertSame('<p>Soft cable.</p><img src="https://sg-live.slatic.net/p/kept.png">', $attributes['description']);
         $this->assertStringNotContainsString('refused.png', json_encode($attributes), 'the refused picture is not sent with our address');
-        $this->assertNull(app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)->errors([$pid])[$pid],
+        $this->assertNull(app(\Extensions\Lazada\Services\Lazada\LazadaListingStates::class)->errors([$pid])[$pid],
             'a picture left out is a warning, never the listing\'s error line');
     }
 
@@ -1144,12 +1144,12 @@ class LazadaListingLiveTest extends TestCase
         $this->migrateAnswers(['refused.png']);
 
         $listing = LazadaProduct::query()->where('product_id', $pid)->firstOrFail();
-        $group = \Extensions\lazada\Models\LazadaProductGroup::create(['name' => 'Cables', 'lazada_category_id' => 9257]);
-        \Extensions\lazada\Models\LazadaProductGroupProduct::create([
+        $group = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Cables', 'lazada_category_id' => 9257]);
+        \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
             'lazada_product_group_id' => $group->id, 'product_id' => $pid,
             'lazada_product_id' => $listing->id, 'sync_status' => 'pending',
         ]);
-        $states = app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class);
+        $states = app(\Extensions\Lazada\Services\Lazada\LazadaListingStates::class);
         $states->recordOutcome($pid, 'Upload refused: an earlier refusal');
 
         $this->actingAs($this->manager())
@@ -1165,7 +1165,7 @@ class LazadaListingLiveTest extends TestCase
     {
         $productId = $this->seedProduct('Unready lazada product', 'LZT-UNREADY');
         $listing = LazadaProduct::query()->create(['product_id' => $productId]);
-        \Extensions\lazada\Models\LazadaCategory::create(['category_id' => 222, 'name' => 'Pedals', 'leaf' => true, 'var' => false, 'parent_id' => null, 'level' => 0]);
+        \Extensions\Lazada\Models\LazadaCategory::create(['category_id' => 222, 'name' => 'Pedals', 'leaf' => true, 'var' => false, 'parent_id' => null, 'level' => 0]);
 
         $r = $this->actingAs($this->manager())->get(route('ext.lazada.products.index'));
         $r->assertOk();
@@ -1342,7 +1342,7 @@ class LazadaListingLiveTest extends TestCase
         $pid = $this->productWithPicture($sku);
         $this->addOption($pid, 'Color', ['Red', 'Blue', 'Green'], ['Red' => $sku . '-R', 'Blue' => $sku . '-B', 'Green' => $sku . '-G']);
         $this->listingOn($pid, '2712258176');
-        \Extensions\lazada\Models\LazadaCategoryTemplate::create([
+        \Extensions\Lazada\Models\LazadaCategoryTemplate::create([
             'region' => 'ph', 'primary_category_id' => 9257,
             'template_body' => ['data' => ['attributes' => []]], 'fetched_at' => now(),
         ]);
@@ -1407,7 +1407,7 @@ class LazadaListingLiveTest extends TestCase
         foreach ($skus as $row) {
             $this->assertArrayNotHasKey('Status', $row, 'the variations still sold are left as they are');
         }
-        $this->assertNull(app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)->errors([$pid])[$pid]);
+        $this->assertNull(app(\Extensions\Lazada\Services\Lazada\LazadaListingStates::class)->errors([$pid])[$pid]);
     }
 
     public function test_a_variation_switched_back_on_is_sent_active_in_the_update(): void
@@ -1448,7 +1448,7 @@ class LazadaListingLiveTest extends TestCase
         $line = 'Lazada refused to switch off Red (SW-NO-R): Unexpected internal error (code E0006).';
         $this->pushListing($pid)->assertSessionHas('error', 'Update pushed. ' . $line);
 
-        $this->assertSame($line, app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)->errors([$pid])[$pid]);
+        $this->assertSame($line, app(\Extensions\Lazada\Services\Lazada\LazadaListingStates::class)->errors([$pid])[$pid]);
     }
 
     public function test_lazada_saying_the_sku_is_already_inactive_counts_as_done(): void
@@ -1460,7 +1460,7 @@ class LazadaListingLiveTest extends TestCase
 
         $this->pushListing($pid)->assertSessionHas('status', 'Update pushed. Switched off on Lazada: Red (SW-E4-R).');
 
-        $this->assertNull(app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)->errors([$pid])[$pid]);
+        $this->assertNull(app(\Extensions\Lazada\Services\Lazada\LazadaListingStates::class)->errors([$pid])[$pid]);
     }
 
     public function test_an_item_switched_off_as_a_whole_is_not_switched_back_on_by_a_push(): void
@@ -1481,8 +1481,8 @@ class LazadaListingLiveTest extends TestCase
         $this->sellHere($pid, ['SW-GRP-B', 'SW-GRP-G']);
         $this->liveColors('SW-GRP');
         $listing = LazadaProduct::query()->where('product_id', $pid)->firstOrFail();
-        $group = \Extensions\lazada\Models\LazadaProductGroup::create(['name' => 'Switch group', 'lazada_category_id' => 9257]);
-        \Extensions\lazada\Models\LazadaProductGroupProduct::create([
+        $group = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Switch group', 'lazada_category_id' => 9257]);
+        \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
             'lazada_product_group_id' => $group->id, 'product_id' => $pid,
             'lazada_product_id' => $listing->id, 'sync_status' => 'pending',
         ]);
@@ -1516,17 +1516,17 @@ class LazadaListingLiveTest extends TestCase
     {
         $copied = $this->seedProduct('Copied listing', 'LZ-COPY');
         $own = $this->seedProduct('Own listing', 'LZ-OWN');
-        $group = \Extensions\lazada\Models\LazadaProductGroup::create(['name' => 'Copy group', 'lazada_category_id' => 222, 'markup_fixed' => 20]);
-        \Extensions\lazada\Models\LazadaProductGroupAttribute::create(['lazada_product_group_id' => $group->id, 'attribute_key' => 'material', 'value' => 'Rosewood']);
+        $group = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Copy group', 'lazada_category_id' => 222, 'markup_fixed' => 20]);
+        \Extensions\Lazada\Models\LazadaProductGroupAttribute::create(['lazada_product_group_id' => $group->id, 'attribute_key' => 'material', 'value' => 'Rosewood']);
 
         $a = LazadaProduct::query()->create(['product_id' => $copied, 'primary_category_id' => 222]);
         $a->forceFill(['markup_fixed' => 20])->save();
-        \Extensions\lazada\Models\LazadaProductAttribute::create(['lazada_product_id' => $a->id, 'attribute_key' => 'material', 'value' => 'Rosewood']);
-        \Extensions\lazada\Models\LazadaProductAttribute::create(['lazada_product_id' => $a->id, 'attribute_key' => 'color_family', 'value' => 'Red']);
+        \Extensions\Lazada\Models\LazadaProductAttribute::create(['lazada_product_id' => $a->id, 'attribute_key' => 'material', 'value' => 'Rosewood']);
+        \Extensions\Lazada\Models\LazadaProductAttribute::create(['lazada_product_id' => $a->id, 'attribute_key' => 'color_family', 'value' => 'Red']);
         $b = LazadaProduct::query()->create(['product_id' => $own, 'primary_category_id' => 333]);
         $b->forceFill(['markup_fixed' => 7])->save();
         foreach ([[$copied, $a], [$own, $b]] as [$pid, $row]) {
-            \Extensions\lazada\Models\LazadaProductGroupProduct::create(['lazada_product_group_id' => $group->id, 'product_id' => $pid, 'lazada_product_id' => $row->id, 'sync_status' => 'pushed']);
+            \Extensions\Lazada\Models\LazadaProductGroupProduct::create(['lazada_product_group_id' => $group->id, 'product_id' => $pid, 'lazada_product_id' => $row->id, 'sync_status' => 'pushed']);
         }
 
         (require base_path('database/migrations/2026_09_16_110000_lazada_listings_follow_their_group.php'))->up();
@@ -1535,8 +1535,8 @@ class LazadaListingLiveTest extends TestCase
         $b->refresh();
         $this->assertNull($a->primary_category_id);
         $this->assertNull($a->markup_fixed);
-        $this->assertFalse(\Extensions\lazada\Models\LazadaProductAttribute::query()->where('lazada_product_id', $a->id)->where('attribute_key', 'material')->exists());
-        $this->assertTrue(\Extensions\lazada\Models\LazadaProductAttribute::query()->where('lazada_product_id', $a->id)->where('attribute_key', 'color_family')->exists(), 'an answer the group does not give stays');
+        $this->assertFalse(\Extensions\Lazada\Models\LazadaProductAttribute::query()->where('lazada_product_id', $a->id)->where('attribute_key', 'material')->exists());
+        $this->assertTrue(\Extensions\Lazada\Models\LazadaProductAttribute::query()->where('lazada_product_id', $a->id)->where('attribute_key', 'color_family')->exists(), 'an answer the group does not give stays');
         $this->assertSame(333, (int) $b->primary_category_id, 'a value the operator set stays');
         $this->assertSame(7.0, (float) $b->markup_fixed);
     }

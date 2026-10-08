@@ -19,7 +19,7 @@ class SaleLinesRewriteTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
     }
 
     public function test_rewriting_replaces_only_the_sale_lines(): void

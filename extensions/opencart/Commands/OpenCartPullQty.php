@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\opencart\Commands;
+namespace Extensions\OpenCart\Commands;
 
-use Extensions\opencart\Models\OpenCartSetting;
-use Extensions\opencart\Services\OpenCart\OpenCartClient;
-use Extensions\opencart\Services\OpenCart\OpenCartProductSync;
+use Extensions\OpenCart\Models\OpenCartSetting;
+use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
+use Extensions\OpenCart\Services\OpenCart\OpenCartProductSync;
 use Illuminate\Console\Command;
 
 class OpenCartPullQty extends Command

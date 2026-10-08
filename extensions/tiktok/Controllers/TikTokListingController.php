@@ -1,17 +1,17 @@
 <?php
 
-namespace Extensions\tiktok\Controllers;
+namespace Extensions\TikTok\Controllers;
 
 use App\Http\Controllers\Controller;
-use Extensions\tiktok\Models\TikTokApiLog;
-use Extensions\tiktok\Models\TikTokListing;
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\Models\TikTokCategory;
-use Extensions\tiktok\Services\TikTok\TikTokAttributes;
-use Extensions\tiktok\Services\TikTok\TikTokClient;
-use Extensions\tiktok\Services\TikTok\TikTokListingReadiness;
-use Extensions\tiktok\Services\TikTok\TikTokLiveListing;
-use Extensions\tiktok\Services\TikTok\TikTokProductPush;
+use Extensions\TikTok\Models\TikTokApiLog;
+use Extensions\TikTok\Models\TikTokListing;
+use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokCategory;
+use Extensions\TikTok\Services\TikTok\TikTokAttributes;
+use Extensions\TikTok\Services\TikTok\TikTokClient;
+use Extensions\TikTok\Services\TikTok\TikTokListingReadiness;
+use Extensions\TikTok\Services\TikTok\TikTokLiveListing;
+use Extensions\TikTok\Services\TikTok\TikTokProductPush;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -53,18 +53,18 @@ class TikTokListingController extends Controller
                         ->update(['live_status' => (string) $live['status'], 'live_checked_at' => now()]);
                 }
                 if ($live !== null && ($live['skus'] ?? []) !== []) {
-                    \Extensions\tiktok\Services\TikTok\TikTokListingStates::rememberHeld(
+                    \Extensions\TikTok\Services\TikTok\TikTokListingStates::rememberHeld(
                         (int) (TikTokSetting::defaultStore()?->id ?? 0), $productId, array_column($live['skus'], 'seller_sku')
                     );
                 }
             }
         }
 
-        $inherit = app(\Extensions\tiktok\Services\TikTok\TikTokInheritedSettings::class);
+        $inherit = app(\Extensions\TikTok\Services\TikTok\TikTokInheritedSettings::class);
         $inheritedGroup = $inherit->forProducts([$productId])[$productId] ?? null;
         $shown = $inherit->fill($listing ?? (new TikTokListing())->forceFill(['product_id' => $productId]), $inheritedGroup)['listing'];
         if ($inheritedGroup && $shown->markup_percent === null && $shown->markup_fixed === null) {
-            $groupModel = \Extensions\tiktok\Models\TikTokProductGroup::query()->find($inheritedGroup['group_id']);
+            $groupModel = \Extensions\TikTok\Models\TikTokProductGroup::query()->find($inheritedGroup['group_id']);
             if ($groupModel) {
                 $shown->markup_percent = $groupModel->markup_percent;
                 $shown->markup_fixed = $groupModel->markup_fixed;
@@ -80,16 +80,16 @@ class TikTokListingController extends Controller
             : null;
         $readiness = app(TikTokListingReadiness::class)->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => []];
 
-        $listingState = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)
+        $listingState = app(\Extensions\TikTok\Services\TikTok\TikTokListingStates::class)
             ->forProducts([$productId])[$productId] ?? null;
 
         $covPfx = (string) config('catalog.prefix');
         $covStoreId = (int) (TikTokSetting::defaultStore()?->id ?? 0);
         $covSkus = \App\Integrations\Listings\ListingVariations::sold('tiktok', $covStoreId, [$productId], $covPfx)[$productId] ?? [];
-        $covRaw = \Extensions\tiktok\Models\TikTokListing::query()->where('product_id', $productId)->value('tiktok_sku_id')
-            ?? \Extensions\tiktok\Models\TikTokProductGroupProduct::query()->onStore($covStoreId)->where('product_id', $productId)
+        $covRaw = \Extensions\TikTok\Models\TikTokListing::query()->where('product_id', $productId)->value('tiktok_sku_id')
+            ?? \Extensions\TikTok\Models\TikTokProductGroupProduct::query()->onStore($covStoreId)->where('product_id', $productId)
                 ->whereNotNull('tiktok_product_id')->orderByDesc('last_pushed_at')->value('tiktok_sku_id');
-        $covMap = \Extensions\tiktok\Services\TikTok\TikTokVariationPush::existingIds($covRaw);
+        $covMap = \Extensions\TikTok\Services\TikTok\TikTokVariationPush::existingIds($covRaw);
         $covKeys = array_change_key_case(array_flip(array_map('strval', array_keys($covMap))), CASE_LOWER);
         $coverage = [
             'total' => count($covSkus),
@@ -97,14 +97,14 @@ class TikTokListingController extends Controller
             'missing' => array_values(array_filter($covSkus, fn ($sku) => !isset($covKeys[strtolower($sku)]))),
         ];
 
-        $bandGroups = \Extensions\tiktok\Models\TikTokProductGroup::query()
+        $bandGroups = \Extensions\TikTok\Models\TikTokProductGroup::query()
             ->where('tiktok_setting_id', $covStoreId)
             ->orderBy('name')
             ->get(['id', 'name', 'tiktok_category_id', 'markup_percent', 'markup_fixed', 'watermark_template_id']);
         $bandCategoryNames = TikTokCategory::query()
             ->whereIn('id', $bandGroups->pluck('tiktok_category_id')->filter()->unique()->values()->all())
             ->pluck('name', 'id');
-        $bandAnswers = \Extensions\tiktok\Models\TikTokProductGroupAttribute::query()
+        $bandAnswers = \Extensions\TikTok\Models\TikTokProductGroupAttribute::query()
             ->whereIn('tiktok_product_group_id', $bandGroups->pluck('id')->all())
             ->get(['tiktok_product_group_id', 'attribute_key', 'value'])
             ->groupBy('tiktok_product_group_id');
@@ -138,7 +138,7 @@ class TikTokListingController extends Controller
             })->all(),
         ];
 
-        $hasVariations = isset(\Extensions\tiktok\Services\TikTok\TikTokVariationPush::withVariations([$productId])[$productId]);
+        $hasVariations = isset(\Extensions\TikTok\Services\TikTok\TikTokVariationPush::withVariations([$productId])[$productId]);
 
         return view('ext-tiktok::listings.edit', \App\Integrations\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('tiktok_product_groups', 'tiktok_product_group_products', 'tiktok_product_group_id', $productId, 'tiktok_setting_id', (int) ($listing->tiktok_setting_id ?? 0) ?: null), 'tiktok', \App\Integrations\Listings\ListingStore::id('tiktok')) + [
             'coverage' => $coverage,
@@ -217,7 +217,7 @@ class TikTokListingController extends Controller
             $currentDescription = TikTokListing::query()->where('product_id', $productId)->value('description');
             $words['description'] = \App\Integrations\Listings\ListingContent::descriptionToSave($data['description'] ?? null, $currentDescription, $request->input('description_edited'));
         }
-        $hasVariations = isset(\Extensions\tiktok\Services\TikTok\TikTokVariationPush::withVariations([$productId])[$productId]);
+        $hasVariations = isset(\Extensions\TikTok\Services\TikTok\TikTokVariationPush::withVariations([$productId])[$productId]);
         TikTokListing::query()->updateOrCreate(
             ['product_id' => $productId],
             $images + $words + [
@@ -242,10 +242,10 @@ class TikTokListingController extends Controller
             ]
         );
 
-        $followed = app(\Extensions\tiktok\Services\TikTok\TikTokInheritedSettings::class)->forProducts([$productId])[$productId] ?? null;
+        $followed = app(\Extensions\TikTok\Services\TikTok\TikTokInheritedSettings::class)->forProducts([$productId])[$productId] ?? null;
         $savedRow = TikTokListing::query()->where('product_id', $productId)->first();
         if ($followed && $savedRow) {
-            $groupModel = \Extensions\tiktok\Models\TikTokProductGroup::query()->find($followed['group_id']);
+            $groupModel = \Extensions\TikTok\Models\TikTokProductGroup::query()->find($followed['group_id']);
             if (is_array($savedRow->attribute_values)) {
                 $savedRow->attribute_values = \App\Integrations\Listings\ListingGroup::ownAnswers($savedRow->attribute_values, (array) ($followed['attributes'] ?? [])) ?: null;
             }
@@ -311,7 +311,7 @@ class TikTokListingController extends Controller
             return ['tone' => 'error', 'message' => 'Update failed: this listing still needs ' . implode(', ', $readiness['missing']) . '.'];
         }
         $listing = TikTokListing::query()->where('product_id', $productId)->first();
-        $inherit = app(\Extensions\tiktok\Services\TikTok\TikTokInheritedSettings::class);
+        $inherit = app(\Extensions\TikTok\Services\TikTok\TikTokInheritedSettings::class);
         $listing = $inherit->fill($listing, $inherit->forProducts([$productId])[$productId] ?? null)['listing'];
         $attributes = app(TikTokAttributes::class);
         $template = $attributes->ensureTemplate((string) $listing->tiktok_category_id, $client, $c);
@@ -319,7 +319,7 @@ class TikTokListingController extends Controller
             'category_id' => (string) $listing->tiktok_category_id,
             'brand_id' => $listing->brand_id,
             'attributes' => $attributes->payload($attributes->rows($template), $listing->attribute_values ?? []),
-            'priceFor' => \Extensions\tiktok\Services\TikTok\TikTokInheritedSettings::priceRule($listing, $inherit->groupModel($productId)),
+            'priceFor' => \Extensions\TikTok\Services\TikTok\TikTokInheritedSettings::priceRule($listing, $inherit->groupModel($productId)),
             'warehouse_id' => $c['warehouse_id'] ?: null,
             'title' => $listing->title, 'description' => $listing->description,
             'image_order' => $listing->image_order,
@@ -344,9 +344,9 @@ class TikTokListingController extends Controller
         return ['tone' => $warning ? 'warning' : 'status', 'message' => 'Update pushed.' . ($warning ? ' ' . $warning : '')];
     }
 
-    private function states(): \Extensions\tiktok\Services\TikTok\TikTokListingStates
+    private function states(): \Extensions\TikTok\Services\TikTok\TikTokListingStates
     {
-        $engine = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class);
+        $engine = app(\Extensions\TikTok\Services\TikTok\TikTokListingStates::class);
         $store = TikTokSetting::defaultStore();
 
         return $store ? $engine->forStore($store) : $engine;

@@ -158,7 +158,7 @@ class ImageCacheTest extends TestCase
             'manufacturer_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
 
-        $urls = app(\Extensions\lazada\Services\Lazada\LazadaImages::class)->getProductImageUrls($pid, null);
+        $urls = app(\Extensions\Lazada\Services\Lazada\LazadaImages::class)->getProductImageUrls($pid, null);
 
         $this->assertCount(1, $urls);
         $this->assertStringContainsString('/storage/cache/catalog/heavy-1000x1000.jpg', $urls[0]);

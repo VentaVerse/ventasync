@@ -6,11 +6,11 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\shopee\Models\ShopeeCategoryTemplate;
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
-use Extensions\shopee\Services\Shopee\ShopeeListingReadiness;
+use Extensions\Shopee\Models\ShopeeCategoryTemplate;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Services\Shopee\ShopeeListingReadiness;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -28,7 +28,7 @@ class ShopeeReadinessTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
@@ -106,7 +106,7 @@ class ShopeeReadinessTest extends TestCase
 
     private function catchAllGroup(): void
     {
-        \Extensions\shopee\Models\ShopeeProductGroup::create([
+        \Extensions\Shopee\Models\ShopeeProductGroup::create([
             'name' => 'Readiness scope',
             'shopee_category_id' => 106755, 'logistic_ids' => [41003],
         ]);
@@ -123,20 +123,20 @@ class ShopeeReadinessTest extends TestCase
 
     private function storeSetUp(): void
     {
-        \Extensions\shopee\Models\ShopeeCategory::create(['category_id' => 106755, 'parent_id' => null, 'name' => 'Pedals', 'level' => 0, 'leaf' => true]);
-        \Extensions\shopee\Models\ShopeeLogistic::create(['logistics_channel_id' => 41003, 'logistics_channel_name' => 'J&T Express', 'enabled' => true]);
+        \Extensions\Shopee\Models\ShopeeCategory::create(['category_id' => 106755, 'parent_id' => null, 'name' => 'Pedals', 'level' => 0, 'leaf' => true]);
+        \Extensions\Shopee\Models\ShopeeLogistic::create(['logistics_channel_id' => 41003, 'logistics_channel_name' => 'J&T Express', 'enabled' => true]);
     }
 
     public function test_a_grouped_product_inherits_the_groups_category_and_couriers(): void
     {
         $this->storeSetUp();
-        $group = \Extensions\shopee\Models\ShopeeProductGroup::create([
+        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create([
             'name' => 'Pedals preset', 'shopee_category_id' => 106755, 'logistic_ids' => [41003],
         ]);
-        \Extensions\shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 106755], ['attributes' => ['attribute_list' => []]]);
+        \Extensions\Shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 106755], ['attributes' => ['attribute_list' => []]]);
         $grouped = $this->seedProduct('Grouped bare', 'GRP-1');
         ShopeeListing::query()->create(['product_id' => $grouped, 'attribute_values' => ['2000' => '1 year']]);
-        \Extensions\shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $grouped]);
+        \Extensions\Shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $grouped]);
         $alone = $this->seedProduct('Alone bare', 'ALN-1');
         ShopeeListing::query()->create(['product_id' => $alone]);
 

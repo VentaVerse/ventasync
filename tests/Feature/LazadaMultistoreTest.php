@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use Extensions\lazada\Models\LazadaOrder;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaOrder;
+use Extensions\Lazada\Models\LazadaSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -18,7 +18,7 @@ class LazadaMultistoreTest extends TestCase
         $manager = $this->app->make(\App\Extensions\ExtensionManager::class);
         $manager->install('lazada');
         $manager->enable('lazada');
-        $this->app->register(\Extensions\lazada\LazadaExtension::class);
+        $this->app->register(\Extensions\Lazada\LazadaExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
     }
 
@@ -168,7 +168,7 @@ class LazadaMultistoreTest extends TestCase
         $one = $this->storeWithCreds('Gearshipper');
         $two = $this->storeWithCreds('Outlet');
 
-        $fake = new class extends \Extensions\lazada\Services\Lazada\LazadaClient {
+        $fake = new class extends \Extensions\Lazada\Services\Lazada\LazadaClient {
             public function __construct() {}
             public function sign(string $apiPath, array $params, string $appSecret): string { return 'sig'; }
             public function post(string $region, string $apiPath, array $params, string $mode = 'live'): array
@@ -181,9 +181,9 @@ class LazadaMultistoreTest extends TestCase
                 ]];
             }
         };
-        $this->app->instance(\Extensions\lazada\Services\Lazada\LazadaClient::class, $fake);
+        $this->app->instance(\Extensions\Lazada\Services\Lazada\LazadaClient::class, $fake);
 
-        $state = \Extensions\lazada\Controllers\LazadaController::oauthStateToken($two->id, false);
+        $state = \Extensions\Lazada\Controllers\LazadaController::oauthStateToken($two->id, false);
         $this->get(route('lazada.callback', ['code' => 'the-code', 'state' => $state]));
 
         $this->assertSame('granted-token', decrypt($two->fresh()->access_token),
@@ -247,12 +247,12 @@ class LazadaMultistoreTest extends TestCase
     {
         $one = LazadaSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
         $two = LazadaSetting::create(['mode' => 'live', 'store_name' => 'Outlet']);
-        $group = fn ($store, string $name) => tap((new \Extensions\lazada\Models\LazadaProductGroup())->forceFill(['lazada_setting_id' => $store->id, 'name' => $name]))->save();
+        $group = fn ($store, string $name) => tap((new \Extensions\Lazada\Models\LazadaProductGroup())->forceFill(['lazada_setting_id' => $store->id, 'name' => $name]))->save();
         $x = $group($one, 'Group X');
         $y = $group($one, 'Group Y');
         $onOutlet = $group($two, 'Group Y outlet');
         $pid = 77;
-        $row = fn ($store) => tap((new \Extensions\lazada\Models\LazadaProduct())->forceFill(['lazada_setting_id' => $store->id, 'product_id' => $pid]))->save();
+        $row = fn ($store) => tap((new \Extensions\Lazada\Models\LazadaProduct())->forceFill(['lazada_setting_id' => $store->id, 'product_id' => $pid]))->save();
         $rowOne = $row($one);
         $rowTwo = $row($two);
         $shape = fn ($store) => ['pivot' => 'lazada_product_group_products', 'fk' => 'lazada_product_group_id', 'groups' => 'lazada_product_groups', 'storeFk' => 'lazada_setting_id', 'storeId' => (int) $store->id];

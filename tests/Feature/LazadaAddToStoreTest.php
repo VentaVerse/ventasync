@@ -6,9 +6,9 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\lazada\LazadaExtension;
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\LazadaExtension;
+use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -230,7 +230,7 @@ class LazadaAddToStoreTest extends TestCase
             'lazada_setting_id' => $this->store->id, 'product_id' => $pid,
             'lazada_item_id' => '901234', 'live_status' => 'active',
         ]);
-        $group = \Extensions\lazada\Models\LazadaProductGroup::create(['lazada_setting_id' => $this->store->id, 'name' => 'Group', 'lazada_category_id' => 1]);
+        $group = \Extensions\Lazada\Models\LazadaProductGroup::create(['lazada_setting_id' => $this->store->id, 'name' => 'Group', 'lazada_category_id' => 1]);
         $listing->groups()->attach($group->id, ['product_id' => $pid]);
 
         $this->actingAs($this->manager())
@@ -271,9 +271,9 @@ class LazadaAddToStoreTest extends TestCase
         $this->assertSame(1, LazadaProduct::withoutGlobalScope('lazadaStore')->where('id', $theirs->id)->count());
     }
 
-    private function group(string $name = 'Helmets'): \Extensions\lazada\Models\LazadaProductGroup
+    private function group(string $name = 'Helmets'): \Extensions\Lazada\Models\LazadaProductGroup
     {
-        return \Extensions\lazada\Models\LazadaProductGroup::create(['lazada_setting_id' => $this->store->id, 'name' => $name, 'lazada_category_id' => 100]);
+        return \Extensions\Lazada\Models\LazadaProductGroup::create(['lazada_setting_id' => $this->store->id, 'name' => $name, 'lazada_category_id' => 100]);
     }
 
     private function groupBase(int $groupId): string
@@ -281,9 +281,9 @@ class LazadaAddToStoreTest extends TestCase
         return '/channels/lazada/' . $this->store->id . '/product-groups/' . $groupId;
     }
 
-    private function inGroup(\Extensions\lazada\Models\LazadaProductGroup $group, LazadaProduct $listing): void
+    private function inGroup(\Extensions\Lazada\Models\LazadaProductGroup $group, LazadaProduct $listing): void
     {
-        \Extensions\lazada\Models\LazadaProductGroupProduct::create([
+        \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
             'lazada_product_group_id' => $group->id, 'lazada_product_id' => $listing->id, 'product_id' => $listing->product_id,
         ]);
     }
@@ -346,7 +346,7 @@ class LazadaAddToStoreTest extends TestCase
             ->postJson($this->groupBase($group->id) . '/products/' . $pid . '/add')
             ->assertOk()->assertJson(['ok' => true, 'product_id' => $pid, 'added' => true, 'moved_from' => null]);
 
-        $pivot = \Extensions\lazada\Models\LazadaProductGroupProduct::query()->where('lazada_product_group_id', $group->id)->where('product_id', $pid)->first();
+        $pivot = \Extensions\Lazada\Models\LazadaProductGroupProduct::query()->where('lazada_product_group_id', $group->id)->where('product_id', $pid)->first();
         $this->assertNotNull($pivot);
         $this->assertSame($listing->id, (int) $pivot->lazada_product_id, 'the pivot rides the store\'s existing listing row');
         $this->assertSame(1, LazadaProduct::withoutGlobalScope('lazadaStore')->where('product_id', $pid)->count(), 'no second listing row was created');
@@ -368,7 +368,7 @@ class LazadaAddToStoreTest extends TestCase
         $row = LazadaProduct::withoutGlobalScope('lazadaStore')->where('product_id', $pid)->get();
         $this->assertCount(1, $row, 'one listing row for this store, the same the Listings page creates');
         $this->assertSame($this->store->id, (int) $row->first()->lazada_setting_id);
-        $pivot = \Extensions\lazada\Models\LazadaProductGroupProduct::query()->where('lazada_product_group_id', $group->id)->where('product_id', $pid)->first();
+        $pivot = \Extensions\Lazada\Models\LazadaProductGroupProduct::query()->where('lazada_product_group_id', $group->id)->where('product_id', $pid)->first();
         $this->assertNotNull($pivot);
         $this->assertSame((int) $row->first()->id, (int) $pivot->lazada_product_id, 'the pivot rides the new listing row');
 
@@ -388,13 +388,13 @@ class LazadaAddToStoreTest extends TestCase
         $this->actingAs($this->manager())
             ->postJson($this->groupBase($group->id) . '/products/' . $pid . '/add')
             ->assertStatus(409);
-        $this->assertSame($other->id, (int) \Extensions\lazada\Models\LazadaProductGroupProduct::query()->where('product_id', $pid)->value('lazada_product_group_id'));
+        $this->assertSame($other->id, (int) \Extensions\Lazada\Models\LazadaProductGroupProduct::query()->where('product_id', $pid)->value('lazada_product_group_id'));
 
         $this->actingAs($this->manager())
             ->postJson($this->groupBase($group->id) . '/products/' . $pid . '/add', ['move' => true])
             ->assertOk()->assertJson(['ok' => true, 'added' => true, 'moved_from' => 'Gloves']);
 
-        $owners = \Extensions\lazada\Models\LazadaProductGroupProduct::query()->where('product_id', $pid)->pluck('lazada_product_group_id')->map(fn ($v) => (int) $v)->all();
+        $owners = \Extensions\Lazada\Models\LazadaProductGroupProduct::query()->where('product_id', $pid)->pluck('lazada_product_group_id')->map(fn ($v) => (int) $v)->all();
         $this->assertSame([$group->id], $owners, 'one product, one group: it moved rather than doubled');
     }
 
@@ -415,7 +415,7 @@ class LazadaAddToStoreTest extends TestCase
             ->assertRedirect();
 
         $this->assertSame('Helmets renamed', $group->fresh()->name);
-        $this->assertSame(1, \Extensions\lazada\Models\LazadaProductGroupProduct::query()->where('lazada_product_group_id', $group->id)->where('product_id', $listing->product_id)->count(),
+        $this->assertSame(1, \Extensions\Lazada\Models\LazadaProductGroupProduct::query()->where('lazada_product_group_id', $group->id)->where('product_id', $listing->product_id)->count(),
             'membership is the products page\'s business, not the form\'s');
     }
 }

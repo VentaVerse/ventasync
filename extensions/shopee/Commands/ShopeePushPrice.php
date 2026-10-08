@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\shopee\Commands;
+namespace Extensions\Shopee\Commands;
 
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeInheritedSettings;
-use Extensions\shopee\Services\Shopee\ShopeeStockPricePush;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Services\Shopee\ShopeeInheritedSettings;
+use Extensions\Shopee\Services\Shopee\ShopeeStockPricePush;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -97,11 +97,11 @@ class ShopeePushPrice extends Command implements \App\Integrations\Contracts\Ste
 
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
-        return ['label' => 'products', 'units' => \Extensions\shopee\Services\Shopee\ShopeePushSteps::units()];
+        return ['label' => 'products', 'units' => \Extensions\Shopee\Services\Shopee\ShopeePushSteps::units()];
     }
 
     public function automationStep(\App\Models\ScheduledJob $job, array $units): array
     {
-        return \Extensions\shopee\Services\Shopee\ShopeePushSteps::step('price', $units);
+        return \Extensions\Shopee\Services\Shopee\ShopeePushSteps::step('price', $units);
     }
 }

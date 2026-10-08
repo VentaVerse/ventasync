@@ -6,11 +6,11 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeProductGroup;
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeProductGroup;
+use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -28,7 +28,7 @@ class ShopeeListingTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
@@ -122,7 +122,7 @@ class ShopeeListingTest extends TestCase
     public function test_the_listing_editor_gives_birth_to_the_listing_record_and_pushes(): void
     {
         $productId = $this->seedProduct(300.0);
-        \Extensions\shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 100200], ['attributes' => []]);
+        \Extensions\Shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 100200], ['attributes' => []]);
 
         $this->actingAs($this->manager())
             ->post(route('ext.shopee.listings.update', $productId), [
@@ -230,7 +230,7 @@ class ShopeeListingTest extends TestCase
     {
         $productId = $this->seedProduct(300.0);
         $group = $this->seedCatchAllGroup();
-        \Extensions\shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $productId]);
+        \Extensions\Shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $productId]);
 
         ShopeeProductLink::create([
             'product_id' => $productId, 'shopee_item_id' => 555, 'shopee_model_id' => null, 'sku' => 'LST-SKU-1',
@@ -322,7 +322,7 @@ class ShopeeListingTest extends TestCase
         DB::table('shopee_product_group_products')->insert([
             'shopee_product_group_id' => $group->id, 'product_id' => $productId,
         ]);
-        \Extensions\shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 100200], ['attributes' => []]);
+        \Extensions\Shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 100200], ['attributes' => []]);
         ShopeeListing::query()->create(['product_id' => $productId, 'shopee_category_id' => 100200, 'markup_fixed' => 70]);
 
         $this->actingAs($this->manager())
@@ -390,7 +390,7 @@ class ShopeeListingTest extends TestCase
         DB::table('shopee_product_group_products')->insert([
             'shopee_product_group_id' => $group->id, 'product_id' => $productId,
         ]);
-        $storeId = (int) \Extensions\shopee\Models\ShopeeSetting::query()->orderBy('id')->value('id');
+        $storeId = (int) \Extensions\Shopee\Models\ShopeeSetting::query()->orderBy('id')->value('id');
         $prefix = \App\Models\DescriptionTemplate::create([
             'integration' => 'shopee', 'store_id' => $storeId,
             'name' => 'Warranty', 'body' => 'One year warranty.',
@@ -465,7 +465,7 @@ class ShopeeListingTest extends TestCase
         $productId = $this->seedProduct(300.0);
         $group = $this->seedCatchAllGroup();
         DB::table('shopee_product_group_products')->insert(['shopee_product_group_id' => $group->id, 'product_id' => $productId]);
-        \Extensions\shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 100013], ['attributes' => []]);
+        \Extensions\Shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 100013], ['attributes' => []]);
         ShopeeListing::query()->create(['product_id' => $productId, 'price' => 500, 'markup_percent' => 10]);
 
         $this->actingAs($this->manager())
@@ -495,7 +495,7 @@ class ShopeeListingTest extends TestCase
     {
         $productId = $this->seedProduct(0.0);
         ShopeeListing::create(['product_id' => $productId, 'shopee_category_id' => 100200, 'logistic_ids' => [8003]]);
-        $gaps = fn () => array_column(app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)->forProducts([$productId])[$productId]['gaps'], 'code');
+        $gaps = fn () => array_column(app(\Extensions\Shopee\Services\Shopee\ShopeeListingReadiness::class)->forProducts([$productId])[$productId]['gaps'], 'code');
 
         $this->assertContains(\App\Integrations\Listings\ListingState::GAP_PRICE, $gaps());
 
@@ -522,7 +522,7 @@ class ShopeeListingTest extends TestCase
         $grouped = $this->seedProduct(300.0);
         $group = $this->seedCatchAllGroup();
         DB::table('shopee_product_group_products')->insert(['shopee_product_group_id' => $group->id, 'product_id' => $grouped]);
-        \Extensions\shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 100013], ['attributes' => []]);
+        \Extensions\Shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 100013], ['attributes' => []]);
         ShopeeListing::create(['product_id' => $grouped] + $parcel);
         $this->actingAs($this->manager())->post(route('ext.shopee.product-groups.push', $group->id), ['ids' => [$grouped]]);
         $add = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/add_item');

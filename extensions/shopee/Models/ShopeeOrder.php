@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\shopee\Models;
+namespace Extensions\Shopee\Models;
 
 use App\Models\Catalog\Order;
 use Illuminate\Database\Eloquent\Model;
@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ShopeeOrder extends Model
 {
-    use \Extensions\shopee\Models\Concerns\BelongsToShopeeStore;
+    use \Extensions\Shopee\Models\Concerns\BelongsToShopeeStore;
 
     protected $table = 'shopee_orders';
 

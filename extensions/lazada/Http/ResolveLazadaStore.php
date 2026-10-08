@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\lazada\Http;
+namespace Extensions\Lazada\Http;
 
 use Closure;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
 

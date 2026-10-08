@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\opencart\Controllers;
+namespace Extensions\OpenCart\Controllers;
 
-use Extensions\opencart\Models\MarketplaceReview;
-use Extensions\opencart\Models\OpenCartProductLink;
-use Extensions\opencart\Models\OpenCartSetting;
-use Extensions\opencart\Services\OpenCart\OpenCartClient;
+use Extensions\OpenCart\Models\MarketplaceReview;
+use Extensions\OpenCart\Models\OpenCartProductLink;
+use Extensions\OpenCart\Models\OpenCartSetting;
+use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -270,13 +270,13 @@ class ReviewController extends Controller
         $launched = [];
 
         if ($platform === 'all' || $platform === 'shopee') {
-            \Extensions\shopee\Models\ShopeeSetting::query()->update(['last_review_sync_at' => $from . ' 00:00:00']);
+            \Extensions\Shopee\Models\ShopeeSetting::query()->update(['last_review_sync_at' => $from . ' 00:00:00']);
             Process::start([$php, $artisan, 'shopee:sync-reviews', '--days=' . $daysBack]);
             $launched[] = 'Shopee';
         }
 
         if ($platform === 'all' || $platform === 'lazada') {
-            \Extensions\lazada\Models\LazadaSetting::query()->update(['last_review_sync_at' => $from . ' 00:00:00']);
+            \Extensions\Lazada\Models\LazadaSetting::query()->update(['last_review_sync_at' => $from . ' 00:00:00']);
             Process::start([$php, $artisan, 'lazada:sync-reviews', '--days=' . $daysBack, '--limit=100']);
             $launched[] = 'Lazada';
         }
@@ -317,8 +317,8 @@ class ReviewController extends Controller
         $count = MarketplaceReview::count();
         MarketplaceReview::query()->truncate();
 
-        \Extensions\shopee\Models\ShopeeSetting::query()->update(['last_review_sync_at' => null]);
-        \Extensions\lazada\Models\LazadaSetting::query()->update(['last_review_sync_at' => null]);
+        \Extensions\Shopee\Models\ShopeeSetting::query()->update(['last_review_sync_at' => null]);
+        \Extensions\Lazada\Models\LazadaSetting::query()->update(['last_review_sync_at' => null]);
 
         return redirect()->route('ext.opencart.reviews.index')->with('review_result', [
             'ok'      => true,

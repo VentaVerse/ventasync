@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\ventacart\Services\VentaCart;
+namespace Extensions\VentaCart\Services\VentaCart;
 
-use Extensions\ventacart\Models\VentaCartProductLink;
-use Extensions\ventacart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartProductLink;
+use Extensions\VentaCart\Models\VentaCartSetting;
 use Illuminate\Support\Facades\DB;
 
 final class VentaCartStockPricePush
@@ -29,13 +29,13 @@ final class VentaCartStockPricePush
         $options = DB::table($pfx . 'product_option_value')->whereIn('product_id', $ids)->whereNotNull('sku')->where('sku', '!=', '')
             ->get(['product_id', 'sku', 'quantity', 'price', 'price_prefix', 'absolute_price'])->groupBy(fn ($r) => (int) $r->product_id);
         $hidden = \App\Integrations\Listings\ListingVariations::hidden('ventacart', (int) $this->setting->id, $ids);
-        $listings = \Extensions\ventacart\Models\VentaCartListing::query()->where('ventacart_setting_id', $this->setting->id)->whereIn('product_id', $ids)->get()->keyBy(fn ($l) => (int) $l->product_id);
+        $listings = \Extensions\VentaCart\Models\VentaCartListing::query()->where('ventacart_setting_id', $this->setting->id)->whereIn('product_id', $ids)->get()->keyBy(fn ($l) => (int) $l->product_id);
         $groupsByProduct = DB::table('ventacart_product_group_products as gp')
             ->join('ventacart_product_groups as g', 'g.id', '=', 'gp.ventacart_product_group_id')
             ->where('g.ventacart_setting_id', $this->setting->id)->whereIn('gp.product_id', $ids)
             ->orderBy('gp.id')->get(['gp.product_id', 'g.markup_percent', 'g.markup_fixed'])
             ->unique('product_id')->keyBy(fn ($r) => (int) $r->product_id);
-        $withVariations = array_flip(\Extensions\ventacart\Models\VentaCartListing::withVariations($ids));
+        $withVariations = array_flip(\Extensions\VentaCart\Models\VentaCartListing::withVariations($ids));
 
         foreach ($ids as $pid) {
             $link = $links->get($pid);
@@ -54,7 +54,7 @@ final class VentaCartStockPricePush
                 continue;
             }
             $basePrice = (float) $product->price;
-            $rule = \Extensions\ventacart\Models\VentaCartListing::ruleFor($listings->get($pid), $groupsByProduct->get($pid));
+            $rule = \Extensions\VentaCart\Models\VentaCartListing::ruleFor($listings->get($pid), $groupsByProduct->get($pid));
 
             $variantSkus = $variants->filter(fn ($v) => trim((string) ($v->sku ?? '')) !== '');
             $hasVariants = $variantSkus->isNotEmpty();
@@ -94,7 +94,7 @@ final class VentaCartStockPricePush
                         $variantCall($this->client->updateVariant($vsku, ['price' => $rule(self::variantPrice($v, $basePrice))]), $vsku);
                     }
                 } else {
-                    $start = \Extensions\ventacart\Models\VentaCartListing::startFor($listings->get($pid), $basePrice, isset($withVariations[$pid]));
+                    $start = \Extensions\VentaCart\Models\VentaCartListing::startFor($listings->get($pid), $basePrice, isset($withVariations[$pid]));
                     $r = $this->client->updateProduct($sku, ['price' => $rule($start)]);
                     if (! ($r['ok'] ?? false)) {
                         $fine = false;

@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\ventacart\Commands;
+namespace Extensions\VentaCart\Commands;
 
-use Extensions\opencart\Models\MarketplaceReview;
-use Extensions\ventacart\Models\VentaCartProductLink;
-use Extensions\ventacart\Models\VentaCartSetting;
-use Extensions\ventacart\Services\VentaCart\VentaCartClient;
+use Extensions\OpenCart\Models\MarketplaceReview;
+use Extensions\VentaCart\Models\VentaCartProductLink;
+use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Services\VentaCart\VentaCartClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 

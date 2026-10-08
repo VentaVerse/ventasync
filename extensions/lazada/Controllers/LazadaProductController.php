@@ -1,27 +1,27 @@
 <?php
 
-namespace Extensions\lazada\Controllers;
+namespace Extensions\Lazada\Controllers;
 
 use App\Http\Controllers\Controller;
 
-use Extensions\lazada\Models\LazadaCategoryTemplate;
-use Extensions\lazada\Models\LazadaCategory;
-use Extensions\lazada\Models\LazadaBrand;
-use Extensions\lazada\Models\LazadaApiLog;
-use Extensions\lazada\Models\LazadaImageLink;
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaProductAttribute;
-use Extensions\lazada\Models\LazadaProductGroupAttribute;
-use Extensions\lazada\Models\LazadaProductVariant;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaCategoryTemplate;
+use Extensions\Lazada\Models\LazadaCategory;
+use Extensions\Lazada\Models\LazadaBrand;
+use Extensions\Lazada\Models\LazadaApiLog;
+use Extensions\Lazada\Models\LazadaImageLink;
+use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaProductAttribute;
+use Extensions\Lazada\Models\LazadaProductGroupAttribute;
+use Extensions\Lazada\Models\LazadaProductVariant;
+use Extensions\Lazada\Models\LazadaSetting;
 use App\Services\ActivityLogger;
-use Extensions\lazada\Services\Lazada\LazadaAttributes;
-use Extensions\lazada\Services\Lazada\LazadaClient;
-use Extensions\lazada\Services\Lazada\LazadaImages;
-use Extensions\lazada\Services\Lazada\LazadaItemCache;
-use Extensions\lazada\Services\Lazada\LazadaItemMatcher;
-use Extensions\lazada\Services\Lazada\LazadaPushPayload;
-use Extensions\lazada\Services\Lazada\LazadaVariationSwitch;
+use Extensions\Lazada\Services\Lazada\LazadaAttributes;
+use Extensions\Lazada\Services\Lazada\LazadaClient;
+use Extensions\Lazada\Services\Lazada\LazadaImages;
+use Extensions\Lazada\Services\Lazada\LazadaItemCache;
+use Extensions\Lazada\Services\Lazada\LazadaItemMatcher;
+use Extensions\Lazada\Services\Lazada\LazadaPushPayload;
+use Extensions\Lazada\Services\Lazada\LazadaVariationSwitch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -96,7 +96,7 @@ class LazadaProductController extends Controller
 
     private function lazadaReadinessCompute(array $ids): array
     {
-        $readiness = app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class);
+        $readiness = app(\Extensions\Lazada\Services\Lazada\LazadaListingReadiness::class);
         $chosen = LazadaProduct::query()->whereNotNull('product_id')->whereIn('product_id', $ids ?: [0])
             ->orderBy('id')->get()->groupBy('product_id')
             ->map(fn ($rows) => $rows->first(fn ($l) => !empty($l->lazada_item_id) && !$l->unlinked_at) ?? $rows->last());
@@ -178,9 +178,9 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
     }
 }
 
-    private function states(): \Extensions\lazada\Services\Lazada\LazadaListingStates
+    private function states(): \Extensions\Lazada\Services\Lazada\LazadaListingStates
     {
-        return app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class);
+        return app(\Extensions\Lazada\Services\Lazada\LazadaListingStates::class);
     }
 
     public const TAB_STATUS = [
@@ -287,7 +287,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         $query->whereNotNull('lp.id');
 
-        $groupedIds = \Extensions\lazada\Models\LazadaProductGroupProduct::query()->onStore()
+        $groupedIds = \Extensions\Lazada\Models\LazadaProductGroupProduct::query()->onStore()
             ->whereNotNull('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
         $applyGroup = function ($query, string $choice) use ($groupedIds) {
             if ($choice === 'none') {
@@ -414,7 +414,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $railBase = clone $menuBase;
         $menuCounts['store'] = (clone $railBase)->count();
         $groupRail = [];
-        foreach (\Extensions\lazada\Models\LazadaProductGroup::query()->orderBy('name')->get(['id', 'name']) as $group) {
+        foreach (\Extensions\Lazada\Models\LazadaProductGroup::query()->orderBy('name')->get(['id', 'name']) as $group) {
             $groupRail[] = [
                 'id' => (string) $group->id,
                 'name' => (string) $group->name,
@@ -438,11 +438,11 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         $query->orderByRaw('(lp.unlinked_at IS NOT NULL) desc');
         $storeId = \App\Integrations\Listings\ListingStore::id('lazada');
-        $sortMenu = \Extensions\lazada\Services\LazadaListingSort::columns($storeId, 'lp');
+        $sortMenu = \Extensions\Lazada\Services\LazadaListingSort::columns($storeId, 'lp');
         $order = \App\Integrations\Listings\ListingSort::chosen($request, 'lazada.listings.' . $storeId);
         $byHeading = $request->filled('sort');
         if (! $byHeading) {
-            \Extensions\lazada\Services\LazadaListingSort::joinGroup($query, $storeId);
+            \Extensions\Lazada\Services\LazadaListingSort::joinGroup($query, $storeId);
             \App\Integrations\Listings\ListingSort::apply($query, $order, $sortMenu);
         } elseif (isset($sortExpressions[$sort])) {
             $query->orderByRaw($sortExpressions[$sort] . ' ' . $dir);
@@ -452,7 +452,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         $troubleFilter = \App\Integrations\Listings\ListingTrouble::asked($request->query('state'));
         if ($troubleFilter !== null) {
-            $troubleIds = app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)->productIdsIn($troubleFilter);
+            $troubleIds = app(\Extensions\Lazada\Services\Lazada\LazadaListingStates::class)->productIdsIn($troubleFilter);
             $query->whereIn('p.product_id', $troubleIds ?: [0]);
         }
 
@@ -498,7 +498,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         if ($liveCounts !== null) {
             $blank = $listingsById->filter(fn ($l) => !empty($l->lazada_item_id) && $l->live_status === null)->take(10);
             if ($blank->isNotEmpty()) {
-                $live = app(\Extensions\lazada\Services\Lazada\LazadaLiveListing::class);
+                $live = app(\Extensions\Lazada\Services\Lazada\LazadaLiveListing::class);
                 $filled = false;
                 foreach ($blank as $l) {
                     $answer = $live->fetch($liveSetting, $liveCreds, (string) $l->lazada_item_id);
@@ -524,9 +524,9 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             }
         }
 
-        $listingStates = app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)
+        $listingStates = app(\Extensions\Lazada\Services\Lazada\LazadaListingStates::class)
             ->forProducts($pageIds);
-        $rowErrors = app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)->errors($pageIds);
+        $rowErrors = app(\Extensions\Lazada\Services\Lazada\LazadaListingStates::class)->errors($pageIds);
 
         $listedTotal = LazadaProduct::query()
             ->whereNotNull('lazada_item_id')->where('lazada_item_id', '!=', '')
@@ -539,7 +539,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             ->orderBy('name')
             ->pluck('name', 'manufacturer_id');
 
-        $allGroups = \Extensions\lazada\Models\LazadaProductGroup::query()->orderBy('name')->pluck('name', 'id');
+        $allGroups = \Extensions\Lazada\Models\LazadaProductGroup::query()->orderBy('name')->pluck('name', 'id');
 
         return view('ext-lazada::products.index', [
             'products' => $products,
@@ -571,7 +571,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             'listTab' => 'store',
             'failedFlag' => $failedFlag,
             'changeFlag' => $changeFlag,
-            'groupSize' => ctype_digit((string) $groupFilter) ? app(\Extensions\lazada\Controllers\LazadaProductGroupController::class)->groupSendSize((int) $groupFilter) : null,
+            'groupSize' => ctype_digit((string) $groupFilter) ? app(\Extensions\Lazada\Controllers\LazadaProductGroupController::class)->groupSendSize((int) $groupFilter) : null,
             'statusMenu' => \App\Integrations\Listings\StatusMenu::build([
                 'url' => fn (array $params) => route('ext.lazada.products.index', $params),
                 'query' => $request->query(),
@@ -629,7 +629,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             $query->where('p.manufacturer_id', (int) $manufacturerFilter);
         }
         if ($groupFilter === 'none') {
-            $groupedIds = \Extensions\lazada\Models\LazadaProductGroupProduct::query()->onStore()->whereNotNull('product_id')->pluck('product_id')->unique()->all();
+            $groupedIds = \Extensions\Lazada\Models\LazadaProductGroupProduct::query()->onStore()->whereNotNull('product_id')->pluck('product_id')->unique()->all();
             if (! empty($groupedIds)) {
                 $query->whereNotIn('p.product_id', $groupedIds);
             }
@@ -661,7 +661,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $onStoreTotal = (int) LazadaProduct::query()->whereNotNull('product_id')->distinct()->count('product_id');
 
         $allManufacturers = DB::table($pfx . 'manufacturer')->orderBy('name')->pluck('name', 'manufacturer_id');
-        $allGroups = \Extensions\lazada\Models\LazadaProductGroup::query()->orderBy('name')->pluck('name', 'id');
+        $allGroups = \Extensions\Lazada\Models\LazadaProductGroup::query()->orderBy('name')->pluck('name', 'id');
 
         return view('ext-lazada::products.add', [
             'products' => $products,
@@ -833,7 +833,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             : number_format($added) . ' products added to this store.');
     }
 
-    public function refreshStatus(Request $request, \Extensions\lazada\Services\Lazada\LazadaLiveListing $live)
+    public function refreshStatus(Request $request, \Extensions\Lazada\Services\Lazada\LazadaLiveListing $live)
     {
         $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
@@ -845,8 +845,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         if ($result['error'] !== null) {
             return redirect()->back()->with('error', 'Lazada did not answer: ' . $result['error'] . ' The statuses shown are from the last refresh.');
         }
-        $checked = app(\Extensions\lazada\Services\Lazada\LazadaLinkCheck::class)->runNext($setting, $creds);
-        $sheets = app(\Extensions\lazada\Services\Lazada\LazadaSheetReads::class)
+        $checked = app(\Extensions\Lazada\Services\Lazada\LazadaLinkCheck::class)->runNext($setting, $creds);
+        $sheets = app(\Extensions\Lazada\Services\Lazada\LazadaSheetReads::class)
             ->readMissing($setting, app(LazadaClient::class), \App\Integrations\Listings\SheetReads::PER_PRESS);
 
         $labels = ['active' => 'active', 'inactive' => 'inactive', 'pending' => 'pending QC', 'rejected' => 'rejected',
@@ -890,9 +890,9 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 ->with('status', 'Cannot sync quantity: product #' . $productId . ' is disabled. Enable it first.');
         }
 
-        $results = app(\Extensions\lazada\Services\Lazada\LazadaStockPricePush::class)
+        $results = app(\Extensions\Lazada\Services\Lazada\LazadaStockPricePush::class)
             ->push('stock', $setting, $creds, [$listing], $pfx);
-        $clause = \Extensions\lazada\Services\Lazada\LazadaStockPricePush::ledgerClause($results);
+        $clause = \Extensions\Lazada\Services\Lazada\LazadaStockPricePush::ledgerClause($results);
 
         $msg = $results['ok'] > 0
             ? 'Stock synced to Lazada.' . $clause
@@ -943,10 +943,10 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         $mPct = (float) ($percentMarkup ?? 0);
         $mFixed = (float) ($fixedMarkup ?? 0);
-        $results = app(\Extensions\lazada\Services\Lazada\LazadaStockPricePush::class)
+        $results = app(\Extensions\Lazada\Services\Lazada\LazadaStockPricePush::class)
             ->push('price', $setting, $creds, [$listing], $pfx,
-                fn (int $pid, float $base) => \Extensions\lazada\Services\Lazada\LazadaPushPayload::computeFinalPrice($base, $mFixed, $mPct));
-        $clause = \Extensions\lazada\Services\Lazada\LazadaStockPricePush::ledgerClause($results);
+                fn (int $pid, float $base) => \Extensions\Lazada\Services\Lazada\LazadaPushPayload::computeFinalPrice($base, $mFixed, $mPct));
+        $clause = \Extensions\Lazada\Services\Lazada\LazadaStockPricePush::ledgerClause($results);
 
         $msg = $results['ok'] > 0
             ? 'Price synced to Lazada.' . $clause
@@ -1210,7 +1210,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
     private function pushOne(int $productId, LazadaClient $client): array
     {
         $saved = $this->listingFor($productId);
-        $inherit = app(\Extensions\lazada\Services\Lazada\LazadaInheritedSettings::class);
+        $inherit = app(\Extensions\Lazada\Services\Lazada\LazadaInheritedSettings::class);
         $listing = $inherit->fill($saved, $inherit->forProducts([(int) $saved->product_id])[(int) $saved->product_id] ?? null)['listing'];
 
         $setting = LazadaSetting::defaultStore()?->decrypted();
@@ -1222,10 +1222,10 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         $isUpdate = !empty($listing->lazada_item_id) && empty($listing->lazada_deleted_at);
 
-        if ($listing->primary_category_id && !\Extensions\lazada\Models\LazadaCategoryTemplate::query()->where('region', (string) $setting->region)->where('primary_category_id', (int) $listing->primary_category_id)->whereNotNull('template_body')->exists()) {
+        if ($listing->primary_category_id && !\Extensions\Lazada\Models\LazadaCategoryTemplate::query()->where('region', (string) $setting->region)->where('primary_category_id', (int) $listing->primary_category_id)->whereNotNull('template_body')->exists()) {
             $this->readCategoryTemplate((int) $listing->primary_category_id, $client);
         }
-        $readiness = app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class)->forListings(collect([$saved]))[(int) $saved->id] ?? ['ready' => false, 'missing' => [], 'gaps' => []];
+        $readiness = app(\Extensions\Lazada\Services\Lazada\LazadaListingReadiness::class)->forListings(collect([$saved]))[(int) $saved->id] ?? ['ready' => false, 'missing' => [], 'gaps' => []];
         if (!$readiness['ready']) {
             $refusal = \App\Integrations\Listings\CatalogGaps::refusal($readiness, $isUpdate ? 'update' : 'push');
             $this->persistProductSyncStatus($saved, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'NOT_READY', 'message' => $refusal]]);
@@ -1345,7 +1345,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                         $shopSku = $row['shop_sku'] ?? null;
                         $skuId = $row['sku_id'] ?? null;
 
-                        $existingVariant = \Extensions\lazada\Models\LazadaProductVariant::where('lazada_product_id', $listing->id)
+                        $existingVariant = \Extensions\Lazada\Models\LazadaProductVariant::where('lazada_product_id', $listing->id)
                             ->where('seller_sku', (string) $sellerSku)
                             ->first();
                         $povId = $existingVariant->product_option_value_id ?? null;
@@ -1363,7 +1363,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                         }
 
                         try {
-                            \Extensions\lazada\Models\LazadaProductVariant::updateOrCreate(
+                            \Extensions\Lazada\Models\LazadaProductVariant::updateOrCreate(
                                 [
                                     'lazada_product_id' => $listing->id,
                                     'seller_sku' => (string) $sellerSku,
@@ -1792,7 +1792,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         return redirect()->to(url()->previous(route('ext.lazada.products.index')))->with('status', $msg);
     }
 
-    public function checkAgainstLazada(Request $request, \Extensions\lazada\Services\Lazada\LazadaLinkCheck $check)
+    public function checkAgainstLazada(Request $request, \Extensions\Lazada\Services\Lazada\LazadaLinkCheck $check)
     {
         try { @set_time_limit(0); } catch (\Throwable $e) {}
 
@@ -1836,12 +1836,12 @@ public function bulkSyncQuantity(Request $request, LazadaClient $client)
     $pfx = (string) config('catalog.prefix');
     $listings = LazadaProduct::query()->whereIn('id', $ids)->get();
 
-    $results = app(\Extensions\lazada\Services\Lazada\LazadaStockPricePush::class)
+    $results = app(\Extensions\Lazada\Services\Lazada\LazadaStockPricePush::class)
         ->push('stock', $setting, $creds, $listings, $pfx);
 
     $msg = "Bulk Sync Qty: {$results['ok']} ok, {$results['err']} failed"
         . ($results['skipped'] > 0 ? ", {$results['skipped']} skipped (disabled)" : '') . '.'
-        . \Extensions\lazada\Services\Lazada\LazadaStockPricePush::ledgerClause($results);
+        . \Extensions\Lazada\Services\Lazada\LazadaStockPricePush::ledgerClause($results);
 
     return redirect()->to(url()->previous(route('ext.lazada.products.index')))
         ->with(\App\Integrations\Push\PushLedger::batchTone($results['ok'], $results['err']), $msg);
@@ -1876,17 +1876,17 @@ public function bulkSyncPrice(Request $request, LazadaClient $client)
         $rules[(int) $l->product_id] = [$fixed, $pct];
     }
 
-    $results = app(\Extensions\lazada\Services\Lazada\LazadaStockPricePush::class)
+    $results = app(\Extensions\Lazada\Services\Lazada\LazadaStockPricePush::class)
         ->push('price', $setting, $creds, $listings, $pfx,
             function (int $pid, float $base) use ($rules): float {
                 [$fixed, $pct] = $rules[$pid] ?? [null, null];
 
-                return \Extensions\lazada\Services\Lazada\LazadaPushPayload::computeFinalPrice($base, (float) ($fixed ?? 0), (float) ($pct ?? 0));
+                return \Extensions\Lazada\Services\Lazada\LazadaPushPayload::computeFinalPrice($base, (float) ($fixed ?? 0), (float) ($pct ?? 0));
             });
 
     $msg = "Bulk Sync Price: {$results['ok']} ok, {$results['err']} failed"
         . ($results['skipped'] > 0 ? ", {$results['skipped']} skipped (disabled)" : '') . '.'
-        . \Extensions\lazada\Services\Lazada\LazadaStockPricePush::ledgerClause($results);
+        . \Extensions\Lazada\Services\Lazada\LazadaStockPricePush::ledgerClause($results);
 
     return redirect()->to(url()->previous(route('ext.lazada.products.index')))
         ->with(\App\Integrations\Push\PushLedger::batchTone($results['ok'], $results['err']), $msg);
@@ -2042,7 +2042,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         ]);
     }
 
-    public function edit(int $productId, \Extensions\lazada\Services\Lazada\LazadaLiveListing $liveListing)
+    public function edit(int $productId, \Extensions\Lazada\Services\Lazada\LazadaLiveListing $liveListing)
     {
         $listing = $this->listingOrBlank($productId);
 
@@ -2086,7 +2086,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $template = null;
         $attributes = [];
         $selectedBrandName = '';
-        $inheritSvc = app(\Extensions\lazada\Services\Lazada\LazadaInheritedSettings::class);
+        $inheritSvc = app(\Extensions\Lazada\Services\Lazada\LazadaInheritedSettings::class);
         $shown = $inheritSvc->fill($listing, $inheritSvc->forProducts([(int) $listing->product_id])[(int) $listing->product_id] ?? null)['listing'];
         if (!empty($shown->brand_id)) {
             $b = LazadaBrand::query()
@@ -2161,12 +2161,12 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         ];
 
         $listingState = $listing->exists
-            ? (app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)
+            ? (app(\Extensions\Lazada\Services\Lazada\LazadaListingStates::class)
                 ->forProducts([(int) $listing->product_id])[(int) $listing->product_id] ?? null)
             : null;
 
         $readiness = $listing->exists
-            ? (app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class)->forListings(collect([$listing]))[(int) $listing->id] ?? null)
+            ? (app(\Extensions\Lazada\Services\Lazada\LazadaListingReadiness::class)->forListings(collect([$listing]))[(int) $listing->id] ?? null)
             : null;
 
         $groupBand = $listing->exists ? $this->groupBandFor($listing) : ['current' => null, 'groups' => [], 'values' => []];
@@ -2217,7 +2217,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'storeId' => $storeId,
         ], (int) $listing->product_id);
 
-        $groups = \Extensions\lazada\Models\LazadaProductGroup::query()
+        $groups = \Extensions\Lazada\Models\LazadaProductGroup::query()
             ->where('lazada_setting_id', $storeId)
             ->orderBy('name')
             ->get(['id', 'name', 'lazada_category_id', 'brand_id', 'brand_name_override', 'markup_fixed', 'markup_percent', 'watermark_template_id']);
@@ -2358,9 +2358,9 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             ], (int) $listing->product_id, $picked['id'], ['lazada_product_id' => $listing->id, 'created_at' => now()]);
         }
 
-        $followGroup = app(\Extensions\lazada\Services\Lazada\LazadaInheritedSettings::class)->forProducts([(int) $listing->product_id])[(int) $listing->product_id] ?? null;
+        $followGroup = app(\Extensions\Lazada\Services\Lazada\LazadaInheritedSettings::class)->forProducts([(int) $listing->product_id])[(int) $listing->product_id] ?? null;
         if ($followGroup) {
-            $groupWatermark = (int) \Extensions\lazada\Models\LazadaProductGroup::query()->whereKey($followGroup['group_id'] ?? 0)->value('watermark_template_id');
+            $groupWatermark = (int) \Extensions\Lazada\Models\LazadaProductGroup::query()->whereKey($followGroup['group_id'] ?? 0)->value('watermark_template_id');
             if ((int) ($listing->watermark_template_id ?? 0) > 0 && (int) $listing->watermark_template_id === $groupWatermark) {
                 $listing->watermark_template_id = null;
             }
@@ -2408,7 +2408,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
         $note = '';
         if ($request->has('attributes')) {
-            $ready = app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class)->forListings(collect([$listing->fresh()]))[$listing->id] ?? null;
+            $ready = app(\Extensions\Lazada\Services\Lazada\LazadaListingReadiness::class)->forListings(collect([$listing->fresh()]))[$listing->id] ?? null;
             $note = $ready && ! $ready['ready'] ? ' Still needed before a push: ' . implode('; ', $ready['missing']) . '.' : '';
         }
 
@@ -3003,7 +3003,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             }
 
             $itemName = $product['attributes']['name'] ?? ($product['name'] ?? 'Unknown');
-            $imageUrl = \Extensions\lazada\Services\Lazada\LazadaImages::ofItem($product)[0] ?? null;
+            $imageUrl = \Extensions\Lazada\Services\Lazada\LazadaImages::ofItem($product)[0] ?? null;
             $skuCount = is_array($product['skus'] ?? null) ? count($product['skus']) : 0;
 
             $rows[] = [
@@ -3020,7 +3020,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         return [['found' => count($allProducts), 'rows' => $rows, 'truncated' => $offset < $totalProducts], null];
     }
 
-    public function importOne(Request $request, \Extensions\lazada\Services\Lazada\LazadaItemImport $import)
+    public function importOne(Request $request, \Extensions\Lazada\Services\Lazada\LazadaItemImport $import)
     {
         $data = $request->validate(['ref' => 'required|string|max:64']);
 
@@ -3035,7 +3035,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         return redirect()->back()->with($r['ok'] ? 'status' : 'error', $r['message']);
     }
 
-    public function importSelected(Request $request, \Extensions\lazada\Services\Lazada\LazadaItemImport $import)
+    public function importSelected(Request $request, \Extensions\Lazada\Services\Lazada\LazadaItemImport $import)
     {
         $data = $request->validate(['refs' => 'required|array|min:1', 'refs.*' => 'string|max:64']);
 

@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\shopee\Commands;
+namespace Extensions\Shopee\Commands;
 
-use Extensions\shopee\Models\ShopeeApiLog;
-use Extensions\shopee\Models\ShopeeOrder;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
-use Extensions\shopee\Services\Shopee\ShopeeOrderIngest;
+use Extensions\Shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeOrder;
+use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Services\Shopee\ShopeeOrderIngest;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;

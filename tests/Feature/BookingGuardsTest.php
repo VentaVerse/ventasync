@@ -7,12 +7,12 @@ use App\Http\Middleware\OneBookingAtATime;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\lazada\Models\LazadaOrder;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\shopee\Models\ShopeeOrder;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\tiktok\Models\TikTokOrder;
-use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\Lazada\Models\LazadaOrder;
+use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Shopee\Models\ShopeeOrder;
+use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\TikTok\Models\TikTokOrder;
+use Extensions\TikTok\Models\TikTokSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -28,9 +28,9 @@ class BookingGuardsTest extends TestCase
         parent::setUp();
 
         $manager = $this->app->make(ExtensionManager::class);
-        foreach (['shopee' => \Extensions\shopee\ShopeeExtension::class,
-            'lazada' => \Extensions\lazada\LazadaExtension::class,
-            'tiktok' => \Extensions\tiktok\TikTokExtension::class] as $id => $provider) {
+        foreach (['shopee' => \Extensions\Shopee\ShopeeExtension::class,
+            'lazada' => \Extensions\Lazada\LazadaExtension::class,
+            'tiktok' => \Extensions\TikTok\TikTokExtension::class] as $id => $provider) {
             $manager->install($id);
             $manager->enable($id);
             $this->app->register($provider);

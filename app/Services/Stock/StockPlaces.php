@@ -9,7 +9,7 @@ final class StockPlaces
 {
     public function notForSale(array $productIds): array
     {
-        if ($productIds === [] || ! class_exists(\Extensions\warehousing\Services\WarehouseStockService::class)
+        if ($productIds === [] || ! class_exists(\Extensions\Warehousing\Services\WarehouseStockService::class)
             || ! Schema::hasTable('warehouse_inventory')) {
             return [];
         }

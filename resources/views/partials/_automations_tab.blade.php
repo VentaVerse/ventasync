@@ -7,9 +7,9 @@
         ->get();
 
     $settingModel = match ($integration) {
-        'shopee' => \Extensions\shopee\Models\ShopeeSetting::class,
-        'lazada' => \Extensions\lazada\Models\LazadaSetting::class,
-        'tiktok' => \Extensions\tiktok\Models\TikTokSetting::class,
+        'shopee' => \Extensions\Shopee\Models\ShopeeSetting::class,
+        'lazada' => \Extensions\Lazada\Models\LazadaSetting::class,
+        'tiktok' => \Extensions\TikTok\Models\TikTokSetting::class,
         default  => null,
     };
     $setting = ($settingModel && class_exists($settingModel)) ? $settingModel::query()->first() : null;

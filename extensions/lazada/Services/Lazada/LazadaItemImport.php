@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\lazada\Services\Lazada;
+namespace Extensions\Lazada\Services\Lazada;
 
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaProductAttribute;
+use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaProductAttribute;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -50,9 +50,9 @@ class LazadaItemImport
 
         try {
             $categoryId = (int) ($data['primary_category'] ?? 0);
-            if ($categoryId > 0 && ! \Extensions\lazada\Models\LazadaCategoryTemplate::query()->where('primary_category_id', $categoryId)->exists()) {
+            if ($categoryId > 0 && ! \Extensions\Lazada\Models\LazadaCategoryTemplate::query()->where('primary_category_id', $categoryId)->exists()) {
                 try {
-                    app(\Extensions\lazada\Controllers\LazadaProductController::class)->readCategoryTemplate($categoryId, $this->client);
+                    app(\Extensions\Lazada\Controllers\LazadaProductController::class)->readCategoryTemplate($categoryId, $this->client);
                 } catch (\Throwable) {
                 }
             }

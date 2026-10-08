@@ -1,8 +1,8 @@
 <?php
 
-namespace Extensions\tiktok\Services\TikTok;
+namespace Extensions\TikTok\Services\TikTok;
 
-use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokSetting;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 

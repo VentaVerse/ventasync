@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\lazada\Services\Lazada;
+namespace Extensions\Lazada\Services\Lazada;
 
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaProductGroup;
-use Extensions\lazada\Models\LazadaProductGroupProduct;
+use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaProductGroup;
+use Extensions\Lazada\Models\LazadaProductGroupProduct;
 use Illuminate\Support\Facades\DB;
 
 class LazadaLinkCheck
@@ -15,7 +15,7 @@ class LazadaLinkCheck
 
     public function runNext(object $setting, array $creds): ?array
     {
-        $linked = \Extensions\lazada\Models\LazadaProduct::query()->whereNotNull('lazada_item_id')->whereNull('lazada_deleted_at')
+        $linked = \Extensions\Lazada\Models\LazadaProduct::query()->whereNotNull('lazada_item_id')->whereNull('lazada_deleted_at')
             ->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
         $linked = \App\Integrations\Support\LinkCheckCursor::rotate('lazada:' . (int) $setting->id, $linked);
 

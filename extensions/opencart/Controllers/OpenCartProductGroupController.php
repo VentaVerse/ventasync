@@ -1,15 +1,15 @@
 <?php
 
-namespace Extensions\opencart\Controllers;
+namespace Extensions\OpenCart\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Services\ActivityLogger;
-use Extensions\opencart\Models\OpenCartProductLink;
-use Extensions\opencart\Models\OpenCartProductGroup;
-use Extensions\opencart\Models\OpenCartProductGroupProduct;
-use Extensions\opencart\Models\OpenCartSetting;
-use Extensions\opencart\Services\OpenCart\OpenCartClient;
-use Extensions\opencart\Services\OpenCart\OpenCartProductSync;
+use Extensions\OpenCart\Models\OpenCartProductLink;
+use Extensions\OpenCart\Models\OpenCartProductGroup;
+use Extensions\OpenCart\Models\OpenCartProductGroupProduct;
+use Extensions\OpenCart\Models\OpenCartSetting;
+use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
+use Extensions\OpenCart\Services\OpenCart\OpenCartProductSync;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 

@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\opencart\Controllers;
+namespace Extensions\OpenCart\Controllers;
 
 use App\Http\Controllers\Integrations\ChannelDashboardController;
 

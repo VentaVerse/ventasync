@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\shopee\Controllers;
+namespace Extensions\Shopee\Controllers;
 
 class ShopeeApiExplorerController extends ShopeeController
 {

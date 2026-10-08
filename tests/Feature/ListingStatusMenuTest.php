@@ -7,8 +7,8 @@ use App\Integrations\Listings\StatusMenu;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -24,7 +24,7 @@ class ListingStatusMenuTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('lazada');
         $manager->enable('lazada');
-        $this->app->register(\Extensions\lazada\LazadaExtension::class);
+        $this->app->register(\Extensions\Lazada\LazadaExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
@@ -196,8 +196,8 @@ class ListingStatusMenuTest extends TestCase
     public function test_a_group_narrows_the_list_and_the_segment_splits_it(): void
     {
         $ids = $this->store();
-        $group = \Extensions\lazada\Models\LazadaProductGroup::create(['name' => 'Cables', 'lazada_category_id' => 4321]);
-        \Extensions\lazada\Models\LazadaProductGroupProduct::create([
+        $group = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Cables', 'lazada_category_id' => 4321]);
+        \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
             'lazada_product_group_id' => $group->id,
             'product_id' => $ids['listedOk'],
             'lazada_product_id' => LazadaProduct::query()->where('product_id', $ids['listedOk'])->value('id'),
@@ -225,8 +225,8 @@ class ListingStatusMenuTest extends TestCase
     {
         $ids = $this->store();
         $pid = $ids['notListed'];
-        $groupA = \Extensions\lazada\Models\LazadaProductGroup::create(['name' => 'Fuzz', 'lazada_category_id' => 4321]);
-        $groupB = \Extensions\lazada\Models\LazadaProductGroup::create(['name' => 'Delay', 'lazada_category_id' => 4321]);
+        $groupA = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Fuzz', 'lazada_category_id' => 4321]);
+        $groupB = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Delay', 'lazada_category_id' => 4321]);
         $manager = $this->manager();
         $manager->userGroup->permissions()->attach(Permission::whereIn('key', ['manage_lazada/product_group', 'view_lazada/product_group'])->pluck('id')->all());
         $listingOnlyGroup = UserGroup::create(['name' => 'Listings without groups']);
@@ -259,8 +259,8 @@ class ListingStatusMenuTest extends TestCase
     public function test_a_whole_group_sends_as_a_run_from_the_listings_page(): void
     {
         $ids = $this->store();
-        $group = \Extensions\lazada\Models\LazadaProductGroup::create(['name' => 'Fuzz']);
-        \Extensions\lazada\Models\LazadaProductGroupProduct::create([
+        $group = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Fuzz']);
+        \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
             'lazada_product_group_id' => $group->id, 'product_id' => $ids['notListed'],
             'lazada_product_id' => LazadaProduct::query()->where('product_id', $ids['notListed'])->value('id'),
         ]);

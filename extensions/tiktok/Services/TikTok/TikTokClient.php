@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\tiktok\Services\TikTok;
+namespace Extensions\TikTok\Services\TikTok;
 
 use Illuminate\Support\Facades\Http;
 

@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\shopee\Services;
+namespace Extensions\Shopee\Services;
 
 use App\Support\Fulfilment\CourierTally;
 use App\Support\FulfilmentSteps;
-use Extensions\shopee\Models\ShopeeOrder;
-use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeOrder;
+use Extensions\Shopee\Models\ShopeeSetting;
 use Illuminate\Http\Request;
 
 class ShopeeOrdersPanel

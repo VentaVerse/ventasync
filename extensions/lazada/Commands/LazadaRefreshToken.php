@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\lazada\Commands;
+namespace Extensions\Lazada\Commands;
 
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\lazada\Services\Lazada\LazadaClient;
+use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -15,7 +15,7 @@ class LazadaRefreshToken extends Command
 
     public function handle(LazadaClient $client): int
     {
-        $stores = \Extensions\lazada\Models\LazadaSetting::enabledStores();
+        $stores = \Extensions\Lazada\Models\LazadaSetting::enabledStores();
         if ($stores->isEmpty()) { $this->error('No enabled Lazada store. Configure Lazada settings first.'); return 1; }
         $worst = 0;
         foreach ($stores as $store) {
@@ -34,7 +34,7 @@ class LazadaRefreshToken extends Command
         return $worst;
     }
 
-    private function handleStore(LazadaClient $client, \Extensions\lazada\Models\LazadaSetting $store): int
+    private function handleStore(LazadaClient $client, \Extensions\Lazada\Models\LazadaSetting $store): int
     {
         $setting = $store->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);

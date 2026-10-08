@@ -1,13 +1,13 @@
 <?php
 
-namespace Extensions\tiktok\Services\TikTok;
+namespace Extensions\TikTok\Services\TikTok;
 
 use App\Integrations\Listings\CatalogGaps;
 use App\Integrations\Listings\ListingState;
-use Extensions\tiktok\Models\TikTokCategory;
-use Extensions\tiktok\Models\TikTokCategoryTemplate;
-use Extensions\tiktok\Models\TikTokListing;
-use Extensions\tiktok\Models\TikTokProductGroupProduct;
+use Extensions\TikTok\Models\TikTokCategory;
+use Extensions\TikTok\Models\TikTokCategoryTemplate;
+use Extensions\TikTok\Models\TikTokListing;
+use Extensions\TikTok\Models\TikTokProductGroupProduct;
 use Illuminate\Support\Facades\DB;
 
 class TikTokListingReadiness

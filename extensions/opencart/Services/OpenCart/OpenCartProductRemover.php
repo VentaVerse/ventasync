@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\opencart\Services\OpenCart;
+namespace Extensions\OpenCart\Services\OpenCart;
 
-use Extensions\opencart\Models\OpenCartProductGroupProduct;
-use Extensions\opencart\Models\OpenCartProductLink;
-use Extensions\opencart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartProductGroupProduct;
+use Extensions\OpenCart\Models\OpenCartProductLink;
+use Extensions\OpenCart\Models\OpenCartSetting;
 use Illuminate\Support\Facades\DB;
 
 final class OpenCartProductRemover

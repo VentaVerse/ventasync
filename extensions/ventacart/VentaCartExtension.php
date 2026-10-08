@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\ventacart;
+namespace Extensions\VentaCart;
 
 use App\Extensions\ExtensionProvider;
 use App\Integrations\Contracts\DashboardContributor;
@@ -18,11 +18,11 @@ use App\Integrations\OrderTab;
 use App\Integrations\StoreLink;
 use App\Models\Catalog\OrderStatus;
 use App\Support\FulfilmentSteps;
-use Extensions\ventacart\Models\VentaCartOrder;
-use Extensions\ventacart\Models\VentaCartProductLink;
-use Extensions\ventacart\Models\VentaCartSetting;
-use Extensions\ventacart\Services\VentaCart\VentaCartClient;
-use Extensions\ventacart\Services\VentaCart\VentaCartStatusPlacements;
+use Extensions\VentaCart\Models\VentaCartOrder;
+use Extensions\VentaCart\Models\VentaCartProductLink;
+use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Services\VentaCart\VentaCartClient;
+use Extensions\VentaCart\Services\VentaCart\VentaCartStatusPlacements;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -39,13 +39,13 @@ class VentaCartExtension extends ExtensionProvider implements \App\Integrations\
         parent::boot();
 
         $this->commands([
-            \Extensions\ventacart\Commands\VentaCartSync::class,
-            \Extensions\ventacart\Commands\VentaCartPushStock::class,
-            \Extensions\ventacart\Commands\VentaCartPushPrice::class,
-            \Extensions\ventacart\Commands\VentaCartPushReviews::class,
-            \Extensions\ventacart\Commands\VentaCartRefreshListingStatus::class,
-            \Extensions\ventacart\Commands\VentaCartFeeKeys::class,
-            \Extensions\ventacart\Commands\VentaCartRefreshOrderFees::class,
+            \Extensions\VentaCart\Commands\VentaCartSync::class,
+            \Extensions\VentaCart\Commands\VentaCartPushStock::class,
+            \Extensions\VentaCart\Commands\VentaCartPushPrice::class,
+            \Extensions\VentaCart\Commands\VentaCartPushReviews::class,
+            \Extensions\VentaCart\Commands\VentaCartRefreshListingStatus::class,
+            \Extensions\VentaCart\Commands\VentaCartFeeKeys::class,
+            \Extensions\VentaCart\Commands\VentaCartRefreshOrderFees::class,
         ]);
 
         $this->app->make(IntegrationRegistry::class)->register($this);
@@ -121,12 +121,12 @@ class VentaCartExtension extends ExtensionProvider implements \App\Integrations\
         }
         $out = [];
         foreach ($this->enabledStores() as $store) {
-            $here = array_values(array_intersect($productIds, \Extensions\ventacart\Services\VentaCart\VentaCartStoreProducts::ids((int) $store->id)));
+            $here = array_values(array_intersect($productIds, \Extensions\VentaCart\Services\VentaCart\VentaCartStoreProducts::ids((int) $store->id)));
             $here = array_values(array_diff($here, array_keys($out)));
             if ($here === []) {
                 continue;
             }
-            foreach (\Extensions\ventacart\Services\VentaCart\VentaCartListingStates::for((int) $store->id)->forProducts($here) as $pid => $state) {
+            foreach (\Extensions\VentaCart\Services\VentaCart\VentaCartListingStates::for((int) $store->id)->forProducts($here) as $pid => $state) {
                 $out[$pid] = $state;
             }
         }
@@ -144,7 +144,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Integrations\
         $first = null;
         foreach ($this->enabledStores() as $store) {
             $first ??= (int) $store->id;
-            foreach (array_intersect($productIds, \Extensions\ventacart\Services\VentaCart\VentaCartStoreProducts::ids((int) $store->id)) as $pid) {
+            foreach (array_intersect($productIds, \Extensions\VentaCart\Services\VentaCart\VentaCartStoreProducts::ids((int) $store->id)) as $pid) {
                 $out[$pid] ??= route('ext.ventacart.listings.edit', [$store->id, $pid]);
             }
         }
@@ -334,8 +334,8 @@ class VentaCartExtension extends ExtensionProvider implements \App\Integrations\
                 if ($ok) {
                     $link->update(['sku' => $new]);
                 }
-                \Extensions\ventacart\Services\VentaCart\VentaCartListingStates::for((int) $setting->id)->recordOutcome($productId, $ok ? null
-                    : 'SKU change to ' . $new . ' failed: ' . \Extensions\ventacart\Services\VentaCart\VentaCartProductPush::failureText($result, $linkSku));
+                \Extensions\VentaCart\Services\VentaCart\VentaCartListingStates::for((int) $setting->id)->recordOutcome($productId, $ok ? null
+                    : 'SKU change to ' . $new . ' failed: ' . \Extensions\VentaCart\Services\VentaCart\VentaCartProductPush::failureText($result, $linkSku));
 
                 $results[] = $setting->store_name . ': ' . ($ok ? 'OK' : 'Failed');
             } catch (\Throwable $e) {
@@ -346,7 +346,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Integrations\
                     'sku_new' => $new,
                     'error' => $e->getMessage(),
                 ]);
-                \Extensions\ventacart\Services\VentaCart\VentaCartListingStates::for((int) $setting->id)->recordOutcome($productId,
+                \Extensions\VentaCart\Services\VentaCart\VentaCartListingStates::for((int) $setting->id)->recordOutcome($productId,
                     'SKU change to ' . $new . ' failed: ' . \App\Support\TransportError::plain($e, 'VentaCart'));
                 $results[] = $setting->store_name . ': Error';
             }
@@ -382,7 +382,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Integrations\
         }
         $raw = is_array($order->raw) ? $order->raw : [];
 
-        return \Extensions\ventacart\Services\VentaCart\VentaCartSaleLines::lines(is_array($raw['totals'] ?? null) ? $raw['totals'] : [], $itemsSubtotal, $shipping);
+        return \Extensions\VentaCart\Services\VentaCart\VentaCartSaleLines::lines(is_array($raw['totals'] ?? null) ? $raw['totals'] : [], $itemsSubtotal, $shipping);
     }
 
     public function feeBucketsForOrder(int $coreOrderId): ?array
@@ -435,7 +435,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Integrations\
         if (Schema::hasTable('ventacart_listings')) {
             foreach ($this->allStores() as $store) {
                 try {
-                    $sum = \Extensions\ventacart\Services\VentaCart\VentaCartListingStates::for((int) $store->id)->summary();
+                    $sum = \Extensions\VentaCart\Services\VentaCart\VentaCartListingStates::for((int) $store->id)->summary();
                 } catch (\Throwable) {
                     continue;
                 }
@@ -509,7 +509,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Integrations\
 
     protected function credentialSettingsModel(): string
     {
-        return \Extensions\ventacart\Models\VentaCartSetting::class;
+        return \Extensions\VentaCart\Models\VentaCartSetting::class;
     }
 
     protected function credentialIsMultiStore(): bool
@@ -524,26 +524,26 @@ class VentaCartExtension extends ExtensionProvider implements \App\Integrations\
 
     public function productPresence(array $productIds): array
     {
-        return app(\Extensions\ventacart\Services\VentaCart\VentaCartProductRemover::class)->presence($productIds);
+        return app(\Extensions\VentaCart\Services\VentaCart\VentaCartProductRemover::class)->presence($productIds);
     }
 
     public function removeProduct(int $productId): array
     {
-        return app(\Extensions\ventacart\Services\VentaCart\VentaCartProductRemover::class)->remove($productId);
+        return app(\Extensions\VentaCart\Services\VentaCart\VentaCartProductRemover::class)->remove($productId);
     }
 
     public function strandedProductIds(): array
     {
-        return app(\Extensions\ventacart\Services\VentaCart\VentaCartProductRemover::class)->stranded();
+        return app(\Extensions\VentaCart\Services\VentaCart\VentaCartProductRemover::class)->stranded();
     }
 
     public function automations(): array
     {
-        return \Extensions\ventacart\Support\VentaCartScheduledJobs::JOBS;
+        return \Extensions\VentaCart\Support\VentaCartScheduledJobs::JOBS;
     }
 
     public function automationStoreIds(): ?array
     {
-        return \Extensions\ventacart\Models\VentaCartSetting::query()->pluck('id')->map(fn ($id) => (int) $id)->all();
+        return \Extensions\VentaCart\Models\VentaCartSetting::query()->pluck('id')->map(fn ($id) => (int) $id)->all();
     }
 }

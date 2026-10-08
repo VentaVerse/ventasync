@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\tiktok\Models;
+namespace Extensions\TikTok\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Extensions\tiktok\Models\Concerns\BelongsToTikTokStore;
+use Extensions\TikTok\Models\Concerns\BelongsToTikTokStore;
 
 class TikTokProductGroup extends Model
 {

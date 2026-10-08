@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use Extensions\ventacart\Controllers\VentaCartProductGroupController;
+use Extensions\VentaCart\Controllers\VentaCartProductGroupController;
 use ReflectionMethod;
 use Tests\TestCase;
 
@@ -108,7 +108,7 @@ class VentaCartReconcileTest extends TestCase
     private function methodBody(string $method): string
     {
         $map = [
-            'reconcileLink' => [\Extensions\ventacart\Services\VentaCart\VentaCartProductPush::class, self::SERVICE],
+            'reconcileLink' => [\Extensions\VentaCart\Services\VentaCart\VentaCartProductPush::class, self::SERVICE],
         ];
         [$class, $file] = $map[$method] ?? [VentaCartProductGroupController::class, self::CONTROLLER];
         $ref = new ReflectionMethod($class, $method);

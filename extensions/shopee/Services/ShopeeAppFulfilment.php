@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\shopee\Services;
+namespace Extensions\Shopee\Services;
 
 use App\Support\Fulfilment\AppFulfilment;
 use App\Support\Fulfilment\Waybills;
-use Extensions\shopee\Controllers\ShopeeOrderController;
-use Extensions\shopee\Models\ShopeeOrder;
-use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Controllers\ShopeeOrderController;
+use Extensions\Shopee\Models\ShopeeOrder;
+use Extensions\Shopee\Models\ShopeeSetting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;

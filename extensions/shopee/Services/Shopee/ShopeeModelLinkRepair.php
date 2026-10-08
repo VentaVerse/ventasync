@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
-use Extensions\shopee\Models\ShopeeItemCache;
-use Extensions\shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeItemCache;
+use Extensions\Shopee\Models\ShopeeProductLink;
 
 class ShopeeModelLinkRepair
 {
@@ -103,6 +103,6 @@ class ShopeeModelLinkRepair
 
     private function storeId(array $auth): int
     {
-        return (int) ($auth['store_id'] ?? 0) ?: (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0);
+        return (int) ($auth['store_id'] ?? 0) ?: (int) (\Extensions\Shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0);
     }
 }

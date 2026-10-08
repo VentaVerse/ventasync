@@ -1,16 +1,16 @@
 <?php
 
-namespace Extensions\opencart\Controllers;
+namespace Extensions\OpenCart\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Catalog\OrderStatus;
 use App\Services\ActivityLogger;
-use Extensions\opencart\Models\OpenCartOrderStatusMap;
-use Extensions\opencart\Models\OpenCartSetting;
-use Extensions\opencart\Models\OpenCartSyncLog;
-use Extensions\opencart\Services\OpenCart\OpenCartClient;
-use Extensions\opencart\Services\OpenCart\OpenCartOrderSync;
-use Extensions\opencart\Services\OpenCart\OpenCartProductSync;
+use Extensions\OpenCart\Models\OpenCartOrderStatusMap;
+use Extensions\OpenCart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartSyncLog;
+use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
+use Extensions\OpenCart\Services\OpenCart\OpenCartOrderSync;
+use Extensions\OpenCart\Services\OpenCart\OpenCartProductSync;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -170,7 +170,7 @@ class OpenCartController extends Controller
         return redirect()->route('ext.opencart.settings.show', ['store' => $setting->id])->with('status', $msg);
     }
 
-    public function destroy($id, \Extensions\opencart\Services\OpenCart\OpenCartStoreDeleter $deleter)
+    public function destroy($id, \Extensions\OpenCart\Services\OpenCart\OpenCartStoreDeleter $deleter)
     {
         $setting = OpenCartSetting::findOrFail((int) $id);
         $name = $setting->store_name ?? $setting->base_url;
@@ -181,7 +181,7 @@ class OpenCartController extends Controller
         return redirect()->route('ext.opencart.index')->with('status', 'Store deleted.');
     }
 
-    public function destroyStore(Request $request, int $store, \Extensions\opencart\Services\OpenCart\OpenCartStoreDeleter $deleter)
+    public function destroyStore(Request $request, int $store, \Extensions\OpenCart\Services\OpenCart\OpenCartStoreDeleter $deleter)
     {
         $setting = OpenCartSetting::findOrFail($store);
         $request->validate([

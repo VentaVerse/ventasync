@@ -7,14 +7,14 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\Setting;
 use App\Models\User;
-use Extensions\lazada\Models\LazadaOrder;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\shopee\Models\ShopeeOrder;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\tiktok\Models\TikTokOrder;
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\ventacart\Models\VentaCartOrder;
-use Extensions\ventacart\Models\VentaCartSetting;
+use Extensions\Lazada\Models\LazadaOrder;
+use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Shopee\Models\ShopeeOrder;
+use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\TikTok\Models\TikTokOrder;
+use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\VentaCart\Models\VentaCartOrder;
+use Extensions\VentaCart\Models\VentaCartSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
@@ -30,10 +30,10 @@ class PackingCheckTest extends TestCase
         parent::setUp();
 
         $manager = $this->app->make(ExtensionManager::class);
-        foreach (['lazada' => \Extensions\lazada\LazadaExtension::class,
-            'shopee' => \Extensions\shopee\ShopeeExtension::class,
-            'tiktok' => \Extensions\tiktok\TikTokExtension::class,
-            'ventacart' => \Extensions\ventacart\VentaCartExtension::class] as $id => $provider) {
+        foreach (['lazada' => \Extensions\Lazada\LazadaExtension::class,
+            'shopee' => \Extensions\Shopee\ShopeeExtension::class,
+            'tiktok' => \Extensions\TikTok\TikTokExtension::class,
+            'ventacart' => \Extensions\VentaCart\VentaCartExtension::class] as $id => $provider) {
             $manager->install($id);
             $manager->enable($id);
             $this->app->register($provider);

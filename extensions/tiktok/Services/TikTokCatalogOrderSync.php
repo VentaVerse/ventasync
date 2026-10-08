@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\tiktok\Services;
+namespace Extensions\TikTok\Services;
 
-use Extensions\tiktok\Models\TikTokOrder;
-use Extensions\tiktok\Models\TikTokOrderStatusMap;
+use Extensions\TikTok\Models\TikTokOrder;
+use Extensions\TikTok\Models\TikTokOrderStatusMap;
 use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderHistory;
 use App\Models\Catalog\OrderOption;
@@ -100,7 +100,7 @@ class TikTokCatalogOrderSync
             }
 
             $storeId = (int) $tiktokOrder->tiktok_setting_id;
-            $storeName = mb_substr((string) (\Extensions\tiktok\Models\TikTokSetting::query()->find($storeId)?->store_name ?? ''), 0, 64);
+            $storeName = mb_substr((string) (\Extensions\TikTok\Models\TikTokSetting::query()->find($storeId)?->store_name ?? ''), 0, 64);
 
             $orderData = [
                 'invoice_no'            => 0,
@@ -297,7 +297,7 @@ class TikTokCatalogOrderSync
             OrderTotal::where('order_id', $catalogOrder->order_id)->delete();
 
             $sortOrder = 1;
-            foreach (\Extensions\tiktok\Services\TikTokSaleLines::lines(is_array($raw['payment'] ?? null) ? $raw['payment'] : [], $subTotal, $shippingTotal) as $line) {
+            foreach (\Extensions\TikTok\Services\TikTokSaleLines::lines(is_array($raw['payment'] ?? null) ? $raw['payment'] : [], $subTotal, $shippingTotal) as $line) {
                 OrderTotal::create([
                     'order_id'   => $catalogOrder->order_id,
                     'code'       => $line['code'],

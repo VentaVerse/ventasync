@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\lazada\Models;
+namespace Extensions\Lazada\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Extensions\lazada\Models\Concerns\BelongsToLazadaStore;
+use Extensions\Lazada\Models\Concerns\BelongsToLazadaStore;
 
 class LazadaReverseOrder extends Model
 {

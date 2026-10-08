@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\tiktok\Controllers;
+namespace Extensions\TikTok\Controllers;
 
 use App\Http\Controllers\Controller;
-use Extensions\tiktok\Models\TikTokApiLog;
-use Extensions\tiktok\Models\TikTokOrderStatusMap;
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\Services\TikTok\TikTokClient;
+use Extensions\TikTok\Models\TikTokApiLog;
+use Extensions\TikTok\Models\TikTokOrderStatusMap;
+use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -90,7 +90,7 @@ class TikTokController extends Controller
         ];
 
         $tikTokReturnStatuses = [];
-        foreach (\Extensions\tiktok\Services\TikTokReturnsPanel::STATUS_MAP as $key => [$label, $tone]) {
+        foreach (\Extensions\TikTok\Services\TikTokReturnsPanel::STATUS_MAP as $key => [$label, $tone]) {
             $tikTokReturnStatuses[$key] = $label;
         }
         $returnStatusMap = TikTokOrderStatusMap::where('context', 'return')
@@ -518,10 +518,10 @@ class TikTokController extends Controller
         ]);
     }
 
-    public function setupStep(string $step, \Extensions\tiktok\Services\TikTok\TikTokStoreSetup $setup)
+    public function setupStep(string $step, \Extensions\TikTok\Services\TikTok\TikTokStoreSetup $setup)
     {
         $raw = TikTokSetting::defaultStore();
-        $c = $raw ? \Extensions\tiktok\Services\TikTok\TikTokStoreSetup::creds($raw) : null;
+        $c = $raw ? \Extensions\TikTok\Services\TikTok\TikTokStoreSetup::creds($raw) : null;
         if (! $raw || ! $c || $c['app_key'] === '' || $c['app_secret'] === '' || $c['token'] === '') {
             return response()->json(['ok' => false, 'count' => 0, 'message' => 'This store is not connected yet. Authorise it with TikTok Shop first.'], 422);
         }
@@ -766,10 +766,10 @@ class TikTokController extends Controller
         return $this->toSettingsTab('logs')->with('status', "Deleted {$count} TikTok API log entries.");
     }
 
-    public function destroyStore(Request $request, \Extensions\tiktok\Services\TikTok\TikTokStoreDeleter $deleter)
+    public function destroyStore(Request $request, \Extensions\TikTok\Services\TikTok\TikTokStoreDeleter $deleter)
     {
         abort_unless($request->user()?->hasPermission('manage_tiktok/settings'), 403);
-        $store = \Extensions\tiktok\Models\TikTokSetting::defaultStore();
+        $store = \Extensions\TikTok\Models\TikTokSetting::defaultStore();
         abort_if(! $store, 404);
 
         $request->validate([

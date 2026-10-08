@@ -1,19 +1,19 @@
 <?php
 
-namespace Extensions\tiktok\Controllers;
+namespace Extensions\TikTok\Controllers;
 
 use App\Http\Controllers\Controller;
-use Extensions\tiktok\Models\TikTokApiLog;
-use Extensions\tiktok\Models\TikTokOrder;
-use Extensions\tiktok\Models\TikTokOrderProduct;
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\Services\TikTok\TikTokClient;
-use Extensions\tiktok\Services\TikTok\TikTokReturnSync;
-use Extensions\tiktok\Services\TikTokCatalogOrderSync;
-use Extensions\tiktok\Services\TikTokOrdersPanel;
-use Extensions\tiktok\Models\TikTokReturn;
-use Extensions\tiktok\Models\TikTokOrderStatusMap;
-use Extensions\tiktok\Services\TikTokReturnsPanel;
+use Extensions\TikTok\Models\TikTokApiLog;
+use Extensions\TikTok\Models\TikTokOrder;
+use Extensions\TikTok\Models\TikTokOrderProduct;
+use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Services\TikTok\TikTokClient;
+use Extensions\TikTok\Services\TikTok\TikTokReturnSync;
+use Extensions\TikTok\Services\TikTokCatalogOrderSync;
+use Extensions\TikTok\Services\TikTokOrdersPanel;
+use Extensions\TikTok\Models\TikTokReturn;
+use Extensions\TikTok\Models\TikTokOrderStatusMap;
+use Extensions\TikTok\Services\TikTokReturnsPanel;
 use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderHistory;
 use Illuminate\Http\Request;
@@ -117,7 +117,7 @@ class TikTokOrderController extends Controller
 
         return view('ext-tiktok::orders.show', [
             'order' => $order,
-            'breakdown' => \Extensions\tiktok\Services\TikTokOrderBreakdown::from(is_array($order->fees) ? $order->fees : []),
+            'breakdown' => \Extensions\TikTok\Services\TikTokOrderBreakdown::from(is_array($order->fees) ? $order->fees : []),
             'breakdownCurrency' => (string) ((is_array($order->raw) ? ($order->raw['currency'] ?? null) : null) ?: \App\Support\Money::defaultCode()),
             'api_error' => $apiError,
         ]);
@@ -149,7 +149,7 @@ class TikTokOrderController extends Controller
 
     protected function orderFetchStoreId(Request $request): ?int
     {
-        return \Extensions\tiktok\Models\TikTokSetting::defaultStore()?->id;
+        return \Extensions\TikTok\Models\TikTokSetting::defaultStore()?->id;
     }
 
     public function orderFetchStep(\App\Models\OrderFetchRun $run): array

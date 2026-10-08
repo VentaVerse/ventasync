@@ -1,13 +1,13 @@
 <?php
 
-namespace Extensions\lazada\Commands;
+namespace Extensions\Lazada\Commands;
 
-use Extensions\lazada\Models\LazadaApiLog;
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaProductVariant;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\lazada\Services\Lazada\LazadaClient;
-use Extensions\lazada\Services\LazadaStockPushService;
+use Extensions\Lazada\Models\LazadaApiLog;
+use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaProductVariant;
+use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Services\Lazada\LazadaClient;
+use Extensions\Lazada\Services\LazadaStockPushService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -22,7 +22,7 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
 
     public function handle(LazadaClient $client): int
     {
-        $stores = \Extensions\lazada\Models\LazadaSetting::enabledStores();
+        $stores = \Extensions\Lazada\Models\LazadaSetting::enabledStores();
         if ($stores->isEmpty()) { $this->error('No enabled Lazada store. Configure Lazada settings first.'); return 1; }
         $worst = 0;
         foreach ($stores as $store) {
@@ -41,7 +41,7 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
         return $worst;
     }
 
-    private function handleStore(LazadaClient $client, \Extensions\lazada\Models\LazadaSetting $store): int
+    private function handleStore(LazadaClient $client, \Extensions\Lazada\Models\LazadaSetting $store): int
     {
         $setting = $store->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
@@ -157,7 +157,7 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
             }
         }
 
-        $states = \Extensions\lazada\Services\Lazada\LazadaListingStates::on($store);
+        $states = \Extensions\Lazada\Services\Lazada\LazadaListingStates::on($store);
         foreach (array_keys($sentProducts) as $pid) {
             $states->recordOutcome((int) $pid, isset($failedProducts[$pid]) ? 'Stock push: ' . $failedProducts[$pid] : null);
         }
@@ -185,7 +185,7 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
         if ($noVariants->isNotEmpty()) {
             $this->info("Resolving variants for {$noVariants->count()} listing(s) with no cached variants...");
             foreach ($noVariants as $listing) {
-                app(\Extensions\lazada\Services\Lazada\LazadaItemCache::class)->fetchAndCacheVariants($listing, $setting, $client, 'lazada.product.item.get.cron');
+                app(\Extensions\Lazada\Services\Lazada\LazadaItemCache::class)->fetchAndCacheVariants($listing, $setting, $client, 'lazada.product.item.get.cron');
                 $fetched++;
             }
         }
@@ -215,7 +215,7 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
                 continue;
             }
 
-            app(\Extensions\lazada\Services\Lazada\LazadaItemCache::class)->fetchAndCacheVariants($listing, $setting, $client, 'lazada.product.item.get.cron');
+            app(\Extensions\Lazada\Services\Lazada\LazadaItemCache::class)->fetchAndCacheVariants($listing, $setting, $client, 'lazada.product.item.get.cron');
             $refreshed++;
             if ($refreshed >= $remaining) break;
         }
@@ -338,11 +338,11 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
 
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
-        return ['label' => 'products', 'units' => \Extensions\lazada\Services\Lazada\LazadaPushSteps::units()];
+        return ['label' => 'products', 'units' => \Extensions\Lazada\Services\Lazada\LazadaPushSteps::units()];
     }
 
     public function automationStep(\App\Models\ScheduledJob $job, array $units): array
     {
-        return \Extensions\lazada\Services\Lazada\LazadaPushSteps::step('stock', $units);
+        return \Extensions\Lazada\Services\Lazada\LazadaPushSteps::step('stock', $units);
     }
 }

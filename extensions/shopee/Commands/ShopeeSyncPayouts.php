@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\shopee\Commands;
+namespace Extensions\Shopee\Commands;
 
 use App\Support\PayoutStatus;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeePayoutSync;
+use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Services\Shopee\ShopeePayoutSync;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 

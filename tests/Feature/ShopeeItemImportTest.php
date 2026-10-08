@@ -6,10 +6,10 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -26,7 +26,7 @@ class ShopeeItemImportTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
@@ -155,9 +155,9 @@ class ShopeeItemImportTest extends TestCase
 
         $listing = ShopeeListing::where('product_id', $pid)->first();
         $this->assertSame([90001], $listing->logistic_ids, 'only the couriers the item ships with');
-        $this->assertTrue(\Extensions\shopee\Models\ShopeeCategoryTemplate::query()->where('category_id', 101988)->exists(), 'the sheet was read during the import');
+        $this->assertTrue(\Extensions\Shopee\Models\ShopeeCategoryTemplate::query()->where('category_id', 101988)->exists(), 'the sheet was read during the import');
 
-        $ready = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)->forProducts([$pid])[$pid];
+        $ready = app(\Extensions\Shopee\Services\Shopee\ShopeeListingReadiness::class)->forProducts([$pid])[$pid];
         $this->assertTrue($ready['ready'], 'not ready: ' . implode('; ', $ready['missing']));
     }
 }

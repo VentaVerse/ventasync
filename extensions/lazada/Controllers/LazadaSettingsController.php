@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\lazada\Controllers;
+namespace Extensions\Lazada\Controllers;
 
 class LazadaSettingsController extends LazadaController
 {

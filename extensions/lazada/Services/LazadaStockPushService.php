@@ -1,8 +1,8 @@
 <?php
 
-namespace Extensions\lazada\Services;
+namespace Extensions\Lazada\Services;
 
-use Extensions\lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaProduct;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -78,7 +78,7 @@ class LazadaStockPushService
                 $price = $erpPriceByPov[(int) $povId] ?? null;
             } elseif (!$hasErpVariants) {
                 $qty   = max(0, (int) ($product->quantity ?? 0));
-                $price = \Extensions\lazada\Services\Lazada\LazadaPushPayload::startingPrice($listing, $basePrice);
+                $price = \Extensions\Lazada\Services\Lazada\LazadaPushPayload::startingPrice($listing, $basePrice);
             } else {
                 Log::warning('LazadaStockPushService: unmatched Lazada variant, defaulting to 0', [
                     'product_id'        => $productId,

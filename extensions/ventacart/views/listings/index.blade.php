@@ -18,8 +18,8 @@
         unset($qp['page']);
         return url()->current() . '?' . http_build_query($qp);
     };
-    $statusMap = \Extensions\ventacart\Services\VentaCart\VentaCartListingMirror::STATUS_MAP;
-    $tabDefs = \Extensions\ventacart\Services\VentaCart\VentaCartListingMirror::TABS;
+    $statusMap = \Extensions\VentaCart\Services\VentaCart\VentaCartListingMirror::STATUS_MAP;
+    $tabDefs = \Extensions\VentaCart\Services\VentaCart\VentaCartListingMirror::TABS;
     $tabQuery = request()->except('page', 'ventacart_tab');
     $indexUrl = fn (array $params = []) => route('ext.ventacart.listings.index', array_merge(['store' => $setting->id], $params));
 @endphp
@@ -317,9 +317,9 @@
                             $menu['link'] = ['action' => route('ext.ventacart.listings.check', $setting->id), 'fields' => ['product_ids[]' => $pid]];
                         } else {
                             $menu['update'] = ['action' => route('ext.ventacart.listings.push', [$setting->id, $pid]), 'label' => 'Send to ' . $storeName, 'confirm' => "Send this listing's content and price rule to the live {$storeName} product? Name, description, price, stock, images and variations are updated in place.", 'verb' => 'Send', 'tone' => 'primary'];
-                            if ($rowLiveStatus === \Extensions\ventacart\Models\VentaCartListing::STATUS_ACTIVE) {
+                            if ($rowLiveStatus === \Extensions\VentaCart\Models\VentaCartListing::STATUS_ACTIVE) {
                                 $menu['switch'] = ['action' => route('ext.ventacart.listings.toggle', [$setting->id, $pid]), 'label' => 'Unlist on ' . $storeName, 'fields' => ['action' => 'unlist'], 'confirm' => "Unlist this product on {$storeName}? Buyers stop seeing it. It can be relisted at any time.", 'verb' => 'Unlist'];
-                            } elseif ($rowLiveStatus === \Extensions\ventacart\Models\VentaCartListing::STATUS_INACTIVE) {
+                            } elseif ($rowLiveStatus === \Extensions\VentaCart\Models\VentaCartListing::STATUS_INACTIVE) {
                                 $menu['switch'] = ['action' => route('ext.ventacart.listings.toggle', [$setting->id, $pid]), 'label' => 'Relist on ' . $storeName, 'fields' => ['action' => 'relist'], 'confirm' => "Relist this product on {$storeName}? Buyers see it again at once.", 'verb' => 'Relist', 'tone' => 'primary'];
                             }
                             $menu['check'] = ['action' => route('ext.ventacart.listings.check', $setting->id), 'label' => 'Check against ' . $storeName, 'fields' => ['product_ids[]' => $pid]];

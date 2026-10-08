@@ -1,12 +1,12 @@
 <?php
 
-use Extensions\ventacart\Controllers\VentaCartDescriptionTemplateController;
-use Extensions\ventacart\Controllers\VentaCartWatermarkTemplateController;
-use Extensions\ventacart\Controllers\VentaCartListingController;
-use Extensions\ventacart\Controllers\VentaCartSettingsController;
-use Extensions\ventacart\Controllers\VentaCartProductGroupController;
-use Extensions\ventacart\Controllers\VentaCartOrderController;
-use Extensions\ventacart\Controllers\VentaCartReviewController;
+use Extensions\VentaCart\Controllers\VentaCartDescriptionTemplateController;
+use Extensions\VentaCart\Controllers\VentaCartWatermarkTemplateController;
+use Extensions\VentaCart\Controllers\VentaCartListingController;
+use Extensions\VentaCart\Controllers\VentaCartSettingsController;
+use Extensions\VentaCart\Controllers\VentaCartProductGroupController;
+use Extensions\VentaCart\Controllers\VentaCartOrderController;
+use Extensions\VentaCart\Controllers\VentaCartReviewController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth'])->prefix('channels')->group(function () {
@@ -146,7 +146,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
 });
 
 Route::middleware(['auth'])->prefix('channels')->group(function () {
-    Route::get('/ventacart/{store?}', [\Extensions\ventacart\Controllers\VentaCartDashboardController::class, 'show'])
+    Route::get('/ventacart/{store?}', [\Extensions\VentaCart\Controllers\VentaCartDashboardController::class, 'show'])
         ->where('store', '[0-9]+')
         ->defaults('permission_denial', '404')
         ->name('ext.ventacart.dashboard');

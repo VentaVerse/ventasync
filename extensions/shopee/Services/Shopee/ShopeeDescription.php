@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
 use App\Services\Media\CatalogImageImporter;
 use App\Support\Catalog\DescriptionText;
-use Extensions\shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeApiLog;
 use Illuminate\Support\Str;
 
 final class ShopeeDescription

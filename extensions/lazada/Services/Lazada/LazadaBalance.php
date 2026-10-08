@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\lazada\Services\Lazada;
+namespace Extensions\Lazada\Services\Lazada;
 
 use Carbon\Carbon;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaSetting;
 
 class LazadaBalance
 {
@@ -66,7 +66,7 @@ class LazadaBalance
             $pages++;
         } while (count($lines) === self::PAGE_SIZE && $pages < self::MAX_PAGES);
 
-        $toConfirm = \Extensions\lazada\Models\LazadaOrder::query()
+        $toConfirm = \Extensions\Lazada\Models\LazadaOrder::query()
             ->where('lazada_setting_id', $store->id)
             ->where('status', 'delivered')
             ->where(fn ($q) => $q->whereNull('payout_status')->orWhere('payout_status', '!=', \App\Support\PayoutStatus::PAID))

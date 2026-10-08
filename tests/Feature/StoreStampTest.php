@@ -3,15 +3,15 @@
 namespace Tests\Feature;
 
 use App\Models\Catalog\Order;
-use Extensions\lazada\Models\LazadaOrder;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\lazada\Services\LazadaCatalogOrderSync;
-use Extensions\shopee\Models\ShopeeOrder;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\ShopeeCatalogOrderSync;
-use Extensions\tiktok\Models\TikTokOrder;
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\Services\TikTokCatalogOrderSync;
+use Extensions\Lazada\Models\LazadaOrder;
+use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Services\LazadaCatalogOrderSync;
+use Extensions\Shopee\Models\ShopeeOrder;
+use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Services\ShopeeCatalogOrderSync;
+use Extensions\TikTok\Models\TikTokOrder;
+use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Services\TikTokCatalogOrderSync;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;

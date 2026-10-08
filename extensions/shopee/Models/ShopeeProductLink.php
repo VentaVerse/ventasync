@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\shopee\Models;
+namespace Extensions\Shopee\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
 class ShopeeProductLink extends Model
 {
-    use \Extensions\shopee\Models\Concerns\BelongsToShopeeStore;
+    use \Extensions\Shopee\Models\Concerns\BelongsToShopeeStore;
 
     protected $table = 'shopee_product_links';
 
@@ -74,7 +74,7 @@ class ShopeeProductLink extends Model
                 'push_error' => null,
             ]);
 
-        app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->forStore($storeId)->clearErrors([$productId]);
+        app(\Extensions\Shopee\Services\Shopee\ShopeeListingStates::class)->forStore($storeId)->clearErrors([$productId]);
 
         return $removed;
     }

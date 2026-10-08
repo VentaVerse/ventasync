@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\lazada\Models;
+namespace Extensions\Lazada\Models;
 
 use App\Models\Catalog\Order;
 use Illuminate\Database\Eloquent\Model;
-use Extensions\lazada\Models\Concerns\BelongsToLazadaStore;
+use Extensions\Lazada\Models\Concerns\BelongsToLazadaStore;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 

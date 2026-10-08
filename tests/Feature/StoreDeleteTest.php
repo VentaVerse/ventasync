@@ -6,10 +6,10 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeLogistic;
-use Extensions\shopee\Models\ShopeeOrder;
-use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeLogistic;
+use Extensions\Shopee\Models\ShopeeOrder;
+use Extensions\Shopee\Models\ShopeeSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\MakesCoreOrders;
@@ -28,9 +28,9 @@ class StoreDeleteTest extends TestCase
             $m->install($e);
             $m->enable($e);
         }
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
-        $this->app->register(\Extensions\lazada\LazadaExtension::class);
-        $this->app->register(\Extensions\tiktok\TikTokExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Lazada\LazadaExtension::class);
+        $this->app->register(\Extensions\TikTok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
     }
@@ -93,12 +93,12 @@ class StoreDeleteTest extends TestCase
 
     public function test_deleting_a_lazada_store_leaves_no_row_behind_and_keeps_the_other_store(): void
     {
-        $gone = \Extensions\lazada\Models\LazadaSetting::create(['mode' => 'live', 'store_name' => 'Laz Outlet', 'region' => 'PH']);
-        $kept = \Extensions\lazada\Models\LazadaSetting::create(['mode' => 'live', 'store_name' => 'Laz Main', 'region' => 'PH']);
+        $gone = \Extensions\Lazada\Models\LazadaSetting::create(['mode' => 'live', 'store_name' => 'Laz Outlet', 'region' => 'PH']);
+        $kept = \Extensions\Lazada\Models\LazadaSetting::create(['mode' => 'live', 'store_name' => 'Laz Main', 'region' => 'PH']);
         foreach ([$gone, $kept] as $s) {
             app()->instance('lazada.route-store', $s);
-            \Extensions\lazada\Models\LazadaOrder::create(['order_id' => 900000 + $s->id, 'region' => 'PH', 'status' => 'pending', 'raw' => []]);
-            \Extensions\lazada\Models\LazadaProduct::create(['product_id' => 1]);
+            \Extensions\Lazada\Models\LazadaOrder::create(['order_id' => 900000 + $s->id, 'region' => 'PH', 'status' => 'pending', 'raw' => []]);
+            \Extensions\Lazada\Models\LazadaProduct::create(['product_id' => 1]);
         }
         app()->forgetInstance('lazada.route-store');
 
@@ -117,12 +117,12 @@ class StoreDeleteTest extends TestCase
 
     public function test_deleting_a_tiktok_store_leaves_no_row_behind_and_keeps_the_other_store(): void
     {
-        $gone = \Extensions\tiktok\Models\TikTokSetting::create(['mode' => 'production', 'store_name' => 'TT Outlet']);
-        $kept = \Extensions\tiktok\Models\TikTokSetting::create(['mode' => 'production', 'store_name' => 'TT Main']);
+        $gone = \Extensions\TikTok\Models\TikTokSetting::create(['mode' => 'production', 'store_name' => 'TT Outlet']);
+        $kept = \Extensions\TikTok\Models\TikTokSetting::create(['mode' => 'production', 'store_name' => 'TT Main']);
         foreach ([$gone, $kept] as $s) {
             app()->instance('tiktok.route-store', $s);
-            \Extensions\tiktok\Models\TikTokOrder::create(['order_id' => 'TT-' . $s->id, 'region' => 'PH', 'status' => 'AWAITING_SHIPMENT', 'raw' => []]);
-            \Extensions\tiktok\Models\TikTokListing::create(['product_id' => 1]);
+            \Extensions\TikTok\Models\TikTokOrder::create(['order_id' => 'TT-' . $s->id, 'region' => 'PH', 'status' => 'AWAITING_SHIPMENT', 'raw' => []]);
+            \Extensions\TikTok\Models\TikTokListing::create(['product_id' => 1]);
         }
         app()->forgetInstance('tiktok.route-store');
 

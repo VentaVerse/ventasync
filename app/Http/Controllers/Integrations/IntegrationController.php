@@ -12,32 +12,32 @@ use Illuminate\Support\Facades\DB;
 class IntegrationController extends Controller
 {
     private const ORDER_PANEL_SERVICES = [
-        'shopee'   => \Extensions\shopee\Services\ShopeeOrdersPanel::class,
-        'lazada'   => \Extensions\lazada\Services\LazadaOrdersPanel::class,
-        'tiktok'   => \Extensions\tiktok\Services\TikTokOrdersPanel::class,
-        'ventacart'    => \Extensions\ventacart\Services\VentaCartOrdersPanel::class,
-        'opencart' => \Extensions\opencart\Services\OpenCartOrdersPanel::class,
-        'shopify'  => \Extensions\shopify\Services\ShopifyOrdersPanel::class,
+        'shopee'   => \Extensions\Shopee\Services\ShopeeOrdersPanel::class,
+        'lazada'   => \Extensions\Lazada\Services\LazadaOrdersPanel::class,
+        'tiktok'   => \Extensions\TikTok\Services\TikTokOrdersPanel::class,
+        'ventacart'    => \Extensions\VentaCart\Services\VentaCartOrdersPanel::class,
+        'opencart' => \Extensions\OpenCart\Services\OpenCartOrdersPanel::class,
+        'shopify'  => \Extensions\Shopify\Services\ShopifyOrdersPanel::class,
         'pedallion' => \Extensions\pedallion\Services\PedallionOrdersPanel::class,
-        'woocommerce' => \Extensions\woocommerce\Services\WooCommerceOrdersPanel::class,
+        'woocommerce' => \Extensions\WooCommerce\Services\WooCommerceOrdersPanel::class,
     ];
 
     private const ORDER_PANEL_STORE_SCOPED = ['ventacart', 'opencart', 'shopify', 'shopee', 'lazada', 'tiktok', 'woocommerce'];
 
     private const RETURNS_PANEL_SERVICES = [
-        'shopee' => \Extensions\shopee\Services\ShopeeReturnsPanel::class,
-        'lazada' => \Extensions\lazada\Services\LazadaReturnsPanel::class,
-        'tiktok' => \Extensions\tiktok\Services\TikTokReturnsPanel::class,
+        'shopee' => \Extensions\Shopee\Services\ShopeeReturnsPanel::class,
+        'lazada' => \Extensions\Lazada\Services\LazadaReturnsPanel::class,
+        'tiktok' => \Extensions\TikTok\Services\TikTokReturnsPanel::class,
     ];
 
     private const RETURNS_COUNTERS = [
         'shopee' => [
-            'model' => \Extensions\shopee\Models\ShopeeReturn::class,
-            'setting' => \Extensions\shopee\Models\ShopeeSetting::class,
+            'model' => \Extensions\Shopee\Models\ShopeeReturn::class,
+            'setting' => \Extensions\Shopee\Models\ShopeeSetting::class,
         ],
         'lazada' => [
-            'model' => \Extensions\lazada\Models\LazadaReverseOrder::class,
-            'setting' => \Extensions\lazada\Models\LazadaSetting::class,
+            'model' => \Extensions\Lazada\Models\LazadaReverseOrder::class,
+            'setting' => \Extensions\Lazada\Models\LazadaSetting::class,
         ],
     ];
 

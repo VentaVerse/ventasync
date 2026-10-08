@@ -1,6 +1,6 @@
 <?php
 
-use Extensions\opencart\Support\OpenCartScheduledJobs;
+use Extensions\OpenCart\Support\OpenCartScheduledJobs;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 

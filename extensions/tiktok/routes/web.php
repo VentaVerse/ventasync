@@ -1,14 +1,14 @@
 <?php
 
-use Extensions\tiktok\Controllers\TikTokDescriptionTemplateController;
-use Extensions\tiktok\Controllers\TikTokWatermarkTemplateController;
-use Extensions\tiktok\Controllers\TikTokSettingsController;
-use Extensions\tiktok\Controllers\TikTokApiExplorerController;
-use Extensions\tiktok\Controllers\TikTokOrderController;
-use Extensions\tiktok\Controllers\TikTokCouponController;
-use Extensions\tiktok\Controllers\TikTokListingController;
-use Extensions\tiktok\Controllers\TikTokProductController;
-use Extensions\tiktok\Controllers\TikTokProductGroupController;
+use Extensions\TikTok\Controllers\TikTokDescriptionTemplateController;
+use Extensions\TikTok\Controllers\TikTokWatermarkTemplateController;
+use Extensions\TikTok\Controllers\TikTokSettingsController;
+use Extensions\TikTok\Controllers\TikTokApiExplorerController;
+use Extensions\TikTok\Controllers\TikTokOrderController;
+use Extensions\TikTok\Controllers\TikTokCouponController;
+use Extensions\TikTok\Controllers\TikTokListingController;
+use Extensions\TikTok\Controllers\TikTokProductController;
+use Extensions\TikTok\Controllers\TikTokProductGroupController;
 use Illuminate\Support\Facades\Route;
 
 // The OAuth callback is one fixed URL registered byte for byte in TikTok; no {store} segment.
@@ -20,7 +20,7 @@ Route::middleware(['auth'])->group(function () {
         ->defaults('permission_tier', 'manage');
 });
 
-Route::middleware(['auth', \Extensions\tiktok\Http\ResolveTikTokStore::class])
+Route::middleware(['auth', \Extensions\TikTok\Http\ResolveTikTokStore::class])
     ->prefix('channels')->where(['store' => '[0-9]+'])->group(function () {
 
     Route::group([], function () {
@@ -161,8 +161,8 @@ Route::middleware(['auth', \Extensions\tiktok\Http\ResolveTikTokStore::class])
     });
 });
 
-Route::middleware(['auth', \Extensions\tiktok\Http\ResolveTikTokStore::class])->prefix('channels')->group(function () {
-    Route::get('/tiktok/{store?}', [\Extensions\tiktok\Controllers\TikTokDashboardController::class, 'show'])
+Route::middleware(['auth', \Extensions\TikTok\Http\ResolveTikTokStore::class])->prefix('channels')->group(function () {
+    Route::get('/tiktok/{store?}', [\Extensions\TikTok\Controllers\TikTokDashboardController::class, 'show'])
         ->where('store', '[0-9]+')
         ->defaults('permission_denial', '404')
         ->name('ext.tiktok.dashboard');
@@ -170,7 +170,7 @@ Route::middleware(['auth', \Extensions\tiktok\Http\ResolveTikTokStore::class])->
 
 Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::get('/tiktok/{legacyPath}', function (\Illuminate\Http\Request $request, string $legacyPath) {
-        $store = \Extensions\tiktok\Models\TikTokSetting::query()->where('enabled', true)->orderBy('id')->value('id');
+        $store = \Extensions\TikTok\Models\TikTokSetting::query()->where('enabled', true)->orderBy('id')->value('id');
         abort_unless($store !== null, 404);
         $qs = $request->getQueryString();
 

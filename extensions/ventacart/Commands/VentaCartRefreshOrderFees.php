@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\ventacart\Commands;
+namespace Extensions\VentaCart\Commands;
 
-use Extensions\ventacart\Models\VentaCartSetting;
-use Extensions\ventacart\Services\VentaCart\VentaCartClient;
-use Extensions\ventacart\Services\VentaCart\VentaCartOrderSync;
+use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Services\VentaCart\VentaCartClient;
+use Extensions\VentaCart\Services\VentaCart\VentaCartOrderSync;
 use Illuminate\Console\Command;
 
 class VentaCartRefreshOrderFees extends Command

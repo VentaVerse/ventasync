@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\shopee\Services;
+namespace Extensions\Shopee\Services;
 
 use App\Integrations\Listings\ListingSort;
 use App\Support\StoreKey;
