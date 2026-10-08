@@ -9,10 +9,10 @@ return new class extends Migration
 {
     public function up(): void
     {
-        $this->movePermissions('ai_tools/assistant', 'assistant/overview');
+        $this->movePermissions('ai_tools/assistant', 'mcp/overview');
 
-        $file = base_path('extensions/assistant/extension.json');
-        if (! Schema::hasTable('extensions') || ! File::exists($file) || DB::table('extensions')->where('id', 'assistant')->exists()) {
+        $file = base_path('extensions/mcp/extension.json');
+        if (! Schema::hasTable('extensions') || ! File::exists($file) || DB::table('extensions')->where('id', 'mcp')->exists()) {
             return;
         }
         if (! Schema::hasTable('users') || ! DB::table('users')->exists()) {
@@ -21,8 +21,8 @@ return new class extends Migration
 
         $manifest = json_decode(File::get($file), true) ?: [];
         DB::table('extensions')->insert([
-            'id' => 'assistant',
-            'name' => $manifest['name'] ?? 'AI Assistant',
+            'id' => 'mcp',
+            'name' => $manifest['name'] ?? 'MCP Server',
             'version' => $manifest['version'] ?? '1.0.0',
             'description' => $manifest['description'] ?? null,
             'author' => $manifest['author'] ?? null,
@@ -35,10 +35,10 @@ return new class extends Migration
 
     public function down(): void
     {
-        $this->movePermissions('assistant/overview', 'ai_tools/assistant');
+        $this->movePermissions('mcp/overview', 'ai_tools/assistant');
 
         if (Schema::hasTable('extensions')) {
-            DB::table('extensions')->where('id', 'assistant')->delete();
+            DB::table('extensions')->where('id', 'mcp')->delete();
         }
     }
 

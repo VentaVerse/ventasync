@@ -37,32 +37,32 @@
     {
         "method": "GET|HEAD",
         "uri": "ai-tools",
-        "name": "ext.assistant.index"
+        "name": "ext.mcp.index"
     },
     {
         "method": "POST",
         "uri": "ai-tools",
-        "name": "ext.assistant.store"
+        "name": "ext.mcp.store"
     },
     {
         "method": "POST",
         "uri": "ai-tools/sign-in",
-        "name": "ext.assistant.sign_in"
+        "name": "ext.mcp.sign_in"
     },
     {
         "method": "PUT",
         "uri": "ai-tools/sign-in-setting",
-        "name": "ext.assistant.sign_in_setting"
+        "name": "ext.mcp.sign_in_setting"
     },
     {
         "method": "DELETE",
         "uri": "ai-tools/{apiClient}",
-        "name": "ext.assistant.destroy"
+        "name": "ext.mcp.destroy"
     },
     {
         "method": "PUT",
         "uri": "ai-tools/{apiClient}",
-        "name": "ext.assistant.update"
+        "name": "ext.mcp.update"
     },
     {
         "method": "GET|HEAD",

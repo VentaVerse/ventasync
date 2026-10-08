@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var page = document.getElementById('ai-tools-page');
     if (!page) return;
 
-    var input = page.querySelector('[data-ai-assistant-input]');
+    var input = page.querySelector('[data-ai-client-input]');
     var title = page.querySelector('[data-ai-step3-title]');
     var tiles = Array.from(page.querySelectorAll('[data-ai-tile]'));
     if (!input || !tiles.length) return;
