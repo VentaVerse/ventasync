@@ -12,12 +12,6 @@
     $hasSearch = $q !== '';
 
     $listUrl = route('ext.opencart.product-groups.products', [$setting->id, $group->id]);
-
-    $otherOcLinks = $otherOcLinks ?? [];
-    $otherStoreNames = $otherStoreNames ?? [];
-    $shopeeLinked = $shopeeLinked ?? collect();
-    $lazadaLinked = $lazadaLinked ?? collect();
-    $tiktokLinked = $tiktokLinked ?? collect();
 @endphp
 
 <div class="cc-page"
@@ -90,7 +84,6 @@
             <th scope="col" class="cc-col-price x-td-num">Price</th>
             <th scope="col" class="cc-col-stat">Catalog</th>
             <th scope="col" class="cc-col-chanid">This store</th>
-            <th scope="col" class="oc-col-elsewhere">Also listed on</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
@@ -105,21 +98,6 @@
 
             $pName = html_entity_decode((string) ($p->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
             $pSku = (string) ($p->sku ?: ($p->model ?: ''));
-
-            $elsewhere = [];
-            foreach (($otherOcLinks[$p->product_id] ?? []) as $oLink) {
-                $elsewhere[] = ($otherStoreNames[$oLink->opencart_setting_id] ?? 'Another OpenCart store')
-                    . ' ' . $oLink->oc_product_id;
-            }
-            if ($shopeeLinked->has($p->product_id)) {
-                $elsewhere[] = 'Shopee ' . $shopeeLinked[$p->product_id];
-            }
-            if ($lazadaLinked->has($p->product_id)) {
-                $elsewhere[] = 'Lazada ' . $lazadaLinked[$p->product_id];
-            }
-            if ($tiktokLinked->has($p->product_id)) {
-                $elsewhere[] = 'TikTok ' . $tiktokLinked[$p->product_id];
-            }
         @endphp
         <tr>
             @if($canManageOpencart)
@@ -167,16 +145,6 @@
                     <span class="x-num">{{ $link->oc_product_id }}</span>
                 @else
                     <span class="x-cell-muted">Not pushed</span>
-                @endif
-            </td>
-
-            <td class="oc-col-elsewhere" data-label="Also listed on">
-                @if(empty($elsewhere))
-                    <span class="x-cell-muted">Nowhere else</span>
-                @else
-                    @foreach($elsewhere as $where)
-                        <span class="cc-sub cc-sub--mono">{{ $where }}</span>
-                    @endforeach
                 @endif
             </td>
 
