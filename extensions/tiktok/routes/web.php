@@ -54,7 +54,7 @@ Route::middleware(['auth', \Extensions\tiktok\Http\ResolveTikTokStore::class])
         Route::get('/tiktok/{store}/coupons', [TikTokCouponController::class, 'index'])->name('ext.tiktok.coupons.index');
 
         Route::get('/tiktok/{store}/products', [TikTokProductController::class, 'index'])->name('ext.tiktok.products.index');
-        Route::get('/tiktok/{store}/products/catalogue-search', [TikTokProductController::class, 'catalogueSearch'])->name('ext.tiktok.products.catalogue_search');
+        Route::get('/tiktok/{store}/products/catalog-search', [TikTokProductController::class, 'catalogSearch'])->name('ext.tiktok.products.catalog_search');
         Route::get('/tiktok/{store}/products/import', [TikTokProductController::class, 'importPage'])->name('ext.tiktok.products.import');
         Route::get('/tiktok/{store}/products/categories/search', [TikTokProductController::class, 'searchCategories'])->name('ext.tiktok.products.searchCategories');
         Route::get('/tiktok/{store}/products/categories/lookup', [TikTokProductController::class, 'categoryLookup'])->name('ext.tiktok.products.categoryLookup');

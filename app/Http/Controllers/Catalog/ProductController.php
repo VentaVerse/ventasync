@@ -513,7 +513,7 @@ $pfx = config('catalog.prefix');
             'options.*.values.*.cost_percentage' => 'nullable|numeric',
             'options.*.values.*.cost_additional' => 'nullable|numeric',
         ], [
-            'sku.required' => 'A SKU is needed. Imports, stock pushes and link repair recognise this product by it.',
+            'sku.required' => 'A SKU is needed. Imports, stock pushes and link repair recognize this product by it.',
             'price.required' => 'A price above zero is needed - a listing pushed without one goes live at zero.',
             'price.gt' => 'The price must be more than zero - a listing pushed at zero sells at zero.',
             'weight.required' => 'A package weight is needed.',
@@ -983,7 +983,7 @@ $pfx = config('catalog.prefix');
             'options.*.values.*.cost_percentage' => 'nullable|numeric',
             'options.*.values.*.cost_additional' => 'nullable|numeric',
         ], [
-            'sku.required' => 'A SKU is needed. Imports, stock pushes and link repair recognise this product by it.',
+            'sku.required' => 'A SKU is needed. Imports, stock pushes and link repair recognize this product by it.',
             'price.required' => 'A price above zero is needed - a listing pushed without one goes live at zero.',
             'price.gt' => 'The price must be more than zero - a listing pushed at zero sells at zero.',
             'weight.required' => 'A package weight is needed.',

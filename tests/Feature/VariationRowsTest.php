@@ -30,7 +30,7 @@ class VariationRowsTest extends TestCase
 
         $optionId = (int) DB::table($pfx . 'option')->insertGetId(['type' => 'select', 'sort_order' => 0]);
         DB::table($pfx . 'option_description')->insert([
-            'option_id' => $optionId, 'language_id' => $langId, 'name' => 'Colour',
+            'option_id' => $optionId, 'language_id' => $langId, 'name' => 'Color',
         ]);
         $valueId = (int) DB::table($pfx . 'option_value')->insertGetId([
             'option_id' => $optionId, 'image' => '', 'sort_order' => 0,
@@ -77,7 +77,7 @@ class VariationRowsTest extends TestCase
         $combo = $rows->get($comboProduct)->first();
         $this->assertSame('COMBO-RED', $combo->sku);
         $this->assertSame('Red', $combo->option_value_name);
-        $this->assertSame('Colour', $combo->option_name);
+        $this->assertSame('Color', $combo->option_name);
         $this->assertSame('catalog/red.png', $combo->option_image);
         $this->assertSame(14, (int) $combo->quantity);
 

@@ -6,7 +6,7 @@ use App\Services\Orders\MarketplaceFeeNormalizer;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
-// Never re-sync to collect fees: a re-sync re-stamps every order line's cost at today's catalogue costs.
+// Never re-sync to collect fees: a re-sync re-stamps every order line's cost at today's catalog costs.
 class NormalizeMarketplaceFees extends Command
 {
     protected $signature = 'orders:normalize-marketplace-fees

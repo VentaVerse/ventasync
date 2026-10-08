@@ -34,7 +34,7 @@ class ShopeeStockPushHealTest extends TestCase
         $manager->enable('shopee');
         $this->app->register(\Extensions\shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
         ShopeeSetting::query()->create(['mode' => 'live', 'partner_id' => '1', 'partner_key' => 'k', 'shop_id' => '2', 'access_token' => 't', 'refresh_token' => 'r']);
 
@@ -148,7 +148,7 @@ class ShopeeStockPushHealTest extends TestCase
         $this->assertTrue((bool) $five->fresh()->last_sync_ok);
     }
 
-    public function test_the_cron_leaves_a_model_the_catalogue_lacks_alone_and_pushes_the_rest(): void
+    public function test_the_cron_leaves_a_model_the_catalog_lacks_alone_and_pushes_the_rest(): void
     {
         $gone = $this->productWithVariations(['G-1' => 5]);
         ShopeeProductLink::create(['product_id' => $gone, 'shopee_item_id' => 910, 'shopee_model_id' => 1, 'sku' => 'G-1']);
@@ -261,7 +261,7 @@ class ShopeeStockPushHealTest extends TestCase
             ->get(route('ext.shopee.listings.edit', $pid))->assertOk();
 
         $page->assertDontSee('2 of 3 variations');
-        $page->assertDontSee('In the catalogue but not on Shopee');
+        $page->assertDontSee('In the catalog but not on Shopee');
         $page->assertSee('Not in your Master Catalog');
         $page->assertSee('Push missing variations');
         $page->assertSee('Re-read variations from Shopee');

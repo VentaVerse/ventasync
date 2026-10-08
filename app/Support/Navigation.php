@@ -389,7 +389,7 @@ class Navigation
         }
 
         [$class] = explode('@', $action);
-        $catalog = app(\App\Services\PermissionCatalogue::class);
+        $catalog = app(\App\Services\PermissionCatalog::class);
         $key = $catalog->keyForController($class);
 
         if ($key === null) {

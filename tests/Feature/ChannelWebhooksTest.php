@@ -28,7 +28,7 @@ class ChannelWebhooksTest extends TestCase
         $this->app->register(\Extensions\shopee\ShopeeExtension::class);
         $this->app->register(\Extensions\tiktok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
         ShopeeSetting::query()->create(['mode' => 'live', 'partner_id' => '1', 'partner_key' => 'k', 'shop_id' => '2', 'access_token' => 't', 'refresh_token' => 'r']);
         TikTokSetting::create(['mode' => 'production', 'app_key' => 'ak', 'app_secret' => 'as', 'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3)]);

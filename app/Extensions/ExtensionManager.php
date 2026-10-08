@@ -274,7 +274,7 @@ class ExtensionManager
 
     public function claimedPermissionKeys(): array
     {
-        return app(\App\Services\PermissionCatalogue::class)->keys();
+        return app(\App\Services\PermissionCatalog::class)->keys();
     }
 
     public function orphanedPermissionKeys(): array
@@ -340,7 +340,7 @@ class ExtensionManager
             return;
         }
 
-        $wanted = app(\App\Services\PermissionCatalogue::class)->keys();
+        $wanted = app(\App\Services\PermissionCatalog::class)->keys();
         $existing = DB::table('permissions')->whereIn('key', $wanted)->pluck('key')->all();
         $missing = array_diff($wanted, $existing);
 

@@ -36,7 +36,7 @@ class VentaCartReconcileTest extends TestCase
         $body = $this->methodBody('reconcileLink');
 
         $this->assertStringContainsString("'state' => 'lost'", $body,
-            'Nothing recognises a product that has been removed on VentaCart.');
+            'Nothing recognizes a product that has been removed on VentaCart.');
         $this->assertStringContainsString('$link->delete();', $body,
             'A stale link survives reconciliation, so the next push sends an update VentaCart can only 404.');
     }

@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use App\Extensions\ExtensionManager;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use App\Services\PermissionCatalogue;
+use App\Services\PermissionCatalog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -125,7 +125,7 @@ class PermissionEditorSafetyTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $catalog = $this->app->make(PermissionCatalogue::class);
+        $catalog = $this->app->make(PermissionCatalog::class);
         $areas = 0;
 
         foreach ($catalog->grouped() as $group) {
@@ -168,7 +168,7 @@ class PermissionEditorSafetyTest extends TestCase
 
     public function test_the_consequential_rows_carry_a_plain_warning(): void
     {
-        $catalog = $this->app->make(PermissionCatalogue::class);
+        $catalog = $this->app->make(PermissionCatalog::class);
 
         foreach (['settings/user_group', 'settings/user', 'settings/api_client'] as $key) {
             $this->assertNotSame('', $catalog->warningFor($key),
@@ -211,7 +211,7 @@ class PermissionEditorSafetyTest extends TestCase
 
     public function test_the_machine_facing_areas_sort_last_and_are_still_offered(): void
     {
-        $catalog = $this->app->make(PermissionCatalogue::class);
+        $catalog = $this->app->make(PermissionCatalog::class);
         $grouped = $catalog->grouped();
 
         $machine = array_values(array_filter($grouped, fn ($g) => $g['machine']));
@@ -240,7 +240,7 @@ class PermissionEditorSafetyTest extends TestCase
 
     public function test_no_row_is_named_by_a_stuttering_machine(): void
     {
-        $catalog = $this->app->make(PermissionCatalogue::class);
+        $catalog = $this->app->make(PermissionCatalog::class);
         $seen = [];
 
         foreach ($catalog->grouped() as $group) {

@@ -316,7 +316,7 @@ class ShopeeProductGroupController extends Controller
             $query->where('gp.sync_status', 'unlinked');
         }
 
-        $catalogueTotal = (clone $query)->count();
+        $catalogTotal = (clone $query)->count();
 
         if ($shopeeTab !== 'all' && $liveCounts !== null) {
             $tabProductIds = ShopeeProductLink::query()
@@ -387,7 +387,7 @@ class ShopeeProductGroupController extends Controller
             'shopeeTab' => $shopeeTab,
             'liveCounts' => $liveCounts,
             'liveCheckedAt' => $liveCheckedAt,
-            'catalogueTotal' => $catalogueTotal,
+            'catalogTotal' => $catalogTotal,
         ]);
     }
 
@@ -949,9 +949,9 @@ class ShopeeProductGroupController extends Controller
     public function addProduct(Request $request, int $id, int $productId)
     {
         $group = ShopeeProductGroup::query()->findOrFail($id);
-        $inCatalogue = DB::table((string) config('catalog.prefix') . 'product')
+        $inCatalog = DB::table((string) config('catalog.prefix') . 'product')
             ->where('product_id', $productId)->where('status', 1)->exists();
-        abort_unless($inCatalogue, 404);
+        abort_unless($inCatalog, 404);
 
         $listedNow = false;
         if (! ShopeeStoreProducts::has($productId)) {

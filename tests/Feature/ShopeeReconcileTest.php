@@ -53,7 +53,7 @@ class ShopeeReconcileTest extends TestCase
         $body = $this->methodBody('shopeeItemStillExists');
 
         $this->assertStringContainsString('not_found', $body,
-            'The missing-item error is no longer recognised, so a deleted item cannot be detected.');
+            'The missing-item error is no longer recognized, so a deleted item cannot be detected.');
         $this->assertMatchesRegularExpression(
             "/not_found.*?:\s*'unknown'/s",
             $body,

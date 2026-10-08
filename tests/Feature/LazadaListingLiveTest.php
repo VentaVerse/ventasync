@@ -32,7 +32,7 @@ class LazadaListingLiveTest extends TestCase
         $manager->enable('lazada');
         $this->app->register(\Extensions\lazada\LazadaExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
         LazadaSetting::query()->create([
             'mode' => 'live', 'region' => 'ph',
@@ -210,7 +210,7 @@ class LazadaListingLiveTest extends TestCase
     {
         $pid = $this->productWithPicture('QB-TWO');
         $length = $this->addOption($pid, 'Length', ['1ft', '3ft']);
-        $colour = $this->addOption($pid, 'Colour', ['Black']);
+        $color = $this->addOption($pid, 'Color', ['Black']);
         foreach (['1ft', '3ft'] as $i => $value) {
             $comboId = DB::table('product_option_combinations')->insertGetId([
                 'product_id' => $pid, 'sku' => 'QB-TWO-' . $value, 'status' => 1, 'quantity' => 5,
@@ -219,7 +219,7 @@ class LazadaListingLiveTest extends TestCase
             ]);
             DB::table('product_option_combination_values')->insert([
                 ['combination_id' => $comboId, 'product_option_value_id' => $length[$value]],
-                ['combination_id' => $comboId, 'product_option_value_id' => $colour['Black']],
+                ['combination_id' => $comboId, 'product_option_value_id' => $color['Black']],
             ]);
         }
         $this->liveItemSkus([
@@ -314,7 +314,7 @@ class LazadaListingLiveTest extends TestCase
 
     public function test_orders_the_names_cannot_settle_are_refused_with_nothing_sent(): void
     {
-        $pid = $this->twoOptionProduct('QB-KNOT', 'Size', ['S', 'M'], 'Colour', 'Black');
+        $pid = $this->twoOptionProduct('QB-KNOT', 'Size', ['S', 'M'], 'Color', 'Black');
         $this->liveItemSkus([
             ['SkuId' => 1, 'SellerSku' => 'QB-KNOT-S', 'saleProp' => ['Color' => 'Black', 'Size' => 'S']],
             ['SkuId' => 2, 'SellerSku' => 'QB-KNOT-M', 'saleProp' => ['Color' => 'Black', 'Size' => 'M']],
@@ -326,7 +326,7 @@ class LazadaListingLiveTest extends TestCase
         } catch (\Illuminate\Validation\ValidationException $e) {
             $said = implode(' ', $e->errors()['variants'] ?? []);
             $this->assertStringContainsString('in the order Color, Size', $said);
-            $this->assertStringContainsString('your product has Size, Colour', $said);
+            $this->assertStringContainsString('your product has Size, Color', $said);
         }
         $this->assertEmpty($this->sentPosts, 'nothing is sent');
     }
@@ -440,13 +440,13 @@ class LazadaListingLiveTest extends TestCase
         $this->assertArrayNotHasKey('variation', $payload['Request']['Product']);
         $this->assertSame([], $preview['variation_renames']);
 
-        $colour = $this->productWithPicture('QB-CF');
-        $this->addOption($colour, 'Colour', ['Black', 'Red'], ['Black' => 'QB-CF-B', 'Red' => 'QB-CF-R']);
+        $color = $this->productWithPicture('QB-CF');
+        $this->addOption($color, 'Color', ['Black', 'Red'], ['Black' => 'QB-CF-B', 'Red' => 'QB-CF-R']);
         $this->liveItem([
             ['SkuId' => 1, 'SellerSku' => 'QB-CF-B', 'saleProp' => ['color_family' => 'Black']],
             ['SkuId' => 2, 'SellerSku' => 'QB-CF-R', 'saleProp' => ['color_family' => 'Red']],
         ], ['variation1' => ['has_image' => 'true', 'name' => 'color_family', 'options' => [], 'customize' => 'true']]);
-        [$payload] = $this->payloadSent($this->listingOn($colour, '2712258177'));
+        [$payload] = $this->payloadSent($this->listingOn($color, '2712258177'));
         $this->assertArrayNotHasKey('variation', $payload['Request']['Product']);
         $this->assertSame(['Black', 'Red'], array_column($payload['Request']['Product']['Skus']['Sku'], 'color_family'));
     }
@@ -1031,8 +1031,8 @@ class LazadaListingLiveTest extends TestCase
 
     private function productDescribedAs(string $sku, string $html): int
     {
-        $pid = $this->colourProduct($sku);
-        $this->liveColours($sku);
+        $pid = $this->colorProduct($sku);
+        $this->liveColors($sku);
         DB::table((string) config('catalog.prefix') . 'product_description')->where('product_id', $pid)->update(['description' => $html]);
         LazadaProduct::query()->where('product_id', $pid)->update(['description' => $html]);
 
@@ -1337,7 +1337,7 @@ class LazadaListingLiveTest extends TestCase
         return (int) LazadaSetting::defaultStore()->id;
     }
 
-    private function colourProduct(string $sku): int
+    private function colorProduct(string $sku): int
     {
         $pid = $this->productWithPicture($sku);
         $this->addOption($pid, 'Color', ['Red', 'Blue', 'Green'], ['Red' => $sku . '-R', 'Blue' => $sku . '-B', 'Green' => $sku . '-G']);
@@ -1353,7 +1353,7 @@ class LazadaListingLiveTest extends TestCase
         return $pid;
     }
 
-    private function liveColours(string $sku, array $statuses = [], string $itemStatus = 'active'): void
+    private function liveColors(string $sku, array $statuses = [], string $itemStatus = 'active'): void
     {
         $skus = [];
         $id = 0;
@@ -1391,8 +1391,8 @@ class LazadaListingLiveTest extends TestCase
 
     public function test_a_variation_switched_off_for_the_store_is_deactivated_by_its_sku_alone(): void
     {
-        $pid = $this->colourProduct('SW-OFF');
-        $this->liveColours('SW-OFF');
+        $pid = $this->colorProduct('SW-OFF');
+        $this->liveColors('SW-OFF');
         $this->sellHere($pid, ['SW-OFF-B', 'SW-OFF-G']);
 
         $this->pushListing($pid)->assertSessionHas('status', 'Update pushed. Switched off on Lazada: Red (SW-OFF-R).');
@@ -1412,10 +1412,10 @@ class LazadaListingLiveTest extends TestCase
 
     public function test_a_variation_switched_back_on_is_sent_active_in_the_update(): void
     {
-        $pid = $this->colourProduct('SW-BACK');
+        $pid = $this->colorProduct('SW-BACK');
         $this->sellHere($pid, ['SW-BACK-B', 'SW-BACK-G']);
         $this->sellHere($pid, ['SW-BACK-R', 'SW-BACK-B', 'SW-BACK-G']);
-        $this->liveColours('SW-BACK', ['R' => 'inactive']);
+        $this->liveColors('SW-BACK', ['R' => 'inactive']);
 
         $this->pushListing($pid)->assertSessionHas('status', 'Update pushed. Switched back on: Red (SW-BACK-R).');
 
@@ -1428,9 +1428,9 @@ class LazadaListingLiveTest extends TestCase
 
     public function test_a_sku_already_inactive_on_lazada_is_not_deactivated_again(): void
     {
-        $pid = $this->colourProduct('SW-DONE');
+        $pid = $this->colorProduct('SW-DONE');
         $this->sellHere($pid, ['SW-DONE-B', 'SW-DONE-G']);
-        $this->liveColours('SW-DONE', ['R' => 'inactive']);
+        $this->liveColors('SW-DONE', ['R' => 'inactive']);
 
         $this->pushListing($pid)->assertSessionHas('status', 'Update pushed.');
 
@@ -1440,9 +1440,9 @@ class LazadaListingLiveTest extends TestCase
 
     public function test_a_refused_deactivate_is_the_listings_error(): void
     {
-        $pid = $this->colourProduct('SW-NO');
+        $pid = $this->colorProduct('SW-NO');
         $this->sellHere($pid, ['SW-NO-B', 'SW-NO-G']);
-        $this->liveColours('SW-NO');
+        $this->liveColors('SW-NO');
         $this->postResponses['/product/deactivate'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 'E0006', 'message' => 'Unexpected internal error']];
 
         $line = 'Lazada refused to switch off Red (SW-NO-R): Unexpected internal error (code E0006).';
@@ -1453,9 +1453,9 @@ class LazadaListingLiveTest extends TestCase
 
     public function test_lazada_saying_the_sku_is_already_inactive_counts_as_done(): void
     {
-        $pid = $this->colourProduct('SW-E4');
+        $pid = $this->colorProduct('SW-E4');
         $this->sellHere($pid, ['SW-E4-B', 'SW-E4-G']);
-        $this->liveColours('SW-E4');
+        $this->liveColors('SW-E4');
         $this->postResponses['/product/deactivate'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 'E0004', 'message' => 'Product Status not online']];
 
         $this->pushListing($pid)->assertSessionHas('status', 'Update pushed. Switched off on Lazada: Red (SW-E4-R).');
@@ -1465,8 +1465,8 @@ class LazadaListingLiveTest extends TestCase
 
     public function test_an_item_switched_off_as_a_whole_is_not_switched_back_on_by_a_push(): void
     {
-        $pid = $this->colourProduct('SW-ITEM');
-        $this->liveColours('SW-ITEM', ['R' => 'inactive', 'B' => 'inactive', 'G' => 'inactive'], 'inactive');
+        $pid = $this->colorProduct('SW-ITEM');
+        $this->liveColors('SW-ITEM', ['R' => 'inactive', 'B' => 'inactive', 'G' => 'inactive'], 'inactive');
 
         $this->pushListing($pid)->assertSessionHas('status', 'Update pushed.');
 
@@ -1477,9 +1477,9 @@ class LazadaListingLiveTest extends TestCase
 
     public function test_a_group_update_deactivates_a_variation_switched_off_for_the_store(): void
     {
-        $pid = $this->colourProduct('SW-GRP');
+        $pid = $this->colorProduct('SW-GRP');
         $this->sellHere($pid, ['SW-GRP-B', 'SW-GRP-G']);
-        $this->liveColours('SW-GRP');
+        $this->liveColors('SW-GRP');
         $listing = LazadaProduct::query()->where('product_id', $pid)->firstOrFail();
         $group = \Extensions\lazada\Models\LazadaProductGroup::create(['name' => 'Switch group', 'lazada_category_id' => 9257]);
         \Extensions\lazada\Models\LazadaProductGroupProduct::create([
@@ -1498,9 +1498,9 @@ class LazadaListingLiveTest extends TestCase
 
     public function test_activating_the_item_leaves_a_variation_switched_off_for_the_store_off(): void
     {
-        $pid = $this->colourProduct('SW-TOG');
+        $pid = $this->colorProduct('SW-TOG');
         $this->sellHere($pid, ['SW-TOG-B', 'SW-TOG-G']);
-        $this->liveColours('SW-TOG', ['R' => 'inactive', 'B' => 'inactive', 'G' => 'inactive'], 'inactive');
+        $this->liveColors('SW-TOG', ['R' => 'inactive', 'B' => 'inactive', 'G' => 'inactive'], 'inactive');
 
         $this->actingAs($this->manager())
             ->post(route('ext.lazada.listings.toggle', $pid), ['action' => 'activate'])

@@ -427,7 +427,7 @@ class VentaCartListingController extends Controller
         ];
 
         $tabBase = $applyMenu(clone $query);
-        $catalogueTotal = (clone $tabBase)->count();
+        $catalogTotal = (clone $tabBase)->count();
         $liveCounts = $tabCounts($tabBase);
 
         $applyMenu($query);
@@ -492,7 +492,7 @@ class VentaCartListingController extends Controller
             'liveCheckedAt' => $liveCheckedAt,
             'liveTabError' => $liveTabError,
             'troubleFilter' => $troubleFilter,
-            'catalogueTotal' => $catalogueTotal,
+            'catalogTotal' => $catalogTotal,
             'failedFlag' => $failedFlag,
             'changeFlag' => $changeFlag,
             'groupSize' => ctype_digit((string) $groupFilter) ? app(\Extensions\ventacart\Controllers\VentaCartProductGroupController::class)->groupSendSize((int) $groupFilter) : null,
@@ -571,7 +571,7 @@ class VentaCartListingController extends Controller
         return $out;
     }
 
-    public function catalogueSearch(Request $request, int $store)
+    public function catalogSearch(Request $request, int $store)
     {
         VentaCartSetting::findOrFail($store);
         $pfx = (string) config('catalog.prefix');

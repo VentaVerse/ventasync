@@ -7,7 +7,7 @@ use App\Models\Admin\UserGroup;
 use App\Models\User;
 use App\Models\Admin\Permission;
 use App\Services\ActivityLogger;
-use App\Services\PermissionCatalogue;
+use App\Services\PermissionCatalog;
 use App\Services\PermissionHierarchy;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +16,7 @@ class UserGroupController extends Controller
 {
     private function getGroupedPermissions(array $selected = []): array
     {
-        $catalog = app(PermissionCatalogue::class);
+        $catalog = app(PermissionCatalog::class);
         $rows = Permission::whereIn('key', $catalog->keys())->get()->keyBy('key');
         $held = array_flip($selected);
 

@@ -122,7 +122,7 @@
                     </x-ui.field>
 
                     <x-ui.field label="SKU" name="sku" :required="true"
-                                hint="How imports, stock pushes and link repair recognise this product.">
+                                hint="How imports, stock pushes and link repair recognize this product.">
                         <x-ui.input id="f-sku" name="sku" class="fm-input--num" value="{{ old('sku', $product->sku) }}" required />
                     </x-ui.field>
 

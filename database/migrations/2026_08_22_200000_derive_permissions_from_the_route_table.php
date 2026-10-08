@@ -1,6 +1,6 @@
 <?php
 
-use App\Services\PermissionCatalogue;
+use App\Services\PermissionCatalog;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -13,7 +13,7 @@ return new class extends Migration
             return;
         }
 
-        $catalog = app(PermissionCatalogue::class);
+        $catalog = app(PermissionCatalog::class);
 
         $ids = DB::table('permissions')->pluck('id', 'key')->all();
 
@@ -82,7 +82,7 @@ return new class extends Migration
         }
     }
 
-    private function derivedMap(PermissionCatalogue $catalog): array
+    private function derivedMap(PermissionCatalog $catalog): array
     {
         $map = [];
 
@@ -125,7 +125,7 @@ return new class extends Migration
             return;
         }
 
-        $keys = app(PermissionCatalogue::class)->keys();
+        $keys = app(PermissionCatalog::class)->keys();
         $ids = DB::table('permissions')->whereIn('key', $keys)->pluck('id')->all();
 
         if ($ids !== []) {

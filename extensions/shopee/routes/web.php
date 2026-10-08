@@ -61,7 +61,7 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
 
         Route::get('/shopee/{store}/products', [ShopeeProductController::class, 'index'])->name('ext.shopee.products.index');
         Route::get('/shopee/{store}/products/search-catalog', [ShopeeProductController::class, 'searchCatalogProducts'])->name('ext.shopee.products.search_catalog');
-        Route::get('/shopee/{store}/products/catalogue-search', [ShopeeProductController::class, 'catalogueSearch'])->name('ext.shopee.products.catalogue_search');
+        Route::get('/shopee/{store}/products/catalog-search', [ShopeeProductController::class, 'catalogSearch'])->name('ext.shopee.products.catalog_search');
         Route::get('/shopee/{store}/products/categories/search', [ShopeeProductController::class, 'searchCategories'])->name('ext.shopee.products.searchCategories');
         Route::get('/shopee/{store}/products/categories/lookup', [ShopeeProductController::class, 'categoryLookup'])->name('ext.shopee.products.categoryLookup');
         Route::get('/shopee/{store}/products/brands', [ShopeeProductController::class, 'brandsForCategory'])->name('ext.shopee.products.brandsForCategory');

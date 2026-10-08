@@ -1,6 +1,6 @@
 <?php
 
-use App\Services\PermissionCatalogue;
+use App\Services\PermissionCatalog;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -13,7 +13,7 @@ return new class extends Migration
             return;
         }
 
-        $catalog = app(PermissionCatalogue::class);
+        $catalog = app(PermissionCatalog::class);
         $ids = DB::table('permissions')->pluck('id', 'key')->all();
 
         foreach ($catalog->keys() as $key) {

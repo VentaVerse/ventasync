@@ -28,7 +28,7 @@ class ShopeePreflightTest extends TestCase
         $manager->enable('shopee');
         $this->app->register(\Extensions\shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
         ShopeeSetting::create([
             'mode' => 'production', 'store_name' => 'Main store',

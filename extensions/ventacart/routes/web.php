@@ -53,7 +53,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::post('/ventacart/{store}/products/import-one', [VentaCartListingController::class, 'importOne'])->whereNumber('store')->name('ext.ventacart.products.import_one');
     Route::post('/ventacart/{store}/products/import-selected', [VentaCartListingController::class, 'importSelected'])->whereNumber('store')->name('ext.ventacart.products.import_selected');
     Route::post('/ventacart/{store}/products/link-item', [VentaCartListingController::class, 'linkItem'])->whereNumber('store')->name('ext.ventacart.products.link_item');
-    Route::get('/ventacart/{store}/products/catalogue-search', [VentaCartListingController::class, 'catalogueSearch'])->whereNumber('store')->name('ext.ventacart.products.catalogue_search');
+    Route::get('/ventacart/{store}/products/catalog-search', [VentaCartListingController::class, 'catalogSearch'])->whereNumber('store')->name('ext.ventacart.products.catalog_search');
     Route::post('/ventacart/{store}/products/add-to-store/{productId}', [VentaCartListingController::class, 'addToStore'])->whereNumber('store')->whereNumber('productId')->name('ext.ventacart.products.add_to_store');
     Route::post('/ventacart/{store}/products/add-to-store', [VentaCartListingController::class, 'addToStoreBulk'])->whereNumber('store')->name('ext.ventacart.products.add_to_store_bulk');
     Route::post('/ventacart/{store}/products/remove-from-store/{productId}', [VentaCartListingController::class, 'removeFromStore'])->whereNumber('store')->whereNumber('productId')->name('ext.ventacart.products.remove_from_store');

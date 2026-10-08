@@ -3,17 +3,19 @@
 namespace App\Console\Commands;
 
 use App\Models\Admin\Permission;
-use App\Services\PermissionCatalogue;
+use App\Services\PermissionCatalog;
 use Illuminate\Console\Command;
 
-class PermissionsSyncCatalogue extends Command
+class PermissionsSyncCatalog extends Command
 {
-    protected $signature = 'permissions:sync-catalogue
+    protected $signature = 'permissions:sync-catalog
                             {--dry-run : Report what would change and write nothing}';
 
     protected $description = 'Derive the permission list from the routes and write any missing rows';
 
-    public function handle(PermissionCatalogue $catalog): int
+    protected $aliases = ['permissions:sync-catalogue'];
+
+    public function handle(PermissionCatalog $catalog): int
     {
         $wanted = $catalog->keys();
         sort($wanted);

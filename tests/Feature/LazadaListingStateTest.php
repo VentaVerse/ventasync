@@ -32,7 +32,7 @@ class LazadaListingStateTest extends TestCase
         $manager->enable('lazada');
         $this->app->register(LazadaExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
         LazadaSetting::query()->create([
             'mode' => 'live', 'region' => 'ph',
@@ -138,7 +138,7 @@ class LazadaListingStateTest extends TestCase
         }
     }
 
-    public function test_a_product_with_no_row_is_not_listed_with_catalogue_gaps(): void
+    public function test_a_product_with_no_row_is_not_listed_with_catalog_gaps(): void
     {
         $productId = $this->seedProduct('Rowless', 'RL-1', image: '');
 

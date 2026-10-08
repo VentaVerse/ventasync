@@ -28,7 +28,7 @@ class PushReviewModalTest extends TestCase
         $manager->enable('shopee');
         $this->app->register(\Extensions\shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
         ShopeeSetting::query()->create([
             'store_name' => 'Main', 'enabled' => true, 'mode' => 'live',

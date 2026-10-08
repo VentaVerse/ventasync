@@ -27,7 +27,7 @@ class ShopeeListingStatusMenuTest extends TestCase
         $manager->enable('shopee');
         $this->app->register(\Extensions\shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
         ShopeeSetting::query()->create([
             'partner_id' => 1001, 'partner_key' => 'k', 'shop_id' => 2002,

@@ -28,7 +28,7 @@ class OpenCartItemImportTest extends TestCase
         $manager->enable('opencart');
         $this->app->register(\Extensions\opencart\OpenCartExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
     }
 
     private function store(): OpenCartSetting

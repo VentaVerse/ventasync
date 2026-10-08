@@ -27,7 +27,7 @@ class WatermarkTemplateTest extends TestCase
         $manager->enable('shopee');
         $this->app->register(\Extensions\shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
         $this->store = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
     }

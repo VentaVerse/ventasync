@@ -28,7 +28,7 @@ final class MarketplaceWords
             return 'The app credentials look wrong - ' . $channel . ' refused the request signature. Check the Partner ID and Partner Key on the Settings page.';
         }
         if (str_contains($m, 'shop_id') && (str_contains($m, 'not found') || str_contains($m, 'invalid'))) {
-            return $channel . " does not recognise this Shop ID. Re-run the authorisation from Settings so the shop names itself.";
+            return $channel . " does not recognize this Shop ID. Re-run the authorisation from Settings so the shop names itself.";
         }
         if (str_contains($m, 'error_param')) {
             $detail = trim((string) preg_replace('/^.*?error_param\.?/i', '', $raw)) ?: null;

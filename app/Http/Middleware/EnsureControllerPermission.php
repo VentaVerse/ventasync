@@ -2,14 +2,14 @@
 
 namespace App\Http\Middleware;
 
-use App\Services\PermissionCatalogue;
+use App\Services\PermissionCatalog;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 class EnsureControllerPermission extends EnsurePermission
 {
-    public function __construct(private PermissionCatalogue $catalog)
+    public function __construct(private PermissionCatalog $catalog)
     {
     }
 

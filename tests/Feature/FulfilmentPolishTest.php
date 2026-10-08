@@ -29,7 +29,7 @@ class FulfilmentPolishTest extends TestCase
         $manager->enable('shopee');
         $this->app->register(ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
         DB::table('shopee_settings')->insert([
             'partner_id' => 1, 'partner_key' => encrypt('k'), 'shop_id' => 2,

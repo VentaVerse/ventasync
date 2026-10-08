@@ -24,7 +24,7 @@ class DashboardStoreScopeTest extends TestCase
         $m->enable('shopee');
         $this->app->register(\Extensions\shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
     }
 
     private function viewer(): User

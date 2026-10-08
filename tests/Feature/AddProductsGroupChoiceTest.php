@@ -33,7 +33,7 @@ class AddProductsGroupChoiceTest extends TestCase
         $manager->enable('shopee');
         $this->app->register(\Extensions\shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
         $this->store = ShopeeSetting::query()->create(['partner_id' => 1, 'partner_key' => 'k', 'shop_id' => 2, 'store_name' => 'Main shop', 'mode' => 'production']);
         $this->cables = ShopeeProductGroup::create(['name' => 'Cables', 'shopee_category_id' => 1, 'logistic_ids' => [1], 'shopee_setting_id' => $this->store->id]);

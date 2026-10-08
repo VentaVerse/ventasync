@@ -33,7 +33,7 @@ class ShopeeListingPageTest extends TestCase
         $manager->enable('shopee');
         $this->app->register(\Extensions\shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
         ShopeeSetting::query()->create([
             'partner_id' => 1001, 'partner_key' => 'k', 'shop_id' => 2002,
@@ -204,7 +204,7 @@ class ShopeeListingPageTest extends TestCase
         }
 
         $this->assertStringContainsString('cl-strip--quiet', $html,
-            'The bar keeps the verbs and loses the channel accent: a coloured bar reads as a status banner even when it says nothing.');
+            'The bar keeps the verbs and loses the channel accent: a colored bar reads as a status banner even when it says nothing.');
 
         $this->assertStringContainsString('data-combo-required="Pick a Shopee category from the list."', $html);
         $this->assertStringNotContainsString('formnovalidate', $html);

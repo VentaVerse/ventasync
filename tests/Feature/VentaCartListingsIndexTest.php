@@ -35,7 +35,7 @@ class VentaCartListingsIndexTest extends TestCase
         $manager->enable('ventacart');
         $this->app->register(VentaCartExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
         Http::preventStrayRequests();
     }
@@ -89,7 +89,7 @@ class VentaCartListingsIndexTest extends TestCase
         return $ids;
     }
 
-    public function test_listings_is_in_every_stores_menu_between_the_sell_and_catalogue_items(): void
+    public function test_listings_is_in_every_stores_menu_between_the_sell_and_catalog_items(): void
     {
         $store = $this->store();
 

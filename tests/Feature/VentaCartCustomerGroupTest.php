@@ -60,7 +60,7 @@ class VentaCartCustomerGroupTest extends TestCase
         $manager->enable('ventacart');
         $this->app->register(\Extensions\ventacart\VentaCartExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
         [$sync, $setting] = $this->sync();
         $this->upsert($sync, ['id' => 777003, 'order_number' => 2003, 'status' => 'pending', 'status_id' => 1, 'totals' => ['total' => 500], 'items' => [],

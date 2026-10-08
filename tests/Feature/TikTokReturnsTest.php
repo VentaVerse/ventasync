@@ -33,7 +33,7 @@ class TikTokReturnsTest extends TestCase
         $manager->enable('tiktok');
         $this->app->register(\Extensions\tiktok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
         $this->tiktokStore = TikTokSetting::create(['mode' => 'production', 'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3)]);
 

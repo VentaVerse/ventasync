@@ -12,7 +12,7 @@
                         <label class="fm-label" for="opt1-name-input">
                             Variation 1 <span class="fm-req" aria-hidden="true">*</span><span class="x-sr">(required)</span>
                         </label>
-                        <input class="x-input" id="opt1-name-input" placeholder="Colour, cable length" autocomplete="off">
+                        <input class="x-input" id="opt1-name-input" placeholder="Color, cable length" autocomplete="off">
                     </div>
                     <x-ui.button type="button" variant="danger" size="sm" id="remove-opt1-btn">Remove</x-ui.button>
                 </div>

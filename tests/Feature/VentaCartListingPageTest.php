@@ -38,7 +38,7 @@ class VentaCartListingPageTest extends TestCase
 
         $this->app->register(VentaCartExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
         Http::preventStrayRequests();
     }
@@ -85,7 +85,7 @@ class VentaCartListingPageTest extends TestCase
         ]);
         DB::table($pfx . 'product_description')->insert([
             'product_id' => $pid, 'language_id' => (int) config('catalog.default_language_id'),
-            'name' => 'Guitar Pedal 200', 'description' => 'The catalogue description.',
+            'name' => 'Guitar Pedal 200', 'description' => 'The catalog description.',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
 
@@ -453,7 +453,7 @@ class VentaCartListingPageTest extends TestCase
 
         $listing = VentaCartListing::where('ventacart_setting_id', $store->id)->where('product_id', $pid)->firstOrFail();
         $this->assertSame('Pedal, store wording', $listing->name);
-        $this->assertSame('The catalogue description.', $listing->description, 'a new listing starts with the catalog\'s words');
+        $this->assertSame('The catalog description.', $listing->description, 'a new listing starts with the catalog\'s words');
         $this->assertSame(10.0, $listing->markup_percent);
         $this->assertNull($listing->markup_fixed);
         $this->assertSame(1100.0, $listing->priceFor(1000));
@@ -483,7 +483,7 @@ class VentaCartListingPageTest extends TestCase
         $listing = fn () => VentaCartListing::where('ventacart_setting_id', $store->id)->where('product_id', $pid)->firstOrFail();
 
         $editCatalog(['description' => '<p>Newer catalog words.</p>']);
-        $this->assertSame('The catalogue description.', $listing()->description, 'the listing keeps its own copy');
+        $this->assertSame('The catalog description.', $listing()->description, 'the listing keeps its own copy');
         $this->assertSame(['description'], $listing()->catalogChange());
         $this->assertSame([$pid], \Extensions\ventacart\Services\VentaCart\VentaCartListingStates::for($store->id)->productIdsIn('drift'));
 
@@ -570,7 +570,7 @@ class VentaCartListingPageTest extends TestCase
 
 
         $this->assertSame(111.11, round((float) DB::table($pfx . 'order_product')->where('order_id', $oid)->value('cost'), 2),
-            'A fees run re-stamped the cost of goods from the catalogue. That moves every profit figure in the system.');
+            'A fees run re-stamped the cost of goods from the catalog. That moves every profit figure in the system.');
         $this->assertSame(1, DB::table($pfx . 'order_product')->where('order_id', $oid)->count());
 
         $rows = DB::table($pfx . 'order_total')->where('order_id', $oid)
@@ -770,7 +770,7 @@ class VentaCartListingPageTest extends TestCase
             || round((float) $request->data()['price'], 2) === 1100.0);
     }
 
-    public function test_a_group_push_sends_the_listings_own_words_not_the_catalogues(): void
+    public function test_a_group_push_sends_the_listings_own_words_not_the_catalogs(): void
     {
         $store = $this->store();
         $pid = $this->product();
@@ -825,7 +825,7 @@ class VentaCartListingPageTest extends TestCase
             $body = $request->data();
 
             return $body['name'] === 'Pedal, store wording'
-                && $body['description'] === 'The catalogue description.'
+                && $body['description'] === 'The catalog description.'
                 && $body['sku'] === 'GP-200'
                 && (float) $body['price'] === 1100.0;
         });
@@ -963,7 +963,7 @@ class VentaCartListingPageTest extends TestCase
         $page->assertSee('ventacart-add-panel');
         $page->assertDontSee('Go to Product Groups');
 
-        $search = $this->actingAs($this->manager())->getJson(route('ext.ventacart.products.catalogue_search', [$store->id, 'q' => 'PICK']))->assertOk()->json();
+        $search = $this->actingAs($this->manager())->getJson(route('ext.ventacart.products.catalog_search', [$store->id, 'q' => 'PICK']))->assertOk()->json();
         $this->assertSame([$nowhere], array_column($search['items'], 'id'));
         $this->actingAs($this->manager())->post(route('ext.ventacart.products.add_to_store', [$store->id, $nowhere]))->assertRedirect();
         $this->assertDatabaseHas('ventacart_listings', ['ventacart_setting_id' => $store->id, 'product_id' => $nowhere]);
@@ -1209,11 +1209,11 @@ class VentaCartListingPageTest extends TestCase
             ]);
         };
 
-        $colour = $option('Colour');
+        $color = $option('Color');
         $sizeM = $withSize ? $value($option('Size'), 'M', '', 0) : null;
 
         foreach ([['Crimson', 'TEE-RED'], ['Navy', 'TEE-BLU']] as $i => [$name, $sku]) {
-            $povId = $value($colour, $name, $sku, $i);
+            $povId = $value($color, $name, $sku, $i);
             $comboId = (int) DB::table('product_option_combinations')->insertGetId([
                 'product_id' => $pid, 'sku' => $sku, 'quantity' => 4, 'absolute_price' => 1000,
                 'status' => 1, 'sort_order' => $i, 'created_at' => now(), 'updated_at' => now(),
@@ -1297,7 +1297,7 @@ class VentaCartListingPageTest extends TestCase
             ->assertSessionHas('status');
 
         $this->assertSame(
-            ['TEE-RED' => ['Colour', 'Crimson'], 'TEE-BLU' => ['Colour', 'Navy']],
+            ['TEE-RED' => ['Color', 'Crimson'], 'TEE-BLU' => ['Color', 'Navy']],
             $this->sentVariations('PUT', '/api/v1/products/TEE'),
             'each variant keeps its own SKU and takes the catalog type and value'
         );
@@ -1315,7 +1315,7 @@ class VentaCartListingPageTest extends TestCase
             ->assertRedirect();
 
         $this->assertSame(
-            ['TEE-RED' => ['Colour', 'Crimson'], 'TEE-BLU' => ['Colour', 'Navy']],
+            ['TEE-RED' => ['Color', 'Crimson'], 'TEE-BLU' => ['Color', 'Navy']],
             $this->sentVariations('PUT', '/api/v1/products/TEE')
         );
         Http::assertNotSent(fn ($r) => in_array($r->method(), ['POST', 'DELETE'], true));
@@ -1325,14 +1325,14 @@ class VentaCartListingPageTest extends TestCase
     public function test_an_update_whose_names_already_match_sends_them_as_they_are(): void
     {
         [$store, $pid, $group] = $this->productNamedByTheCatalog();
-        $this->fakeTheTeeStore($this->storeTee('Colour', ['TEE-RED' => 'Crimson', 'TEE-BLU' => 'Navy']));
+        $this->fakeTheTeeStore($this->storeTee('Color', ['TEE-RED' => 'Crimson', 'TEE-BLU' => 'Navy']));
 
         $this->actingAs($this->pusher())
             ->post(route('ext.ventacart.product-groups.push', [$store->id, $group->id]), ['ids' => [$pid]])
             ->assertRedirect();
 
         $this->assertSame(
-            ['TEE-RED' => ['Colour', 'Crimson'], 'TEE-BLU' => ['Colour', 'Navy']],
+            ['TEE-RED' => ['Color', 'Crimson'], 'TEE-BLU' => ['Color', 'Navy']],
             $this->sentVariations('PUT', '/api/v1/products/TEE'),
             'the names the store already holds'
         );

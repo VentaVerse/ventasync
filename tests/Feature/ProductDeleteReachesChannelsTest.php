@@ -41,7 +41,7 @@ class ProductDeleteReachesChannelsTest extends TestCase
         $this->app->register(\Extensions\lazada\LazadaExtension::class);
         $this->app->register(\Extensions\tiktok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
         ShopeeSetting::query()->create([
             'store_name' => 'Main store', 'partner_id' => 1001, 'partner_key' => 'k', 'shop_id' => 2002,

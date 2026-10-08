@@ -52,7 +52,7 @@
             @if($hasFilters)
                 {{ number_format($paginator->total()) }} {{ $paginator->total() === 1 ? 'product matches' : 'products match' }}@if($statusMenu['label'] ?? null): {{ $statusMenu['label'] }}@endif
             @else
-                {{ number_format($catalogueTotal) }} {{ $catalogueTotal === 1 ? 'product' : 'products' }} on this store
+                {{ number_format($catalogTotal) }} {{ $catalogTotal === 1 ? 'product' : 'products' }} on this store
                 &middot; {{ number_format($listedTotal) }} live on Lazada
             @endif
         </p>
@@ -90,7 +90,7 @@
                        class="x-segment__item {{ ($lazadaTab ?? 'all') === 'all' ? 'is-active' : '' }}"
                        @if(($lazadaTab ?? 'all') === 'all') aria-current="true" @endif>
                         <span>All</span>
-                        <span class="x-segment__count">{{ number_format((int) ($catalogueTotal ?? $paginator->total())) }}</span>
+                        <span class="x-segment__count">{{ number_format((int) ($catalogTotal ?? $paginator->total())) }}</span>
                     </a>
                     @foreach($liveTabDefs as $tabKey => $tabLabel)
                         @php $isActive = ($lazadaTab ?? 'all') === $tabKey; @endphp

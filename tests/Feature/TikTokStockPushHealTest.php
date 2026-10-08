@@ -34,7 +34,7 @@ class TikTokStockPushHealTest extends TestCase
         $manager->enable('tiktok');
         $this->app->register(\Extensions\tiktok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
         TikTokSetting::create([
             'mode' => 'production', 'app_key' => 'k', 'app_secret' => 's',
@@ -168,7 +168,7 @@ class TikTokStockPushHealTest extends TestCase
 
         $this->assertNull(session('error'));
         $calls = $this->inventoryCalls();
-        $this->assertCount(1, $calls, 'only the twin the catalogue has');
+        $this->assertCount(1, $calls, 'only the twin the catalog has');
         $this->assertStringNotContainsString('s9', json_encode($calls), 'the orphan is not asked of TikTok Shop');
     }
 
@@ -238,7 +238,7 @@ class TikTokStockPushHealTest extends TestCase
             ->get(route('ext.tiktok.listings.edit', $pid))->assertOk();
 
         $page->assertDontSee('1 of 2 variations');
-        $page->assertDontSee('carries every catalogue variation, missing ones included');
+        $page->assertDontSee('carries every catalog variation, missing ones included');
     }
 
     public function test_a_failed_group_batch_does_not_flash_green(): void

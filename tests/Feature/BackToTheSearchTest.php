@@ -15,7 +15,7 @@ class BackToTheSearchTest extends TestCase
 
     private function catalogManager(): User
     {
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
         $group = UserGroup::create(['name' => 'Back-to desk']);
         $group->permissions()->attach(Permission::query()
             ->where('key', 'like', '%catalog%')->pluck('id')->all());

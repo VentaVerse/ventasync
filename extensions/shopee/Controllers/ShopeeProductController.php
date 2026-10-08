@@ -131,7 +131,7 @@ class ShopeeProductController extends Controller
         $erpStatus = (string) $request->get('erp_status', 'all');
 
         if ($request->query('list') === 'add') {
-            return $this->addCatalogue($request);
+            return $this->addCatalog($request);
         }
 
         $tabMap = ['live' => 'NORMAL', 'unlisted' => 'UNLIST', 'violation' => 'BANNED', 'reviewing' => 'REVIEWING'];
@@ -331,7 +331,7 @@ class ShopeeProductController extends Controller
         ];
 
         $tabBase = $applyTrouble($applyMenu(clone $query));
-        $catalogueTotal = (clone $tabBase)->count();
+        $catalogTotal = (clone $tabBase)->count();
         if ($liveCounts !== null) {
             $liveCounts = $tabCounts($tabBase);
         }
@@ -452,7 +452,7 @@ class ShopeeProductController extends Controller
             'liveStatuses' => $liveStatuses,
             'listingStates' => $listingStates,
             'rowErrors' => app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->errors(array_map('intval', $pageIds)),
-            'catalogueTotal' => $catalogueTotal,
+            'catalogTotal' => $catalogTotal,
             'listedTotal' => $listedTotal,
             'liveCheckedAt' => $liveCheckedAt,
             'failedFlag' => $failedFlag,
@@ -473,7 +473,7 @@ class ShopeeProductController extends Controller
         ]);
     }
 
-    private function addCatalogue(Request $request)
+    private function addCatalog(Request $request)
     {
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
@@ -548,7 +548,7 @@ class ShopeeProductController extends Controller
             'onStore' => $onStore,
             'sort' => $sort,
             'dir' => $dir,
-            'catalogueTotal' => (int) DB::table($pfx . 'product')->count(),
+            'catalogTotal' => (int) DB::table($pfx . 'product')->count(),
             'onStoreTotal' => ShopeeStoreProducts::count(),
             'listTab' => 'add',
         ]);
@@ -581,7 +581,7 @@ class ShopeeProductController extends Controller
         return redirect()->back()->with('status', 'Added to this store. Configure and push it from This store whenever you are ready.');
     }
 
-    public function catalogueSearch(Request $request)
+    public function catalogSearch(Request $request)
     {
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
@@ -2433,7 +2433,7 @@ class ShopeeProductController extends Controller
             ? "Re-read from Shopee: {$r['linked']} variation(s) linked" . ($r['removed'] > 0 ? ", {$r['removed']} stale link(s) removed" : '') . '.'
             : 'Re-read from Shopee: the item has no variations; one item-level link kept.';
         if (!empty($r['unmatched'])) {
-            $msg .= ' On Shopee but matching nothing in the catalogue: ' . implode(', ', array_slice($r['unmatched'], 0, 5)) . '.';
+            $msg .= ' On Shopee but matching nothing in the catalog: ' . implode(', ', array_slice($r['unmatched'], 0, 5)) . '.';
         }
 
         return redirect()->back()->with('status', $msg);

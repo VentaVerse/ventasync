@@ -36,7 +36,7 @@ class BookingGuardsTest extends TestCase
             $this->app->register($provider);
         }
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
         Http::preventStrayRequests();
     }

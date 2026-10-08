@@ -65,7 +65,7 @@ class VariationSnapshotRoundTripTest extends TestCase
     {
         $id = $this->product('strap');
         app(VariationWriter::class)->save($id, [
-            'option1_name' => 'Colour', 'option2_name' => 'Size',
+            'option1_name' => 'Color', 'option2_name' => 'Size',
             'option1_values' => ['Black', 'Brown'], 'option2_values' => ['S', 'L'],
             'combinations' => [
                 ['opt1' => 'Black', 'opt2' => 'S', 'sku' => 'strap-bk-s', 'quantity' => 4, 'absolute_price' => 500, 'cost_amount' => 200, 'cost_additional' => 10, 'image' => 'catalog/bk.jpg', 'status' => 1],
@@ -76,7 +76,7 @@ class VariationSnapshotRoundTripTest extends TestCase
         $before = $this->state($id);
 
         $wire = app(VariationSnapshot::class)->wire($id);
-        $this->assertSame('Colour', $wire['option1_name']);
+        $this->assertSame('Color', $wire['option1_name']);
         $this->assertCount(3, $wire['combinations'], 'a missing pair stays missing');
 
         app(VariationWriter::class)->save($id, $wire);

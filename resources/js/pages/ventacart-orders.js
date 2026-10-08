@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', function () {
         destination: 'Does not deliver to this address',
         origin: 'Does not collect from the pickup address',
         cod: 'Does not take cash on delivery here',
-        postcode: 'Does not recognise the postcode',
+        postcode: 'Does not recognize the postcode',
         parcel: 'Will not take a parcel this size',
         slot: 'No pickup slot available',
         their_side: 'Refused the booking',

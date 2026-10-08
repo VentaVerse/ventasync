@@ -113,7 +113,7 @@ class LazadaMultistoreTest extends TestCase
 
     public function test_a_store_page_lives_under_its_store_and_an_unknown_store_is_404(): void
     {
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
         $g = \App\Models\Admin\UserGroup::create(['name' => 'LZ walker']);
         $g->permissions()->attach(\App\Models\Admin\Permission::whereIn('key', ['view_lazada/product'])->pluck('id')->all());
         $u = \App\Models\User::factory()->create(['user_group_id' => $g->id]);
@@ -125,7 +125,7 @@ class LazadaMultistoreTest extends TestCase
 
     public function test_a_single_store_era_url_rides_the_301_onto_the_default_store(): void
     {
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
         $g = \App\Models\Admin\UserGroup::create(['name' => 'LZ legacy']);
         $g->permissions()->attach(\App\Models\Admin\Permission::whereIn('key', ['view_lazada/product'])->pluck('id')->all());
         $u = \App\Models\User::factory()->create(['user_group_id' => $g->id]);
@@ -149,7 +149,7 @@ class LazadaMultistoreTest extends TestCase
 
     public function test_add_store_creates_a_disabled_row_and_lands_on_its_settings(): void
     {
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
         $g = \App\Models\Admin\UserGroup::create(['name' => 'LZ creator']);
         $g->permissions()->attach(\App\Models\Admin\Permission::whereIn('key', ['manage_lazada/settings', 'view_lazada/settings'])->pluck('id')->all());
         $u = \App\Models\User::factory()->create(['user_group_id' => $g->id]);
@@ -220,7 +220,7 @@ class LazadaMultistoreTest extends TestCase
     }
     public function test_a_settings_write_acts_for_the_store_in_the_url_and_returns_to_it(): void
     {
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
         $g = \App\Models\Admin\UserGroup::create(['name' => 'lazada settings walker']);
         $g->permissions()->attach(\App\Models\Admin\Permission::whereIn('key', ['view_lazada/settings', 'manage_lazada/settings'])->pluck('id')->all());
         $u = \App\Models\User::factory()->create(['user_group_id' => $g->id]);

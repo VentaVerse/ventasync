@@ -41,7 +41,7 @@ class ShopeeWriteOutcomeTest extends TestCase
     public function test_a_batch_that_lost_rows_is_not_a_success(): void
     {
         $this->assertSame('warning', $this->invokePrivate('batchTone', [8, 4]),
-            'A partly failed batch still wears the success colour.');
+            'A partly failed batch still wears the success color.');
     }
 
     public function test_a_batch_that_failed_entirely_is_an_error(): void

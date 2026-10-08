@@ -13,7 +13,7 @@ class BackfillOrderProductCosts extends Command
                             {--force : Re-read every line, not just the ones at cost 0}
                             {--from= : Only orders placed on or after this date (YYYY-MM-DD)}';
 
-    protected $description = 'Re-read order line costs from the catalogue: the variation\'s own cost when it has one, else the parent\'s';
+    protected $description = 'Re-read order line costs from the catalog: the variation\'s own cost when it has one, else the parent\'s';
 
     public function handle(): int
     {
@@ -104,7 +104,7 @@ class BackfillOrderProductCosts extends Command
         }
 
         $this->newLine();
-        $this->info("Examined {$examined} line(s); {$changed} " . ($apply ? 'updated' : 'would change') . "; {$unresolved} still without a cost in the catalogue.");
+        $this->info("Examined {$examined} line(s); {$changed} " . ($apply ? 'updated' : 'would change') . "; {$unresolved} still without a cost in the catalog.");
 
         if (!$apply && $changed > 0) {
             $this->warn('Nothing was written. Re-run with --apply.');

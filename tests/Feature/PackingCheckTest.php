@@ -39,7 +39,7 @@ class PackingCheckTest extends TestCase
             $this->app->register($provider);
         }
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
         $this->lazada = LazadaSetting::query()->create(['store_name' => 'Gearshipper', 'enabled' => true, 'mode' => 'live', 'region' => 'ph',
             'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't', 'refresh_token' => 'r']);

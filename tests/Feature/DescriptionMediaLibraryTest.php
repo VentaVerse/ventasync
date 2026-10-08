@@ -31,7 +31,7 @@ class DescriptionMediaLibraryTest extends TestCase
         $manager->enable('ventacart');
         $this->app->register(\Extensions\ventacart\VentaCartExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
         Http::preventStrayRequests();
     }
 
@@ -188,13 +188,13 @@ class DescriptionMediaLibraryTest extends TestCase
     public function test_a_listing_save_keeps_an_inserted_picture(): void
     {
         $store = $this->store();
-        $pid = $this->product('<p>The catalogue description.</p>');
+        $pid = $this->product('<p>The catalog description.</p>');
         $img = '<img src="' . asset('storage/catalog/demo/front.jpg') . '" alt="">';
 
         $this->actingAs($this->ventaCartManager())
             ->put(route('ext.ventacart.listings.update', [$store->id, $pid]), [
                 'name' => 'Listing name',
-                'description' => '<p>The catalogue description.</p><p>' . $img . '</p>',
+                'description' => '<p>The catalog description.</p><p>' . $img . '</p>',
                 'description_edited' => '1',
             ])
             ->assertRedirect();

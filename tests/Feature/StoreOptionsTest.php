@@ -26,7 +26,7 @@ class StoreOptionsTest extends TestCase
         }
         $this->app->register(\Extensions\shopee\ShopeeExtension::class);
         $this->app->register(\Extensions\lazada\LazadaExtension::class);
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
     }
 
     public function test_every_live_store_is_an_option_paused_ones_included_and_permissions_gate_them(): void

@@ -199,7 +199,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         $listTab = $request->query('list') === 'add' ? 'add' : 'store';
         if ($listTab === 'add') {
-            return $this->addCatalogue($request);
+            return $this->addCatalog($request);
         }
 
         $tabMap = [
@@ -428,7 +428,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         ];
 
         $tabBase = $applyMenu(clone $query);
-        $catalogueTotal = (clone $tabBase)->count();
+        $catalogTotal = (clone $tabBase)->count();
         if ($liveCounts !== null) {
             $liveCounts = $tabCounts($tabBase);
         }
@@ -566,7 +566,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             'liveCounts' => $liveCounts,
             'liveTabError' => $liveTabError,
             'liveCheckedAt' => $liveCheckedAt,
-            'catalogueTotal' => $catalogueTotal,
+            'catalogTotal' => $catalogTotal,
             'listedTotal' => $listedTotal,
             'listTab' => 'store',
             'failedFlag' => $failedFlag,
@@ -587,7 +587,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         ]);
     }
 
-    private function addCatalogue(Request $request)
+    private function addCatalog(Request $request)
     {
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
@@ -657,7 +657,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         $productThumbsById = $products->mapWithKeys(fn ($r) => [(int) $r->product_id => $this->images()->toDisplayImageUrl($r->image ?? null)]);
 
-        $catalogueTotal = (int) DB::table($pfx . 'product')->count();
+        $catalogTotal = (int) DB::table($pfx . 'product')->count();
         $onStoreTotal = (int) LazadaProduct::query()->whereNotNull('product_id')->distinct()->count('product_id');
 
         $allManufacturers = DB::table($pfx . 'manufacturer')->orderBy('name')->pluck('name', 'manufacturer_id');
@@ -675,7 +675,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             'onStore' => $onStore,
             'sort' => $sort,
             'dir' => $dir,
-            'catalogueTotal' => $catalogueTotal,
+            'catalogTotal' => $catalogTotal,
             'onStoreTotal' => $onStoreTotal,
             'listTab' => 'add',
         ]);
@@ -700,7 +700,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         return redirect()->back()->with('status', 'Added to this store. Configure and push it from This store whenever you are ready.');
     }
 
-    public function catalogueSearch(Request $request)
+    public function catalogSearch(Request $request)
     {
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');

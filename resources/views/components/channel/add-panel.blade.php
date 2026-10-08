@@ -13,7 +13,7 @@
     'emptyAll',
     'listLabel' => 'Products',
     'fullUrl' => null,
-    'fullLabel' => 'Browse the full catalogue',
+    'fullLabel' => 'Browse the full catalog',
     'groups' => null,
     'group' => null,
 ])

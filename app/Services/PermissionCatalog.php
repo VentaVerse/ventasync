@@ -5,7 +5,7 @@ namespace App\Services;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 
-class PermissionCatalogue
+class PermissionCatalog
 {
     private const NEVER_GATED = [
         'App\Http\Controllers\Auth\\',

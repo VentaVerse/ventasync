@@ -15,7 +15,7 @@ class ProductFormVariationsCreateTest extends TestCase
 
     private function manager(): User
     {
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
         $group = UserGroup::create(['name' => 'Form variations desk']);
         $group->permissions()->attach(Permission::query()->where('key', 'like', '%catalog%')->pluck('id')->all());
 
@@ -98,7 +98,7 @@ class ProductFormVariationsCreateTest extends TestCase
         ];
 
         $this->actingAs($this->manager())->post(route('products.store'), $this->payload([
-            'option1_name' => 'Size', 'option2_name' => 'Colour',
+            'option1_name' => 'Size', 'option2_name' => 'Color',
             'option1_values' => ['S', 'L'], 'option2_values' => ['Red', 'Blue'],
             'combinations' => [
                 $row('S', 'Red', 'FT-S-R', '1', '500') + ['image' => 'catalog/s-red.jpg'],

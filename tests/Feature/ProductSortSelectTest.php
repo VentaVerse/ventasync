@@ -15,7 +15,7 @@ class ProductSortSelectTest extends TestCase
 
     private function viewer(): User
     {
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
         $group = UserGroup::create(['name' => 'Sort desk']);
         $group->permissions()->attach(
             Permission::whereIn('key', ['view_catalog/product'])->pluck('id')->all()

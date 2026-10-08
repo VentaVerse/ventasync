@@ -15,7 +15,7 @@ class FailedSaveKeepsTypingTest extends TestCase
 
     private function manager(): User
     {
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
         $group = UserGroup::create(['name' => 'Catalog desk']);
         $group->permissions()->attach(Permission::whereIn('key', ['manage_catalog/product', 'view_catalog/product'])->pluck('id')->all());
 
@@ -105,7 +105,7 @@ class FailedSaveKeepsTypingTest extends TestCase
 
         $this->actingAs($user)->from($editUrl)->put(route('products.update', $mine), $this->payload([
             'model' => 'KEEP-3', 'sku' => 'KEEP-3',
-            'option1_name' => 'Colour', 'option2_name' => 'Size',
+            'option1_name' => 'Color', 'option2_name' => 'Size',
             'option1_values' => ['Red', 'Blue'], 'option2_values' => ['S'],
             'combinations' => [
                 ['opt1' => 'Red', 'opt2' => 'S', 'sku' => 'KEEP-3', 'quantity' => '2', 'absolute_price' => '90', 'status' => '1'],
@@ -117,7 +117,7 @@ class FailedSaveKeepsTypingTest extends TestCase
         $this->assertStringContainsString('"opt1_name":"Blue"', $page);
         $this->assertStringContainsString('"sku":"CB-2"', $page);
         $this->assertStringContainsString('"quantity":"3"', $page);
-        $this->assertStringContainsString('"option_name":"Colour"', $page);
+        $this->assertStringContainsString('"option_name":"Color"', $page);
     }
 
     public function test_a_successful_save_still_round_trips_through_the_database(): void

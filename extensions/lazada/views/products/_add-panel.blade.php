@@ -1,6 +1,6 @@
 <x-channel.add-panel
     id="lazada-add-panel"
-    :search-url="route('ext.lazada.products.catalogue_search')"
+    :search-url="route('ext.lazada.products.catalog_search')"
     :add-url="route('ext.lazada.products.add_to_store', ['productId' => '__PID__'])"
     :groups="\App\Integrations\Listings\StatusMenu::groupChoices($statusMenu ?? [])"
     :group="\App\Integrations\Listings\StatusMenu::chosenGroup($statusMenu ?? [])"

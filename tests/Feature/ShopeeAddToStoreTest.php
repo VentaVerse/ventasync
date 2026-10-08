@@ -34,7 +34,7 @@ class ShopeeAddToStoreTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
 
         $this->store = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Gearshipper']);
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
     }
 
     private function manager(): User
@@ -85,7 +85,7 @@ class ShopeeAddToStoreTest extends TestCase
     {
         $onStore = $this->seedProduct('On store widget', 'ON-1');
         $linkedOnly = $this->seedProduct('Linked only widget', 'LNK-1');
-        $this->seedProduct('Catalogue only widget', 'OFF-1');
+        $this->seedProduct('Catalog only widget', 'OFF-1');
         $this->onStore($onStore);
         ShopeeProductLink::create(['shopee_setting_id' => $this->store->id, 'product_id' => $linkedOnly, 'shopee_item_id' => '777', 'sku' => 'LNK-1']);
 
@@ -93,12 +93,12 @@ class ShopeeAddToStoreTest extends TestCase
 
         $this->assertStringContainsString('On store widget', $html);
         $this->assertStringContainsString('Linked only widget', $html);
-        $this->assertStringNotContainsString('Catalogue only widget', $html, 'a catalogue product not on this store must not appear on This store');
+        $this->assertStringNotContainsString('Catalog only widget', $html, 'a catalog product not on this store must not appear on This store');
     }
 
     public function test_a_new_store_lists_nothing_and_offers_the_add_panel(): void
     {
-        $this->seedProduct('Catalogue only widget', 'OFF-1');
+        $this->seedProduct('Catalog only widget', 'OFF-1');
 
         $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
 
@@ -106,7 +106,7 @@ class ShopeeAddToStoreTest extends TestCase
         $this->assertStringContainsString('data-add-panel-open', $html);
         $this->assertStringContainsString('id="shopee-add-panel"', $html, 'the panel markup rides the page for a manager');
         $this->assertStringNotContainsString('cc-worktab', $html, 'the two-tab treatment never came to Shopee');
-        $this->assertStringNotContainsString('<span>All products</span>', $html, 'the catalogue framing is gone');
+        $this->assertStringNotContainsString('<span>All products</span>', $html, 'the catalog framing is gone');
     }
 
     public function test_the_panel_is_not_rendered_for_a_read_only_operator(): void
@@ -121,65 +121,65 @@ class ShopeeAddToStoreTest extends TestCase
         $this->assertStringNotContainsString('id="shopee-add-panel"', $html);
     }
 
-    public function test_catalogue_search_defaults_to_products_not_yet_on_this_store(): void
+    public function test_catalog_search_defaults_to_products_not_yet_on_this_store(): void
     {
         $onStore = $this->seedProduct('On store widget', 'ON-1');
-        $this->seedProduct('Catalogue only widget', 'OFF-1');
+        $this->seedProduct('Catalog only widget', 'OFF-1');
         $this->onStore($onStore);
 
-        $r = $this->actingAs($this->manager())->getJson($this->base() . '/catalogue-search')->assertOk();
+        $r = $this->actingAs($this->manager())->getJson($this->base() . '/catalog-search')->assertOk();
 
         $names = collect($r->json('items'))->pluck('name')->all();
-        $this->assertContains('Catalogue only widget', $names);
+        $this->assertContains('Catalog only widget', $names);
         $this->assertNotContains('On store widget', $names, 'the panel is for adding; what is already on the store is hidden by default');
         $this->assertSame(1, $r->json('total'));
     }
 
-    public function test_catalogue_search_can_show_everything_flagged(): void
+    public function test_catalog_search_can_show_everything_flagged(): void
     {
         $onStore = $this->seedProduct('On store widget', 'ON-1');
         $linked = $this->seedProduct('Linked widget', 'LNK-1');
-        $this->seedProduct('Catalogue only widget', 'OFF-1');
+        $this->seedProduct('Catalog only widget', 'OFF-1');
         $this->onStore($onStore);
         ShopeeProductLink::create(['shopee_setting_id' => $this->store->id, 'product_id' => $linked, 'shopee_item_id' => '777', 'sku' => 'LNK-1']);
 
-        $r = $this->actingAs($this->manager())->getJson($this->base() . '/catalogue-search?all=1')->assertOk();
+        $r = $this->actingAs($this->manager())->getJson($this->base() . '/catalog-search?all=1')->assertOk();
 
         $byName = collect($r->json('items'))->keyBy('name');
         $this->assertTrue($byName['On store widget']['on_store']);
         $this->assertTrue($byName['Linked widget']['on_store'], 'a link row alone counts as on the store');
-        $this->assertFalse($byName['Catalogue only widget']['on_store']);
+        $this->assertFalse($byName['Catalog only widget']['on_store']);
     }
 
-    public function test_catalogue_search_narrows_by_name_model_or_sku_and_skips_disabled(): void
+    public function test_catalog_search_narrows_by_name_model_or_sku_and_skips_disabled(): void
     {
         $this->seedProduct('Shimano Deore XT', 'SHI-XT');
         $this->seedProduct('Continental GP5000', 'CON-GP5K');
         $this->seedProduct('Disabled thing', 'DIS-1', 0);
 
-        $r = $this->actingAs($this->manager())->getJson($this->base() . '/catalogue-search?q=SHI-XT')->assertOk();
+        $r = $this->actingAs($this->manager())->getJson($this->base() . '/catalog-search?q=SHI-XT')->assertOk();
         $this->assertSame(['Shimano Deore XT'], collect($r->json('items'))->pluck('name')->all());
 
-        $all = $this->actingAs($this->manager())->getJson($this->base() . '/catalogue-search')->assertOk();
-        $this->assertNotContains('Disabled thing', collect($all->json('items'))->pluck('name')->all(), 'a disabled catalogue product is not something to put on a store');
+        $all = $this->actingAs($this->manager())->getJson($this->base() . '/catalog-search')->assertOk();
+        $this->assertNotContains('Disabled thing', collect($all->json('items'))->pluck('name')->all(), 'a disabled catalog product is not something to put on a store');
     }
 
-    public function test_catalogue_search_is_capped_and_says_how_much_is_out_of_view(): void
+    public function test_catalog_search_is_capped_and_says_how_much_is_out_of_view(): void
     {
         for ($i = 1; $i <= 30; $i++) {
             $this->seedProduct('Widget ' . str_pad((string) $i, 2, '0', STR_PAD_LEFT), 'W-' . $i);
         }
 
-        $r = $this->actingAs($this->manager())->getJson($this->base() . '/catalogue-search')->assertOk();
+        $r = $this->actingAs($this->manager())->getJson($this->base() . '/catalog-search')->assertOk();
 
         $this->assertSame(30, $r->json('total'));
-        $this->assertSame(25, $r->json('shown'), 'a slide-over cannot list a whole catalogue; it caps and names the total');
+        $this->assertSame(25, $r->json('shown'), 'a slide-over cannot list a whole catalog; it caps and names the total');
         $this->assertCount(25, $r->json('items'));
     }
 
     public function test_add_to_store_over_json_puts_the_product_on_the_store(): void
     {
-        $pid = $this->seedProduct('Catalogue only widget', 'OFF-1');
+        $pid = $this->seedProduct('Catalog only widget', 'OFF-1');
         $this->assertSame(0, ShopeeListing::withoutGlobalScope('shopeeStore')->where('product_id', $pid)->count());
 
         $this->actingAs($this->manager())
@@ -192,7 +192,7 @@ class ShopeeAddToStoreTest extends TestCase
         $this->assertNull($row->shopee_category_id, 'blank: the listing editor fills it in, readiness says what is missing');
 
         $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
-        $this->assertStringContainsString('Catalogue only widget', $html);
+        $this->assertStringContainsString('Catalog only widget', $html);
     }
 
     public function test_add_to_store_as_a_form_post_lands_back_with_a_status(): void
@@ -233,13 +233,13 @@ class ShopeeAddToStoreTest extends TestCase
             'adding a product already on the store must not double it');
     }
 
-    public function test_the_full_catalogue_page_is_still_reachable_as_the_overflow(): void
+    public function test_the_full_catalog_page_is_still_reachable_as_the_overflow(): void
     {
-        $this->seedProduct('Catalogue only widget', 'OFF-1');
+        $this->seedProduct('Catalog only widget', 'OFF-1');
 
         $html = $this->actingAs($this->manager())->get($this->base() . '?list=add')->assertOk()->getContent();
 
-        $this->assertStringContainsString('Catalogue only widget', $html);
+        $this->assertStringContainsString('Catalog only widget', $html);
         $this->assertStringContainsString('Add to store', $html);
         $this->assertStringContainsString('Back to Products', $html);
     }
@@ -309,12 +309,12 @@ class ShopeeAddToStoreTest extends TestCase
         $this->assertStringNotContainsString('data-group-manual-add', $html);
     }
 
-    public function test_group_search_offers_the_main_catalogue_and_says_what_the_store_does_not_carry_yet(): void
+    public function test_group_search_offers_the_main_catalog_and_says_what_the_store_does_not_carry_yet(): void
     {
         $group = $this->group();
         $inGroup = $this->seedProduct('Already grouped', 'G-1');
         $onStore = $this->seedProduct('On store free', 'S-1');
-        $this->seedProduct('Catalogue only widget', 'OFF-1');
+        $this->seedProduct('Catalog only widget', 'OFF-1');
         $this->onStore($inGroup);
         $this->onStore($onStore);
         ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $inGroup]);
@@ -322,9 +322,9 @@ class ShopeeAddToStoreTest extends TestCase
         $r = $this->actingAs($this->manager())->getJson($this->groupBase($group->id) . '/products/search')->assertOk();
 
         $byName = collect($r->json('items'))->keyBy('name');
-        $this->assertEqualsCanonicalizing(['On store free', 'Catalogue only widget'], $byName->keys()->all(), 'the catalogue, minus what the group already holds');
+        $this->assertEqualsCanonicalizing(['On store free', 'Catalog only widget'], $byName->keys()->all(), 'the catalog, minus what the group already holds');
         $this->assertTrue($byName['On store free']['listed']);
-        $this->assertFalse($byName['Catalogue only widget']['listed'], 'the row says the store does not carry it yet');
+        $this->assertFalse($byName['Catalog only widget']['listed'], 'the row says the store does not carry it yet');
 
         $all = $this->actingAs($this->manager())->getJson($this->groupBase($group->id) . '/products/search?all=1')->assertOk();
         $byName = collect($all->json('items'))->keyBy('name');
@@ -332,10 +332,10 @@ class ShopeeAddToStoreTest extends TestCase
         $this->assertFalse($byName['On store free']['on_store']);
     }
 
-    public function test_adding_a_catalogue_product_to_a_group_lists_it_on_the_store_as_it_joins(): void
+    public function test_adding_a_catalog_product_to_a_group_lists_it_on_the_store_as_it_joins(): void
     {
         $group = $this->group();
-        $pid = $this->seedProduct('Catalogue only widget', 'OFF-1');
+        $pid = $this->seedProduct('Catalog only widget', 'OFF-1');
         $this->assertFalse(ShopeeStoreProducts::has($pid));
 
         $this->actingAs($this->manager())

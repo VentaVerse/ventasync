@@ -36,7 +36,7 @@ class ChannelItemImportTest extends TestCase
         $this->app->register(\Extensions\lazada\LazadaExtension::class);
         $this->app->register(\Extensions\tiktok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
         $this->lazadaStore = LazadaSetting::query()->create(['mode' => 'live', 'region' => 'ph', 'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't', 'refresh_token' => 'r']);
         TikTokSetting::create(['mode' => 'production', 'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3)]);
@@ -89,8 +89,8 @@ class ChannelItemImportTest extends TestCase
                         'package_dimensions' => ['length' => '30', 'width' => '10', 'height' => '4'],
                         'main_images' => [['urls' => ['https://p16.tiktokcdn.com/main.jpg']]],
                         'skus' => [
-                            ['id' => 's-1', 'seller_sku' => 'TTI-BLK', 'price' => ['sale_price' => '700'], 'inventory' => [['quantity' => 5]], 'sales_attributes' => [['name' => 'Colour', 'value_name' => 'Black']]],
-                            ['id' => 's-2', 'seller_sku' => 'TTI-TAN', 'price' => ['sale_price' => '750'], 'inventory' => [['quantity' => 2]], 'sales_attributes' => [['name' => 'Colour', 'value_name' => 'Tan']]],
+                            ['id' => 's-1', 'seller_sku' => 'TTI-BLK', 'price' => ['sale_price' => '700'], 'inventory' => [['quantity' => 5]], 'sales_attributes' => [['name' => 'Color', 'value_name' => 'Black']]],
+                            ['id' => 's-2', 'seller_sku' => 'TTI-TAN', 'price' => ['sale_price' => '750'], 'inventory' => [['quantity' => 2]], 'sales_attributes' => [['name' => 'Color', 'value_name' => 'Tan']]],
                         ],
                     ]]];
                 }

@@ -1741,8 +1741,8 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/{store}/products/catalogue-search",
-        "name": "ext.lazada.products.catalogue_search"
+        "uri": "channels/lazada/{store}/products/catalog-search",
+        "name": "ext.lazada.products.catalog_search"
     },
     {
         "method": "GET|HEAD",
@@ -2791,8 +2791,8 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/shopee/{store}/products/catalogue-search",
-        "name": "ext.shopee.products.catalogue_search"
+        "uri": "channels/shopee/{store}/products/catalog-search",
+        "name": "ext.shopee.products.catalog_search"
     },
     {
         "method": "GET|HEAD",
@@ -3451,8 +3451,8 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/tiktok/{store}/products/catalogue-search",
-        "name": "ext.tiktok.products.catalogue_search"
+        "uri": "channels/tiktok/{store}/products/catalog-search",
+        "name": "ext.tiktok.products.catalog_search"
     },
     {
         "method": "GET|HEAD",
@@ -4076,8 +4076,8 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/ventacart/{store}/products/catalogue-search",
-        "name": "ext.ventacart.products.catalogue_search"
+        "uri": "channels/ventacart/{store}/products/catalog-search",
+        "name": "ext.ventacart.products.catalog_search"
     },
     {
         "method": "GET|HEAD",
@@ -4481,8 +4481,8 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/woocommerce/{store}/products/catalogue-search",
-        "name": "ext.woocommerce.products.catalogue_search"
+        "uri": "channels/woocommerce/{store}/products/catalog-search",
+        "name": "ext.woocommerce.products.catalog_search"
     },
     {
         "method": "GET|HEAD",

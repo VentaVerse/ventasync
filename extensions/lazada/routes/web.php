@@ -140,8 +140,8 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
         Route::post('/lazada/{store}/products/link-item', [LazadaProductController::class, 'linkItem'])->name('ext.lazada.products.link_item');
         Route::post('/lazada/{store}/products/add-to-store', [LazadaProductController::class, 'addToStoreBulk'])->name('ext.lazada.products.add_to_store_bulk');
         Route::post('/lazada/{store}/products/{productId}/add-to-store', [LazadaProductController::class, 'addToStore'])->whereNumber('productId')->name('ext.lazada.products.add_to_store');
-        Route::get('/lazada/{store}/products/catalogue-search', [LazadaProductController::class, 'catalogueSearch'])
-            ->name('ext.lazada.products.catalogue_search')
+        Route::get('/lazada/{store}/products/catalog-search', [LazadaProductController::class, 'catalogSearch'])
+            ->name('ext.lazada.products.catalog_search')
             ->defaults('permission_tier', 'view');
         Route::post('/lazada/{store}/products/{productId}/remove-from-store', [LazadaProductController::class, 'removeFromStore'])->whereNumber('productId')->name('ext.lazada.products.remove_from_store');
         Route::post('/lazada/{store}/listings/{productId}/toggle', [LazadaProductController::class, 'toggleListing'])->whereNumber('productId')->name('ext.lazada.listings.toggle');

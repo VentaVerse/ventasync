@@ -75,7 +75,7 @@ class ShopeeWebhookTest extends TestCase
 
     public function test_the_push_keys_are_saved_encrypted_and_a_blank_field_keeps_them(): void
     {
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
         $group = \App\Models\Admin\UserGroup::create(['name' => 'shopee settings']);
         $group->permissions()->attach(\App\Models\Admin\Permission::whereIn('key', ['view_shopee/settings', 'manage_shopee/settings'])->pluck('id')->all());
         $user = \App\Models\User::factory()->create(['user_group_id' => $group->id]);

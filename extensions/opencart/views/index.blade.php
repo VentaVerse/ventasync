@@ -113,15 +113,15 @@
                         :can-reveal="$canManageOpencart"
                         :disabled="!$canManageOpencart" />
 
-                    <x-ui.field label="Colour" for="oc-brand-color" name="brand_color"
+                    <x-ui.field label="Color" for="oc-brand-color" name="brand_color"
                                 hint="Used wherever this store appears in a chart or a report.">
-                        <div class="cs-colour" data-colour-pair>
-                            <input type="color" id="oc-brand-color" name="brand_color" class="cs-colour__swatch"
-                                   value="{{ $store->brand_color ?: '#16a34a' }}" data-colour-input
-                                   @disabled(!$canManageOpencart) aria-label="Store colour">
-                            <x-ui.input class="cs-colour__hex fm-input--num" maxlength="7" data-colour-hex
+                        <div class="cs-color" data-color-pair>
+                            <input type="color" id="oc-brand-color" name="brand_color" class="cs-color__swatch"
+                                   value="{{ $store->brand_color ?: '#16a34a' }}" data-color-input
+                                   @disabled(!$canManageOpencart) aria-label="Store color">
+                            <x-ui.input class="cs-color__hex fm-input--num" maxlength="7" data-color-hex
                                         value="{{ $store->brand_color ?: '#16a34a' }}"
-                                        aria-label="Store colour as a hex value" :disabled="!$canManageOpencart" />
+                                        aria-label="Store color as a hex value" :disabled="!$canManageOpencart" />
                         </div>
                     </x-ui.field>
 

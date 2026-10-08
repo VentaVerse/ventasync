@@ -27,7 +27,7 @@ class GroupScopeStripsTest extends TestCase
         $manager->enable('shopee');
         $this->app->register(\Extensions\shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
         ShopeeSetting::query()->create([
             'store_name' => 'Main', 'enabled' => true, 'mode' => 'live',
@@ -89,7 +89,7 @@ class GroupScopeStripsTest extends TestCase
             ->assertOk()->getContent();
 
         $this->assertStringContainsString('<span>All</span>', $html);
-        $this->assertStringNotContainsString('x-segment-group__k', $html, 'the catalogue framing went with #201: the strip is the store\'s own list, no group labels');
+        $this->assertStringNotContainsString('x-segment-group__k', $html, 'the catalog framing went with #201: the strip is the store\'s own list, no group labels');
         $this->assertMatchesRegularExpression('/>Live<\/span>\s*<span class="x-segment__count">1</', $html,
             'the Live count must be member-scoped: 1, not 2 - the stranger\'s NORMAL row is not this group\'s business');
         $this->assertStringContainsString('shopee_tab=unlisted', $html);

@@ -36,7 +36,7 @@ class TikTokAddToStoreTest extends TestCase
             'mode' => 'production', 'store_name' => 'Gearshipper', 'app_key' => 'k', 'app_secret' => 's',
             'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3),
         ]);
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
     }
 
     private function manager(): User
@@ -92,7 +92,7 @@ class TikTokAddToStoreTest extends TestCase
     {
         $onStore = $this->seedProduct('On store widget', 'ON-1');
         $legacy = $this->seedProduct('Legacy pivot widget', 'LEG-1');
-        $this->seedProduct('Catalogue only widget', 'OFF-1');
+        $this->seedProduct('Catalog only widget', 'OFF-1');
         $this->onStore($onStore);
         TikTokProductGroupProduct::create(['tiktok_product_group_id' => $this->group()->id, 'product_id' => $legacy, 'tiktok_product_id' => 'tt-legacy', 'sync_status' => 'synced']);
 
@@ -100,19 +100,19 @@ class TikTokAddToStoreTest extends TestCase
 
         $this->assertStringContainsString('On store widget', $html);
         $this->assertStringContainsString('Legacy pivot widget', $html);
-        $this->assertStringNotContainsString('Catalogue only widget', $html, 'a catalogue product not on this store must not appear on This store');
+        $this->assertStringNotContainsString('Catalog only widget', $html, 'a catalog product not on this store must not appear on This store');
     }
 
     public function test_a_new_store_lists_nothing_and_offers_the_add_panel(): void
     {
-        $this->seedProduct('Catalogue only widget', 'OFF-1');
+        $this->seedProduct('Catalog only widget', 'OFF-1');
 
         $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
 
         $this->assertStringContainsString('No products on this store yet', $html);
         $this->assertStringContainsString('data-add-panel-open', $html);
         $this->assertStringContainsString('id="tiktok-add-panel"', $html);
-        $this->assertStringNotContainsString('<span>All products</span>', $html, 'the catalogue framing is gone');
+        $this->assertStringNotContainsString('<span>All products</span>', $html, 'the catalog framing is gone');
     }
 
     public function test_the_panel_is_not_rendered_for_a_read_only_operator(): void
@@ -127,34 +127,34 @@ class TikTokAddToStoreTest extends TestCase
         $this->assertStringNotContainsString('id="tiktok-add-panel"', $html);
     }
 
-    public function test_catalogue_search_defaults_to_products_not_yet_on_this_store(): void
+    public function test_catalog_search_defaults_to_products_not_yet_on_this_store(): void
     {
         $onStore = $this->seedProduct('On store widget', 'ON-1');
-        $this->seedProduct('Catalogue only widget', 'OFF-1');
+        $this->seedProduct('Catalog only widget', 'OFF-1');
         $this->onStore($onStore);
 
-        $r = $this->actingAs($this->manager())->getJson($this->base() . '/catalogue-search')->assertOk();
+        $r = $this->actingAs($this->manager())->getJson($this->base() . '/catalog-search')->assertOk();
 
         $names = collect($r->json('items'))->pluck('name')->all();
-        $this->assertContains('Catalogue only widget', $names);
+        $this->assertContains('Catalog only widget', $names);
         $this->assertNotContains('On store widget', $names);
         $this->assertSame(1, $r->json('total'));
     }
 
-    public function test_catalogue_search_can_show_everything_flagged(): void
+    public function test_catalog_search_can_show_everything_flagged(): void
     {
         $onStore = $this->seedProduct('On store widget', 'ON-1');
-        $this->seedProduct('Catalogue only widget', 'OFF-1');
+        $this->seedProduct('Catalog only widget', 'OFF-1');
         $this->onStore($onStore);
 
-        $r = $this->actingAs($this->manager())->getJson($this->base() . '/catalogue-search?all=1')->assertOk();
+        $r = $this->actingAs($this->manager())->getJson($this->base() . '/catalog-search?all=1')->assertOk();
 
         $byName = collect($r->json('items'))->keyBy('name');
         $this->assertTrue($byName['On store widget']['on_store']);
-        $this->assertFalse($byName['Catalogue only widget']['on_store']);
+        $this->assertFalse($byName['Catalog only widget']['on_store']);
     }
 
-    public function test_catalogue_search_narrows_and_skips_disabled_and_is_capped(): void
+    public function test_catalog_search_narrows_and_skips_disabled_and_is_capped(): void
     {
         $this->seedProduct('Shimano Deore XT', 'SHI-XT');
         $this->seedProduct('Disabled thing', 'DIS-1', 0);
@@ -162,18 +162,18 @@ class TikTokAddToStoreTest extends TestCase
             $this->seedProduct('Widget ' . str_pad((string) $i, 2, '0', STR_PAD_LEFT), 'W-' . $i);
         }
 
-        $r = $this->actingAs($this->manager())->getJson($this->base() . '/catalogue-search?q=SHI-XT')->assertOk();
+        $r = $this->actingAs($this->manager())->getJson($this->base() . '/catalog-search?q=SHI-XT')->assertOk();
         $this->assertSame(['Shimano Deore XT'], collect($r->json('items'))->pluck('name')->all());
 
-        $all = $this->actingAs($this->manager())->getJson($this->base() . '/catalogue-search')->assertOk();
+        $all = $this->actingAs($this->manager())->getJson($this->base() . '/catalog-search')->assertOk();
         $this->assertNotContains('Disabled thing', collect($all->json('items'))->pluck('name')->all());
         $this->assertSame(31, $all->json('total'));
-        $this->assertSame(25, $all->json('shown'), 'a slide-over cannot list a whole catalogue; it caps and names the total');
+        $this->assertSame(25, $all->json('shown'), 'a slide-over cannot list a whole catalog; it caps and names the total');
     }
 
     public function test_add_to_store_over_json_puts_the_product_on_the_store(): void
     {
-        $pid = $this->seedProduct('Catalogue only widget', 'OFF-1');
+        $pid = $this->seedProduct('Catalog only widget', 'OFF-1');
 
         $this->actingAs($this->manager())
             ->postJson($this->base() . '/' . $pid . '/add-to-store')
@@ -185,7 +185,7 @@ class TikTokAddToStoreTest extends TestCase
         $this->assertNull($row->tiktok_category_id, 'blank: the listing page fills it in');
 
         $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
-        $this->assertStringContainsString('Catalogue only widget', $html);
+        $this->assertStringContainsString('Catalog only widget', $html);
 
         $this->actingAs($this->manager())
             ->postJson($this->base() . '/' . $pid . '/add-to-store')
@@ -208,9 +208,9 @@ class TikTokAddToStoreTest extends TestCase
             ->assertRedirect();
         $this->assertSame(2, TikTokListing::withoutGlobalScope('tiktokStore')->whereIn('product_id', [$a, $b])->where('tiktok_setting_id', $this->store->id)->count());
 
-        $c = $this->seedProduct('Catalogue only widget', 'OFF-1');
+        $c = $this->seedProduct('Catalog only widget', 'OFF-1');
         $html = $this->actingAs($this->manager())->get($this->base() . '?list=add')->assertOk()->getContent();
-        $this->assertStringContainsString('Catalogue only widget', $html);
+        $this->assertStringContainsString('Catalog only widget', $html);
         $this->assertStringContainsString('Add to store', $html);
         $this->assertStringContainsString('Back to Products', $html);
     }
@@ -276,7 +276,7 @@ class TikTokAddToStoreTest extends TestCase
         $inGroup = $this->seedProduct('Already grouped', 'G-1');
         $free = $this->seedProduct('On store free', 'S-1');
         $elsewhere = $this->seedProduct('Owned elsewhere', 'E-1');
-        $this->seedProduct('Catalogue only widget', 'OFF-1');
+        $this->seedProduct('Catalog only widget', 'OFF-1');
         foreach ([$inGroup, $free, $elsewhere] as $pid) {
             $this->onStore($pid);
         }
@@ -285,11 +285,11 @@ class TikTokAddToStoreTest extends TestCase
 
         $r = $this->actingAs($this->manager())->getJson($this->groupBase($group->id) . '/products/search')->assertOk();
         $byName = collect($r->json('items'))->keyBy('name');
-        $this->assertSame(['Catalogue only widget', 'On store free', 'Owned elsewhere'], $byName->keys()->sort()->values()->all());
+        $this->assertSame(['Catalog only widget', 'On store free', 'Owned elsewhere'], $byName->keys()->sort()->values()->all());
         $this->assertSame('Gloves', $byName['Owned elsewhere']['elsewhere']);
         $this->assertNull($byName['On store free']['elsewhere']);
         $this->assertTrue($byName['On store free']['listed']);
-        $this->assertFalse($byName['Catalogue only widget']['listed'], 'the row says the store does not carry it yet');
+        $this->assertFalse($byName['Catalog only widget']['listed'], 'the row says the store does not carry it yet');
 
         $all = $this->actingAs($this->manager())->getJson($this->groupBase($group->id) . '/products/search?all=1')->assertOk();
         $allByName = collect($all->json('items'))->keyBy('name');
@@ -302,7 +302,7 @@ class TikTokAddToStoreTest extends TestCase
         $other = $this->group('Gloves');
         $free = $this->seedProduct('On store free', 'S-1');
         $elsewhere = $this->seedProduct('Owned elsewhere', 'E-1');
-        $off = $this->seedProduct('Catalogue only widget', 'OFF-1');
+        $off = $this->seedProduct('Catalog only widget', 'OFF-1');
         $this->onStore($free);
         $this->onStore($elsewhere);
         TikTokProductGroupProduct::create(['tiktok_product_group_id' => $other->id, 'product_id' => $elsewhere, 'sync_status' => 'pending']);

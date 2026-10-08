@@ -76,7 +76,7 @@ class ApiLogModeTest extends TestCase
         ShopeeApiLog::create(['method' => 'POST', 'api_path' => '/test/rare_failure', 'ok' => false, 'response_status' => 400]);
 
         $group = \App\Models\Admin\UserGroup::create(['name' => 'Log readers']);
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
         $group->permissions()->attach(
             \App\Models\Admin\Permission::whereIn('key', ['view_shopee/settings', 'manage_shopee/settings'])->pluck('id')->all()
         );

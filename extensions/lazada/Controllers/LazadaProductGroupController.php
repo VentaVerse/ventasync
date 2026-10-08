@@ -480,9 +480,9 @@ class LazadaProductGroupController extends Controller
     public function addProduct(Request $request, int $id, int $productId)
     {
         $group = LazadaProductGroup::query()->findOrFail($id);
-        $inCatalogue = DB::table((string) config('catalog.prefix') . 'product')
+        $inCatalog = DB::table((string) config('catalog.prefix') . 'product')
             ->where('product_id', $productId)->where('status', 1)->exists();
-        abort_unless($inCatalogue, 404);
+        abort_unless($inCatalog, 404);
 
         $listedNow = false;
         if (! LazadaProduct::query()->where('product_id', $productId)->exists()) {

@@ -36,7 +36,7 @@ class ChannelStateLabelTest extends TestCase
 
         $this->assertNotSame('Not connected', $badge['label']);
         $this->assertNotSame('danger', $badge['tone'],
-            'A store that is merely switched off is shown in the alarm colour.');
+            'A store that is merely switched off is shown in the alarm color.');
     }
 
     public function test_the_two_attention_causes_are_told_apart(): void
@@ -49,7 +49,7 @@ class ChannelStateLabelTest extends TestCase
         );
     }
 
-    public function test_an_unrecognised_reason_still_says_something(): void
+    public function test_an_unrecognized_reason_still_says_something(): void
     {
         foreach ([['attention', 'who-knows'], ['setup', 'who-knows'], ['banana', null]] as [$state, $reason]) {
             $badge = ChannelWorkspace::badge($state, $reason);

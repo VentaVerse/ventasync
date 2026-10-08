@@ -33,7 +33,7 @@ class ShopeeVariationPushTest extends TestCase
         $manager->enable('shopee');
         $this->app->register(\Extensions\shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
         \Extensions\shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 106755], ['attributes' => ['attribute_list' => []], 'fetched_at' => now()]);
 
         ShopeeSetting::query()->create([
@@ -123,13 +123,13 @@ class ShopeeVariationPushTest extends TestCase
         ]);
         DB::table($pfx . 'product_description')->insert([
             'product_id' => $productId, 'language_id' => $langId,
-            'name' => 'Variation push product', 'description' => 'Two colours.',
+            'name' => 'Variation push product', 'description' => 'Two colors.',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
 
         $optionId = (int) DB::table($pfx . 'option')->insertGetId(['type' => 'select', 'sort_order' => 0]);
         DB::table($pfx . 'option_description')->insert([
-            'option_id' => $optionId, 'language_id' => $langId, 'name' => 'Colour',
+            'option_id' => $optionId, 'language_id' => $langId, 'name' => 'Color',
         ]);
         $productOptionId = (int) DB::table($pfx . 'product_option')->insertGetId([
             'product_id' => $productId, 'option_id' => $optionId, 'value' => '', 'required' => 0,
@@ -182,7 +182,7 @@ class ShopeeVariationPushTest extends TestCase
         $this->assertSame(990077, (int) $init['body']['item_id']);
 
         $tier = $init['body']['tier_variation'][0];
-        $this->assertSame('Colour', $tier['name']);
+        $this->assertSame('Color', $tier['name']);
         $this->assertSame(['Red', 'Black'], array_column($tier['option_list'], 'option'));
         $this->assertSame('img-tier-001', $tier['option_list'][0]['image']['image_id'] ?? null,
             'Red carries its own uploaded picture.');
@@ -223,7 +223,7 @@ class ShopeeVariationPushTest extends TestCase
         $this->assertNotContains('/api/v2/product/update_item', $paths);
 
         $init = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/init_tier_variation');
-        $this->assertSame('Colour', $init['body']['tier_variation'][0]['name']);
+        $this->assertSame('Color', $init['body']['tier_variation'][0]['name']);
         $this->assertSame(['Red', 'Black'], array_column($init['body']['tier_variation'][0]['option_list'], 'option'));
     }
 
@@ -238,7 +238,7 @@ class ShopeeVariationPushTest extends TestCase
         ]);
         DB::table($pfx . 'product_description')->insert([
             'product_id' => $productId, 'language_id' => (int) config('catalog.default_language_id'),
-            'name' => 'Plain product', 'description' => 'No colours.',
+            'name' => 'Plain product', 'description' => 'No colors.',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
         ShopeeListing::query()->create([

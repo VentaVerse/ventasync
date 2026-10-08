@@ -51,7 +51,7 @@ class TikTokProductController extends Controller
         }
 
         if ($request->query('list') === 'add') {
-            return $this->addCatalogue($request);
+            return $this->addCatalog($request);
         }
 
         $c = $this->creds();
@@ -230,7 +230,7 @@ class TikTokProductController extends Controller
         ];
 
         $tabBase = $applyMenu(clone $query);
-        $catalogueTotal = (clone $tabBase)->count();
+        $catalogTotal = (clone $tabBase)->count();
         if ($liveCounts !== null) {
             $liveCounts = $tabCounts($tabBase);
         }
@@ -337,7 +337,7 @@ class TikTokProductController extends Controller
             'liveTabError' => $liveTabError,
             'liveStatuses' => $liveStatuses,
             'liveCheckedAt' => $liveCheckedAt,
-            'catalogueTotal' => $catalogueTotal,
+            'catalogTotal' => $catalogTotal,
             'readinessByProductId' => $readinessByProductId,
             'failedFlag' => $failedFlag,
             'changeFlag' => $changeFlag,
@@ -423,7 +423,7 @@ class TikTokProductController extends Controller
         return $out;
     }
 
-    private function addCatalogue(Request $request)
+    private function addCatalog(Request $request)
     {
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
@@ -499,7 +499,7 @@ class TikTokProductController extends Controller
             'onStore' => $onStore,
             'sort' => $sort,
             'dir' => $dir,
-            'catalogueTotal' => (int) DB::table($pfx . 'product')->count(),
+            'catalogTotal' => (int) DB::table($pfx . 'product')->count(),
             'onStoreTotal' => TikTokStoreProducts::count(),
             'listTab' => 'add',
         ]);
@@ -532,7 +532,7 @@ class TikTokProductController extends Controller
         return redirect()->back()->with('status', 'Added to this store. Configure and push it from This store whenever you are ready.');
     }
 
-    public function catalogueSearch(Request $request)
+    public function catalogSearch(Request $request)
     {
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');

@@ -30,7 +30,7 @@ class LiveFixesAugust26Test extends TestCase
         $manager->enable('shopee');
         $this->app->register(\Extensions\shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
     }
 
     public function test_a_variation_sku_falls_back_to_the_product_picture(): void
@@ -142,7 +142,7 @@ class LiveFixesAugust26Test extends TestCase
         $this->assertTrue(Permission::where('key', 'manage_sales/order_payment')->exists());
 
         $admin = UserGroup::firstOrCreate(['name' => 'Administrator']);
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
         $this->assertTrue($admin->permissions()->where('key', 'manage_sales/order_payment')->exists(),
             'a key that grows out of a route is granted to the Administrator group as it appears');
 

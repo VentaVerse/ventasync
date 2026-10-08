@@ -54,7 +54,7 @@
             @if($hasFilters)
                 {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product matches' : 'products match' }}@if($statusMenu['label'] ?? null): {{ $statusMenu['label'] }}@endif
             @else
-                {{ number_format($catalogueTotal ?? $products->total()) }} {{ ($catalogueTotal ?? $products->total()) === 1 ? 'product' : 'products' }} on this store
+                {{ number_format($catalogTotal ?? $products->total()) }} {{ ($catalogTotal ?? $products->total()) === 1 ? 'product' : 'products' }} on this store
                 &middot; {{ number_format($listedTotal ?? 0) }} on Shopee
             @endif
         </p>
@@ -427,7 +427,7 @@
 @if($canManageShopee)
     <x-channel.add-panel
         id="shopee-add-panel"
-        :search-url="route('ext.shopee.products.catalogue_search')"
+        :search-url="route('ext.shopee.products.catalog_search')"
         :add-url="route('ext.shopee.products.add_to_store', ['productId' => '__PID__'])"
         :groups="\App\Integrations\Listings\StatusMenu::groupChoices($statusMenu ?? [])"
         :group="\App\Integrations\Listings\StatusMenu::chosenGroup($statusMenu ?? [])"

@@ -147,15 +147,15 @@
                         :can-reveal="$canManageVenta"
                         :disabled="!$canManageVenta" />
 
-                    <x-ui.field label="Colour" for="vt-brand-color" name="brand_color"
+                    <x-ui.field label="Color" for="vt-brand-color" name="brand_color"
                                 hint="Used wherever this store appears in a chart or a report.">
-                        <div class="cs-colour" data-colour-pair>
-                            <input type="color" id="vt-brand-color" name="brand_color" class="cs-colour__swatch"
-                                   value="{{ $store->brand_color ?: '#059669' }}" data-colour-input
-                                   @disabled(!$canManageVenta) aria-label="Store colour">
-                            <x-ui.input class="cs-colour__hex fm-input--num" maxlength="7" data-colour-hex
+                        <div class="cs-color" data-color-pair>
+                            <input type="color" id="vt-brand-color" name="brand_color" class="cs-color__swatch"
+                                   value="{{ $store->brand_color ?: '#059669' }}" data-color-input
+                                   @disabled(!$canManageVenta) aria-label="Store color">
+                            <x-ui.input class="cs-color__hex fm-input--num" maxlength="7" data-color-hex
                                         value="{{ $store->brand_color ?: '#059669' }}"
-                                        aria-label="Store colour as a hex value" :disabled="!$canManageVenta" />
+                                        aria-label="Store color as a hex value" :disabled="!$canManageVenta" />
                         </div>
                     </x-ui.field>
 

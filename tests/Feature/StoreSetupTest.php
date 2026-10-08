@@ -34,7 +34,7 @@ class StoreSetupTest extends TestCase
         $this->app->register(\Extensions\lazada\LazadaExtension::class);
         $this->app->register(\Extensions\tiktok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
     }
 
     private function manager(string $channel): User

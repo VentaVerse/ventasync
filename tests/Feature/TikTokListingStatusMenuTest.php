@@ -28,7 +28,7 @@ class TikTokListingStatusMenuTest extends TestCase
         $manager->enable('tiktok');
         $this->app->register(\Extensions\tiktok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
         TikTokSetting::create([
             'mode' => 'production', 'app_key' => 'k', 'app_secret' => 's',

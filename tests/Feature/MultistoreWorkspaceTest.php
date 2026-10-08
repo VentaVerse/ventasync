@@ -107,7 +107,7 @@ class MultistoreWorkspaceTest extends TestCase
         $group = UserGroup::create(['name' => 'Multistore '.$channel.' Operators']);
 
         $keys = array_values(array_filter(
-            app(\App\Services\PermissionCatalogue::class)->keys(),
+            app(\App\Services\PermissionCatalog::class)->keys(),
             fn ($k) => str_starts_with($k, 'view_'.$channel.'/')
         ));
 

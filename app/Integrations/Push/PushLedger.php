@@ -42,7 +42,7 @@ final class PushLedger
             $fixes[] = 'Not on ' . $channelName . ': add it with Push update, or delete it from the catalog.';
         }
         if ($rows->contains(fn ($e) => str_starts_with((string) $e['reason'], 'on '))) {
-            $fixes[] = 'On ' . $channelName . ' but not in the catalogue: delete it on ' . $channelName . ', then Refresh from ' . $channelName . '.';
+            $fixes[] = 'On ' . $channelName . ' but not in the catalog: delete it on ' . $channelName . ', then Refresh from ' . $channelName . '.';
         }
 
         return 'Variations do not match ' . $channelName . ': ' . $names . '. Nothing was pushed. ' . implode(' ', $fixes);

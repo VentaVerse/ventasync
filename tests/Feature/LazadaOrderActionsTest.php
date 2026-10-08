@@ -31,7 +31,7 @@ class LazadaOrderActionsTest extends TestCase
         $manager->enable('lazada');
         $this->app->register(\Extensions\lazada\LazadaExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
         $this->store = LazadaSetting::query()->create([
             'mode' => 'live', 'region' => 'ph',

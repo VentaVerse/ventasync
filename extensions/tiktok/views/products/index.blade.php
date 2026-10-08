@@ -38,7 +38,7 @@
             @if($hasFilters)
                 {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product matches' : 'products match' }}@if($statusMenu['label'] ?? null): {{ $statusMenu['label'] }}@endif
             @else
-                {{ number_format($catalogueTotal ?? $products->total()) }} {{ ($catalogueTotal ?? $products->total()) === 1 ? 'product' : 'products' }} on this store
+                {{ number_format($catalogTotal ?? $products->total()) }} {{ ($catalogTotal ?? $products->total()) === 1 ? 'product' : 'products' }} on this store
                 &middot; {{ number_format($listedTotal ?? 0) }} on TikTok Shop
             @endif
         </p>
@@ -69,7 +69,7 @@
                        class="x-segment__item {{ $tiktokTab === 'all' ? 'is-active' : '' }}"
                        @if($tiktokTab === 'all') aria-current="true" @endif>
                         <span>All</span>
-                        <span class="x-segment__count">{{ number_format((int) ($catalogueTotal ?? $products->total())) }}</span>
+                        <span class="x-segment__count">{{ number_format((int) ($catalogTotal ?? $products->total())) }}</span>
                     </a>
                     @foreach($tabDefs as $tabKey => [$tabLabel, $tabStatus])
                         @continue($tabKey === 'all')
@@ -401,7 +401,7 @@
 @if($canManage)
     <x-channel.add-panel
         id="tiktok-add-panel"
-        :search-url="route('ext.tiktok.products.catalogue_search')"
+        :search-url="route('ext.tiktok.products.catalog_search')"
         :add-url="route('ext.tiktok.products.add_to_store', ['productId' => '__PID__'])"
         :groups="\App\Integrations\Listings\StatusMenu::groupChoices($statusMenu ?? [])"
         :group="\App\Integrations\Listings\StatusMenu::chosenGroup($statusMenu ?? [])"

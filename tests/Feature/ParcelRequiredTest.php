@@ -15,7 +15,7 @@ class ParcelRequiredTest extends TestCase
 
     private function manager(): User
     {
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
         $group = UserGroup::create(['name' => 'Parcel desk']);
         $group->permissions()->attach(Permission::query()->where('key', 'like', '%catalog%')->pluck('id')->all());
 

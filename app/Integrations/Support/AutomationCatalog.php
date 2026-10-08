@@ -5,7 +5,7 @@ namespace App\Integrations\Support;
 use App\Extensions\ExtensionProvider;
 use Illuminate\Contracts\Foundation\Application;
 
-final class AutomationCatalogue
+final class AutomationCatalog
 {
     public function __construct(private Application $app)
     {

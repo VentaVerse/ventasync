@@ -33,7 +33,7 @@ class LazadaStockPushHealTest extends TestCase
         $manager->enable('lazada');
         $this->app->register(\Extensions\lazada\LazadaExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
         LazadaSetting::query()->create([
             'mode' => 'live', 'region' => 'ph',
@@ -322,7 +322,7 @@ class LazadaStockPushHealTest extends TestCase
             ->assertRedirect();
 
         $this->assertNull(session('error'));
-        $this->assertCount(1, $this->updateCalls(), 'only the twin the catalogue has');
+        $this->assertCount(1, $this->updateCalls(), 'only the twin the catalog has');
     }
 
     public function test_a_variation_switched_off_for_the_store_is_not_synced(): void
@@ -402,7 +402,7 @@ class LazadaStockPushHealTest extends TestCase
             ->get(route('ext.lazada.products.edit', $listing->product_id))->assertOk();
 
         $page->assertDontSee('1 of 2 variations');
-        $page->assertDontSee('carries every catalogue variation, missing ones included');
+        $page->assertDontSee('carries every catalog variation, missing ones included');
     }
 
     public function test_a_new_combination_makes_the_cache_refetch(): void

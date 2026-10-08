@@ -33,7 +33,7 @@ class ShopeeAddModelTest extends TestCase
         $manager->enable('shopee');
         $this->app->register(\Extensions\shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
         ShopeeSetting::query()->create(['mode' => 'live', 'partner_id' => '1', 'partner_key' => 'k', 'shop_id' => '2', 'access_token' => 't', 'refresh_token' => 'r']);
 
@@ -342,7 +342,7 @@ class ShopeeAddModelTest extends TestCase
     public function test_a_category_defined_type_keeps_the_stores_name(): void
     {
         $pid = $this->variationProduct(
-            ['Colour' => ['Red', 'Blue'], 'Pack size' => ['Small', 'Large']],
+            ['Color' => ['Red', 'Blue'], 'Pack size' => ['Small', 'Large']],
             ['CL-RS' => ['Red', 'Small'], 'CL-RL' => ['Red', 'Large'], 'CL-BS' => ['Blue', 'Small'], 'CL-BL' => ['Blue', 'Large']]
         );
         $this->linkForUpdate($pid);

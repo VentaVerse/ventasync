@@ -66,12 +66,12 @@
     <div class="x-segment-groups">
         <div class="x-segment-group">
             <span class="x-segment-group__k">Your Master Catalog</span>
-            <nav class="x-segment" aria-label="Catalogue">
+            <nav class="x-segment" aria-label="Catalog">
                 <a href="{{ $indexUrl($tabQuery) }}"
                    class="x-segment__item {{ $ventaCartTab === 'all' ? 'is-active' : '' }}"
                    @if($ventaCartTab === 'all') aria-current="true" @endif>
                     <span>All products</span>
-                    <span class="x-segment__count">{{ number_format((int) ($catalogueTotal ?? $products->total())) }}</span>
+                    <span class="x-segment__count">{{ number_format((int) ($catalogTotal ?? $products->total())) }}</span>
                 </a>
             </nav>
         </div>
@@ -363,7 +363,7 @@
 @if($canManage)
     <x-channel.add-panel
         id="ventacart-add-panel"
-        :search-url="route('ext.ventacart.products.catalogue_search', $setting->id)"
+        :search-url="route('ext.ventacart.products.catalog_search', $setting->id)"
         :add-url="route('ext.ventacart.products.add_to_store', [$setting->id, '__PID__'])"
         :groups="\App\Integrations\Listings\StatusMenu::groupChoices($statusMenu ?? [])"
         :group="\App\Integrations\Listings\StatusMenu::chosenGroup($statusMenu ?? [])"

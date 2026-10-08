@@ -23,7 +23,7 @@
 
 <section class="x-hub__group">
     <h2 class="x-hub__group-title">Badges</h2>
-    <p class="x-page-sub">Status tones carry a dot, since status is what a long list gets scanned for. Channel tones drop the dot and let the brand-tinted text carry identity, so the two never compete for the same "coloured dot" reading in a table row (see Orders).</p>
+    <p class="x-page-sub">Status tones carry a dot, since status is what a long list gets scanned for. Channel tones drop the dot and let the brand-tinted text carry identity, so the two never compete for the same "colored dot" reading in a table row (see Orders).</p>
     <div class="x-kit-row">
         @foreach(['neutral','success','warning','danger','info'] as $t)
             <x-ui.badge :tone="$t">{{ ucfirst($t) }}</x-ui.badge>

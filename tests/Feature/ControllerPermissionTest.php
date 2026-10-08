@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use App\Services\PermissionCatalogue;
+use App\Services\PermissionCatalog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
@@ -24,7 +24,7 @@ class ControllerPermissionTest extends TestCase
         $this->app->register(\Extensions\lazada\LazadaExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
 
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
     }
 
     private int $groupSeq = 0;
@@ -44,7 +44,7 @@ class ControllerPermissionTest extends TestCase
 
     public function test_every_gated_controller_has_a_key_derived_from_its_routes(): void
     {
-        $catalog = $this->app->make(PermissionCatalogue::class);
+        $catalog = $this->app->make(PermissionCatalog::class);
         $missing = [];
 
         foreach (Route::getRoutes() as $route) {
@@ -71,7 +71,7 @@ class ControllerPermissionTest extends TestCase
 
     public function test_every_derived_key_exists_as_a_permission_row(): void
     {
-        $catalog = $this->app->make(PermissionCatalogue::class);
+        $catalog = $this->app->make(PermissionCatalog::class);
         $rows = Permission::pluck('key')->flip();
 
         $missing = array_values(array_filter(
@@ -85,7 +85,7 @@ class ControllerPermissionTest extends TestCase
 
     public function test_an_area_with_no_write_route_offers_no_manage_tier(): void
     {
-        $catalog = $this->app->make(PermissionCatalogue::class);
+        $catalog = $this->app->make(PermissionCatalog::class);
         $readOnly = array_filter($catalog->all(), fn ($e) => $e['writes'] === 0);
 
         $this->assertNotEmpty($readOnly, 'this test is only meaningful while a read-only area exists');
@@ -184,7 +184,7 @@ class ControllerPermissionTest extends TestCase
 
     public function test_a_surface_that_gates_per_item_is_not_gated_at_the_door(): void
     {
-        $catalog = $this->app->make(PermissionCatalogue::class);
+        $catalog = $this->app->make(PermissionCatalog::class);
 
         foreach ([
             \App\Http\Controllers\Integrations\IntegrationController::class,
@@ -198,7 +198,7 @@ class ControllerPermissionTest extends TestCase
 
     public function test_each_channel_dashboard_derives_its_own_key(): void
     {
-        $catalog = $this->app->make(PermissionCatalogue::class);
+        $catalog = $this->app->make(PermissionCatalog::class);
 
         $this->assertArrayHasKey(
             'lazada/dashboard',

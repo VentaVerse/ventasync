@@ -26,7 +26,7 @@ class LogRetentionTest extends TestCase
         $this->app->register(\Extensions\ventacart\VentaCartExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
 
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
     }
 
     private function manager(): User

@@ -28,7 +28,7 @@ class LazadaAttributeAutoFillTest extends TestCase
         $manager->enable('lazada');
         $this->app->register(\Extensions\lazada\LazadaExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
         LazadaSetting::query()->create([
             'mode' => 'live', 'region' => 'ph',
@@ -83,7 +83,7 @@ class LazadaAttributeAutoFillTest extends TestCase
         ]);
     }
 
-    public function test_readiness_asks_only_what_the_catalogue_cannot_answer(): void
+    public function test_readiness_asks_only_what_the_catalog_cannot_answer(): void
     {
         $this->template();
         $listing = LazadaProduct::query()->create([
@@ -128,7 +128,7 @@ class LazadaAttributeAutoFillTest extends TestCase
     {
         $this->template();
         $listing = LazadaProduct::query()->create([
-            'product_id' => $this->seedProduct('Catalogue name', 'GP5'),
+            'product_id' => $this->seedProduct('Catalog name', 'GP5'),
             'primary_category_id' => 7013,
         ]);
         LazadaProductAttribute::query()->create([
@@ -364,7 +364,7 @@ class LazadaAttributeAutoFillTest extends TestCase
         $this->assertSame(0, LazadaCategoryTemplate::query()->where('primary_category_id', 7100)->count());
     }
 
-    public function test_the_push_payload_carries_the_catalogue_answers_the_operator_never_typed(): void
+    public function test_the_push_payload_carries_the_catalog_answers_the_operator_never_typed(): void
     {
         $this->template();
         $listing = LazadaProduct::query()->create([
@@ -379,7 +379,7 @@ class LazadaAttributeAutoFillTest extends TestCase
             ->buildLazadaProductCreatePayload($listing->fresh());
 
         $attrs = $payload['Request']['Product']['Attributes'];
-        $this->assertSame('Valeton GP-5 Mini Pedal', $attrs['name'], 'name fills from the catalogue before the gate');
+        $this->assertSame('Valeton GP-5 Mini Pedal', $attrs['name'], 'name fills from the catalog before the gate');
         $this->assertSame('<p>Tiny pedal, big sound</p>', $attrs['description']);
         $this->assertSame('No Warranty', $attrs['warranty_type'], "the operator's answer rides beside them");
         $this->assertArrayHasKey('short_description', $attrs, 'optional basics fill too rather than going blank');
