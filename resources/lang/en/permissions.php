@@ -64,7 +64,8 @@ return [
         'settings/setting' => 'General Settings',
         'settings/error_log' => 'Error Log',
         'settings/settings_hub' => 'Settings Home',
-        'pettycash/ledger' => 'Transactions',
+        'finance/petty_cash_ledger' => 'Petty Cash',
+        'finance/petty_cash_settings' => 'Petty Cash Settings',
 
         'lazada/dashboard' => 'Overview',
         'shopee/dashboard' => 'Overview',

@@ -4646,6 +4646,51 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "finance/petty-cash",
+        "name": "ext.finance.petty_cash.index"
+    },
+    {
+        "method": "POST",
+        "uri": "finance/petty-cash",
+        "name": "ext.finance.petty_cash.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "finance/petty-cash/settings",
+        "name": "ext.finance.petty_cash.settings"
+    },
+    {
+        "method": "POST",
+        "uri": "finance/petty-cash/settings/categories",
+        "name": "ext.finance.petty_cash.settings.categories.store"
+    },
+    {
+        "method": "DELETE",
+        "uri": "finance/petty-cash/settings/categories/{id}",
+        "name": "ext.finance.petty_cash.settings.categories.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "finance/petty-cash/settings/categories/{id}",
+        "name": "ext.finance.petty_cash.settings.categories.update"
+    },
+    {
+        "method": "POST",
+        "uri": "finance/petty-cash/settings/roles",
+        "name": "ext.finance.petty_cash.settings.roles"
+    },
+    {
+        "method": "DELETE",
+        "uri": "finance/petty-cash/{id}",
+        "name": "ext.finance.petty_cash.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "finance/petty-cash/{id}",
+        "name": "ext.finance.petty_cash.update"
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "forgot-password",
         "name": "password.request"
     },
@@ -4826,48 +4871,8 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "petty-cash",
-        "name": "ext.pettycash.index"
-    },
-    {
-        "method": "POST",
-        "uri": "petty-cash",
-        "name": "ext.pettycash.store"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "petty-cash/settings",
-        "name": "ext.pettycash.settings"
-    },
-    {
-        "method": "POST",
-        "uri": "petty-cash/settings/categories",
-        "name": "ext.pettycash.settings.categories.store"
-    },
-    {
-        "method": "DELETE",
-        "uri": "petty-cash/settings/categories/{id}",
-        "name": "ext.pettycash.settings.categories.destroy"
-    },
-    {
-        "method": "PUT",
-        "uri": "petty-cash/settings/categories/{id}",
-        "name": "ext.pettycash.settings.categories.update"
-    },
-    {
-        "method": "POST",
-        "uri": "petty-cash/settings/roles",
-        "name": "ext.pettycash.settings.roles"
-    },
-    {
-        "method": "DELETE",
-        "uri": "petty-cash/{id}",
-        "name": "ext.pettycash.destroy"
-    },
-    {
-        "method": "PUT",
-        "uri": "petty-cash/{id}",
-        "name": "ext.pettycash.update"
+        "uri": "petty-cash/{any?}",
+        "name": null
     },
     {
         "method": "GET|HEAD",

@@ -66,8 +66,10 @@ class Navigation
                  'keywords' => ['stock value', 'on hand']],
             ]],
 
-            ['label' => 'Petty Cash', 'icon' => 'wallet', 'route' => 'ext.pettycash.index',
-             'keywords' => ['expense', 'cash', 'reimbursement', 'float']],
+            ['label' => 'Finance', 'icon' => 'wallet', 'items' => [
+                ['label' => 'Petty Cash', 'route' => 'ext.finance.petty_cash.index',
+                 'keywords' => ['expense', 'cash', 'reimbursement', 'float']],
+            ]],
 
             ...self::extensionEntries(),
 
