@@ -9,7 +9,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-class TiktokPayoutSyncTest extends TestCase
+class TikTokPayoutSyncTest extends TestCase
 {
     use RefreshDatabase;
 

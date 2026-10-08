@@ -32,7 +32,7 @@ class PackingCheckTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         foreach (['lazada' => \Extensions\lazada\LazadaExtension::class,
             'shopee' => \Extensions\shopee\ShopeeExtension::class,
-            'tiktok' => \Extensions\tiktok\TiktokExtension::class,
+            'tiktok' => \Extensions\tiktok\TikTokExtension::class,
             'ventacart' => \Extensions\ventacart\VentaCartExtension::class] as $id => $provider) {
             $manager->install($id);
             $manager->enable($id);

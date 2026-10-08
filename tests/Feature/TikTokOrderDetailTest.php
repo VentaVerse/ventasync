@@ -9,12 +9,12 @@ use App\Models\User;
 use Extensions\tiktok\Models\TikTokOrder;
 use Extensions\tiktok\Models\TikTokOrderProduct;
 use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\TiktokExtension;
+use Extensions\tiktok\TikTokExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-class TiktokOrderDetailTest extends TestCase
+class TikTokOrderDetailTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -28,7 +28,7 @@ class TiktokOrderDetailTest extends TestCase
         $manager->install('tiktok');
         $manager->enable('tiktok');
 
-        $this->app->register(TiktokExtension::class);
+        $this->app->register(TikTokExtension::class);
 
         $this->app['router']->getRoutes()->refreshNameLookups();
 

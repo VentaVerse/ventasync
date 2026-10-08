@@ -29,7 +29,7 @@ use Illuminate\Support\Facades\Schema;
 use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Concerns\RevealsCredentials;
 
-class OpencartExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover
+class OpenCartExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover
 {
     protected string $id = 'opencart';
 
@@ -439,7 +439,7 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
 
     public function automations(): array
     {
-        return \Extensions\opencart\Support\OpencartScheduledJobs::JOBS;
+        return \Extensions\opencart\Support\OpenCartScheduledJobs::JOBS;
     }
 
     public function automationStoreIds(): ?array

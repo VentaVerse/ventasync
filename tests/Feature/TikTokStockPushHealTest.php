@@ -15,7 +15,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-class TiktokStockPushHealTest extends TestCase
+class TikTokStockPushHealTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -32,7 +32,7 @@ class TiktokStockPushHealTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('tiktok');
         $manager->enable('tiktok');
-        $this->app->register(\Extensions\tiktok\TiktokExtension::class);
+        $this->app->register(\Extensions\tiktok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalogue');
 

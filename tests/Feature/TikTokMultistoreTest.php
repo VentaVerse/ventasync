@@ -18,7 +18,7 @@ class TikTokMultistoreTest extends TestCase
         $manager = $this->app->make(\App\Extensions\ExtensionManager::class);
         $manager->install('tiktok');
         $manager->enable('tiktok');
-        $this->app->register(\Extensions\tiktok\TiktokExtension::class);
+        $this->app->register(\Extensions\tiktok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
     }
 
@@ -225,7 +225,7 @@ class TikTokMultistoreTest extends TestCase
         TikTokOrder::create(['tiktok_setting_id' => $two->id, 'region' => 'PH', 'order_id' => 'W-2', 'status' => 'AWAITING_SHIPMENT']);
         TikTokOrder::create(['tiktok_setting_id' => $two->id, 'region' => 'PH', 'order_id' => 'W-3', 'status' => 'AWAITING_SHIPMENT']);
 
-        $data = $this->app->make(\Extensions\tiktok\TiktokExtension::class, ['app' => $this->app])->dashboardData();
+        $data = $this->app->make(\Extensions\tiktok\TikTokExtension::class, ['app' => $this->app])->dashboardData();
 
         $this->assertSame(1, $data['channelPending']['tiktok:' . $one->id] ?? null, "the first store reports its own waiting count");
         $this->assertSame(2, $data['channelPending']['tiktok:' . $two->id] ?? null, "the second store reports its own");

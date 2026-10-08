@@ -10,7 +10,7 @@ use App\Models\Admin\UserGroup;
 use App\Models\User;
 use App\Support\ChannelWorkspace;
 use Extensions\opencart\Models\OpenCartSetting;
-use Extensions\opencart\OpencartExtension;
+use Extensions\opencart\OpenCartExtension;
 use Extensions\ventacart\Models\VentaCartSetting;
 use Extensions\ventacart\VentaCartExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -28,7 +28,7 @@ class MultistoreWorkspaceTest extends TestCase
 
         $providers = [
             'ventacart' => VentaCartExtension::class,
-            'opencart' => OpencartExtension::class,
+            'opencart' => OpenCartExtension::class,
             'shopee' => \Extensions\shopee\ShopeeExtension::class,
         ];
 

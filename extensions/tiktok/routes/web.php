@@ -2,8 +2,8 @@
 
 use Extensions\tiktok\Controllers\TikTokDescriptionTemplateController;
 use Extensions\tiktok\Controllers\TikTokWatermarkTemplateController;
-use Extensions\tiktok\Controllers\TiktokSettingsController;
-use Extensions\tiktok\Controllers\TiktokApiExplorerController;
+use Extensions\tiktok\Controllers\TikTokSettingsController;
+use Extensions\tiktok\Controllers\TikTokApiExplorerController;
 use Extensions\tiktok\Controllers\TikTokOrderController;
 use Extensions\tiktok\Controllers\TikTokCouponController;
 use Extensions\tiktok\Controllers\TikTokListingController;
@@ -13,10 +13,10 @@ use Illuminate\Support\Facades\Route;
 
 // The OAuth callback is one fixed URL registered byte for byte in TikTok; no {store} segment.
 // The store rides the HMAC-signed state.
-Route::get('/tiktok/callback', [TiktokSettingsController::class, 'callback'])->name('ext.tiktok.callback');
+Route::get('/tiktok/callback', [TikTokSettingsController::class, 'callback'])->name('ext.tiktok.callback');
 
 Route::middleware(['auth'])->group(function () {
-    Route::get('/tiktok/authorize', [TiktokSettingsController::class, 'redirectToAuth'])->name('ext.tiktok.authorize')
+    Route::get('/tiktok/authorize', [TikTokSettingsController::class, 'redirectToAuth'])->name('ext.tiktok.authorize')
         ->defaults('permission_tier', 'manage');
 });
 
@@ -24,9 +24,9 @@ Route::middleware(['auth', \Extensions\tiktok\Http\ResolveTikTokStore::class])
     ->prefix('channels')->where(['store' => '[0-9]+'])->group(function () {
 
     Route::group([], function () {
-        Route::post('/tiktok/stores', [TiktokSettingsController::class, 'createStore'])->name('ext.tiktok.stores.store');
+        Route::post('/tiktok/stores', [TikTokSettingsController::class, 'createStore'])->name('ext.tiktok.stores.store');
 
-        Route::get('/tiktok/{store}/settings', [TiktokSettingsController::class, 'index'])->name('ext.tiktok.index');
+        Route::get('/tiktok/{store}/settings', [TikTokSettingsController::class, 'index'])->name('ext.tiktok.index');
 
         Route::get('/tiktok/{store}/categories', [TikTokProductGroupController::class, 'indexCategories'])->name('ext.tiktok.categories.index');
 
@@ -65,23 +65,23 @@ Route::middleware(['auth', \Extensions\tiktok\Http\ResolveTikTokStore::class])
     });
 
     Route::group([], function () {
-        Route::post('/tiktok/{store}/save', [TiktokSettingsController::class, 'save'])->name('ext.tiktok.save');
-        Route::post('/tiktok/{store}/toggle-mode', [TiktokSettingsController::class, 'toggleMode'])->name('ext.tiktok.toggle_mode');
-        Route::post('/tiktok/{store}/token/get', [TiktokSettingsController::class, 'tokenGet'])->name('ext.tiktok.token_get');
-        Route::post('/tiktok/{store}/token/refresh', [TiktokSettingsController::class, 'tokenRefresh'])->name('ext.tiktok.token_refresh');
-        Route::post('/tiktok/{store}/shops', [TiktokSettingsController::class, 'getShops'])->name('ext.tiktok.shops');
+        Route::post('/tiktok/{store}/save', [TikTokSettingsController::class, 'save'])->name('ext.tiktok.save');
+        Route::post('/tiktok/{store}/toggle-mode', [TikTokSettingsController::class, 'toggleMode'])->name('ext.tiktok.toggle_mode');
+        Route::post('/tiktok/{store}/token/get', [TikTokSettingsController::class, 'tokenGet'])->name('ext.tiktok.token_get');
+        Route::post('/tiktok/{store}/token/refresh', [TikTokSettingsController::class, 'tokenRefresh'])->name('ext.tiktok.token_refresh');
+        Route::post('/tiktok/{store}/shops', [TikTokSettingsController::class, 'getShops'])->name('ext.tiktok.shops');
 
-        Route::post('/tiktok/{store}/explorer/run', [TiktokApiExplorerController::class, 'explorerRun'])->name('ext.tiktok.explorer_run');
-        Route::post('/tiktok/{store}/packs/run', [TiktokApiExplorerController::class, 'packsRun'])->name('ext.tiktok.packs_run');
+        Route::post('/tiktok/{store}/explorer/run', [TikTokApiExplorerController::class, 'explorerRun'])->name('ext.tiktok.explorer_run');
+        Route::post('/tiktok/{store}/packs/run', [TikTokApiExplorerController::class, 'packsRun'])->name('ext.tiktok.packs_run');
 
-        Route::post('/tiktok/{store}/api-log-mode', [TiktokSettingsController::class, 'setApiLogMode'])->name('ext.tiktok.api_log_mode');
-        Route::delete('/tiktok/{store}/api-logs', [TiktokSettingsController::class, 'clearApiLogs'])->name('ext.tiktok.clear_api_logs');
-        Route::post('/tiktok/{store}/purge-raw', [TiktokSettingsController::class, 'purgeRaw'])->name('ext.tiktok.purge_raw');
-        Route::post('/tiktok/{store}/delete', [TiktokSettingsController::class, 'destroyStore'])->name('ext.tiktok.stores.destroy');
-        Route::post('/tiktok/{store}/setup/{step}', [TiktokSettingsController::class, 'setupStep'])->whereIn('step', ['shop', 'categories'])->name('ext.tiktok.setup_step');
+        Route::post('/tiktok/{store}/api-log-mode', [TikTokSettingsController::class, 'setApiLogMode'])->name('ext.tiktok.api_log_mode');
+        Route::delete('/tiktok/{store}/api-logs', [TikTokSettingsController::class, 'clearApiLogs'])->name('ext.tiktok.clear_api_logs');
+        Route::post('/tiktok/{store}/purge-raw', [TikTokSettingsController::class, 'purgeRaw'])->name('ext.tiktok.purge_raw');
+        Route::post('/tiktok/{store}/delete', [TikTokSettingsController::class, 'destroyStore'])->name('ext.tiktok.stores.destroy');
+        Route::post('/tiktok/{store}/setup/{step}', [TikTokSettingsController::class, 'setupStep'])->whereIn('step', ['shop', 'categories'])->name('ext.tiktok.setup_step');
 
-        Route::post('/tiktok/{store}/order-status-map', [TiktokSettingsController::class, 'saveOrderStatusMap'])->name('ext.tiktok.order_status_map');
-        Route::post('/tiktok/{store}/return-status-map', [TiktokSettingsController::class, 'saveReturnStatusMap'])->name('ext.tiktok.return_status_map');
+        Route::post('/tiktok/{store}/order-status-map', [TikTokSettingsController::class, 'saveOrderStatusMap'])->name('ext.tiktok.order_status_map');
+        Route::post('/tiktok/{store}/return-status-map', [TikTokSettingsController::class, 'saveReturnStatusMap'])->name('ext.tiktok.return_status_map');
 
         Route::post('/tiktok/{store}/categories/sync', [TikTokProductGroupController::class, 'syncCategories'])->name('ext.tiktok.categories.sync');
 
@@ -162,7 +162,7 @@ Route::middleware(['auth', \Extensions\tiktok\Http\ResolveTikTokStore::class])
 });
 
 Route::middleware(['auth', \Extensions\tiktok\Http\ResolveTikTokStore::class])->prefix('channels')->group(function () {
-    Route::get('/tiktok/{store?}', [\Extensions\tiktok\Controllers\TiktokDashboardController::class, 'show'])
+    Route::get('/tiktok/{store?}', [\Extensions\tiktok\Controllers\TikTokDashboardController::class, 'show'])
         ->where('store', '[0-9]+')
         ->defaults('permission_denial', '404')
         ->name('ext.tiktok.dashboard');

@@ -8,7 +8,7 @@ use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\tiktok\Models\TikTokListing;
 use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\TiktokExtension;
+use Extensions\tiktok\TikTokExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -26,7 +26,7 @@ class TikTokCatalogChangeTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('tiktok');
         $manager->enable('tiktok');
-        $this->app->register(TiktokExtension::class);
+        $this->app->register(TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalogue');
 

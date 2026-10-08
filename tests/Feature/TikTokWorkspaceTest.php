@@ -11,11 +11,11 @@ use App\Support\ChannelWorkspace;
 use Extensions\tiktok\Models\TikTokOrder;
 use Extensions\tiktok\Models\TikTokOrderProduct;
 use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\TiktokExtension;
+use Extensions\tiktok\TikTokExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-class TiktokWorkspaceTest extends TestCase
+class TikTokWorkspaceTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -55,7 +55,7 @@ class TiktokWorkspaceTest extends TestCase
         $manager->install('tiktok');
         $manager->enable('tiktok');
 
-        $this->app->register(TiktokExtension::class);
+        $this->app->register(TikTokExtension::class);
 
         $this->app['router']->getRoutes()->refreshNameLookups();
 

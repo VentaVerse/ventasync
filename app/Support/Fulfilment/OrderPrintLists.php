@@ -33,7 +33,7 @@ class OrderPrintLists
             'label' => 'Storefront',
         ],
         'woocommerce' => [
-            'model' => \Extensions\woocommerce\Models\WooOrder::class,
+            'model' => \Extensions\woocommerce\Models\WooCommerceOrder::class,
             'ref' => 'woo_order_number',
             'buyer' => 'customer_name',
             'label' => 'WooCommerce',

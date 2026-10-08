@@ -30,7 +30,7 @@ class BookingGuardsTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         foreach (['shopee' => \Extensions\shopee\ShopeeExtension::class,
             'lazada' => \Extensions\lazada\LazadaExtension::class,
-            'tiktok' => \Extensions\tiktok\TiktokExtension::class] as $id => $provider) {
+            'tiktok' => \Extensions\tiktok\TikTokExtension::class] as $id => $provider) {
             $manager->install($id);
             $manager->enable($id);
             $this->app->register($provider);

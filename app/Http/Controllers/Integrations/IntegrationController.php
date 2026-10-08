@@ -19,7 +19,7 @@ class IntegrationController extends Controller
         'opencart' => \Extensions\opencart\Services\OpenCartOrdersPanel::class,
         'shopify'  => \Extensions\shopify\Services\ShopifyOrdersPanel::class,
         'pedallion' => \Extensions\pedallion\Services\PedallionOrdersPanel::class,
-        'woocommerce' => \Extensions\woocommerce\Services\WooOrdersPanel::class,
+        'woocommerce' => \Extensions\woocommerce\Services\WooCommerceOrdersPanel::class,
     ];
 
     private const ORDER_PANEL_STORE_SCOPED = ['ventacart', 'opencart', 'shopify', 'shopee', 'lazada', 'tiktok', 'woocommerce'];

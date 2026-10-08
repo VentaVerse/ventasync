@@ -30,7 +30,7 @@ use Illuminate\Support\Facades\Schema;
 use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Concerns\RevealsCredentials;
 
-class TiktokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, \App\Integrations\Contracts\MobileFulfilmentProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, \App\Integrations\Contracts\ListingStateSource, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter, \App\Integrations\Contracts\SaleLinesSource, \App\Integrations\Contracts\MarketplaceOrderRefRenderer
+class TikTokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, \App\Integrations\Contracts\MobileFulfilmentProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, \App\Integrations\Contracts\ListingStateSource, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter, \App\Integrations\Contracts\SaleLinesSource, \App\Integrations\Contracts\MarketplaceOrderRefRenderer
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],

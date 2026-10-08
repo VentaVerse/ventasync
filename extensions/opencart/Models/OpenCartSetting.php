@@ -63,7 +63,7 @@ class OpenCartSetting extends Model
     protected static function booted(): void
     {
         static::created(function (self $store) {
-            \Extensions\opencart\Support\OpencartScheduledJobs::ensureFor((int) $store->id);
+            \Extensions\opencart\Support\OpenCartScheduledJobs::ensureFor((int) $store->id);
         });
     }
 }

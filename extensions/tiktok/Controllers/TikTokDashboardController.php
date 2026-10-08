@@ -4,7 +4,7 @@ namespace Extensions\tiktok\Controllers;
 
 use App\Http\Controllers\Integrations\ChannelDashboardController;
 
-class TiktokDashboardController extends ChannelDashboardController
+class TikTokDashboardController extends ChannelDashboardController
 {
     protected string $channel = 'tiktok';
 }

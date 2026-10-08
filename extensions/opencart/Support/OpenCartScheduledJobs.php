@@ -4,7 +4,7 @@ namespace Extensions\opencart\Support;
 
 use App\Integrations\Support\StoreScheduledJobs;
 
-class OpencartScheduledJobs
+class OpenCartScheduledJobs
 {
     public const JOBS = [
         ['opencart:sync orders', 'Sync Orders', 5, 'minute'],

@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
-class TiktokDescriptionImagesTest extends TestCase
+class TikTokDescriptionImagesTest extends TestCase
 {
     use RefreshDatabase;
 

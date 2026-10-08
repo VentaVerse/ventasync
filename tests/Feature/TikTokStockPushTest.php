@@ -14,7 +14,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-class TiktokStockPushTest extends TestCase
+class TikTokStockPushTest extends TestCase
 {
     use RefreshDatabase;
 

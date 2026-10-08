@@ -16,7 +16,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-class TiktokAddToStoreTest extends TestCase
+class TikTokAddToStoreTest extends TestCase
 {
     use RefreshDatabase;
 

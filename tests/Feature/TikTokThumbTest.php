@@ -8,11 +8,11 @@ use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\tiktok\Models\TikTokSetting;
 use Extensions\tiktok\Services\TikTok\TikTokClient;
-use Extensions\tiktok\TiktokExtension;
+use Extensions\tiktok\TikTokExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-class TiktokThumbTest extends TestCase
+class TikTokThumbTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -24,7 +24,7 @@ class TiktokThumbTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('tiktok');
         $manager->enable('tiktok');
-        $this->app->register(TiktokExtension::class);
+        $this->app->register(TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalogue');
         TikTokSetting::create([

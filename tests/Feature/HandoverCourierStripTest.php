@@ -11,7 +11,7 @@ use Extensions\lazada\Models\LazadaOrder;
 use Extensions\lazada\Models\LazadaOrderProduct;
 use Extensions\lazada\Models\LazadaSetting;
 use Extensions\tiktok\Models\TikTokOrder;
-use Extensions\tiktok\TiktokExtension;
+use Extensions\tiktok\TikTokExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -34,7 +34,7 @@ class HandoverCourierStripTest extends TestCase
         }
 
         $this->app->register(LazadaExtension::class);
-        $this->app->register(TiktokExtension::class);
+        $this->app->register(TikTokExtension::class);
 
         $this->app['router']->getRoutes()->refreshNameLookups();
 

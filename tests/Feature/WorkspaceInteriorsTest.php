@@ -23,12 +23,12 @@ use Extensions\opencart\Models\OpenCartOrderStatusMap;
 use Extensions\opencart\Models\OpenCartProductGroup;
 use Extensions\opencart\Models\OpenCartSetting;
 use Extensions\opencart\Models\OpenCartSyncLog;
-use Extensions\opencart\OpencartExtension;
+use Extensions\opencart\OpenCartExtension;
 use Extensions\tiktok\Models\TikTokApiLog;
 use Extensions\tiktok\Models\TikTokCategory;
 use Extensions\tiktok\Models\TikTokProductGroup;
 use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\TiktokExtension;
+use Extensions\tiktok\TikTokExtension;
 use Extensions\ventacart\Models\VentaCartApiLog;
 use Extensions\ventacart\Models\VentaCartOrderStatusMap;
 use Extensions\ventacart\Models\VentaCartProductGroup;
@@ -62,9 +62,9 @@ class WorkspaceInteriorsTest extends TestCase
 
         $this->app->register(ShopeeExtension::class);
         $this->app->register(LazadaExtension::class);
-        $this->app->register(TiktokExtension::class);
+        $this->app->register(TikTokExtension::class);
         $this->app->register(VentaCartExtension::class);
-        $this->app->register(OpencartExtension::class);
+        $this->app->register(OpenCartExtension::class);
 
         $this->app['router']->getRoutes()->refreshNameLookups();
     }

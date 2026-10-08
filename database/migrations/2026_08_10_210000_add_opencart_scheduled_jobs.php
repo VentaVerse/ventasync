@@ -1,6 +1,6 @@
 <?php
 
-use Extensions\opencart\Support\OpencartScheduledJobs;
+use Extensions\opencart\Support\OpenCartScheduledJobs;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
@@ -13,7 +13,7 @@ return new class extends Migration
         }
 
         foreach (DB::table('opencart_settings')->orderBy('id')->get(['id']) as $store) {
-            OpencartScheduledJobs::ensureFor((int) $store->id);
+            OpenCartScheduledJobs::ensureFor((int) $store->id);
         }
     }
 

@@ -13,7 +13,7 @@ use Extensions\tiktok\Models\TikTokProductGroup;
 use Extensions\tiktok\Models\TikTokProductGroupProduct;
 use Extensions\tiktok\Models\TikTokSetting;
 use Extensions\tiktok\Services\TikTok\TikTokListingStates;
-use Extensions\tiktok\TiktokExtension;
+use Extensions\tiktok\TikTokExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -30,7 +30,7 @@ class TikTokListingStateTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('tiktok');
         $manager->enable('tiktok');
-        $this->app->register(TiktokExtension::class);
+        $this->app->register(TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalogue');
 
@@ -245,7 +245,7 @@ class TikTokListingStateTest extends TestCase
         $failed = $this->seedProduct('Failed', 'DB-1');
         TikTokListing::create(['product_id' => $failed, 'tiktok_product_id' => 'tt-501', 'live_status' => 'FAILED', 'live_checked_at' => now()]);
 
-        $data = (new TiktokExtension(app()))->dashboardData();
+        $data = (new TikTokExtension(app()))->dashboardData();
 
         $this->assertNotNull($data['tiktokSyncStatus']);
         $flags = $data['tiktokSyncStatus']->listing_flags;
@@ -275,9 +275,9 @@ class TikTokListingStateTest extends TestCase
         TikTokListing::create(['product_id' => $productId, 'tiktok_product_id' => 'tt-401', 'live_status' => 'ACTIVATE', 'live_checked_at' => now()]);
 
         $sources = $this->app->make(IntegrationRegistry::class)->listingStateSources();
-        $tiktok = collect($sources)->first(fn ($src) => $src instanceof TiktokExtension);
+        $tiktok = collect($sources)->first(fn ($src) => $src instanceof TikTokExtension);
 
-        $this->assertNotNull($tiktok, 'TiktokExtension must register as a ListingStateSource');
+        $this->assertNotNull($tiktok, 'TikTokExtension must register as a ListingStateSource');
         $this->assertSame(ListingState::LIVE, $tiktok->listingStates([$productId])[$productId]->state);
         $this->assertSame(route('ext.tiktok.listings.edit', $productId), $tiktok->listingUrls([$productId])[$productId]);
     }

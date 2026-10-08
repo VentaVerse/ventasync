@@ -4,7 +4,7 @@ namespace Extensions\tiktok\Controllers;
 
 use Illuminate\Http\Request;
 
-class TiktokSettingsController extends TikTokController
+class TikTokSettingsController extends TikTokController
 {
 
     public function saveReturnStatusMap(Request $request)

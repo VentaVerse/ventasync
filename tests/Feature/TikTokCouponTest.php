@@ -11,7 +11,7 @@ use Extensions\tiktok\Services\TikTok\TikTokClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-class TiktokCouponTest extends TestCase
+class TikTokCouponTest extends TestCase
 {
     use RefreshDatabase;
 

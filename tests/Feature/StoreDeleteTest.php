@@ -30,7 +30,7 @@ class StoreDeleteTest extends TestCase
         }
         $this->app->register(\Extensions\shopee\ShopeeExtension::class);
         $this->app->register(\Extensions\lazada\LazadaExtension::class);
-        $this->app->register(\Extensions\tiktok\TiktokExtension::class);
+        $this->app->register(\Extensions\tiktok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalogue');
     }

@@ -402,7 +402,7 @@ class ShopeeStockPushHealTest extends TestCase
             'lazada/Commands/LazadaPushStock', 'lazada/Commands/LazadaPushPrice',
             'tiktok/Commands/TikTokPushStock', 'tiktok/Commands/TikTokPushPrice',
             'ventacart/Commands/VentaCartPushStock', 'ventacart/Commands/VentaCartPushPrice',
-            'woocommerce/Commands/WoocommercePushStock', 'woocommerce/Commands/WoocommercePushPrice',
+            'woocommerce/Commands/WooCommercePushStock', 'woocommerce/Commands/WooCommercePushPrice',
             'opencart/Commands/OpenCartPushQty', 'opencart/Commands/OpenCartPushPrice',
         ] as $file) {
             if (! is_dir(base_path('extensions/' . strtok($file, '/')))) {
