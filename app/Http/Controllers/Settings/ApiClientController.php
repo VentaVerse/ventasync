@@ -81,7 +81,7 @@ class ApiClientController extends Controller
 
     public function edit(Request $request, ApiClient $apiClient)
     {
-        $this->notAnAssistant($apiClient);
+        $this->notAnMcpClient($apiClient);
         $token = $apiClient->tokens()->latest()->first();
 
         return view('settings.api.edit', [
@@ -94,7 +94,7 @@ class ApiClientController extends Controller
 
     public function update(Request $request, ApiClient $apiClient)
     {
-        $this->notAnAssistant($apiClient);
+        $this->notAnMcpClient($apiClient);
         $data = $request->validate([
             'name'       => ['required', 'string', 'max:255'],
             'scopes'     => ['required', 'array', 'min:1'],
@@ -136,7 +136,7 @@ class ApiClientController extends Controller
 
     public function rotate(Request $request, ApiClient $apiClient)
     {
-        $this->notAnAssistant($apiClient);
+        $this->notAnMcpClient($apiClient);
         $current = $apiClient->tokens()->latest()->first();
         if (! $current) {
             return redirect()->route('api_clients.index')
@@ -165,7 +165,7 @@ class ApiClientController extends Controller
 
     public function token(Request $request, ApiClient $apiClient): JsonResponse
     {
-        $this->notAnAssistant($apiClient);
+        $this->notAnMcpClient($apiClient);
 
         $plain = $apiClient->viewableToken();
         if ($plain === null) {
@@ -182,7 +182,7 @@ class ApiClientController extends Controller
 
     public function destroy(Request $request, ApiClient $apiClient)
     {
-        $this->notAnAssistant($apiClient);
+        $this->notAnMcpClient($apiClient);
         $apiClient->tokens()->delete();
         $apiClient->delete();
 
@@ -219,7 +219,7 @@ class ApiClientController extends Controller
         return array_values(array_unique($abilities));
     }
 
-    private function notAnAssistant(ApiClient $apiClient): void
+    private function notAnMcpClient(ApiClient $apiClient): void
     {
         abort_if((bool) $apiClient->mcp_enabled, 404);
     }
