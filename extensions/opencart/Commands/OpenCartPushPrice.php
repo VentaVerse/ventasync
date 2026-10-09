@@ -10,7 +10,7 @@ use Illuminate\Console\Command;
 class OpenCartPushPrice extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     protected $signature = 'opencart:push-price
-        {--store= : Store ID (opencart_settings.id). Omit to push to all enabled stores}';
+        {--store= : Store ID (ch_opencart_stores.id). Omit to push to all enabled stores}';
 
     protected $description = 'Push product prices from the ERP to OpenCart stores';
 

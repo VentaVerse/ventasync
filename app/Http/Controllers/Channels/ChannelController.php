@@ -310,10 +310,10 @@ class ChannelController extends Controller
             if (in_array($baseId, ['shopee', 'lazada', 'tiktok'], true)) {
                 $storeRows = $card->stores !== []
                     ? collect($card->stores)->map(fn ($store) => [
-                        DB::table($baseId . '_settings')->where('id', (int) substr($store->id, strpos($store->id, ':') + 1))->first(),
+                        DB::table('ch_' . $baseId . '_stores')->where('id', (int) substr($store->id, strpos($store->id, ':') + 1))->first(),
                         $store,
                     ])->all()
-                    : [[DB::table($baseId . '_settings')->first(), null]];
+                    : [[DB::table('ch_' . $baseId . '_stores')->first(), null]];
 
                 foreach ($storeRows as [$row, $store]) {
                     $isSandbox = ($row?->mode ?? 'live') === 'sandbox';
@@ -331,10 +331,10 @@ class ChannelController extends Controller
                         'tokenExpiresAt' => $signInExpiresAt,
                         'lastSyncAt' => $lastSyncRaw ? Carbon::parse($lastSyncRaw) : null,
                         'errors24h' => $loggingOn
-                            ? DB::table($baseId . '_api_logs')
+                            ? DB::table('ch_' . $baseId . '_api_logs')
                                 ->when(
                                     $row !== null && $card->stores !== []
-                                        && \Illuminate\Support\Facades\Schema::hasColumn($baseId . '_api_logs', 'store_id'),
+                                        && \Illuminate\Support\Facades\Schema::hasColumn('ch_' . $baseId . '_api_logs', 'store_id'),
                                     fn ($q) => $q->where('store_id', $row->id)
                                 )
                                 ->where('created_at', '>=', $staleAfter)->where('ok', 0)->count()
@@ -355,27 +355,27 @@ class ChannelController extends Controller
                 foreach ($stores as $store) {
                     $storeId = $store ? (int) substr($store->id, strpos($store->id, ':') + 1) : null;
                     $row = $storeId
-                        ? DB::table($baseId . '_settings')->where('id', $storeId)->first()
-                        : DB::table($baseId . '_settings')->first();
+                        ? DB::table('ch_' . $baseId . '_stores')->where('id', $storeId)->first()
+                        : DB::table('ch_' . $baseId . '_stores')->first();
 
                     $errors24h = null;
                     if ($row && $baseId === 'ventacart') {
                         $errors24h = ((($row->api_log_mode ?? 'off') !== 'off'))
-                            ? DB::table('ventacart_api_logs')->where('store_id', $row->id)->where('created_at', '>=', $staleAfter)->where('ok', 0)->count()
+                            ? DB::table('ch_ventacart_api_logs')->where('store_id', $row->id)->where('created_at', '>=', $staleAfter)->where('ok', 0)->count()
                             : null;
                     } elseif ($row && $baseId === 'shopify') {
                         $errors24h = ((($row->api_log_mode ?? 'off') !== 'off'))
-                            ? DB::table('shopify_api_logs')->where('store_id', $row->id)->where('created_at', '>=', $staleAfter)->where('ok', 0)->count()
+                            ? DB::table('ch_shopify_api_logs')->where('store_id', $row->id)->where('created_at', '>=', $staleAfter)->where('ok', 0)->count()
                             : null;
                     } elseif ($row && $baseId === 'opencart') {
-                        $errors24h = DB::table('opencart_sync_log')->where('store_id', $row->id)->where('created_at', '>=', $staleAfter)->where('status', 'failed')->count();
+                        $errors24h = DB::table('ch_opencart_sync_log')->where('store_id', $row->id)->where('created_at', '>=', $staleAfter)->where('status', 'failed')->count();
                     } elseif ($row && $baseId === 'woocommerce') {
                         $errors24h = ((($row->api_log_mode ?? 'off') !== 'off'))
-                            ? DB::table('woocommerce_api_logs')->where('store_id', $row->id)->where('created_at', '>=', $staleAfter)->where('ok', 0)->count()
+                            ? DB::table('ch_woocommerce_api_logs')->where('store_id', $row->id)->where('created_at', '>=', $staleAfter)->where('ok', 0)->count()
                             : null;
                     } elseif ($row && $baseId === 'pedallion') {
                         $errors24h = ((($row->api_log_mode ?? 'off') !== 'off'))
-                            ? DB::table('pedallion_api_logs')->where('created_at', '>=', $staleAfter)->where('status_code', '>=', 400)->count()
+                            ? DB::table('ch_pedallion_api_logs')->where('created_at', '>=', $staleAfter)->where('status_code', '>=', 400)->count()
                             : null;
                     }
 

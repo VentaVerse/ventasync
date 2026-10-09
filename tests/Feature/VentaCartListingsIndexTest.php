@@ -287,7 +287,7 @@ class VentaCartListingsIndexTest extends TestCase
         $this->assertSame('active', VentaCartListing::where('product_id', $ids['U-1'])->value('live_status'));
         $this->assertSame('missing', VentaCartListing::where('product_id', $ids['A-1'])->value('live_status'));
         $this->assertSame(['active' => 1, 'unlisted' => 0, 'missing' => 0], VentaCartListingMirror::for($store)->counts());
-        $this->assertDatabaseMissing('ventacart_listing_links', ['store_id' => $store->id, 'product_id' => $ids['A-1']]);
+        $this->assertDatabaseMissing('ch_ventacart_listing_links', ['store_id' => $store->id, 'product_id' => $ids['A-1']]);
     }
 
     public function test_a_variation_the_store_sells_but_its_item_lacks_is_named_until_it_is_switched_off(): void
@@ -312,7 +312,7 @@ class VentaCartListingsIndexTest extends TestCase
             ->getContent();
         $this->assertStringContainsString('Not on Gear Depot: TEE-L.', $html);
 
-        DB::table('listing_variation_offs')->insert([
+        DB::table('ch_listing_variation_offs')->insert([
             'channel' => 'ventacart', 'store_id' => $store->id, 'product_id' => $pid, 'sku' => 'tee-l',
             'created_at' => now(), 'updated_at' => now(),
         ]);
@@ -414,7 +414,7 @@ class VentaCartListingsIndexTest extends TestCase
         $manager = $this->userWith(['view_ventacart/listing', 'manage_ventacart/listing', 'view_ventacart/product_group', 'manage_ventacart/product_group']);
         $listingOnly = $this->manager();
         $back = parse_url(route('ext.ventacart.listings.index', $store->id), PHP_URL_PATH);
-        $pivot = fn () => \Illuminate\Support\Facades\DB::table('ventacart_product_group_products')->where('product_id', $pid)->pluck('ventacart_product_group_id')->map(fn ($v) => (int) $v)->all();
+        $pivot = fn () => \Illuminate\Support\Facades\DB::table('ch_ventacart_product_group_products')->where('product_id', $pid)->pluck('ventacart_product_group_id')->map(fn ($v) => (int) $v)->all();
 
         $this->actingAs($listingOnly)->get(route('ext.ventacart.listings.index', $store->id))->assertOk()->assertDontSee('Move to group');
         $this->actingAs($listingOnly)->post(route('ext.ventacart.product-groups.move', $store->id), ['ids' => [$pid], 'group' => $groupA->id, '_return' => $back])->assertRedirect()->assertSessionHas('error');

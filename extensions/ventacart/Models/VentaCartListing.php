@@ -13,7 +13,7 @@ class VentaCartListing extends Model
     public const STATUS_INACTIVE = 'inactive';
     public const STATUS_MISSING = 'missing';
 
-    protected $table = 'ventacart_listings';
+    protected $table = 'ch_ventacart_listings';
 
     protected $fillable = [
                 'image_off', 'video_path', 'video_off',

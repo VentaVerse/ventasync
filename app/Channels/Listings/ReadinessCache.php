@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\DB;
 
 final class ReadinessCache
 {
-    public const TABLE = 'listing_readiness';
+    public const TABLE = 'ch_listing_readiness';
 
     public static function resolve(string $channel, int $storeId, array $productIds, callable $stamps, callable $compute): array
     {

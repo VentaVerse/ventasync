@@ -171,7 +171,7 @@ class ShopeeCatalogChangeTest extends TestCase
         ShopeeListing::query()->create(['product_id' => $pid]);
         $this->editCatalog($pid, ['name' => 'Plug v2']);
         $group = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Plugs', 'shopee_category_id' => 100013, 'logistic_ids' => [41003]]);
-        DB::table('shopee_product_group_products')->insert(['shopee_product_group_id' => $group->id, 'product_id' => $pid]);
+        DB::table('ch_shopee_product_group_products')->insert(['shopee_product_group_id' => $group->id, 'product_id' => $pid]);
 
         $manager = $this->user(false);
         $manager->userGroup->permissions()->attach(Permission::whereIn('key', ['manage_shopee/product_group', 'view_shopee/product_group'])->pluck('id')->all());

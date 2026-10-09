@@ -9,7 +9,7 @@ class LazadaListing extends Model
 {
     use BelongsToLazadaStore, \App\Channels\Listings\KeepsItsOwnCopy;
 
-    protected $table = 'lazada_listings';
+    protected $table = 'ch_lazada_listings';
 
     protected $fillable = [
                 'image_off', 'video_path', 'video_off',
@@ -68,7 +68,7 @@ class LazadaListing extends Model
 
     public function groups()
     {
-        return $this->belongsToMany(LazadaProductGroup::class, 'lazada_product_group_products');
+        return $this->belongsToMany(LazadaProductGroup::class, 'ch_lazada_product_group_products');
     }
 
     public function variants()

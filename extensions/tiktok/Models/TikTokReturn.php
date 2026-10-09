@@ -9,7 +9,7 @@ class TikTokReturn extends Model
 {
     use BelongsToTikTokStore;
 
-    protected $table = 'tiktok_returns';
+    protected $table = 'ch_tiktok_returns';
 
     protected $fillable = [
         'store_id', 'return_id', 'order_id', 'return_type', 'return_status', 'reason',

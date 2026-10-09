@@ -376,7 +376,7 @@ class ChannelWorkspace
             return ['hasToken' => null, 'tokenExpiresAt' => null, 'lastSyncAt' => null, 'errors24h' => null];
         }
 
-        $row = DB::table($channelId . '_settings')->first();
+        $row = DB::table('ch_' . $channelId . '_stores')->first();
         $isSandbox = ($row?->mode ?? 'live') === 'sandbox';
 
         $lastSyncRaw = $row?->last_order_sync_at;
@@ -387,7 +387,7 @@ class ChannelWorkspace
             'tokenExpiresAt' => self::signInExpiry($row, $isSandbox),
             'lastSyncAt' => $lastSyncRaw ? Carbon::parse($lastSyncRaw) : null,
             'errors24h' => $loggingOn
-                ? DB::table($channelId . '_api_logs')->where('created_at', '>=', Carbon::now()->subHours(24))->where('ok', 0)->count()
+                ? DB::table('ch_' . $channelId . '_api_logs')->where('created_at', '>=', Carbon::now()->subHours(24))->where('ok', 0)->count()
                 : null,
         ];
     }
@@ -395,7 +395,7 @@ class ChannelWorkspace
     private function storeFigures(string $channelId, int $storeId): array
     {
         if ($channelId === 'shopee') {
-            $row = DB::table('shopee_settings')->where('id', $storeId)->first();
+            $row = DB::table('ch_shopee_stores')->where('id', $storeId)->first();
             $isSandbox = ($row?->mode ?? 'live') === 'sandbox';
             $lastSyncRaw = $row?->last_order_sync_at;
             $loggingOn = (($row?->api_log_mode ?? 'off') !== 'off');
@@ -405,7 +405,7 @@ class ChannelWorkspace
                 'tokenExpiresAt' => self::signInExpiry($row, $isSandbox),
                 'lastSyncAt' => $lastSyncRaw ? Carbon::parse($lastSyncRaw) : null,
                 'errors24h' => $loggingOn
-                    ? DB::table('shopee_api_logs')
+                    ? DB::table('ch_shopee_api_logs')
                         ->where('store_id', $storeId)
                         ->where('created_at', '>=', Carbon::now()->subHours(24))
                         ->where('ok', 0)->count()
@@ -424,7 +424,7 @@ class ChannelWorkspace
             return ['hasToken' => null, 'tokenExpiresAt' => null, 'lastSyncAt' => null, 'errors24h' => null];
         }
 
-        $row = DB::table($channelId . '_settings')->where('id', $storeId)->first();
+        $row = DB::table('ch_' . $channelId . '_stores')->where('id', $storeId)->first();
         $lastSyncRaw = $row?->last_order_sync_at;
         $since = Carbon::now()->subHours(24);
 
@@ -432,21 +432,21 @@ class ChannelWorkspace
 
         if ($row && $channelId === 'ventacart') {
             $errors24h = ((($row->api_log_mode ?? 'off') !== 'off'))
-                ? DB::table('ventacart_api_logs')
+                ? DB::table('ch_ventacart_api_logs')
                     ->where('store_id', $row->id)
                     ->where('created_at', '>=', $since)
                     ->where('ok', 0)
                     ->count()
                 : null;
         } elseif ($row && $channelId === 'opencart') {
-            $errors24h = DB::table('opencart_sync_log')
+            $errors24h = DB::table('ch_opencart_sync_log')
                 ->where('store_id', $row->id)
                 ->where('created_at', '>=', $since)
                 ->where('status', 'failed')
                 ->count();
         } elseif ($row && $channelId === 'shopify') {
             $errors24h = ((($row->api_log_mode ?? 'off') !== 'off'))
-                ? DB::table('shopify_api_logs')
+                ? DB::table('ch_shopify_api_logs')
                     ->where('store_id', $row->id)
                     ->where('created_at', '>=', $since)
                     ->where('ok', 0)
@@ -464,7 +464,7 @@ class ChannelWorkspace
 
     private function pedallionFigures(): array
     {
-        $row = DB::table('pedallion_settings')->first();
+        $row = DB::table('ch_pedallion_stores')->first();
         $lastSyncRaw = $row?->last_order_sync_at;
 
         return [
@@ -472,7 +472,7 @@ class ChannelWorkspace
             'tokenExpiresAt' => null,
             'lastSyncAt' => $lastSyncRaw ? Carbon::parse($lastSyncRaw) : null,
             'errors24h' => ((($row?->api_log_mode ?? 'off') !== 'off'))
-                ? DB::table('pedallion_api_logs')
+                ? DB::table('ch_pedallion_api_logs')
                     ->where('created_at', '>=', Carbon::now()->subHours(24))
                     ->where('status_code', '>=', 400)
                     ->count()

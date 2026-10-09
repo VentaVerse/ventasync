@@ -783,7 +783,7 @@ class TikTokController extends Controller
         $name = (string) $store->store_name;
         $id = (int) $store->id;
         $removed = $deleter->delete($store);
-        \App\Services\ActivityLogger::log('tiktok.store.deleted', 'tiktok_settings', $id, $name, ['removed' => $removed]);
+        \App\Services\ActivityLogger::log('tiktok.store.deleted', 'ch_tiktok_stores', $id, $name, ['removed' => $removed]);
 
         return redirect()->route('channels.index')
             ->with('status', "Deleted TikTok store {$name}. Sales already imported keep its name.");
@@ -798,8 +798,8 @@ class TikTokController extends Controller
 
         $cutoff = now()->subDays((int) $request->days);
         $tables = [
-            'tiktok_orders',
-            'tiktok_order_products',
+            'ch_tiktok_orders',
+            'ch_tiktok_order_products',
         ];
 
         $total = 0;

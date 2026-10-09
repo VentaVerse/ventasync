@@ -158,7 +158,7 @@ class ShopeeCoreChangedTest extends TestCase
             'name' => 'Core watch group',
             'shopee_category_id' => 100013, 'logistic_ids' => [41003],
         ]);
-        DB::table('shopee_product_group_products')->insert([
+        DB::table('ch_shopee_product_group_products')->insert([
             'shopee_product_group_id' => $group->id, 'product_id' => $productId,
         ]);
 

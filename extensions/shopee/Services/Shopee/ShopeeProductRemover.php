@@ -71,7 +71,7 @@ final class ShopeeProductRemover
     {
         $pfx = (string) config('catalog.prefix');
         $ids = [];
-        foreach (['shopee_listing_links', 'shopee_listings', 'shopee_product_group_products'] as $table) {
+        foreach (['ch_shopee_listing_links', 'ch_shopee_listings', 'ch_shopee_product_group_products'] as $table) {
             $ids = array_merge($ids, DB::table($table)
                 ->whereNotNull('product_id')
                 ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from($pfx . 'product as op')->whereColumn('op.product_id', $table . '.product_id'))

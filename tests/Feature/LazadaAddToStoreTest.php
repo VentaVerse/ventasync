@@ -239,7 +239,7 @@ class LazadaAddToStoreTest extends TestCase
             ->assertRedirect($this->base())->assertSessionHas('status');
 
         $this->assertSame(0, LazadaListing::withoutGlobalScope('lazadaStore')->where('id', $listing->id)->count(), 'the listing row is gone, so nothing is left to sync');
-        $this->assertSame(0, DB::table('lazada_product_group_products')->where('lazada_listing_id', $listing->id)->count(), 'its group membership went with it');
+        $this->assertSame(0, DB::table('ch_lazada_product_group_products')->where('lazada_listing_id', $listing->id)->count(), 'its group membership went with it');
 
         $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
         $this->assertStringNotContainsString('Live widget', $html);

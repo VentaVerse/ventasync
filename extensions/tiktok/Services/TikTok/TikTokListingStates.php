@@ -36,7 +36,7 @@ class TikTokListingStates
     private function listingsOnStore(): \Illuminate\Database\Eloquent\Builder
     {
         return TikTokListing::query()->withoutGlobalScope('tiktokStore')
-            ->where('tiktok_listings.store_id', $this->storeId());
+            ->where('ch_tiktok_listings.store_id', $this->storeId());
     }
 
     public function recordOutcome(int $productId, ?string $failure): void
@@ -118,7 +118,7 @@ class TikTokListingStates
     public function summary(): array
     {
         return [
-            'attention' => $this->bucket('attention')->distinct()->count('tiktok_listings.product_id'),
+            'attention' => $this->bucket('attention')->distinct()->count('ch_tiktok_listings.product_id'),
             'drift' => count($this->catalogChanges()),
         ];
     }
@@ -126,7 +126,7 @@ class TikTokListingStates
     private function catalogChanges(): array
     {
         return \App\Channels\Listings\CatalogCopy::pending(
-            $this->bucket('drift')->get(), 'tiktok_listings', TikTokListing::copyColumns()
+            $this->bucket('drift')->get(), 'ch_tiktok_listings', TikTokListing::copyColumns()
         );
     }
 
@@ -137,7 +137,7 @@ class TikTokListingStates
         }
 
         return $this->bucket($bucket)->distinct()
-            ->pluck('tiktok_listings.product_id')
+            ->pluck('ch_tiktok_listings.product_id')
             ->map(fn ($v) => (int) $v)->unique()->values()->all();
     }
 
@@ -149,10 +149,10 @@ class TikTokListingStates
 
         if ($bucket === 'drift') {
             return TikTokListing::query()
-                ->select('tiktok_listings.*')
-                ->join($pfx . 'product as p', 'p.product_id', '=', 'tiktok_listings.product_id')
-                ->where(fn ($q) => $q->whereNull('tiktok_listings.catalog_seen_at')
-                    ->orWhereColumn('p.date_modified', '>', 'tiktok_listings.catalog_seen_at'));
+                ->select('ch_tiktok_listings.*')
+                ->join($pfx . 'product as p', 'p.product_id', '=', 'ch_tiktok_listings.product_id')
+                ->where(fn ($q) => $q->whereNull('ch_tiktok_listings.catalog_seen_at')
+                    ->orWhereColumn('p.date_modified', '>', 'ch_tiktok_listings.catalog_seen_at'));
         }
 
         return $linked->whereIn('live_status', self::ATTENTION_RAW);
@@ -178,7 +178,7 @@ class TikTokListingStates
             ->groupBy(fn ($p) => (int) $p->product_id)
             ->map(fn ($rows) => $rows->first());
 
-        $catalogChanges = \App\Channels\Listings\CatalogCopy::pending($listings->values(), 'tiktok_listings', TikTokListing::copyColumns());
+        $catalogChanges = \App\Channels\Listings\CatalogCopy::pending($listings->values(), 'ch_tiktok_listings', TikTokListing::copyColumns());
 
         $readiness = $this->readiness->forProducts($productIds);
 

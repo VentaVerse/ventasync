@@ -68,7 +68,7 @@ class TikTokPayoutSyncTest extends TestCase
 
     private function order(string $orderId, string $status, \DateTimeInterface $created, ?string $payout = null): void
     {
-        DB::table('tiktok_orders')->insert([
+        DB::table('ch_tiktok_orders')->insert([
             'store_id' => $this->tiktokStore->id, 'order_id' => $orderId, 'status' => $status,
             'order_created_at' => $created, 'order_updated_at' => $created, 'payout_status' => $payout,
             'created_at' => now(), 'updated_at' => now(),
@@ -77,7 +77,7 @@ class TikTokPayoutSyncTest extends TestCase
 
     private function payoutOf(string $orderId): array
     {
-        $row = DB::table('tiktok_orders')->where('order_id', $orderId)->first(['payout_status', 'paid_at']);
+        $row = DB::table('ch_tiktok_orders')->where('order_id', $orderId)->first(['payout_status', 'paid_at']);
 
         return [$row->payout_status, $row->paid_at];
     }
@@ -150,13 +150,13 @@ class TikTokPayoutSyncTest extends TestCase
 
         $this->assertCount(2, array_filter($this->sentCalls, fn ($c) => $c['path'] === '/finance/202501/statements/S1/statement_transactions'));
 
-        $this->assertSame(6, DB::table('tiktok_api_logs')->where('pack', 'payout-sync')->where('ok', 1)->count());
+        $this->assertSame(6, DB::table('ch_tiktok_api_logs')->where('pack', 'payout-sync')->where('ok', 1)->count());
     }
 
     public function test_a_releasing_order_turns_paid_when_its_statement_is_paid(): void
     {
         $this->order('B', 'COMPLETED', now()->subDays(12), 'Releasing');
-        DB::table('tiktok_orders')->where('order_id', 'B')->update(['fees' => json_encode(['commission' => 10, 'revenue' => 100, 'settlement_amount' => 90])]);
+        DB::table('ch_tiktok_orders')->where('order_id', 'B')->update(['fees' => json_encode(['commission' => 10, 'revenue' => 100, 'settlement_amount' => 90])]);
         $this->callResponses['GET /finance/202309/statements'] = $this->ok(['statements' => [
             $this->statement('S3', 'PAID', now()->subDays(1)->startOfDay()->timestamp, now()->subHours(3)->timestamp),
         ]]);
@@ -174,7 +174,7 @@ class TikTokPayoutSyncTest extends TestCase
     public function test_a_settled_statement_pays_its_orders_out(): void
     {
         $this->order('B', 'COMPLETED', now()->subDays(12), 'Releasing');
-        DB::table('tiktok_orders')->where('order_id', 'B')->update(['fees' => json_encode(['commission' => 10, 'revenue' => 100, 'settlement_amount' => 90])]);
+        DB::table('ch_tiktok_orders')->where('order_id', 'B')->update(['fees' => json_encode(['commission' => 10, 'revenue' => 100, 'settlement_amount' => 90])]);
         $paidAt = now()->subHours(3)->timestamp;
         $this->callResponses['GET /finance/202309/statements'] = $this->ok(['statements' => [
             $this->statement('S4', 'SETTLED', now()->subDays(1)->startOfDay()->timestamp, $paidAt),
@@ -218,7 +218,7 @@ class TikTokPayoutSyncTest extends TestCase
             ->assertExitCode(1);
 
         $this->assertSame([null, null], $this->payoutOf('A'));
-        $this->assertSame(0, DB::table('tiktok_api_logs')->where('pack', 'payout-sync')->where('ok', 1)->count(), 'a refused call is logged red');
+        $this->assertSame(0, DB::table('ch_tiktok_api_logs')->where('pack', 'payout-sync')->where('ok', 1)->count(), 'a refused call is logged red');
     }
 
     public function test_an_expired_token_is_not_used(): void
@@ -262,7 +262,7 @@ class TikTokPayoutSyncTest extends TestCase
 
         $this->artisan('tiktok:sync-orders --no-returns')->assertExitCode(0);
 
-        $fees = json_decode((string) DB::table('tiktok_orders')->where('order_id', 'SETTLED')->value('fees'), true);
+        $fees = json_decode((string) DB::table('ch_tiktok_orders')->where('order_id', 'SETTLED')->value('fees'), true);
         $this->assertSame(120.0, (float) $fees['commission']);
         $this->assertSame(30.0, (float) $fees['transaction_fee']);
         $this->assertSame(45.0, (float) $fees['shipping_fee']);
@@ -270,11 +270,11 @@ class TikTokPayoutSyncTest extends TestCase
         $this->assertSame(1295.0, (float) $fees['settlement_amount']);
         $this->assertSame('SETTLED', $fees['statement']['order_id'], 'the answer is kept whole');
 
-        $this->assertNull(DB::table('tiktok_orders')->where('order_id', 'NOTYET')->value('fees'), 'unsettled: asked again next run');
+        $this->assertNull(DB::table('ch_tiktok_orders')->where('order_id', 'NOTYET')->value('fees'), 'unsettled: asked again next run');
 
         $this->assertSame([], array_values(array_filter($this->sentCalls, fn ($c) => str_contains($c['path'], '/finance/202309/orders'))),
             'the retired 202309 version is never called');
-        $this->assertSame(2, DB::table('tiktok_api_logs')->where('pack', 'fee-sync')->where('ok', 1)->count());
+        $this->assertSame(2, DB::table('ch_tiktok_api_logs')->where('pack', 'fee-sync')->where('ok', 1)->count());
 
         $this->assertNotNull(\Extensions\TikTok\Services\TikTokOrderBreakdown::from($fees));
     }
@@ -288,8 +288,8 @@ class TikTokPayoutSyncTest extends TestCase
 
         $this->artisan('tiktok:sync-orders --no-returns')->assertExitCode(0);
 
-        $this->assertNull(DB::table('tiktok_orders')->where('order_id', 'SETTLED')->value('fees'));
-        $this->assertSame(1, DB::table('tiktok_api_logs')->where('pack', 'fee-sync')->where('ok', 0)->count(), 'HTTP 200 with a refusal in the body is red');
+        $this->assertNull(DB::table('ch_tiktok_orders')->where('order_id', 'SETTLED')->value('fees'));
+        $this->assertSame(1, DB::table('ch_tiktok_api_logs')->where('pack', 'fee-sync')->where('ok', 0)->count(), 'HTTP 200 with a refusal in the body is red');
     }
 
     public function test_run_now_on_sync_orders_no_longer_walks_payouts(): void

@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class LazadaBrand extends Model
 {
-    protected $table = 'lazada_brands';
+    protected $table = 'ch_lazada_brands';
 
     protected $fillable = [
         'region',

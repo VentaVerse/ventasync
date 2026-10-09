@@ -122,7 +122,7 @@ public function refreshListing(LazadaListing $listing, object $store, LazadaClie
             ->delete();
     }
 
-    DB::table('lazada_product_group_products')
+    DB::table('ch_lazada_product_group_products')
         ->where('lazada_listing_id', $listing->id)
         ->where(fn ($q) => $q->whereNull('sync_status')->orWhereNotIn('sync_status', ['error', 'failed']))
         ->update(['sync_status' => 'synced', 'push_error' => null]);

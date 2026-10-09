@@ -136,7 +136,7 @@ class VentaCartLinkCheck
     private function writeProductStatus(int $storeId, int $productId, array $attributes): void
     {
         \App\Support\ChannelProductStatus::write(
-            'ventacart_product_group_products',
+            'ch_ventacart_product_group_products',
             'ventacart_product_group_id',
             VentaCartProductGroup::where('store_id', $storeId)->pluck('id')->all(),
             $productId,

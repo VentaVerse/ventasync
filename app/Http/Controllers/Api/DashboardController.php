@@ -21,15 +21,15 @@ class DashboardController extends Controller
         $totalRevenue = (float) DB::table($pfx . 'order')->whereIn('order_status_id', $revenueStatusIds)->sum('total');
 
         $lazadaPending = 0;
-        if (Schema::hasTable('lazada_orders')) {
-            $lazadaPending = DB::table('lazada_orders')
+        if (Schema::hasTable('ch_lazada_orders')) {
+            $lazadaPending = DB::table('ch_lazada_orders')
                 ->whereIn('status', ['pending', 'repacked'])
                 ->count();
         }
 
         $shopeePending = 0;
-        if (Schema::hasTable('shopee_orders')) {
-            $shopeePending = DB::table('shopee_orders')
+        if (Schema::hasTable('ch_shopee_orders')) {
+            $shopeePending = DB::table('ch_shopee_orders')
                 ->whereIn('status', ['READY_TO_SHIP', 'PROCESSED', 'RETRY_SHIP'])
                 ->count();
         }

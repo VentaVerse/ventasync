@@ -44,7 +44,7 @@ class ShopeeUnlinkTest extends TestCase
 
     private function pivot(array $attrs = []): void
     {
-        $group = \DB::table('shopee_product_groups')->insertGetId([
+        $group = \DB::table('ch_shopee_product_groups')->insertGetId([
             'store_id' => \Extensions\Shopee\Models\ShopeeStore::query()->orderBy('id')->value('id')
                 ?? \Extensions\Shopee\Models\ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store'])->id,
             'name' => 'Group 8',
@@ -52,7 +52,7 @@ class ShopeeUnlinkTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        \DB::table('shopee_product_group_products')->insert(array_merge([
+        \DB::table('ch_shopee_product_group_products')->insert(array_merge([
             'shopee_product_group_id' => $group,
             'product_id' => self::PRODUCT,
         ], $attrs));
@@ -65,7 +65,7 @@ class ShopeeUnlinkTest extends TestCase
         $removed = ShopeeListingLink::unlinkProduct(self::PRODUCT, $this->storeId());
 
         $this->assertSame(1, $removed);
-        $this->assertDatabaseMissing('shopee_listing_links', ['product_id' => self::PRODUCT]);
+        $this->assertDatabaseMissing('ch_shopee_listing_links', ['product_id' => self::PRODUCT]);
     }
 
     public function test_unlinking_clears_the_item_cache_for_that_link(): void
@@ -74,7 +74,7 @@ class ShopeeUnlinkTest extends TestCase
 
         ShopeeListingLink::unlinkProduct(self::PRODUCT, $this->storeId());
 
-        $this->assertDatabaseMissing('shopee_item_cache', [
+        $this->assertDatabaseMissing('ch_shopee_item_cache', [
             'shopee_item_id' => self::ITEM,
             'sku' => self::SKU,
         ]);
@@ -96,8 +96,8 @@ class ShopeeUnlinkTest extends TestCase
 
         ShopeeListingLink::unlinkProduct(self::PRODUCT, $this->storeId());
 
-        $this->assertDatabaseHas('shopee_listing_links', ['product_id' => 9999]);
-        $this->assertDatabaseHas('shopee_item_cache', ['shopee_item_id' => 88888888]);
+        $this->assertDatabaseHas('ch_shopee_listing_links', ['product_id' => 9999]);
+        $this->assertDatabaseHas('ch_shopee_item_cache', ['shopee_item_id' => 88888888]);
     }
 
     public function test_unlinking_clears_the_group_pivot_copy_of_the_id(): void
@@ -107,7 +107,7 @@ class ShopeeUnlinkTest extends TestCase
 
         ShopeeListingLink::unlinkProduct(self::PRODUCT, $this->storeId());
 
-        $row = \DB::table('shopee_product_group_products')->where('product_id', self::PRODUCT)->first();
+        $row = \DB::table('ch_shopee_product_group_products')->where('product_id', self::PRODUCT)->first();
 
         $this->assertNull($row->shopee_item_id, 'The pivot kept a Shopee id after the product was unlinked.');
         $this->assertSame('unlinked', $row->sync_status);
@@ -119,7 +119,7 @@ class ShopeeUnlinkTest extends TestCase
 
         $this->assertSame(0, ShopeeListingLink::unlinkProduct(self::PRODUCT, $this->storeId()));
 
-        $row = \DB::table('shopee_product_group_products')->where('product_id', self::PRODUCT)->first();
+        $row = \DB::table('ch_shopee_product_group_products')->where('product_id', self::PRODUCT)->first();
         $this->assertNull($row->shopee_item_id, 'An orphaned pivot id survived an unlink.');
     }
 

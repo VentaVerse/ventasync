@@ -9,7 +9,7 @@ class LazadaReverseOrder extends Model
 {
     use BelongsToLazadaStore;
 
-    protected $table = 'lazada_reverse_orders';
+    protected $table = 'ch_lazada_reverse_orders';
 
     protected $fillable = [
         'store_id',

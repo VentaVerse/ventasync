@@ -83,7 +83,7 @@ class LazadaReturnsPanel
         if ($find !== '') {
             $like = '%' . $find . '%';
 
-            $skus = collect(\DB::table('lazada_order_products')
+            $skus = collect(\DB::table('ch_lazada_order_products')
                 ->where('name', 'like', $like)
                 ->limit(400)
                 ->pluck('sku'));
@@ -155,7 +155,7 @@ class LazadaReturnsPanel
             ->appends($request->query());
 
         $tradeIds = collect($orders->items())->pluck('trade_order_id')->filter()->unique()->values();
-        $erpMap = $tradeIds->isEmpty() ? collect() : \DB::table('lazada_orders')
+        $erpMap = $tradeIds->isEmpty() ? collect() : \DB::table('ch_lazada_orders')
             ->whereIn('order_id', $tradeIds->all())
             ->whereNotNull('catalog_order_id')
             ->when(app()->bound('lazada.route-store'), fn ($q) => $q->where('store_id', app('lazada.route-store')->id))
@@ -165,7 +165,7 @@ class LazadaReturnsPanel
             ->flatMap(fn ($o) => collect(is_array($o->items) ? $o->items : [])
                 ->map(fn ($it) => $it['seller_sku_id'] ?? ($it['product']['product_sku'] ?? null)))
             ->filter()->unique()->values();
-        $imgMap = $skus->isEmpty() ? collect() : \DB::table('lazada_order_products')
+        $imgMap = $skus->isEmpty() ? collect() : \DB::table('ch_lazada_order_products')
             ->whereIn('sku', $skus->all())
             ->whereNotNull('image')->where('image', '!=', '')
             ->pluck('image', 'sku');
@@ -203,7 +203,7 @@ class LazadaReturnsPanel
                 ->whereNotNull('pd.name')->where('pd.name', '!=', '')
                 ->pluck('pd.name', 'pov.sku');
 
-            $orderName = \DB::table('lazada_order_products')
+            $orderName = \DB::table('ch_lazada_order_products')
                 ->whereIn('sku', $skus->all())
                 ->whereNotNull('name')->where('name', '!=', '')
                 ->pluck('name', 'sku');

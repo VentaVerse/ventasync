@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class VentaCartCategory extends Model
 {
-    protected $table = 'ventacart_categories';
+    protected $table = 'ch_ventacart_categories';
 
     protected $fillable = [
         'store_id',

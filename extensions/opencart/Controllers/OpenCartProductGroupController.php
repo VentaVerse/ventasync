@@ -234,7 +234,7 @@ class OpenCartProductGroupController extends Controller
         $existing = $g->groupProducts()->pluck('product_id')->toArray();
         $ids = array_values(array_diff($ids, $existing));
 
-        $claim = \App\Channels\OneGroupRule::claim('opencart_product_group_products', 'opencart_product_group_id', 'opencart_product_groups', 'store_id', $g->id, $ids, array_map('intval', (array) $request->input('move_ids', [])));
+        $claim = \App\Channels\OneGroupRule::claim('ch_opencart_product_group_products', 'opencart_product_group_id', 'ch_opencart_product_groups', 'store_id', $g->id, $ids, array_map('intval', (array) $request->input('move_ids', [])));
 
         $added = 0;
         foreach (array_merge($claim['free'], array_keys($claim['moved'])) as $pid) {
@@ -290,8 +290,8 @@ class OpenCartProductGroupController extends Controller
             ->limit(50)
             ->get();
 
-        $owners = DB::table('opencart_product_group_products as pv')
-            ->join('opencart_product_groups as g', 'g.id', '=', 'pv.opencart_product_group_id')
+        $owners = DB::table('ch_opencart_product_group_products as pv')
+            ->join('ch_opencart_product_groups as g', 'g.id', '=', 'pv.opencart_product_group_id')
             ->whereIn('pv.product_id', $rows->pluck('product_id')->all() ?: [0])
             ->where('g.store_id', $store)
             ->get(['pv.product_id', 'g.id as group_id', 'g.name'])

@@ -8,7 +8,7 @@ class ShopeeProductGroup extends Model
 {
     use \Extensions\Shopee\Models\Concerns\BelongsToShopeeStore;
 
-    protected $table = 'shopee_product_groups';
+    protected $table = 'ch_shopee_product_groups';
 
     protected $fillable = [
         'watermark_template_id',

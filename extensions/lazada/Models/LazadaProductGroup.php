@@ -9,7 +9,7 @@ class LazadaProductGroup extends Model
 {
     use BelongsToLazadaStore;
 
-    protected $table = 'lazada_product_groups';
+    protected $table = 'ch_lazada_product_groups';
 
     protected $fillable = [
         'watermark_template_id',
@@ -29,7 +29,7 @@ class LazadaProductGroup extends Model
 
     public function products()
     {
-        return $this->belongsToMany(LazadaListing::class, 'lazada_product_group_products', 'lazada_product_group_id', 'lazada_listing_id');
+        return $this->belongsToMany(LazadaListing::class, 'ch_lazada_product_group_products', 'lazada_product_group_id', 'lazada_listing_id');
     }
 
     public function groupProducts()

@@ -33,7 +33,7 @@ class LazadaPayoutSync
     {
         return [
             'channel' => 'lazada',
-            'table' => 'lazada_orders',
+            'table' => 'ch_lazada_orders',
             'store_column' => 'store_id',
             'id_column' => 'order_id',
             'payable' => self::PAYABLE_STATUSES,

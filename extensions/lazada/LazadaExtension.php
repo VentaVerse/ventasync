@@ -140,7 +140,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
     protected function allStores(): iterable
     {
         try {
-            if (! Schema::hasTable('lazada_settings')) {
+            if (! Schema::hasTable('ch_lazada_stores')) {
                 return [];
             }
 
@@ -152,7 +152,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
 
     public function orderTabs(): array
     {
-        if (! Schema::hasTable('lazada_settings')) {
+        if (! Schema::hasTable('ch_lazada_stores')) {
             return [];
         }
         $stores = LazadaStore::query()->where('enabled', true)->orderBy('id')->get(['id', 'store_name']);
@@ -166,7 +166,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
     private function buildOrderTab(int $storeId, string $label): OrderTab
     {
         $lazadaStatusCount = function (array $statuses) use ($storeId): int {
-            if (!Schema::hasTable('lazada_orders')) {
+            if (!Schema::hasTable('ch_lazada_orders')) {
                 return 0;
             }
 
@@ -183,7 +183,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
                 permission: 'view_lazada/order',
                 routeParams: ['store' => $storeId, 'tab' => 'TO_SHIP'],
                 unprocessedCounter: function () use ($storeId) {
-                    if (!Schema::hasTable('lazada_orders')) {
+                    if (!Schema::hasTable('ch_lazada_orders')) {
                         return 0;
                     }
                     return LazadaOrder::query()
@@ -197,7 +197,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
                     ['key' => 'to_handover', 'label' => 'to handover', 'counter' => fn () => $lazadaStatusCount(['ready_to_ship'])],
                 ],
                 dailyOrdersCounter: function () use ($storeId) {
-                    if (!Schema::hasTable('lazada_orders')) {
+                    if (!Schema::hasTable('ch_lazada_orders')) {
                         return 0;
                     }
                     return LazadaOrder::query()
@@ -206,21 +206,21 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
                         ->count();
                 },
                 dailyRevenueCounter: function () use ($storeId) {
-                    if (!Schema::hasTable('lazada_orders') || !Schema::hasTable('lazada_order_products')) {
+                    if (!Schema::hasTable('ch_lazada_orders') || !Schema::hasTable('ch_lazada_order_products')) {
                         return 0.0;
                     }
-                    return (float) DB::table('lazada_order_products as p')
-                        ->join('lazada_orders as o', 'o.id', '=', 'p.lazada_order_id')
+                    return (float) DB::table('ch_lazada_order_products as p')
+                        ->join('ch_lazada_orders as o', 'o.id', '=', 'p.lazada_order_id')
                         ->where('o.store_id', $storeId)
                         ->where('o.order_created_at', '>=', now()->startOfDay())
                         ->sum(DB::raw('p.quantity * COALESCE(p.paid_price, p.item_price)'));
                 },
                 topProductsCallback: function (int $limit) use ($storeId) {
-                    if (!Schema::hasTable('lazada_orders') || !Schema::hasTable('lazada_order_products')) {
+                    if (!Schema::hasTable('ch_lazada_orders') || !Schema::hasTable('ch_lazada_order_products')) {
                         return [];
                     }
-                    return DB::table('lazada_order_products as p')
-                        ->join('lazada_orders as o', 'o.id', '=', 'p.lazada_order_id')
+                    return DB::table('ch_lazada_order_products as p')
+                        ->join('ch_lazada_orders as o', 'o.id', '=', 'p.lazada_order_id')
                         ->where('o.store_id', $storeId)
                         ->where('o.order_created_at', '>=', now()->startOfDay())
                         ->whereNotNull('p.sku')
@@ -247,7 +247,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
                         ))->all();
                 },
                 recentOrdersCallback: function (int $limit) use ($storeId) {
-                    if (!Schema::hasTable('lazada_orders')) {
+                    if (!Schema::hasTable('ch_lazada_orders')) {
                         return [];
                     }
                     $orders = LazadaOrder::query()
@@ -256,7 +256,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
                         ->limit($limit)
                         ->get(['id', 'order_id', 'status', 'order_created_at']);
 
-                    $totals = DB::table('lazada_order_products')
+                    $totals = DB::table('ch_lazada_order_products')
                         ->whereIn('lazada_order_id', $orders->pluck('id'))
                         ->select('lazada_order_id', DB::raw('SUM(quantity * COALESCE(paid_price, item_price)) as total'))
                         ->groupBy('lazada_order_id')
@@ -276,7 +276,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
 
     public function resolveCatalogProduct(string $sku): ?array
     {
-        if ($sku === '' || !Schema::hasTable('lazada_listing_variations')) {
+        if ($sku === '' || !Schema::hasTable('ch_lazada_listing_variations')) {
             return null;
         }
 
@@ -428,17 +428,17 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
             'lazadaSyncStatus' => null,
         ];
 
-        if (Schema::hasTable('lazada_listings')) {
-            $data['lazadaProducts'] = (int) DB::table('lazada_listings')->count();
+        if (Schema::hasTable('ch_lazada_listings')) {
+            $data['lazadaProducts'] = (int) DB::table('ch_lazada_listings')->count();
         }
 
-        if (Schema::hasTable('lazada_orders')) {
-            $data['lazadaPending'] = (int) DB::table('lazada_orders')
+        if (Schema::hasTable('ch_lazada_orders')) {
+            $data['lazadaPending'] = (int) DB::table('ch_lazada_orders')
                 ->whereIn('status', ['pending', 'repacked', 'packed', 'ready_to_ship'])
                 ->count();
         }
 
-        if (Schema::hasTable('lazada_settings')) {
+        if (Schema::hasTable('ch_lazada_stores')) {
             $lzSetting = LazadaStore::defaultStore();
             if ($lzSetting) {
                 $flags = null;
@@ -471,14 +471,14 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
     {
         $pending = [];
         $statuses = [];
-        if (! Schema::hasTable('lazada_settings')) {
+        if (! Schema::hasTable('ch_lazada_stores')) {
             return ['channelPending' => $pending, 'channelSyncStatuses' => $statuses];
         }
 
         foreach (LazadaStore::query()->orderBy('id')->get() as $store) {
             $key = \App\Support\StoreKey::of('lazada', (int) $store->id);
-            if (Schema::hasTable('lazada_orders')) {
-                $pending[$key] = (int) DB::table('lazada_orders')
+            if (Schema::hasTable('ch_lazada_orders')) {
+                $pending[$key] = (int) DB::table('ch_lazada_orders')
                     ->where('store_id', $store->id)
                     ->whereIn('status', ['pending', 'repacked', 'packed', 'ready_to_ship'])
                     ->count();
@@ -515,7 +515,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
 
     public function imagesForCatalogOrders(array $catalogOrderIds): array
     {
-        if (empty($catalogOrderIds) || !Schema::hasTable('lazada_orders')) {
+        if (empty($catalogOrderIds) || !Schema::hasTable('ch_lazada_orders')) {
             return [];
         }
 
@@ -570,7 +570,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
 
     public function feeBucketsForOrder(int $coreOrderId): ?array
     {
-        if (! Schema::hasTable('lazada_orders')) {
+        if (! Schema::hasTable('ch_lazada_orders')) {
             return null;
         }
 
@@ -619,7 +619,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
         }
 
         $mktOrderId = (string) $order->marketplace_order_id;
-        if ($mktOrderId === '' || !Schema::hasTable('lazada_orders')) {
+        if ($mktOrderId === '' || !Schema::hasTable('ch_lazada_orders')) {
             return null;
         }
 
@@ -820,7 +820,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
 
     public function availableStoreOptions(): array
     {
-        if (! \Illuminate\Support\Facades\Schema::hasTable('lazada_settings')) {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('ch_lazada_stores')) {
             return [];
         }
 
@@ -875,7 +875,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
 
     public function listedProductIds(): array
     {
-        if (! \Illuminate\Support\Facades\Schema::hasTable('lazada_listings')) {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('ch_lazada_listings')) {
             return [];
         }
 

@@ -80,7 +80,7 @@ class LiveFixesAugust26Test extends TestCase
 
     public function test_a_healthy_shopee_shop_is_connected_not_expiring(): void
     {
-        DB::table('shopee_settings')->insert([
+        DB::table('ch_shopee_stores')->insert([
             'partner_id' => 1, 'partner_key' => encrypt('k'), 'shop_id' => 2,
             'access_token' => encrypt('t'), 'refresh_token' => encrypt('r'), 'mode' => 'production',
             'expires_at' => now()->addHours(2), 'refresh_expires_at' => now()->addDays(25),

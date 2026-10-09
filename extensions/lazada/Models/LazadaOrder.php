@@ -12,7 +12,7 @@ class LazadaOrder extends Model
 {
     use BelongsToLazadaStore;
 
-    protected $table = 'lazada_orders';
+    protected $table = 'ch_lazada_orders';
 
     protected $fillable = [
         'store_id',

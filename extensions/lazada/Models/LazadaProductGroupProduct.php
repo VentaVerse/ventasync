@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class LazadaProductGroupProduct extends Model
 {
-    protected $table = 'lazada_product_group_products';
+    protected $table = 'ch_lazada_product_group_products';
 
     public $timestamps = false;
 
@@ -43,6 +43,6 @@ class LazadaProductGroupProduct extends Model
     {
         $id = $store instanceof LazadaStore ? $store->id : ($store ?? LazadaStore::defaultStore()?->id);
 
-        return \Illuminate\Support\Facades\DB::table('lazada_product_groups')->where('store_id', (int) $id)->select('id');
+        return \Illuminate\Support\Facades\DB::table('ch_lazada_product_groups')->where('store_id', (int) $id)->select('id');
     }
 }

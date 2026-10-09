@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class OpenCartProductGroup extends Model
 {
-    protected $table = 'opencart_product_groups';
+    protected $table = 'ch_opencart_product_groups';
 
     protected $fillable = ['store_id', 'name',];
 

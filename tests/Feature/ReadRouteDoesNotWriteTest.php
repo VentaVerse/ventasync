@@ -64,7 +64,7 @@ class ReadRouteDoesNotWriteTest extends TestCase
             'meta_keyword' => '',
         ]);
 
-        $groupId = DB::table('shopee_product_groups')->insertGetId([
+        $groupId = DB::table('ch_shopee_product_groups')->insertGetId([
             'store_id' => \Extensions\Shopee\Models\ShopeeStore::query()->orderBy('id')->value('id')
                 ?? \Extensions\Shopee\Models\ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store'])->id,
             'name' => 'Adoption',
@@ -72,14 +72,14 @@ class ReadRouteDoesNotWriteTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        DB::table('shopee_product_group_products')->insert([
+        DB::table('ch_shopee_product_group_products')->insert([
             'shopee_product_group_id' => $groupId,
             'product_id' => self::PRODUCT,
             'shopee_item_id' => null,
             'sync_status' => 'pending',
         ]);
 
-        DB::table('shopee_listing_links')->insert([
+        DB::table('ch_shopee_listing_links')->insert([
             'store_id' => \Extensions\Shopee\Models\ShopeeStore::query()->orderBy('id')->value('id')
                 ?? \Extensions\Shopee\Models\ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store'])->id,
             'product_id' => self::PRODUCT,
@@ -94,7 +94,7 @@ class ReadRouteDoesNotWriteTest extends TestCase
 
     private function pivot(int $groupId): ?object
     {
-        return DB::table('shopee_product_group_products')
+        return DB::table('ch_shopee_product_group_products')
             ->where('shopee_product_group_id', $groupId)
             ->where('product_id', self::PRODUCT)
             ->first();

@@ -15,7 +15,7 @@ class OpenCartSync extends Command implements \App\Channels\Contracts\SteppableA
 {
     protected $signature = 'opencart:sync
         {entity : Entity to sync (products|orders|categories|brands|options|all)}
-        {--store= : Store ID (opencart_settings.id). Omit to sync all enabled stores}
+        {--store= : Store ID (ch_opencart_stores.id). Omit to sync all enabled stores}
         {--full : Full sync (ignore last sync timestamp)}
         {--page=1 : Start page for resuming interrupted imports}
         {--max-pages=0 : Stop after N pages (0 = unlimited, useful for testing)}

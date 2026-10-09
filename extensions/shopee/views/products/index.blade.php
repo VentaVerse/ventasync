@@ -263,7 +263,7 @@
 
             $products->pluck('product_id')->map(fn ($v) => (int) $v)->all(),
 
-            'shopee_listings', 'store_id', 'shopee_product_groups', 'shopee_product_group_products', 'shopee_product_group_id', 'store_id'
+            'ch_shopee_listings', 'store_id', 'ch_shopee_product_groups', 'ch_shopee_product_group_products', 'shopee_product_group_id', 'store_id'
 
         );
 

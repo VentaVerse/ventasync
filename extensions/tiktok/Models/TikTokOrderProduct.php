@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TikTokOrderProduct extends Model
 {
-    protected $table = 'tiktok_order_products';
+    protected $table = 'ch_tiktok_order_products';
 
     protected $fillable = [
         'tiktok_order_id',

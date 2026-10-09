@@ -66,7 +66,7 @@ final class LazadaProductRemover
     {
         $pfx = (string) config('catalog.prefix');
         $ids = [];
-        foreach (['lazada_listings', 'lazada_product_group_products'] as $table) {
+        foreach (['ch_lazada_listings', 'ch_lazada_product_group_products'] as $table) {
             $ids = array_merge($ids, DB::table($table)
                 ->whereNotNull('product_id')
                 ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from($pfx . 'product as op')->whereColumn('op.product_id', $table . '.product_id'))

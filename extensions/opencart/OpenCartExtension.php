@@ -111,7 +111,7 @@ class OpenCartExtension extends ExtensionProvider implements ChannelProvider, Sk
 
     protected function enabledStores(): iterable
     {
-        if (!Schema::hasTable('opencart_settings')) {
+        if (!Schema::hasTable('ch_opencart_stores')) {
             return [];
         }
         return OpenCartStore::where('enabled', true)->orderBy('id')->get();
@@ -119,7 +119,7 @@ class OpenCartExtension extends ExtensionProvider implements ChannelProvider, Sk
 
     protected function allStores(): iterable
     {
-        if (!Schema::hasTable('opencart_settings')) {
+        if (!Schema::hasTable('ch_opencart_stores')) {
             return [];
         }
         return OpenCartStore::orderBy('id')->get();
@@ -232,7 +232,7 @@ class OpenCartExtension extends ExtensionProvider implements ChannelProvider, Sk
 
     public function pushSkuChanges(int $productId, array $skuChanges): ?string
     {
-        if (!Schema::hasTable('opencart_settings')) {
+        if (!Schema::hasTable('ch_opencart_stores')) {
             return null;
         }
 
@@ -276,11 +276,11 @@ class OpenCartExtension extends ExtensionProvider implements ChannelProvider, Sk
             'syncStatuses' => collect(),
         ];
 
-        if (!Schema::hasTable('opencart_settings')) {
+        if (!Schema::hasTable('ch_opencart_stores')) {
             return $data;
         }
 
-        $data['ocStoreNames'] = DB::table('opencart_settings')->pluck('store_name', 'id')->all();
+        $data['ocStoreNames'] = DB::table('ch_opencart_stores')->pluck('store_name', 'id')->all();
 
         if (!Schema::hasTable('opencart_sync_logs')) {
             return $data;
@@ -309,7 +309,7 @@ class OpenCartExtension extends ExtensionProvider implements ChannelProvider, Sk
             }
         }
 
-        $data['syncStatuses'] = DB::table('opencart_settings as s')
+        $data['syncStatuses'] = DB::table('ch_opencart_stores as s')
             ->where('s.enabled', true)
             ->get(['s.id', 's.store_name', 's.last_order_sync_at', 's.last_product_sync_at'])
             ->map(function ($store) use ($pendingByStore) {
@@ -359,7 +359,7 @@ class OpenCartExtension extends ExtensionProvider implements ChannelProvider, Sk
             return null;
         }
         $storeId = (int) substr($source, 9);
-        if ($storeId <= 0 || !Schema::hasTable('opencart_settings')) {
+        if ($storeId <= 0 || !Schema::hasTable('ch_opencart_stores')) {
             return null;
         }
         $name = OpenCartStore::where('id', $storeId)->value('store_name');
@@ -380,7 +380,7 @@ class OpenCartExtension extends ExtensionProvider implements ChannelProvider, Sk
 
     public function availableSourceOptions(): array
     {
-        if (!Schema::hasTable('opencart_settings')) {
+        if (!Schema::hasTable('ch_opencart_stores')) {
             return [];
         }
         $palette = ['#16a34a', '#38bdf8', '#a855f7', '#f97316', '#0ea5e9', '#ec4899', '#65a30d'];

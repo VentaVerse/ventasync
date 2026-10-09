@@ -30,8 +30,8 @@ final class VentaCartStockPricePush
             ->get(['product_id', 'sku', 'quantity', 'price', 'price_prefix', 'absolute_price'])->groupBy(fn ($r) => (int) $r->product_id);
         $hidden = \App\Channels\Listings\ListingVariations::hidden('ventacart', (int) $this->store->id, $ids);
         $listings = \Extensions\VentaCart\Models\VentaCartListing::query()->where('store_id', $this->store->id)->whereIn('product_id', $ids)->get()->keyBy(fn ($l) => (int) $l->product_id);
-        $groupsByProduct = DB::table('ventacart_product_group_products as gp')
-            ->join('ventacart_product_groups as g', 'g.id', '=', 'gp.ventacart_product_group_id')
+        $groupsByProduct = DB::table('ch_ventacart_product_group_products as gp')
+            ->join('ch_ventacart_product_groups as g', 'g.id', '=', 'gp.ventacart_product_group_id')
             ->where('g.store_id', $this->store->id)->whereIn('gp.product_id', $ids)
             ->orderBy('gp.id')->get(['gp.product_id', 'g.markup_percent', 'g.markup_fixed'])
             ->unique('product_id')->keyBy(fn ($r) => (int) $r->product_id);
@@ -165,11 +165,11 @@ final class VentaCartStockPricePush
         if ($outcomes === []) {
             return;
         }
-        $groupIds = DB::table('ventacart_product_groups')->where('store_id', $storeId)->pluck('id');
+        $groupIds = DB::table('ch_ventacart_product_groups')->where('store_id', $storeId)->pluck('id');
         $states = VentaCartListingStates::for($storeId);
         foreach ($outcomes as $productId => $failure) {
             if ($groupIds->isNotEmpty()) {
-                DB::table('ventacart_product_group_products')->whereIn('ventacart_product_group_id', $groupIds)->where('product_id', (int) $productId)
+                DB::table('ch_ventacart_product_group_products')->whereIn('ventacart_product_group_id', $groupIds)->where('product_id', (int) $productId)
                     ->update([
                         'sync_status' => $failure === null ? 'pushed' : 'error',
                         'push_error' => $failure === null ? null : \Illuminate\Support\Str::limit($failure, 480),

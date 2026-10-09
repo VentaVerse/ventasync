@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 class OpenCartPush extends Command
 {
     protected $signature = 'opencart:push
-        {--store= : Store ID (opencart_settings.id). Omit to push to all enabled stores}
+        {--store= : Store ID (ch_opencart_stores.id). Omit to push to all enabled stores}
         {--product-ids= : Comma-separated product IDs to push}
         {--since= : Push products modified since this datetime (Y-m-d H:i:s)}
         {--all : Push all products}';

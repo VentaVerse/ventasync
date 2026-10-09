@@ -10,7 +10,7 @@ class TikTokOrder extends Model
 {
     use BelongsToTikTokStore;
 
-    protected $table = 'tiktok_orders';
+    protected $table = 'ch_tiktok_orders';
 
     protected $fillable = [
         'store_id', 'region',

@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class VentaCartOrder extends Model
 {
-    protected $table = 'ventacart_orders';
+    protected $table = 'ch_ventacart_orders';
 
     protected $fillable = [
         'store_id',

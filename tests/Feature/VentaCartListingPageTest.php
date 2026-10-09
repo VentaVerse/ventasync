@@ -269,7 +269,7 @@ class VentaCartListingPageTest extends TestCase
 
         $this->assertNull(VentaCartListing::where('store_id', $store->id)->where('product_id', $pid)->value('last_push_error'),
             'a variation the store lacks is not a failed push');
-        $this->assertNotSame('error', DB::table('ventacart_product_group_products')->where('product_id', $pid)->value('sync_status'));
+        $this->assertNotSame('error', DB::table('ch_ventacart_product_group_products')->where('product_id', $pid)->value('sync_status'));
         $this->assertSame(['TEE-L'], array_column(\App\Channels\Listings\ListingVariations::missing('ventacart', $store->id, [$pid])[$pid] ?? [], 'sku'));
     }
 
@@ -545,7 +545,7 @@ class VentaCartListingPageTest extends TestCase
             'quantity' => 1, 'price' => 1000, 'total' => 1000, 'tax' => 0, 'reward' => 0,
             'cost' => 111.11,
         ]);
-        DB::table('ventacart_orders')->insert([
+        DB::table('ch_ventacart_orders')->insert([
             'store_id' => $store->id, 'ventacart_order_id' => 77, 'status' => 'delivered',
             'total' => 1000, 'raw' => '{}', 'catalog_order_id' => $oid,
             'created_at' => now(), 'updated_at' => now(),
@@ -619,7 +619,7 @@ class VentaCartListingPageTest extends TestCase
             'totals' => ['subtotal' => 12000, 'shipping' => 180, 'total' => 11990],
             'fees' => ['payment_fee' => 374.70, 'shipping_cost' => 90.00, 'net_after_fees' => 11525.30],
         ];
-        DB::table('ventacart_orders')->insert([
+        DB::table('ch_ventacart_orders')->insert([
             'store_id' => $store->id, 'ventacart_order_id' => 91, 'status' => 'delivered',
             'total' => 11990, 'raw' => json_encode($raw), 'catalog_order_id' => 4242,
             'created_at' => now(), 'updated_at' => now(),
@@ -640,7 +640,7 @@ class VentaCartListingPageTest extends TestCase
     public function test_an_order_whose_fees_are_not_settled_yet_writes_nothing(): void
     {
         $store = $this->store();
-        DB::table('ventacart_orders')->insert([
+        DB::table('ch_ventacart_orders')->insert([
             'store_id' => $store->id, 'ventacart_order_id' => 92, 'status' => 'pending',
             'total' => 500, 'catalog_order_id' => 4243,
             'raw' => json_encode(['id' => 92, 'fees' => ['payment_fee' => null, 'shipping_cost' => null, 'net_after_fees' => null]]),
@@ -650,7 +650,7 @@ class VentaCartListingPageTest extends TestCase
         $this->assertNull((new \Extensions\VentaCart\VentaCartExtension($this->app))->feeBucketsForOrder(4243),
             'An order whose fees are not settled yet must not be stamped with zeroes: it would read as free.');
 
-        DB::table('ventacart_orders')->where('ventacart_order_id', 92)->update([
+        DB::table('ch_ventacart_orders')->where('ventacart_order_id', 92)->update([
             'raw' => json_encode(['id' => 92, 'fees' => ['payment_fee' => 12.5, 'shipping_cost' => null]]),
         ]);
         $half = (new \Extensions\VentaCart\VentaCartExtension($this->app))->feeBucketsForOrder(4243);
@@ -681,7 +681,7 @@ class VentaCartListingPageTest extends TestCase
             new \Extensions\VentaCart\Services\VentaCart\VentaCartClient($store), $store
         ))->setFeesOnly()->setSkipStockAdjust()->pull(since: '2026-06-01', full: true, maxPages: 10);
 
-        $this->assertSame(2, DB::table('ventacart_orders')->count(),
+        $this->assertSame(2, DB::table('ch_ventacart_orders')->count(),
             'The pull stopped after the first page: a store with more orders than fit on one page is silently half-read.');
     }
 
@@ -966,7 +966,7 @@ class VentaCartListingPageTest extends TestCase
         $search = $this->actingAs($this->manager())->getJson(route('ext.ventacart.products.catalog_search', [$store->id, 'q' => 'PICK']))->assertOk()->json();
         $this->assertSame([$nowhere], array_column($search['items'], 'id'));
         $this->actingAs($this->manager())->post(route('ext.ventacart.products.add_to_store', [$store->id, $nowhere]))->assertRedirect();
-        $this->assertDatabaseHas('ventacart_listings', ['store_id' => $store->id, 'product_id' => $nowhere]);
+        $this->assertDatabaseHas('ch_ventacart_listings', ['store_id' => $store->id, 'product_id' => $nowhere]);
         $page = $this->actingAs($this->manager())->get(route('ext.ventacart.listings.index', $store->id))->assertOk();
         $page->assertDontSee('a SKU on the catalog product');
         $page->assertDontSee('a product image on the catalog product');
@@ -981,7 +981,7 @@ class VentaCartListingPageTest extends TestCase
         $this->assertStringContainsString('/listings/' . $pid, (new \Extensions\VentaCart\VentaCartExtension($this->app))->listingUrls([$pid])[$pid]);
 
         $this->actingAs($this->manager())->post(route('ext.ventacart.products.remove_from_store', [$store->id, $nowhere]))->assertRedirect();
-        $this->assertDatabaseMissing('ventacart_listings', ['store_id' => $store->id, 'product_id' => $nowhere]);
+        $this->assertDatabaseMissing('ch_ventacart_listings', ['store_id' => $store->id, 'product_id' => $nowhere]);
         $this->actingAs($this->manager())->get(route('ext.ventacart.listings.index', $store->id))->assertOk()->assertDontSee('PICK-1');
     }
 
@@ -1166,7 +1166,7 @@ class VentaCartListingPageTest extends TestCase
             Http::assertSent(fn ($r) => $r->method() === 'PUT' && str_ends_with($r->url(), '/api/v1/variants/' . $sku));
         }
         $this->assertNull(VentaCartListing::where('store_id', $store->id)->where('product_id', $pid)->value('last_push_error'));
-        $held = json_decode((string) DB::table('listing_store_skus')
+        $held = json_decode((string) DB::table('ch_listing_store_skus')
             ->where('channel', 'ventacart')->where('store_id', $store->id)->where('product_id', $pid)->value('skus'), true);
         $this->assertEqualsCanonicalizing(['GP-200-S', 'GP-200-M'], $held);
 

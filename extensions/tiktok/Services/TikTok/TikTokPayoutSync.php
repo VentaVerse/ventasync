@@ -33,7 +33,7 @@ class TikTokPayoutSync
     {
         return [
             'channel' => 'tiktok',
-            'table' => 'tiktok_orders',
+            'table' => 'ch_tiktok_orders',
             'store_column' => 'store_id',
             'id_column' => 'order_id',
             'payable' => self::PAYABLE_STATUSES,

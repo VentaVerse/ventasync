@@ -102,7 +102,7 @@ class TikTokReturnSync
 
             $statusId = (int) ($returnMap[(string) ($ro['return_status'] ?? '')] ?? 0);
             $catalogOrderId = $payload['order_id']
-                ? (int) (DB::table('tiktok_orders')->where('order_id', $payload['order_id'])
+                ? (int) (DB::table('ch_tiktok_orders')->where('order_id', $payload['order_id'])
                     ->when(app()->bound('tiktok.route-store'), fn ($q) => $q->where('store_id', app('tiktok.route-store')->id))
                     ->value('catalog_order_id') ?? 0)
                 : 0;

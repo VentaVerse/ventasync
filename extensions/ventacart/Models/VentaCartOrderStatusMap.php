@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class VentaCartOrderStatusMap extends Model
 {
-    protected $table = 'ventacart_order_status_map';
+    protected $table = 'ch_ventacart_order_status_map';
 
     protected $fillable = [
         'store_id',

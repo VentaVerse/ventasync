@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class MarketplaceReview extends Model
 {
-    protected $table = 'marketplace_reviews';
+    protected $table = 'ch_marketplace_reviews';
 
     protected $fillable = [
         'channel',

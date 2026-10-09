@@ -233,7 +233,7 @@ class ListingStatusMenuTest extends TestCase
         $listingOnlyGroup->permissions()->attach(Permission::whereIn('key', ['manage_lazada/product', 'view_lazada/product'])->pluck('id')->all());
         $listingOnly = User::factory()->create(['user_group_id' => $listingOnlyGroup->id]);
         $back = parse_url(route('ext.lazada.products.index'), PHP_URL_PATH);
-        $pivot = fn () => \Illuminate\Support\Facades\DB::table('lazada_product_group_products')->where('product_id', $pid)->pluck('lazada_product_group_id')->map(fn ($v) => (int) $v)->all();
+        $pivot = fn () => \Illuminate\Support\Facades\DB::table('ch_lazada_product_group_products')->where('product_id', $pid)->pluck('lazada_product_group_id')->map(fn ($v) => (int) $v)->all();
 
         $this->actingAs($listingOnly)->get(route('ext.lazada.products.index'))->assertOk()->assertDontSee('Move to group');
         $this->actingAs($listingOnly)->post(route('ext.lazada.product-groups.move'), ['ids' => [$pid], 'group' => $groupA->id, '_return' => $back])->assertRedirect()->assertSessionHas('error');

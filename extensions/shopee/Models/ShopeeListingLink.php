@@ -8,7 +8,7 @@ class ShopeeListingLink extends Model
 {
     use \Extensions\Shopee\Models\Concerns\BelongsToShopeeStore;
 
-    protected $table = 'shopee_listing_links';
+    protected $table = 'ch_shopee_listing_links';
 
     protected $fillable = [
         'store_id',

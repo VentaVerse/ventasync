@@ -10,7 +10,7 @@ use Illuminate\Console\Command;
 class VentaCartPushPrice extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     protected $signature = 'ventacart:push-price
-        {--store= : Store ID (ventacart_settings.id). Omit to push for all enabled stores}';
+        {--store= : Store ID (ch_ventacart_stores.id). Omit to push for all enabled stores}';
 
     protected $description = 'Push catalog prices to every product linked to a VentaCart store';
 

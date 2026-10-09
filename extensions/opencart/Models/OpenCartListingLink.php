@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class OpenCartListingLink extends Model
 {
-    protected $table = 'opencart_listing_links';
+    protected $table = 'ch_opencart_listing_links';
 
     protected $fillable = [
         'store_id',

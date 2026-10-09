@@ -118,7 +118,7 @@ class LazadaLinkCheck
                     foreach ($pivots as $p) {
                         $p->update(['lazada_listing_id' => $listing->id] + (in_array($p->sync_status, ['error', 'failed'], true) ? [] : ['sync_status' => 'pushed']));
                     }
-                } elseif ($group !== null && \App\Channels\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'store_id', $group->id, [(int) $productId])['free'] !== []) {
+                } elseif ($group !== null && \App\Channels\OneGroupRule::claim('ch_lazada_product_group_products', 'lazada_product_group_id', 'ch_lazada_product_groups', 'store_id', $group->id, [(int) $productId])['free'] !== []) {
                     LazadaProductGroupProduct::create(['lazada_product_group_id' => $group->id, 'product_id' => $productId, 'lazada_listing_id' => $listing->id, 'sync_status' => 'pushed']);
                 }
                 $verdicts['linked']++;

@@ -614,11 +614,11 @@ class ShopeeListingStateTest extends TestCase
             ->assertSee('MISSVAR')->assertSee('PUSHERR')->assertDontSee('CLEANROW')
             ->assertSee('products match: Push failed', false);
 
-        $grp = DB::table('shopee_product_groups')->insertGetId([
+        $grp = DB::table('ch_shopee_product_groups')->insertGetId([
             'store_id' => $storeId, 'name' => 'Outcome group', 'created_at' => now(), 'updated_at' => now(),
         ]);
         foreach ([$missing, $refused, $clean] as $p) {
-            DB::table('shopee_product_group_products')->insert(['shopee_product_group_id' => $grp, 'product_id' => $p]);
+            DB::table('ch_shopee_product_group_products')->insert(['shopee_product_group_id' => $grp, 'product_id' => $p]);
         }
         $this->actingAs($user)->get(route('ext.shopee.product-groups.products', ['id' => $grp, 'sync_status' => 'error']))->assertOk()
             ->assertSee('MISSVAR')->assertSee('PUSHERR')->assertDontSee('CLEANROW')

@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class VentaCartApiLog extends Model
 {
-    protected $table = 'ventacart_api_logs';
+    protected $table = 'ch_ventacart_api_logs';
 
     protected $fillable = [
         'store_id',

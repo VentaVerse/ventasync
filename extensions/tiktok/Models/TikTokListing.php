@@ -9,7 +9,7 @@ class TikTokListing extends Model
 {
     use BelongsToTikTokStore, \App\Channels\Listings\KeepsItsOwnCopy;
 
-    protected $table = 'tiktok_listings';
+    protected $table = 'ch_tiktok_listings';
 
     protected $fillable = [
                 'image_off', 'video_path', 'video_off',

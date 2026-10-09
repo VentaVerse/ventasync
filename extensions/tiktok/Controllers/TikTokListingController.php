@@ -110,8 +110,8 @@ class TikTokListingController extends Controller
             ->groupBy('tiktok_product_group_id');
         $groupBand = [
             'current' => \App\Channels\Listings\ListingGroup::current([
-                'pivot' => 'tiktok_product_group_products', 'fk' => 'tiktok_product_group_id',
-                'groups' => 'tiktok_product_groups', 'storeFk' => 'store_id',
+                'pivot' => 'ch_tiktok_product_group_products', 'fk' => 'tiktok_product_group_id',
+                'groups' => 'ch_tiktok_product_groups', 'storeFk' => 'store_id',
                 'storeId' => $covStoreId,
             ], $productId),
             'groups' => $bandGroups->map(fn ($g) => [
@@ -140,7 +140,7 @@ class TikTokListingController extends Controller
 
         $hasVariations = isset(\Extensions\TikTok\Services\TikTok\TikTokVariationPush::withVariations([$productId])[$productId]);
 
-        return view('ext-tiktok::listings.edit', \App\Channels\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('tiktok_product_groups', 'tiktok_product_group_products', 'tiktok_product_group_id', $productId, 'store_id', (int) ($listing->store_id ?? 0) ?: null), 'tiktok', \App\Channels\Listings\ListingStore::id('tiktok')) + [
+        return view('ext-tiktok::listings.edit', \App\Channels\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('ch_tiktok_product_groups', 'ch_tiktok_product_group_products', 'tiktok_product_group_id', $productId, 'store_id', (int) ($listing->store_id ?? 0) ?: null), 'tiktok', \App\Channels\Listings\ListingStore::id('tiktok')) + [
             'coverage' => $coverage,
             ...\App\Channels\Listings\ListingVariations::cardData(
                 'tiktok', $covStoreId, $productId,
@@ -172,7 +172,7 @@ class TikTokListingController extends Controller
         $this->productOrFail($productId);
 
         $data = $request->validate([
-            'tiktok_category_id' => 'nullable|string|max:64|exists:tiktok_categories,id',
+            'tiktok_category_id' => 'nullable|string|max:64|exists:ch_tiktok_categories,id',
             'brand_id' => 'nullable|string|max:64',
             'brand_name' => 'nullable|string|max:191',
             'markup_percent' => 'nullable|numeric|min:-100|max:1000',
@@ -208,8 +208,8 @@ class TikTokListingController extends Controller
         $picked = \App\Channels\Listings\ListingGroup::submitted($request);
         if ($picked['present']) {
             \App\Channels\Listings\ListingGroup::assign([
-                'pivot' => 'tiktok_product_group_products', 'fk' => 'tiktok_product_group_id',
-                'groups' => 'tiktok_product_groups', 'storeFk' => 'store_id',
+                'pivot' => 'ch_tiktok_product_group_products', 'fk' => 'tiktok_product_group_id',
+                'groups' => 'ch_tiktok_product_groups', 'storeFk' => 'store_id',
                 'storeId' => (int) (TikTokStore::defaultStore()?->id ?? 0),
             ], $productId, $picked['id']);
         }
@@ -480,8 +480,8 @@ class TikTokListingController extends Controller
             ];
         }
 
-        return DB::table('tiktok_product_group_products as tp')
-            ->join('tiktok_product_groups as tg', 'tg.id', '=', 'tp.tiktok_product_group_id')
+        return DB::table('ch_tiktok_product_group_products as tp')
+            ->join('ch_tiktok_product_groups as tg', 'tg.id', '=', 'tp.tiktok_product_group_id')
             ->where('tg.store_id', (int) (TikTokStore::defaultStore()?->id ?? 0))
             ->where('tp.product_id', $productId)
             ->whereNotNull('tp.tiktok_product_id')

@@ -11,7 +11,7 @@ class ShopeeApiLog extends Model
 {
     use \Extensions\Shopee\Models\Concerns\BelongsToShopeeStore;
 
-    protected $table = 'shopee_api_logs';
+    protected $table = 'ch_shopee_api_logs';
 
     protected $fillable = [
         'store_id',
@@ -42,18 +42,18 @@ class ShopeeApiLog extends Model
                 return;
             }
 
-            if (array_key_exists('pack', $attributes) && !Schema::hasColumn('shopee_api_logs', 'pack')) {
+            if (array_key_exists('pack', $attributes) && !Schema::hasColumn('ch_shopee_api_logs', 'pack')) {
                 unset($attributes['pack']);
             }
 
             self::query()->create($attributes);
         } catch (QueryException $e) {
-            Log::warning('Failed to write shopee_api_logs record', [
+            Log::warning('Failed to write ch_shopee_api_logs record', [
                 'error' => $e->getMessage(),
                 'keys' => array_keys($attributes),
             ]);
         } catch (\Throwable $e) {
-            Log::warning('Unexpected failure writing shopee_api_logs record', [
+            Log::warning('Unexpected failure writing ch_shopee_api_logs record', [
                 'error' => $e->getMessage(),
             ]);
         }

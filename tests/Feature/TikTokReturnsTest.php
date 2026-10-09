@@ -133,7 +133,7 @@ class TikTokReturnsTest extends TestCase
     {
         $pfx = (string) config('catalog.prefix');
         $catalogOrderId = DB::table($pfx . 'order')->insertGetId($this->orderColumnDefaults() + ['order_status_id' => 5, 'total' => 450]);
-        DB::table('tiktok_orders')->insert(['store_id' => $this->tiktokStore->id, 'region' => 'PH', 'order_id' => 'ord-1', 'status' => 'COMPLETED', 'catalog_order_id' => $catalogOrderId, 'raw' => '{}', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('ch_tiktok_orders')->insert(['store_id' => $this->tiktokStore->id, 'region' => 'PH', 'order_id' => 'ord-1', 'status' => 'COMPLETED', 'catalog_order_id' => $catalogOrderId, 'raw' => '{}', 'created_at' => now(), 'updated_at' => now()]);
         TikTokOrderStatusMap::create(['tiktok_status' => 'RETURN_OR_REFUND_REQUEST_COMPLETE', 'context' => 'return', 'order_status_id' => 11]);
         $this->callResponses['POST /return_refund/202309/returns/search'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success',
             'data' => ['return_orders' => [$this->sampleReturn(['return_status' => 'RETURN_OR_REFUND_REQUEST_COMPLETE'])]]]];

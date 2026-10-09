@@ -48,9 +48,9 @@ class LazadaStoreSetup
         }
         unset($r);
         DB::transaction(function () use ($rows) {
-            DB::table('lazada_categories')->delete();
+            DB::table('ch_lazada_categories')->delete();
             foreach (array_chunk($rows, 1000) as $chunk) {
-                DB::table('lazada_categories')->insert($chunk);
+                DB::table('ch_lazada_categories')->insert($chunk);
             }
         });
 

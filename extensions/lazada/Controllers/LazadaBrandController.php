@@ -140,9 +140,9 @@ class LazadaBrandController extends Controller
         $allRows = array_values($brandsById);
 
         DB::transaction(function () use ($region, $allRows) {
-            DB::table('lazada_brands')->where('region', $region)->delete();
+            DB::table('ch_lazada_brands')->where('region', $region)->delete();
             foreach (array_chunk($allRows, 1000) as $chunk) {
-                DB::table('lazada_brands')->insert($chunk);
+                DB::table('ch_lazada_brands')->insert($chunk);
             }
         });
 

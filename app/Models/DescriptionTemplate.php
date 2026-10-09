@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class DescriptionTemplate extends Model
 {
+    protected $table = 'ch_description_templates';
+
     protected $guarded = [];
 
     public static function forStore(string $channel, int $storeId)

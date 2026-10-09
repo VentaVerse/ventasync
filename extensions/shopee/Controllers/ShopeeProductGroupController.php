@@ -77,7 +77,7 @@ class ShopeeProductGroupController extends Controller
                 ->pluck('name', 'category_id');
         }
 
-        $productCounts = DB::table('shopee_product_group_products')
+        $productCounts = DB::table('ch_shopee_product_group_products')
             ->selectRaw('shopee_product_group_id, COUNT(*) as cnt')
             ->groupBy('shopee_product_group_id')
             ->pluck('cnt', 'shopee_product_group_id');
@@ -138,7 +138,7 @@ class ShopeeProductGroupController extends Controller
             : collect();
 
         return view('ext-shopee::product-groups.form', [
-            'productCount' => $group->exists ? \Illuminate\Support\Facades\DB::table('shopee_product_group_products')->where('shopee_product_group_id', $group->id)->count() : 0,
+            'productCount' => $group->exists ? \Illuminate\Support\Facades\DB::table('ch_shopee_product_group_products')->where('shopee_product_group_id', $group->id)->count() : 0,
             'group' => $group,
             'mode' => $mode,
             'shopeeCategories' => $shopeeCategories,
@@ -265,7 +265,7 @@ class ShopeeProductGroupController extends Controller
             $shopeeTab = 'all';
         }
 
-        $pivotTable = 'shopee_product_group_products';
+        $pivotTable = 'ch_shopee_product_group_products';
 
         $query = DB::table($pfx . 'product as p')
             ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
@@ -302,7 +302,7 @@ class ShopeeProductGroupController extends Controller
         }
 
         $erroredIds = $this->listingStates()->erroredProductIds();
-        $linkedProductIds = DB::table('shopee_listing_links')
+        $linkedProductIds = DB::table('ch_shopee_listing_links')
             ->when(app()->bound('shopee.route-store'), fn ($q) => $q->where('store_id', app('shopee.route-store')->id))
             ->whereNotNull('shopee_item_id')
             ->select('product_id');
@@ -918,8 +918,8 @@ class ShopeeProductGroupController extends Controller
             ->whereIn('product_id', $ids)
             ->pluck('product_id')->map(fn ($v) => (int) $v)->flip();
 
-        $owners = $ids === [] ? collect() : DB::table('shopee_product_group_products as pv')
-            ->join('shopee_product_groups as g', 'g.id', '=', 'pv.shopee_product_group_id')
+        $owners = $ids === [] ? collect() : DB::table('ch_shopee_product_group_products as pv')
+            ->join('ch_shopee_product_groups as g', 'g.id', '=', 'pv.shopee_product_group_id')
             ->whereIn('pv.product_id', $ids)
             ->where('g.id', '!=', $group->id)
             ->when(app()->bound('shopee.route-store'), fn ($w) => $w->where('g.store_id', app('shopee.route-store')->id))
@@ -966,7 +966,7 @@ class ShopeeProductGroupController extends Controller
 
         if (! $already) {
             $claim = \App\Channels\OneGroupRule::claim(
-                'shopee_product_group_products', 'shopee_product_group_id', 'shopee_product_groups', 'store_id',
+                'ch_shopee_product_group_products', 'shopee_product_group_id', 'ch_shopee_product_groups', 'store_id',
                 $group->id, [$productId], $request->boolean('move') ? [$productId] : []
             );
             foreach (array_merge($claim['free'], array_keys($claim['moved'])) as $pid) {
@@ -1165,7 +1165,7 @@ class ShopeeProductGroupController extends Controller
                 ->with('status', 'Product re-linked to Shopee item ' . $pivot->shopee_item_id . '.');
         }
 
-        $linkId = DB::table('shopee_listing_links')
+        $linkId = DB::table('ch_shopee_listing_links')
             ->when(app()->bound('shopee.route-store'), fn ($q) => $q->where('store_id', app('shopee.route-store')->id))
             ->where('product_id', $productId)
             ->value('shopee_item_id');
@@ -1214,7 +1214,7 @@ class ShopeeProductGroupController extends Controller
 
         $already = $group->groupProducts()->whereIn('product_id', $ids)->pluck('product_id')->map(fn ($v) => (int) $v)->all();
         $wanted = array_values(array_diff($ids, $already));
-        $claim = \App\Channels\OneGroupRule::claim('shopee_product_group_products', 'shopee_product_group_id', 'shopee_product_groups', 'store_id', $group->id, $wanted, $wanted);
+        $claim = \App\Channels\OneGroupRule::claim('ch_shopee_product_group_products', 'shopee_product_group_id', 'ch_shopee_product_groups', 'store_id', $group->id, $wanted, $wanted);
         $moved = 0;
         foreach (array_merge($claim['free'], array_keys($claim['moved'])) as $pid) {
             ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => (int) $pid]);
@@ -1264,7 +1264,7 @@ class ShopeeProductGroupController extends Controller
         $productIds = $this->parseIds($request);
 
         if (empty($productIds)) {
-            $productIds = DB::table('shopee_product_group_products')
+            $productIds = DB::table('ch_shopee_product_group_products')
                 ->where('shopee_product_group_id', $id)
                 ->pluck('product_id')->map('intval')->all();
         }
@@ -2151,7 +2151,7 @@ class ShopeeProductGroupController extends Controller
     {
         $storeId = (int) (ShopeeStore::defaultStore()?->id ?? 0);
         \App\Support\ChannelProductStatus::write(
-            'shopee_product_group_products',
+            'ch_shopee_product_group_products',
             'shopee_product_group_id',
             $storeId > 0
                 ? ShopeeProductGroup::query()->withoutGlobalScope('shopeeStore')->where('store_id', $storeId)
@@ -2402,9 +2402,9 @@ class ShopeeProductGroupController extends Controller
         unset($r);
 
         DB::transaction(function () use ($rows) {
-            DB::table('shopee_categories')->delete();
+            DB::table('ch_shopee_categories')->delete();
             foreach (array_chunk($rows, 1000) as $chunk) {
-                DB::table('shopee_categories')->insert($chunk);
+                DB::table('ch_shopee_categories')->insert($chunk);
             }
         });
 

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class VentaCartListingLink extends Model
 {
-    protected $table = 'ventacart_listing_links';
+    protected $table = 'ch_ventacart_listing_links';
 
     protected $fillable = [
         'store_id',

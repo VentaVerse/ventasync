@@ -119,13 +119,13 @@ class ShopeeOrphansRenderTest extends TestCase
         $groupId = $this->seedShop();
         $this->fakeShop();
 
-        $before = DB::table('shopee_listing_links')->count();
+        $before = DB::table('ch_shopee_listing_links')->count();
 
         $this->actingAs($this->user(['view_shopee', 'view_shopee/dashboard', 'manage_shopee', 'view_shopee/settings', 'view_shopee/category', 'view_shopee/category_attribute', 'view_shopee/logistics', 'view_shopee/product_group', 'view_shopee/product', 'manage_shopee/settings', 'manage_shopee/category', 'manage_shopee/category_attribute', 'manage_shopee/logistics', 'manage_shopee/product_group', 'manage_shopee/product', 'manage_shopee/dashboard']))
             ->get(route('ext.shopee.product-groups.orphans', $groupId))
             ->assertOk();
 
-        $this->assertSame($before, DB::table('shopee_listing_links')->count(),
+        $this->assertSame($before, DB::table('ch_shopee_listing_links')->count(),
             'Viewing the orphan report created or removed a link, so a read route is writing.');
     }
 }

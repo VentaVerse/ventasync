@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class OrderFetchRun extends Model
 {
+    protected $table = 'ch_order_fetch_runs';
+
     public const RUNNING = 'running';
     public const STOPPED = 'stopped';
     public const FAILED = 'failed';

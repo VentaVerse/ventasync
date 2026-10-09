@@ -117,7 +117,7 @@ class TikTokReturnsPanel
         $orders = $query->orderByDesc('id')->paginate($perPage)->appends($request->query());
 
         $orderIds = collect($orders->items())->pluck('order_id')->filter()->unique()->values();
-        $erpMap = $orderIds->isEmpty() ? collect() : \DB::table('tiktok_orders')
+        $erpMap = $orderIds->isEmpty() ? collect() : \DB::table('ch_tiktok_orders')
             ->whereIn('order_id', $orderIds->all())
             ->whereNotNull('catalog_order_id')
             ->when(app()->bound('tiktok.route-store'), fn ($q) => $q->where('store_id', app('tiktok.route-store')->id))

@@ -130,7 +130,7 @@ class ShopeeListingStatusMenuTest extends TestCase
         $listingOnlyGroup->permissions()->attach(Permission::whereIn('key', ['manage_shopee/product', 'view_shopee/product'])->pluck('id')->all());
         $listingOnly = User::factory()->create(['user_group_id' => $listingOnlyGroup->id]);
         $back = parse_url(route('ext.shopee.products.index'), PHP_URL_PATH);
-        $pivot = fn () => \Illuminate\Support\Facades\DB::table('shopee_product_group_products')->where('product_id', $pid)->pluck('shopee_product_group_id')->map(fn ($v) => (int) $v)->all();
+        $pivot = fn () => \Illuminate\Support\Facades\DB::table('ch_shopee_product_group_products')->where('product_id', $pid)->pluck('shopee_product_group_id')->map(fn ($v) => (int) $v)->all();
 
         $this->actingAs($listingOnly)->get(route('ext.shopee.products.index'))->assertOk()->assertDontSee('Move to group');
         $this->actingAs($listingOnly)->post(route('ext.shopee.product-groups.move'), ['ids' => [$pid], 'group' => $groupA->id, '_return' => $back])->assertRedirect()->assertSessionHas('error');

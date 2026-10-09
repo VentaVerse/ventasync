@@ -25,7 +25,7 @@ class VentaCartListingStates
     public function summary(): array
     {
         return [
-            'attention' => $this->bucket('attention')->distinct()->count('ventacart_listings.product_id'),
+            'attention' => $this->bucket('attention')->distinct()->count('ch_ventacart_listings.product_id'),
             'drift' => count($this->catalogChanges()),
         ];
     }
@@ -33,7 +33,7 @@ class VentaCartListingStates
     private function catalogChanges(): array
     {
         return \App\Channels\Listings\CatalogCopy::pending(
-            $this->bucket('drift')->get(), 'ventacart_listings', VentaCartListing::copyColumns()
+            $this->bucket('drift')->get(), 'ch_ventacart_listings', VentaCartListing::copyColumns()
         );
     }
 
@@ -44,7 +44,7 @@ class VentaCartListingStates
         }
 
         return $this->bucket($bucket)->distinct()
-            ->pluck('ventacart_listings.product_id')
+            ->pluck('ch_ventacart_listings.product_id')
             ->map(fn ($v) => (int) $v)->unique()->values()->all();
     }
 
@@ -52,14 +52,14 @@ class VentaCartListingStates
     {
         $pfx = (string) config('catalog.prefix');
 
-        $mine = VentaCartListing::query()->where('ventacart_listings.store_id', $this->storeId);
+        $mine = VentaCartListing::query()->where('ch_ventacart_listings.store_id', $this->storeId);
 
         if ($bucket === 'drift') {
             return $mine
-                ->select('ventacart_listings.*')
-                ->join($pfx . 'product as p', 'p.product_id', '=', 'ventacart_listings.product_id')
-                ->where(fn ($q) => $q->whereNull('ventacart_listings.catalog_seen_at')
-                    ->orWhereColumn('p.date_modified', '>', 'ventacart_listings.catalog_seen_at'));
+                ->select('ch_ventacart_listings.*')
+                ->join($pfx . 'product as p', 'p.product_id', '=', 'ch_ventacart_listings.product_id')
+                ->where(fn ($q) => $q->whereNull('ch_ventacart_listings.catalog_seen_at')
+                    ->orWhereColumn('p.date_modified', '>', 'ch_ventacart_listings.catalog_seen_at'));
         }
 
         return $mine->where('live_status', VentaCartListing::STATUS_MISSING);
@@ -73,7 +73,7 @@ class VentaCartListingStates
         }
         $links =VentaCartListingLink::query()->where('store_id', $this->storeId)->whereIn('product_id', $productIds)->whereNotNull('ventacart_product_id')->get()->keyBy(fn ($l) => (int) $l->product_id);
         $listings = VentaCartListing::query()->where('store_id', $this->storeId)->whereIn('product_id', $productIds)->get()->keyBy(fn ($l) => (int) $l->product_id);
-        $catalogChanges = \App\Channels\Listings\CatalogCopy::pending($listings->values(), 'ventacart_listings', VentaCartListing::copyColumns());
+        $catalogChanges = \App\Channels\Listings\CatalogCopy::pending($listings->values(), 'ch_ventacart_listings', VentaCartListing::copyColumns());
         $attempts = $this->latestAttempts($productIds);
         $readiness = VentaCartListingReadiness::forProducts($productIds);
 

@@ -35,7 +35,7 @@ class ShopeePayoutSync
     {
         return [
             'channel' => 'shopee',
-            'table' => 'shopee_orders',
+            'table' => 'ch_shopee_orders',
             'store_column' => 'store_id',
             'id_column' => 'order_sn',
             'payable' => ['COMPLETED'],
@@ -165,7 +165,7 @@ class ShopeePayoutSync
     {
         $escrow = "CAST(CASE WHEN JSON_VALID(fees) THEN COALESCE(JSON_VALUE(fees, '$.order_income.escrow_amount'), JSON_VALUE(fees, '$.escrow_amount')) END AS DECIMAL(12,2))";
 
-        $stale = DB::table('shopee_orders')
+        $stale = DB::table('ch_shopee_orders')
             ->where('store_id', $store->id)
             ->where('payout_status', PayoutStatus::PAID)
             ->whereNotNull('payout_amount')
@@ -184,7 +184,7 @@ class ShopeePayoutSync
             if ($detail === null) {
                 continue;
             }
-            DB::table('shopee_orders')->where('id', $order->id)->update(['fees' => json_encode($detail)]);
+            DB::table('ch_shopee_orders')->where('id', $order->id)->update(['fees' => json_encode($detail)]);
             $done++;
         }
 

@@ -10,7 +10,7 @@ use Illuminate\Console\Command;
 class OpenCartPushQty extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     protected $signature = 'opencart:push-qty
-        {--store= : Store ID (opencart_settings.id). Omit to push to all enabled stores}';
+        {--store= : Store ID (ch_opencart_stores.id). Omit to push to all enabled stores}';
 
     protected $description = 'Push product quantities from the ERP to OpenCart stores';
 

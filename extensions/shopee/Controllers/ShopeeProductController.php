@@ -78,12 +78,12 @@ class ShopeeProductController extends Controller
     {
         $pfx = (string) config('catalog.prefix');
         $prod = DB::table($pfx . 'product')->whereIn('product_id', $ids)->pluck('date_modified', 'product_id');
-        $listing = DB::table('shopee_listings')->whereIn('product_id', $ids)
+        $listing = DB::table('ch_shopee_listings')->whereIn('product_id', $ids)
             ->selectRaw('product_id, MAX(updated_at) as mu')->groupBy('product_id')->pluck('mu', 'product_id');
-        $link = DB::table('shopee_listing_links')->whereIn('product_id', $ids)
+        $link = DB::table('ch_shopee_listing_links')->whereIn('product_id', $ids)
             ->selectRaw('product_id, MAX(updated_at) as mu')->groupBy('product_id')->pluck('mu', 'product_id');
-        $group = DB::table('shopee_product_group_products as gp')
-            ->join('shopee_product_groups as g', 'g.id', '=', 'gp.shopee_product_group_id')
+        $group = DB::table('ch_shopee_product_group_products as gp')
+            ->join('ch_shopee_product_groups as g', 'g.id', '=', 'gp.shopee_product_group_id')
             ->whereIn('gp.product_id', $ids)->where('g.store_id', $storeId)
             ->selectRaw('gp.product_id, MAX(g.updated_at) as mu')->groupBy('gp.product_id')->pluck('mu', 'product_id');
 
@@ -571,7 +571,7 @@ class ShopeeProductController extends Controller
 
         $groupId = (int) $request->input('group', 0);
         if ($groupId > 0) {
-            \App\Channels\OneGroupRule::place('shopee_product_group_products', 'shopee_product_group_id', 'shopee_product_groups', 'store_id', \App\Channels\Listings\ListingStore::id('shopee'), $groupId, $productId);
+            \App\Channels\OneGroupRule::place('ch_shopee_product_group_products', 'shopee_product_group_id', 'ch_shopee_product_groups', 'store_id', \App\Channels\Listings\ListingStore::id('shopee'), $groupId, $productId);
         }
 
         if ($request->wantsJson()) {
@@ -1358,7 +1358,7 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', 'No items found on Shopee.');
         }
 
-        DB::table('shopee_item_cache')
+        DB::table('ch_shopee_item_cache')
             ->when(app()->bound('shopee.route-store'), fn ($q) => $q->where('store_id', app('shopee.route-store')->id))
             ->delete();
 
@@ -2065,8 +2065,8 @@ class ShopeeProductController extends Controller
             return ['ids' => null, 'map' => []];
         }
 
-        $rows = DB::table('shopee_product_group_products as pgp')
-            ->join('shopee_product_groups as g', 'g.id', '=', 'pgp.shopee_product_group_id')
+        $rows = DB::table('ch_shopee_product_group_products as pgp')
+            ->join('ch_shopee_product_groups as g', 'g.id', '=', 'pgp.shopee_product_group_id')
             ->whereIn('g.id', ShopeeProductGroup::query()->pluck('id'))
             ->get(['pgp.product_id', 'g.id', 'g.name']);
 
@@ -2080,7 +2080,7 @@ class ShopeeProductController extends Controller
 
     private function getProductIdsByGroup(int $groupId): array
     {
-        return DB::table('shopee_product_group_products')
+        return DB::table('ch_shopee_product_group_products')
             ->where('shopee_product_group_id', $groupId)
             ->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
     }
@@ -2305,7 +2305,7 @@ class ShopeeProductController extends Controller
                 ->get(['brand_id', 'name'])
             : collect();
 
-        return view('ext-shopee::listings.edit', \App\Channels\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('shopee_product_groups', 'shopee_product_group_products', 'shopee_product_group_id', $productId, 'store_id', (int) ($listing->store_id ?? 0) ?: null), 'shopee', \App\Channels\Listings\ListingStore::id('shopee')) + [
+        return view('ext-shopee::listings.edit', \App\Channels\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('ch_shopee_product_groups', 'ch_shopee_product_group_products', 'shopee_product_group_id', $productId, 'store_id', (int) ($listing->store_id ?? 0) ?: null), 'shopee', \App\Channels\Listings\ListingStore::id('shopee')) + [
             'listingState' => $listingState,
             'product' => $product,
             'listing' => $listing,
@@ -2338,8 +2338,8 @@ class ShopeeProductController extends Controller
     private function groupBandFor(int $productId, int $storeId): array
     {
         $current = \App\Channels\Listings\ListingGroup::current([
-            'pivot' => 'shopee_product_group_products', 'fk' => 'shopee_product_group_id',
-            'groups' => 'shopee_product_groups', 'storeFk' => 'store_id',
+            'pivot' => 'ch_shopee_product_group_products', 'fk' => 'shopee_product_group_id',
+            'groups' => 'ch_shopee_product_groups', 'storeFk' => 'store_id',
             'storeId' => $storeId,
         ], $productId);
 
@@ -2568,8 +2568,8 @@ class ShopeeProductController extends Controller
         $picked = \App\Channels\Listings\ListingGroup::submitted($request);
         if ($picked['present']) {
             \App\Channels\Listings\ListingGroup::assign([
-                'pivot' => 'shopee_product_group_products', 'fk' => 'shopee_product_group_id',
-                'groups' => 'shopee_product_groups', 'storeFk' => 'store_id',
+                'pivot' => 'ch_shopee_product_group_products', 'fk' => 'shopee_product_group_id',
+                'groups' => 'ch_shopee_product_groups', 'storeFk' => 'store_id',
                 'storeId' => (int) (ShopeeStore::defaultStore()?->id ?? 0),
             ], $productId, $picked['id']);
         }

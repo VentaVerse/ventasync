@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class TikTokCategory extends Model
 {
-    protected $table = 'tiktok_categories';
+    protected $table = 'ch_tiktok_categories';
 
     protected $keyType = 'string';
     public $incrementing = false;

@@ -254,7 +254,7 @@ class TikTokMultistoreTest extends TestCase
         $x = $group($one, 'Group X');
         $y = $group($one, 'Group Y');
         $onOutlet = $group($two, 'Group Y outlet');
-        $shape = fn ($store) => ['pivot' => 'tiktok_product_group_products', 'fk' => 'tiktok_product_group_id', 'groups' => 'tiktok_product_groups', 'storeFk' => 'store_id', 'storeId' => (int) $store->id];
+        $shape = fn ($store) => ['pivot' => 'ch_tiktok_product_group_products', 'fk' => 'tiktok_product_group_id', 'groups' => 'ch_tiktok_product_groups', 'storeFk' => 'store_id', 'storeId' => (int) $store->id];
         $pid = 77;
 
         \App\Channels\Listings\ListingGroup::assign($shape($one), $pid, (int) $x->id);
@@ -263,7 +263,7 @@ class TikTokMultistoreTest extends TestCase
         $this->assertSame((int) $x->id, \App\Channels\Listings\ListingGroup::current($shape($one), $pid));
         $this->assertSame((int) $onOutlet->id, \App\Channels\Listings\ListingGroup::current($shape($two), $pid), 'the other store groups it too');
 
-        $claim = \App\Channels\OneGroupRule::claim('tiktok_product_group_products', 'tiktok_product_group_id', 'tiktok_product_groups', 'store_id', (int) $y->id, [$pid]);
+        $claim = \App\Channels\OneGroupRule::claim('ch_tiktok_product_group_products', 'tiktok_product_group_id', 'ch_tiktok_product_groups', 'store_id', (int) $y->id, [$pid]);
         $this->assertSame([$pid => 'Group X'], $claim['held'], 'a second group on the same store is held');
 
         \App\Channels\Listings\ListingGroup::assign($shape($one), $pid, null);

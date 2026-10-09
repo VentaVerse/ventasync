@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class LazadaImageLink extends Model
 {
-    protected $table = 'lazada_image_links';
+    protected $table = 'ch_lazada_image_links';
 
     protected $fillable = [
         'region',

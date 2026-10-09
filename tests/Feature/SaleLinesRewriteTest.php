@@ -25,7 +25,7 @@ class SaleLinesRewriteTest extends TestCase
     public function test_rewriting_replaces_only_the_sale_lines(): void
     {
         $pfx = (string) config('catalog.prefix');
-        $store = DB::table('shopee_settings')->insertGetId(['mode' => 'live', 'store_name' => 'Main store', 'created_at' => now(), 'updated_at' => now()]);
+        $store = DB::table('ch_shopee_stores')->insertGetId(['mode' => 'live', 'store_name' => 'Main store', 'created_at' => now(), 'updated_at' => now()]);
         $orderId = $this->coreOrder(['channel' => 'shopee', 'store_id' => $store, 'total' => 1438]);
         $this->coreOrderLine($orderId, 1438, 900, 1);
         DB::table($pfx . 'order_total')->insert([
@@ -34,7 +34,7 @@ class SaleLinesRewriteTest extends TestCase
             ['order_id' => $orderId, 'code' => 'total', 'title' => 'Total', 'value' => 1438, 'sort_order' => 3],
             ['order_id' => $orderId, 'code' => 'marketplace_commission', 'title' => 'Commission', 'value' => -151, 'sort_order' => 91],
         ]);
-        DB::table('shopee_orders')->insert([
+        DB::table('ch_shopee_orders')->insert([
             'store_id' => $store, 'region' => 'PH', 'order_sn' => 'SP-REWRITE', 'catalog_order_id' => $orderId,
             'status' => 'COMPLETED', 'raw' => '{}',
             'fees' => json_encode(['order_income' => [

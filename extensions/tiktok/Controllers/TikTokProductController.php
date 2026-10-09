@@ -74,8 +74,8 @@ class TikTokProductController extends Controller
         $sort = array_key_exists((string) $request->get('sort', 'id'), $sortColumns) ? (string) $request->get('sort', 'id') : 'id';
         $dir = strtolower((string) $request->get('dir', 'asc')) === 'desc' ? 'desc' : 'asc';
 
-        $groupsByProductId = DB::table('tiktok_product_group_products as tp')
-            ->join('tiktok_product_groups as tg', 'tg.id', '=', 'tp.tiktok_product_group_id')
+        $groupsByProductId = DB::table('ch_tiktok_product_group_products as tp')
+            ->join('ch_tiktok_product_groups as tg', 'tg.id', '=', 'tp.tiktok_product_group_id')
             ->where('tg.store_id', (int) (TikTokStore::defaultStore()?->id ?? 0))
             ->get(['tp.product_id', 'tg.id', 'tg.name'])
             ->groupBy('product_id')
@@ -392,10 +392,10 @@ class TikTokProductController extends Controller
     {
         $pfx = (string) config('catalog.prefix');
         $prod = DB::table($pfx . 'product')->whereIn('product_id', $ids)->pluck('date_modified', 'product_id');
-        $listing = DB::table('tiktok_listings')->whereIn('product_id', $ids)
+        $listing = DB::table('ch_tiktok_listings')->whereIn('product_id', $ids)
             ->selectRaw('product_id, MAX(updated_at) as mu')->groupBy('product_id')->pluck('mu', 'product_id');
-        $group = DB::table('tiktok_product_group_products as gp')
-            ->join('tiktok_product_groups as g', 'g.id', '=', 'gp.tiktok_product_group_id')
+        $group = DB::table('ch_tiktok_product_group_products as gp')
+            ->join('ch_tiktok_product_groups as g', 'g.id', '=', 'gp.tiktok_product_group_id')
             ->whereIn('gp.product_id', $ids)->where('g.store_id', $storeId)
             ->selectRaw('gp.product_id, MAX(g.updated_at) as mu')->groupBy('gp.product_id')->pluck('mu', 'product_id');
 
@@ -522,7 +522,7 @@ class TikTokProductController extends Controller
 
         $groupId = (int) $request->input('group', 0);
         if ($groupId > 0) {
-            \App\Channels\OneGroupRule::place('tiktok_product_group_products', 'tiktok_product_group_id', 'tiktok_product_groups', 'store_id', \App\Channels\Listings\ListingStore::id('tiktok'), $groupId, $productId);
+            \App\Channels\OneGroupRule::place('ch_tiktok_product_group_products', 'tiktok_product_group_id', 'ch_tiktok_product_groups', 'store_id', \App\Channels\Listings\ListingStore::id('tiktok'), $groupId, $productId);
         }
 
         if ($request->wantsJson()) {

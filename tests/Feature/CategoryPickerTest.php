@@ -37,7 +37,7 @@ class CategoryPickerTest extends TestCase
             [112, 110, 'Keyboards', 1],
             [200, 0, 'Beauty', 1],
         ] as [$id, $parent, $name, $leaf]) {
-            DB::table('shopee_categories')->insert([
+            DB::table('ch_shopee_categories')->insert([
                 'category_id' => $id, 'parent_id' => $parent, 'name' => $name, 'leaf' => $leaf, 'level' => 0,
             ]);
         }

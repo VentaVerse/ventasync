@@ -194,7 +194,7 @@ class OpenCartController extends Controller
         $name = (string) $setting->store_name;
         $id = (int) $setting->id;
         $removed = $deleter->delete($setting);
-        ActivityLogger::log('opencart.store.deleted', 'opencart_settings', $id, $name, ['removed' => $removed]);
+        ActivityLogger::log('opencart.store.deleted', 'ch_opencart_stores', $id, $name, ['removed' => $removed]);
 
         return redirect()->route('channels.index')
             ->with('status', "Deleted OpenCart store {$name}. Sales already imported keep its name.");

@@ -285,7 +285,7 @@ class LazadaController extends Controller
         $name = (string) $store->store_name;
         $id = (int) $store->id;
         $removed = $deleter->delete($store);
-        \App\Services\ActivityLogger::log('lazada.store.deleted', 'lazada_settings', $id, $name, ['removed' => $removed]);
+        \App\Services\ActivityLogger::log('lazada.store.deleted', 'ch_lazada_stores', $id, $name, ['removed' => $removed]);
 
         return redirect()->route('channels.index')
             ->with('status', "Deleted Lazada store {$name}. Sales already imported keep its name.");
@@ -300,10 +300,10 @@ class LazadaController extends Controller
 
         $cutoff = now()->subDays((int) $request->days);
         $tables = [
-            'lazada_orders',
-            'lazada_order_products',
+            'ch_lazada_orders',
+            'ch_lazada_order_products',
             'lazada_order_items',
-            'lazada_reverse_orders',
+            'ch_lazada_reverse_orders',
         ];
 
         $total = 0;

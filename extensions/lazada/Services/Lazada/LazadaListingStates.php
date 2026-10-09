@@ -45,7 +45,7 @@ class LazadaListingStates
     private function storeRows(): \Illuminate\Database\Eloquent\Builder
     {
         return LazadaListing::query()->withoutGlobalScope('lazadaStore')
-            ->where('lazada_listings.store_id', $this->storeId());
+            ->where('ch_lazada_listings.store_id', $this->storeId());
     }
 
     private static function currentRow(Collection $rows): ?LazadaListing
@@ -103,7 +103,7 @@ class LazadaListingStates
                 ->whereNotNull('lazada_item_id')->where('lazada_item_id', '!=', '')
                 ->whereNull('unlinked_at')->whereNull('lazada_deleted_at')
                 ->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
-            $pivots = fn () => DB::table('lazada_product_group_products')
+            $pivots = fn () => DB::table('ch_lazada_product_group_products')
                 ->whereIn('lazada_product_group_id', $groupIds)->whereIn('product_id', $chunk);
 
             $pivots()->whereNotNull('push_error')
@@ -153,7 +153,7 @@ class LazadaListingStates
     public function summary(): array
     {
         return [
-            'attention' => $this->bucket('attention')->distinct()->count('lazada_listings.product_id'),
+            'attention' => $this->bucket('attention')->distinct()->count('ch_lazada_listings.product_id'),
             'drift' => count($this->catalogChanges()),
         ];
     }
@@ -161,7 +161,7 @@ class LazadaListingStates
     private function catalogChanges(): array
     {
         return \App\Channels\Listings\CatalogCopy::pending(
-            $this->bucket('drift')->get(), 'lazada_listings', LazadaListing::copyColumns()
+            $this->bucket('drift')->get(), 'ch_lazada_listings', LazadaListing::copyColumns()
         );
     }
 
@@ -172,7 +172,7 @@ class LazadaListingStates
         }
 
         return $this->bucket($bucket)->distinct()
-            ->pluck('lazada_listings.product_id')
+            ->pluck('ch_lazada_listings.product_id')
             ->map(fn ($v) => (int) $v)->unique()->values()->all();
     }
 
@@ -186,10 +186,10 @@ class LazadaListingStates
 
         if ($bucket === 'drift') {
             return LazadaListing::query()
-                ->select('lazada_listings.*')
-                ->join($pfx . 'product as p', 'p.product_id', '=', 'lazada_listings.product_id')
-                ->where(fn ($q) => $q->whereNull('lazada_listings.catalog_seen_at')
-                    ->orWhereColumn('p.date_modified', '>', 'lazada_listings.catalog_seen_at'));
+                ->select('ch_lazada_listings.*')
+                ->join($pfx . 'product as p', 'p.product_id', '=', 'ch_lazada_listings.product_id')
+                ->where(fn ($q) => $q->whereNull('ch_lazada_listings.catalog_seen_at')
+                    ->orWhereColumn('p.date_modified', '>', 'ch_lazada_listings.catalog_seen_at'));
         }
 
         return $linked->whereIn('live_status', self::ATTENTION_RAW);
@@ -230,7 +230,7 @@ class LazadaListingStates
         }
 
         $rowReadiness = $this->readiness->forListings(collect(array_values($chosen)));
-        $catalogChanges = \App\Channels\Listings\CatalogCopy::pending(array_values($chosen), 'lazada_listings', LazadaListing::copyColumns());
+        $catalogChanges = \App\Channels\Listings\CatalogCopy::pending(array_values($chosen), 'ch_lazada_listings', LazadaListing::copyColumns());
         $rowless = array_values(array_filter($productIds, fn ($id) => !isset($chosen[$id])));
         $rowlessReadiness = $this->readiness->forProducts($rowless);
 

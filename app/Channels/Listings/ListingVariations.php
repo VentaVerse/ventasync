@@ -8,9 +8,9 @@ use Illuminate\Support\Facades\DB;
 
 final class ListingVariations
 {
-    public const TABLE = 'listing_variation_offs';
+    public const TABLE = 'ch_listing_variation_offs';
 
-    public const STORE_SKUS = 'listing_store_skus';
+    public const STORE_SKUS = 'ch_listing_store_skus';
 
     public static function rules(): array
     {

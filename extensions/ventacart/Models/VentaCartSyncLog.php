@@ -9,7 +9,7 @@ class VentaCartSyncLog extends Model
 {
     use \App\Models\Concerns\PrunedByLogLevel;
 
-    protected $table = 'ventacart_sync_logs';
+    protected $table = 'ch_ventacart_sync_logs';
 
     protected $fillable = [
         'store_id',
@@ -45,6 +45,6 @@ class VentaCartSyncLog extends Model
             return null;
         }
 
-        return \Illuminate\Support\Facades\DB::table('ventacart_settings')->where('id', $id)->value('sync_log_level');
+        return \Illuminate\Support\Facades\DB::table('ch_ventacart_stores')->where('id', $id)->value('sync_log_level');
     }
 }

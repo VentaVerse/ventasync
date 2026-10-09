@@ -149,7 +149,7 @@ class TikTokListingStatusMenuTest extends TestCase
         $listingOnlyGroup->permissions()->attach(Permission::whereIn('key', ['manage_tiktok/product', 'view_tiktok/product'])->pluck('id')->all());
         $listingOnly = User::factory()->create(['user_group_id' => $listingOnlyGroup->id]);
         $back = parse_url(route('ext.tiktok.products.index'), PHP_URL_PATH);
-        $pivot = fn () => \Illuminate\Support\Facades\DB::table('tiktok_product_group_products')->where('product_id', $pid)->pluck('tiktok_product_group_id')->map(fn ($v) => (int) $v)->all();
+        $pivot = fn () => \Illuminate\Support\Facades\DB::table('ch_tiktok_product_group_products')->where('product_id', $pid)->pluck('tiktok_product_group_id')->map(fn ($v) => (int) $v)->all();
 
         $this->actingAs($listingOnly)->get(route('ext.tiktok.products.index'))->assertOk()->assertDontSee('Move to group');
         $this->actingAs($listingOnly)->post(route('ext.tiktok.product-groups.move'), ['ids' => [$pid], 'group' => $groupA->id, '_return' => $back])->assertRedirect()->assertSessionHas('error');

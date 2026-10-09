@@ -134,7 +134,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
     protected function allStores(): iterable
     {
         try {
-            if (! Schema::hasTable('tiktok_settings')) {
+            if (! Schema::hasTable('ch_tiktok_stores')) {
                 return [];
             }
 
@@ -146,7 +146,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
 
     public function orderTabs(): array
     {
-        if (! Schema::hasTable('tiktok_settings')) {
+        if (! Schema::hasTable('ch_tiktok_stores')) {
             return [];
         }
         $stores = TikTokStore::query()->where('enabled', true)->orderBy('id')->get(['id', 'store_name']);
@@ -160,7 +160,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
     private function buildOrderTab(int $storeId, string $label): OrderTab
     {
         $tiktokStatusCount = function (array $statuses) use ($storeId): int {
-            if (!Schema::hasTable('tiktok_orders')) {
+            if (!Schema::hasTable('ch_tiktok_orders')) {
                 return 0;
             }
 
@@ -177,7 +177,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
                 permission: 'view_tiktok/order',
                 routeParams: ['store' => $storeId],
                 unprocessedCounter: function () use ($storeId) {
-                    if (!Schema::hasTable('tiktok_orders')) {
+                    if (!Schema::hasTable('ch_tiktok_orders')) {
                         return 0;
                     }
                     return TikTokOrder::query()
@@ -190,7 +190,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
                     ['key' => 'to_handover', 'label' => 'to handover', 'counter' => fn () => $tiktokStatusCount(['AWAITING_COLLECTION'])],
                 ],
                 dailyOrdersCounter: function () use ($storeId) {
-                    if (!Schema::hasTable('tiktok_orders')) {
+                    if (!Schema::hasTable('ch_tiktok_orders')) {
                         return 0;
                     }
                     return TikTokOrder::query()
@@ -199,21 +199,21 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
                         ->count();
                 },
                 dailyRevenueCounter: function () use ($storeId) {
-                    if (!Schema::hasTable('tiktok_orders') || !Schema::hasTable('tiktok_order_products')) {
+                    if (!Schema::hasTable('ch_tiktok_orders') || !Schema::hasTable('ch_tiktok_order_products')) {
                         return 0.0;
                     }
-                    return (float) DB::table('tiktok_order_products as p')
-                        ->join('tiktok_orders as o', 'o.id', '=', 'p.tiktok_order_id')
+                    return (float) DB::table('ch_tiktok_order_products as p')
+                        ->join('ch_tiktok_orders as o', 'o.id', '=', 'p.tiktok_order_id')
                         ->where('o.store_id', $storeId)
                         ->where('o.order_created_at', '>=', now()->startOfDay())
                         ->sum(DB::raw('p.quantity * COALESCE(p.sale_price, p.item_price)'));
                 },
                 topProductsCallback: function (int $limit) use ($storeId) {
-                    if (!Schema::hasTable('tiktok_orders') || !Schema::hasTable('tiktok_order_products')) {
+                    if (!Schema::hasTable('ch_tiktok_orders') || !Schema::hasTable('ch_tiktok_order_products')) {
                         return [];
                     }
-                    return DB::table('tiktok_order_products as p')
-                        ->join('tiktok_orders as o', 'o.id', '=', 'p.tiktok_order_id')
+                    return DB::table('ch_tiktok_order_products as p')
+                        ->join('ch_tiktok_orders as o', 'o.id', '=', 'p.tiktok_order_id')
                         ->where('o.store_id', $storeId)
                         ->where('o.order_created_at', '>=', now()->startOfDay())
                         ->whereNotNull('p.sku')
@@ -240,7 +240,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
                         ))->all();
                 },
                 recentOrdersCallback: function (int $limit) use ($storeId) {
-                    if (!Schema::hasTable('tiktok_orders')) {
+                    if (!Schema::hasTable('ch_tiktok_orders')) {
                         return [];
                     }
                     $orders = TikTokOrder::query()
@@ -249,7 +249,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
                         ->limit($limit)
                         ->get(['id', 'order_id', 'status', 'buyer_name', 'order_created_at']);
 
-                    $totals = DB::table('tiktok_order_products')
+                    $totals = DB::table('ch_tiktok_order_products')
                         ->whereIn('tiktok_order_id', $orders->pluck('id'))
                         ->select('tiktok_order_id', DB::raw('SUM(quantity * COALESCE(sale_price, item_price)) as total'))
                         ->groupBy('tiktok_order_id')
@@ -269,7 +269,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
 
     public function pushSkuChanges(int $productId, array $skuChanges): ?string
     {
-        if (empty($skuChanges['product_sku']) || !Schema::hasTable('tiktok_product_group_products')) {
+        if (empty($skuChanges['product_sku']) || !Schema::hasTable('ch_tiktok_product_group_products')) {
             return null;
         }
 
@@ -341,7 +341,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
             'tiktokSyncStatus' => null,
         ];
 
-        if (Schema::hasTable('tiktok_settings')) {
+        if (Schema::hasTable('ch_tiktok_stores')) {
             $ttSetting = TikTokStore::defaultStore();
             if ($ttSetting) {
                 $flags = null;
@@ -363,8 +363,8 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
             }
         }
 
-        if (Schema::hasTable('tiktok_orders')) {
-            $data['tiktokPending'] = (int) DB::table('tiktok_orders')
+        if (Schema::hasTable('ch_tiktok_orders')) {
+            $data['tiktokPending'] = (int) DB::table('ch_tiktok_orders')
                 ->whereIn('status', ['AWAITING_SHIPMENT', 'AWAITING_COLLECTION'])
                 ->count();
         }
@@ -379,14 +379,14 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
     {
         $pending = [];
         $statuses = [];
-        if (! Schema::hasTable('tiktok_settings')) {
+        if (! Schema::hasTable('ch_tiktok_stores')) {
             return ['channelPending' => $pending, 'channelSyncStatuses' => $statuses];
         }
 
         foreach (TikTokStore::query()->orderBy('id')->get() as $store) {
             $key = \App\Support\StoreKey::of('tiktok', (int) $store->id);
-            if (Schema::hasTable('tiktok_orders')) {
-                $pending[$key] = (int) DB::table('tiktok_orders')
+            if (Schema::hasTable('ch_tiktok_orders')) {
+                $pending[$key] = (int) DB::table('ch_tiktok_orders')
                     ->where('store_id', $store->id)
                     ->whereIn('status', ['AWAITING_SHIPMENT', 'AWAITING_COLLECTION'])
                     ->count();
@@ -444,7 +444,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
 
     public function feeBucketsForOrder(int $coreOrderId): ?array
     {
-        if (! Schema::hasTable('tiktok_orders')) {
+        if (! Schema::hasTable('ch_tiktok_orders')) {
             return null;
         }
 
@@ -483,7 +483,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
         }
 
         $mktOrderId = (string) $order->marketplace_order_id;
-        if ($mktOrderId === '' || !Schema::hasTable('tiktok_orders')) {
+        if ($mktOrderId === '' || !Schema::hasTable('ch_tiktok_orders')) {
             return null;
         }
 
@@ -664,7 +664,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
 
     public function availableStoreOptions(): array
     {
-        if (! \Illuminate\Support\Facades\Schema::hasTable('tiktok_settings')) {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('ch_tiktok_stores')) {
             return [];
         }
 
@@ -721,7 +721,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
 
     public function listedProductIds(): array
     {
-        if (! \Illuminate\Support\Facades\Schema::hasTable('tiktok_listings')) {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('ch_tiktok_listings')) {
             return [];
         }
 

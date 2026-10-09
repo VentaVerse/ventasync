@@ -9,7 +9,7 @@ class ShopeeReturn extends Model
 {
     use \Extensions\Shopee\Models\Concerns\BelongsToShopeeStore;
 
-    protected $table = 'shopee_returns';
+    protected $table = 'ch_shopee_returns';
 
     protected $fillable = [
         'store_id',

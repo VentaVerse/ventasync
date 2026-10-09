@@ -8,7 +8,7 @@ class OpenCartSyncLog extends Model
 {
     use \App\Models\Concerns\PrunedByLogLevel;
 
-    protected $table = 'opencart_sync_log';
+    protected $table = 'ch_opencart_sync_log';
 
     protected $fillable = [
         'store_id', 'entity_type', 'direction',

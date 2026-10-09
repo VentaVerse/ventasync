@@ -39,7 +39,7 @@ class LogRetentionTest extends TestCase
 
     private function syncRow(string $status, int $daysAgo, int $failed = 0): int
     {
-        return (int) DB::table('ventacart_sync_logs')->insertGetId([
+        return (int) DB::table('ch_ventacart_sync_logs')->insertGetId([
             'entity_type' => 'order', 'direction' => 'in', 'status' => $status,
             'records_processed' => 1, 'records_created' => 0, 'records_updated' => 0,
             'records_skipped' => 0, 'records_failed' => $failed,
@@ -64,10 +64,10 @@ class LogRetentionTest extends TestCase
 
         $removed = LogRetention::purge();
 
-        $this->assertSame(1, $removed['ventacart_sync_logs'] ?? 0);
+        $this->assertSame(1, $removed['ch_ventacart_sync_logs'] ?? 0);
         $this->assertSame(1, $removed['api_request_logs'] ?? 0);
-        $this->assertNull(DB::table('ventacart_sync_logs')->find($old));
-        $this->assertNotNull(DB::table('ventacart_sync_logs')->find($recent), 'inside the retention, so kept');
+        $this->assertNull(DB::table('ch_ventacart_sync_logs')->find($old));
+        $this->assertNotNull(DB::table('ch_ventacart_sync_logs')->find($recent), 'inside the retention, so kept');
         $this->assertSame(1, DB::table('api_request_logs')->count());
 
         $this->assertSame($stockRows, DB::table('stock_history')->count(), 'stock history is a business record');
@@ -128,7 +128,7 @@ class LogRetentionTest extends TestCase
         $store = \Extensions\VentaCart\Models\VentaCartStore::create([
             'store_name' => 'Depot', 'base_url' => 'https://depot.test', 'api_token' => 't', 'enabled' => true,
         ]);
-        DB::table('ventacart_sync_logs')->insert([
+        DB::table('ch_ventacart_sync_logs')->insert([
             'store_id' => $store->id, 'entity_type' => 'order', 'direction' => 'in', 'status' => 'completed',
             'records_processed' => 0, 'records_created' => 0, 'records_updated' => 0, 'records_skipped' => 0, 'records_failed' => 0,
             'created_at' => now(), 'updated_at' => now(),
@@ -150,7 +150,7 @@ class LogRetentionTest extends TestCase
         $this->assertSame('failures', $store->fresh()->sync_log_level);
 
         $this->actingAs($manager)->delete(route('ext.ventacart.clear_sync_logs', $store->id))->assertRedirect();
-        $this->assertSame(0, DB::table('ventacart_sync_logs')->where('store_id', $store->id)->count());
+        $this->assertSame(0, DB::table('ch_ventacart_sync_logs')->where('store_id', $store->id)->count());
 
         $this->actingAs($manager)->post(route('ext.ventacart.set_sync_log_level', $store->id), ['sync_log_level' => ''])->assertRedirect();
         $this->assertNull($store->fresh()->sync_log_level);
@@ -174,8 +174,8 @@ class LogRetentionTest extends TestCase
         $tables = LogRetention::tables();
 
         $this->assertSame('core', $tables['api_request_logs']['owner'] ?? null, 'calls into this ERP are core\'s own record');
-        $this->assertSame('ventacart', $tables['ventacart_sync_logs']['owner'] ?? null, 'declared in extensions/ventacart/extension.json');
-        $this->assertSame('ventacart', $tables['ventacart_api_logs']['owner'] ?? null);
+        $this->assertSame('ventacart', $tables['ch_ventacart_sync_logs']['owner'] ?? null, 'declared in extensions/ventacart/extension.json');
+        $this->assertSame('ventacart', $tables['ch_ventacart_api_logs']['owner'] ?? null);
 
         foreach (['order_history', 'stock_history', 'purchase_order_logs', 'activity_logs'] as $safe) {
             $this->assertArrayNotHasKey($safe, $tables, $safe . ' is a business record, not a diagnostic');
@@ -188,9 +188,9 @@ class LogRetentionTest extends TestCase
         $this->syncRow('completed', 10);
 
         $this->artisan('logs:purge')->assertSuccessful();
-        $this->assertSame(1, DB::table('ventacart_sync_logs')->count(), 'inside a 365 day retention');
+        $this->assertSame(1, DB::table('ch_ventacart_sync_logs')->count(), 'inside a 365 day retention');
 
         $this->artisan('logs:purge', ['--days' => 5])->assertSuccessful();
-        $this->assertSame(0, DB::table('ventacart_sync_logs')->count());
+        $this->assertSame(0, DB::table('ch_ventacart_sync_logs')->count());
     }
 }

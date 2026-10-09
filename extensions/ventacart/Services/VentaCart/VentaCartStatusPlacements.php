@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Schema;
 
 class VentaCartStatusPlacements
 {
-    public const TABLE = 'ventacart_status_placements';
+    public const TABLE = 'ch_ventacart_status_placements';
 
     private const STEP_FOR_PLACEMENT = [
         'unpaid' => 'unpaid',

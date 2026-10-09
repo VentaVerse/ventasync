@@ -76,7 +76,7 @@ class VentaCartProductGroupController extends Controller
     private function writeProductStatus(VentaCartProductGroup $g, int $productId, array $attributes): void
     {
         \App\Support\ChannelProductStatus::write(
-            'ventacart_product_group_products',
+            'ch_ventacart_product_group_products',
             'ventacart_product_group_id',
             VentaCartProductGroup::where('store_id', $g->store_id)->pluck('id')->all(),
             $productId,
@@ -189,7 +189,7 @@ class VentaCartProductGroupController extends Controller
     {
         return [
             'name'              => 'required|string|max:255',
-            'ventacart_category_id' => ['nullable', 'integer', \Illuminate\Validation\Rule::exists('ventacart_categories', 'ventacart_category_id')->where('store_id', $store)],
+            'ventacart_category_id' => ['nullable', 'integer', \Illuminate\Validation\Rule::exists('ch_ventacart_categories', 'ventacart_category_id')->where('store_id', $store)],
             'ventacart_brand_id'    => 'nullable|integer',
             'markup_percent'    => 'nullable|numeric|min:0',
             'watermark_template_id' => 'nullable|integer',
@@ -264,11 +264,11 @@ class VentaCartProductGroupController extends Controller
                     ->where('pd.language_id', '=', $langId);
             })
             ->leftJoin($pfx . 'brand as m', 'p.brand_id', '=', 'm.brand_id')
-            ->leftJoin('ventacart_listing_links as vpl', function ($j) use ($store) {
+            ->leftJoin('ch_ventacart_listing_links as vpl', function ($j) use ($store) {
                 $j->on('p.product_id', '=', 'vpl.product_id')
                     ->where('vpl.store_id', '=', $store);
             })
-            ->leftJoin('ventacart_product_group_products as vpgp', function ($j) use ($g) {
+            ->leftJoin('ch_ventacart_product_group_products as vpgp', function ($j) use ($g) {
                 $j->on('p.product_id', '=', 'vpgp.product_id')
                     ->where('vpgp.ventacart_product_group_id', '=', $g->id);
             })
@@ -557,7 +557,7 @@ class VentaCartProductGroupController extends Controller
         $ids = array_values(array_unique(array_map('intval', array_filter((array) $request->input('ids', [])))));
 
         if (empty($ids)) {
-            $ids = DB::table('ventacart_product_group_products')
+            $ids = DB::table('ch_ventacart_product_group_products')
                 ->where('ventacart_product_group_id', $group)
                 ->pluck('product_id')->map('intval')->all();
         }
@@ -1036,7 +1036,7 @@ class VentaCartProductGroupController extends Controller
 
         $already = $group->products()->whereIn('product_id', $ids)->pluck('product_id')->map(fn ($v) => (int) $v)->all();
         $wanted = array_values(array_diff($ids, $already));
-        $claim = \App\Channels\OneGroupRule::claim('ventacart_product_group_products', 'ventacart_product_group_id', 'ventacart_product_groups', 'store_id', $group->id, $wanted, $wanted);
+        $claim = \App\Channels\OneGroupRule::claim('ch_ventacart_product_group_products', 'ventacart_product_group_id', 'ch_ventacart_product_groups', 'store_id', $group->id, $wanted, $wanted);
         $moved = 0;
         foreach (array_merge($claim['free'], array_keys($claim['moved'])) as $pid) {
             VentaCartProductGroupProduct::create(['ventacart_product_group_id' => $group->id, 'product_id' => (int) $pid]);
@@ -1080,7 +1080,7 @@ class VentaCartProductGroupController extends Controller
         $existing = $g->products()->pluck('product_id')->toArray();
         $ids = array_values(array_diff($ids, $existing));
 
-        $claim = \App\Channels\OneGroupRule::claim('ventacart_product_group_products', 'ventacart_product_group_id', 'ventacart_product_groups', 'store_id', $g->id, $ids, array_map('intval', (array) $request->input('move_ids', [])));
+        $claim = \App\Channels\OneGroupRule::claim('ch_ventacart_product_group_products', 'ventacart_product_group_id', 'ch_ventacart_product_groups', 'store_id', $g->id, $ids, array_map('intval', (array) $request->input('move_ids', [])));
 
         $added = 0;
         foreach (array_merge($claim['free'], array_keys($claim['moved'])) as $pid) {
@@ -1149,8 +1149,8 @@ class VentaCartProductGroupController extends Controller
             ->limit(100)
             ->get();
 
-        $owners = DB::table('ventacart_product_group_products as pv')
-            ->join('ventacart_product_groups as g', 'g.id', '=', 'pv.ventacart_product_group_id')
+        $owners = DB::table('ch_ventacart_product_group_products as pv')
+            ->join('ch_ventacart_product_groups as g', 'g.id', '=', 'pv.ventacart_product_group_id')
             ->whereIn('pv.product_id', $rows->pluck('product_id')->all() ?: [0])
             ->where('g.store_id', $store)
             ->get(['pv.product_id', 'g.id as group_id', 'g.name'])

@@ -11,7 +11,7 @@ class ShopeeOrder extends Model
 {
     use \Extensions\Shopee\Models\Concerns\BelongsToShopeeStore;
 
-    protected $table = 'shopee_orders';
+    protected $table = 'ch_shopee_orders';
 
     protected $fillable = [
         'store_id',

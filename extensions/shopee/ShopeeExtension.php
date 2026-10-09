@@ -154,7 +154,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
     protected function allStores(): iterable
     {
         try {
-            if (! Schema::hasTable('shopee_settings')) {
+            if (! Schema::hasTable('ch_shopee_stores')) {
                 return [];
             }
 
@@ -166,7 +166,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
 
     public function orderTabs(): array
     {
-        if (! Schema::hasTable('shopee_settings')) {
+        if (! Schema::hasTable('ch_shopee_stores')) {
             return [];
         }
         $stores = ShopeeStore::query()->where('enabled', true)->orderBy('id')->get(['id', 'store_name']);
@@ -180,7 +180,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
     protected function buildOrderTab(int $storeId, string $label): OrderTab
     {
         $shopeeStatusCount = function (array $statuses) use ($storeId): int {
-            if (!Schema::hasTable('shopee_orders')) {
+            if (!Schema::hasTable('ch_shopee_orders')) {
                 return 0;
             }
 
@@ -197,7 +197,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
                 routeParams: ['store' => $storeId],
                 permission: 'view_shopee/order',
                 unprocessedCounter: function () use ($storeId) {
-                    if (!Schema::hasTable('shopee_orders')) {
+                    if (!Schema::hasTable('ch_shopee_orders')) {
                         return 0;
                     }
                     return ShopeeOrder::query()
@@ -210,7 +210,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
                     ['key' => 'to_handover', 'label' => 'to handover', 'counter' => fn () => $shopeeStatusCount(['PROCESSED'])],
                 ],
                 dailyOrdersCounter: function () use ($storeId) {
-                    if (!Schema::hasTable('shopee_orders')) {
+                    if (!Schema::hasTable('ch_shopee_orders')) {
                         return 0;
                     }
                     return ShopeeOrder::query()
@@ -219,21 +219,21 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
                         ->count();
                 },
                 dailyRevenueCounter: function () use ($storeId) {
-                    if (!Schema::hasTable('shopee_orders') || !Schema::hasTable('shopee_order_products')) {
+                    if (!Schema::hasTable('ch_shopee_orders') || !Schema::hasTable('ch_shopee_order_products')) {
                         return 0.0;
                     }
-                    return (float) DB::table('shopee_order_products as p')
-                        ->join('shopee_orders as o', 'o.id', '=', 'p.shopee_order_id')
+                    return (float) DB::table('ch_shopee_order_products as p')
+                        ->join('ch_shopee_orders as o', 'o.id', '=', 'p.shopee_order_id')
                         ->where('o.store_id', $storeId)
                         ->where('o.order_created_at', '>=', now()->startOfDay())
                         ->sum(DB::raw('p.quantity * p.price'));
                 },
                 topProductsCallback: function (int $limit) use ($storeId) {
-                    if (!Schema::hasTable('shopee_orders') || !Schema::hasTable('shopee_order_products')) {
+                    if (!Schema::hasTable('ch_shopee_orders') || !Schema::hasTable('ch_shopee_order_products')) {
                         return [];
                     }
-                    return DB::table('shopee_order_products as p')
-                        ->join('shopee_orders as o', 'o.id', '=', 'p.shopee_order_id')
+                    return DB::table('ch_shopee_order_products as p')
+                        ->join('ch_shopee_orders as o', 'o.id', '=', 'p.shopee_order_id')
                         ->where('o.store_id', $storeId)
                         ->where('o.order_created_at', '>=', now()->startOfDay())
                         ->whereNotNull('p.sku')
@@ -260,7 +260,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
                         ))->all();
                 },
                 recentOrdersCallback: function (int $limit) use ($storeId) {
-                    if (!Schema::hasTable('shopee_orders')) {
+                    if (!Schema::hasTable('ch_shopee_orders')) {
                         return [];
                     }
                     $orders = ShopeeOrder::query()
@@ -269,7 +269,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
                         ->limit($limit)
                         ->get(['id', 'order_sn', 'status', 'order_created_at', 'raw']);
 
-                    $totals = DB::table('shopee_order_products')
+                    $totals = DB::table('ch_shopee_order_products')
                         ->whereIn('shopee_order_id', $orders->pluck('id'))
                         ->select('shopee_order_id', DB::raw('SUM(quantity * price) as total'))
                         ->groupBy('shopee_order_id')
@@ -400,13 +400,13 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
             'shopeeSyncStatus' => null,
         ];
 
-        if (Schema::hasTable('shopee_orders')) {
-            $data['shopeePending'] = (int) DB::table('shopee_orders')
+        if (Schema::hasTable('ch_shopee_orders')) {
+            $data['shopeePending'] = (int) DB::table('ch_shopee_orders')
                 ->whereIn('status', ['READY_TO_SHIP', 'PROCESSED'])
                 ->count();
         }
 
-        if (Schema::hasTable('shopee_settings')) {
+        if (Schema::hasTable('ch_shopee_stores')) {
             $spSetting = ShopeeStore::defaultStore();
             if ($spSetting) {
                 $flags = null;
@@ -439,14 +439,14 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
     {
         $pending = [];
         $statuses = [];
-        if (! Schema::hasTable('shopee_settings')) {
+        if (! Schema::hasTable('ch_shopee_stores')) {
             return ['channelPending' => $pending, 'channelSyncStatuses' => $statuses];
         }
 
         foreach (ShopeeStore::query()->orderBy('id')->get() as $store) {
             $key = \App\Support\StoreKey::of('shopee', (int) $store->id);
-            if (Schema::hasTable('shopee_orders')) {
-                $pending[$key] = (int) DB::table('shopee_orders')
+            if (Schema::hasTable('ch_shopee_orders')) {
+                $pending[$key] = (int) DB::table('ch_shopee_orders')
                     ->where('store_id', $store->id)
                     ->whereIn('status', ['READY_TO_SHIP', 'PROCESSED'])
                     ->count();
@@ -495,7 +495,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
 
     public function feeBucketsForOrder(int $coreOrderId): ?array
     {
-        if (! Schema::hasTable('shopee_orders')) {
+        if (! Schema::hasTable('ch_shopee_orders')) {
             return null;
         }
 
@@ -552,7 +552,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
         }
 
         $mktOrderId = (string) $order->marketplace_order_id;
-        if ($mktOrderId === '' || !Schema::hasTable('shopee_orders')) {
+        if ($mktOrderId === '' || !Schema::hasTable('ch_shopee_orders')) {
             return null;
         }
 
@@ -763,7 +763,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
 
     public function availableStoreOptions(): array
     {
-        if (! Schema::hasTable('shopee_settings')) {
+        if (! Schema::hasTable('ch_shopee_stores')) {
             return [];
         }
 
@@ -832,7 +832,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
 
     public function listedProductIds(): array
     {
-        if (! Schema::hasTable('shopee_listing_links')) {
+        if (! Schema::hasTable('ch_shopee_listing_links')) {
             return [];
         }
 

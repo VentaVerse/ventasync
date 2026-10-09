@@ -95,7 +95,7 @@ class ShopeeListingStates
 
             $linked = $this->mine(ShopeeListingLink::class)->whereIn('product_id', $chunk)
                 ->whereNotNull('shopee_item_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
-            $pivot = fn () => DB::table('shopee_product_group_products')
+            $pivot = fn () => DB::table('ch_shopee_product_group_products')
                 ->whereIn('shopee_product_group_id', $groupIds)
                 ->whereIn('product_id', $chunk);
 
@@ -138,7 +138,7 @@ class ShopeeListingStates
     public function summary(): array
     {
         return [
-            'attention' => $this->bucket('attention')->distinct()->count('shopee_listing_links.product_id'),
+            'attention' => $this->bucket('attention')->distinct()->count('ch_shopee_listing_links.product_id'),
             'drift' => count($this->catalogChanges()),
         ];
     }
@@ -146,7 +146,7 @@ class ShopeeListingStates
     private function catalogChanges(): array
     {
         return \App\Channels\Listings\CatalogCopy::pending(
-            $this->bucket('drift')->get(), 'shopee_listings', ShopeeListing::copyColumns()
+            $this->bucket('drift')->get(), 'ch_shopee_listings', ShopeeListing::copyColumns()
         );
     }
 
@@ -157,7 +157,7 @@ class ShopeeListingStates
         }
 
         return $this->bucket($bucket)->distinct()
-            ->pluck('shopee_listing_links.product_id')
+            ->pluck('ch_shopee_listing_links.product_id')
             ->map(fn ($v) => (int) $v)->unique()->values()->all();
     }
 
@@ -167,10 +167,10 @@ class ShopeeListingStates
 
         if ($bucket === 'drift') {
             return ShopeeListing::query()
-                ->select('shopee_listings.*')
-                ->join($pfx . 'product as p', 'p.product_id', '=', 'shopee_listings.product_id')
-                ->where(fn ($q) => $q->whereNull('shopee_listings.catalog_seen_at')
-                    ->orWhereColumn('p.date_modified', '>', 'shopee_listings.catalog_seen_at'));
+                ->select('ch_shopee_listings.*')
+                ->join($pfx . 'product as p', 'p.product_id', '=', 'ch_shopee_listings.product_id')
+                ->where(fn ($q) => $q->whereNull('ch_shopee_listings.catalog_seen_at')
+                    ->orWhereColumn('p.date_modified', '>', 'ch_shopee_listings.catalog_seen_at'));
         }
 
         return ShopeeListingLink::query()
@@ -267,7 +267,7 @@ class ShopeeListingStates
             ->get()
             ->keyBy('product_id');
 
-        $catalogChanges = \App\Channels\Listings\CatalogCopy::pending($listings->values(), 'shopee_listings', ShopeeListing::copyColumns());
+        $catalogChanges = \App\Channels\Listings\CatalogCopy::pending($listings->values(), 'ch_shopee_listings', ShopeeListing::copyColumns());
 
         $readiness = $this->readiness->forProducts($productIds);
 

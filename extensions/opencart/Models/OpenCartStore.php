@@ -8,7 +8,7 @@ class OpenCartStore extends Model
 {
     use \App\Plans\CountsAsStore;
 
-    protected $table = 'opencart_settings';
+    protected $table = 'ch_opencart_stores';
 
     protected $fillable = [
         'store_name',

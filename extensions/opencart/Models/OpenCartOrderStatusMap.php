@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class OpenCartOrderStatusMap extends Model
 {
-    protected $table = 'opencart_order_status_map';
+    protected $table = 'ch_opencart_order_status_map';
 
     protected $fillable = [
         'store_id',

@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class OpenCartProductGroupProduct extends Model
 {
-    protected $table = 'opencart_product_group_products';
+    protected $table = 'ch_opencart_product_group_products';
 
     public $timestamps = false;
 

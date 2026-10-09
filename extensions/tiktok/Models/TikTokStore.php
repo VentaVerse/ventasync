@@ -8,7 +8,7 @@ class TikTokStore extends Model
 {
     use \App\Plans\CountsAsStore;
 
-    protected $table = 'tiktok_settings';
+    protected $table = 'ch_tiktok_stores';
 
     protected $fillable = [
         'store_name',

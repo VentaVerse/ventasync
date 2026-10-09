@@ -518,7 +518,7 @@ class ShopeeLinkCheck
     private function writeProductStatus(int $productId, array $attributes): void
     {
         \App\Support\ChannelProductStatus::write(
-            'shopee_product_group_products',
+            'ch_shopee_product_group_products',
             'shopee_product_group_id',
             $this->myGroupIds(),
             $productId,

@@ -10,7 +10,7 @@ use Illuminate\Console\Command;
 class VentaCartPushStock extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     protected $signature = 'ventacart:push-stock
-        {--store= : Store ID (ventacart_settings.id). Omit to push for all enabled stores}';
+        {--store= : Store ID (ch_ventacart_stores.id). Omit to push for all enabled stores}';
 
     protected $description = 'Push ERP product quantities to all linked VentaCart products';
 

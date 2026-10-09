@@ -2149,7 +2149,7 @@ class WorkspaceInteriorsTest extends TestCase
             'store_id' => $one, 'name' => 'Pedal Batch',
             'markup_percent' => 5, 'markup_fixed' => 100,
         ]);
-        DB::table('ventacart_product_group_products')->insert([
+        DB::table('ch_ventacart_product_group_products')->insert([
             'ventacart_product_group_id' => $group->id, 'product_id' => $productId,
             'created_at' => now(), 'updated_at' => now(),
         ]);
@@ -2568,7 +2568,7 @@ class WorkspaceInteriorsTest extends TestCase
         $productId = $this->seedCatalogProduct('Patch Cable', 'PC-15');
 
         $group = OpenCartProductGroup::create(['store_id' => $one, 'name' => 'Cable Batch']);
-        DB::table('opencart_product_group_products')->insert([
+        DB::table('ch_opencart_product_group_products')->insert([
             'opencart_product_group_id' => $group->id, 'product_id' => $productId,
         ]);
 

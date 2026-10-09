@@ -168,7 +168,7 @@ class VentaCartController extends Controller
         $name = (string) $setting->store_name;
         $id = (int) $setting->id;
         $removed = $deleter->delete($setting);
-        ActivityLogger::log('ventacart.store.deleted', 'ventacart_settings', $id, $name, ['removed' => $removed]);
+        ActivityLogger::log('ventacart.store.deleted', 'ch_ventacart_stores', $id, $name, ['removed' => $removed]);
 
         return redirect()->route('channels.index')
             ->with('status', "Deleted VentaCart store {$name}. Sales already imported keep its name.");

@@ -137,7 +137,7 @@ class TikTokLinkCheck
     private function writeProductStatus(array $groupIds, int $productId, array $attributes): void
     {
         \App\Support\ChannelProductStatus::write(
-            'tiktok_product_group_products',
+            'ch_tiktok_product_group_products',
             'tiktok_product_group_id',
             $groupIds,
             $productId,

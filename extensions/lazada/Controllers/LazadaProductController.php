@@ -79,10 +79,10 @@ class LazadaProductController extends Controller
     {
         $pfx = (string) config('catalog.prefix');
         $prod = DB::table($pfx . 'product')->whereIn('product_id', $ids)->pluck('date_modified', 'product_id');
-        $listing = DB::table('lazada_listings')->whereIn('product_id', $ids)
+        $listing = DB::table('ch_lazada_listings')->whereIn('product_id', $ids)
             ->selectRaw('product_id, MAX(updated_at) as mu')->groupBy('product_id')->pluck('mu', 'product_id');
-        $group = DB::table('lazada_product_group_products as gp')
-            ->join('lazada_product_groups as g', 'g.id', '=', 'gp.lazada_product_group_id')
+        $group = DB::table('ch_lazada_product_group_products as gp')
+            ->join('ch_lazada_product_groups as g', 'g.id', '=', 'gp.lazada_product_group_id')
             ->whereIn('gp.product_id', $ids)->where('g.store_id', $storeId)
             ->selectRaw('gp.product_id, MAX(g.updated_at) as mu')->groupBy('gp.product_id')->pluck('mu', 'product_id');
 
@@ -262,7 +262,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
         }
         $dir = strtolower((string) $request->query('dir', 'desc')) === 'asc' ? 'asc' : 'desc';
 
-        $lpPick = DB::table('lazada_listings')
+        $lpPick = DB::table('ch_lazada_listings')
             ->selectRaw("product_id, COALESCE(MAX(CASE WHEN lazada_item_id IS NOT NULL AND lazada_item_id <> '' AND unlinked_at IS NULL THEN id END), MAX(id)) as pick_id")
             ->whereNotNull('product_id')
             ->when(app()->bound('lazada.route-store'), fn ($q) => $q->where('store_id', app('lazada.route-store')->id))
@@ -275,7 +275,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
             })
             ->leftJoin($pfx . 'brand as m', 'p.brand_id', '=', 'm.brand_id')
             ->leftJoinSub($lpPick, 'lps', 'lps.product_id', '=', 'p.product_id')
-            ->leftJoin('lazada_listings as lp', 'lp.id', '=', 'lps.pick_id')
+            ->leftJoin('ch_lazada_listings as lp', 'lp.id', '=', 'lps.pick_id')
             ->select(
                 'p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku',
                 'p.price', 'p.quantity', 'p.status', 'm.name as brand_name',
@@ -296,7 +296,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
             if ($choice === 'all') {
                 return $query;
             }
-            $ids = DB::table('lazada_product_group_products')
+            $ids = DB::table('ch_lazada_product_group_products')
                 ->where('lazada_product_group_id', (int) $choice)
                 ->whereNotNull('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
 
@@ -484,8 +484,8 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
             $marks = new \App\Channels\Listings\ListingMarks(
                 'lazada', \App\Channels\Listings\ListingStore::id('lazada'),
                 $products->pluck('product_id')->map(fn ($v) => (int) $v)->all(),
-                'lazada_listings', 'store_id',
-                'lazada_product_groups', 'lazada_product_group_products', 'lazada_product_group_id', 'store_id'
+                'ch_lazada_listings', 'store_id',
+                'ch_lazada_product_groups', 'ch_lazada_product_group_products', 'lazada_product_group_id', 'store_id'
             );
             $productThumbsById = $products->mapWithKeys(function ($r) use ($marks) {
                 $marked = $marks->thumb((int) $r->product_id, $r->image ?? null);
@@ -604,7 +604,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
         }
         $dir = strtolower((string) $request->query('dir', 'desc')) === 'asc' ? 'asc' : 'desc';
 
-        $lpPick = DB::table('lazada_listings')
+        $lpPick = DB::table('ch_lazada_listings')
             ->selectRaw('product_id, MIN(id) as pick_id')
             ->whereNotNull('product_id')
             ->when(app()->bound('lazada.route-store'), fn ($sub) => $sub->where('store_id', app('lazada.route-store')->id))
@@ -634,7 +634,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
                 $query->whereNotIn('p.product_id', $groupedIds);
             }
         } elseif ($groupFilter !== 'all') {
-            $specificIds = DB::table('lazada_product_group_products')->where('lazada_product_group_id', (int) $groupFilter)->whereNotNull('product_id')->pluck('product_id')->unique()->all();
+            $specificIds = DB::table('ch_lazada_product_group_products')->where('lazada_product_group_id', (int) $groupFilter)->whereNotNull('product_id')->pluck('product_id')->unique()->all();
             $query->whereIn('p.product_id', $specificIds ?: [0]);
         }
         if ($onStore === 'on') {
@@ -690,7 +690,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
 
         $groupId = (int) $request->input('group', 0);
         if ($groupId > 0) {
-            \App\Channels\OneGroupRule::place('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'store_id', \App\Channels\Listings\ListingStore::id('lazada'), $groupId, $productId);
+            \App\Channels\OneGroupRule::place('ch_lazada_product_group_products', 'lazada_product_group_id', 'ch_lazada_product_groups', 'store_id', \App\Channels\Listings\ListingStore::id('lazada'), $groupId, $productId);
         }
 
         if ($request->wantsJson()) {
@@ -708,7 +708,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
         $showAll = $request->boolean('all');
         $limit = 25;
 
-        $lpPick = DB::table('lazada_listings')
+        $lpPick = DB::table('ch_lazada_listings')
             ->selectRaw('product_id, MIN(id) as pick_id')
             ->whereNotNull('product_id')
             ->when(app()->bound('lazada.route-store'), fn ($sub) => $sub->where('store_id', app('lazada.route-store')->id))
@@ -2171,7 +2171,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
         $groupBand = $listing->exists ? $this->groupBandFor($listing) : ['current' => null, 'groups' => [], 'values' => []];
 
-        return view('ext-lazada::products.form', \App\Channels\Listings\ListingImages::cardData((int) $listing->product_id, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('lazada_product_groups', 'lazada_product_group_products', 'lazada_product_group_id', (int) $listing->product_id, 'store_id', (int) ($listing->store_id ?? 0) ?: null), 'lazada', \App\Channels\Listings\ListingStore::id('lazada')) + [
+        return view('ext-lazada::products.form', \App\Channels\Listings\ListingImages::cardData((int) $listing->product_id, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('ch_lazada_product_groups', 'ch_lazada_product_group_products', 'lazada_product_group_id', (int) $listing->product_id, 'store_id', (int) ($listing->store_id ?? 0) ?: null), 'lazada', \App\Channels\Listings\ListingStore::id('lazada')) + [
             'readiness' => $readiness,
             'listingState' => $listingState,
             'coverage' => $coverage,
@@ -2212,8 +2212,8 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
     {
         $storeId = (int) ($listing->store_id ?? 0);
         $current = \App\Channels\Listings\ListingGroup::current([
-            'pivot' => 'lazada_product_group_products', 'fk' => 'lazada_product_group_id',
-            'groups' => 'lazada_product_groups', 'storeFk' => 'store_id',
+            'pivot' => 'ch_lazada_product_group_products', 'fk' => 'lazada_product_group_id',
+            'groups' => 'ch_lazada_product_groups', 'storeFk' => 'store_id',
             'storeId' => $storeId,
         ], (int) $listing->product_id);
 
@@ -2352,8 +2352,8 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                 $listing->save();
             }
             \App\Channels\Listings\ListingGroup::assign([
-                'pivot' => 'lazada_product_group_products', 'fk' => 'lazada_product_group_id',
-                'groups' => 'lazada_product_groups', 'storeFk' => 'store_id',
+                'pivot' => 'ch_lazada_product_group_products', 'fk' => 'lazada_product_group_id',
+                'groups' => 'ch_lazada_product_groups', 'storeFk' => 'store_id',
                 'storeId' => (int) ($listing->store_id ?? 0),
             ], (int) $listing->product_id, $picked['id'], ['lazada_listing_id' => $listing->id, 'created_at' => now()]);
         }

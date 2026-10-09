@@ -9,7 +9,7 @@ class VentaCartStore extends Model
 {
     use \App\Plans\CountsAsStore;
 
-    protected $table = 'ventacart_settings';
+    protected $table = 'ch_ventacart_stores';
 
     protected $fillable = [
         'store_name',

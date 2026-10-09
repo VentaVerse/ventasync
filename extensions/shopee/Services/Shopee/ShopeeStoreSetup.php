@@ -54,9 +54,9 @@ class ShopeeStoreSetup
         unset($r);
 
         DB::transaction(function () use ($rows) {
-            DB::table('shopee_categories')->delete();
+            DB::table('ch_shopee_categories')->delete();
             foreach (array_chunk($rows, 1000) as $chunk) {
-                DB::table('shopee_categories')->insert($chunk);
+                DB::table('ch_shopee_categories')->insert($chunk);
             }
         });
 

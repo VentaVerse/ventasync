@@ -48,7 +48,7 @@ class StoreDeleteTest extends TestCase
         $column = 'store_id';
         $tables = collect(DB::select(
             'SELECT TABLE_NAME AS t FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND COLUMN_NAME = ? AND TABLE_NAME LIKE ?',
-            [$column, $channel . '\\_%']
+            [$column, 'ch\\_' . $channel . '\\_%']
         ))->pluck('t');
         $this->assertNotEmpty($tables);
         foreach ($tables as $t) {
@@ -79,13 +79,13 @@ class StoreDeleteTest extends TestCase
             ->assertRedirect(route('channels.index'))
             ->assertSessionHas('status', fn ($m) => str_contains($m, 'Outlet'));
 
-        $this->assertDatabaseMissing('shopee_settings', ['id' => $gone->id]);
+        $this->assertDatabaseMissing('ch_shopee_stores', ['id' => $gone->id]);
         $this->assertNoRowsLeft('shopee', $gone->id);
         $this->assertSame(0, DB::table('scheduled_jobs')->where('extension', 'shopee')->where('store_id', $gone->id)->count());
 
-        $this->assertDatabaseHas('shopee_settings', ['id' => $kept->id]);
-        $this->assertSame(1, DB::table('shopee_orders')->where('store_id', $kept->id)->count());
-        $this->assertSame(1, DB::table('shopee_logistics')->where('store_id', $kept->id)->count());
+        $this->assertDatabaseHas('ch_shopee_stores', ['id' => $kept->id]);
+        $this->assertSame(1, DB::table('ch_shopee_orders')->where('store_id', $kept->id)->count());
+        $this->assertSame(1, DB::table('ch_shopee_logistics')->where('store_id', $kept->id)->count());
         $this->assertSame(1, DB::table('scheduled_jobs')->where('store_id', $kept->id)->count());
 
         $this->assertSame('Outlet', DB::table(config('catalog.prefix') . 'order')->where('order_id', $coreId)->value('store_name'), 'core orders keep the name');
@@ -108,11 +108,11 @@ class StoreDeleteTest extends TestCase
             ->assertRedirect(route('channels.index'))
             ->assertSessionHas('status', fn ($m) => str_contains($m, 'Laz Outlet'));
 
-        $this->assertDatabaseMissing('lazada_settings', ['id' => $gone->id]);
+        $this->assertDatabaseMissing('ch_lazada_stores', ['id' => $gone->id]);
         $this->assertNoRowsLeft('lazada', $gone->id);
-        $this->assertDatabaseHas('lazada_settings', ['id' => $kept->id]);
-        $this->assertSame(1, DB::table('lazada_orders')->where('store_id', $kept->id)->count());
-        $this->assertSame(1, DB::table('lazada_listings')->where('store_id', $kept->id)->count());
+        $this->assertDatabaseHas('ch_lazada_stores', ['id' => $kept->id]);
+        $this->assertSame(1, DB::table('ch_lazada_orders')->where('store_id', $kept->id)->count());
+        $this->assertSame(1, DB::table('ch_lazada_listings')->where('store_id', $kept->id)->count());
         $this->assertDatabaseHas('activity_logs', ['action' => 'lazada.store.deleted', 'subject_id' => $gone->id]);
     }
 
@@ -132,11 +132,11 @@ class StoreDeleteTest extends TestCase
             ->assertRedirect(route('channels.index'))
             ->assertSessionHas('status', fn ($m) => str_contains($m, 'TT Outlet'));
 
-        $this->assertDatabaseMissing('tiktok_settings', ['id' => $gone->id]);
+        $this->assertDatabaseMissing('ch_tiktok_stores', ['id' => $gone->id]);
         $this->assertNoRowsLeft('tiktok', $gone->id);
-        $this->assertDatabaseHas('tiktok_settings', ['id' => $kept->id]);
-        $this->assertSame(1, DB::table('tiktok_orders')->where('store_id', $kept->id)->count());
-        $this->assertSame(1, DB::table('tiktok_listings')->where('store_id', $kept->id)->count());
+        $this->assertDatabaseHas('ch_tiktok_stores', ['id' => $kept->id]);
+        $this->assertSame(1, DB::table('ch_tiktok_orders')->where('store_id', $kept->id)->count());
+        $this->assertSame(1, DB::table('ch_tiktok_listings')->where('store_id', $kept->id)->count());
         $this->assertDatabaseHas('activity_logs', ['action' => 'tiktok.store.deleted', 'subject_id' => $gone->id]);
     }
 
@@ -149,14 +149,14 @@ class StoreDeleteTest extends TestCase
             ->post('/channels/shopee/' . $store->id . '/delete', ['confirm_name' => 'outlet'])
             ->assertRedirect(route('ext.shopee.settings.show', ['store' => $store->id]))
             ->assertSessionHasErrors('confirm_name');
-        $this->assertDatabaseHas('shopee_settings', ['id' => $store->id]);
+        $this->assertDatabaseHas('ch_shopee_stores', ['id' => $store->id]);
 
         $this->actingAs($this->user('view'))
             ->from(route('ext.shopee.settings.show', ['store' => $store->id]))
             ->post('/channels/shopee/' . $store->id . '/delete', ['confirm_name' => 'Outlet'])
             ->assertRedirect()
             ->assertSessionHas('error');
-        $this->assertDatabaseHas('shopee_settings', ['id' => $store->id]);
+        $this->assertDatabaseHas('ch_shopee_stores', ['id' => $store->id]);
     }
 
     public function test_the_settings_page_offers_the_delete_to_managers_only(): void

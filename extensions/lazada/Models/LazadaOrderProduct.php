@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class LazadaOrderProduct extends Model
 {
-    protected $table = 'lazada_order_products';
+    protected $table = 'ch_lazada_order_products';
 
     protected $fillable = [
         'lazada_order_id',

@@ -10,7 +10,7 @@ class ShopeeStore extends Model
 
     public const REFRESH_TOKEN_DAYS = 30;
 
-    protected $table = 'shopee_settings';
+    protected $table = 'ch_shopee_stores';
 
     protected $fillable = [
         'store_name',

@@ -257,7 +257,7 @@
 
             $products->pluck('product_id')->map(fn ($v) => (int) $v)->all(),
 
-            'tiktok_listings', 'store_id', 'tiktok_product_groups', 'tiktok_product_group_products', 'tiktok_product_group_id', 'store_id'
+            'ch_tiktok_listings', 'store_id', 'ch_tiktok_product_groups', 'ch_tiktok_product_group_products', 'tiktok_product_group_id', 'store_id'
 
         );
 

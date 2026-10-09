@@ -31,7 +31,7 @@ class FulfilmentPolishTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        DB::table('shopee_settings')->insert([
+        DB::table('ch_shopee_stores')->insert([
             'partner_id' => 1, 'partner_key' => encrypt('k'), 'shop_id' => 2,
             'access_token' => encrypt('t'), 'refresh_token' => encrypt('r'), 'mode' => 'production',
             'expires_at' => now()->addHours(2), 'refresh_expires_at' => now()->addDays(25),
@@ -101,7 +101,7 @@ class FulfilmentPolishTest extends TestCase
             $rows[] = ['sku' => 'ONE-' . $i, 'name' => 'One ' . $i, 'quantity' => 1, 'price' => 10];
         }
         foreach ($rows as $r) {
-            DB::table('shopee_order_products')->insert($r + ['shopee_order_id' => $order->id, 'created_at' => now(), 'updated_at' => now()]);
+            DB::table('ch_shopee_order_products')->insert($r + ['shopee_order_id' => $order->id, 'created_at' => now(), 'updated_at' => now()]);
         }
 
         $group = UserGroup::create(['name' => 'Polish operators 3']);
@@ -126,7 +126,7 @@ class FulfilmentPolishTest extends TestCase
     {
         $order = ShopeeOrder::create(['region' => 'ph', 'order_sn' => 'TOP-THREE', 'status' => 'READY_TO_SHIP', 'order_created_at' => now(), 'raw' => []]);
         foreach (['A', 'B', 'C'] as $k) {
-            DB::table('shopee_order_products')->insert(['shopee_order_id' => $order->id, 'sku' => 'FEW-' . $k, 'name' => 'Few ' . $k, 'quantity' => 1, 'price' => 10, 'created_at' => now(), 'updated_at' => now()]);
+            DB::table('ch_shopee_order_products')->insert(['shopee_order_id' => $order->id, 'sku' => 'FEW-' . $k, 'name' => 'Few ' . $k, 'quantity' => 1, 'price' => 10, 'created_at' => now(), 'updated_at' => now()]);
         }
         $group = UserGroup::create(['name' => 'Polish operators 4']);
         $group->permissions()->attach(Permission::whereIn('key', ['view_shopee/dashboard', 'view_shopee/order'])->pluck('id')->all());

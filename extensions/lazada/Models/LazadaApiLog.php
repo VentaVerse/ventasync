@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Schema;
 
 class LazadaApiLog extends Model
 {
-    protected $table = 'lazada_api_logs';
+    protected $table = 'ch_lazada_api_logs';
 
     protected $fillable = [
         'pack',
@@ -39,18 +39,18 @@ class LazadaApiLog extends Model
                 return;
             }
 
-            if (array_key_exists('pack', $attributes) && !Schema::hasColumn('lazada_api_logs', 'pack')) {
+            if (array_key_exists('pack', $attributes) && !Schema::hasColumn('ch_lazada_api_logs', 'pack')) {
                 unset($attributes['pack']);
             }
 
             self::query()->create($attributes);
         } catch (QueryException $e) {
-            Log::warning('Failed to write lazada_api_logs record', [
+            Log::warning('Failed to write ch_lazada_api_logs record', [
                 'error' => $e->getMessage(),
                 'keys' => array_keys($attributes),
             ]);
         } catch (\Throwable $e) {
-            Log::warning('Unexpected failure writing lazada_api_logs record', [
+            Log::warning('Unexpected failure writing ch_lazada_api_logs record', [
                 'error' => $e->getMessage(),
             ]);
         }

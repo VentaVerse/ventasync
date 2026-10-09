@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class LazadaListingVariation extends Model
 {
-    protected $table = 'lazada_listing_variations';
+    protected $table = 'ch_lazada_listing_variations';
 
     protected $fillable = [
         'lazada_listing_id', 'seller_sku', 'sku_id', 'shop_sku', 'product_option_value_id',

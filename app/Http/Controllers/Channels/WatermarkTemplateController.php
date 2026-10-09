@@ -169,7 +169,7 @@ abstract class WatermarkTemplateController extends Controller
         abort_unless($this->canManage(), 403);
 
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:120', Rule::unique('watermark_templates', 'name')
+            'name' => ['required', 'string', 'max:120', Rule::unique('ch_watermark_templates', 'name')
                 ->where('channel', $this->channel())
                 ->where('store_id', $this->storeId())
                 ->ignore($ignoreId)],

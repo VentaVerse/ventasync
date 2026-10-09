@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class TikTokProductGroupProduct extends Model
 {
-    protected $table = 'tiktok_product_group_products';
+    protected $table = 'ch_tiktok_product_group_products';
 
     public $timestamps = false;
 
@@ -38,6 +38,6 @@ class TikTokProductGroupProduct extends Model
     {
         $id = $store instanceof TikTokStore ? $store->id : ($store ?? TikTokStore::defaultStore()?->id);
 
-        return \Illuminate\Support\Facades\DB::table('tiktok_product_groups')->where('store_id', (int) $id)->select('id');
+        return \Illuminate\Support\Facades\DB::table('ch_tiktok_product_groups')->where('store_id', (int) $id)->select('id');
     }
 }

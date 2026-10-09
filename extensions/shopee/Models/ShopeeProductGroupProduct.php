@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class ShopeeProductGroupProduct extends Model
 {
-    protected $table = 'shopee_product_group_products';
+    protected $table = 'ch_shopee_product_group_products';
 
     public $timestamps = false;
 

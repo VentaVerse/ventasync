@@ -237,7 +237,7 @@
 
             $products->pluck('product_id')->map(fn ($v) => (int) $v)->all(),
 
-            'ventacart_listings', 'store_id', 'ventacart_product_groups', 'ventacart_product_group_products', 'ventacart_product_group_id', 'store_id'
+            'ch_ventacart_listings', 'store_id', 'ch_ventacart_product_groups', 'ch_ventacart_product_group_products', 'ventacart_product_group_id', 'store_id'
 
         );
 

@@ -965,7 +965,7 @@ class ShopeeListingPageTest extends TestCase
             'name' => 'Description pictures',
             'shopee_category_id' => 100013, 'logistic_ids' => [8003], 'markup_percent' => 0, 'markup_fixed' => 0,
         ]);
-        DB::table('shopee_product_group_products')->insert([
+        DB::table('ch_shopee_product_group_products')->insert([
             'shopee_product_group_id' => $group->id, 'product_id' => $productId,
         ]);
         $this->liveItemWithDescription('extended', [['field_type' => 'text', 'text' => 'Old words.']]);
@@ -1100,7 +1100,7 @@ class ShopeeListingPageTest extends TestCase
             'name' => 'Check stampers',
             'shopee_category_id' => 100013, 'logistic_ids' => [41003],
         ]);
-        DB::table('shopee_product_group_products')->insert([
+        DB::table('ch_shopee_product_group_products')->insert([
             'shopee_product_group_id' => $group->id, 'product_id' => $productId,
         ]);
         $this->getResponses['/api/v2/product/get_item_base_info'] = $this->baseInfoAnswer();
@@ -1114,7 +1114,7 @@ class ShopeeListingPageTest extends TestCase
         $this->assertNotNull($listing, 'The check must leave its stamp on the product record.');
         $this->assertNotNull($listing->last_checked_at);
 
-        $pivot = DB::table('shopee_product_group_products')
+        $pivot = DB::table('ch_shopee_product_group_products')
             ->where('shopee_product_group_id', $group->id)
             ->where('product_id', $productId)->first();
         $this->assertNull($pivot->last_confirmed_at,

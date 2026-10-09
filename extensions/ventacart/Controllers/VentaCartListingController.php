@@ -274,8 +274,8 @@ class VentaCartListingController extends Controller
             ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
         $scopeIds = array_values(array_unique(array_merge($pivotProductIds, $linkedProductIds, \Extensions\VentaCart\Services\VentaCart\VentaCartStoreProducts::ids($store))));
 
-        $groupsByProductId = DB::table('ventacart_product_group_products as gp')
-            ->join('ventacart_product_groups as g', 'g.id', '=', 'gp.ventacart_product_group_id')
+        $groupsByProductId = DB::table('ch_ventacart_product_group_products as gp')
+            ->join('ch_ventacart_product_groups as g', 'g.id', '=', 'gp.ventacart_product_group_id')
             ->where('g.store_id', $store)
             ->get(['gp.product_id', 'g.id', 'g.name'])
             ->groupBy('product_id')
@@ -544,10 +544,10 @@ class VentaCartListingController extends Controller
     {
         $pfx = (string) config('catalog.prefix');
         $prod = DB::table($pfx . 'product')->whereIn('product_id', $ids)->pluck('date_modified', 'product_id');
-        $listing = DB::table('ventacart_listings')->where('store_id', $store)->whereIn('product_id', $ids)
+        $listing = DB::table('ch_ventacart_listings')->where('store_id', $store)->whereIn('product_id', $ids)
             ->selectRaw('product_id, MAX(updated_at) as mu')->groupBy('product_id')->pluck('mu', 'product_id');
-        $group = DB::table('ventacart_product_group_products as gp')
-            ->join('ventacart_product_groups as g', 'g.id', '=', 'gp.ventacart_product_group_id')
+        $group = DB::table('ch_ventacart_product_group_products as gp')
+            ->join('ch_ventacart_product_groups as g', 'g.id', '=', 'gp.ventacart_product_group_id')
             ->whereIn('gp.product_id', $ids)->where('g.store_id', $store)
             ->selectRaw('gp.product_id, MAX(g.updated_at) as mu')->groupBy('gp.product_id')->pluck('mu', 'product_id');
 
@@ -614,7 +614,7 @@ class VentaCartListingController extends Controller
 
         $groupId = (int) $request->input('group', 0);
         if ($groupId > 0) {
-            \App\Channels\OneGroupRule::place('ventacart_product_group_products', 'ventacart_product_group_id', 'ventacart_product_groups', 'store_id', $store, $groupId, $productId);
+            \App\Channels\OneGroupRule::place('ch_ventacart_product_group_products', 'ventacart_product_group_id', 'ch_ventacart_product_groups', 'store_id', $store, $groupId, $productId);
         }
         if ($request->wantsJson()) {
             return response()->json(['ok' => true, 'product_id' => $productId, 'added' => ! $wasOn]);
@@ -863,8 +863,8 @@ class VentaCartListingController extends Controller
         }
 
         $groupId = \App\Channels\Listings\ListingGroup::current([
-            'pivot' => 'ventacart_product_group_products', 'fk' => 'ventacart_product_group_id',
-            'groups' => 'ventacart_product_groups', 'storeFk' => 'store_id', 'storeId' => $store,
+            'pivot' => 'ch_ventacart_product_group_products', 'fk' => 'ventacart_product_group_id',
+            'groups' => 'ch_ventacart_product_groups', 'storeFk' => 'store_id', 'storeId' => $store,
         ], $productId);
         $storeGroups = VentaCartProductGroup::query()->where('store_id', $store)->orderBy('name')
             ->get(['id', 'name', 'ventacart_category_id', 'markup_percent', 'markup_fixed', 'watermark_template_id']);
@@ -892,7 +892,7 @@ class VentaCartListingController extends Controller
         $hasVariations = VentaCartListing::withVariations([$productId]) !== [];
         $pushPrice = VentaCartListing::ruleFor($listing, $group)(VentaCartListing::startFor($listing, (float) $product->price, $hasVariations));
 
-        return view('ext-ventacart::listings.edit', \App\Channels\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('ventacart_product_groups', 'ventacart_product_group_products', 'ventacart_product_group_id', $productId, 'store_id', $store), 'ventacart', \App\Channels\Listings\ListingStore::id('ventacart')) + [
+        return view('ext-ventacart::listings.edit', \App\Channels\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('ch_ventacart_product_groups', 'ch_ventacart_product_group_products', 'ventacart_product_group_id', $productId, 'store_id', $store), 'ventacart', \App\Channels\Listings\ListingStore::id('ventacart')) + [
             'readiness' => \Extensions\VentaCart\Services\VentaCart\VentaCartListingReadiness::forProducts([$productId])[$productId] ?? null,
             'setting' => $setting,
             'product' => $product,
@@ -953,15 +953,15 @@ class VentaCartListingController extends Controller
         $blank =fn ($v) => ($v === null || trim((string) $v) === '') ? null : $v;
         $rawCategory = $data['ventacart_category_id'] ?? null;
         $ownCategory = ($rawCategory === null || $rawCategory === '') ? null : (int) $rawCategory;
-        if ($ownCategory && ! \Illuminate\Support\Facades\DB::table('ventacart_categories')->where('store_id', $store)->where('ventacart_category_id', $ownCategory)->exists()) {
+        if ($ownCategory && ! \Illuminate\Support\Facades\DB::table('ch_ventacart_categories')->where('store_id', $store)->where('ventacart_category_id', $ownCategory)->exists()) {
             throw \Illuminate\Validation\ValidationException::withMessages(['ventacart_category_id' => 'Pick one of this store\'s categories.']);
         }
 
         $picked = \App\Channels\Listings\ListingGroup::submitted($request);
         if ($picked['present']) {
             \App\Channels\Listings\ListingGroup::assign([
-                'pivot' => 'ventacart_product_group_products', 'fk' => 'ventacart_product_group_id',
-                'groups' => 'ventacart_product_groups', 'storeFk' => 'store_id', 'storeId' => $store,
+                'pivot' => 'ch_ventacart_product_group_products', 'fk' => 'ventacart_product_group_id',
+                'groups' => 'ch_ventacart_product_groups', 'storeFk' => 'store_id', 'storeId' => $store,
             ], $productId, $picked['id'], ['created_at' => now(), 'updated_at' => now()]);
             if ($picked['id'] === null) {
                 \Extensions\VentaCart\Services\VentaCart\VentaCartListingStates::for($store)->clearErrors([$productId]);
@@ -996,8 +996,8 @@ class VentaCartListingController extends Controller
             ]
         );
 
-        $groupRow = \Illuminate\Support\Facades\DB::table('ventacart_product_group_products as gp')
-            ->join('ventacart_product_groups as g', 'g.id', '=', 'gp.ventacart_product_group_id')
+        $groupRow = \Illuminate\Support\Facades\DB::table('ch_ventacart_product_group_products as gp')
+            ->join('ch_ventacart_product_groups as g', 'g.id', '=', 'gp.ventacart_product_group_id')
             ->where('g.store_id', $store)->where('gp.product_id', $productId)->orderBy('gp.id')
             ->first(['g.ventacart_category_id', 'g.markup_percent', 'g.markup_fixed', 'g.watermark_template_id']);
         $savedRow = VentaCartListing::query()->where('store_id', $store)->where('product_id', $productId)->first();
@@ -1105,8 +1105,8 @@ class VentaCartListingController extends Controller
 
     private function groupFor(int $store, int $productId): ?object
     {
-        return DB::table('ventacart_product_groups as g')
-            ->join('ventacart_product_group_products as gp', 'gp.ventacart_product_group_id', '=', 'g.id')
+        return DB::table('ch_ventacart_product_groups as g')
+            ->join('ch_ventacart_product_group_products as gp', 'gp.ventacart_product_group_id', '=', 'g.id')
             ->where('g.store_id', $store)
             ->where('gp.product_id', $productId)
             ->orderBy('gp.id')

@@ -33,48 +33,48 @@ class ReviewController extends Controller
 
         $query = MarketplaceReview::query()
             ->leftJoin($prefix . 'product_description as pd', function ($join) use ($prefix) {
-                $join->on('marketplace_reviews.product_id', '=', 'pd.product_id')
+                $join->on('ch_marketplace_reviews.product_id', '=', 'pd.product_id')
                      ->where('pd.language_id', '=', config('catalog.default_language_id', 1));
             })
-            ->select('marketplace_reviews.*', 'pd.name as product_name')
-            ->orderByDesc('marketplace_reviews.reviewed_at');
+            ->select('ch_marketplace_reviews.*', 'pd.name as product_name')
+            ->orderByDesc('ch_marketplace_reviews.reviewed_at');
 
         if ($channel !== 'all' && isset(self::CHANNELS[$channel])) {
-            $query->where('marketplace_reviews.channel', $channel);
+            $query->where('ch_marketplace_reviews.channel', $channel);
         }
 
         if ($rating > 0 && $rating <= 5) {
-            $query->where('marketplace_reviews.rating', $rating);
+            $query->where('ch_marketplace_reviews.rating', $rating);
         }
 
         if ($syncStatus !== '') {
-            $query->where('marketplace_reviews.oc_sync_status', $syncStatus);
+            $query->where('ch_marketplace_reviews.oc_sync_status', $syncStatus);
         }
 
         if ($q !== '') {
             $query->where(function ($w) use ($q) {
-                $w->where('marketplace_reviews.author', 'like', '%' . $q . '%')
-                  ->orWhere('marketplace_reviews.comment', 'like', '%' . $q . '%')
+                $w->where('ch_marketplace_reviews.author', 'like', '%' . $q . '%')
+                  ->orWhere('ch_marketplace_reviews.comment', 'like', '%' . $q . '%')
                   ->orWhere('pd.name', 'like', '%' . $q . '%');
             });
         }
 
         if ($dateFrom !== '') {
-            $query->where('marketplace_reviews.reviewed_at', '>=', $dateFrom . ' 00:00:00');
+            $query->where('ch_marketplace_reviews.reviewed_at', '>=', $dateFrom . ' 00:00:00');
         }
 
         if ($dateTo !== '') {
-            $query->where('marketplace_reviews.reviewed_at', '<=', $dateTo . ' 23:59:59');
+            $query->where('ch_marketplace_reviews.reviewed_at', '<=', $dateTo . ' 23:59:59');
         }
 
         if ($hasMedia === 'photos') {
-            $query->whereNotNull('marketplace_reviews.images');
+            $query->whereNotNull('ch_marketplace_reviews.images');
         } elseif ($hasMedia === 'videos') {
-            $query->whereNotNull('marketplace_reviews.videos');
+            $query->whereNotNull('ch_marketplace_reviews.videos');
         } elseif ($hasMedia === 'any') {
             $query->where(function ($w) {
-                $w->whereNotNull('marketplace_reviews.images')
-                  ->orWhereNotNull('marketplace_reviews.videos');
+                $w->whereNotNull('ch_marketplace_reviews.images')
+                  ->orWhereNotNull('ch_marketplace_reviews.videos');
             });
         }
 
@@ -102,11 +102,11 @@ class ReviewController extends Controller
 
         $review = MarketplaceReview::query()
             ->leftJoin($prefix . 'product_description as pd', function ($join) {
-                $join->on('marketplace_reviews.product_id', '=', 'pd.product_id')
+                $join->on('ch_marketplace_reviews.product_id', '=', 'pd.product_id')
                      ->where('pd.language_id', '=', config('catalog.default_language_id', 1));
             })
-            ->select('marketplace_reviews.*', 'pd.name as product_name')
-            ->where('marketplace_reviews.id', $id)
+            ->select('ch_marketplace_reviews.*', 'pd.name as product_name')
+            ->where('ch_marketplace_reviews.id', $id)
             ->firstOrFail();
 
         return view('ext-opencart::reviews.show', compact('review'));

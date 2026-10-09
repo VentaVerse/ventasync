@@ -277,36 +277,36 @@ class OrderController extends Controller
         $count = Order::whereIn('order_status_id', $pendingStatuses)->count();
 
         $lazadaPending = 0;
-        if (Schema::hasTable('lazada_orders')) {
-            $lazadaPending = DB::table('lazada_orders')
+        if (Schema::hasTable('ch_lazada_orders')) {
+            $lazadaPending = DB::table('ch_lazada_orders')
                 ->whereIn('status', ['pending', 'repacked'])
                 ->count();
         }
 
         $shopeePending = 0;
-        if (Schema::hasTable('shopee_orders')) {
-            $shopeePending = DB::table('shopee_orders')
+        if (Schema::hasTable('ch_shopee_orders')) {
+            $shopeePending = DB::table('ch_shopee_orders')
                 ->whereIn('status', ['READY_TO_SHIP'])
                 ->count();
         }
 
         $tiktokPending = 0;
-        if (Schema::hasTable('tiktok_orders')) {
-            $tiktokPending = DB::table('tiktok_orders')
+        if (Schema::hasTable('ch_tiktok_orders')) {
+            $tiktokPending = DB::table('ch_tiktok_orders')
                 ->whereIn('status', ['AWAITING_SHIPMENT'])
                 ->count();
         }
 
         $ventaCartPending = [];
-        if (Schema::hasTable('ventacart_orders') && Schema::hasTable('ventacart_settings')) {
-            $enabledStoreIds = DB::table('ventacart_settings')
+        if (Schema::hasTable('ch_ventacart_orders') && Schema::hasTable('ch_ventacart_stores')) {
+            $enabledStoreIds = DB::table('ch_ventacart_stores')
                 ->where('enabled', true)
                 ->pluck('id');
 
             $pendingCoreIds = $pendingStatuses;
 
             if ($enabledStoreIds->isNotEmpty()) {
-                $pendingVentaStatuses = DB::table('ventacart_order_status_map')
+                $pendingVentaStatuses = DB::table('ch_ventacart_order_status_map')
                     ->whereIn('store_id', $enabledStoreIds)
                     ->whereIn('order_status_id', $pendingCoreIds)
                     ->pluck('ventacart_status_name', 'store_id')
@@ -318,12 +318,12 @@ class OrderController extends Controller
                         : [];
 
                     if (! empty($mappedStatuses)) {
-                        $ventaCartPending[(string) $storeId] = DB::table('ventacart_orders')
+                        $ventaCartPending[(string) $storeId] = DB::table('ch_ventacart_orders')
                             ->where('store_id', $storeId)
                             ->whereIn('status', $mappedStatuses)
                             ->count();
                     } else {
-                        $ventaCartPending[(string) $storeId] = DB::table('ventacart_orders')
+                        $ventaCartPending[(string) $storeId] = DB::table('ch_ventacart_orders')
                             ->where('store_id', $storeId)
                             ->where(function ($q) {
                                 $q->where('status', 'like', '%pending%')
@@ -341,9 +341,9 @@ class OrderController extends Controller
             'shopee_pending' => $shopeePending,
             'tiktok_pending' => $tiktokPending,
             'ventacart_pending'  => (object) $ventaCartPending,
-            'lazada_pending_by_store' => $this->waitingByStore('lazada_orders', 'lazada_settings', 'store_id', ['pending', 'repacked']),
-            'shopee_pending_by_store' => $this->waitingByStore('shopee_orders', 'shopee_settings', 'store_id', ['READY_TO_SHIP']),
-            'tiktok_pending_by_store' => $this->waitingByStore('tiktok_orders', 'tiktok_settings', 'store_id', ['AWAITING_SHIPMENT']),
+            'lazada_pending_by_store' => $this->waitingByStore('ch_lazada_orders', 'ch_lazada_stores', 'store_id', ['pending', 'repacked']),
+            'shopee_pending_by_store' => $this->waitingByStore('ch_shopee_orders', 'ch_shopee_stores', 'store_id', ['READY_TO_SHIP']),
+            'tiktok_pending_by_store' => $this->waitingByStore('ch_tiktok_orders', 'ch_tiktok_stores', 'store_id', ['AWAITING_SHIPMENT']),
             'to_pack_by_channel' => (object) $toPack,
             'to_pack_total' => array_sum($toPack),
         ]);

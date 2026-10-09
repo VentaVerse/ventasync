@@ -8,7 +8,7 @@ class LazadaStore extends Model
 {
     use \App\Plans\CountsAsStore;
 
-    protected $table = 'lazada_settings';
+    protected $table = 'ch_lazada_stores';
 
     protected $fillable = [
         'store_name',

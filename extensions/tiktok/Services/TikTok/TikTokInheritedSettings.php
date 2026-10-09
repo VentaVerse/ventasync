@@ -15,7 +15,7 @@ final class TikTokInheritedSettings
             return [];
         }
 
-        $rows = DB::table('tiktok_product_group_products as pv')
+        $rows = DB::table('ch_tiktok_product_group_products as pv')
             ->joinSub(TikTokProductGroup::query()->forStore(\Extensions\TikTok\Models\TikTokStore::defaultStore())->select(['id', 'name', 'tiktok_category_id']), 'g', 'g.id', '=', 'pv.tiktok_product_group_id')
             ->whereIn('pv.product_id', $productIds)
             ->orderBy('pv.id')

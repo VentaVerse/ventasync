@@ -26,7 +26,7 @@ final class TikTokListingSort
 
     public static function join(Builder $query, int $storeId): void
     {
-        ListingSort::joinStore($query, $storeId, ['table' => 'tiktok_listings', 'store' => 'store_id'], self::GROUP);
+        ListingSort::joinStore($query, $storeId, ['table' => 'ch_tiktok_listings', 'store' => 'store_id'], self::GROUP);
     }
 
     public static function joinGroup(Builder $query, int $storeId): void
@@ -34,5 +34,5 @@ final class TikTokListingSort
         ListingSort::joinGroupMarkup($query, $storeId, self::GROUP);
     }
 
-    private const GROUP = ['pivot' => 'tiktok_product_group_products', 'table' => 'tiktok_product_groups', 'key' => 'tiktok_product_group_id', 'store' => 'store_id'];
+    private const GROUP = ['pivot' => 'ch_tiktok_product_group_products', 'table' => 'ch_tiktok_product_groups', 'key' => 'tiktok_product_group_id', 'store' => 'store_id'];
 }

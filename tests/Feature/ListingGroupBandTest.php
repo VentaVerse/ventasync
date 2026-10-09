@@ -73,7 +73,7 @@ class ListingGroupBandTest extends TestCase
         $pid = $this->product();
         $mine = ShopeeProductGroup::create(['name' => 'Multi-effects pedals', 'shopee_category_id' => 100013, 'logistic_ids' => [8003], 'markup_percent' => 12]);
         ShopeeProductGroup::create(['name' => 'Overdrive pedals', 'shopee_category_id' => 100200, 'logistic_ids' => [8003]]);
-        DB::table('shopee_product_group_products')->insert(['shopee_product_group_id' => $mine->id, 'product_id' => $pid]);
+        DB::table('ch_shopee_product_group_products')->insert(['shopee_product_group_id' => $mine->id, 'product_id' => $pid]);
 
         $html = $this->actingAs($this->user(['view_shopee/product', 'manage_shopee/product']))
             ->get(route('ext.shopee.listings.edit', $pid))
@@ -92,7 +92,7 @@ class ListingGroupBandTest extends TestCase
     {
         $pid = $this->product();
         $mine = ShopeeProductGroup::create(['name' => 'Multi-effects pedals', 'shopee_category_id' => 100013, 'logistic_ids' => [8003]]);
-        DB::table('shopee_product_group_products')->insert(['shopee_product_group_id' => $mine->id, 'product_id' => $pid]);
+        DB::table('ch_shopee_product_group_products')->insert(['shopee_product_group_id' => $mine->id, 'product_id' => $pid]);
 
         $this->actingAs($this->user(['view_shopee/product']))
             ->get(route('ext.shopee.listings.edit', $pid))

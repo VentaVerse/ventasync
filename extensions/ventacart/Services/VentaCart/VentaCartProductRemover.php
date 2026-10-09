@@ -61,7 +61,7 @@ final class VentaCartProductRemover
     {
         $pfx = (string) config('catalog.prefix');
         $ids = [];
-        foreach (['ventacart_listing_links', 'ventacart_listings', 'ventacart_product_group_products'] as $table) {
+        foreach (['ch_ventacart_listing_links', 'ch_ventacart_listings', 'ch_ventacart_product_group_products'] as $table) {
             $ids = array_merge($ids, DB::table($table)
                 ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from($pfx . 'product as op')->whereColumn('op.product_id', $table . '.product_id'))
                 ->distinct()->pluck('product_id')->map(fn ($v) => (int) $v)->all());

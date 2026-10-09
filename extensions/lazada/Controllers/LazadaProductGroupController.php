@@ -65,7 +65,7 @@ class LazadaProductGroupController extends Controller
     private function writeProductStatus(int $storeId, int $productId, array $attributes): void
     {
         \App\Support\ChannelProductStatus::write(
-            'lazada_product_group_products',
+            'ch_lazada_product_group_products',
             'lazada_product_group_id',
             LazadaProductGroupProduct::groupIdsOn($storeId),
             $productId,
@@ -112,7 +112,7 @@ class LazadaProductGroupController extends Controller
                 ->pluck('name', 'category_id');
         }
 
-        $productCounts = DB::table('lazada_product_group_products')
+        $productCounts = DB::table('ch_lazada_product_group_products')
             ->selectRaw('lazada_product_group_id, COUNT(*) as cnt')
             ->groupBy('lazada_product_group_id')
             ->pluck('cnt', 'lazada_product_group_id');
@@ -167,7 +167,7 @@ class LazadaProductGroupController extends Controller
         }
 
         return view('ext-lazada::product-groups.form', [
-            'productCount' => $group->exists ? \Illuminate\Support\Facades\DB::table('lazada_product_group_products')->where('lazada_product_group_id', $group->id)->count() : 0,
+            'productCount' => $group->exists ? \Illuminate\Support\Facades\DB::table('ch_lazada_product_group_products')->where('lazada_product_group_id', $group->id)->count() : 0,
             'group' => $group,
             'mode' => $mode,
             'lazadaCategories' => $lazadaCategories,
@@ -256,7 +256,7 @@ class LazadaProductGroupController extends Controller
         $removed = 0;
         $kept = 0;
         if (!empty($linkedLpIds)) {
-            $stillLinked = DB::table('lazada_product_group_products')
+            $stillLinked = DB::table('ch_lazada_product_group_products')
                 ->whereIn('lazada_listing_id', $linkedLpIds)
                 ->pluck('lazada_listing_id')
                 ->unique()
@@ -296,11 +296,11 @@ class LazadaProductGroupController extends Controller
             ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
-            ->join('lazada_product_group_products as gp', function ($j) use ($group) {
+            ->join('ch_lazada_product_group_products as gp', function ($j) use ($group) {
                 $j->on('p.product_id', '=', 'gp.product_id')
                     ->where('gp.lazada_product_group_id', '=', $group->id);
             })
-            ->leftJoin('lazada_listings as lp', 'gp.lazada_listing_id', '=', 'lp.id')
+            ->leftJoin('ch_lazada_listings as lp', 'gp.lazada_listing_id', '=', 'lp.id')
             ->leftJoin($pfx . 'brand as m', 'p.brand_id', '=', 'm.brand_id')
             ->select(
                 'p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.price',
@@ -392,8 +392,8 @@ class LazadaProductGroupController extends Controller
 
     private function otherOwnerName(LazadaProductGroup $group, int $productId): ?string
     {
-        return DB::table('lazada_product_group_products as pv')
-            ->join('lazada_product_groups as g', 'g.id', '=', 'pv.lazada_product_group_id')
+        return DB::table('ch_lazada_product_group_products as pv')
+            ->join('ch_lazada_product_groups as g', 'g.id', '=', 'pv.lazada_product_group_id')
             ->where('pv.product_id', $productId)
             ->where('g.id', '!=', $group->id)
             ->where('g.store_id', (int) $group->store_id)
@@ -415,7 +415,7 @@ class LazadaProductGroupController extends Controller
             ->whereNotNull('product_id')
             ->select('product_id');
 
-        $lpPick = DB::table('lazada_listings')
+        $lpPick = DB::table('ch_lazada_listings')
             ->selectRaw('product_id, MIN(id) as pick_id')
             ->whereNotNull('product_id')
             ->when(app()->bound('lazada.route-store'), fn ($sub) => $sub->where('store_id', app('lazada.route-store')->id))
@@ -449,8 +449,8 @@ class LazadaProductGroupController extends Controller
             ->whereIn('product_id', $ids)
             ->pluck('product_id')->map(fn ($v) => (int) $v)->flip();
 
-        $owners = $ids === [] ? collect() : DB::table('lazada_product_group_products as pv')
-            ->join('lazada_product_groups as g', 'g.id', '=', 'pv.lazada_product_group_id')
+        $owners = $ids === [] ? collect() : DB::table('ch_lazada_product_group_products as pv')
+            ->join('ch_lazada_product_groups as g', 'g.id', '=', 'pv.lazada_product_group_id')
             ->whereIn('pv.product_id', $ids)
             ->where('g.id', '!=', $group->id)
             ->where('g.store_id', (int) $group->store_id)
@@ -683,7 +683,7 @@ class LazadaProductGroupController extends Controller
 
         $already = $group->groupProducts()->whereIn('product_id', $ids)->pluck('product_id')->map(fn ($v) => (int) $v)->all();
         $wanted = array_values(array_diff($ids, $already));
-        $claim = \App\Channels\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'store_id', $group->id, $wanted, $wanted);
+        $claim = \App\Channels\OneGroupRule::claim('ch_lazada_product_group_products', 'lazada_product_group_id', 'ch_lazada_product_groups', 'store_id', $group->id, $wanted, $wanted);
         $moved = 0;
         foreach (array_merge($claim['free'], array_keys($claim['moved'])) as $pid) {
             $listingId = LazadaListing::query()->forStore($store)->where('product_id', (int) $pid)->value('id')
@@ -801,7 +801,7 @@ class LazadaProductGroupController extends Controller
 
                 if ($pivot) {
                     $pivot->update(['lazada_listing_id' => $listing->id]);
-                } elseif (\App\Channels\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'store_id', $group->id, [(int) $productId])['free'] !== []) {
+                } elseif (\App\Channels\OneGroupRule::claim('ch_lazada_product_group_products', 'lazada_product_group_id', 'ch_lazada_product_groups', 'store_id', $group->id, [(int) $productId])['free'] !== []) {
                     LazadaProductGroupProduct::create([
                         'lazada_product_group_id' => $group->id,
                         'product_id' => $productId,
@@ -1413,7 +1413,7 @@ class LazadaProductGroupController extends Controller
     {
         $existing = $group->groupProducts()->whereIn('product_id', $productIds)->pluck('product_id')->toArray();
 
-        $claim = \App\Channels\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'store_id', $group->id, array_values(array_diff(array_map('intval', $productIds), $existing)), $moveIds);
+        $claim = \App\Channels\OneGroupRule::claim('ch_lazada_product_group_products', 'lazada_product_group_id', 'ch_lazada_product_groups', 'store_id', $group->id, array_values(array_diff(array_map('intval', $productIds), $existing)), $moveIds);
         $this->lastHeld = $claim['held'];
         $productIds = array_merge($claim['free'], array_keys($claim['moved']), array_map('intval', $existing));
         $added = 0;
@@ -1521,9 +1521,9 @@ class LazadaProductGroupController extends Controller
         unset($r);
 
         DB::transaction(function () use ($rows) {
-            DB::table('lazada_categories')->delete();
+            DB::table('ch_lazada_categories')->delete();
             foreach (array_chunk($rows, 1000) as $chunk) {
-                DB::table('lazada_categories')->insert($chunk);
+                DB::table('ch_lazada_categories')->insert($chunk);
             }
         });
 

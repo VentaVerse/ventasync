@@ -50,7 +50,7 @@ final class TikTokProductRemover
     {
         $pfx = (string) config('catalog.prefix');
         $ids = [];
-        foreach (['tiktok_listings', 'tiktok_product_group_products'] as $table) {
+        foreach (['ch_tiktok_listings', 'ch_tiktok_product_group_products'] as $table) {
             $ids = array_merge($ids, DB::table($table)
                 ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from($pfx . 'product as op')->whereColumn('op.product_id', $table . '.product_id'))
                 ->distinct()->pluck('product_id')->map(fn ($v) => (int) $v)->all());
@@ -79,8 +79,8 @@ final class TikTokProductRemover
         foreach (TikTokListing::query()->whereIn('product_id', $productIds)->whereNotNull('tiktok_product_id')->get() as $l) {
             $add((int) $l->product_id, (int) $l->store_id, (string) $l->tiktok_product_id, $l->live_status);
         }
-        $pivots = DB::table('tiktok_product_group_products as pv')
-            ->join('tiktok_product_groups as g', 'g.id', '=', 'pv.tiktok_product_group_id')
+        $pivots = DB::table('ch_tiktok_product_group_products as pv')
+            ->join('ch_tiktok_product_groups as g', 'g.id', '=', 'pv.tiktok_product_group_id')
             ->whereIn('pv.product_id', $productIds)->whereNotNull('pv.tiktok_product_id')
             ->get(['pv.product_id', 'pv.tiktok_product_id', 'g.store_id']);
         foreach ($pivots as $p) {

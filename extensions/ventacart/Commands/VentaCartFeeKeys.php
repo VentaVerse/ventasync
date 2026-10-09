@@ -16,13 +16,13 @@ class VentaCartFeeKeys extends Command
 
     public function handle(): int
     {
-        if (! Schema::hasTable('ventacart_orders')) {
-            $this->error('No ventacart_orders table.');
+        if (! Schema::hasTable('ch_ventacart_orders')) {
+            $this->error('No ch_ventacart_orders table.');
 
             return self::FAILURE;
         }
 
-        $rows = DB::table('ventacart_orders')->whereNotNull('raw')
+        $rows = DB::table('ch_ventacart_orders')->whereNotNull('raw')
             ->orderByDesc('id')->limit((int) $this->option('orders'))->pluck('raw');
 
         if ($rows->isEmpty()) {

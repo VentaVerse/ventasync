@@ -112,7 +112,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
     public function listingStates(array $productIds): array
     {
         $productIds = array_values(array_unique(array_map('intval', $productIds)));
-        if ($productIds === [] || ! Schema::hasTable('ventacart_listings')) {
+        if ($productIds === [] || ! Schema::hasTable('ch_ventacart_listings')) {
             return [];
         }
         $out = [];
@@ -134,7 +134,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
     {
         $productIds = array_values(array_unique(array_map('intval', $productIds)));
         $out = array_fill_keys($productIds, null);
-        if ($productIds === [] || ! Schema::hasTable('ventacart_listings')) {
+        if ($productIds === [] || ! Schema::hasTable('ch_ventacart_listings')) {
             return $out;
         }
         $first = null;
@@ -155,7 +155,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
 
     public function listedProductIds(): array
     {
-        if (! Schema::hasTable('ventacart_listing_links')) {
+        if (! Schema::hasTable('ch_ventacart_listing_links')) {
             return [];
         }
 
@@ -165,7 +165,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
 
     protected function enabledStores(): iterable
     {
-        if (!Schema::hasTable('ventacart_settings')) {
+        if (!Schema::hasTable('ch_ventacart_stores')) {
             return [];
         }
         return VentaCartStore::where('enabled', true)->orderBy('id')->get();
@@ -173,7 +173,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
 
     protected function allStores(): iterable
     {
-        if (!Schema::hasTable('ventacart_settings')) {
+        if (!Schema::hasTable('ch_ventacart_stores')) {
             return [];
         }
         return VentaCartStore::orderBy('id')->get();
@@ -181,7 +181,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
 
     public static function stepCounts(int $storeId): array
     {
-        if (!Schema::hasTable('ventacart_orders')) {
+        if (!Schema::hasTable('ch_ventacart_orders')) {
             return array_fill_keys(FulfilmentSteps::placements(), 0);
         }
 
@@ -300,7 +300,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
 
     public function pushSkuChanges(int $productId, array $skuChanges): ?string
     {
-        if (empty($skuChanges['product_sku']) || !Schema::hasTable('ventacart_listing_links')) {
+        if (empty($skuChanges['product_sku']) || !Schema::hasTable('ch_ventacart_listing_links')) {
             return null;
         }
 
@@ -353,7 +353,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
 
     public function productActions(int $productId): array
     {
-        if (! Schema::hasTable('ventacart_settings')) {
+        if (! Schema::hasTable('ch_ventacart_stores')) {
             return [];
         }
 
@@ -383,11 +383,11 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
 
     public function feeBucketsForOrder(int $coreOrderId): ?array
     {
-        if (! Schema::hasTable('ventacart_orders')) {
+        if (! Schema::hasTable('ch_ventacart_orders')) {
             return null;
         }
 
-        $row = DB::table('ventacart_orders')->where('catalog_order_id', $coreOrderId)->first(['raw']);
+        $row = DB::table('ch_ventacart_orders')->where('catalog_order_id', $coreOrderId)->first(['raw']);
         if (! $row) {
             return null;
         }
@@ -428,7 +428,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
     public function dashboardData(): array
     {
         $statuses = [];
-        if (Schema::hasTable('ventacart_listings')) {
+        if (Schema::hasTable('ch_ventacart_listings')) {
             foreach ($this->allStores() as $store) {
                 try {
                     $sum = \Extensions\VentaCart\Services\VentaCart\VentaCartListingStates::for((int) $store->id)->summary();
@@ -448,8 +448,8 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
 
         return [
             'channelSyncStatuses' => $statuses,
-            'ventaCartStoreNames' => Schema::hasTable('ventacart_settings')
-                ? DB::table('ventacart_settings')->pluck('store_name', 'id')->all()
+            'ventaCartStoreNames' => Schema::hasTable('ch_ventacart_stores')
+                ? DB::table('ch_ventacart_stores')->pluck('store_name', 'id')->all()
                 : [],
         ];
     }
@@ -460,7 +460,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
             return null;
         }
         $storeId = (int) substr($source, 6);
-        if ($storeId <= 0 || !Schema::hasTable('ventacart_settings')) {
+        if ($storeId <= 0 || !Schema::hasTable('ch_ventacart_stores')) {
             return null;
         }
         $name = VentaCartStore::where('id', $storeId)->value('store_name');
@@ -481,7 +481,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
 
     public function availableSourceOptions(): array
     {
-        if (!Schema::hasTable('ventacart_settings')) {
+        if (!Schema::hasTable('ch_ventacart_stores')) {
             return [];
         }
         return VentaCartStore::orderBy('id')->get(['id', 'store_name', 'brand_color'])

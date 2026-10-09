@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class ShopeeCategory extends Model
 {
-    protected $table = 'shopee_categories';
+    protected $table = 'ch_shopee_categories';
 
     protected $fillable = [
         'category_id',

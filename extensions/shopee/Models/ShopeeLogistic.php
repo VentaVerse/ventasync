@@ -8,7 +8,7 @@ class ShopeeLogistic extends Model
 {
     use \Extensions\Shopee\Models\Concerns\BelongsToShopeeStore;
 
-    protected $table = 'shopee_logistics';
+    protected $table = 'ch_shopee_logistics';
 
     protected $fillable = [
         'store_id',

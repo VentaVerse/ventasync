@@ -11,7 +11,7 @@ class VentaCartSync extends Command implements \App\Channels\Contracts\Steppable
 {
     protected $signature = 'ventacart:sync
         {entity : Entity to sync (orders)}
-        {--store= : Store ID (ventacart_settings.id). Omit to sync all enabled stores}
+        {--store= : Store ID (ch_ventacart_stores.id). Omit to sync all enabled stores}
         {--full : Full sync (ignore last sync timestamp)}
         {--max-pages=0 : Stop after N pages (0 = unlimited)}
         {--no-stock : Skip stock adjustments (use for initial import)}';

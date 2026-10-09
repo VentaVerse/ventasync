@@ -8,7 +8,7 @@ class ShopeeListing extends Model
 {
     use \Extensions\Shopee\Models\Concerns\BelongsToShopeeStore, \App\Channels\Listings\KeepsItsOwnCopy;
 
-    protected $table = 'shopee_listings';
+    protected $table = 'ch_shopee_listings';
 
     protected $fillable = [
                 'image_off', 'video_path', 'video_off',

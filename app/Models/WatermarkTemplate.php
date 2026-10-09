@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class WatermarkTemplate extends Model
 {
+    protected $table = 'ch_watermark_templates';
+
     protected $guarded = [];
 
     protected $casts = [

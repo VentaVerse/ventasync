@@ -233,7 +233,7 @@ class ShopeeStockPricePush
                 $set[(int) $l->shopee_item_id] = true;
             }
         }
-        foreach (DB::table('shopee_item_cache')
+        foreach (DB::table('ch_shopee_item_cache')
             ->when(app()->bound('shopee.route-store'), fn ($q) => $q->where('store_id', app('shopee.route-store')->id))
             ->whereIn('shopee_item_id', $itemIds->all() ?: [0])
             ->whereNotNull('shopee_model_id')

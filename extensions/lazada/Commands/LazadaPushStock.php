@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Log;
 class LazadaPushStock extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     protected $signature = 'lazada:push-stock
-        {--product-ids= : Comma-separated Lazada listing IDs to push (lazada_listings.id)}';
+        {--product-ids= : Comma-separated Lazada listing IDs to push (ch_lazada_listings.id)}';
 
     protected $description = 'Push ERP product quantities to Lazada for all linked products';
 

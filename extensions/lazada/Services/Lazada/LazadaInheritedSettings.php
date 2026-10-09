@@ -15,7 +15,7 @@ final class LazadaInheritedSettings
             return [];
         }
 
-        $rows = DB::table('lazada_product_group_products as pv')
+        $rows = DB::table('ch_lazada_product_group_products as pv')
             ->joinSub(LazadaProductGroup::query()->forStore(\Extensions\Lazada\Models\LazadaStore::defaultStore())->select(['id', 'name', 'lazada_category_id', 'brand_id', 'brand_name_override', 'markup_fixed', 'markup_percent']), 'g', 'g.id', '=', 'pv.lazada_product_group_id')
             ->whereIn('pv.product_id', $productIds)
             ->orderBy('pv.id')

@@ -8,11 +8,11 @@ use Illuminate\Support\Facades\Schema;
 final class CategoryTree
 {
     private const SHAPES = [
-        'shopee' => ['table' => 'shopee_categories', 'id' => 'category_id', 'parent' => 'parent_id', 'leaf' => 'leaf', 'store' => null, 'root' => 0],
-        'lazada' => ['table' => 'lazada_categories', 'id' => 'category_id', 'parent' => 'parent_id', 'leaf' => 'leaf', 'store' => null, 'root' => 0],
-        'tiktok' => ['table' => 'tiktok_categories', 'id' => 'id', 'parent' => 'parent_id', 'leaf' => 'is_leaf', 'store' => null, 'root' => null],
-        'ventacart' => ['table' => 'ventacart_categories', 'id' => 'ventacart_category_id', 'parent' => 'parent_id', 'leaf' => null, 'store' => 'store_id', 'root' => 0],
-        'woocommerce' => ['table' => 'woocommerce_categories', 'id' => 'woo_category_id', 'parent' => 'parent_id', 'leaf' => null, 'store' => 'store_id', 'root' => 0],
+        'shopee' => ['table' => 'ch_shopee_categories', 'id' => 'category_id', 'parent' => 'parent_id', 'leaf' => 'leaf', 'store' => null, 'root' => 0],
+        'lazada' => ['table' => 'ch_lazada_categories', 'id' => 'category_id', 'parent' => 'parent_id', 'leaf' => 'leaf', 'store' => null, 'root' => 0],
+        'tiktok' => ['table' => 'ch_tiktok_categories', 'id' => 'id', 'parent' => 'parent_id', 'leaf' => 'is_leaf', 'store' => null, 'root' => null],
+        'ventacart' => ['table' => 'ch_ventacart_categories', 'id' => 'ventacart_category_id', 'parent' => 'parent_id', 'leaf' => null, 'store' => 'store_id', 'root' => 0],
+        'woocommerce' => ['table' => 'ch_woocommerce_categories', 'id' => 'woo_category_id', 'parent' => 'parent_id', 'leaf' => null, 'store' => 'store_id', 'root' => 0],
     ];
 
     private const MAX_DEPTH = 12;

@@ -9,7 +9,7 @@ class TikTokProductGroup extends Model
 {
     use BelongsToTikTokStore;
 
-    protected $table = 'tiktok_product_groups';
+    protected $table = 'ch_tiktok_product_groups';
 
     protected $fillable = [
         'watermark_template_id',

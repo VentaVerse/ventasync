@@ -90,10 +90,10 @@ class LazadaCategoryController extends Controller
 
         DB::transaction(function () use ($rows) {
             // Clear the cache only after a successful fetch, so a failed call keeps the old categories.
-            DB::table('lazada_categories')->delete();
+            DB::table('ch_lazada_categories')->delete();
             $chunks = array_chunk($rows, 1000);
             foreach ($chunks as $chunk) {
-                DB::table('lazada_categories')->insert($chunk);
+                DB::table('ch_lazada_categories')->insert($chunk);
             }
         });
 

@@ -255,7 +255,7 @@ class LazadaMultistoreTest extends TestCase
         $row = fn ($store) => tap((new \Extensions\Lazada\Models\LazadaListing())->forceFill(['store_id' => $store->id, 'product_id' => $pid]))->save();
         $rowOne = $row($one);
         $rowTwo = $row($two);
-        $shape = fn ($store) => ['pivot' => 'lazada_product_group_products', 'fk' => 'lazada_product_group_id', 'groups' => 'lazada_product_groups', 'storeFk' => 'store_id', 'storeId' => (int) $store->id];
+        $shape = fn ($store) => ['pivot' => 'ch_lazada_product_group_products', 'fk' => 'lazada_product_group_id', 'groups' => 'ch_lazada_product_groups', 'storeFk' => 'store_id', 'storeId' => (int) $store->id];
         $extra = fn ($listing) => ['lazada_listing_id' => $listing->id, 'created_at' => now()];
 
         \App\Channels\Listings\ListingGroup::assign($shape($one), $pid, (int) $x->id, $extra($rowOne));
@@ -264,7 +264,7 @@ class LazadaMultistoreTest extends TestCase
         $this->assertSame((int) $x->id, \App\Channels\Listings\ListingGroup::current($shape($one), $pid));
         $this->assertSame((int) $onOutlet->id, \App\Channels\Listings\ListingGroup::current($shape($two), $pid), 'the other store groups it too');
 
-        $claim = \App\Channels\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'store_id', (int) $y->id, [$pid]);
+        $claim = \App\Channels\OneGroupRule::claim('ch_lazada_product_group_products', 'lazada_product_group_id', 'ch_lazada_product_groups', 'store_id', (int) $y->id, [$pid]);
         $this->assertSame([$pid => 'Group X'], $claim['held'], 'a second group on the same store is held');
 
         \App\Channels\Listings\ListingGroup::assign($shape($one), $pid, null);
