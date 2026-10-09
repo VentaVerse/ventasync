@@ -120,7 +120,7 @@ function setupTypeahead(opts) {
             const data = await res.json();
             return (data || []).map(function (r) {
                 const item = Object.assign({}, r);
-                item.id = r.id ?? r.brand_id ?? r.category_id ?? r.option_id ?? r.value_id ?? r.option_value_id;
+                item.id = r.id ?? r.brand_id ?? r.category_id ?? r.variation_type_id ?? r.value_id ?? r.variation_value_id;
                 item.name = r.display_name ?? r.name ?? r.path;
                 return item;
             }).filter((r) => r.id !== undefined && r.name);

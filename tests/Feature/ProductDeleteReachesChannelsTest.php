@@ -269,10 +269,10 @@ class ProductDeleteReachesChannelsTest extends TestCase
             'product_id' => $pid, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => 'Furnished ' . $sku, 'description' => '', 'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
-        $po = (int) DB::table('product_variation_types')->insertGetId(['product_id' => $pid, 'option_id' => 1, 'value' => '', 'required' => 0]);
+        $po = (int) DB::table('product_variation_types')->insertGetId(['product_id' => $pid, 'variation_type_id' => 1, 'value' => '', 'required' => 0]);
         foreach ([$sku . '-red', $sku . '-blue'] as $i => $vsku) {
             DB::table('product_variation_values')->insert([
-                'product_id' => $pid, 'product_option_id' => $po, 'option_id' => 1, 'option_value_id' => $i + 1,
+                'product_id' => $pid, 'product_variation_type_id' => $po, 'variation_type_id' => 1, 'variation_value_id' => $i + 1,
                 'sku' => $vsku, 'quantity' => 2, 'subtract' => 1, 'price' => 0, 'price_prefix' => '+',
                 'points' => 0, 'points_prefix' => '+', 'weight' => 0, 'weight_prefix' => '+',
             ]);
@@ -281,7 +281,7 @@ class ProductDeleteReachesChannelsTest extends TestCase
             'product_id' => $pid, 'sku' => $sku . '-combo', 'quantity' => 1, 'absolute_price' => 120, 'image' => null, 'status' => 1,
             'sort_order' => 0, 'created_at' => now(), 'updated_at' => now(),
         ]);
-        DB::table('product_variation_parts')->insert(['combination_id' => $combo, 'product_option_value_id' => (int) DB::table('product_variation_values')->where('product_id', $pid)->value('product_option_value_id')]);
+        DB::table('product_variation_parts')->insert(['product_variation_id' => $combo, 'product_variation_value_id' => (int) DB::table('product_variation_values')->where('product_id', $pid)->value('product_variation_value_id')]);
         DB::table('product_images')->insert(['product_id' => $pid, 'image' => 'catalog/x-2.png', 'sort_order' => 1]);
         if (\Illuminate\Support\Facades\Schema::hasTable('product_specials')) {
             DB::table('product_specials')->insert(['product_id' => $pid, 'customer_group_id' => 1, 'priority' => 1, 'price' => 90, 'date_start' => '2026-01-01', 'date_end' => '2026-12-31']);
@@ -303,7 +303,7 @@ class ProductDeleteReachesChannelsTest extends TestCase
         $this->assertSame(0, DB::table('product_images')->where('product_id', $pid)->count());
 
         DB::table('product_variation_values')->insert([
-            'product_id' => 999999, 'product_option_id' => 1, 'option_id' => 1, 'option_value_id' => 1,
+            'product_id' => 999999, 'product_variation_type_id' => 1, 'variation_type_id' => 1, 'variation_value_id' => 1,
             'sku' => 'GHOST-1', 'quantity' => 2, 'subtract' => 1, 'price' => 0, 'price_prefix' => '+',
             'points' => 0, 'points_prefix' => '+', 'weight' => 0, 'weight_prefix' => '+',
         ]);

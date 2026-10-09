@@ -137,14 +137,14 @@ class VentaCartProductPush
 
         if ($combos->isNotEmpty()) {
             $comboValues = DB::table('product_variation_parts as pocv')
-                ->join('product_variation_values as pov', 'pocv.product_option_value_id', '=', 'pov.product_option_value_id')
+                ->join('product_variation_values as pov', 'pocv.product_variation_value_id', '=', 'pov.product_variation_value_id')
                 ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
-                    $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
+                    $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')->where('ovd.language_id', '=', $langId);
                 })
-                ->whereIn('pocv.combination_id', $combos->pluck('id')->toArray())
-                ->select('pocv.combination_id', 'ovd.name as value_name')
+                ->whereIn('pocv.product_variation_id', $combos->pluck('id')->toArray())
+                ->select('pocv.product_variation_id', 'ovd.name as value_name')
                 ->get()
-                ->groupBy('combination_id');
+                ->groupBy('product_variation_id');
 
             $variants = [];
             foreach ($combos as $c) {
@@ -167,14 +167,14 @@ class VentaCartProductPush
 
         $optionValues = DB::table('product_variation_values as pov')
             ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
-                $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
+                $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')->where('ovd.language_id', '=', $langId);
             })
             ->join('variation_type_descriptions as od', function ($j) use ($langId) {
-                $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
+                $j->on('pov.variation_type_id', '=', 'od.variation_type_id')->where('od.language_id', '=', $langId);
             })
             ->where('pov.product_id', $pid)
             ->get([
-                'pov.product_option_value_id', 'pov.sku as variant_sku',
+                'pov.product_variation_value_id', 'pov.sku as variant_sku',
                 'pov.quantity as variant_qty', 'pov.price as variant_price',
                 'pov.price_prefix', 'pov.absolute_price',
                 'pov.cost as variant_cost', 'pov.cost_prefix', 'pov.absolute_cost',
@@ -206,7 +206,7 @@ class VentaCartProductPush
             }
 
             $variants[] = [
-                'sku'         => $ov->variant_sku ?: ($sku . '-' . $ov->product_option_value_id),
+                'sku'         => $ov->variant_sku ?: ($sku . '-' . $ov->product_variation_value_id),
                 'name'        => $ov->option_value_name,
                 'option_name' => $ov->option_name,
                 'price'       => $price($variantPrice),
@@ -261,18 +261,18 @@ class VentaCartProductPush
         }
 
         $values = DB::table('product_variation_parts as pocv')
-            ->join('product_variation_values as pov', 'pocv.product_option_value_id', '=', 'pov.product_option_value_id')
+            ->join('product_variation_values as pov', 'pocv.product_variation_value_id', '=', 'pov.product_variation_value_id')
             ->join('variation_type_descriptions as od', function ($j) use ($langId) {
-                $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
+                $j->on('pov.variation_type_id', '=', 'od.variation_type_id')->where('od.language_id', '=', $langId);
             })
             ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
-                $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
+                $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')->where('ovd.language_id', '=', $langId);
             })
-            ->whereIn('pocv.combination_id', $combos->pluck('id')->all())
-            ->get(['pocv.combination_id', 'pov.option_id', 'od.name as option_name', 'ovd.name as value_name'])
-            ->groupBy('combination_id');
+            ->whereIn('pocv.product_variation_id', $combos->pluck('id')->all())
+            ->get(['pocv.product_variation_id', 'pov.variation_type_id', 'od.name as option_name', 'ovd.name as value_name'])
+            ->groupBy('product_variation_id');
 
-        if ($values->flatten(1)->pluck('option_id')->unique()->count() !== 1) {
+        if ($values->flatten(1)->pluck('variation_type_id')->unique()->count() !== 1) {
             return [];
         }
 

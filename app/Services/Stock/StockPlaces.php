@@ -18,10 +18,10 @@ final class StockPlaces
             ->join('warehouses as w', 'w.id', '=', 'wi.warehouse_id')
             ->where('w.is_sellable', 0)
             ->whereIn('wi.product_id', $productIds)
-            ->groupBy('wi.product_id', 'wi.product_option_value_id')
-            ->selectRaw('wi.product_id, wi.product_option_value_id, SUM(wi.quantity) as units')
+            ->groupBy('wi.product_id', 'wi.product_variation_value_id')
+            ->selectRaw('wi.product_id, wi.product_variation_value_id, SUM(wi.quantity) as units')
             ->get()
-            ->mapWithKeys(fn ($r) => [(int) $r->product_id . ':' . (int) $r->product_option_value_id => (int) $r->units])
+            ->mapWithKeys(fn ($r) => [(int) $r->product_id . ':' . (int) $r->product_variation_value_id => (int) $r->units])
             ->all();
     }
 }

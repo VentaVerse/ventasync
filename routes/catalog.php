@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Catalog\ProductController;
 use App\Http\Controllers\Catalog\ProductImageController;
-use App\Http\Controllers\Catalog\ProductOptionController;
+use App\Http\Controllers\Catalog\ProductVariationController;
 use App\Http\Controllers\Catalog\BrandController;
 use App\Http\Controllers\Catalog\CategoryController;
 use App\Http\Controllers\Api\CatalogController as ApiCatalogController;
@@ -13,8 +13,8 @@ Route::group([], function () {
     Route::get('/lookup/categories', [CategoryController::class, 'lookup'])->name('categories.lookup');
     Route::get('/api/catalog/brands', [ApiCatalogController::class, 'brands'])->name('api.catalog.brands');
     Route::get('/api/catalog/categories', [ApiCatalogController::class, 'categories'])->name('api.catalog.categories');
-    Route::get('/api/catalog/options', [ApiCatalogController::class, 'options'])->name('api.catalog.options');
-    Route::get('/api/catalog/options/{optionId}/values', [ApiCatalogController::class, 'optionValues'])->name('api.catalog.option_values');
+    Route::get('/api/catalog/variation-types', [ApiCatalogController::class, 'variationTypes'])->name('api.catalog.variation_types');
+    Route::get('/api/catalog/variation-types/{variationTypeId}/values', [ApiCatalogController::class, 'variationValues'])->name('api.catalog.variation_values');
 });
 Route::group([], function () {
     Route::post('/api/catalog/brands', [BrandController::class, 'storeInline'])->name('api.catalog.brands.store');
@@ -50,9 +50,9 @@ Route::prefix('catalog')->group(function () {
         Route::post('/products/video/upload', [\App\Http\Controllers\Catalog\ProductVideoController::class, 'upload'])->name('products.video.upload');
         Route::post('/products/video/delete', [\App\Http\Controllers\Catalog\ProductVideoController::class, 'destroy'])->name('products.video.delete');
 
-        Route::get('/products/{id}/options', [ProductOptionController::class, 'edit'])->whereNumber('id')->name('products.options.edit')
+        Route::get('/products/{id}/variations', [ProductVariationController::class, 'edit'])->whereNumber('id')->name('products.variations.edit')
         ->defaults('permission_tier', 'manage');
-        Route::post('/products/{id}/options', [ProductOptionController::class, 'update'])->whereNumber('id')->name('products.options.update');
+        Route::post('/products/{id}/variations', [ProductVariationController::class, 'update'])->whereNumber('id')->name('products.variations.update');
     });
 
     Route::group([], function () {

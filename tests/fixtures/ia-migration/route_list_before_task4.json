@@ -426,13 +426,13 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "api/catalog/options",
-        "name": "api.catalog.options"
+        "uri": "api/catalog/variation-types",
+        "name": "api.catalog.variation_types"
     },
     {
         "method": "GET|HEAD",
-        "uri": "api/catalog/options/{optionId}/values",
-        "name": "api.catalog.option_values"
+        "uri": "api/catalog/variation-types/{variationTypeId}/values",
+        "name": "api.catalog.variation_values"
     },
     {
         "method": "GET|HEAD",
@@ -1237,12 +1237,7 @@
     {
         "method": "GET|HEAD",
         "uri": "catalog/products/{id}/options",
-        "name": "products.options.edit"
-    },
-    {
-        "method": "POST",
-        "uri": "catalog/products/{id}/options",
-        "name": "products.options.update"
+        "name": null
     },
     {
         "method": "GET|HEAD",
@@ -1258,6 +1253,16 @@
         "method": "GET|HEAD",
         "uri": "catalog/products/{id}/suppliers",
         "name": "ext.purchasing.products.suppliers.manage"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "catalog/products/{id}/variations",
+        "name": "products.variations.edit"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/products/{id}/variations",
+        "name": "products.variations.update"
     },
     {
         "method": "GET|HEAD",

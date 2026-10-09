@@ -134,19 +134,19 @@ class LazadaPushPayload
 
         $povRows = DB::table('product_variation_values as pov')
             ->leftJoin('variation_type_descriptions as od', function ($j) use ($langId) {
-                $j->on('pov.option_id', '=', 'od.option_id')
+                $j->on('pov.variation_type_id', '=', 'od.variation_type_id')
                     ->where('od.language_id', '=', $langId);
             })
             ->leftJoin('variation_value_descriptions as ovd', function ($j) use ($langId) {
-                $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+                $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')
                     ->where('ovd.language_id', '=', $langId);
             })
             ->where('pov.product_id', (int)$listing->product_id)
-            ->orderBy('pov.product_option_value_id')
+            ->orderBy('pov.product_variation_value_id')
             ->get([
-                'pov.product_option_value_id',
-                'pov.option_id',
-                'pov.option_value_id',
+                'pov.product_variation_value_id',
+                'pov.variation_type_id',
+                'pov.variation_value_id',
                 'pov.sku',
                 'pov.quantity',
                 'pov.absolute_price',
@@ -158,7 +158,7 @@ class LazadaPushPayload
             ->where('lazada_listing_id', $listing->id)
             ->get()
             ->keyBy(function ($v) {
-                return $v->product_option_value_id === null ? 'base' : (string)$v->product_option_value_id;
+                return $v->product_variation_value_id === null ? 'base' : (string)$v->product_variation_value_id;
             });
 
         $attrs = app(LazadaAttributes::class)->resolveMapAttributes($attrs, $product);
@@ -196,7 +196,7 @@ class LazadaPushPayload
         $combos = collect();
         $comboValuesByCombo = collect();
         if ($povRows->count() > 0) {
-            $optionIds = $povRows->pluck('option_id')->filter()->unique()->values();
+            $optionIds = $povRows->pluck('variation_type_id')->filter()->unique()->values();
 
             $combos = DB::table('product_variations as poc')
                 ->where('poc.product_id', (int)$listing->product_id)
@@ -216,26 +216,26 @@ class LazadaPushPayload
             if ($combos->isNotEmpty()) {
                 $comboIds = $combos->pluck('id')->toArray();
                 $comboValuesByCombo = DB::table('product_variation_parts as pocv')
-                    ->join('product_variation_values as pov2', 'pocv.product_option_value_id', '=', 'pov2.product_option_value_id')
+                    ->join('product_variation_values as pov2', 'pocv.product_variation_value_id', '=', 'pov2.product_variation_value_id')
                     ->join('variation_type_descriptions as od', function ($j) use ($langId) {
-                        $j->on('pov2.option_id', '=', 'od.option_id')
+                        $j->on('pov2.variation_type_id', '=', 'od.variation_type_id')
                             ->where('od.language_id', '=', $langId);
                     })
                     ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
-                        $j->on('pov2.option_value_id', '=', 'ovd.option_value_id')
+                        $j->on('pov2.variation_value_id', '=', 'ovd.variation_value_id')
                             ->where('ovd.language_id', '=', $langId);
                     })
-                    ->whereIn('pocv.combination_id', $comboIds)
+                    ->whereIn('pocv.product_variation_id', $comboIds)
                     ->select(
-                        'pocv.combination_id',
-                        'pov2.option_id',
+                        'pocv.product_variation_id',
+                        'pov2.variation_type_id',
                         'od.name as option_name',
                         'ovd.name as value_name'
                     )
-                    ->orderBy('pocv.combination_id')
-                    ->orderBy('pov2.option_id')
+                    ->orderBy('pocv.product_variation_id')
+                    ->orderBy('pov2.variation_type_id')
                     ->get()
-                    ->groupBy('combination_id');
+                    ->groupBy('product_variation_id');
             } elseif ($optionIds->count() > 1) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'variants' => 'This ERP product has multiple option groups but no combinations stored. Re-save the product to populate combinations, then retry.'
@@ -351,7 +351,7 @@ class LazadaPushPayload
                 ]);
             }
             foreach ($soldPov as $r) {
-                $key = (string)$r->product_option_value_id;
+                $key = (string)$r->product_variation_value_id;
                 $m = $map->get($key);
                 $candidate = trim((string)($r->sku ?? ''));
                 if ($candidate === '') {
@@ -367,7 +367,7 @@ class LazadaPushPayload
                 }
                 if ($candidate !== null && $candidate !== '') {
                     if (isset($usedSellerSkus[$candidate])) {
-                        $candidate = $candidate . '-' . (int)$r->product_option_value_id;
+                        $candidate = $candidate . '-' . (int)$r->product_variation_value_id;
                     }
                     $usedSellerSkus[$candidate] = true;
                 }
@@ -893,7 +893,7 @@ public function extractCreatedItemId(array $result): ?string
             ->where('pov.product_id', $productId)
             ->whereNotNull('pov.sku')
             ->where('pov.sku', '!=', '')
-            ->orderBy('pov.product_option_value_id')
+            ->orderBy('pov.product_variation_value_id')
             ->get(['pov.sku', 'pov.quantity']);
 
         $out = [];
@@ -917,7 +917,7 @@ public function extractCreatedItemId(array $result): ?string
             ->where('pov.product_id', $productId)
             ->whereNotNull('pov.sku')
             ->where('pov.sku', '!=', '')
-            ->orderBy('pov.product_option_value_id')
+            ->orderBy('pov.product_variation_value_id')
             ->get(['pov.sku', 'pov.absolute_price']);
 
         $out = [];

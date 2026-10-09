@@ -127,18 +127,18 @@ class TikTokStockPushTest extends TestCase
         $povIds = [];
         foreach (['Color' => ['Red', 'Black'], 'Size' => ['S', 'M']] as $axis => $values) {
             $optionId = (int) DB::table('variation_types')->insertGetId(['type' => 'select', 'sort_order' => 0]);
-            DB::table('variation_type_descriptions')->insert(['option_id' => $optionId, 'language_id' => $langId, 'name' => $axis]);
+            DB::table('variation_type_descriptions')->insert(['variation_type_id' => $optionId, 'language_id' => $langId, 'name' => $axis]);
             $productOptionId = (int) DB::table('product_variation_types')->insertGetId([
-                'product_id' => $productId, 'option_id' => $optionId, 'value' => '', 'required' => 0,
+                'product_id' => $productId, 'variation_type_id' => $optionId, 'value' => '', 'required' => 0,
             ]);
             foreach ($values as $i => $name) {
-                $valueId = (int) DB::table('variation_values')->insertGetId(['option_id' => $optionId, 'image' => '', 'sort_order' => $i]);
+                $valueId = (int) DB::table('variation_values')->insertGetId(['variation_type_id' => $optionId, 'image' => '', 'sort_order' => $i]);
                 DB::table('variation_value_descriptions')->insert([
-                    'option_value_id' => $valueId, 'language_id' => $langId, 'option_id' => $optionId, 'name' => $name,
+                    'variation_value_id' => $valueId, 'language_id' => $langId, 'variation_type_id' => $optionId, 'name' => $name,
                 ]);
                 $povIds[$name] = (int) DB::table('product_variation_values')->insertGetId([
-                    'product_option_id' => $productOptionId, 'product_id' => $productId,
-                    'option_id' => $optionId, 'option_value_id' => $valueId,
+                    'product_variation_type_id' => $productOptionId, 'product_id' => $productId,
+                    'variation_type_id' => $optionId, 'variation_value_id' => $valueId,
                     'sku' => 'TTV-' . strtoupper($name), 'quantity' => 99, 'subtract' => 1,
                     'price' => 0, 'price_prefix' => '+', 'points' => 0, 'points_prefix' => '+',
                     'weight' => 0, 'weight_prefix' => '+',
@@ -158,8 +158,8 @@ class TikTokStockPushTest extends TestCase
                     'sort_order' => $qty, 'created_at' => now(), 'updated_at' => now(),
                 ]);
                 DB::table('product_variation_parts')->insert([
-                    ['combination_id' => $comboId, 'product_option_value_id' => $povIds[$color]],
-                    ['combination_id' => $comboId, 'product_option_value_id' => $povIds[$size]],
+                    ['product_variation_id' => $comboId, 'product_variation_value_id' => $povIds[$color]],
+                    ['product_variation_id' => $comboId, 'product_variation_value_id' => $povIds[$size]],
                 ]);
                 $qty++;
             }

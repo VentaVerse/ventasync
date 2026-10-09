@@ -292,7 +292,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
 
         return [
             'product_id' => (int) $lazadaProduct->product_id,
-            'product_option_value_id' => $variant->product_option_value_id ?: null,
+            'product_variation_value_id' => $variant->product_variation_value_id ?: null,
         ];
     }
 

@@ -152,7 +152,7 @@ class OpenCartSync extends Command implements \App\Channels\Contracts\SteppableA
             if (!empty($log->details) && is_array($log->details)) {
                 $shown = array_slice($log->details, 0, 5);
                 foreach ($shown as $err) {
-                    $id = $err['product_id'] ?? $err['order_id'] ?? $err['category_id'] ?? $err['brand_id'] ?? $err['option_id'] ?? '?';
+                    $id = $err['product_id'] ?? $err['order_id'] ?? $err['category_id'] ?? $err['brand_id'] ?? $err['variation_type_id'] ?? '?';
                     $this->error("  [{$id}] {$err['error']}");
                 }
                 if (count($log->details) > 5) {

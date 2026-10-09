@@ -235,17 +235,17 @@ class OrderController extends Controller
                         'cost'          => $cost,
                     ]);
 
-                    $povId = (int) ($p['option_value_id'] ?? 0);
+                    $povId = (int) ($p['variation_value_id'] ?? 0);
                     if ($povId > 0 && $orderProductId) {
                         $pov = DB::table('product_variation_values')
-                            ->where('product_option_value_id', $povId)
-                            ->first(['product_option_id', 'option_value_id']);
+                            ->where('product_variation_value_id', $povId)
+                            ->first(['product_variation_type_id', 'variation_value_id']);
 
                         DB::table('order_options')->insert([
                             'order_id'                 => $order->order_id,
                             'order_product_id'         => $orderProductId,
-                            'product_option_id'        => $pov->product_option_id ?? 0,
-                            'product_option_value_id'  => $povId,
+                            'product_variation_type_id'        => $pov->product_variation_type_id ?? 0,
+                            'product_variation_value_id'  => $povId,
                             'name'                     => $p['option_name'] ?? '',
                             'value'                    => $p['option_value'] ?? '',
                             'type'                     => 'select',
@@ -319,27 +319,27 @@ class OrderController extends Controller
             if ($combos->isNotEmpty()) {
                 $comboIds = $combos->pluck('id')->toArray();
                 $comboValues = DB::table('product_variation_parts as pocv')
-                    ->join('product_variation_values as pov', 'pocv.product_option_value_id', '=', 'pov.product_option_value_id')
+                    ->join('product_variation_values as pov', 'pocv.product_variation_value_id', '=', 'pov.product_variation_value_id')
                     ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
-                        $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+                        $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')
                             ->where('ovd.language_id', '=', $langId);
                     })
-                    ->whereIn('pocv.combination_id', $comboIds)
-                    ->select('pocv.combination_id', 'ovd.name as value_name')
+                    ->whereIn('pocv.product_variation_id', $comboIds)
+                    ->select('pocv.product_variation_id', 'ovd.name as value_name')
                     ->get()
-                    ->groupBy('combination_id');
+                    ->groupBy('product_variation_id');
 
                 $comboPovMap = DB::table('product_variation_parts')
-                    ->whereIn('combination_id', $comboIds)
-                    ->get(['combination_id', 'product_option_value_id'])
-                    ->groupBy('combination_id');
+                    ->whereIn('product_variation_id', $comboIds)
+                    ->get(['product_variation_id', 'product_variation_value_id'])
+                    ->groupBy('product_variation_id');
 
                 foreach ($combos as $c) {
                     $valueNames = ($comboValues->get($c->id) ?? collect())->pluck('value_name')->implode(' / ');
-                    $povIds = ($comboPovMap->get($c->id) ?? collect())->pluck('product_option_value_id')->toArray();
+                    $povIds = ($comboPovMap->get($c->id) ?? collect())->pluck('product_variation_value_id')->toArray();
                     $combinationsByProduct[$c->product_id][] = (object) [
-                        'combination_id'          => $c->id,
-                        'product_option_value_id' => $povIds[0] ?? null,
+                        'product_variation_id'          => $c->id,
+                        'product_variation_value_id' => $povIds[0] ?? null,
                         'product_id'              => $c->product_id,
                         'option_sku'              => $c->sku,
                         'option_qty'              => (int) $c->quantity,
@@ -358,16 +358,16 @@ class OrderController extends Controller
 
             $optRows = DB::table('product_variation_values as pov')
                 ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
-                    $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+                    $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')
                         ->where('ovd.language_id', '=', $langId);
                 })
                 ->join('variation_type_descriptions as od', function ($j) use ($langId) {
-                    $j->on('pov.option_id', '=', 'od.option_id')
+                    $j->on('pov.variation_type_id', '=', 'od.variation_type_id')
                         ->where('od.language_id', '=', $langId);
                 })
                 ->whereIn('pov.product_id', $productIds)
                 ->select(
-                    'pov.product_option_value_id', 'pov.product_id',
+                    'pov.product_variation_value_id', 'pov.product_id',
                     'pov.sku as option_sku', 'pov.quantity as option_qty',
                     'pov.price as option_price', 'pov.price_prefix',
                     'pov.cost as option_cost', 'pov.cost_prefix',
@@ -375,7 +375,7 @@ class OrderController extends Controller
                     'pov.cost_amount', 'pov.cost_percentage', 'pov.cost_additional',
                     'ovd.name as value_name', 'od.name as option_name'
                 )
-                ->orderBy('pov.product_option_value_id')
+                ->orderBy('pov.product_variation_value_id')
                 ->get();
 
             foreach ($optRows as $o) {
@@ -615,12 +615,12 @@ class OrderController extends Controller
                         'cost'          => $cost,
                     ]);
 
-                    if (!empty($p['option_value_id'])) {
+                    if (!empty($p['variation_value_id'])) {
                         DB::table('order_options')->insert([
                             'order_id'                  => $order->order_id,
                             'order_product_id'          => $orderProductId,
-                            'product_option_id'         => 0,
-                            'product_option_value_id'   => (int) $p['option_value_id'],
+                            'product_variation_type_id'         => 0,
+                            'product_variation_value_id'   => (int) $p['variation_value_id'],
                             'name'                      => $p['option_name'] ?? '',
                             'value'                     => $p['option_value'] ?? '',
                             'type'                      => 'select',
@@ -774,9 +774,9 @@ class OrderController extends Controller
         foreach ($products as $op) {
             $optionValueId = (int) (DB::table('order_options')
                 ->where('order_product_id', $op->order_product_id)
-                ->where('product_option_value_id', '>', 0)
+                ->where('product_variation_value_id', '>', 0)
                 ->orderBy('order_option_id')
-                ->value('product_option_value_id') ?? 0);
+                ->value('product_variation_value_id') ?? 0);
             $catalogCost = LineCost::resolve((int) $op->product_id, $optionValueId);
 
             if ($catalogCost && $catalogCost > 0) {

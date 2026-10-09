@@ -50,7 +50,7 @@ return [
         'catalog/category' => 'Categories',
         'catalog/brand' => 'Brands',
         'catalog/product_image' => 'Product Images',
-        'catalog/product_option' => 'Variations',
+        'catalog/product_variation' => 'Variations',
         'purchasing/purchase_order' => 'Purchase Orders',
         'purchasing/supplier' => 'Suppliers',
         'purchasing/reorder' => 'Reorder Suggestions',

@@ -91,7 +91,7 @@ class ShopeeStockPushHealTest extends TestCase
         ]);
         foreach ($skuQty as $sku => $qty) {
             DB::table('product_variation_values')->insert([
-                'product_id' => $pid, 'product_option_id' => 1, 'option_id' => 1, 'option_value_id' => 1,
+                'product_id' => $pid, 'product_variation_type_id' => 1, 'variation_type_id' => 1, 'variation_value_id' => 1,
                 'sku' => $sku, 'quantity' => $qty, 'subtract' => 1, 'price' => 0, 'price_prefix' => '+',
                 'points' => 0, 'points_prefix' => '+', 'weight' => 0, 'weight_prefix' => '+',
             ]);

@@ -30,7 +30,7 @@ class StockHistoryLogger
 
         DB::table('stock_history')->insert([
             'product_id'              => $productId,
-            'product_option_value_id' => $optionValueId,
+            'product_variation_value_id' => $optionValueId,
             'order_id'                => $orderId,
             'type'                    => $type,
             'quantity_before'         => $qtyBefore,

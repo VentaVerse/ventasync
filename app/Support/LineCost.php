@@ -24,7 +24,7 @@ final class LineCost
         }
 
         $row = DB::table('product_variation_values')
-            ->where('product_option_value_id', $optionValueId)
+            ->where('product_variation_value_id', $optionValueId)
             ->first(['cost', 'cost_prefix', 'cost_amount', 'cost_percentage', 'cost_additional', 'absolute_price', 'absolute_cost']);
 
         if ($row === null) {

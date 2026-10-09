@@ -115,7 +115,7 @@
         $seedOption2 = null;
         $seedValues = collect((array) old('values', []))->map(fn ($v) => (object) [
             'name' => (string) ($v['name'] ?? ''),
-            'option_value_id' => $v['option_value_id'] ?? null,
+            'variation_value_id' => $v['variation_value_id'] ?? null,
             'sku' => (string) ($v['sku'] ?? ''),
             'image' => (string) ($v['image'] ?? ''),
             'status' => (int) ($v['status'] ?? 1),
@@ -860,8 +860,8 @@ function beforeSubmit() {
             addHidden('values[' + idx + '][cost_amount]', (row.querySelector('.js-cost') || {}).value || 0);
             addHidden('values[' + idx + '][cost_additional]', (row.querySelector('.js-addl') || {}).value || 0);
 
-            if (idx < opt1Values.length && opt1Values[idx].option_value_id) {
-                addHidden('values[' + idx + '][option_value_id]', opt1Values[idx].option_value_id);
+            if (idx < opt1Values.length && opt1Values[idx].variation_value_id) {
+                addHidden('values[' + idx + '][variation_value_id]', opt1Values[idx].variation_value_id);
             }
         });
     }
@@ -1221,7 +1221,7 @@ if (EXISTING_OPTION) {
     EXISTING_VALUES.forEach(v => {
         opt1Values.push({
             name: v.option_value_name || v.name,
-            option_value_id: v.option_value_id,
+            variation_value_id: v.variation_value_id,
             sku: v.sku || '',
             legacyBlankSku: !String(v.sku || '').trim(),
             status: v.status === undefined ? 1 : Number(v.status),
@@ -1237,7 +1237,7 @@ if (EXISTING_OPTION) {
 
     if (EXISTING_OPTION2) {
         EXISTING_VALUES2.forEach(v => {
-            opt2Values.push({ name: v.option_value_name || v.name, option_value_id: v.option_value_id });
+            opt2Values.push({ name: v.option_value_name || v.name, variation_value_id: v.variation_value_id });
         });
         $opt2Name.value = EXISTING_OPTION2.option_name || EXISTING_OPTION2.name || '';
         renderOpt1List();

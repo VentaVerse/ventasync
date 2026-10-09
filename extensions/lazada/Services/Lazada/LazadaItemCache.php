@@ -76,9 +76,9 @@ public function refreshListing(LazadaListing $listing, object $store, LazadaClie
         ->where('product_id', (int) $listing->product_id)
         ->whereNotNull('sku')
         ->where('sku', '!=', '')
-        ->get(['product_option_value_id', 'sku']);
+        ->get(['product_variation_value_id', 'sku']);
     foreach ($erpOvs as $ov) {
-        $skuToPovId[trim((string) $ov->sku)] = (int) $ov->product_option_value_id;
+        $skuToPovId[trim((string) $ov->sku)] = (int) $ov->product_variation_value_id;
     }
 
     $skus = data_get($data, 'skus') ?? data_get($data, 'Skus.Sku') ?? [];
@@ -100,7 +100,7 @@ public function refreshListing(LazadaListing $listing, object $store, LazadaClie
                 [
                     'sku_id' => (int) $skuId,
                     'shop_sku' => $shopSku ? (string) $shopSku : null,
-                    'product_option_value_id' => $povId,
+                    'product_variation_value_id' => $povId,
                 ]
             );
         } catch (\Throwable $ex) {}
@@ -170,9 +170,9 @@ public function fetchAndCacheVariants(LazadaListing $listing, object $store, Laz
         ->where('product_id', (int) $listing->product_id)
         ->whereNotNull('sku')
         ->where('sku', '!=', '')
-        ->get(['product_option_value_id', 'sku']);
+        ->get(['product_variation_value_id', 'sku']);
     foreach ($erpOvs as $ov) {
-        $skuToPovId[trim((string) $ov->sku)] = (int) $ov->product_option_value_id;
+        $skuToPovId[trim((string) $ov->sku)] = (int) $ov->product_variation_value_id;
     }
 
     $variants = [];
@@ -197,7 +197,7 @@ public function fetchAndCacheVariants(LazadaListing $listing, object $store, Laz
                 [
                     'sku_id' => (int) $skuId,
                     'shop_sku' => $shopSku ? (string) $shopSku : null,
-                    'product_option_value_id' => $povId,
+                    'product_variation_value_id' => $povId,
                 ]
             );
         } catch (\Throwable $ex) {}

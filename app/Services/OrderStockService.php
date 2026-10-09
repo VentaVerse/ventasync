@@ -6,7 +6,7 @@ use App\Channels\ChannelRegistry;
 use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderStatus;
 use App\Models\Catalog\Product;
-use App\Models\Catalog\ProductOptionValue;
+use App\Models\Catalog\ProductVariationValue;
 use Illuminate\Support\Facades\DB;
 
 class OrderStockService
@@ -59,7 +59,7 @@ class OrderStockService
             if (! $resolved['product'] && ! $resolved['option_value']) {
                 continue;
             }
-            $key = (int) ($resolved['product']->product_id ?? $resolved['option_value']->product_id) . '|' . (int) ($resolved['option_value']->product_option_value_id ?? 0);
+            $key = (int) ($resolved['product']->product_id ?? $resolved['option_value']->product_id) . '|' . (int) ($resolved['option_value']->product_variation_value_id ?? 0);
             $lines[$key] ??= ['product' => $resolved['product'], 'option_value' => $resolved['option_value'], 'qty' => 0];
             $lines[$key]['qty'] += (int) $orderProduct->quantity;
         }
@@ -109,7 +109,7 @@ class OrderStockService
         return 'Order #' . $order->order_id . ($sourceLabel !== '' ? " ($sourceLabel)" : '');
     }
 
-    private static function move(Order $order, ?Product $product, ?ProductOptionValue $optionValue, int $delta, string $source, string $orderLabel, ?object $defaultWarehouse): void
+    private static function move(Order $order, ?Product $product, ?ProductVariationValue $optionValue, int $delta, string $source, string $orderLabel, ?object $defaultWarehouse): void
     {
         if ($delta === 0) {
             return;
@@ -126,14 +126,14 @@ class OrderStockService
             $optionValue->save();
 
             DB::table('product_variation_parts as cv')
-                ->join('product_variations as c', 'c.id', '=', 'cv.combination_id')
-                ->where('cv.product_option_value_id', $optionValue->product_option_value_id)
+                ->join('product_variations as c', 'c.id', '=', 'cv.product_variation_id')
+                ->where('cv.product_variation_value_id', $optionValue->product_variation_value_id)
                 ->where('c.product_id', $optionValue->product_id)
                 ->update(['c.quantity' => $optionValue->quantity]);
 
             StockHistoryLogger::log(
                 productId: (int) $optionValue->product_id,
-                optionValueId: (int) $optionValue->product_option_value_id,
+                optionValueId: (int) $optionValue->product_variation_value_id,
                 orderId: (int) $order->order_id,
                 type: $type,
                 qtyBefore: $ovQtyBefore,
@@ -145,7 +145,7 @@ class OrderStockService
             self::syncWarehouseInventory(
                 $defaultWarehouse,
                 (int) $optionValue->product_id,
-                (int) $optionValue->product_option_value_id,
+                (int) $optionValue->product_variation_value_id,
                 $delta,
             );
         }
@@ -212,8 +212,8 @@ class OrderStockService
         $sku = trim((string) $orderProduct->model);
 
         $orderOption = $orderProduct->options->first();
-        if ($orderOption && $orderOption->product_option_value_id > 0) {
-            $optionValue = ProductOptionValue::where('product_option_value_id', $orderOption->product_option_value_id)->first();
+        if ($orderOption && $orderOption->product_variation_value_id > 0) {
+            $optionValue = ProductVariationValue::where('product_variation_value_id', $orderOption->product_variation_value_id)->first();
             if ($optionValue) {
                 $product = Product::where('product_id', $optionValue->product_id)->first();
             }
@@ -230,8 +230,8 @@ class OrderStockService
                     continue;
                 }
                 $product = Product::where('product_id', $resolved['product_id'])->first();
-                if (!$optionValue && !empty($resolved['product_option_value_id'])) {
-                    $optionValue = ProductOptionValue::where('product_option_value_id', $resolved['product_option_value_id'])->first();
+                if (!$optionValue && !empty($resolved['product_variation_value_id'])) {
+                    $optionValue = ProductVariationValue::where('product_variation_value_id', $resolved['product_variation_value_id'])->first();
                 }
                 if ($product) {
                     break;
@@ -245,7 +245,7 @@ class OrderStockService
         }
 
         if ($product && !$optionValue && $sku !== '') {
-            $optionValue = ProductOptionValue::where('product_id', $product->product_id)
+            $optionValue = ProductVariationValue::where('product_id', $product->product_id)
                 ->where('sku', $sku)
                 ->first();
         }

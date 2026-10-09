@@ -50,12 +50,12 @@ class FulfilmentPolishTest extends TestCase
         $povIds = [];
         foreach (['Color/Finish' => 'Red', 'Size' => 'M'] as $axis => $value) {
             $optionId = (int) DB::table('variation_types')->insertGetId(['type' => 'select', 'sort_order' => 0]);
-            DB::table('variation_type_descriptions')->insert(['option_id' => $optionId, 'language_id' => $langId, 'name' => $axis]);
-            $productOptionId = (int) DB::table('product_variation_types')->insertGetId(['product_id' => $productId, 'option_id' => $optionId, 'value' => '', 'required' => 0]);
-            $valueId = (int) DB::table('variation_values')->insertGetId(['option_id' => $optionId, 'image' => '', 'sort_order' => 0]);
-            DB::table('variation_value_descriptions')->insert(['option_value_id' => $valueId, 'language_id' => $langId, 'option_id' => $optionId, 'name' => $value]);
+            DB::table('variation_type_descriptions')->insert(['variation_type_id' => $optionId, 'language_id' => $langId, 'name' => $axis]);
+            $productOptionId = (int) DB::table('product_variation_types')->insertGetId(['product_id' => $productId, 'variation_type_id' => $optionId, 'value' => '', 'required' => 0]);
+            $valueId = (int) DB::table('variation_values')->insertGetId(['variation_type_id' => $optionId, 'image' => '', 'sort_order' => 0]);
+            DB::table('variation_value_descriptions')->insert(['variation_value_id' => $valueId, 'language_id' => $langId, 'variation_type_id' => $optionId, 'name' => $value]);
             $povIds[] = (int) DB::table('product_variation_values')->insertGetId([
-                'product_option_id' => $productOptionId, 'product_id' => $productId, 'option_id' => $optionId, 'option_value_id' => $valueId,
+                'product_variation_type_id' => $productOptionId, 'product_id' => $productId, 'variation_type_id' => $optionId, 'variation_value_id' => $valueId,
                 'sku' => $axis === 'Size' ? 'GP200-SIZE-M' : '', 'quantity' => 1, 'subtract' => 1, 'price' => 0, 'price_prefix' => '+',
                 'points' => 0, 'points_prefix' => '+', 'weight' => 0, 'weight_prefix' => '+',
                 'cost' => 0, 'cost_amount' => 0, 'cost_percentage' => 0, 'cost_additional' => 0, 'absolute_cost' => 0, 'cost_prefix' => '+', 'absolute_price' => 0,
@@ -66,7 +66,7 @@ class FulfilmentPolishTest extends TestCase
             'created_at' => now(), 'updated_at' => now(),
         ]);
         foreach ($povIds as $povId) {
-            DB::table('product_variation_parts')->insert(['combination_id' => $comboId, 'product_option_value_id' => $povId]);
+            DB::table('product_variation_parts')->insert(['product_variation_id' => $comboId, 'product_variation_value_id' => $povId]);
         }
 
         $this->assertSame(

@@ -72,10 +72,10 @@ final class CustomerLedger
         $counted = $this->countedStatuses();
         $ids = $orders->pluck('order_id')->all();
         $lines = $ids === [] ? collect() : DB::table('order_products as op')
-            ->leftJoin(DB::raw("(SELECT order_product_id, MIN(product_option_value_id) AS pov, GROUP_CONCAT(value ORDER BY order_option_id SEPARATOR ' / ') AS variation
+            ->leftJoin(DB::raw("(SELECT order_product_id, MIN(product_variation_value_id) AS pov, GROUP_CONCAT(value ORDER BY order_option_id SEPARATOR ' / ') AS variation
                 FROM `order_options` GROUP BY order_product_id) as oo"), 'oo.order_product_id', '=', 'op.order_product_id')
             ->leftJoin('products as p', 'p.product_id', '=', 'op.product_id')
-            ->leftJoin('product_variation_values as pov', 'pov.product_option_value_id', '=', 'oo.pov')
+            ->leftJoin('product_variation_values as pov', 'pov.product_variation_value_id', '=', 'oo.pov')
             ->whereIn('op.order_id', $ids)
             ->get(['op.order_id', 'op.product_id', 'op.name', 'op.model', 'op.quantity', 'op.price', 'op.total', 'op.cost',
                 'oo.variation', 'p.sku', 'p.price as price_now', 'pov.sku as variation_sku', 'pov.absolute_price as variation_price_now']);

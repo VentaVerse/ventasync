@@ -179,14 +179,14 @@ final class ListingVariations
             ->get(['id', 'sku', 'status']);
         if ($combos->isNotEmpty()) {
             $names = DB::table('product_variation_parts as cv')
-                ->join('product_variation_values as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
+                ->join('product_variation_values as pov', 'cv.product_variation_value_id', '=', 'pov.product_variation_value_id')
                 ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
-                    $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
+                    $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')->where('ovd.language_id', '=', $langId);
                 })
-                ->whereIn('cv.combination_id', $combos->pluck('id')->all())
-                ->orderBy('pov.product_option_id')
-                ->get(['cv.combination_id', 'ovd.name'])
-                ->groupBy('combination_id');
+                ->whereIn('cv.product_variation_id', $combos->pluck('id')->all())
+                ->orderBy('pov.product_variation_type_id')
+                ->get(['cv.product_variation_id', 'ovd.name'])
+                ->groupBy('product_variation_id');
             foreach ($combos as $c) {
                 $catalog[] = [
                     'sku' => trim((string) $c->sku),
@@ -197,10 +197,10 @@ final class ListingVariations
         } else {
             foreach (DB::table('product_variation_values as pov')
                 ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
-                    $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
+                    $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')->where('ovd.language_id', '=', $langId);
                 })
                 ->where('pov.product_id', $productId)
-                ->orderBy('pov.product_option_value_id')
+                ->orderBy('pov.product_variation_value_id')
                 ->get(['pov.sku', 'ovd.name']) as $v) {
                 $catalog[] = ['sku' => trim((string) $v->sku), 'name' => self::text($v->name), 'enabled' => true];
             }

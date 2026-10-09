@@ -56,7 +56,7 @@ final class StockArrival
         }
 
         $sku = $variationId !== null
-            ? (string) DB::table('product_variation_values')->where('product_option_value_id', $variationId)->value('sku')
+            ? (string) DB::table('product_variation_values')->where('product_variation_value_id', $variationId)->value('sku')
             : null;
         if ($variationId !== null && $sku === '') {
             throw new RuntimeException('the variation has no SKU to add stock by');

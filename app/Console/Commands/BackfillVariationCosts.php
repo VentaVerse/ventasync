@@ -53,7 +53,7 @@ class BackfillVariationCosts extends Command
 
             $values = DB::table('product_variation_values')
                 ->where('product_id', $p->product_id)
-                ->get(['product_option_value_id', 'sku', 'absolute_price', 'cost_amount', 'cost_percentage', 'cost_additional', 'absolute_cost', 'cost']);
+                ->get(['product_variation_value_id', 'sku', 'absolute_price', 'cost_amount', 'cost_percentage', 'cost_additional', 'absolute_cost', 'cost']);
             $combos = DB::table('product_variations')
                 ->where('product_id', $p->product_id)
                 ->get(['id', 'sku', 'absolute_price', 'cost_amount', 'cost_additional', 'absolute_cost']);
@@ -87,7 +87,7 @@ class BackfillVariationCosts extends Command
 
                 if ($apply) {
                     DB::table('product_variation_values')
-                        ->where('product_option_value_id', $v->product_option_value_id)
+                        ->where('product_variation_value_id', $v->product_variation_value_id)
                         ->update([
                             'cost_amount' => $ownAmount,
                             'cost_percentage' => $pct,

@@ -9,7 +9,7 @@ use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
-class ProductOptionController extends Controller
+class ProductVariationController extends Controller
 {
     public function edit(int $id)
     {
@@ -42,7 +42,7 @@ class ProductOptionController extends Controller
             'values.*.quantity' => 'nullable|integer',
             'values.*.absolute_price' => 'nullable|numeric',
             'values.*.absolute_cost' => 'nullable|numeric',
-            'values.*.option_value_id' => 'nullable|integer',
+            'values.*.variation_value_id' => 'nullable|integer',
         ]);
 
         $optionName = trim($validated['option_name'] ?? '');
@@ -92,25 +92,25 @@ class ProductOptionController extends Controller
                 ->where('product_id', $id)
                 ->first();
 
-            if ($existingPo && (int) $existingPo->option_id === $optionId) {
-                $productOptionId = (int) $existingPo->product_option_id;
+            if ($existingPo && (int) $existingPo->variation_type_id === $optionId) {
+                $productOptionId = (int) $existingPo->product_variation_type_id;
             } elseif ($existingPo) {
-                $this->deleteProductOptionValues( $id, (int) $existingPo->product_option_id);
-                DB::table('product_variation_types')->where('product_option_id', $existingPo->product_option_id)->delete();
+                $this->deleteProductOptionValues( $id, (int) $existingPo->product_variation_type_id);
+                DB::table('product_variation_types')->where('product_variation_type_id', $existingPo->product_variation_type_id)->delete();
                 $productOptionId = DB::table('product_variation_types')->insertGetId([
-                    'product_id' => $id, 'option_id' => $optionId, 'value' => '', 'required' => 1,
+                    'product_id' => $id, 'variation_type_id' => $optionId, 'value' => '', 'required' => 1,
                 ]);
             } else {
                 $productOptionId = DB::table('product_variation_types')->insertGetId([
-                    'product_id' => $id, 'option_id' => $optionId, 'value' => '', 'required' => 1,
+                    'product_id' => $id, 'variation_type_id' => $optionId, 'value' => '', 'required' => 1,
                 ]);
             }
 
             $existingPov = DB::table('product_variation_values')
                 ->where('product_id', $id)
-                ->where('product_option_id', $productOptionId)
+                ->where('product_variation_type_id', $productOptionId)
                 ->get()
-                ->keyBy('option_value_id');
+                ->keyBy('variation_value_id');
 
             $seenOptionValueIds = [];
             $povIdMap = [];
@@ -119,7 +119,7 @@ class ProductOptionController extends Controller
                 $valueName = trim($v['name']);
                 if ($valueName === '') continue;
 
-                $optionValueId = (int) ($v['option_value_id'] ?? 0);
+                $optionValueId = (int) ($v['variation_value_id'] ?? 0);
                 if ($optionValueId === 0) {
                     $optionValueId = $this->resolveOptionValueId( $langId, $optionId, $valueName);
                 } else {
@@ -163,20 +163,20 @@ class ProductOptionController extends Controller
                             ->whereIn('lazada_listing_id', fn($q) => $q->select('id')->from('ch_lazada_listings')->where('product_id', $id))
                             ->where('seller_sku', $oldSku)
                             ->update(['seller_sku' => $newSku]);
-                        $skuChanges['option_skus'][(int) $existing->product_option_value_id] = ['old' => $oldSku, 'new' => $newSku];
+                        $skuChanges['option_skus'][(int) $existing->product_variation_value_id] = ['old' => $oldSku, 'new' => $newSku];
                     }
 
                     DB::table('product_variation_values')
-                        ->where('product_option_value_id', $existing->product_option_value_id)
-                        ->update(array_merge($data, ['product_option_id' => $productOptionId]));
+                        ->where('product_variation_value_id', $existing->product_variation_value_id)
+                        ->update(array_merge($data, ['product_variation_type_id' => $productOptionId]));
 
-                    $povIdMap[$optionValueId] = (int) $existing->product_option_value_id;
+                    $povIdMap[$optionValueId] = (int) $existing->product_variation_value_id;
                 } else {
                     $newPovId = DB::table('product_variation_values')->insertGetId(array_merge($data, [
-                        'product_option_id' => $productOptionId,
+                        'product_variation_type_id' => $productOptionId,
                         'product_id' => $id,
-                        'option_id' => $optionId,
-                        'option_value_id' => $optionValueId,
+                        'variation_type_id' => $optionId,
+                        'variation_value_id' => $optionValueId,
                         'points' => 0, 'points_prefix' => '+',
                         'weight' => 0, 'weight_prefix' => '+',
                     ]));
@@ -187,31 +187,31 @@ class ProductOptionController extends Controller
             $deletedPovIds = [];
             foreach ($existingPov as $ovId => $row) {
                 if (!in_array((int) $ovId, $seenOptionValueIds, true)) {
-                    $deletedPovIds[] = (int) $row->product_option_value_id;
+                    $deletedPovIds[] = (int) $row->product_variation_value_id;
                     DB::table('product_variation_values')
-                        ->where('product_option_value_id', $row->product_option_value_id)
+                        ->where('product_variation_value_id', $row->product_variation_value_id)
                         ->delete();
                 }
             }
 
             $otherPo = DB::table('product_variation_types')
                 ->where('product_id', $id)
-                ->where('product_option_id', '!=', $productOptionId)
+                ->where('product_variation_type_id', '!=', $productOptionId)
                 ->get();
 
             foreach ($otherPo as $po) {
                 $otherPovIds = DB::table('product_variation_values')
-                    ->where('product_option_id', $po->product_option_id)
-                    ->pluck('product_option_value_id')->map(fn($v) => (int) $v)->all();
+                    ->where('product_variation_type_id', $po->product_variation_type_id)
+                    ->pluck('product_variation_value_id')->map(fn($v) => (int) $v)->all();
                 $deletedPovIds = array_merge($deletedPovIds, $otherPovIds);
-                DB::table('product_variation_values')->where('product_option_id', $po->product_option_id)->delete();
-                DB::table('product_variation_types')->where('product_option_id', $po->product_option_id)->delete();
+                DB::table('product_variation_values')->where('product_variation_type_id', $po->product_variation_type_id)->delete();
+                DB::table('product_variation_types')->where('product_variation_type_id', $po->product_variation_type_id)->delete();
             }
 
             if (!empty($deletedPovIds)) {
                 DB::table('ch_lazada_listing_variations')
-                    ->whereIn('product_option_value_id', $deletedPovIds)
-                    ->update(['product_option_value_id' => null]);
+                    ->whereIn('product_variation_value_id', $deletedPovIds)
+                    ->update(['product_variation_value_id' => null]);
                 $this->deleteCombinationsForPovIds($deletedPovIds);
             }
 
@@ -219,7 +219,7 @@ class ProductOptionController extends Controller
             foreach ($values as $v) {
                 $valueName = trim($v['name'] ?? '');
                 if ($valueName === '') continue;
-                $ovId = (int) ($v['option_value_id'] ?? 0);
+                $ovId = (int) ($v['variation_value_id'] ?? 0);
                 if ($ovId === 0) {
                     $ovId = $this->resolveOptionValueId( $langId, $optionId, $valueName);
                 }
@@ -249,9 +249,9 @@ class ProductOptionController extends Controller
         if ($forgotten !== []) {
             $status .= ' | Forgotten on every channel: ' . implode(', ', $forgotten);
         }
-        ActivityLogger::log('updated', 'Product Options', $id, 'Product #' . $id);
+        ActivityLogger::log('updated', 'Product Variations', $id, 'Product #' . $id);
 
-        return redirect()->route('products.options.edit', $id)->with('status', $status);
+        return redirect()->route('products.variations.edit', $id)->with('status', $status);
     }
 
     private function updateTwoOption(Request $request, int $id, int $langId)
@@ -318,8 +318,8 @@ class ProductOptionController extends Controller
             $oldPovIds = [];
             foreach ($existingPos as $po) {
                 $ids = DB::table('product_variation_values')
-                    ->where('product_option_id', $po->product_option_id)
-                    ->pluck('product_option_value_id')->map(fn($v) => (int) $v)->all();
+                    ->where('product_variation_type_id', $po->product_variation_type_id)
+                    ->pluck('product_variation_value_id')->map(fn($v) => (int) $v)->all();
                 $oldPovIds = array_merge($oldPovIds, $ids);
             }
             DB::table('product_variation_values')->where('product_id', $id)->delete();
@@ -327,23 +327,23 @@ class ProductOptionController extends Controller
 
             if (!empty($oldPovIds)) {
                 DB::table('ch_lazada_listing_variations')
-                    ->whereIn('product_option_value_id', $oldPovIds)
-                    ->update(['product_option_value_id' => null]);
+                    ->whereIn('product_variation_value_id', $oldPovIds)
+                    ->update(['product_variation_value_id' => null]);
                 $this->deleteCombinationsForPovIds($oldPovIds);
             }
 
             DB::table('product_variation_parts')
-                ->whereIn('combination_id', function ($q) use ($id) {
+                ->whereIn('product_variation_id', function ($q) use ($id) {
                     $q->select('id')->from('product_variations')->where('product_id', $id);
                 })
                 ->delete();
             DB::table('product_variations')->where('product_id', $id)->delete();
 
             $poId1 = DB::table('product_variation_types')->insertGetId([
-                'product_id' => $id, 'option_id' => $optionId1, 'value' => '', 'required' => 1,
+                'product_id' => $id, 'variation_type_id' => $optionId1, 'value' => '', 'required' => 1,
             ]);
             $poId2 = DB::table('product_variation_types')->insertGetId([
-                'product_id' => $id, 'option_id' => $optionId2, 'value' => '', 'required' => 1,
+                'product_id' => $id, 'variation_type_id' => $optionId2, 'value' => '', 'required' => 1,
             ]);
 
             $pov1Map = [];
@@ -352,8 +352,8 @@ class ProductOptionController extends Controller
             foreach ($opt1Values as $vName) {
                 $ovId = $this->resolveOptionValueId( $langId, $optionId1, $vName);
                 $povId = DB::table('product_variation_values')->insertGetId([
-                    'product_option_id' => $poId1, 'product_id' => $id,
-                    'option_id' => $optionId1, 'option_value_id' => $ovId,
+                    'product_variation_type_id' => $poId1, 'product_id' => $id,
+                    'variation_type_id' => $optionId1, 'variation_value_id' => $ovId,
                     'sku' => '', 'quantity' => 0, 'subtract' => 1,
                     'price' => 0, 'price_prefix' => '+', 'absolute_price' => 0,
                     'cost' => 0, 'cost_prefix' => '+', 'cost_amount' => 0,
@@ -366,8 +366,8 @@ class ProductOptionController extends Controller
             foreach ($opt2Values as $vName) {
                 $ovId = $this->resolveOptionValueId( $langId, $optionId2, $vName);
                 $povId = DB::table('product_variation_values')->insertGetId([
-                    'product_option_id' => $poId2, 'product_id' => $id,
-                    'option_id' => $optionId2, 'option_value_id' => $ovId,
+                    'product_variation_type_id' => $poId2, 'product_id' => $id,
+                    'variation_type_id' => $optionId2, 'variation_value_id' => $ovId,
                     'sku' => '', 'quantity' => 0, 'subtract' => 1,
                     'price' => 0, 'price_prefix' => '+', 'absolute_price' => 0,
                     'cost' => 0, 'cost_prefix' => '+', 'cost_amount' => 0,
@@ -412,8 +412,8 @@ class ProductOptionController extends Controller
                 ]);
 
                 DB::table('product_variation_parts')->insert([
-                    ['combination_id' => $comboId, 'product_option_value_id' => $povId1],
-                    ['combination_id' => $comboId, 'product_option_value_id' => $povId2],
+                    ['product_variation_id' => $comboId, 'product_variation_value_id' => $povId1],
+                    ['product_variation_id' => $comboId, 'product_variation_value_id' => $povId2],
                 ]);
 
                 $pov1Agg[$povId1]['prices'][] = $absPrice;
@@ -429,9 +429,9 @@ class ProductOptionController extends Controller
             $this->backSyncPov( $pov2Agg, $basePrice);
         });
 
-        ActivityLogger::log('updated', 'Product Options', $id, 'Product #' . $id . ': 2-option');
+        ActivityLogger::log('updated', 'Product Variations', $id, 'Product #' . $id . ': 2-option');
 
-        return redirect()->route('products.options.edit', $id)->with('status', 'Options saved (2-option combination).');
+        return redirect()->route('products.variations.edit', $id)->with('status', 'Options saved (2-option combination).');
     }
 
     private function backSyncPov( array $povAgg, float $basePrice): void
@@ -444,7 +444,7 @@ class ProductOptionController extends Controller
             $priceDelta = $avgPrice - $basePrice;
 
             DB::table('product_variation_values')
-                ->where('product_option_value_id', $povId)
+                ->where('product_variation_value_id', $povId)
                 ->update([
                     'quantity' => $totalQty,
                     'absolute_price' => $avgPrice,
@@ -467,13 +467,13 @@ class ProductOptionController extends Controller
         $existingCombos = [];
         if (!empty($allPovIds)) {
             $rows = DB::table('product_variation_parts as cv')
-                ->join('product_variations as c', 'cv.combination_id', '=', 'c.id')
-                ->whereIn('cv.product_option_value_id', $allPovIds)
+                ->join('product_variations as c', 'cv.product_variation_id', '=', 'c.id')
+                ->whereIn('cv.product_variation_value_id', $allPovIds)
                 ->where('c.product_id', $productId)
-                ->get(['cv.product_option_value_id', 'c.id as combination_id']);
+                ->get(['cv.product_variation_value_id', 'c.id as product_variation_id']);
 
             foreach ($rows as $r) {
-                $existingCombos[(int) $r->product_option_value_id] = (int) $r->combination_id;
+                $existingCombos[(int) $r->product_variation_value_id] = (int) $r->product_variation_id;
             }
         }
 
@@ -514,8 +514,8 @@ class ProductOptionController extends Controller
                 ]);
 
                 DB::table('product_variation_parts')->insert([
-                    'combination_id' => $comboId,
-                    'product_option_value_id' => $povId,
+                    'product_variation_id' => $comboId,
+                    'product_variation_value_id' => $povId,
                 ]);
                 $seenComboIds[] = $comboId;
             }
@@ -527,7 +527,7 @@ class ProductOptionController extends Controller
             ->pluck('id')->all();
 
         if (!empty($orphanCombos)) {
-            DB::table('product_variation_parts')->whereIn('combination_id', $orphanCombos)->delete();
+            DB::table('product_variation_parts')->whereIn('product_variation_id', $orphanCombos)->delete();
             DB::table('product_variations')->whereIn('id', $orphanCombos)->delete();
         }
     }
@@ -537,13 +537,13 @@ class ProductOptionController extends Controller
         if (empty($povIds)) return;
 
         $comboIds = DB::table('product_variation_parts')
-            ->whereIn('product_option_value_id', $povIds)
-            ->pluck('combination_id')
+            ->whereIn('product_variation_value_id', $povIds)
+            ->pluck('product_variation_id')
             ->unique()
             ->all();
 
         if (!empty($comboIds)) {
-            DB::table('product_variation_parts')->whereIn('combination_id', $comboIds)->delete();
+            DB::table('product_variation_parts')->whereIn('product_variation_id', $comboIds)->delete();
             DB::table('product_variations')->whereIn('id', $comboIds)->delete();
         }
     }
@@ -552,11 +552,11 @@ class ProductOptionController extends Controller
     {
         $existing = DB::table('variation_types as o')
             ->join('variation_type_descriptions as od', function ($j) use ($langId) {
-                $j->on('o.option_id', '=', 'od.option_id')
+                $j->on('o.variation_type_id', '=', 'od.variation_type_id')
                     ->where('od.language_id', '=', $langId);
             })
             ->whereRaw('LOWER(od.name) = ?', [strtolower($name)])
-            ->value('o.option_id');
+            ->value('o.variation_type_id');
 
         if ($existing) return (int) $existing;
 
@@ -565,7 +565,7 @@ class ProductOptionController extends Controller
         ]);
 
         DB::table('variation_type_descriptions')->insert([
-            'option_id' => $optionId, 'language_id' => $langId, 'name' => $name,
+            'variation_type_id' => $optionId, 'language_id' => $langId, 'name' => $name,
         ]);
 
         return $optionId;
@@ -575,23 +575,23 @@ class ProductOptionController extends Controller
     {
         $existing = DB::table('variation_values as ov')
             ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
-                $j->on('ov.option_value_id', '=', 'ovd.option_value_id')
+                $j->on('ov.variation_value_id', '=', 'ovd.variation_value_id')
                     ->where('ovd.language_id', '=', $langId);
             })
-            ->where('ov.option_id', $optionId)
+            ->where('ov.variation_type_id', $optionId)
             ->whereRaw('LOWER(ovd.name) = ?', [strtolower($name)])
-            ->value('ov.option_value_id');
+            ->value('ov.variation_value_id');
 
         if ($existing) return (int) $existing;
 
         $optionValueId = DB::table('variation_values')->insertGetId([
-            'option_id' => $optionId, 'image' => '', 'sort_order' => 0,
+            'variation_type_id' => $optionId, 'image' => '', 'sort_order' => 0,
         ]);
 
         DB::table('variation_value_descriptions')->insert([
-            'option_value_id' => $optionValueId,
+            'variation_value_id' => $optionValueId,
             'language_id' => $langId,
-            'option_id' => $optionId,
+            'variation_type_id' => $optionId,
             'name' => $name,
         ]);
 
@@ -601,7 +601,7 @@ class ProductOptionController extends Controller
     private function ensureOptionValueName( int $langId, int $optionValueId, string $name): void
     {
         DB::table('variation_value_descriptions')
-            ->where('option_value_id', $optionValueId)
+            ->where('variation_value_id', $optionValueId)
             ->where('language_id', $langId)
             ->update(['name' => $name]);
     }
@@ -609,15 +609,15 @@ class ProductOptionController extends Controller
     private function deleteProductOptionValues( int $productId, int $productOptionId): void
     {
         $povIds = DB::table('product_variation_values')
-            ->where('product_option_id', $productOptionId)
-            ->pluck('product_option_value_id')->map(fn($v) => (int) $v)->all();
+            ->where('product_variation_type_id', $productOptionId)
+            ->pluck('product_variation_value_id')->map(fn($v) => (int) $v)->all();
 
-        DB::table('product_variation_values')->where('product_option_id', $productOptionId)->delete();
+        DB::table('product_variation_values')->where('product_variation_type_id', $productOptionId)->delete();
 
         if (!empty($povIds)) {
             DB::table('ch_lazada_listing_variations')
-                ->whereIn('product_option_value_id', $povIds)
-                ->update(['product_option_value_id' => null]);
+                ->whereIn('product_variation_value_id', $povIds)
+                ->update(['product_variation_value_id' => null]);
             $this->deleteCombinationsForPovIds($povIds);
         }
     }
@@ -626,34 +626,34 @@ class ProductOptionController extends Controller
     {
         DB::transaction(function () use ( $id) {
             $poIds = DB::table('product_variation_types')
-                ->where('product_id', $id)->pluck('product_option_id')->all();
+                ->where('product_id', $id)->pluck('product_variation_type_id')->all();
 
             if (!empty($poIds)) {
                 $povIds = DB::table('product_variation_values')
-                    ->whereIn('product_option_id', $poIds)
-                    ->pluck('product_option_value_id')->map(fn($v) => (int) $v)->all();
+                    ->whereIn('product_variation_type_id', $poIds)
+                    ->pluck('product_variation_value_id')->map(fn($v) => (int) $v)->all();
 
-                DB::table('product_variation_values')->whereIn('product_option_id', $poIds)->delete();
-                DB::table('product_variation_types')->whereIn('product_option_id', $poIds)->delete();
+                DB::table('product_variation_values')->whereIn('product_variation_type_id', $poIds)->delete();
+                DB::table('product_variation_types')->whereIn('product_variation_type_id', $poIds)->delete();
 
                 if (!empty($povIds)) {
                     DB::table('ch_lazada_listing_variations')
-                        ->whereIn('product_option_value_id', $povIds)
-                        ->update(['product_option_value_id' => null]);
+                        ->whereIn('product_variation_value_id', $povIds)
+                        ->update(['product_variation_value_id' => null]);
                     $this->deleteCombinationsForPovIds($povIds);
                 }
             }
 
             DB::table('product_variation_parts')
-                ->whereIn('combination_id', function ($q) use ($id) {
+                ->whereIn('product_variation_id', function ($q) use ($id) {
                     $q->select('id')->from('product_variations')->where('product_id', $id);
                 })
                 ->delete();
             DB::table('product_variations')->where('product_id', $id)->delete();
         });
 
-        ActivityLogger::log('updated', 'Product Options', $id, 'Product #' . $id . ': options removed');
+        ActivityLogger::log('updated', 'Product Variations', $id, 'Product #' . $id . ': options removed');
 
-        return redirect()->route('products.options.edit', $id)->with('status', 'All options removed.');
+        return redirect()->route('products.variations.edit', $id)->with('status', 'All options removed.');
     }
 }

@@ -105,7 +105,7 @@ class VariationWriter
             ->whereRaw('LOWER(name) = ?', [strtolower($name)])
             ->first();
 
-        if ($existing) return (int) $existing->option_id;
+        if ($existing) return (int) $existing->variation_type_id;
 
         $optionId = DB::table('variation_types')->insertGetId([
             'type' => 'select',
@@ -113,7 +113,7 @@ class VariationWriter
         ]);
 
         DB::table('variation_type_descriptions')->insert([
-            'option_id' => $optionId,
+            'variation_type_id' => $optionId,
             'language_id' => $langId,
             'name' => $name,
         ]);
@@ -126,22 +126,22 @@ class VariationWriter
         $langId = (int) config('catalog.default_language_id');
 
         $existing = DB::table('variation_value_descriptions')
-            ->where('option_id', $optionId)
+            ->where('variation_type_id', $optionId)
             ->where('language_id', $langId)
             ->whereRaw('LOWER(name) = ?', [strtolower($name)])
             ->first();
 
-        if ($existing) return (int) $existing->option_value_id;
+        if ($existing) return (int) $existing->variation_value_id;
 
         $optionValueId = DB::table('variation_values')->insertGetId([
-            'option_id' => $optionId,
+            'variation_type_id' => $optionId,
             'image' => '',
             'sort_order' => 0,
         ]);
 
         DB::table('variation_value_descriptions')->insert([
-            'option_value_id' => $optionValueId,
-            'option_id' => $optionId,
+            'variation_value_id' => $optionValueId,
+            'variation_type_id' => $optionId,
             'language_id' => $langId,
             'name' => $name,
         ]);
@@ -154,14 +154,14 @@ class VariationWriter
 
         $existing = DB::table('product_variation_types')
             ->where('product_id', $productId)
-            ->where('option_id', $optionId)
+            ->where('variation_type_id', $optionId)
             ->first();
 
-        if ($existing) return (int) $existing->product_option_id;
+        if ($existing) return (int) $existing->product_variation_type_id;
 
         return DB::table('product_variation_types')->insertGetId([
             'product_id' => $productId,
-            'option_id' => $optionId,
+            'variation_type_id' => $optionId,
             'value' => '',
             'required' => 1,
         ]);
@@ -171,14 +171,14 @@ class VariationWriter
     {
 
         DB::table('product_variation_parts')
-            ->whereIn('combination_id', function ($q) use ($productId) {
+            ->whereIn('product_variation_id', function ($q) use ($productId) {
                 $q->select('id')->from('product_variations')->where('product_id', $productId);
             })->delete();
         DB::table('product_variations')->where('product_id', $productId)->delete();
 
         $deletedPovIds = DB::table('product_variation_values')
             ->where('product_id', $productId)
-            ->pluck('product_option_value_id')
+            ->pluck('product_variation_value_id')
             ->map(fn($v) => (int) $v)
             ->all();
 
@@ -187,8 +187,8 @@ class VariationWriter
 
         if (!empty($deletedPovIds)) {
             DB::table('ch_lazada_listing_variations')
-                ->whereIn('product_option_value_id', $deletedPovIds)
-                ->update(['product_option_value_id' => null]);
+                ->whereIn('product_variation_value_id', $deletedPovIds)
+                ->update(['product_variation_value_id' => null]);
         }
     }
 
@@ -234,31 +234,31 @@ class VariationWriter
 
         $stalePos = DB::table('product_variation_types')
             ->where('product_id', $productId)
-            ->where('option_id', '!=', $optionId)
-            ->pluck('product_option_id');
+            ->where('variation_type_id', '!=', $optionId)
+            ->pluck('product_variation_type_id');
 
         if ($stalePos->isNotEmpty()) {
             $stalePovIds = DB::table('product_variation_values')
-                ->whereIn('product_option_id', $stalePos)
-                ->pluck('product_option_value_id')
+                ->whereIn('product_variation_type_id', $stalePos)
+                ->pluck('product_variation_value_id')
                 ->map(fn($v) => (int) $v)->all();
 
-            DB::table('product_variation_values')->whereIn('product_option_id', $stalePos)->delete();
-            DB::table('product_variation_types')->whereIn('product_option_id', $stalePos)->delete();
+            DB::table('product_variation_values')->whereIn('product_variation_type_id', $stalePos)->delete();
+            DB::table('product_variation_types')->whereIn('product_variation_type_id', $stalePos)->delete();
 
             if (!empty($stalePovIds)) {
                 DB::table('ch_lazada_listing_variations')
-                    ->whereIn('product_option_value_id', $stalePovIds)
-                    ->update(['product_option_value_id' => null]);
+                    ->whereIn('product_variation_value_id', $stalePovIds)
+                    ->update(['product_variation_value_id' => null]);
             }
         }
 
         $productOptionId = $this->ensureProductOption($productId, $optionId);
 
         $existingPovs = DB::table('product_variation_values')
-            ->where('product_option_id', $productOptionId)
+            ->where('product_variation_type_id', $productOptionId)
             ->get()
-            ->keyBy('option_value_id');
+            ->keyBy('variation_value_id');
 
         $seenOptionValueIds = [];
 
@@ -274,8 +274,8 @@ class VariationWriter
             $valueName = trim($v['name'] ?? '');
             if ($valueName === '') continue;
 
-            $optionValueId = !empty($v['option_value_id'])
-                ? (int) $v['option_value_id']
+            $optionValueId = !empty($v['variation_value_id'])
+                ? (int) $v['variation_value_id']
                 : $this->findOrCreateOptionValue($optionId, $valueName);
 
             $seenOptionValueIds[] = $optionValueId;
@@ -317,7 +317,7 @@ class VariationWriter
 
                 $oldSku = trim((string) ($old->sku ?? ''));
                 if ($oldSku !== '' && $data['sku'] !== $oldSku) {
-                    $skuChanges['option_skus'][(int) $old->product_option_value_id] = [
+                    $skuChanges['option_skus'][(int) $old->product_variation_value_id] = [
                         'old' => $oldSku, 'new' => $data['sku']
                     ];
                 }
@@ -325,7 +325,7 @@ class VariationWriter
                 if ((int) ($old->quantity ?? 0) !== $data['quantity']) {
                     StockHistoryLogger::log(
                         productId: $productId,
-                        optionValueId: (int) $old->product_option_value_id,
+                        optionValueId: (int) $old->product_variation_value_id,
                         orderId: null,
                         type: 'set',
                         qtyBefore: (int) $old->quantity,
@@ -336,14 +336,14 @@ class VariationWriter
                 }
 
                 DB::table('product_variation_values')
-                    ->where('product_option_value_id', $old->product_option_value_id)
-                    ->update(array_merge($data, ['product_option_id' => $productOptionId]));
+                    ->where('product_variation_value_id', $old->product_variation_value_id)
+                    ->update(array_merge($data, ['product_variation_type_id' => $productOptionId]));
             } else {
                 DB::table('product_variation_values')->insert(array_merge($data, [
-                    'product_option_id' => $productOptionId,
+                    'product_variation_type_id' => $productOptionId,
                     'product_id' => $productId,
-                    'option_id' => $optionId,
-                    'option_value_id' => $optionValueId,
+                    'variation_type_id' => $optionId,
+                    'variation_value_id' => $optionValueId,
                     'points' => 0,
                     'points_prefix' => '+',
                 ]));
@@ -353,20 +353,20 @@ class VariationWriter
         $deletedPovIds = [];
         foreach ($existingPovs as $ovId => $row) {
             if (!in_array((int) $ovId, $seenOptionValueIds, true)) {
-                $deletedPovIds[] = (int) $row->product_option_value_id;
+                $deletedPovIds[] = (int) $row->product_variation_value_id;
                 DB::table('product_variation_values')
-                    ->where('product_option_value_id', $row->product_option_value_id)
+                    ->where('product_variation_value_id', $row->product_variation_value_id)
                     ->delete();
             }
         }
         if (!empty($deletedPovIds)) {
             DB::table('ch_lazada_listing_variations')
-                ->whereIn('product_option_value_id', $deletedPovIds)
-                ->update(['product_option_value_id' => null]);
+                ->whereIn('product_variation_value_id', $deletedPovIds)
+                ->update(['product_variation_value_id' => null]);
         }
 
         DB::table('product_variation_parts')
-            ->whereIn('combination_id', function ($q) use ($productId) {
+            ->whereIn('product_variation_id', function ($q) use ($productId) {
                 $q->select('id')->from('product_variations')->where('product_id', $productId);
             })->delete();
         DB::table('product_variations')->where('product_id', $productId)->delete();
@@ -374,15 +374,15 @@ class VariationWriter
         $now = now();
         $sort = 0;
         $povRows = DB::table('product_variation_values')
-            ->where('product_option_id', $productOptionId)
+            ->where('product_variation_type_id', $productOptionId)
             ->get();
 
         foreach ($povRows as $pov) {
-            $image = $imageByOptionValueId[(int) $pov->option_value_id] ?? '';
-            $status = $statusByOptionValueId[(int) $pov->option_value_id] ?? 1;
-            $costAmount = $costAmountByOptionValueId[(int) $pov->option_value_id]
+            $image = $imageByOptionValueId[(int) $pov->variation_value_id] ?? '';
+            $status = $statusByOptionValueId[(int) $pov->variation_value_id] ?? 1;
+            $costAmount = $costAmountByOptionValueId[(int) $pov->variation_value_id]
                 ?? (float) ($pov->cost_amount ?? 0);
-            $costAdd = $costAddByOptionValueId[(int) $pov->option_value_id]
+            $costAdd = $costAddByOptionValueId[(int) $pov->variation_value_id]
                 ?? (float) ($pov->cost_additional ?? 0);
 
             $comboId = DB::table('product_variations')->insertGetId([
@@ -402,8 +402,8 @@ class VariationWriter
             ]);
 
             DB::table('product_variation_parts')->insert([
-                'combination_id' => $comboId,
-                'product_option_value_id' => (int) $pov->product_option_value_id,
+                'product_variation_id' => $comboId,
+                'product_variation_value_id' => (int) $pov->product_variation_value_id,
             ]);
         }
     }
@@ -426,22 +426,22 @@ class VariationWriter
         $keepOptionIds = [$optionId1, $optionId2];
         $stalePos = DB::table('product_variation_types')
             ->where('product_id', $productId)
-            ->whereNotIn('option_id', $keepOptionIds)
-            ->pluck('product_option_id');
+            ->whereNotIn('variation_type_id', $keepOptionIds)
+            ->pluck('product_variation_type_id');
 
         if ($stalePos->isNotEmpty()) {
             $stalePovIds = DB::table('product_variation_values')
-                ->whereIn('product_option_id', $stalePos)
-                ->pluck('product_option_value_id')
+                ->whereIn('product_variation_type_id', $stalePos)
+                ->pluck('product_variation_value_id')
                 ->map(fn($v) => (int) $v)->all();
 
-            DB::table('product_variation_values')->whereIn('product_option_id', $stalePos)->delete();
-            DB::table('product_variation_types')->whereIn('product_option_id', $stalePos)->delete();
+            DB::table('product_variation_values')->whereIn('product_variation_type_id', $stalePos)->delete();
+            DB::table('product_variation_types')->whereIn('product_variation_type_id', $stalePos)->delete();
 
             if (!empty($stalePovIds)) {
                 DB::table('ch_lazada_listing_variations')
-                    ->whereIn('product_option_value_id', $stalePovIds)
-                    ->update(['product_option_value_id' => null]);
+                    ->whereIn('product_variation_value_id', $stalePovIds)
+                    ->update(['product_variation_value_id' => null]);
             }
         }
 
@@ -454,7 +454,7 @@ class VariationWriter
         $opt2PovMap = $this->syncOptionValues($productId, $optionId2, $poId2, $opt2ValueNames);
 
         DB::table('product_variation_parts')
-            ->whereIn('combination_id', function ($q) use ($productId) {
+            ->whereIn('product_variation_id', function ($q) use ($productId) {
                 $q->select('id')->from('product_variations')->where('product_id', $productId);
             })->delete();
         DB::table('product_variations')->where('product_id', $productId)->delete();
@@ -500,8 +500,8 @@ class VariationWriter
             ]);
 
             DB::table('product_variation_parts')->insert([
-                ['combination_id' => $comboId, 'product_option_value_id' => $pov1Id],
-                ['combination_id' => $comboId, 'product_option_value_id' => $pov2Id],
+                ['product_variation_id' => $comboId, 'product_variation_value_id' => $pov1Id],
+                ['product_variation_id' => $comboId, 'product_variation_value_id' => $pov2Id],
             ]);
         }
     }
@@ -511,9 +511,9 @@ class VariationWriter
         $map = [];
 
         $existingPovs = DB::table('product_variation_values')
-            ->where('product_option_id', $productOptionId)
+            ->where('product_variation_type_id', $productOptionId)
             ->get()
-            ->keyBy('option_value_id');
+            ->keyBy('variation_value_id');
 
         $seenOptionValueIds = [];
 
@@ -526,10 +526,10 @@ class VariationWriter
 
             if (!isset($existingPovs[$optionValueId])) {
                 $povId = DB::table('product_variation_values')->insertGetId([
-                    'product_option_id' => $productOptionId,
+                    'product_variation_type_id' => $productOptionId,
                     'product_id' => $productId,
-                    'option_id' => $optionId,
-                    'option_value_id' => $optionValueId,
+                    'variation_type_id' => $optionId,
+                    'variation_value_id' => $optionValueId,
                     'sku' => '',
                     'quantity' => 0,
                     'subtract' => 1,
@@ -549,14 +549,14 @@ class VariationWriter
                 ]);
                 $map[strtolower($name)] = $povId;
             } else {
-                $map[strtolower($name)] = (int) $existingPovs[$optionValueId]->product_option_value_id;
+                $map[strtolower($name)] = (int) $existingPovs[$optionValueId]->product_variation_value_id;
             }
         }
 
         foreach ($existingPovs as $ovId => $row) {
             if (!in_array((int) $ovId, $seenOptionValueIds, true)) {
                 DB::table('product_variation_values')
-                    ->where('product_option_value_id', $row->product_option_value_id)
+                    ->where('product_variation_value_id', $row->product_variation_value_id)
                     ->delete();
             }
         }

@@ -245,17 +245,17 @@ class LazadaCatalogOrderSync
                         if ($lzProduct && $lzProduct->product_id > 0) {
                             $resolvedProductId = (int) $lzProduct->product_id;
                         }
-                        if ($variant->product_option_value_id > 0) {
-                            $resolvedOptionValueId = (int) $variant->product_option_value_id;
+                        if ($variant->product_variation_value_id > 0) {
+                            $resolvedOptionValueId = (int) $variant->product_variation_value_id;
                         }
                     }
 
                     if ($resolvedProductId > 0 && $resolvedOptionValueId === 0) {
-                        $pov = \App\Models\Catalog\ProductOptionValue::where('product_id', $resolvedProductId)
+                        $pov = \App\Models\Catalog\ProductVariationValue::where('product_id', $resolvedProductId)
                             ->where('sku', $sellerSku)
                             ->first();
                         if ($pov) {
-                            $resolvedOptionValueId = (int) $pov->product_option_value_id;
+                            $resolvedOptionValueId = (int) $pov->product_variation_value_id;
                         }
                     }
                 }
@@ -290,8 +290,8 @@ class LazadaCatalogOrderSync
                     OrderOption::create([
                         'order_id'                => $catalogOrder->order_id,
                         'order_product_id'        => $op->order_product_id,
-                        'product_option_id'       => 0,
-                        'product_option_value_id' => $resolvedOptionValueId,
+                        'product_variation_type_id'       => 0,
+                        'product_variation_value_id' => $resolvedOptionValueId,
                         'name'                    => 'Variation',
                         'value'                   => $item['variation'],
                         'type'                    => 'text',
@@ -363,13 +363,13 @@ class LazadaCatalogOrderSync
 
         $match = DB::table('product_variation_values as pov')
             ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
-                $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+                $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')
                     ->where('ovd.language_id', '=', $langId);
             })
             ->where('pov.product_id', $productId)
             ->whereIn('ovd.name', $candidates)
-            ->first(['pov.product_option_value_id']);
+            ->first(['pov.product_variation_value_id']);
 
-        return $match ? (int) $match->product_option_value_id : 0;
+        return $match ? (int) $match->product_variation_value_id : 0;
     }
 }

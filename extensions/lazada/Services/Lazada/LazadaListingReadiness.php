@@ -70,11 +70,11 @@ class LazadaListingReadiness
 
         $povByProduct = DB::table('product_variation_values as pov')
             ->leftJoin('variation_type_descriptions as od', function ($j) use ($langId) {
-                $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
+                $j->on('pov.variation_type_id', '=', 'od.variation_type_id')->where('od.language_id', '=', $langId);
             })
             ->whereIn('pov.product_id', $productIds)
-            ->orderBy('pov.product_option_value_id')
-            ->get(['pov.product_id', 'pov.product_option_value_id', 'pov.option_id', 'pov.sku', 'pov.absolute_price', 'od.name as option_name'])
+            ->orderBy('pov.product_variation_value_id')
+            ->get(['pov.product_id', 'pov.product_variation_value_id', 'pov.variation_type_id', 'pov.sku', 'pov.absolute_price', 'od.name as option_name'])
             ->groupBy('product_id');
         $combosByProduct = DB::table('product_variations')
             ->whereIn('product_id', $productIds)
@@ -85,12 +85,12 @@ class LazadaListingReadiness
         $allComboIds = $combosByProduct->collapse()->pluck('id')->all();
         if ($allComboIds !== []) {
             foreach (DB::table('product_variation_parts as pocv')
-                ->join('product_variation_values as pov2', 'pocv.product_option_value_id', '=', 'pov2.product_option_value_id')
-                ->join('product_variations as c', 'pocv.combination_id', '=', 'c.id')
-                ->whereIn('pocv.combination_id', $allComboIds)
-                ->get(['c.product_id', 'pov2.option_id'])
+                ->join('product_variation_values as pov2', 'pocv.product_variation_value_id', '=', 'pov2.product_variation_value_id')
+                ->join('product_variations as c', 'pocv.product_variation_id', '=', 'c.id')
+                ->whereIn('pocv.product_variation_id', $allComboIds)
+                ->get(['c.product_id', 'pov2.variation_type_id'])
                 ->groupBy('product_id') as $pid => $rows) {
-                $axisByProduct[(int) $pid] = $rows->pluck('option_id')->unique()->count();
+                $axisByProduct[(int) $pid] = $rows->pluck('variation_type_id')->unique()->count();
             }
         }
 
@@ -177,7 +177,7 @@ class LazadaListingReadiness
         $prices = [];
 
         if ($povRows->count() > 0) {
-            $optionIds = $povRows->pluck('option_id')->filter()->unique()->values();
+            $optionIds = $povRows->pluck('variation_type_id')->filter()->unique()->values();
 
             if ($combos->isEmpty() && $optionIds->count() > 1) {
                 $gaps[] = ['code' => ListingState::GAP_VARIATIONS, 'label' => 'its variation combinations stored (re-save the product to build them)'];

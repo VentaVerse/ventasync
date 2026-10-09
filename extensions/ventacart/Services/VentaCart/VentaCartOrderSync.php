@@ -475,20 +475,20 @@ class VentaCartOrderSync
                         ->first();
                     if ($pov) {
                         $resolvedProductId = (int) $pov->product_id;
-                        $resolvedOptionValueId = (int) $pov->product_option_value_id;
+                        $resolvedOptionValueId = (int) $pov->product_variation_value_id;
                     }
 
                     if ($resolvedProductId === 0) {
                         $combo = DB::table('product_variations as poc')
                             ->where('poc.sku', $sku)
-                            ->first(['poc.product_id', 'poc.id as combination_id']);
+                            ->first(['poc.product_id', 'poc.id as product_variation_id']);
                         if ($combo) {
                             $resolvedProductId = (int) $combo->product_id;
                             $comboValue = DB::table('product_variation_parts')
-                                ->where('combination_id', $combo->combination_id)
-                                ->first(['product_option_value_id']);
+                                ->where('product_variation_id', $combo->product_variation_id)
+                                ->first(['product_variation_value_id']);
                             if ($comboValue) {
-                                $resolvedOptionValueId = (int) $comboValue->product_option_value_id;
+                                $resolvedOptionValueId = (int) $comboValue->product_variation_value_id;
                             }
                         }
                     }
@@ -535,8 +535,8 @@ class VentaCartOrderSync
                     DB::table('order_options')->insert([
                         'order_id'                 => $coreOrderId,
                         'order_product_id'         => $opId,
-                        'product_option_id'        => 0,
-                        'product_option_value_id'  => $resolvedOptionValueId,
+                        'product_variation_type_id'        => 0,
+                        'product_variation_value_id'  => $resolvedOptionValueId,
                         'name'                     => 'Option',
                         'value'                    => $variantLabel,
                         'type'                     => 'text',

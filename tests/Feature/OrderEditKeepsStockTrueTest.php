@@ -50,7 +50,7 @@ class OrderEditKeepsStockTrueTest extends TestCase
     private function variation(int $productId, string $sku, int $qty): int
     {
         return (int) DB::table('product_variation_values')->insertGetId([
-            'product_option_id' => 1, 'product_id' => $productId, 'option_id' => 1, 'option_value_id' => 1,
+            'product_variation_type_id' => 1, 'product_id' => $productId, 'variation_type_id' => 1, 'variation_value_id' => 1,
             'sku' => $sku, 'quantity' => $qty, 'subtract' => 1,
         ]);
     }
@@ -151,12 +151,12 @@ class OrderEditKeepsStockTrueTest extends TestCase
     {
         $c = $this->product('C', 5);
         $pov = $this->variation($c, 'C-RED', 5);
-        $order = $this->create([$this->line($c, 1, ['option_value_id' => $pov])]);
-        $this->assertSame(4, (int) DB::table('product_variation_values')->where('product_option_value_id', $pov)->value('quantity'));
+        $order = $this->create([$this->line($c, 1, ['variation_value_id' => $pov])]);
+        $this->assertSame(4, (int) DB::table('product_variation_values')->where('product_variation_value_id', $pov)->value('quantity'));
 
-        $this->edit($order, [$this->line($c, 3, ['option_value_id' => $pov])]);
+        $this->edit($order, [$this->line($c, 3, ['variation_value_id' => $pov])]);
 
-        $this->assertSame(2, (int) DB::table('product_variation_values')->where('product_option_value_id', $pov)->value('quantity'));
+        $this->assertSame(2, (int) DB::table('product_variation_values')->where('product_variation_value_id', $pov)->value('quantity'));
         $this->assertSame(2, $this->qty($c));
     }
 }

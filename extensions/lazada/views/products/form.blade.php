@@ -410,7 +410,7 @@
                                         <tbody>
                                             @foreach($variants as $variant)
                                                 @php
-                                                    $variantId = (string) $variant->product_option_value_id;
+                                                    $variantId = (string) $variant->product_variation_value_id;
                                                     $mapped = $variantMap[$variantId] ?? null;
                                                     $variantLabel = trim((string) ($variant->option_name ?? '')) !== ''
                                                         ? ((string) $variant->option_name) . ': ' . ((string) ($variant->option_value_name ?? ''))

@@ -39,13 +39,13 @@ final class SkuFallback
         $n = 0;
         foreach (
             DB::table('product_variation_values')->where('product_id', $productId)
-                ->orderBy('product_option_value_id')->get(['product_option_value_id', 'sku']) as $value
+                ->orderBy('product_variation_value_id')->get(['product_variation_value_id', 'sku']) as $value
         ) {
             $n++;
             if (trim((string) ($value->sku ?? '')) !== '') {
                 continue;
             }
-            DB::table('product_variation_values')->where('product_option_value_id', $value->product_option_value_id)
+            DB::table('product_variation_values')->where('product_variation_value_id', $value->product_variation_value_id)
                 ->update(['sku' => $parent . '-' . $n]);
             $minted['variations']++;
         }

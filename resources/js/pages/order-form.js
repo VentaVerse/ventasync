@@ -191,8 +191,8 @@
                 tdName.appendChild(hidden(idx, pair[0], pair[1]));
             });
 
-            if (item.option_value_id) {
-                tdName.appendChild(hidden(idx, 'option_value_id', item.option_value_id));
+            if (item.variation_value_id) {
+                tdName.appendChild(hidden(idx, 'variation_value_id', item.variation_value_id));
                 tdName.appendChild(hidden(idx, 'option_name', item.option_name || ''));
                 tdName.appendChild(hidden(idx, 'option_value', item.option_value || ''));
             }
@@ -512,7 +512,7 @@
             basePrice: parseFloat(product.price) || 0,
             baseCost: parseFloat(product.cost) || 0,
             qty: qty,
-            option_value_id: null,
+            variation_value_id: null,
             option_name: '',
             option_value: '',
         };
@@ -527,7 +527,7 @@
             item.basePrice = optionPrice(product, option);
             item.baseCost = optionCost(product, option);
             item.sku = option.option_sku || item.sku;
-            item.option_value_id = option.product_option_value_id || option.combination_id || null;
+            item.variation_value_id = option.product_variation_value_id || option.product_variation_id || null;
             item.option_name = option.option_name;
             item.option_value = option.value_name;
         }

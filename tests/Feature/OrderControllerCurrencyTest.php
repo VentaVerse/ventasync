@@ -288,8 +288,8 @@ class OrderControllerCurrencyTest extends TestCase
         $optionId = DB::table('order_options')->insertGetId([
             'order_id'                => $order->order_id,
             'order_product_id'        => $lineBefore->order_product_id,
-            'product_option_id'       => 0,
-            'product_option_value_id' => 999,
+            'product_variation_type_id'       => 0,
+            'product_variation_value_id' => 999,
             'name'                    => 'Color',
             'value'                   => 'Red',
             'type'                    => 'select',

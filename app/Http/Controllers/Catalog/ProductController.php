@@ -46,7 +46,7 @@ class ProductController extends Controller
             if (!is_array($values)) continue;
             foreach ($values as $v) {
                 if (!is_array($v)) continue;
-                if (empty($v['option_value_id'])) continue;
+                if (empty($v['variation_value_id'])) continue;
                 $hasAnyValue = true;
                 $sum += (int) ($v['quantity'] ?? 0);
             }
@@ -490,10 +490,10 @@ if ($q !== '') {
             'video_ai'    => ['nullable', 'boolean'],
 
             'options' => 'array',
-            'options.*.option_id' => 'required|integer|min:1',
+            'options.*.variation_type_id' => 'required|integer|min:1',
             'options.*.required' => 'nullable|in:0,1',
             'options.*.values' => 'array',
-            'options.*.values.*.option_value_id' => 'required|integer|min:1',
+            'options.*.values.*.variation_value_id' => 'required|integer|min:1',
             'options.*.values.*.sku' => 'nullable|string|max:64',
             'options.*.values.*.quantity' => 'nullable|integer',
             'options.*.values.*.subtract' => 'nullable|in:0,1',
@@ -670,11 +670,11 @@ if ($q !== '') {
 
         $optionValueNames = DB::table('product_variation_values as pov')
             ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
-                $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+                $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')
                     ->where('ovd.language_id', '=', $langId);
             })
             ->where('pov.product_id', (int) $id)
-            ->pluck('ovd.name', 'pov.product_option_value_id')
+            ->pluck('ovd.name', 'pov.product_variation_value_id')
             ->all();
 
         $history = DB::table('stock_history')
@@ -744,38 +744,38 @@ if ($q !== '') {
         $existingOptions = collect();
 
             $existingOptions = DB::table('product_variation_types as po')
-                ->join('variation_types as o', 'po.option_id', '=', 'o.option_id')
+                ->join('variation_types as o', 'po.variation_type_id', '=', 'o.variation_type_id')
                 ->join('variation_type_descriptions as od', function ($j) use ($langId) {
-                    $j->on('po.option_id', '=', 'od.option_id')
+                    $j->on('po.variation_type_id', '=', 'od.variation_type_id')
                       ->where('od.language_id', '=', $langId);
                 })
                 ->where('po.product_id', (int) $id)
                 ->orderBy('o.sort_order')
                 ->orderBy('od.name')
                 ->get([
-                    'po.product_option_id',
-                    'po.option_id',
+                    'po.product_variation_type_id',
+                    'po.variation_type_id',
                     'po.required',
                     'po.value',
                     'o.type',
                     'od.name',
                 ]);
 
-            $poIds = $existingOptions->pluck('product_option_id')->map(fn ($v) => (int)$v)->all();
+            $poIds = $existingOptions->pluck('product_variation_type_id')->map(fn ($v) => (int)$v)->all();
 
             $existingValuesByPoId = [];
             if (!empty($poIds)) {
                 $rows = DB::table('product_variation_values as pov')
                     ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
-                        $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+                        $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')
                           ->where('ovd.language_id', '=', $langId);
                     })
-                    ->whereIn('pov.product_option_id', $poIds)
-                    ->orderBy('pov.product_option_value_id')
+                    ->whereIn('pov.product_variation_type_id', $poIds)
+                    ->orderBy('pov.product_variation_value_id')
                     ->get([
-                        'pov.product_option_value_id',
-                        'pov.product_option_id',
-                        'pov.option_value_id',
+                        'pov.product_variation_value_id',
+                        'pov.product_variation_type_id',
+                        'pov.variation_value_id',
                         'ovd.name as option_value_name',
                         'pov.sku',
                         'pov.quantity',
@@ -793,9 +793,9 @@ if ($q !== '') {
 
                 foreach ($rows as $r) {
                     $r->option_value_name = html_entity_decode((string)$r->option_value_name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                    $existingValuesByPoId[(int)$r->product_option_id][] = [
-                        'product_option_value_id' => (int)$r->product_option_value_id,
-                        'option_value_id' => (int)$r->option_value_id,
+                    $existingValuesByPoId[(int)$r->product_variation_type_id][] = [
+                        'product_variation_value_id' => (int)$r->product_variation_value_id,
+                        'variation_value_id' => (int)$r->variation_value_id,
                         'option_value_name' => $r->option_value_name,
                         'name' => $r->option_value_name,
                         'quantity' => (int)$r->quantity,
@@ -819,20 +819,20 @@ if ($q !== '') {
             $costAmountByPovId = [];
             $costAddByPovId = [];
             $comboImages = DB::table('product_variations as c')
-                ->join('product_variation_parts as cv', 'cv.combination_id', '=', 'c.id')
+                ->join('product_variation_parts as cv', 'cv.product_variation_id', '=', 'c.id')
                 ->where('c.product_id', (int) $id)
-                ->get(['cv.product_option_value_id', 'c.image', 'c.status', 'c.cost_amount', 'c.cost_additional']);
+                ->get(['cv.product_variation_value_id', 'c.image', 'c.status', 'c.cost_amount', 'c.cost_additional']);
 
             foreach ($comboImages as $row) {
-                $statusByPovId[(int) $row->product_option_value_id] ??= (int) ($row->status ?? 1);
-                $costAmountByPovId[(int) $row->product_option_value_id] ??= (float) ($row->cost_amount ?? 0);
-                $costAddByPovId[(int) $row->product_option_value_id] ??= (float) ($row->cost_additional ?? 0);
+                $statusByPovId[(int) $row->product_variation_value_id] ??= (int) ($row->status ?? 1);
+                $costAmountByPovId[(int) $row->product_variation_value_id] ??= (float) ($row->cost_amount ?? 0);
+                $costAddByPovId[(int) $row->product_variation_value_id] ??= (float) ($row->cost_additional ?? 0);
 
                 if (trim((string) ($row->image ?? '')) === '') {
                     continue;
                 }
 
-                $povId = (int) $row->product_option_value_id;
+                $povId = (int) $row->product_variation_value_id;
                 $imageByPovId[$povId] = isset($imageByPovId[$povId])
                     ? $imageByPovId[$povId]
                     : (string) $row->image;
@@ -840,7 +840,7 @@ if ($q !== '') {
 
             foreach ($existingValuesByPoId as $poId => $values) {
                 foreach ($values as $i => $value) {
-                    $povId = (int) $value['product_option_value_id'];
+                    $povId = (int) $value['product_variation_value_id'];
                     $existingValuesByPoId[$poId][$i]['image'] = $imageByPovId[$povId] ?? '';
                     $existingValuesByPoId[$poId][$i]['status'] = $statusByPovId[$povId] ?? 1;
                     $existingValuesByPoId[$poId][$i]['cost_amount'] = $costAmountByPovId[$povId]
@@ -853,7 +853,7 @@ if ($q !== '') {
             foreach ($existingOptions as $o) {
                 $o->name = html_entity_decode((string)$o->name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
                 $o->option_name = $o->name;
-                $o->values = $existingValuesByPoId[(int)$o->product_option_id] ?? [];
+                $o->values = $existingValuesByPoId[(int)$o->product_variation_type_id] ?? [];
             }
 
             $existingCombinations = [];
@@ -865,15 +865,15 @@ if ($q !== '') {
 
                 foreach ($combos as $combo) {
                     $pivotRows = DB::table('product_variation_parts as cv')
-                        ->join('product_variation_values as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
+                        ->join('product_variation_values as pov', 'cv.product_variation_value_id', '=', 'pov.product_variation_value_id')
                         ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
-                            $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+                            $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')
                               ->where('ovd.language_id', '=', $langId);
                         })
-                        ->join('product_variation_types as po', 'pov.product_option_id', '=', 'po.product_option_id')
-                        ->where('cv.combination_id', $combo->id)
-                        ->orderBy('po.product_option_id')
-                        ->get(['ovd.name', 'po.product_option_id']);
+                        ->join('product_variation_types as po', 'pov.product_variation_type_id', '=', 'po.product_variation_type_id')
+                        ->where('cv.product_variation_id', $combo->id)
+                        ->orderBy('po.product_variation_type_id')
+                        ->get(['ovd.name', 'po.product_variation_type_id']);
 
                     $opt1Name = $pivotRows->first()->name ?? '';
                     $opt2Name = $pivotRows->count() > 1 ? $pivotRows->get(1)->name : '';
@@ -957,10 +957,10 @@ if ($q !== '') {
             'video_ai'    => ['nullable', 'boolean'],
 
             'options' => 'array',
-            'options.*.option_id' => 'required|integer|min:1',
+            'options.*.variation_type_id' => 'required|integer|min:1',
             'options.*.required' => 'nullable|in:0,1',
             'options.*.values' => 'array',
-            'options.*.values.*.option_value_id' => 'required|integer|min:1',
+            'options.*.values.*.variation_value_id' => 'required|integer|min:1',
             'options.*.values.*.sku' => 'nullable|string|max:64',
             'options.*.values.*.quantity' => 'nullable|integer',
             'options.*.values.*.subtract' => 'nullable|in:0,1',
@@ -1270,12 +1270,12 @@ if ($q !== '') {
         $existingPo = DB::table('product_variation_types')
             ->where('product_id', $productId)
             ->get()
-            ->keyBy('option_id');
+            ->keyBy('variation_type_id');
 
         $existingPov = DB::table('product_variation_values')
             ->where('product_id', $productId)
             ->get()
-            ->keyBy(fn ($r) => $r->option_id . ':' . $r->option_value_id);
+            ->keyBy(fn ($r) => $r->variation_type_id . ':' . $r->variation_value_id);
 
         if (empty($options)) {
             if ($existingPov->isNotEmpty()) {
@@ -1289,18 +1289,18 @@ if ($q !== '') {
 
         $supportedTypes = ['select', 'radio', 'checkbox', 'image'];
 
-        $optionIds = collect($options)->pluck('option_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
+        $optionIds = collect($options)->pluck('variation_type_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
 
         $types = DB::table('variation_types')
-            ->whereIn('option_id', $optionIds)
-            ->pluck('type', 'option_id');
+            ->whereIn('variation_type_id', $optionIds)
+            ->pluck('type', 'variation_type_id');
 
         foreach ($optionIds as $oid) {
             if (!isset($types[$oid])) {
-                abort(422, 'Invalid option_id: '.$oid);
+                abort(422, 'Invalid variation_type_id: '.$oid);
             }
             if (!in_array((string) $types[$oid], $supportedTypes, true)) {
-                abort(422, 'Unsupported option type for option_id '.$oid);
+                abort(422, 'Unsupported option type for variation_type_id '.$oid);
             }
         }
 
@@ -1308,7 +1308,7 @@ if ($q !== '') {
         $seenPovKeys = [];
 
         foreach ($options as $opt) {
-            $optionId = (int) ($opt['option_id'] ?? 0);
+            $optionId = (int) ($opt['variation_type_id'] ?? 0);
             if ($optionId < 1) {
                 continue;
             }
@@ -1317,14 +1317,14 @@ if ($q !== '') {
             $seenPoOptionIds[] = $optionId;
 
             if (isset($existingPo[$optionId])) {
-                $productOptionId = (int) $existingPo[$optionId]->product_option_id;
+                $productOptionId = (int) $existingPo[$optionId]->product_variation_type_id;
                 DB::table('product_variation_types')
-                    ->where('product_option_id', $productOptionId)
+                    ->where('product_variation_type_id', $productOptionId)
                     ->update(['required' => $required]);
             } else {
                 $productOptionId = DB::table('product_variation_types')->insertGetId([
                     'product_id' => $productId,
-                    'option_id' => $optionId,
+                    'variation_type_id' => $optionId,
                     'value' => '',
                     'required' => $required,
                 ]);
@@ -1339,7 +1339,7 @@ if ($q !== '') {
                 if (!is_array($v)) {
                     continue;
                 }
-                $ovId = (int) ($v['option_value_id'] ?? 0);
+                $ovId = (int) ($v['variation_value_id'] ?? 0);
                 if ($ovId < 1) {
                     continue;
                 }
@@ -1372,7 +1372,7 @@ if ($q !== '') {
                     if ($oldOvQty !== $newOvQty) {
                         StockHistoryLogger::log(
                             productId: $productId,
-                            optionValueId: (int) $existingPov[$key]->product_option_value_id,
+                            optionValueId: (int) $existingPov[$key]->product_variation_value_id,
                             orderId: null,
                             type: 'set',
                             qtyBefore: $oldOvQty,
@@ -1397,19 +1397,19 @@ if ($q !== '') {
                             ->where('seller_sku', $oldSku)
                             ->update(['seller_sku' => $newSku]);
 
-                        $povId = (int) $existingPov[$key]->product_option_value_id;
+                        $povId = (int) $existingPov[$key]->product_variation_value_id;
                         $skuChanges['option_skus'][$povId] = ['old' => $oldSku, 'new' => $newSku];
                     }
 
                     DB::table('product_variation_values')
-                        ->where('product_option_value_id', $existingPov[$key]->product_option_value_id)
-                        ->update(array_merge($data, ['product_option_id' => $productOptionId]));
+                        ->where('product_variation_value_id', $existingPov[$key]->product_variation_value_id)
+                        ->update(array_merge($data, ['product_variation_type_id' => $productOptionId]));
                 } else {
                     DB::table('product_variation_values')->insert(array_merge($data, [
-                        'product_option_id' => $productOptionId,
+                        'product_variation_type_id' => $productOptionId,
                         'product_id' => $productId,
-                        'option_id' => $optionId,
-                        'option_value_id' => $ovId,
+                        'variation_type_id' => $optionId,
+                        'variation_value_id' => $ovId,
                         'points' => 0,
                         'points_prefix' => '+',
                     ]));
@@ -1420,29 +1420,29 @@ if ($q !== '') {
         $deletedPovIds = [];
         foreach ($existingPov as $key => $row) {
             if (!in_array($key, $seenPovKeys, true)) {
-                $deletedPovIds[] = (int) $row->product_option_value_id;
-                DB::table('product_variation_values')->where('product_option_value_id', $row->product_option_value_id)->delete();
+                $deletedPovIds[] = (int) $row->product_variation_value_id;
+                DB::table('product_variation_values')->where('product_variation_value_id', $row->product_variation_value_id)->delete();
             }
         }
 
         foreach ($existingPo as $optId => $row) {
             if (!in_array((int) $optId, $seenPoOptionIds, true)) {
                 $groupPovIds = DB::table('product_variation_values')
-                    ->where('product_option_id', $row->product_option_id)
-                    ->pluck('product_option_value_id')
+                    ->where('product_variation_type_id', $row->product_variation_type_id)
+                    ->pluck('product_variation_value_id')
                     ->map(fn ($v) => (int) $v)
                     ->all();
                 $deletedPovIds = array_merge($deletedPovIds, $groupPovIds);
 
-                DB::table('product_variation_values')->where('product_option_id', $row->product_option_id)->delete();
-                DB::table('product_variation_types')->where('product_option_id', $row->product_option_id)->delete();
+                DB::table('product_variation_values')->where('product_variation_type_id', $row->product_variation_type_id)->delete();
+                DB::table('product_variation_types')->where('product_variation_type_id', $row->product_variation_type_id)->delete();
             }
         }
 
         if (!empty($deletedPovIds)) {
             DB::table('ch_lazada_listing_variations')
-                ->whereIn('product_option_value_id', $deletedPovIds)
-                ->update(['product_option_value_id' => null]);
+                ->whereIn('product_variation_value_id', $deletedPovIds)
+                ->update(['product_variation_value_id' => null]);
         }
     }
 

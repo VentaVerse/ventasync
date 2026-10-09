@@ -39,10 +39,10 @@ class LazadaStockPushService
         } else {
             $povRows = DB::table('product_variation_values')
                 ->where('product_id', $productId)
-                ->get(['product_option_value_id', 'sku', 'quantity', 'absolute_price']);
+                ->get(['product_variation_value_id', 'sku', 'quantity', 'absolute_price']);
 
             foreach ($povRows as $row) {
-                $pov = (int) $row->product_option_value_id;
+                $pov = (int) $row->product_variation_value_id;
                 $sku = trim((string) ($row->sku ?? ''));
                 $erpQtyByPov[$pov]   = max(0, (int) ($row->quantity ?? 0));
                 $erpPriceByPov[$pov] = (float) ($row->absolute_price ?? $basePrice);
@@ -67,7 +67,7 @@ class LazadaStockPushService
             if (!\App\Channels\Listings\ListingVariations::allows($hidden, $productId, $sellerSku)) {
                 continue;
             }
-            $povId     = $variant->product_option_value_id;
+            $povId     = $variant->product_variation_value_id;
 
             $matched = true;
             if ($sellerSku !== '' && array_key_exists($sellerSku, $erpQtyBySku)) {

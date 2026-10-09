@@ -25,19 +25,19 @@ final class CatalogVariations
                     $skuByCombo[(int) $c->id] = trim((string) $c->sku);
                 }
                 $pivots = DB::table('product_variation_parts as cv')
-                    ->join('product_variation_values as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
+                    ->join('product_variation_values as pov', 'cv.product_variation_value_id', '=', 'pov.product_variation_value_id')
                     ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
-                        $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
+                        $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')->where('ovd.language_id', '=', $langId);
                     })
                     ->join('variation_type_descriptions as od', function ($j) use ($langId) {
-                        $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
+                        $j->on('pov.variation_type_id', '=', 'od.variation_type_id')->where('od.language_id', '=', $langId);
                     })
-                    ->join('product_variation_types as po', 'pov.product_option_id', '=', 'po.product_option_id')
-                    ->whereIn('cv.combination_id', array_keys($skuByCombo))
-                    ->orderBy('po.product_option_id')
-                    ->get(['cv.combination_id', 'ovd.name as value_name', 'od.name as option_name']);
+                    ->join('product_variation_types as po', 'pov.product_variation_type_id', '=', 'po.product_variation_type_id')
+                    ->whereIn('cv.product_variation_id', array_keys($skuByCombo))
+                    ->orderBy('po.product_variation_type_id')
+                    ->get(['cv.product_variation_id', 'ovd.name as value_name', 'od.name as option_name']);
                 foreach ($pivots as $pv) {
-                    $sku = $skuByCombo[(int) $pv->combination_id] ?? '';
+                    $sku = $skuByCombo[(int) $pv->product_variation_id] ?? '';
                     if ($sku === '') {
                         continue;
                     }
@@ -52,10 +52,10 @@ final class CatalogVariations
             if ($rest) {
                 $povRows = DB::table('product_variation_values as pov')
                     ->join('variation_type_descriptions as od', function ($j) use ($langId) {
-                        $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
+                        $j->on('pov.variation_type_id', '=', 'od.variation_type_id')->where('od.language_id', '=', $langId);
                     })
                     ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
-                        $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
+                        $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')->where('ovd.language_id', '=', $langId);
                     })
                     ->whereIn('pov.sku', $rest)
                     ->get(['pov.sku', 'od.name as option_name', 'ovd.name as value_name']);

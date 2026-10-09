@@ -41,11 +41,11 @@ class TikTokListingReadiness
             ? TikTokCategoryTemplate::query()->whereIn('category_id', $categoryIds)->get()->keyBy('category_id')
             : collect();
         $axes = DB::table('product_variation_parts as cv')
-            ->join('product_variations as c', 'c.id', '=', 'cv.combination_id')
-            ->join('product_variation_values as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
+            ->join('product_variations as c', 'c.id', '=', 'cv.product_variation_id')
+            ->join('product_variation_values as pov', 'cv.product_variation_value_id', '=', 'pov.product_variation_value_id')
             ->whereIn('c.product_id', $productIds)
             ->groupBy('c.product_id')
-            ->selectRaw('c.product_id, COUNT(DISTINCT pov.product_option_id) as axes')
+            ->selectRaw('c.product_id, COUNT(DISTINCT pov.product_variation_type_id) as axes')
             ->pluck('axes', 'product_id');
 
         $out = [];

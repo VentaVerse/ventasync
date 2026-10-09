@@ -202,7 +202,7 @@ function initPoLines(form) {
             type: 'hidden', name: 'items[' + i + '][product_id]', value: p.product_id || '',
         }));
         desc.appendChild(field('input', '', {
-            type: 'hidden', name: 'items[' + i + '][product_option_value_id]', value: p.product_option_value_id || '',
+            type: 'hidden', name: 'items[' + i + '][product_variation_value_id]', value: p.product_variation_value_id || '',
         }));
         desc.appendChild(field('input', 'po-in', {
             name: 'items[' + i + '][description]', maxlength: '255',

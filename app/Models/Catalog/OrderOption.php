@@ -11,8 +11,8 @@ class OrderOption extends BaseModel
     protected $fillable = [
         'order_id',
         'order_product_id',
-        'product_option_id',
-        'product_option_value_id',
+        'product_variation_type_id',
+        'product_variation_value_id',
         'name',
         'value',
         'type',

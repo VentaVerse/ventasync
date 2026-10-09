@@ -61,7 +61,7 @@ final class ProductDeleter
     {
         $comboIds = DB::table('product_variations')->where('product_id', $productId)->pluck('id')->all();
         if ($comboIds !== []) {
-            DB::table('product_variation_parts')->whereIn('combination_id', $comboIds)->delete();
+            DB::table('product_variation_parts')->whereIn('product_variation_id', $comboIds)->delete();
             DB::table('product_variations')->whereIn('id', $comboIds)->delete();
         }
         foreach (self::OWNED_TABLES as $table) {

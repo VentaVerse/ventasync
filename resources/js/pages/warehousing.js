@@ -162,7 +162,7 @@ function lineList(opts) {
 
     function add(item) {
         const productId = Number(item.product_id);
-        const povId = Number(item.product_option_value_id || 0);
+        const povId = Number(item.product_variation_value_id || 0);
 
         const existing = find(productId, povId);
         if (existing) {
@@ -281,7 +281,7 @@ function initTransferForm() {
         build: function (line, i, item) {
             const name = cell(line, 'wh-line__name');
             hidden(name, 'items[' + i + '][product_id]', item.product_id);
-            hidden(name, 'items[' + i + '][product_option_value_id]', item.product_option_value_id || 0);
+            hidden(name, 'items[' + i + '][product_variation_value_id]', item.product_variation_value_id || 0);
             const b = document.createElement('b');
             b.textContent = item.name || '';
             name.appendChild(b);
@@ -353,7 +353,7 @@ function initTransferForm() {
                     .then(function (data) {
                         const found = data.find(function (d) {
                             return Number(d.product_id) === Number(pid)
-                                && Number(d.product_option_value_id) === Number(pov);
+                                && Number(d.product_variation_value_id) === Number(pov);
                         });
                         const available = found && found.available_qty !== null && found.available_qty !== undefined
                             ? found.available_qty
@@ -416,7 +416,7 @@ function initAdjustForm() {
         build: function (line, i, item) {
             const name = cell(line, 'wh-line__name');
             hidden(name, 'items[' + i + '][product_id]', item.product_id);
-            hidden(name, 'items[' + i + '][product_option_value_id]', item.product_option_value_id || 0);
+            hidden(name, 'items[' + i + '][product_variation_value_id]', item.product_variation_value_id || 0);
             const b = document.createElement('b');
             b.textContent = item.name || '';
             name.appendChild(b);

@@ -32,9 +32,9 @@ class TikTokStockPushService
 
         $povs = DB::table('product_variation_values')
             ->whereIn('product_id', $productIds)
-            ->get(['product_id', 'option_value_id', 'sku', 'quantity', 'absolute_price', 'price', 'price_prefix'])
+            ->get(['product_id', 'variation_value_id', 'sku', 'quantity', 'absolute_price', 'price', 'price_prefix'])
             ->groupBy('product_id');
-        $povByOvId = $povs->map(fn ($rows) => $rows->keyBy(fn ($r) => (string) $r->option_value_id));
+        $povByOvId = $povs->map(fn ($rows) => $rows->keyBy(fn ($r) => (string) $r->variation_value_id));
         $povBySku = $povs->map(fn ($rows) => $rows->filter(fn ($r) => trim((string) $r->sku) !== '')->keyBy(fn ($r) => trim((string) $r->sku)));
 
         $ownPrices = \Extensions\TikTok\Models\TikTokListing::ownPrices($productIds);

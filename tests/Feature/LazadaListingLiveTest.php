@@ -136,17 +136,17 @@ class LazadaListingLiveTest extends TestCase
     {
         $lang = (int) config('catalog.default_language_id');
         $optionId = ++$this->optSeq;
-        DB::table('variation_types')->insert(['option_id' => $optionId, 'type' => 'select', 'sort_order' => 0]);
-        DB::table('variation_type_descriptions')->insert(['option_id' => $optionId, 'language_id' => $lang, 'name' => $name]);
-        $productOptionId = DB::table('product_variation_types')->insertGetId(['product_id' => $pid, 'option_id' => $optionId, 'value' => '', 'required' => 1]);
+        DB::table('variation_types')->insert(['variation_type_id' => $optionId, 'type' => 'select', 'sort_order' => 0]);
+        DB::table('variation_type_descriptions')->insert(['variation_type_id' => $optionId, 'language_id' => $lang, 'name' => $name]);
+        $productOptionId = DB::table('product_variation_types')->insertGetId(['product_id' => $pid, 'variation_type_id' => $optionId, 'value' => '', 'required' => 1]);
 
         $out = [];
         foreach (array_values($values) as $i => $value) {
             $valueId = $optionId * 10 + $i;
-            DB::table('variation_values')->insert(['option_value_id' => $valueId, 'option_id' => $optionId, 'image' => '', 'sort_order' => $i]);
-            DB::table('variation_value_descriptions')->insert(['option_value_id' => $valueId, 'language_id' => $lang, 'option_id' => $optionId, 'name' => $value]);
+            DB::table('variation_values')->insert(['variation_value_id' => $valueId, 'variation_type_id' => $optionId, 'image' => '', 'sort_order' => $i]);
+            DB::table('variation_value_descriptions')->insert(['variation_value_id' => $valueId, 'language_id' => $lang, 'variation_type_id' => $optionId, 'name' => $value]);
             $out[$value] = (int) DB::table('product_variation_values')->insertGetId([
-                'product_option_id' => $productOptionId, 'product_id' => $pid, 'option_id' => $optionId, 'option_value_id' => $valueId,
+                'product_variation_type_id' => $productOptionId, 'product_id' => $pid, 'variation_type_id' => $optionId, 'variation_value_id' => $valueId,
                 'sku' => $skus[$value] ?? '', 'quantity' => 3, 'subtract' => 1, 'price' => 0, 'price_prefix' => '+', 'absolute_price' => 100,
                 'cost' => 0, 'cost_amount' => 0, 'cost_percentage' => 0, 'cost_additional' => 0, 'absolute_cost' => 0, 'cost_prefix' => '+',
                 'points' => 0, 'points_prefix' => '+', 'weight' => 0, 'weight_prefix' => '+',
@@ -216,8 +216,8 @@ class LazadaListingLiveTest extends TestCase
                 'subtract' => 1, 'sort_order' => $i, 'created_at' => now(), 'updated_at' => now(),
             ]);
             DB::table('product_variation_parts')->insert([
-                ['combination_id' => $comboId, 'product_option_value_id' => $length[$value]],
-                ['combination_id' => $comboId, 'product_option_value_id' => $color['Black']],
+                ['product_variation_id' => $comboId, 'product_variation_value_id' => $length[$value]],
+                ['product_variation_id' => $comboId, 'product_variation_value_id' => $color['Black']],
             ]);
         }
         $this->liveItemSkus([
@@ -289,8 +289,8 @@ class LazadaListingLiveTest extends TestCase
                 'subtract' => 1, 'sort_order' => $i, 'created_at' => now(), 'updated_at' => now(),
             ]);
             DB::table('product_variation_parts')->insert([
-                ['combination_id' => $comboId, 'product_option_value_id' => $a[$value]],
-                ['combination_id' => $comboId, 'product_option_value_id' => $b[$secondValue]],
+                ['product_variation_id' => $comboId, 'product_variation_value_id' => $a[$value]],
+                ['product_variation_id' => $comboId, 'product_variation_value_id' => $b[$secondValue]],
             ]);
         }
 
@@ -580,7 +580,7 @@ class LazadaListingLiveTest extends TestCase
         $productId = $this->seedProduct('Variant product', 'LZT-VAR');
         $listing = LazadaListing::query()->create(['product_id' => $productId]);
         $povId = DB::table('product_variation_values')->insertGetId([
-            'product_option_id' => 1, 'product_id' => $productId, 'option_id' => 1, 'option_value_id' => 1,
+            'product_variation_type_id' => 1, 'product_id' => $productId, 'variation_type_id' => 1, 'variation_value_id' => 1,
             'quantity' => 3, 'subtract' => 1, 'price' => 0, 'price_prefix' => '+', 'points' => 0, 'points_prefix' => '+',
             'weight' => 0, 'weight_prefix' => '+', 'sku' => 'LZT-VAR-RED',
         ]);
@@ -592,7 +592,7 @@ class LazadaListingLiveTest extends TestCase
             ])->assertSessionHasNoErrors();
 
         $variant = \Extensions\Lazada\Models\LazadaListingVariation::query()
-            ->where('lazada_listing_id', $listing->id)->where('product_option_value_id', $povId)->first();
+            ->where('lazada_listing_id', $listing->id)->where('product_variation_value_id', $povId)->first();
         $this->assertNotNull($variant, 'the listing form saves the variation price');
         $this->assertEquals(199.5, (float) $variant->price);
         $this->assertNull($variant->seller_sku, 'a typed SKU is not saved');
@@ -707,7 +707,7 @@ class LazadaListingLiveTest extends TestCase
         $povs = $this->addOption($pid, 'Color', ['Black', 'Red'], ['Black' => 'LZ-OVR-B', 'Red' => 'LZ-OVR-R']);
         $listing = $this->listingOn($pid, null);
         \Extensions\Lazada\Models\LazadaListingVariation::create([
-            'lazada_listing_id' => $listing->id, 'product_option_value_id' => $povs['Red'],
+            'lazada_listing_id' => $listing->id, 'product_variation_value_id' => $povs['Red'],
             'seller_sku' => 'LZ-TYPED', 'quantity' => 99, 'price' => 150,
         ]);
 

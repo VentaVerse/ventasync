@@ -26,7 +26,7 @@
         'basePrice'       => (float) ($p['price'] ?? 0) * $oldRate,
         'baseCost'        => (float) ($p['cost'] ?? 0) * $oldRate,
         'qty'             => (int) ($p['quantity'] ?? 1),
-        'option_value_id' => $p['option_value_id'] ?? null,
+        'variation_value_id' => $p['variation_value_id'] ?? null,
         'option_name'     => (string) ($p['option_name'] ?? ''),
         'option_value'    => (string) ($p['option_value'] ?? ''),
     ])->values();

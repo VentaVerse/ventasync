@@ -343,17 +343,17 @@ class OpenCartOrderSync
                                 $localPov = DB::table('product_variation_values as pov')
                                     ->join('variation_value_descriptions as ovd', function ($j)  {
                                         $langId = (int) config('catalog.default_language_id');
-                                        $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+                                        $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')
                                             ->where('ovd.language_id', '=', $langId);
                                     })
                                     ->where('pov.product_id', $coreProductId)
                                     ->where('ovd.name', $optValue)
-                                    ->select('pov.product_option_value_id', 'pov.product_option_id')
+                                    ->select('pov.product_variation_value_id', 'pov.product_variation_type_id')
                                     ->first();
 
                                 if ($localPov) {
-                                    $localPovId = (int) $localPov->product_option_value_id;
-                                    $localPoId = (int) $localPov->product_option_id;
+                                    $localPovId = (int) $localPov->product_variation_value_id;
+                                    $localPoId = (int) $localPov->product_variation_type_id;
                                     if ($firstMatchedPovId === 0) {
                                         $firstMatchedPovId = $localPovId;
                                     }
@@ -388,8 +388,8 @@ class OpenCartOrderSync
                         DB::table('order_options')->insert([
                             'order_id'                 => $coreOrderId,
                             'order_product_id'         => $opId,
-                            'product_option_id'        => $ro['localPoId'],
-                            'product_option_value_id'  => $ro['localPovId'],
+                            'product_variation_type_id'        => $ro['localPoId'],
+                            'product_variation_value_id'  => $ro['localPovId'],
                             'name'                     => $ro['name'],
                             'value'                    => $ro['value'],
                             'type'                     => $ro['type'],

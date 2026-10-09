@@ -24,7 +24,7 @@
         'basePrice'       => (float) $p->price,
         'baseCost'        => (float) $p->cost,
         'qty'             => (int) $p->quantity,
-        'option_value_id' => $p->options->first()->product_option_value_id ?? null,
+        'variation_value_id' => $p->options->first()->product_variation_value_id ?? null,
         'option_name'     => (string) ($p->options->first()->name ?? ''),
         'option_value'    => (string) ($p->options->first()->value ?? ''),
     ])->values();

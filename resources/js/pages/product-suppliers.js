@@ -493,7 +493,7 @@ export default function initProductSuppliers(root) {
                 optRows.querySelectorAll('[data-po-mx-opt-row]').forEach(function (row) {
                     if (!row.__supplier.value) return;
                     options.push({
-                        product_option_value_id: parseInt(row.dataset.poMxOptRow, 10),
+                        product_variation_value_id: parseInt(row.dataset.poMxOptRow, 10),
                         supplier_id: parseInt(row.__supplier.value, 10),
                         currency_code: row.__currency.value,
                         min_qty: parseInt(row.__qty.value, 10) || 1,

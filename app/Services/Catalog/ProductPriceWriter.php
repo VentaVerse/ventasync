@@ -52,7 +52,7 @@ final class ProductPriceWriter
         $pov = DB::table('product_variation_values')
             ->where('product_id', $product->product_id)
             ->whereRaw('LOWER(TRIM(sku)) = ?', [$needle])
-            ->first(['product_option_value_id', 'absolute_price']);
+            ->first(['product_variation_value_id', 'absolute_price']);
 
         if (! $combo && ! $pov) {
             throw new RuntimeException(
@@ -69,7 +69,7 @@ final class ProductPriceWriter
                     ->update(['absolute_price' => $price, 'updated_at' => now()]);
             }
             if ($pov) {
-                DB::table('product_variation_values')->where('product_option_value_id', $pov->product_option_value_id)
+                DB::table('product_variation_values')->where('product_variation_value_id', $pov->product_variation_value_id)
                     ->update(['absolute_price' => $price]);
             }
         });

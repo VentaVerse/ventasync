@@ -44,9 +44,9 @@ class BackfillOrderProductCosts extends Command
 
         $variationByLine = DB::table('order_options as oo')
             ->join('order_products as op', 'op.order_product_id', '=', 'oo.order_product_id')
-            ->where('oo.product_option_value_id', '>', 0)
+            ->where('oo.product_variation_value_id', '>', 0)
             ->orderBy('oo.order_option_id')
-            ->pluck('oo.product_option_value_id', 'oo.order_product_id')
+            ->pluck('oo.product_variation_value_id', 'oo.order_product_id')
             ->all();
 
         $names = DB::table('product_descriptions')

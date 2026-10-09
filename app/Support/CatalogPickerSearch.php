@@ -44,7 +44,7 @@ final class CatalogPickerSearch
 
         $options = DB::table('product_variation_values as pov')
             ->leftJoin('variation_value_descriptions as ovd', function ($j) use ($langId) {
-                $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
+                $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')->where('ovd.language_id', '=', $langId);
             })
             ->whereIn('pov.product_id', $productIds)
             ->whereNotNull('pov.sku')->where('pov.sku', '!=', '')

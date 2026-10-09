@@ -19,6 +19,9 @@ Route::get('/catalog/manufacturers/{any?}', fn (?string $any = null) => redirect
 Route::get('/warehousing/locations/{any?}', fn (?string $any = null) => redirect($withQuery('/warehousing/warehouses'.($any ? '/'.$any : '')), 301))
     ->where('any', '.*');
 
+Route::get('/catalog/products/{id}/options', fn (string $id) => redirect($withQuery('/catalog/products/'.$id.'/variations'), 301))
+    ->whereNumber('id');
+
 Route::get('/purchasing/vendors/{any?}', fn (?string $any = null) => redirect($withQuery('/purchasing/suppliers'.($any ? '/'.$any : '')), 301))
     ->where('any', '.*');
 

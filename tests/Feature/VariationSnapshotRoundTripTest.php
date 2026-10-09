@@ -29,8 +29,8 @@ class VariationSnapshotRoundTripTest extends TestCase
 
     private function state(int $productId): array
     {
-        $povs = DB::table('product_variation_values')->where('product_id', $productId)->orderBy('product_option_value_id')
-            ->get(['product_option_value_id', 'option_value_id', 'sku', 'quantity', 'absolute_price'])
+        $povs = DB::table('product_variation_values')->where('product_id', $productId)->orderBy('product_variation_value_id')
+            ->get(['product_variation_value_id', 'variation_value_id', 'sku', 'quantity', 'absolute_price'])
             ->map(fn ($r) => (array) $r)->all();
         $combos = DB::table('product_variations')->where('product_id', $productId)->orderBy('sku')
             ->get(['sku', 'status', 'image', 'quantity', 'absolute_price', 'cost_amount', 'cost_additional', 'absolute_cost'])

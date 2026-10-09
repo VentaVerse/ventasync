@@ -105,16 +105,16 @@ class ProductController extends Controller
 
         $optionValues = DB::table('product_variation_values as pov')
             ->join('variation_type_descriptions as od', function ($j) use ($langId) {
-                $j->on('pov.option_id', '=', 'od.option_id')
+                $j->on('pov.variation_type_id', '=', 'od.variation_type_id')
                     ->where('od.language_id', '=', $langId);
             })
             ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
-                $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+                $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')
                     ->where('ovd.language_id', '=', $langId);
             })
             ->where('pov.product_id', $id)
             ->select(
-                'pov.product_option_value_id',
+                'pov.product_variation_value_id',
                 'od.name as option_name',
                 'ovd.name as option_value_name',
                 'pov.quantity'
@@ -131,7 +131,7 @@ class ProductController extends Controller
             'has_options'  => $hasOptions,
             'quantity'     => (int) $product->quantity,
             'options'      => $hasOptions ? $optionValues->map(fn ($row) => [
-                'product_option_value_id' => (int) $row->product_option_value_id,
+                'product_variation_value_id' => (int) $row->product_variation_value_id,
                 'option_name'             => (string) $row->option_name,
                 'option_value_name'       => (string) $row->option_value_name,
                 'quantity'                => (int) $row->quantity,
@@ -168,22 +168,22 @@ class ProductController extends Controller
         if ($hasOptions) {
             $request->validate([
                 'options'            => 'required|array|min:1',
-                'options.*.product_option_value_id' => 'required|integer',
+                'options.*.product_variation_value_id' => 'required|integer',
                 'options.*.quantity'  => 'required|integer|min:0',
             ]);
 
             $totalQty = 0;
             foreach ($request->input('options') as $opt) {
-                $povId = (int) $opt['product_option_value_id'];
+                $povId = (int) $opt['product_variation_value_id'];
                 $qty = (int) $opt['quantity'];
 
                 $oldOptQty = (int) DB::table('product_variation_values')
-                    ->where('product_option_value_id', $povId)
+                    ->where('product_variation_value_id', $povId)
                     ->where('product_id', $id)
                     ->value('quantity');
 
                 DB::table('product_variation_values')
-                    ->where('product_option_value_id', $povId)
+                    ->where('product_variation_value_id', $povId)
                     ->where('product_id', $id)
                     ->update(['quantity' => $qty]);
 
@@ -211,15 +211,15 @@ class ProductController extends Controller
                 }
 
                 $linkedComboIds = DB::table('product_variation_parts')
-                    ->where('product_option_value_id', $povId)
-                    ->pluck('combination_id');
+                    ->where('product_variation_value_id', $povId)
+                    ->pluck('product_variation_id');
 
                 if ($linkedComboIds->isNotEmpty()) {
                     $singleValueComboIds = DB::table('product_variation_parts')
-                        ->whereIn('combination_id', $linkedComboIds)
-                        ->groupBy('combination_id')
+                        ->whereIn('product_variation_id', $linkedComboIds)
+                        ->groupBy('product_variation_id')
                         ->havingRaw('COUNT(*) = 1')
-                        ->pluck('combination_id');
+                        ->pluck('product_variation_id');
 
                     if ($singleValueComboIds->isNotEmpty()) {
                         DB::table('product_variations')

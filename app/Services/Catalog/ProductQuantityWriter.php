@@ -86,7 +86,7 @@ final class ProductQuantityWriter
         $parentBefore = (int) $product->quantity;
 
         $valueIds = DB::table('product_variation_parts')
-            ->where('combination_id', $combo->id)->pluck('product_option_value_id');
+            ->where('product_variation_id', $combo->id)->pluck('product_variation_value_id');
         $lonePovId = $valueIds->count() === 1 ? (int) $valueIds->first() : null;
 
         $parentAfter = DB::transaction(function () use ($combo, $after, $lonePovId, $product) {
@@ -95,7 +95,7 @@ final class ProductQuantityWriter
 
             if ($lonePovId !== null) {
                 DB::table('product_variation_values')
-                    ->where('product_option_value_id', $lonePovId)
+                    ->where('product_variation_value_id', $lonePovId)
                     ->where('product_id', $product->product_id)
                     ->update(['quantity' => $after]);
             }

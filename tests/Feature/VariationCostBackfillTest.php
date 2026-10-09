@@ -30,7 +30,7 @@ class VariationCostBackfillTest extends TestCase
         ]);
         $optionId = DB::table('variation_types')->insertGetId(['type' => 'select', 'sort_order' => 0]);
         $productOptionId = DB::table('product_variation_types')->insertGetId([
-            'product_id' => $this->productId, 'option_id' => $optionId, 'value' => '', 'required' => 0,
+            'product_id' => $this->productId, 'variation_type_id' => $optionId, 'value' => '', 'required' => 0,
         ]);
 
         $rows = [
@@ -40,10 +40,10 @@ class VariationCostBackfillTest extends TestCase
             'old'   => ['absolute_price' => 21990, 'cost_amount' => 0, 'cost_additional' => 0, 'absolute_cost' => 9800, 'cost' => 0],
         ];
         foreach ($rows as $key => $cols) {
-            $ovId = DB::table('variation_values')->insertGetId(['option_id' => $optionId, 'image' => '', 'sort_order' => 0]);
+            $ovId = DB::table('variation_values')->insertGetId(['variation_type_id' => $optionId, 'image' => '', 'sort_order' => 0]);
             $this->pov[$key] = DB::table('product_variation_values')->insertGetId(array_merge([
-                'product_option_id' => $productOptionId, 'product_id' => $this->productId,
-                'option_id' => $optionId, 'option_value_id' => $ovId, 'sku' => 'gp-' . $key, 'quantity' => 0,
+                'product_variation_type_id' => $productOptionId, 'product_id' => $this->productId,
+                'variation_type_id' => $optionId, 'variation_value_id' => $ovId, 'sku' => 'gp-' . $key, 'quantity' => 0,
                 'cost_percentage' => 0, 'cost_prefix' => '+',
             ], $cols));
             $this->combo[$key] = DB::table('product_variations')->insertGetId([
@@ -53,7 +53,7 @@ class VariationCostBackfillTest extends TestCase
                 'subtract' => 1, 'sort_order' => 0, 'created_at' => now(), 'updated_at' => now(),
             ]);
             DB::table('product_variation_parts')->insert([
-                'combination_id' => $this->combo[$key], 'product_option_value_id' => $this->pov[$key],
+                'product_variation_id' => $this->combo[$key], 'product_variation_value_id' => $this->pov[$key],
             ]);
         }
     }
@@ -65,27 +65,27 @@ class VariationCostBackfillTest extends TestCase
             ->expectsOutputToContain('would change')
             ->assertSuccessful();
 
-        $this->assertEquals(220, DB::table('product_variation_values')->where('product_option_value_id', $this->pov['red'])->value('absolute_cost'));
+        $this->assertEquals(220, DB::table('product_variation_values')->where('product_variation_value_id', $this->pov['red'])->value('absolute_cost'));
     }
 
     public function test_it_gives_the_parent_amount_and_additional_and_composes_the_unit_cost(): void
     {
         $this->artisan('catalog:backfill-variation-costs', ['--apply' => true])->assertSuccessful();
 
-        $red = DB::table('product_variation_values')->where('product_option_value_id', $this->pov['red'])->first();
+        $red = DB::table('product_variation_values')->where('product_variation_value_id', $this->pov['red'])->first();
         $this->assertEquals(10000, $red->cost_amount);
         $this->assertEquals(220, $red->cost_additional);
         $this->assertEquals(10220, $red->absolute_cost, 'overhead-only becomes the parent\'s 10,000 + 220');
 
-        $black = DB::table('product_variation_values')->where('product_option_value_id', $this->pov['black'])->first();
+        $black = DB::table('product_variation_values')->where('product_variation_value_id', $this->pov['black'])->first();
         $this->assertEquals(10220, $black->absolute_cost, 'an amount without an absolute is composed');
         $this->assertEquals(0, $black->cost, 'the delta column is cleared of the PO total');
 
-        $gold = DB::table('product_variation_values')->where('product_option_value_id', $this->pov['gold'])->first();
+        $gold = DB::table('product_variation_values')->where('product_variation_value_id', $this->pov['gold'])->first();
         $this->assertEquals(12000, $gold->cost_amount, 'a variation with its own amount keeps it');
         $this->assertEquals(12220, $gold->absolute_cost);
 
-        $old = DB::table('product_variation_values')->where('product_option_value_id', $this->pov['old'])->first();
+        $old = DB::table('product_variation_values')->where('product_variation_value_id', $this->pov['old'])->first();
         $this->assertEquals(9800, $old->absolute_cost, 'a cost typed before the formula is the variation\'s own and is kept');
 
         $combos = DB::table('product_variations')->where('product_id', $this->productId)->get()->keyBy('sku');
@@ -98,10 +98,10 @@ class VariationCostBackfillTest extends TestCase
     {
         $this->artisan('catalog:backfill-variation-costs', ['--apply' => true, '--overwrite' => true])->assertSuccessful();
 
-        $gold = DB::table('product_variation_values')->where('product_option_value_id', $this->pov['gold'])->first();
+        $gold = DB::table('product_variation_values')->where('product_variation_value_id', $this->pov['gold'])->first();
         $this->assertEquals(10000, $gold->cost_amount);
         $this->assertEquals(10220, $gold->absolute_cost, 'the percentage is 0, so the dearer price changes nothing');
-        $this->assertEquals(10220, DB::table('product_variation_values')->where('product_option_value_id', $this->pov['old'])->value('absolute_cost'));
+        $this->assertEquals(10220, DB::table('product_variation_values')->where('product_variation_value_id', $this->pov['old'])->value('absolute_cost'));
     }
 
     public function test_the_order_backfill_then_reads_the_repaired_figure(): void

@@ -406,22 +406,22 @@ class ShopeeProductGroupController extends Controller
         }
 
         $values = DB::table('product_variation_parts as pocv')
-            ->join('product_variation_values as pov', 'pocv.product_option_value_id', '=', 'pov.product_option_value_id')
+            ->join('product_variation_values as pov', 'pocv.product_variation_value_id', '=', 'pov.product_variation_value_id')
             ->join('variation_type_descriptions as od', function ($j) use ($langId) {
-                $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
+                $j->on('pov.variation_type_id', '=', 'od.variation_type_id')->where('od.language_id', '=', $langId);
             })
             ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
-                $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
+                $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')->where('ovd.language_id', '=', $langId);
             })
-            ->whereIn('pocv.combination_id', $combos->pluck('id')->all())
+            ->whereIn('pocv.product_variation_id', $combos->pluck('id')->all())
             ->select(
-                'pocv.combination_id',
-                'pov.option_id',
+                'pocv.product_variation_id',
+                'pov.variation_type_id',
                 'od.name as option_name',
                 'ovd.name as value_name'
             )
-            ->orderBy('pocv.combination_id')
-            ->orderBy('pov.option_id')
+            ->orderBy('pocv.product_variation_id')
+            ->orderBy('pov.variation_type_id')
             ->get();
         if ($values->isEmpty()) {
             return ['tier_variation' => [], 'models' => []];
@@ -431,7 +431,7 @@ class ShopeeProductGroupController extends Controller
         $optionNameById = [];
         $valuesByOption = [];
         foreach ($values as $v) {
-            $oid = (int) $v->option_id;
+            $oid = (int) $v->variation_type_id;
             if (!in_array($oid, $orderedOptionIds, true)) {
                 $orderedOptionIds[] = $oid;
                 $optionNameById[$oid] = (string) $v->option_name;
@@ -453,7 +453,7 @@ class ShopeeProductGroupController extends Controller
 
         $valuesByCombo = [];
         foreach ($values as $v) {
-            $valuesByCombo[(int) $v->combination_id][(int) $v->option_id] = (string) $v->value_name;
+            $valuesByCombo[(int) $v->product_variation_id][(int) $v->variation_type_id] = (string) $v->value_name;
         }
 
         $models = [];

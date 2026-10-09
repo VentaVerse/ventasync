@@ -1314,10 +1314,10 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
                         ->where('product_id', (int) $listing->product_id)
                         ->whereNotNull('sku')
                         ->where('sku', '!=', '')
-                        ->get(['product_option_value_id', 'sku']);
+                        ->get(['product_variation_value_id', 'sku']);
                     $skuToPovId = [];
                     foreach ($erpPovRows as $epov) {
-                        $skuToPovId[trim((string) $epov->sku)] = (int) $epov->product_option_value_id;
+                        $skuToPovId[trim((string) $epov->sku)] = (int) $epov->product_variation_value_id;
                     }
 
                     foreach ($skuList as $row) {
@@ -1334,7 +1334,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
                         $existingVariant = \Extensions\Lazada\Models\LazadaListingVariation::where('lazada_listing_id', $listing->id)
                             ->where('seller_sku', (string) $sellerSku)
                             ->first();
-                        $povId = $existingVariant->product_option_value_id ?? null;
+                        $povId = $existingVariant->product_variation_value_id ?? null;
 
                         if ($povId === null) {
                             $povId = $skuToPovId[(string) $sellerSku] ?? null;
@@ -1355,7 +1355,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
                                     'seller_sku' => (string) $sellerSku,
                                 ],
                                 [
-                                    'product_option_value_id' => $povId,
+                                    'product_variation_value_id' => $povId,
                                     'shop_sku' => $shopSku ? (string) $shopSku : null,
                                     'sku_id' => $skuId !== null ? (int) $skuId : null,
                                 ]
@@ -2089,19 +2089,19 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
         $variants = DB::table('product_variation_values as pov')
             ->leftJoin('variation_type_descriptions as od', function ($j) use ($langId) {
-                $j->on('pov.option_id', '=', 'od.option_id')
+                $j->on('pov.variation_type_id', '=', 'od.variation_type_id')
                     ->where('od.language_id', '=', $langId);
             })
             ->leftJoin('variation_value_descriptions as ovd', function ($j) use ($langId) {
-                $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+                $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')
                     ->where('ovd.language_id', '=', $langId);
             })
             ->where('pov.product_id', (int)$listing->product_id)
-            ->orderBy('pov.product_option_value_id')
+            ->orderBy('pov.product_variation_value_id')
             ->get([
-                'pov.product_option_value_id',
-                'pov.option_id',
-                'pov.option_value_id',
+                'pov.product_variation_value_id',
+                'pov.variation_type_id',
+                'pov.variation_value_id',
                 'pov.sku',
                 'pov.quantity',
                 'pov.absolute_price',
@@ -2113,7 +2113,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             ->where('lazada_listing_id', $listing->id)
             ->get()
             ->keyBy(function ($v) {
-                return $v->product_option_value_id === null ? 'base' : (string)$v->product_option_value_id;
+                return $v->product_variation_value_id === null ? 'base' : (string)$v->product_variation_value_id;
             });
 
         $sheet = $this->attributeSheet($listing, $attributes);
@@ -2860,7 +2860,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                 LazadaListingVariation::query()->updateOrCreate(
                     [
                         'lazada_listing_id' => $listing->id,
-                        'product_option_value_id' => ctype_digit($povId) ? (int) $povId : null,
+                        'product_variation_value_id' => ctype_digit($povId) ? (int) $povId : null,
                     ],
                     [
                         'price' => isset($row['price']) && $row['price'] !== '' ? (float) $row['price'] : null,

@@ -82,11 +82,11 @@ class ProductFormVariationsCreateTest extends TestCase
         $this->assertSame([1, 0], $combos->pluck('status')->map(fn ($s) => (int) $s)->all());
         $this->assertEqualsWithDelta(255, (float) $combos[0]->absolute_cost, 0.0001);
         foreach ($combos as $combo) {
-            $this->assertSame(1, DB::table('product_variation_parts')->where('combination_id', $combo->id)->count());
+            $this->assertSame(1, DB::table('product_variation_parts')->where('product_variation_id', $combo->id)->count());
         }
 
-        $optionId = (int) $povs['FORM-TEE-S']->option_id;
-        $this->assertSame('Size', DB::table('variation_type_descriptions')->where('option_id', $optionId)->value('name'));
+        $optionId = (int) $povs['FORM-TEE-S']->variation_type_id;
+        $this->assertSame('Size', DB::table('variation_type_descriptions')->where('variation_type_id', $optionId)->value('name'));
     }
 
     public function test_the_form_saves_two_variation_types_as_before(): void
@@ -115,7 +115,7 @@ class ProductFormVariationsCreateTest extends TestCase
         $this->assertEqualsWithDelta(255, (float) $combos['FT-S-B']->absolute_cost, 0.0001);
         $this->assertEqualsWithDelta(260, (float) $combos['FT-L-B']->absolute_cost, 0.0001, 'a typed 0 additional is a real 0');
         foreach ($combos as $combo) {
-            $this->assertSame(2, DB::table('product_variation_parts')->where('combination_id', $combo->id)->count());
+            $this->assertSame(2, DB::table('product_variation_parts')->where('product_variation_id', $combo->id)->count());
         }
 
         $povs = DB::table('product_variation_values')->where('product_id', $id)->get();
