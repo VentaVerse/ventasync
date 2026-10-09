@@ -52,7 +52,7 @@
     display: grid;
     grid-template-columns:
         minmax(0, 1fr)  /* option / variation */
-        130px           /* vendor sku */
+        130px           /* supplier sku */
         72px            /* min qty */
         88px            /* currency */
         118px           /* unit price */
@@ -129,7 +129,7 @@
     flex-wrap: wrap;
 }
 
-.po-mx-simple__vendor { flex: 1 1 220px; min-width: 0; }
+.po-mx-simple__supplier { flex: 1 1 220px; min-width: 0; }
 .po-mx-simple__field { flex: 0 0 auto; }
 .po-mx-simple__field .po-in { width: 118px; }
 .po-mx-simple__field--qty .po-in { width: 76px; }
@@ -147,10 +147,10 @@
     display: grid;
     grid-template-columns:
         minmax(0, 1fr)  /* variation */
-        170px           /* vendor */
+        170px           /* supplier */
         88px            /* currency */
         72px            /* min qty */
-        130px           /* vendor sku */
+        130px           /* supplier sku */
         118px;
     gap: var(--bl-space-2);
     align-items: center;
@@ -166,7 +166,7 @@
 
 .po-mx-opt-row + .po-mx-opt-row { border-top: 1px solid var(--bl-rule); }
 
-.po-mx-opt-row.is-vendor-break { border-top: 1px solid var(--bl-rule-2); }
+.po-mx-opt-row.is-supplier-break { border-top: 1px solid var(--bl-rule-2); }
 
 .po-mx-opt-row__what { min-width: 0; }
 .po-mx-opt-row__name { font-size: 13px; color: var(--bl-ink); }

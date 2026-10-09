@@ -73,7 +73,7 @@ class ProductFormAccessibilityTest extends TestCase
         $this->assertStringContainsString(
             '.note-editor .note-editing-area .note-editable:focus',
             $css,
-            'the ring must mirror the vendor chain, or it ties on specificity and loses on order'
+            'the ring must mirror the supplier chain, or it ties on specificity and loses on order'
         );
     }
 }

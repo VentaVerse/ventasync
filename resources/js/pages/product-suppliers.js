@@ -32,7 +32,7 @@ function el(tag, className, attrs) {
     return node;
 }
 
-export default function initProductVendors(root) {
+export default function initProductSuppliers(root) {
     const flash = root.querySelector('[data-po-mx-flash]');
     const list = root.querySelector('[data-po-mx-list]');
 
@@ -40,7 +40,7 @@ export default function initProductVendors(root) {
     const bulkUrl = root.dataset.bulkUrl;
     const bulkDeleteUrl = root.dataset.bulkDeleteUrl;
     const rowUrlTemplate = root.dataset.rowUrl;
-    const vendorLookupUrl = root.dataset.vendorLookupUrl;
+    const supplierLookupUrl = root.dataset.supplierLookupUrl;
     const defaultCurrency = root.dataset.defaultCurrency || '';
 
     let currencies = [];
@@ -93,7 +93,7 @@ export default function initProductVendors(root) {
         return (res.data && (res.data.error || res.data.message)) || fallback;
     }
 
-    function vendorTypeahead(input, hidden, listEl, onPick) {
+    function supplierTypeahead(input, hidden, listEl, onPick) {
         if (!input || !hidden || !listEl) return;
 
         let timer = null;
@@ -108,7 +108,7 @@ export default function initProductVendors(root) {
 
             if (!items.length) {
                 const empty = el('div', 'po-ta__empty');
-                empty.textContent = 'No vendors found';
+                empty.textContent = 'No suppliers found';
                 listEl.appendChild(empty);
                 listEl.classList.add('is-open');
                 return;
@@ -131,7 +131,7 @@ export default function initProductVendors(root) {
         }
 
         function search(q) {
-            fetch(vendorLookupUrl + (vendorLookupUrl.indexOf('?') === -1 ? '?' : '&') + 'q=' + encodeURIComponent(q), {
+            fetch(supplierLookupUrl + (supplierLookupUrl.indexOf('?') === -1 ? '?' : '&') + 'q=' + encodeURIComponent(q), {
                 headers: { Accept: 'application/json' },
             })
                 .then(function (r) { return r.ok ? r.json() : []; })
@@ -173,9 +173,9 @@ export default function initProductVendors(root) {
 
         const empty = el('div', 'x-empty', { 'data-po-mx-empty': '' });
         const title = el('p', 'x-empty__title');
-        title.textContent = 'No vendors linked yet';
+        title.textContent = 'No suppliers linked yet';
         const desc = el('p', 'x-empty__desc');
-        desc.textContent = 'Link a vendor below to record what you pay for this product.';
+        desc.textContent = 'Link a supplier below to record what you pay for this product.';
         empty.appendChild(title);
         empty.appendChild(desc);
         list.appendChild(empty);
@@ -197,7 +197,7 @@ export default function initProductVendors(root) {
                 clearSay();
 
                 json(rowUrl(id), 'PUT', {
-                    vendor_sku: row.querySelector('[data-po-mx-sku]').value || null,
+                    supplier_sku: row.querySelector('[data-po-mx-sku]').value || null,
                     min_qty: parseInt(row.querySelector('[data-po-mx-qty]').value, 10) || 1,
                     currency_code: row.querySelector('[data-po-mx-currency]').value,
                     unit_price: parseFloat(row.querySelector('[data-po-mx-price]').value) || 0,
@@ -279,14 +279,14 @@ export default function initProductVendors(root) {
                 return;
             }
 
-            const removeVendor = e.target.closest('[data-po-mx-remove-vendor]');
-            if (removeVendor) {
-                const group = groupOf(removeVendor);
+            const removeSupplier = e.target.closest('[data-po-mx-remove-supplier]');
+            if (removeSupplier) {
+                const group = groupOf(removeSupplier);
                 const name = group.querySelector('.po-mx-group__name').textContent;
                 window.confirmModal('Remove every price for ' + name + '?').then(function (ok) {
                     if (!ok) return;
                     clearSay();
-                    json(bulkDeleteUrl, 'DELETE', { vendor_id: parseInt(group.dataset.poMxGroup, 10) }).then(function (res) {
+                    json(bulkDeleteUrl, 'DELETE', { supplier_id: parseInt(group.dataset.poMxGroup, 10) }).then(function (res) {
                         if (!res.ok) {
                             say(apiError(res, 'Those prices could not be removed.'), 'fail');
                             return;
@@ -324,21 +324,21 @@ export default function initProductVendors(root) {
 
     const addBtn = root.querySelector('[data-po-mx-add]');
     if (addBtn) {
-        const vendorInput = root.querySelector('.po-mx-simple [data-po-vendor-input]');
-        const vendorHidden = root.querySelector('.po-mx-simple [data-po-vendor-id]');
-        const vendorList = root.querySelector('.po-mx-simple [data-po-vendor-list]');
+        const supplierInput = root.querySelector('.po-mx-simple [data-po-supplier-input]');
+        const supplierHidden = root.querySelector('.po-mx-simple [data-po-supplier-id]');
+        const supplierList = root.querySelector('.po-mx-simple [data-po-supplier-list]');
         const skuField = root.querySelector('[data-po-mx-new-sku]');
         const qtyField = root.querySelector('[data-po-mx-new-qty]');
         const curField = root.querySelector('[data-po-mx-new-currency]');
         const priceField = root.querySelector('[data-po-mx-new-price]');
 
-        vendorTypeahead(vendorInput, vendorHidden, vendorList, function (v) {
+        supplierTypeahead(supplierInput, supplierHidden, supplierList, function (v) {
             if (v.currency_code && curField) curField.value = v.currency_code;
         });
 
         addBtn.addEventListener('click', function () {
-            if (!vendorHidden.value) {
-                say('Pick a vendor from the list first.', 'fail');
+            if (!supplierHidden.value) {
+                say('Pick a supplier from the list first.', 'fail');
                 return;
             }
 
@@ -346,8 +346,8 @@ export default function initProductVendors(root) {
             addBtn.disabled = true;
 
             json(createUrl, 'POST', {
-                vendor_id: parseInt(vendorHidden.value, 10),
-                vendor_sku: skuField.value || null,
+                supplier_id: parseInt(supplierHidden.value, 10),
+                supplier_sku: skuField.value || null,
                 min_qty: parseInt(qtyField.value, 10) || 1,
                 currency_code: curField.value,
                 unit_price: parseFloat(priceField.value) || 0,
@@ -355,14 +355,14 @@ export default function initProductVendors(root) {
                 .then(function (res) {
                     addBtn.disabled = false;
                     if (!res.ok) {
-                        say(apiError(res, 'That vendor could not be linked.'), 'fail');
+                        say(apiError(res, 'That supplier could not be linked.'), 'fail');
                         return;
                     }
                     window.location.reload();
                 })
                 .catch(function () {
                     addBtn.disabled = false;
-                    say('That vendor could not be linked. Check your connection and try again.', 'fail');
+                    say('That supplier could not be linked. Check your connection and try again.', 'fail');
                 });
         });
     }
@@ -386,19 +386,19 @@ export default function initProductVendors(root) {
                 }
                 row.appendChild(what);
 
-                const vendorCell = el('span', 'po-ta', { 'data-label': 'Vendor' });
-                const vendorInput = el('input', 'po-in', {
-                    type: 'text', autocomplete: 'off', placeholder: 'Search vendors',
-                    'aria-label': 'Vendor for ' + ov.label,
+                const supplierCell = el('span', 'po-ta', { 'data-label': 'Supplier' });
+                const supplierInput = el('input', 'po-in', {
+                    type: 'text', autocomplete: 'off', placeholder: 'Search suppliers',
+                    'aria-label': 'Supplier for ' + ov.label,
                 });
-                const vendorHidden = el('input', '', { type: 'hidden' });
-                const vendorList = el('div', 'po-ta__list');
-                vendorCell.appendChild(vendorInput);
-                vendorCell.appendChild(vendorHidden);
-                vendorCell.appendChild(vendorList);
-                row.appendChild(vendorCell);
-                row.__vendor = vendorHidden;
-                row.__vendorInput = vendorInput;
+                const supplierHidden = el('input', '', { type: 'hidden' });
+                const supplierList = el('div', 'po-ta__list');
+                supplierCell.appendChild(supplierInput);
+                supplierCell.appendChild(supplierHidden);
+                supplierCell.appendChild(supplierList);
+                row.appendChild(supplierCell);
+                row.__supplier = supplierHidden;
+                row.__supplierInput = supplierInput;
 
                 const curCell = el('span', '', { 'data-label': 'Currency' });
                 const cur = el('select', 'po-in', { 'aria-label': 'Currency for ' + ov.label });
@@ -422,10 +422,10 @@ export default function initProductVendors(root) {
                 row.appendChild(qtyCell);
                 row.__qty = qty;
 
-                const skuCell = el('span', '', { 'data-label': 'Vendor SKU' });
+                const skuCell = el('span', '', { 'data-label': 'Supplier SKU' });
                 const sku = el('input', 'po-in po-in--num', {
                     maxlength: '128', value: ov.sku || '',
-                    'aria-label': 'Vendor SKU for ' + ov.label,
+                    'aria-label': 'Supplier SKU for ' + ov.label,
                 });
                 skuCell.appendChild(sku);
                 row.appendChild(skuCell);
@@ -442,20 +442,20 @@ export default function initProductVendors(root) {
 
                 optRows.appendChild(row);
 
-                vendorTypeahead(vendorInput, vendorHidden, vendorList, function (v) {
+                supplierTypeahead(supplierInput, supplierHidden, supplierList, function (v) {
                     if (v.currency_code) cur.value = v.currency_code;
-                    markVendorBreaks();
+                    markSupplierBreaks();
                 });
             });
 
-            markVendorBreaks();
+            markSupplierBreaks();
         }
 
-        function markVendorBreaks() {
+        function markSupplierBreaks() {
             let previous = null;
             optRows.querySelectorAll('[data-po-mx-opt-row]').forEach(function (row) {
-                const vid = row.__vendor.value || null;
-                row.classList.toggle('is-vendor-break', previous !== null && !!vid && vid !== previous);
+                const vid = row.__supplier.value || null;
+                row.classList.toggle('is-supplier-break', previous !== null && !!vid && vid !== previous);
                 if (vid) previous = vid;
             });
         }
@@ -467,19 +467,19 @@ export default function initProductVendors(root) {
                 if (rows.length < 2) return;
 
                 const first = rows[0];
-                if (!first.__vendor.value) {
-                    say('Pick a vendor in the first row before copying it down.', 'fail');
+                if (!first.__supplier.value) {
+                    say('Pick a supplier in the first row before copying it down.', 'fail');
                     return;
                 }
 
                 clearSay();
                 rows.slice(1).forEach(function (row) {
-                    row.__vendor.value = first.__vendor.value;
-                    row.__vendorInput.value = first.__vendorInput.value;
+                    row.__supplier.value = first.__supplier.value;
+                    row.__supplierInput.value = first.__supplierInput.value;
                     row.__currency.value = first.__currency.value;
                     row.__qty.value = first.__qty.value;
                 });
-                markVendorBreaks();
+                markSupplierBreaks();
             });
         }
 
@@ -491,19 +491,19 @@ export default function initProductVendors(root) {
                 const options = [];
 
                 optRows.querySelectorAll('[data-po-mx-opt-row]').forEach(function (row) {
-                    if (!row.__vendor.value) return;
+                    if (!row.__supplier.value) return;
                     options.push({
                         product_option_value_id: parseInt(row.dataset.poMxOptRow, 10),
-                        vendor_id: parseInt(row.__vendor.value, 10),
+                        supplier_id: parseInt(row.__supplier.value, 10),
                         currency_code: row.__currency.value,
                         min_qty: parseInt(row.__qty.value, 10) || 1,
-                        vendor_sku: row.__sku.value || null,
+                        supplier_sku: row.__sku.value || null,
                         unit_price: parseFloat(row.__price.value) || 0,
                     });
                 });
 
                 if (!options.length) {
-                    say('Pick a vendor for at least one variation.', 'fail');
+                    say('Pick a supplier for at least one variation.', 'fail');
                     return;
                 }
 
@@ -514,7 +514,7 @@ export default function initProductVendors(root) {
                     .then(function (res) {
                         bulkBtn.disabled = false;
                         if (!res.ok) {
-                            say(apiError(res, 'Those vendors could not be linked.'), 'fail');
+                            say(apiError(res, 'Those suppliers could not be linked.'), 'fail');
                             return;
                         }
 
@@ -531,7 +531,7 @@ export default function initProductVendors(root) {
                     })
                     .catch(function () {
                         bulkBtn.disabled = false;
-                        say('Those vendors could not be linked. Check your connection and try again.', 'fail');
+                        say('Those suppliers could not be linked. Check your connection and try again.', 'fail');
                     });
             });
         }
@@ -542,5 +542,5 @@ export default function initProductVendors(root) {
 
 document.addEventListener('DOMContentLoaded', function () {
     const root = document.querySelector('[data-po-matrix]');
-    if (root) initProductVendors(root);
+    if (root) initProductSuppliers(root);
 });

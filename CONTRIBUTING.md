@@ -13,7 +13,7 @@ VentaSync uses one word for each idea. The screens use the words a seller uses; 
 | Product Group | `product_group` | A set of listings on one store that share settings. |
 | Variation | `option`, `product_option_value`, `combination` | One sellable version of a product, such as a color or a size. |
 | Brand | `manufacturer` in the Master Catalog, `brand` on channels | Who makes the product. |
-| Vendor | `vendor` | Who the business buys from. |
+| Supplier | `supplier` | Who the business buys from. |
 | Extension | `extensions/<id>/` | A packaged add-on. Every channel is an extension; not every extension is a channel. |
 
 Marketplace ids keep the marketplace's own name, so they match its API documentation: `shopee_model_id`, `tiktok_sku_id`.

@@ -55,7 +55,7 @@ final class ProductDeleter
         return $out;
     }
 
-    public const OWNED_TABLES = ['product_option_value', 'product_option', 'product_image', 'product_special', 'product_vendors'];
+    public const OWNED_TABLES = ['product_option_value', 'product_option', 'product_image', 'product_special', 'product_suppliers'];
 
     public static function forgetOwnedRows(string $pfx, int $productId): void
     {

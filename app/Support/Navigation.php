@@ -38,8 +38,8 @@ class Navigation
             ['label' => 'Purchasing', 'icon' => 'truck', 'items' => [
                 ['label' => 'Purchase Orders', 'route' => 'ext.purchasing.purchase_orders.index',
                  'keywords' => ['po', 'buy', 'restock', 'inbound']],
-                ['label' => 'Vendors', 'route' => 'ext.purchasing.vendors.index',
-                 'keywords' => ['supplier', 'seller', 'source']],
+                ['label' => 'Suppliers', 'route' => 'ext.purchasing.suppliers.index',
+                 'keywords' => ['supplier', 'vendor', 'seller', 'source']],
             ]],
 
             ['label' => 'Warehousing', 'icon' => 'archive', 'items' => [

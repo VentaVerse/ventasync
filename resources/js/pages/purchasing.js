@@ -5,7 +5,7 @@ function fmt(n) {
     });
 }
 
-function vendorTypeahead(input, hidden, list, url, onPick) {
+function supplierTypeahead(input, hidden, list, url, onPick) {
     if (!input || !hidden || !list) return;
 
     let timer = null;
@@ -22,7 +22,7 @@ function vendorTypeahead(input, hidden, list, url, onPick) {
         if (!items.length) {
             const empty = document.createElement('div');
             empty.className = 'po-ta__empty';
-            empty.textContent = 'No vendors found';
+            empty.textContent = 'No suppliers found';
             list.appendChild(empty);
             list.classList.add('is-open');
             return;
@@ -75,13 +75,13 @@ function vendorTypeahead(input, hidden, list, url, onPick) {
 }
 
 function initPoHeader(form) {
-    const vendorInput = form.querySelector('[data-po-vendor-input]');
-    const vendorHidden = form.querySelector('[data-po-vendor-id]');
-    const vendorList = form.querySelector('[data-po-vendor-list]');
+    const supplierInput = form.querySelector('[data-po-supplier-input]');
+    const supplierHidden = form.querySelector('[data-po-supplier-id]');
+    const supplierList = form.querySelector('[data-po-supplier-list]');
     const currency = form.querySelector('[data-po-currency]');
     const rate = form.querySelector('[data-po-rate]');
 
-    vendorTypeahead(vendorInput, vendorHidden, vendorList, form.dataset.vendorLookupUrl, function (v) {
+    supplierTypeahead(supplierInput, supplierHidden, supplierList, form.dataset.supplierLookupUrl, function (v) {
         if (v.currency_code && currency) {
             currency.value = v.currency_code;
             currency.dispatchEvent(new Event('change', { bubbles: true }));
@@ -177,7 +177,7 @@ function initPoLines(form) {
     function buildLine(product) {
         const i = nextIndex++;
         const p = product || {};
-        const vp = p.vendor_price || null;
+        const vp = p.supplier_price || null;
 
         const line = document.createElement('div');
         line.className = 'po-line';
@@ -214,9 +214,9 @@ function initPoLines(form) {
             name: 'items[' + i + '][sku]', maxlength: '128', value: p.sku || '',
         })));
 
-        line.appendChild(cell('Vendor SKU', field('input', 'po-in po-in--num', {
-            name: 'items[' + i + '][vendor_sku]', maxlength: '128',
-            value: (vp && vp.vendor_sku) ? vp.vendor_sku : '',
+        line.appendChild(cell('Supplier SKU', field('input', 'po-in po-in--num', {
+            name: 'items[' + i + '][supplier_sku]', maxlength: '128',
+            value: (vp && vp.supplier_sku) ? vp.supplier_sku : '',
         })));
 
         line.appendChild(cell('Qty', field('input', 'po-in po-in--num', {
@@ -313,8 +313,8 @@ function initPoLines(form) {
             if (q.length < 2) { closeResults(); return; }
 
             searchTimer = setTimeout(function () {
-                const vendorId = (form.querySelector('[data-po-vendor-id]') || {}).value || 0;
-                fetch(searchUrl + '?q=' + encodeURIComponent(q) + '&vendor_id=' + encodeURIComponent(vendorId), {
+                const supplierId = (form.querySelector('[data-po-supplier-id]') || {}).value || 0;
+                fetch(searchUrl + '?q=' + encodeURIComponent(q) + '&supplier_id=' + encodeURIComponent(supplierId), {
                     headers: { Accept: 'application/json' },
                 })
                     .then(function (r) { return r.ok ? r.json() : []; })

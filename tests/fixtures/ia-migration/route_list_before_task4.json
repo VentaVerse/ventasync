@@ -261,6 +261,21 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "api/app/v1/purchasing/supplier-terms",
+        "name": null
+    },
+    {
+        "method": "PUT",
+        "uri": "api/app/v1/purchasing/supplier-terms",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/purchasing/suppliers",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "api/app/v1/purchasing/vendor-terms",
         "name": null
     },
@@ -626,6 +641,21 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "api/purchasing/supplier-terms",
+        "name": null
+    },
+    {
+        "method": "PUT",
+        "uri": "api/purchasing/supplier-terms",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/purchasing/suppliers",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "api/purchasing/vendor-terms",
         "name": null
     },
@@ -787,6 +817,21 @@
     {
         "method": "GET|HEAD",
         "uri": "api/v1/purchasing/sell-through",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/purchasing/supplier-terms",
+        "name": null
+    },
+    {
+        "method": "PUT",
+        "uri": "api/v1/purchasing/supplier-terms",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/purchasing/suppliers",
         "name": null
     },
     {
@@ -1206,8 +1251,13 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "catalog/products/{id}/suppliers",
+        "name": "ext.purchasing.products.suppliers.manage"
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "catalog/products/{id}/vendors",
-        "name": "ext.purchasing.products.vendors.manage"
+        "name": null
     },
     {
         "method": "GET|HEAD",
@@ -4891,38 +4941,38 @@
     },
     {
         "method": "DELETE",
-        "uri": "purchasing/api/products/{id}/vendors",
-        "name": "ext.purchasing.products.vendors.destroy_bulk"
+        "uri": "purchasing/api/products/{id}/suppliers",
+        "name": "ext.purchasing.products.suppliers.destroy_bulk"
     },
     {
         "method": "GET|HEAD",
-        "uri": "purchasing/api/products/{id}/vendors",
-        "name": "ext.purchasing.products.vendors.index"
+        "uri": "purchasing/api/products/{id}/suppliers",
+        "name": "ext.purchasing.products.suppliers.index"
     },
     {
         "method": "POST",
-        "uri": "purchasing/api/products/{id}/vendors",
-        "name": "ext.purchasing.products.vendors.store"
+        "uri": "purchasing/api/products/{id}/suppliers",
+        "name": "ext.purchasing.products.suppliers.store"
     },
     {
         "method": "POST",
-        "uri": "purchasing/api/products/{id}/vendors/bulk",
-        "name": "ext.purchasing.products.vendors.store_bulk"
+        "uri": "purchasing/api/products/{id}/suppliers/bulk",
+        "name": "ext.purchasing.products.suppliers.store_bulk"
     },
     {
         "method": "DELETE",
-        "uri": "purchasing/api/products/{productId}/vendors/{id}",
-        "name": "ext.purchasing.products.vendors.destroy"
+        "uri": "purchasing/api/products/{productId}/suppliers/{id}",
+        "name": "ext.purchasing.products.suppliers.destroy"
     },
     {
         "method": "PUT",
-        "uri": "purchasing/api/products/{productId}/vendors/{id}",
-        "name": "ext.purchasing.products.vendors.update"
+        "uri": "purchasing/api/products/{productId}/suppliers/{id}",
+        "name": "ext.purchasing.products.suppliers.update"
     },
     {
         "method": "PUT",
-        "uri": "purchasing/api/products/{productId}/vendors/{id}/description",
-        "name": "ext.purchasing.products.vendors.update_description"
+        "uri": "purchasing/api/products/{productId}/suppliers/{id}/description",
+        "name": "ext.purchasing.products.suppliers.update_description"
     },
     {
         "method": "GET|HEAD",
@@ -4931,8 +4981,8 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "purchasing/api/vendors",
-        "name": "ext.purchasing.api.vendors"
+        "uri": "purchasing/api/suppliers",
+        "name": "ext.purchasing.api.suppliers"
     },
     {
         "method": "GET|HEAD",
@@ -4996,13 +5046,13 @@
     },
     {
         "method": "POST",
-        "uri": "purchasing/purchase-orders/{id}/email-test",
-        "name": "ext.purchasing.purchase_orders.email_test"
+        "uri": "purchasing/purchase-orders/{id}/email-supplier",
+        "name": "ext.purchasing.purchase_orders.email_supplier"
     },
     {
         "method": "POST",
-        "uri": "purchasing/purchase-orders/{id}/email-vendor",
-        "name": "ext.purchasing.purchase_orders.email_vendor"
+        "uri": "purchasing/purchase-orders/{id}/email-test",
+        "name": "ext.purchasing.purchase_orders.email_test"
     },
     {
         "method": "POST",
@@ -5056,38 +5106,43 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "purchasing/vendors",
-        "name": "ext.purchasing.vendors.index"
+        "uri": "purchasing/suppliers",
+        "name": "ext.purchasing.suppliers.index"
     },
     {
         "method": "POST",
-        "uri": "purchasing/vendors",
-        "name": "ext.purchasing.vendors.store"
+        "uri": "purchasing/suppliers",
+        "name": "ext.purchasing.suppliers.store"
     },
     {
         "method": "POST",
-        "uri": "purchasing/vendors/bulk-delete",
-        "name": "ext.purchasing.vendors.bulk_delete"
+        "uri": "purchasing/suppliers/bulk-delete",
+        "name": "ext.purchasing.suppliers.bulk_delete"
     },
     {
         "method": "GET|HEAD",
-        "uri": "purchasing/vendors/create",
-        "name": "ext.purchasing.vendors.create"
+        "uri": "purchasing/suppliers/create",
+        "name": "ext.purchasing.suppliers.create"
     },
     {
         "method": "DELETE",
-        "uri": "purchasing/vendors/{id}",
-        "name": "ext.purchasing.vendors.destroy"
+        "uri": "purchasing/suppliers/{id}",
+        "name": "ext.purchasing.suppliers.destroy"
     },
     {
         "method": "PUT",
-        "uri": "purchasing/vendors/{id}",
-        "name": "ext.purchasing.vendors.update"
+        "uri": "purchasing/suppliers/{id}",
+        "name": "ext.purchasing.suppliers.update"
     },
     {
         "method": "GET|HEAD",
-        "uri": "purchasing/vendors/{id}/edit",
-        "name": "ext.purchasing.vendors.edit"
+        "uri": "purchasing/suppliers/{id}/edit",
+        "name": "ext.purchasing.suppliers.edit"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "purchasing/vendors/{any?}",
+        "name": null
     },
     {
         "method": "GET|HEAD",
