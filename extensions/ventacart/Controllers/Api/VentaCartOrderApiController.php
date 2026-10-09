@@ -196,7 +196,7 @@ class VentaCartOrderApiController extends Controller
     {
         $placement = VentaCartStatusPlacements::stepFor((int) $order->store_id, trim((string) $order->status)) ?? 'other';
         $step = match ($placement) {
-            'to_pack', 'to_handover', 'cancelled' => $placement,
+            'to_pack', 'to_handover', 'canceled' => $placement,
             'shipping' => 'shipped',
             'delivered' => 'done',
             default => 'other',
@@ -351,7 +351,7 @@ class VentaCartOrderApiController extends Controller
 
         return match ($step) {
             'to_handover', 'shipped', 'done' => AppFulfilment::alreadyDone('This order is already booked.', $this->fresh($order)),
-            'cancelled' => AppFulfilment::refused('This order was cancelled.'),
+            'canceled' => AppFulfilment::refused('This order was canceled.'),
             default => null,
         };
     }

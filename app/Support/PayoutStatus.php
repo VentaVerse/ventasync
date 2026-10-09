@@ -18,7 +18,7 @@ final class PayoutStatus
 
     public const NO_PAYOUT = 'No payout found';
 
-    public const CANCELLED = 'Cancelled';
+    public const CANCELED = 'Canceled';
 
     public const RETURNED = 'Returned';
 
@@ -27,7 +27,7 @@ final class PayoutStatus
     public static function all(): array
     {
         return [self::NOT_SHIPPED, self::IN_TRANSIT, self::RELEASING, self::PAID,
-            self::FAILED, self::NO_PAYOUT, self::CANCELLED, self::RETURNED];
+            self::FAILED, self::NO_PAYOUT, self::CANCELED, self::RETURNED];
     }
 
     public static function lookbackDays(mixed $days): int

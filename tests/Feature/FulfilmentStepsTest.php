@@ -11,12 +11,12 @@ class FulfilmentStepsTest extends TestCase
     public function test_a_channels_own_keys_survive_and_only_the_words_are_shared(): void
     {
         $tabs = FulfilmentSteps::tabs([
-            'CANCELLATION' => 'cancelled',
+            'CANCELLATION' => 'canceled',
             'ALL' => 'all',
         ]);
 
         $this->assertArrayHasKey('CANCELLATION', $tabs);
-        $this->assertSame('Cancelled', $tabs['CANCELLATION']);
+        $this->assertSame('Canceled', $tabs['CANCELLATION']);
     }
 
     public function test_the_strip_comes_out_in_lifecycle_order_however_it_was_declared(): void
@@ -63,7 +63,7 @@ class FulfilmentStepsTest extends TestCase
         ], 'ventacart.orders'));
 
         $this->assertSame('Start Pickup', $ordered[0],
-            'the one step that is somebody\'s move must not sit behind Delivered and Cancelled');
+            'the one step that is somebody\'s move must not sit behind Delivered and Canceled');
         $this->assertSame('Canceled', $ordered[array_key_last($ordered)]);
     }
 
@@ -106,7 +106,7 @@ class FulfilmentStepsTest extends TestCase
         $this->assertSame('to_pack', FulfilmentSteps::stepFor('ventacart.orders', 'Order Processed'));
         $this->assertSame('to_handover', FulfilmentSteps::stepFor('ventacart.orders', 'Order Being Shipped'));
         $this->assertSame('shipping', FulfilmentSteps::stepFor('ventacart.orders', 'In Transit to Manila'));
-        $this->assertSame('cancelled', FulfilmentSteps::stepFor('ventacart.orders', 'Canceled'));
+        $this->assertSame('canceled', FulfilmentSteps::stepFor('ventacart.orders', 'Canceled'));
         $this->assertSame('failed', FulfilmentSteps::stepFor('ventacart.orders', 'Returned'));
     }
 
@@ -130,7 +130,7 @@ class FulfilmentStepsTest extends TestCase
 
             preg_match('/FulfilmentSteps::tabs\(\[(.*?)\]\)/s', $source, $m);
 
-            foreach (['To Ship', 'Cancelled', 'Cancellation', 'Failed Delivery', 'Delivered'] as $word) {
+            foreach (['To Ship', 'Canceled', 'Cancellation', 'Failed Delivery', 'Delivered'] as $word) {
                 if (isset($m[1]) && str_contains($m[1], "'".$word."'")) {
                     $offenders[] = $channel.' (hard-codes "'.$word.'")';
                 }
@@ -139,7 +139,7 @@ class FulfilmentStepsTest extends TestCase
 
         $this->assertSame([], $offenders, sprintf(
             "These channels do not take their step wording from FulfilmentSteps: %s\n\n"
-            ."Map the channel's own key to a shared step ('CANCELLATION' => 'cancelled').\n"
+            ."Map the channel's own key to a shared step ('CANCELLATION' => 'canceled').\n"
             ."The key is the marketplace's filter value and stays; only the word is shared.",
             implode(', ', $offenders)
         ));

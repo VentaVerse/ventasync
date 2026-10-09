@@ -10,7 +10,7 @@ final class StockArrival
 {
     private const WAREHOUSES = \Extensions\Warehousing\Services\WarehouseStockService::class;
 
-    public function locations(): array
+    public function warehouses(): array
     {
         if (! class_exists(self::WAREHOUSES) || ! \Illuminate\Support\Facades\Schema::hasTable('warehouses')) {
             return [];
@@ -35,12 +35,12 @@ final class StockArrival
         }
 
         $before = (int) DB::table($pfx . 'product')->where('product_id', $productId)->value('quantity');
-        $locations = $this->locations();
+        $warehouses = $this->warehouses();
 
-        if ($locations !== []) {
+        if ($warehouses !== []) {
             $warehouse = $warehouseId === null
-                ? ($locations[0]['default'] ? $locations[0] : null)
-                : collect($locations)->firstWhere('id', $warehouseId);
+                ? ($warehouses[0]['default'] ? $warehouses[0] : null)
+                : collect($warehouses)->firstWhere('id', $warehouseId);
             if ($warehouse === null) {
                 throw new RuntimeException($warehouseId === null ? 'there is no default warehouse; name one' : "there is no warehouse {$warehouseId}");
             }

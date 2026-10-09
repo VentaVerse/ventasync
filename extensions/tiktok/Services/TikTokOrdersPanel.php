@@ -65,7 +65,7 @@ class TikTokOrdersPanel
             'IN_TRANSIT'   => 'shipping',
             'DELIVERED'    => 'delivered',
             'COMPLETED'    => 'completed',
-            'CANCELLED'    => 'cancelled',
+            'CANCELLED'    => 'canceled',
         ]);
 
         $defaultDir = ($tab === 'TO_SHIP') ? 'asc' : 'desc';

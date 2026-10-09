@@ -133,7 +133,7 @@ class LazadaController extends Controller
             'lost_by_3pl'     => 'Lost by 3PL',
             'damaged_by_3pl'  => 'Damaged by 3PL',
             'canceled'        => 'Canceled',
-            'cancelled'       => 'Cancelled',
+            'cancelled'       => 'Canceled',
         ];
 
         $reverseStatuses = [
@@ -149,7 +149,7 @@ class LazadaController extends Controller
             'refund_paid'         => 'Refund Issued',
             'closed'              => 'Closed',
             'rejected'            => 'Rejected',
-            'cancelled'           => 'Cancelled',
+            'cancelled'           => 'Canceled',
         ];
 
         $reverseStatusMap = \Extensions\Lazada\Models\LazadaOrderStatusMap::where('context', 'return')

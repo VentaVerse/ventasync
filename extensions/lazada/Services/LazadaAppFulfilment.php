@@ -28,7 +28,7 @@ final class LazadaAppFulfilment
             'ready_to_ship' => ['to_handover', [], ['awb', 'tracking']],
             'shipped' => ['shipped', [], ['tracking']],
             'delivered' => ['done', [], []],
-            'canceled', 'cancelled' => ['cancelled', [], []],
+            'canceled', 'cancelled' => ['canceled', [], []],
             default => ['other', [], []],
         };
 

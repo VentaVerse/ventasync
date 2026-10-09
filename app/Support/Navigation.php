@@ -44,10 +44,10 @@ class Navigation
 
             ['label' => 'Warehousing', 'icon' => 'archive', 'items' => [
                 ['label' => 'Transfers', 'route' => 'ext.warehousing.transfers.index',
-                 'keywords' => ['move', 'stock transfer', 'location']],
+                 'keywords' => ['move', 'stock transfer', 'warehouse']],
                 ['label' => 'Inventory', 'route' => 'ext.warehousing.inventory.index',
                  'keywords' => ['stock', 'quantity', 'count', 'adjust']],
-                ['label' => 'Locations', 'route' => 'ext.warehousing.locations.index',
+                ['label' => 'Warehouses', 'route' => 'ext.warehousing.warehouses.index',
                  'keywords' => ['warehouse', 'branch', 'store']],
             ]],
 

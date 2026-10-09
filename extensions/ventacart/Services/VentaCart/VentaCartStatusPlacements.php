@@ -20,7 +20,7 @@ class VentaCartStatusPlacements
         'failed' => 'failed',
         'lost_damaged' => 'failed',
         'delivered' => 'delivered',
-        'cancelled' => 'cancelled',
+        'cancelled' => 'canceled',
     ];
 
     private static array $memo = [];

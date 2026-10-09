@@ -1047,7 +1047,7 @@ class LazadaOrderController extends Controller
 
         return match ($status) {
             'ready_to_ship', 'shipped', 'delivered' => 'This order is already ready to ship.',
-            'canceled', 'cancelled' => 'This order was cancelled.',
+            'canceled', 'cancelled' => 'This order was canceled.',
             default => null,
         };
     }
@@ -1597,7 +1597,7 @@ public function reset(Request $request)
     if (!Hash::check($request->input('password'), auth()->user()->password)) {
         return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
             'ok' => false,
-            'message' => 'Incorrect password. Reset cancelled.',
+            'message' => 'Incorrect password. Reset canceled.',
         ]);
     }
 

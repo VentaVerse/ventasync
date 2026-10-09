@@ -342,7 +342,7 @@ class VentaCartFulfilmentTest extends TestCase
 
         $this->assertStringContainsString(route('ext.ventacart.orders.awb', [$store->id, $booked->id]), $handover);
         $this->assertStringContainsString('btnVentaTracking', $handover);
-        $this->assertStringContainsString('data-busy="Cancelling the booking"', $handover);
+        $this->assertStringContainsString('data-busy="Canceling the booking"', $handover);
         $this->assertStringContainsString('SPX Express', $handover);
         $this->assertStringContainsString('SPX0002', $handover);
         $this->assertStringNotContainsString('btnVentaBook', $handover);

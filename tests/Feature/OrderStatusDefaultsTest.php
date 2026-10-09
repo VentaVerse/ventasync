@@ -31,7 +31,7 @@ class OrderStatusDefaultsTest extends TestCase
     {
         $statuses = $this->statuses();
 
-        foreach (['Cancelled', 'Denied', 'Reversed', 'Failed'] as $name) {
+        foreach (['Canceled', 'Denied', 'Reversed', 'Failed'] as $name) {
             $this->assertSame(0, $statuses[$name] ?? null, $name . ' returns the stock');
         }
     }

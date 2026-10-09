@@ -430,7 +430,7 @@ class TikTokWorkspaceTest extends TestCase
             'IN_TRANSIT'          => ['info', 'Shipped'],
             'DELIVERED'           => ['success', 'Delivered'],
             'COMPLETED'           => ['success', 'Completed'],
-            'CANCELLED'           => ['danger', 'Cancelled'],
+            'CANCELLED'           => ['danger', 'Canceled'],
         ];
 
         foreach ($expected as $status => [$tone, $label]) {

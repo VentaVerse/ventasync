@@ -84,7 +84,7 @@ class VentaCartOrdersPanelTest extends TestCase
         $response->assertOk();
         $strip = $this->strip($response->getContent());
 
-        foreach (['All', 'Unpaid', 'To Ship', 'Shipping', 'Delivered', 'Cancelled', 'Failed Delivery'] as $label) {
+        foreach (['All', 'Unpaid', 'To Ship', 'Shipping', 'Delivered', 'Canceled', 'Failed Delivery'] as $label) {
             $this->assertStringContainsString('<span>' . $label . '</span>', $strip, $label . ' is missing from the strip');
         }
 

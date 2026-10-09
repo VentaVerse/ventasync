@@ -86,7 +86,7 @@ class TikTokController extends Controller
             'IN_TRANSIT'          => 'In Transit',
             'DELIVERED'           => 'Delivered',
             'COMPLETED'           => 'Completed',
-            'CANCELLED'           => 'Cancelled',
+            'CANCELLED'           => 'Canceled',
         ];
 
         $tikTokReturnStatuses = [];

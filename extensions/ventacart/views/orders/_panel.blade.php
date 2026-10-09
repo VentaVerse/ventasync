@@ -455,7 +455,7 @@
                     @elseif($vtIsToHandover)
                         <form method="POST" action="{{ route('ext.ventacart.orders.cancel_booking', [$storeId, $o->id]) }}"
                               data-confirm="Cancel the courier booking for order {{ $vtNumber }}? The courier is told not to collect it and the order goes back to To Pack."
-                              data-busy="Cancelling the booking">
+                              data-busy="Canceling the booking">
                             @csrf
                             <x-ui.button type="submit" variant="secondary" size="sm">Cancel booking</x-ui.button>
                         </form>

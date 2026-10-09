@@ -25,7 +25,7 @@ final class TikTokAppFulfilment
             'AWAITING_COLLECTION' => ['to_handover', [], ['awb', 'tracking']],
             'IN_TRANSIT' => ['shipped', [], ['tracking']],
             'DELIVERED', 'COMPLETED' => ['done', [], []],
-            'CANCELLED' => ['cancelled', [], []],
+            'CANCELLED' => ['canceled', [], []],
             default => ['other', [], []],
         };
 

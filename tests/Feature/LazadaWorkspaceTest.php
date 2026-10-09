@@ -454,7 +454,7 @@ class LazadaWorkspaceTest extends TestCase
             'To hand over' => 'info',
             'Shipped' => 'info',
             'Delivered' => 'success',
-            'Cancelled' => 'danger',
+            'Canceled' => 'danger',
             'Delivery failed' => 'danger',
         ];
         ksort($expected);

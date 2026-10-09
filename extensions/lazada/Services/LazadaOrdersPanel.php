@@ -108,7 +108,7 @@ class LazadaOrdersPanel
             'TO_SHIP'         => 'to_ship',
             'SHIPPING'        => 'shipping',
             'DELIVERED'       => 'delivered',
-            'CANCELLATION'    => 'cancelled',
+            'CANCELLATION'    => 'canceled',
             'FAILED_DELIVERY' => 'failed',
         ]);
 

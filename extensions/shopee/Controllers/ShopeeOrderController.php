@@ -1135,7 +1135,7 @@ class ShopeeOrderController extends Controller
         if (!Hash::check($request->input('password'), auth()->user()->password)) {
             return redirect()->route('ext.shopee.orders.index')->with('shopee_orders_last_result', [
                 'ok' => false,
-                'message' => 'Incorrect password. Reset cancelled.',
+                'message' => 'Incorrect password. Reset canceled.',
             ]);
         }
 

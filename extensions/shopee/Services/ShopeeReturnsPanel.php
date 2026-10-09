@@ -58,7 +58,7 @@ class ShopeeReturnsPanel
             'ACCEPTED'  => 'Accepted',
             'REFUND'    => 'Refunded',
             'DISPUTE'   => 'Disputed',
-            'CLOSED'    => 'Closed or cancelled',
+            'CLOSED'    => 'Closed or canceled',
         ];
 
         if (!array_key_exists($tab, $tabs)) {

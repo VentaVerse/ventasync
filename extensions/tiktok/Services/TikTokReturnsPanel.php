@@ -33,7 +33,7 @@ class TikTokReturnsPanel
         'BUYER_SHIPPED_ITEM' => ['Package on its way back', 'info'],
         'RETURN_OR_REFUND_REQUEST_SUCCESS' => ['Approved', 'success'],
         'RETURN_OR_REFUND_REQUEST_COMPLETE' => ['Refunded', 'success'],
-        'RETURN_OR_REFUND_REQUEST_CANCEL' => ['Cancelled by buyer', 'neutral'],
+        'RETURN_OR_REFUND_REQUEST_CANCEL' => ['Canceled by buyer', 'neutral'],
     ];
 
     public const TYPE_MAP = [

@@ -43,7 +43,7 @@ class VentaCartOrdersPanel
             'TO_SHIP'         => 'to_ship',
             'SHIPPING'        => 'shipping',
             'DELIVERED'       => 'delivered',
-            'CANCELLED'       => 'cancelled',
+            'CANCELLED'       => 'canceled',
             'FAILED_DELIVERY' => 'failed',
         ];
 

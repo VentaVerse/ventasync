@@ -324,7 +324,7 @@
 
             $statusNorm = strtolower(trim($statusStr));
             $isUnpaid = ($statusNorm === 'unpaid');
-            $isCancelled = in_array($statusNorm, ['canceled', 'cancelled'], true);
+            $isCanceled = in_array($statusNorm, ['canceled', 'cancelled'], true);
             $isToPack = in_array($statusNorm, ['pending', 'repacked'], true);
             $isToArrange = ($statusNorm === 'packed');
             $isToHandover = ($statusNorm === 'ready_to_ship');
@@ -411,7 +411,7 @@
             $showsAwbButton = $orderId && (
                 ($canManageLazadaOrders && ($isToArrange || $isToHandover))
                 || (!$canManageLazadaOrders && !$isToPack && $hasAwb)
-                || ($canManageLazadaOrders && !$isToPack && !$isToArrange && !$isToHandover && !$isCancelled && $hasAwb)
+                || ($canManageLazadaOrders && !$isToPack && !$isToArrange && !$isToHandover && !$isCanceled && $hasAwb)
             );
         @endphp
         <tr class="co-band">
@@ -583,19 +583,19 @@
                         @endif
                     @endif
 
-                    @if($canManageLazadaOrders && !$isToPack && !$isToArrange && !$isToHandover && !$isCancelled && $hasAwb)
+                    @if($canManageLazadaOrders && !$isToPack && !$isToArrange && !$isToHandover && !$isCanceled && $hasAwb)
                         <x-ui.button size="sm"
                                      :href="route('ext.lazada.orders.awb', ['orderId' => $orderId])"
                                      target="_blank" rel="noopener">Print waybill</x-ui.button>
                     @endif
 
-                    @if(!$isCancelled && !$isToPack)
+                    @if(!$isCanceled && !$isToPack)
                         <x-ui.button size="sm" class="btnLzLogistics"
                                      data-url="{{ route('ext.lazada.orders.logistics_trace', ['orderId' => $orderId]) }}">Tracking</x-ui.button>
                     @endif
                 </div>
 
-                @if(!$isCancelled && !$isToPack)
+                @if(!$isCanceled && !$isToPack)
                     <div class="x-docs">
                         <span class="x-docs__label">Print</span>
                         @if($hasAwb && !$showsAwbButton)

@@ -176,14 +176,14 @@ public function index(Request $request = null, ShopeeClient $client = null)
             'TO_CONFIRM_RECEIVE' => 'Delivered',
             'COMPLETED'          => 'Completed',
             'IN_CANCEL'          => 'In Cancel',
-            'CANCELLED'          => 'Cancelled',
+            'CANCELLED'          => 'Canceled',
             'TO_RETURN'          => 'To Return',
         ];
 
         $shopeeReturnStatuses = [
             'REQUESTED'           => 'Requested',
             'ACCEPTED'            => 'Accepted',
-            'CANCELLED'           => 'Cancelled',
+            'CANCELLED'           => 'Canceled',
             'JUDGING'             => 'Judging',
             'PROCESSING'          => 'Processing',
             'SELLER_DISPUTE'      => 'Seller Dispute',

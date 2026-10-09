@@ -291,13 +291,13 @@ class VentaCartFulfilment
             'unbooked',
             'VentaCartOrder',
             (int) $order->id,
-            'Cancelled the courier booking for VentaCart #' . $order->ventacart_order_id,
+            'Canceled the courier booking for VentaCart #' . $order->ventacart_order_id,
             ['store' => $this->store->store_name]
         );
 
         $this->refresh($order);
 
-        return ['ok' => true, 'message' => (string) ($body['message'] ?? 'Booking cancelled. The order is back in To Pack.')];
+        return ['ok' => true, 'message' => (string) ($body['message'] ?? 'Booking canceled. The order is back in To Pack.')];
     }
 
     public function tracking(VentaCartOrder $order): array

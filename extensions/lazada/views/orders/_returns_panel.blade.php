@@ -169,7 +169,7 @@
         </form>
     
         <form method="POST" action="{{ route('ext.lazada.orders.fetch_returns') }}" id="formUpdateLazadaReturns"
-              data-confirm="Re-read every return Lazada has on file, ignoring the dates? This refreshes statuses for returns the buyer may have cancelled."
+              data-confirm="Re-read every return Lazada has on file, ignoring the dates? This refreshes statuses for returns the buyer may have canceled."
               data-confirm-tone="primary">
             @csrf
             <x-ui.button type="submit" variant="secondary" id="btnUpdateLazadaReturns">Update statuses</x-ui.button>

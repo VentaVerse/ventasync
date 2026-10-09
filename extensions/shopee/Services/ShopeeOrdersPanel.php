@@ -112,7 +112,7 @@ class ShopeeOrdersPanel
             'PENDING'             => 'to_ship',
             'SHIPPING'            => 'shipping',
             'DELIVERED_COMPLETED' => 'delivered',
-            'CANCELLED'           => 'cancelled',
+            'CANCELLED'           => 'canceled',
             'FAILED_DELIVERY'     => 'failed',
         ]);
 

@@ -5796,33 +5796,8 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "warehousing/locations",
-        "name": "ext.warehousing.locations.index"
-    },
-    {
-        "method": "POST",
-        "uri": "warehousing/locations",
-        "name": "ext.warehousing.locations.store"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "warehousing/locations/create",
-        "name": "ext.warehousing.locations.create"
-    },
-    {
-        "method": "DELETE",
-        "uri": "warehousing/locations/{id}",
-        "name": "ext.warehousing.locations.destroy"
-    },
-    {
-        "method": "PUT",
-        "uri": "warehousing/locations/{id}",
-        "name": "ext.warehousing.locations.update"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "warehousing/locations/{id}/edit",
-        "name": "ext.warehousing.locations.edit"
+        "uri": "warehousing/locations/{any?}",
+        "name": null
     },
     {
         "method": "GET|HEAD",
@@ -5883,6 +5858,36 @@
         "method": "POST",
         "uri": "warehousing/transfers/{id}/void",
         "name": "ext.warehousing.transfers.void"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "warehousing/warehouses",
+        "name": "ext.warehousing.warehouses.index"
+    },
+    {
+        "method": "POST",
+        "uri": "warehousing/warehouses",
+        "name": "ext.warehousing.warehouses.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "warehousing/warehouses/create",
+        "name": "ext.warehousing.warehouses.create"
+    },
+    {
+        "method": "DELETE",
+        "uri": "warehousing/warehouses/{id}",
+        "name": "ext.warehousing.warehouses.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "warehousing/warehouses/{id}",
+        "name": "ext.warehousing.warehouses.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "warehousing/warehouses/{id}/edit",
+        "name": "ext.warehousing.warehouses.edit"
     },
     {
         "method": "POST",

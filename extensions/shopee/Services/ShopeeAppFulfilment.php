@@ -27,7 +27,7 @@ final class ShopeeAppFulfilment
             'PROCESSED' => ['to_handover', [], ['awb', 'tracking']],
             'SHIPPED', 'TO_CONFIRM_RECEIVE' => ['shipped', [], ['tracking']],
             'COMPLETED' => ['done', [], []],
-            'IN_CANCEL', 'CANCELLED' => ['cancelled', [], []],
+            'IN_CANCEL', 'CANCELLED' => ['canceled', [], []],
             default => ['other', [], []],
         };
 
