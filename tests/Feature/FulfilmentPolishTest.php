@@ -41,33 +41,32 @@ class FulfilmentPolishTest extends TestCase
 
     public function test_a_combination_sku_resolves_to_every_axis_it_sits_on(): void
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
-        $productId = DB::table($pfx . 'product')->insertGetId([
+        $productId = DB::table('products')->insertGetId([
             'model' => 'GP200', 'sku' => 'GP200', 'quantity' => 1, 'price' => 100, 'status' => 1, 'image' => '',
             'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1, 'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
         $povIds = [];
         foreach (['Color/Finish' => 'Red', 'Size' => 'M'] as $axis => $value) {
-            $optionId = (int) DB::table($pfx . 'option')->insertGetId(['type' => 'select', 'sort_order' => 0]);
-            DB::table($pfx . 'option_description')->insert(['option_id' => $optionId, 'language_id' => $langId, 'name' => $axis]);
-            $productOptionId = (int) DB::table($pfx . 'product_option')->insertGetId(['product_id' => $productId, 'option_id' => $optionId, 'value' => '', 'required' => 0]);
-            $valueId = (int) DB::table($pfx . 'option_value')->insertGetId(['option_id' => $optionId, 'image' => '', 'sort_order' => 0]);
-            DB::table($pfx . 'option_value_description')->insert(['option_value_id' => $valueId, 'language_id' => $langId, 'option_id' => $optionId, 'name' => $value]);
-            $povIds[] = (int) DB::table($pfx . 'product_option_value')->insertGetId([
+            $optionId = (int) DB::table('variation_types')->insertGetId(['type' => 'select', 'sort_order' => 0]);
+            DB::table('variation_type_descriptions')->insert(['option_id' => $optionId, 'language_id' => $langId, 'name' => $axis]);
+            $productOptionId = (int) DB::table('product_variation_types')->insertGetId(['product_id' => $productId, 'option_id' => $optionId, 'value' => '', 'required' => 0]);
+            $valueId = (int) DB::table('variation_values')->insertGetId(['option_id' => $optionId, 'image' => '', 'sort_order' => 0]);
+            DB::table('variation_value_descriptions')->insert(['option_value_id' => $valueId, 'language_id' => $langId, 'option_id' => $optionId, 'name' => $value]);
+            $povIds[] = (int) DB::table('product_variation_values')->insertGetId([
                 'product_option_id' => $productOptionId, 'product_id' => $productId, 'option_id' => $optionId, 'option_value_id' => $valueId,
                 'sku' => $axis === 'Size' ? 'GP200-SIZE-M' : '', 'quantity' => 1, 'subtract' => 1, 'price' => 0, 'price_prefix' => '+',
                 'points' => 0, 'points_prefix' => '+', 'weight' => 0, 'weight_prefix' => '+',
                 'cost' => 0, 'cost_amount' => 0, 'cost_percentage' => 0, 'cost_additional' => 0, 'absolute_cost' => 0, 'cost_prefix' => '+', 'absolute_price' => 0,
             ]);
         }
-        $comboId = (int) DB::table('product_option_combinations')->insertGetId([
+        $comboId = (int) DB::table('product_variations')->insertGetId([
             'product_id' => $productId, 'sku' => 'GP200-RED-M', 'quantity' => 1, 'absolute_price' => 100, 'image' => null, 'status' => 1, 'sort_order' => 1,
             'created_at' => now(), 'updated_at' => now(),
         ]);
         foreach ($povIds as $povId) {
-            DB::table('product_option_combination_values')->insert(['combination_id' => $comboId, 'product_option_value_id' => $povId]);
+            DB::table('product_variation_parts')->insert(['combination_id' => $comboId, 'product_option_value_id' => $povId]);
         }
 
         $this->assertSame(

@@ -85,11 +85,10 @@ class OpenCartPush extends Command
 
     private function resolveProductIds(): ?array
     {
-        $pfx = (string) config('catalog.prefix');
 
         if ($this->option('product-ids')) {
             $requestedIds = array_map('intval', explode(',', $this->option('product-ids')));
-            return DB::table($pfx . 'product')
+            return DB::table('products')
                 ->whereIn('product_id', $requestedIds)
                 ->where('status', 1)
                 ->pluck('product_id')
@@ -97,7 +96,7 @@ class OpenCartPush extends Command
         }
 
         if ($this->option('since')) {
-            return DB::table($pfx . 'product')
+            return DB::table('products')
                 ->where('date_modified', '>=', $this->option('since'))
                 ->where('status', 1)
                 ->pluck('product_id')
@@ -105,7 +104,7 @@ class OpenCartPush extends Command
         }
 
         if ($this->option('all')) {
-            return DB::table($pfx . 'product')
+            return DB::table('products')
                 ->where('status', 1)
                 ->pluck('product_id')
                 ->toArray();

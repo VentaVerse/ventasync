@@ -19,10 +19,9 @@ class ProductCreator
 
     public function create(array $data, ?\Closure $variations = null, ?\Closure $images = null, array $by = []): int
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $productId = Quota::within('products', fn () => DB::transaction(function () use ($data, $variations, $images, $pfx, $langId) {
+        $productId = Quota::within('products', fn () => DB::transaction(function () use ($data, $variations, $images, $langId) {
             $p = new Product();
 
             $p->model = trim((string) ($data['model'] ?? ''));
@@ -62,7 +61,7 @@ class ProductCreator
             $p->save();
             $id = (int) $p->product_id;
 
-            DB::table($pfx . 'product_description')->insert([
+            DB::table('product_descriptions')->insert([
                 'product_id' => $id,
                 'language_id' => $langId,
                 'name' => (string) $data['name'],
@@ -91,7 +90,7 @@ class ProductCreator
 
         $name = (string) $data['name'];
         $sku = (string) ($data['sku'] ?? '');
-        $finalQty = (int) DB::table($pfx . 'product')->where('product_id', $productId)->value('quantity');
+        $finalQty = (int) DB::table('products')->where('product_id', $productId)->value('quantity');
         $this->warehouse($productId, $finalQty);
 
         if (($by['source'] ?? 'user') === 'api') {
@@ -155,7 +154,7 @@ class ProductCreator
 
         $last = trim(preg_split('/\s*>\s*/', $name)[-1] ?? $name);
 
-        $row = DB::table(config('catalog.prefix') . 'category_description')
+        $row = DB::table('category_descriptions')
             ->where('language_id', (int) config('catalog.default_language_id'))
             ->whereRaw('LOWER(name) = ?', [mb_strtolower($last, 'UTF-8')])
             ->first(['category_id']);
@@ -198,13 +197,12 @@ class ProductCreator
 
     public function saveImages(int $productId, array $paths): void
     {
-        $pfx = (string) config('catalog.prefix');
 
-        DB::table($pfx . 'product')->where('product_id', $productId)->update(['image' => $paths[0] ?? '']);
+        DB::table('products')->where('product_id', $productId)->update(['image' => $paths[0] ?? '']);
 
-        DB::table($pfx . 'product_image')->where('product_id', $productId)->delete();
+        DB::table('product_images')->where('product_id', $productId)->delete();
         foreach (array_values(array_slice($paths, 1)) as $sort => $img) {
-            DB::table($pfx . 'product_image')->insert([
+            DB::table('product_images')->insert([
                 'product_id' => $productId,
                 'image' => $img,
                 'sort_order' => $sort,

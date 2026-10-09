@@ -28,7 +28,6 @@ class ShopeeListingReadiness
         $categoriesCached = ShopeeCategory::query()->exists();
         $couriersCached = ShopeeLogistic::query()->exists();
 
-        $pfx = (string) config('catalog.prefix');
 
         $linked = ShopeeListingLink::query()->whereIn('product_id', $productIds)->pluck('product_id')->map(fn ($v) => (int) $v)->flip();
 
@@ -37,7 +36,7 @@ class ShopeeListingReadiness
             ->get()
             ->keyBy(fn ($l) => (int) $l->product_id);
 
-        $parcels = DB::table($pfx . 'product')
+        $parcels = DB::table('products')
             ->whereIn('product_id', $productIds)
             ->get(['product_id', 'weight', 'length', 'width', 'height'])
             ->keyBy('product_id');

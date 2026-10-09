@@ -29,10 +29,8 @@ class ReviewController extends Controller
         $dateFrom   = trim((string) $request->get('date_from', ''));
         $dateTo     = trim((string) $request->get('date_to', ''));
 
-        $prefix = config('catalog.prefix');
-
         $query = MarketplaceReview::query()
-            ->leftJoin($prefix . 'product_description as pd', function ($join) use ($prefix) {
+            ->leftJoin('product_descriptions as pd', function ($join)  {
                 $join->on('ch_marketplace_reviews.product_id', '=', 'pd.product_id')
                      ->where('pd.language_id', '=', config('catalog.default_language_id', 1));
             })
@@ -98,10 +96,9 @@ class ReviewController extends Controller
 
     public function show($id)
     {
-        $prefix = config('catalog.prefix');
 
         $review = MarketplaceReview::query()
-            ->leftJoin($prefix . 'product_description as pd', function ($join) {
+            ->leftJoin('product_descriptions as pd', function ($join) {
                 $join->on('ch_marketplace_reviews.product_id', '=', 'pd.product_id')
                      ->where('pd.language_id', '=', config('catalog.default_language_id', 1));
             })

@@ -13,9 +13,8 @@ class VariationRowsTest extends TestCase
 
     private function seedProduct(string $model): int
     {
-        $pfx = (string) config('catalog.prefix');
 
-        return (int) DB::table($pfx . 'product')->insertGetId([
+        return (int) DB::table('products')->insertGetId([
             'model' => $model, 'sku' => $model, 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => '', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
             'brand_id' => 0,
@@ -25,25 +24,24 @@ class VariationRowsTest extends TestCase
 
     private function seedOptionScaffold(int $productId, string $valueName): int
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $optionId = (int) DB::table($pfx . 'option')->insertGetId(['type' => 'select', 'sort_order' => 0]);
-        DB::table($pfx . 'option_description')->insert([
+        $optionId = (int) DB::table('variation_types')->insertGetId(['type' => 'select', 'sort_order' => 0]);
+        DB::table('variation_type_descriptions')->insert([
             'option_id' => $optionId, 'language_id' => $langId, 'name' => 'Color',
         ]);
-        $valueId = (int) DB::table($pfx . 'option_value')->insertGetId([
+        $valueId = (int) DB::table('variation_values')->insertGetId([
             'option_id' => $optionId, 'image' => '', 'sort_order' => 0,
         ]);
-        DB::table($pfx . 'option_value_description')->insert([
+        DB::table('variation_value_descriptions')->insert([
             'option_value_id' => $valueId, 'language_id' => $langId,
             'option_id' => $optionId, 'name' => $valueName,
         ]);
-        $productOptionId = (int) DB::table($pfx . 'product_option')->insertGetId([
+        $productOptionId = (int) DB::table('product_variation_types')->insertGetId([
             'product_id' => $productId, 'option_id' => $optionId, 'value' => '', 'required' => 0,
         ]);
 
-        return (int) DB::table($pfx . 'product_option_value')->insertGetId([
+        return (int) DB::table('product_variation_values')->insertGetId([
             'product_option_id' => $productOptionId, 'product_id' => $productId,
             'option_id' => $optionId, 'option_value_id' => $valueId,
             'sku' => 'POV-' . $valueName, 'quantity' => 3, 'subtract' => 1,
@@ -58,12 +56,12 @@ class VariationRowsTest extends TestCase
     {
         $comboProduct = $this->seedProduct('VR-COMBO');
         $povId = $this->seedOptionScaffold($comboProduct, 'Red');
-        $comboId = (int) DB::table('product_option_combinations')->insertGetId([
+        $comboId = (int) DB::table('product_variations')->insertGetId([
             'product_id' => $comboProduct, 'sku' => 'COMBO-RED', 'quantity' => 14,
             'absolute_price' => 21990, 'image' => 'catalog/red.png', 'status' => 1,
             'sort_order' => 0, 'created_at' => now(), 'updated_at' => now(),
         ]);
-        DB::table('product_option_combination_values')->insert([
+        DB::table('product_variation_parts')->insert([
             'combination_id' => $comboId, 'product_option_value_id' => $povId,
         ]);
 

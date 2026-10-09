@@ -45,13 +45,12 @@ class ListingStatusMenuTest extends TestCase
 
     private function product(string $name, string $sku): int
     {
-        $pfx = (string) config('catalog.prefix');
-        $id = DB::table($pfx . 'product')->insertGetId([
+        $id = DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100, 'status' => 1, 'image' => '',
             'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5, 'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now()->subMinute(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $id, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => $name, 'description' => '', 'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
@@ -104,9 +103,8 @@ class ListingStatusMenuTest extends TestCase
     public function test_catalog_change_narrows_to_the_listings_showing_the_button(): void
     {
         $ids = $this->store();
-        $pfx = (string) config('catalog.prefix');
-        DB::table($pfx . 'product_description')->where('product_id', $ids['listedOk'])->update(['name' => 'Listed and fine, renamed']);
-        DB::table($pfx . 'product')->where('product_id', $ids['listedOk'])->update(['date_modified' => now()->addMinute()]);
+        DB::table('product_descriptions')->where('product_id', $ids['listedOk'])->update(['name' => 'Listed and fine, renamed']);
+        DB::table('products')->where('product_id', $ids['listedOk'])->update(['date_modified' => now()->addMinute()]);
 
         $this->actingAs($this->manager())->get(route('ext.lazada.products.index', ['change' => 1]))
             ->assertOk()->assertSee('compare=1', false)->assertDontSee('Listed but failed')->assertDontSee('Not on Lazada yet');

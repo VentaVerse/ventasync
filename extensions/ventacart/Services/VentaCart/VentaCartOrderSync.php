@@ -165,7 +165,6 @@ class VentaCartOrderSync
 
     private function buildStatusMap(): array
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $idMap = [];
@@ -175,7 +174,7 @@ class VentaCartOrderSync
         }
 
         $nameMap = [];
-        $rows = DB::table($pfx . 'order_status')
+        $rows = DB::table('order_statuses')
             ->where('language_id', $langId)
             ->select('order_status_id', 'name')
             ->get();
@@ -253,7 +252,6 @@ class VentaCartOrderSync
 
     private function upsertOrder(array $raw, array $statusMap): bool
     {
-        $pfx = (string) config('catalog.prefix');
         $ventaCartOrderId = (int) ($raw['id'] ?? 0);
         if ($ventaCartOrderId <= 0) {
             throw new \RuntimeException('Missing order id');
@@ -319,7 +317,6 @@ class VentaCartOrderSync
 
     private function syncToCatalog(VentaCartOrder $ventaCartOrder, array $raw, int $coreStatusId, string $orderChannel, array $statusMap): void
     {
-        $pfx = (string) config('catalog.prefix');
         $ventaCartOrderId = (string) $ventaCartOrder->ventacart_order_id;
 
         $contact = $raw['contact'] ?? [];
@@ -338,12 +335,12 @@ class VentaCartOrderSync
         $created = false;
 
         DB::transaction(function () use (
-            $raw, $pfx, $ventaCartOrderId, $coreStatusId, $orderChannel,
+            $raw, $ventaCartOrderId, $coreStatusId, $orderChannel,
             $firstname, $lastname, $email, $phone,
             $shipping, $billing, $totals, $ventaCartOrder,
             &$oldStatusId, &$coreOrderId, &$created
         ) {
-            $existing = DB::table($pfx . 'order')
+            $existing = DB::table('orders')
                 ->where('channel', $orderChannel)
                 ->where('marketplace_order_id', $ventaCartOrderId)
                 ->first();
@@ -444,19 +441,19 @@ class VentaCartOrderSync
                 }
                 $orderData['date_added'] = $existing->date_added;
                 unset($orderData['shipping_cost']);
-                DB::table($pfx . 'order')
+                DB::table('orders')
                     ->where('order_id', $coreOrderId)
                     ->update($orderData);
             } else {
                 $orderData['date_added'] = isset($raw['created_at']) ? \Carbon\Carbon::parse($raw['created_at'])->format('Y-m-d H:i:s') : now()->toDateTimeString();
                 \App\Plans\Quota::refuseOrder();
-                $coreOrderId = DB::table($pfx . 'order')->insertGetId($orderData, 'order_id');
+                $coreOrderId = DB::table('orders')->insertGetId($orderData, 'order_id');
                 $created = true;
             }
 
             $items = $raw['items'] ?? [];
-            DB::table($pfx . 'order_product')->where('order_id', $coreOrderId)->delete();
-            DB::table($pfx . 'order_option')->where('order_id', $coreOrderId)->delete();
+            DB::table('order_products')->where('order_id', $coreOrderId)->delete();
+            DB::table('order_options')->where('order_id', $coreOrderId)->delete();
 
             $subTotal = 0;
             foreach ($items as $item) {
@@ -473,7 +470,7 @@ class VentaCartOrderSync
                 $resolvedOptionValueId = 0;
 
                 if ($sku !== '') {
-                    $pov = DB::table($pfx . 'product_option_value')
+                    $pov = DB::table('product_variation_values')
                         ->where('sku', $sku)
                         ->first();
                     if ($pov) {
@@ -482,12 +479,12 @@ class VentaCartOrderSync
                     }
 
                     if ($resolvedProductId === 0) {
-                        $combo = DB::table('product_option_combinations as poc')
+                        $combo = DB::table('product_variations as poc')
                             ->where('poc.sku', $sku)
                             ->first(['poc.product_id', 'poc.id as combination_id']);
                         if ($combo) {
                             $resolvedProductId = (int) $combo->product_id;
-                            $comboValue = DB::table('product_option_combination_values')
+                            $comboValue = DB::table('product_variation_parts')
                                 ->where('combination_id', $combo->combination_id)
                                 ->first(['product_option_value_id']);
                             if ($comboValue) {
@@ -497,7 +494,7 @@ class VentaCartOrderSync
                     }
 
                     if ($resolvedProductId === 0) {
-                        $prod = DB::table($pfx . 'product')
+                        $prod = DB::table('products')
                             ->where('sku', $sku)
                             ->first(['product_id']);
                         if ($prod) {
@@ -518,7 +515,7 @@ class VentaCartOrderSync
 
                 $productCost = \App\Support\LineCost::resolve((int) $resolvedProductId, (int) $resolvedOptionValueId);
 
-                $opId = DB::table($pfx . 'order_product')->insertGetId([
+                $opId = DB::table('order_products')->insertGetId([
                     'order_id'      => $coreOrderId,
                     'product_id'    => $resolvedProductId,
                     'name'          => $item['name'] ?? '',
@@ -535,7 +532,7 @@ class VentaCartOrderSync
 
                 $variantLabel = trim($item['variant_label'] ?? '');
                 if ($variantLabel !== '') {
-                    DB::table($pfx . 'order_option')->insert([
+                    DB::table('order_options')->insert([
                         'order_id'                 => $coreOrderId,
                         'order_product_id'         => $opId,
                         'product_option_id'        => 0,
@@ -547,11 +544,11 @@ class VentaCartOrderSync
                 }
             }
 
-            DB::table($pfx . 'order_total')->where('order_id', $coreOrderId)
+            DB::table('order_totals')->where('order_id', $coreOrderId)
                 ->whereNotIn('code', array_column(\App\Services\Orders\MarketplaceFeeNormalizer::CODES, 0))->delete();
             $sortOrder = 1;
             foreach (VentaCartSaleLines::lines(is_array($totals) ? $totals : [], $subTotal, (float) ($totals['shipping'] ?? 0)) as $line) {
-                DB::table($pfx . 'order_total')->insert([
+                DB::table('order_totals')->insert([
                     'order_id'   => $coreOrderId,
                     'code'       => $line['code'],
                     'title'      => $line['title'],
@@ -561,7 +558,7 @@ class VentaCartOrderSync
             }
 
             if ($created || $oldStatusId !== $coreStatusId) {
-                DB::table($pfx . 'order_history')->insert([
+                DB::table('order_history')->insert([
                     'order_id'        => $coreOrderId,
                     'order_status_id' => $coreStatusId,
                     'notify'          => 0,

@@ -57,16 +57,14 @@ class LazadaPushPayload
         }
         $inheritedGroup = app(LazadaInheritedSettings::class)->forProducts([(int) $listing->product_id])[(int) $listing->product_id] ?? null;
         $listing = app(LazadaInheritedSettings::class)->fill($listing, $inheritedGroup)['listing'];
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $product = DB::table($pfx.'product as p')
-            ->leftJoin($pfx.'product_description as pd', function ($j) use ($langId) {
+        $product = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
                     ->where('pd.language_id', '=', $langId);
             })
-            ->leftJoin($pfx.'brand as m', 'p.brand_id', '=', 'm.brand_id')
+            ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
             ->where('p.product_id', (int)$listing->product_id)
             ->first([
                 'p.product_id','p.sku','p.model','p.image','p.price','p.quantity',
@@ -134,12 +132,12 @@ class LazadaPushPayload
             unset($attrs['brand_id']);
         }
 
-        $povRows = DB::table($pfx.'product_option_value as pov')
-            ->leftJoin($pfx.'option_description as od', function ($j) use ($langId) {
+        $povRows = DB::table('product_variation_values as pov')
+            ->leftJoin('variation_type_descriptions as od', function ($j) use ($langId) {
                 $j->on('pov.option_id', '=', 'od.option_id')
                     ->where('od.language_id', '=', $langId);
             })
-            ->leftJoin($pfx.'option_value_description as ovd', function ($j) use ($langId) {
+            ->leftJoin('variation_value_descriptions as ovd', function ($j) use ($langId) {
                 $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
                     ->where('ovd.language_id', '=', $langId);
             })
@@ -200,7 +198,7 @@ class LazadaPushPayload
         if ($povRows->count() > 0) {
             $optionIds = $povRows->pluck('option_id')->filter()->unique()->values();
 
-            $combos = DB::table('product_option_combinations as poc')
+            $combos = DB::table('product_variations as poc')
                 ->where('poc.product_id', (int)$listing->product_id)
                 ->orderBy('poc.sort_order')
                 ->get();
@@ -217,13 +215,13 @@ class LazadaPushPayload
 
             if ($combos->isNotEmpty()) {
                 $comboIds = $combos->pluck('id')->toArray();
-                $comboValuesByCombo = DB::table('product_option_combination_values as pocv')
-                    ->join($pfx . 'product_option_value as pov2', 'pocv.product_option_value_id', '=', 'pov2.product_option_value_id')
-                    ->join($pfx . 'option_description as od', function ($j) use ($langId) {
+                $comboValuesByCombo = DB::table('product_variation_parts as pocv')
+                    ->join('product_variation_values as pov2', 'pocv.product_option_value_id', '=', 'pov2.product_option_value_id')
+                    ->join('variation_type_descriptions as od', function ($j) use ($langId) {
                         $j->on('pov2.option_id', '=', 'od.option_id')
                             ->where('od.language_id', '=', $langId);
                     })
-                    ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+                    ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
                         $j->on('pov2.option_value_id', '=', 'ovd.option_value_id')
                             ->where('ovd.language_id', '=', $langId);
                     })
@@ -890,9 +888,8 @@ public function extractCreatedItemId(array $result): ?string
 
     public function getErpVariantStockByProductId(int $productId): array
     {
-        $pfx = (string) config('catalog.prefix');
 
-        $rows = DB::table($pfx.'product_option_value as pov')
+        $rows = DB::table('product_variation_values as pov')
             ->where('pov.product_id', $productId)
             ->whereNotNull('pov.sku')
             ->where('pov.sku', '!=', '')
@@ -915,9 +912,8 @@ public function extractCreatedItemId(array $result): ?string
 
     public function getErpVariantPricesByProductId(int $productId, float $basePrice): array
     {
-        $pfx = (string) config('catalog.prefix');
 
-        $rows = DB::table($pfx.'product_option_value as pov')
+        $rows = DB::table('product_variation_values as pov')
             ->where('pov.product_id', $productId)
             ->whereNotNull('pov.sku')
             ->where('pov.sku', '!=', '')

@@ -38,7 +38,6 @@ class OpenCartBrandSync
             }
 
             $brands = $result['body']['data'] ?? [];
-            $pfx = (string) config('catalog.prefix');
             $created = 0;
             $updated = 0;
             $failed = 0;
@@ -52,7 +51,7 @@ class OpenCartBrandSync
                     $name = trim($raw['name'] ?? '');
                     if ($name === '') continue;
 
-                    $existing = DB::table($pfx . 'brand')
+                    $existing = DB::table('brands')
                         ->where('name', $name)
                         ->select('brand_id')
                         ->first();
@@ -65,12 +64,12 @@ class OpenCartBrandSync
 
                     if ($existing) {
                         $coreMfgId = (int) $existing->brand_id;
-                        DB::table($pfx . 'brand')
+                        DB::table('brands')
                             ->where('brand_id', $coreMfgId)
                             ->update($data);
                         $updated++;
                     } else {
-                        $coreMfgId = DB::table($pfx . 'brand')->insertGetId($data, 'brand_id');
+                        $coreMfgId = DB::table('brands')->insertGetId($data, 'brand_id');
                         $created++;
                     }
 

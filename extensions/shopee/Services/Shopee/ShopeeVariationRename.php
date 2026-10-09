@@ -251,23 +251,22 @@ class ShopeeVariationRename
 
     private function catalog(int $productId): ?array
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $combos = DB::table('product_option_combinations')
+        $combos = DB::table('product_variations')
             ->where('product_id', $productId)
             ->get(['id', 'sku']);
         if ($combos->isEmpty()) {
             return null;
         }
 
-        $rows = DB::table('product_option_combination_values as cv')
-            ->join($pfx . 'product_option_value as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
-            ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+        $rows = DB::table('product_variation_parts as cv')
+            ->join('product_variation_values as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
+            ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
                 $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
                   ->where('ovd.language_id', '=', $langId);
             })
-            ->join($pfx . 'option_description as od', function ($j) use ($langId) {
+            ->join('variation_type_descriptions as od', function ($j) use ($langId) {
                 $j->on('pov.option_id', '=', 'od.option_id')
                   ->where('od.language_id', '=', $langId);
             })

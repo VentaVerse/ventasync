@@ -266,15 +266,14 @@ final class ProductWrites
 
     public function details(Product $product): array
     {
-        $pfx = (string) config('catalog.prefix');
         $lang = (int) config('catalog.default_language_id');
         $id = (int) $product->product_id;
 
         $brand = (int) $product->brand_id > 0
-            ? \Illuminate\Support\Facades\DB::table($pfx . 'brand')->where('brand_id', $product->brand_id)->value('name')
+            ? \Illuminate\Support\Facades\DB::table('brands')->where('brand_id', $product->brand_id)->value('name')
             : null;
-        $categories = \Illuminate\Support\Facades\DB::table($pfx . 'product_to_category as ptc')
-            ->leftJoin($pfx . 'category_description as cd', fn ($j) => $j->on('cd.category_id', '=', 'ptc.category_id')->where('cd.language_id', '=', $lang))
+        $categories = \Illuminate\Support\Facades\DB::table('product_categories as ptc')
+            ->leftJoin('category_descriptions as cd', fn ($j) => $j->on('cd.category_id', '=', 'ptc.category_id')->where('cd.language_id', '=', $lang))
             ->where('ptc.product_id', $id)
             ->orderBy('ptc.category_id')
             ->pluck('cd.name')

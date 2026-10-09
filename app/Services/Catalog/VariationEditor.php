@@ -124,14 +124,14 @@ final class VariationEditor
             return $report;
         }
 
-        $this->writer->validateSkus($productId, $wire + ['sku' => (string) DB::table(config('catalog.prefix') . 'product')->where('product_id', $productId)->value('sku')]);
+        $this->writer->validateSkus($productId, $wire + ['sku' => (string) DB::table('products')->where('product_id', $productId)->value('sku')]);
 
         $before = VariationForgetService::snapshot($productId);
         $skuChanges = ['product_sku' => null, 'option_skus' => []];
 
         DB::transaction(function () use ($productId, $wire, &$skuChanges) {
             $this->writer->save($productId, $wire, $skuChanges);
-            DB::table(config('catalog.prefix') . 'product')->where('product_id', $productId)->update(['date_modified' => now()]);
+            DB::table('products')->where('product_id', $productId)->update(['date_modified' => now()]);
         });
 
         foreach ((new SkuSyncService())->syncSkuChanges($productId, $skuChanges) as $line) {
@@ -143,7 +143,7 @@ final class VariationEditor
             $report['notes'][] = 'A new variation starts with no stock; add stock with a stock adjustment.';
         }
 
-        $name = (string) DB::table(config('catalog.prefix') . 'product_description')
+        $name = (string) DB::table('product_descriptions')
             ->where('product_id', $productId)->where('language_id', (int) config('catalog.default_language_id'))->value('name');
         $what = count($report['changed']) . ' changed, ' . count($report['added']) . ' added';
         $label = trim((string) ($by['actor'] ?? '') . ' edited the variations of ' . $name . ' (' . $what . ')');

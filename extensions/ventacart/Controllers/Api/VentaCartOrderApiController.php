@@ -217,10 +217,9 @@ class VentaCartOrderApiController extends Controller
             return null;
         }
 
-        $pfx = (string) config('catalog.prefix');
         $productId = null;
 
-        $pov = DB::table($pfx . 'product_option_value')
+        $pov = DB::table('product_variation_values')
             ->where('sku', $sku)
             ->first(['product_id']);
 
@@ -229,7 +228,7 @@ class VentaCartOrderApiController extends Controller
         }
 
         if (! $productId) {
-            $product = DB::table($pfx . 'product')
+            $product = DB::table('products')
                 ->where('sku', $sku)
                 ->first(['product_id', 'image']);
 
@@ -240,7 +239,7 @@ class VentaCartOrderApiController extends Controller
             return null;
         }
 
-        $product = DB::table($pfx . 'product')
+        $product = DB::table('products')
             ->where('product_id', $productId)
             ->first(['image']);
 

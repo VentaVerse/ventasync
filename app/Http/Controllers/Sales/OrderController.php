@@ -204,7 +204,6 @@ class OrderController extends Controller
 
             $products = $request->input('products', []);
             if (!empty($products)) {
-                $pfx = (string) config('catalog.prefix');
                 $orderTotal = 0;
                 $orderForeignTotal = 0;
 
@@ -221,7 +220,7 @@ class OrderController extends Controller
                     $orderTotal += $lineTotal;
                     $orderForeignTotal += $foreignTotal;
 
-                    $orderProductId = DB::table($pfx . 'order_product')->insertGetId([
+                    $orderProductId = DB::table('order_products')->insertGetId([
                         'order_id'      => $order->order_id,
                         'product_id'    => (int) ($p['product_id'] ?? 0),
                         'name'          => $p['name'] ?? '',
@@ -238,11 +237,11 @@ class OrderController extends Controller
 
                     $povId = (int) ($p['option_value_id'] ?? 0);
                     if ($povId > 0 && $orderProductId) {
-                        $pov = DB::table($pfx . 'product_option_value')
+                        $pov = DB::table('product_variation_values')
                             ->where('product_option_value_id', $povId)
                             ->first(['product_option_id', 'option_value_id']);
 
-                        DB::table($pfx . 'order_option')->insert([
+                        DB::table('order_options')->insert([
                             'order_id'                 => $order->order_id,
                             'order_product_id'         => $orderProductId,
                             'product_option_id'        => $pov->product_option_id ?? 0,
@@ -259,14 +258,14 @@ class OrderController extends Controller
                     'foreign_total' => $isDefault ? null : round($orderForeignTotal, 4),
                 ]);
 
-                DB::table($pfx . 'order_total')->insert([
+                DB::table('order_totals')->insert([
                     'order_id'   => $order->order_id,
                     'code'       => 'sub_total',
                     'title'      => 'Sub-Total',
                     'value'      => $orderTotal,
                     'sort_order' => 1,
                 ]);
-                DB::table($pfx . 'order_total')->insert([
+                DB::table('order_totals')->insert([
                     'order_id'   => $order->order_id,
                     'code'       => 'total',
                     'title'      => 'Total',
@@ -284,7 +283,6 @@ class OrderController extends Controller
 
     public function searchProducts(Request $request)
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $q = trim((string) $request->input('q'));
 
@@ -292,8 +290,8 @@ class OrderController extends Controller
             return response()->json(['items' => []]);
         }
 
-        $rows = DB::table($pfx . 'product as p')
-            ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $rows = DB::table('products as p')
+            ->join('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
                     ->where('pd.language_id', '=', $langId);
             })
@@ -312,7 +310,7 @@ class OrderController extends Controller
         $optionsByProduct = [];
 
         if (!empty($productIds)) {
-            $combos = DB::table('product_option_combinations as poc')
+            $combos = DB::table('product_variations as poc')
                 ->whereIn('poc.product_id', $productIds)
                 ->select('poc.id', 'poc.product_id', 'poc.sku', 'poc.quantity', 'poc.absolute_price', 'poc.absolute_cost', 'poc.cost_amount')
                 ->orderBy('poc.sort_order')
@@ -320,9 +318,9 @@ class OrderController extends Controller
 
             if ($combos->isNotEmpty()) {
                 $comboIds = $combos->pluck('id')->toArray();
-                $comboValues = DB::table('product_option_combination_values as pocv')
-                    ->join($pfx . 'product_option_value as pov', 'pocv.product_option_value_id', '=', 'pov.product_option_value_id')
-                    ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+                $comboValues = DB::table('product_variation_parts as pocv')
+                    ->join('product_variation_values as pov', 'pocv.product_option_value_id', '=', 'pov.product_option_value_id')
+                    ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
                         $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
                             ->where('ovd.language_id', '=', $langId);
                     })
@@ -331,7 +329,7 @@ class OrderController extends Controller
                     ->get()
                     ->groupBy('combination_id');
 
-                $comboPovMap = DB::table('product_option_combination_values')
+                $comboPovMap = DB::table('product_variation_parts')
                     ->whereIn('combination_id', $comboIds)
                     ->get(['combination_id', 'product_option_value_id'])
                     ->groupBy('combination_id');
@@ -358,12 +356,12 @@ class OrderController extends Controller
                 }
             }
 
-            $optRows = DB::table($pfx . 'product_option_value as pov')
-                ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+            $optRows = DB::table('product_variation_values as pov')
+                ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
                     $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
                         ->where('ovd.language_id', '=', $langId);
                 })
-                ->join($pfx . 'option_description as od', function ($j) use ($langId) {
+                ->join('variation_type_descriptions as od', function ($j) use ($langId) {
                     $j->on('pov.option_id', '=', 'od.option_id')
                         ->where('od.language_id', '=', $langId);
                 })
@@ -571,19 +569,18 @@ class OrderController extends Controller
         if ($request->has('products')) {
             $stockBefore = OrderStockService::snapshot($order);
             $products = $request->input('products', []);
-            $pfx = (string) config('catalog.prefix');
 
-            $existingProductIds = DB::table($pfx . 'order_product')
+            $existingProductIds = DB::table('order_products')
                 ->where('order_id', $order->order_id)
                 ->pluck('order_product_id')
                 ->toArray();
 
             if (!empty($existingProductIds)) {
-                DB::table($pfx . 'order_option')
+                DB::table('order_options')
                     ->whereIn('order_product_id', $existingProductIds)
                     ->delete();
             }
-            DB::table($pfx . 'order_product')
+            DB::table('order_products')
                 ->where('order_id', $order->order_id)
                 ->delete();
 
@@ -603,7 +600,7 @@ class OrderController extends Controller
                     $orderTotal += $lineTotal;
                     $orderForeignTotal += $foreignTotal;
 
-                    $orderProductId = DB::table($pfx . 'order_product')->insertGetId([
+                    $orderProductId = DB::table('order_products')->insertGetId([
                         'order_id'      => $order->order_id,
                         'product_id'    => (int) ($p['product_id'] ?? 0),
                         'name'          => $p['name'] ?? '',
@@ -619,7 +616,7 @@ class OrderController extends Controller
                     ]);
 
                     if (!empty($p['option_value_id'])) {
-                        DB::table($pfx . 'order_option')->insert([
+                        DB::table('order_options')->insert([
                             'order_id'                  => $order->order_id,
                             'order_product_id'          => $orderProductId,
                             'product_option_id'         => 0,
@@ -636,15 +633,15 @@ class OrderController extends Controller
                     'foreign_total' => $isDefault ? null : round($orderForeignTotal, 4),
                 ]);
 
-                DB::table($pfx . 'order_total')->where('order_id', $order->order_id)->delete();
-                DB::table($pfx . 'order_total')->insert([
+                DB::table('order_totals')->where('order_id', $order->order_id)->delete();
+                DB::table('order_totals')->insert([
                     'order_id'   => $order->order_id,
                     'code'       => 'sub_total',
                     'title'      => 'Sub-Total',
                     'value'      => $orderTotal,
                     'sort_order' => 1,
                 ]);
-                DB::table($pfx . 'order_total')->insert([
+                DB::table('order_totals')->insert([
                     'order_id'   => $order->order_id,
                     'code'       => 'total',
                     'title'      => 'Total',
@@ -684,9 +681,7 @@ class OrderController extends Controller
             'cost'             => 'required|numeric|min:0',
         ]);
 
-        $pfx = (string) config('catalog.prefix');
-
-        $updated = DB::table($pfx . 'order_product')
+        $updated = DB::table('order_products')
             ->where('order_id', (int) $id)
             ->where('order_product_id', (int) $request->order_product_id)
             ->update(['cost' => (float) $request->cost]);
@@ -765,10 +760,9 @@ class OrderController extends Controller
 
     public function backfillCosts($id)
     {
-        $pfx = (string) config('catalog.prefix');
         $order = Order::where('order_id', (int) $id)->firstOrFail();
 
-        $products = DB::table($pfx . 'order_product')
+        $products = DB::table('order_products')
             ->where('order_id', $order->order_id)
             ->where(function ($q) {
                 $q->whereNull('cost')->orWhere('cost', 0);
@@ -778,7 +772,7 @@ class OrderController extends Controller
         $updated = 0;
 
         foreach ($products as $op) {
-            $optionValueId = (int) (DB::table($pfx . 'order_option')
+            $optionValueId = (int) (DB::table('order_options')
                 ->where('order_product_id', $op->order_product_id)
                 ->where('product_option_value_id', '>', 0)
                 ->orderBy('order_option_id')
@@ -786,7 +780,7 @@ class OrderController extends Controller
             $catalogCost = LineCost::resolve((int) $op->product_id, $optionValueId);
 
             if ($catalogCost && $catalogCost > 0) {
-                DB::table($pfx . 'order_product')
+                DB::table('order_products')
                     ->where('order_product_id', $op->order_product_id)
                     ->update(['cost' => $catalogCost]);
                 $updated++;

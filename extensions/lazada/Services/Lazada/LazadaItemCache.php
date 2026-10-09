@@ -71,10 +71,8 @@ public function refreshListing(LazadaListing $listing, object $store, LazadaClie
         $listing->last_synced_at = now();
     }
     $listing->save();
-
-    $pfx = (string) config('catalog.prefix');
     $skuToPovId = [];
-    $erpOvs = DB::table($pfx . 'product_option_value')
+    $erpOvs = DB::table('product_variation_values')
         ->where('product_id', (int) $listing->product_id)
         ->whereNotNull('sku')
         ->where('sku', '!=', '')
@@ -167,10 +165,8 @@ public function fetchAndCacheVariants(LazadaListing $listing, object $store, Laz
 
     $skus = data_get($data, 'skus') ?? data_get($data, 'Skus.Sku') ?? [];
     if (!is_array($skus)) return [];
-
-    $pfx = (string) config('catalog.prefix');
     $skuToPovId = [];
-    $erpOvs = DB::table($pfx . 'product_option_value')
+    $erpOvs = DB::table('product_variation_values')
         ->where('product_id', (int) $listing->product_id)
         ->whereNotNull('sku')
         ->where('sku', '!=', '')
@@ -230,9 +226,7 @@ public function resolveSkuIds(LazadaListing $listing, object $store, LazadaClien
         foreach ($cached as $v) {
             $map[trim((string) $v->seller_sku)] = (int) $v->sku_id;
         }
-
-        $pfx = (string) config('catalog.prefix');
-        $erpSkus = \App\Channels\Listings\ListingVariations::sold('lazada', (int) ($listing->store_id ?? 0), [(int) $listing->product_id], $pfx)[(int) $listing->product_id] ?? [];
+        $erpSkus = \App\Channels\Listings\ListingVariations::sold('lazada', (int) ($listing->store_id ?? 0), [(int) $listing->product_id])[(int) $listing->product_id] ?? [];
 
         $missingSkus = array_diff($erpSkus, array_keys($map));
         if (empty($missingSkus)) {

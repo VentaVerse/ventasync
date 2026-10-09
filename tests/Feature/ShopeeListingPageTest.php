@@ -134,17 +134,16 @@ class ShopeeListingPageTest extends TestCase
 
     private function seedProduct(float $price = 300.0): int
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $productId = DB::table($pfx . 'product')->insertGetId([
+        $productId = DB::table('products')->insertGetId([
             'model' => 'LSTP-1', 'sku' => 'LSTP-SKU-1', 'quantity' => 5, 'price' => $price,
             'status' => 1, 'image' => 'catalog/none.png', 'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5,
             'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
 
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => $langId,
             'name' => 'Listing page product', 'description' => 'The catalog wording.',
             'meta_title' => 'Listing page product', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -170,9 +169,8 @@ class ShopeeListingPageTest extends TestCase
     public function test_the_page_names_the_images_that_go_up_and_marks_what_stays_behind(): void
     {
         $productId = $this->seedProduct();
-        $pfx = (string) config('catalog.prefix');
         for ($i = 1; $i <= 10; $i++) {
-            DB::table($pfx . 'product_image')->insert([
+            DB::table('product_images')->insert([
                 'product_id' => $productId, 'image' => "catalog/extra-{$i}.png", 'sort_order' => $i,
             ]);
         }
@@ -187,9 +185,8 @@ class ShopeeListingPageTest extends TestCase
 
     public function test_the_listing_page_reports_nothing_about_health(): void
     {
-        $pfx = (string) config('catalog.prefix');
         $productId = $this->seedProduct();
-        DB::table($pfx . 'product')->where('product_id', $productId)->update(['sku' => '', 'model' => '']);
+        DB::table('products')->where('product_id', $productId)->update(['sku' => '', 'model' => '']);
 
         $html = $this->actingAs($this->manager())
             ->get(route('ext.shopee.listings.edit', $productId))->assertOk()->getContent();
@@ -233,7 +230,6 @@ class ShopeeListingPageTest extends TestCase
     public function test_the_listing_keeps_its_own_arrangement_and_an_emptied_one_sends_the_catalogs(): void
     {
         $productId = $this->seedProduct();
-        $pfx = (string) config('catalog.prefix');
         $paths = $this->seedRealImages($productId, 3);
         $user = $this->manager();
 
@@ -409,9 +405,8 @@ class ShopeeListingPageTest extends TestCase
     public function test_a_listing_with_its_own_pictures_is_not_asked_for_a_catalog_image(): void
     {
         $productId = $this->seedProduct();
-        $pfx = (string) config('catalog.prefix');
         $paths = $this->seedRealImages($productId, 2);
-        DB::table($pfx . 'product')->where('product_id', $productId)->update(['image' => '']);
+        DB::table('products')->where('product_id', $productId)->update(['image' => '']);
 
         $readiness = app(\Extensions\Shopee\Services\Shopee\ShopeeListingReadiness::class);
         $before = $readiness->forProducts([$productId])[$productId]['missing'] ?? [];
@@ -429,7 +424,6 @@ class ShopeeListingPageTest extends TestCase
 
     private function seedRealImages(int $productId, int $count): array
     {
-        $pfx = (string) config('catalog.prefix');
         $disk = \Illuminate\Support\Facades\Storage::disk('public');
         $paths = [];
         for ($i = 1; $i <= $count; $i++) {
@@ -438,9 +432,9 @@ class ShopeeListingPageTest extends TestCase
             $paths[] = $path;
         }
 
-        DB::table($pfx . 'product')->where('product_id', $productId)->update(['image' => $paths[0]]);
+        DB::table('products')->where('product_id', $productId)->update(['image' => $paths[0]]);
         foreach (array_slice($paths, 1) as $i => $path) {
-            DB::table($pfx . 'product_image')->insert([
+            DB::table('product_images')->insert([
                 'product_id' => $productId, 'image' => $path, 'sort_order' => $i + 1,
             ]);
         }
@@ -686,15 +680,14 @@ class ShopeeListingPageTest extends TestCase
     public function test_a_shopee_tab_narrows_the_table_by_the_mirror(): void
     {
         $inTab = $this->seedProduct();
-        $pfx = (string) config('catalog.prefix');
         ShopeeListingLink::query()->create(['product_id' => $inTab, 'shopee_item_id' => 111, 'sku' => 'TAB-IN', 'live_status' => 'NORMAL']);
-        $outOfTab = DB::table($pfx . 'product')->insertGetId([
+        $outOfTab = DB::table('products')->insertGetId([
             'model' => 'LSTP-2', 'sku' => 'TAB-OUT', 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => '', 'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5,
             'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $outOfTab, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => 'Unlisted elsewhere product', 'description' => '',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -724,8 +717,7 @@ class ShopeeListingPageTest extends TestCase
     public function test_bulk_toggle_unlists_the_selection_in_one_call_and_names_what_it_skipped(): void
     {
         $a = $this->seedProduct();
-        $pfx = (string) config('catalog.prefix');
-        $b = DB::table($pfx . 'product')->insertGetId([
+        $b = DB::table('products')->insertGetId([
             'model' => 'LSTP-2', 'sku' => 'LSTP-SKU-2', 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => '', 'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5,
             'brand_id' => 0,
@@ -875,7 +867,7 @@ class ShopeeListingPageTest extends TestCase
             $disk->put($path, 'not really a png');
             $urls[] = \App\Support\Catalog\ProductImages::url($path);
         }
-        DB::table((string) config('catalog.prefix') . 'product_description')->where('product_id', $productId)->update([
+        DB::table('product_descriptions')->where('product_id', $productId)->update([
             'description' => '<p>Intro words.</p><p><img src="' . e($urls[0]) . '" alt="first"></p>'
                 . '<p>Middle words.</p><img src="' . e($urls[1]) . '"><p>Last words.</p>',
         ]);
@@ -1255,10 +1247,9 @@ class ShopeeListingPageTest extends TestCase
     }
     public function test_a_row_shows_the_stores_own_title_and_the_search_finds_it(): void
     {
-        $pfx = (string) config('catalog.prefix');
         $titled = $this->seedProduct();
         $plain = $this->seedProduct();
-        DB::table($pfx . 'product_description')->where('product_id', $plain)->update(['name' => 'Plain catalog pedal']);
+        DB::table('product_descriptions')->where('product_id', $plain)->update(['name' => 'Plain catalog pedal']);
         ShopeeListing::query()->create(['product_id' => $titled, 'item_name' => 'Qable IC50 Pro']);
         ShopeeListing::query()->create(['product_id' => $plain]);
         $other = ShopeeStore::query()->create([
@@ -1289,7 +1280,7 @@ class ShopeeListingPageTest extends TestCase
 
     private function giveVariations(int $productId): void
     {
-        DB::table('product_option_combinations')->insert([
+        DB::table('product_variations')->insert([
             'product_id' => $productId, 'sku' => 'LSTP-VAR-1', 'quantity' => 3,
             'absolute_price' => 300, 'image' => null, 'status' => 1,
             'sort_order' => 0, 'created_at' => now(), 'updated_at' => now(),

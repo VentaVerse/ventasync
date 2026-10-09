@@ -94,12 +94,10 @@ class LazadaController extends Controller
         $logs = \App\Support\ApiLogPanel::paginate(
             LazadaApiLog::query(), 'api_path', fn ($q) => $q->where('ok', 0)
         );
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $products = DB::table($pfx.'product as p')
-            ->leftJoin($pfx.'product_description as pd', function ($j) use ($langId) {
+        $products = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
                     ->where('pd.language_id', '=', $langId);
             })
@@ -115,7 +113,7 @@ class LazadaController extends Controller
 
         $orderStatusMap = \Extensions\Lazada\Models\LazadaOrderStatusMap::where('context', 'order')->pluck('order_status_id', 'lazada_status')->all();
 
-        $erpOrderStatuses = DB::table($pfx . 'order_status')
+        $erpOrderStatuses = DB::table('order_statuses')
             ->where('language_id', $langId)
             ->orderBy('order_status_id')
             ->get(['order_status_id', 'name']);
@@ -1698,11 +1696,10 @@ class LazadaController extends Controller
 
     private function buildProductCreatePayload(int $productId, int $primaryCategoryId, ?int $brandId, string $imagesCsv, string $descriptionOverride): array
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $product = DB::table($pfx.'product as p')
-            ->leftJoin($pfx.'product_description as pd', function ($j) use ($langId) {
+        $product = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
                     ->where('pd.language_id', '=', $langId);
             })
@@ -1729,12 +1726,12 @@ class LazadaController extends Controller
 
         $images = array_values(array_filter(array_map('trim', preg_split('/\s*,\s*/', (string)$imagesCsv))));
 
-        $rows = DB::table($pfx.'product_option_value as pov')
-            ->join($pfx.'option_description as od', function ($j) use ($langId) {
+        $rows = DB::table('product_variation_values as pov')
+            ->join('variation_type_descriptions as od', function ($j) use ($langId) {
                 $j->on('pov.option_id', '=', 'od.option_id')
                     ->where('od.language_id', '=', $langId);
             })
-            ->join($pfx.'option_value_description as ovd', function ($j) use ($langId) {
+            ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
                 $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
                     ->where('ovd.language_id', '=', $langId);
             })

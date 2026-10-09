@@ -19,7 +19,6 @@ class PaletteController extends Controller
             return response()->json(['orders' => [], 'products' => []]);
         }
 
-        $pfx = (string) config('catalog.prefix');
         $like = '%'.$q.'%';
 
         $hasAny = function (string $keys) use ($user): bool {
@@ -42,7 +41,7 @@ class PaletteController extends Controller
         $orders = collect();
         if ($canViewOrders) {
             // Keep id and name matches inside one OR group, or the id lookup becomes a required condition.
-            $orders = DB::table($pfx.'order')
+            $orders = DB::table('orders')
                 ->select('order_id as id', 'firstname', 'lastname', 'total', 'foreign_total', 'currency_code')
                 ->where(function ($b) use ($q, $like) {
                     if (ctype_digit($q)) {
@@ -66,8 +65,8 @@ class PaletteController extends Controller
 
         $products = collect();
         if ($canViewProducts) {
-            $products = DB::table($pfx.'product as p')
-                ->join($pfx.'product_description as pd', 'pd.product_id', '=', 'p.product_id')
+            $products = DB::table('products as p')
+                ->join('product_descriptions as pd', 'pd.product_id', '=', 'p.product_id')
                 ->where('pd.language_id', config('catalog.default_language_id'))
                 ->where(fn ($b) => $b->where('pd.name', 'like', $like)->orWhere('p.sku', 'like', $like))
                 ->select('p.product_id as id', 'pd.name', 'p.sku')

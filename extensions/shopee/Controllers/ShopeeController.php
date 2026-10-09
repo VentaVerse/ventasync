@@ -157,12 +157,11 @@ public function index(Request $request = null, ShopeeClient $client = null)
     {
         $store = ShopeeStore::defaultStore();
 
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $orderStatusMap = ShopeeOrderStatusMap::where('context', 'order')->pluck('order_status_id', 'shopee_status')->all();
 
-        $erpOrderStatuses = DB::table($pfx . 'order_status')
+        $erpOrderStatuses = DB::table('order_statuses')
             ->where('language_id', $langId)
             ->orderBy('order_status_id')
             ->get(['order_status_id', 'name']);

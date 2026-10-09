@@ -72,8 +72,8 @@ class VentaCartListing extends Model
         }
 
         return array_values(array_unique(array_map('intval', array_merge(
-            \Illuminate\Support\Facades\DB::table('product_option_combinations')->whereIn('product_id', $ids)->distinct()->pluck('product_id')->all(),
-            \Illuminate\Support\Facades\DB::table((string) config('catalog.prefix') . 'product_option_value')->whereIn('product_id', $ids)->distinct()->pluck('product_id')->all(),
+            \Illuminate\Support\Facades\DB::table('product_variations')->whereIn('product_id', $ids)->distinct()->pluck('product_id')->all(),
+            \Illuminate\Support\Facades\DB::table('product_variation_values')->whereIn('product_id', $ids)->distinct()->pluck('product_id')->all(),
         ))));
     }
 

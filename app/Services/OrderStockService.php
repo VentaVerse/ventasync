@@ -125,8 +125,8 @@ class OrderStockService
             $optionValue->quantity = $optionValue->quantity + $delta;
             $optionValue->save();
 
-            DB::table('product_option_combination_values as cv')
-                ->join('product_option_combinations as c', 'c.id', '=', 'cv.combination_id')
+            DB::table('product_variation_parts as cv')
+                ->join('product_variations as c', 'c.id', '=', 'cv.combination_id')
                 ->where('cv.product_option_value_id', $optionValue->product_option_value_id)
                 ->where('c.product_id', $optionValue->product_id)
                 ->update(['c.quantity' => $optionValue->quantity]);

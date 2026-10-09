@@ -73,14 +73,12 @@ class TikTokPushPrice extends Command implements \App\Channels\Contracts\Steppab
 
             return 0;
         }
-
-        $pfx = (string) config('catalog.prefix');
         $c = [
             'app_key' => $appKey, 'app_secret' => $appSecret, 'token' => $token,
             'shop_cipher' => $shopCipher, 'warehouse_id' => $raw->warehouse_id ?: null,
         ];
         $this->info("Pushing prices for {$pivotRows->count()} product(s)...");
-        $results = app(TikTokStockPricePush::class)->push('price', $c, $pivotRows, $pfx, self::priceRule($pivotRows));
+        $results = app(TikTokStockPricePush::class)->push('price', $c, $pivotRows, self::priceRule($pivotRows));
         TikTokStockPricePush::recordOutcomes('price', $results['outcomes'], $raw);
 
         if ($results['err'] > 0) {

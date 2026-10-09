@@ -50,14 +50,13 @@ class VentaCartListingStates
 
     private function bucket(string $bucket): \Illuminate\Database\Eloquent\Builder
     {
-        $pfx = (string) config('catalog.prefix');
 
         $mine = VentaCartListing::query()->where('ch_ventacart_listings.store_id', $this->storeId);
 
         if ($bucket === 'drift') {
             return $mine
                 ->select('ch_ventacart_listings.*')
-                ->join($pfx . 'product as p', 'p.product_id', '=', 'ch_ventacart_listings.product_id')
+                ->join('products as p', 'p.product_id', '=', 'ch_ventacart_listings.product_id')
                 ->where(fn ($q) => $q->whereNull('ch_ventacart_listings.catalog_seen_at')
                     ->orWhereColumn('p.date_modified', '>', 'ch_ventacart_listings.catalog_seen_at'));
         }

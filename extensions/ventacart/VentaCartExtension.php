@@ -200,8 +200,8 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
     protected function buildOrderTab(int $storeId, string $storeName): OrderTab
     {
         $orderChannel = 'ventacart:' . $storeId;
-        $orderTable = (string) config('catalog.prefix') . 'order';
-        $productTable = (string) config('catalog.prefix') . 'order_product';
+        $orderTable = 'orders';
+        $productTable = 'order_products';
 
         return new OrderTab(
             id: $this->id . ':' . $storeId,
@@ -242,7 +242,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
                 if (!Schema::hasTable($orderTable) || !Schema::hasTable($productTable)) {
                     return [];
                 }
-                $catalogProductTable = (string) config('catalog.prefix') . 'product';
+                $catalogProductTable = 'products';
                 return DB::table($productTable . ' as p')
                     ->join($orderTable . ' as o', 'o.order_id', '=', 'p.order_id')
                     ->leftJoin($catalogProductTable . ' as cp', 'cp.product_id', '=', 'p.product_id')
@@ -250,7 +250,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
                     ->where('o.date_added', '>=', now()->startOfDay())
                     ->whereNotNull('p.model')
                     ->where('p.model', '!=', '')
-                    ->leftJoin(DB::raw('(SELECT order_product_id, GROUP_CONCAT(CONCAT(name, \': \', value) ORDER BY order_option_id SEPARATOR \', \') AS variation FROM `' . str_replace('order_product', 'order_option', $productTable) . '` GROUP BY order_product_id) AS oo'), 'oo.order_product_id', '=', 'p.order_product_id')
+                    ->leftJoin(DB::raw('(SELECT order_product_id, GROUP_CONCAT(CONCAT(name, \': \', value) ORDER BY order_option_id SEPARATOR \', \') AS variation FROM `order_options` GROUP BY order_product_id) AS oo'), 'oo.order_product_id', '=', 'p.order_product_id')
                     ->groupBy('p.model', 'oo.variation')
                     ->orderByDesc('qty_sold')->orderByDesc('revenue')->orderBy('name')
                     ->limit($limit)
@@ -276,7 +276,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
                 if (!Schema::hasTable($orderTable)) {
                     return [];
                 }
-                $statuses = Schema::hasTable('order_status')
+                $statuses = Schema::hasTable('order_statuses')
                     ? OrderStatus::query()->pluck('name', 'order_status_id')->all()
                     : [];
 

@@ -12,13 +12,12 @@ class ChannelMetrics
 
     public function trend(string $source): ?array
     {
-        $pfx = (string) config('catalog.prefix');
         $revCase = $this->revenueCase();
 
         $start = Carbon::now()->subDays(self::WINDOW - 1)->startOfDay();
         $prevStart = (clone $start)->subDays(self::WINDOW);
 
-        $rows = DB::table($pfx . 'order')
+        $rows = DB::table('orders')
             ->selectRaw('DATE(date_added) as period')
             ->selectRaw($revCase)
             ->selectRaw('COUNT(*) as orders')
@@ -76,12 +75,11 @@ class ChannelMetrics
 
     public function bestSellers(string $source, int $limit = 5): array
     {
-        $pfx = (string) config('catalog.prefix');
         $start = Carbon::now()->subDays(self::WINDOW - 1)->startOfDay();
         $revIds = $this->revenueStatusIds();
 
-        return DB::table($pfx . 'order_product as op')
-            ->join($pfx . 'order as o', 'o.order_id', '=', 'op.order_id')
+        return DB::table('order_products as op')
+            ->join('orders as o', 'o.order_id', '=', 'op.order_id')
             ->selectRaw('op.product_id')
             ->selectRaw('MAX(op.name) as name')
             ->selectRaw('MAX(op.model) as model')

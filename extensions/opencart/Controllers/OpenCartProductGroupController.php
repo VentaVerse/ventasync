@@ -23,7 +23,6 @@ class OpenCartProductGroupController extends Controller
     public function index(int $store)
     {
         $setting = $this->store_($store);
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $groups = OpenCartProductGroup::where('store_id', $store)->orderByDesc('id')->get();
@@ -55,15 +54,14 @@ class OpenCartProductGroupController extends Controller
 
     private function form(OpenCartStore $store, OpenCartProductGroup $group, string $mode)
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $catalogCategories = DB::table($pfx . 'category_description')
+        $catalogCategories = DB::table('category_descriptions')
             ->where('language_id', $langId)
             ->orderBy('name')
             ->get(['category_id', 'name']);
 
-        $brands = DB::table($pfx . 'brand')
+        $brands = DB::table('brands')
             ->orderBy('name')
             ->get(['brand_id', 'name']);
 
@@ -136,8 +134,6 @@ class OpenCartProductGroupController extends Controller
     {
         $setting = $this->store_($store);
         $g = OpenCartProductGroup::where('store_id', $store)->findOrFail($group);
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $productIds = $this->getMatchingProductIds($g);
@@ -154,8 +150,8 @@ class OpenCartProductGroupController extends Controller
 
         $q = trim((string) $request->input('q'));
 
-        $query = DB::table($pfx . 'product as p')
-            ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $query = DB::table('products as p')
+            ->join('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
                     ->where('pd.language_id', '=', $langId);
             })
@@ -266,8 +262,6 @@ class OpenCartProductGroupController extends Controller
     public function searchProducts(Request $request, int $store)
     {
         $this->store_($store);
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $q = trim((string) $request->input('q'));
 
@@ -275,8 +269,8 @@ class OpenCartProductGroupController extends Controller
             return response()->json(['items' => []]);
         }
 
-        $rows = DB::table($pfx . 'product as p')
-            ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $rows = DB::table('products as p')
+            ->join('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
                     ->where('pd.language_id', '=', $langId);
             })

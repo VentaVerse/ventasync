@@ -22,14 +22,13 @@ class VentaCartProductPush
 
     public function product(int $productId): ?object
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        return DB::table($pfx . 'product as p')
-            ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
+        return DB::table('products as p')
+            ->join('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
-            ->leftJoin($pfx . 'brand as m', 'p.brand_id', '=', 'm.brand_id')
+            ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
             ->where('p.product_id', $productId)
             ->first([
                 'p.product_id', 'pd.name', 'pd.description', 'pd.meta_title', 'pd.meta_description',
@@ -46,8 +45,7 @@ class VentaCartProductPush
 
     public function candidateSkus(int $productId): array
     {
-        $pfx = (string) config('catalog.prefix');
-        $prod = DB::table($pfx . 'product')->where('product_id', $productId)->first(['sku', 'model']);
+        $prod = DB::table('products')->where('product_id', $productId)->first(['sku', 'model']);
 
         if (! $prod) {
             return [];
@@ -124,14 +122,13 @@ class VentaCartProductPush
 
     private function variants(object $prod, string $sku, callable $price, float $weight): array
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $pid = (int) $prod->product_id;
 
         $fallbackImage = trim((string) ($prod->image ?? '')) !== '' ? self::imageUrl((string) $prod->image) : null;
         $variantImage = fn (?string $path) => trim((string) $path) !== '' ? self::imageUrl((string) $path) : $fallbackImage;
 
-        $combos = DB::table('product_option_combinations as poc')
+        $combos = DB::table('product_variations as poc')
             ->where('poc.product_id', $pid)
             ->orderBy('poc.sort_order')
             ->get();
@@ -139,9 +136,9 @@ class VentaCartProductPush
         $hidden = \App\Channels\Listings\ListingVariations::hidden('ventacart', (int) $this->store->id, [$pid]);
 
         if ($combos->isNotEmpty()) {
-            $comboValues = DB::table('product_option_combination_values as pocv')
-                ->join($pfx . 'product_option_value as pov', 'pocv.product_option_value_id', '=', 'pov.product_option_value_id')
-                ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+            $comboValues = DB::table('product_variation_parts as pocv')
+                ->join('product_variation_values as pov', 'pocv.product_option_value_id', '=', 'pov.product_option_value_id')
+                ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
                     $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
                 })
                 ->whereIn('pocv.combination_id', $combos->pluck('id')->toArray())
@@ -168,11 +165,11 @@ class VentaCartProductPush
             return $variants;
         }
 
-        $optionValues = DB::table($pfx . 'product_option_value as pov')
-            ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+        $optionValues = DB::table('product_variation_values as pov')
+            ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
                 $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
             })
-            ->join($pfx . 'option_description as od', function ($j) use ($langId) {
+            ->join('variation_type_descriptions as od', function ($j) use ($langId) {
                 $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
             })
             ->where('pov.product_id', $pid)
@@ -250,12 +247,11 @@ class VentaCartProductPush
 
     private function catalogVariationNames(object $prod): array
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $pid = (int) $prod->product_id;
         $sku = self::skuOf($prod);
 
-        $combos = DB::table('product_option_combinations')
+        $combos = DB::table('product_variations')
             ->where('product_id', $pid)
             ->orderBy('sort_order')
             ->get(['id', 'sku']);
@@ -264,12 +260,12 @@ class VentaCartProductPush
             return [];
         }
 
-        $values = DB::table('product_option_combination_values as pocv')
-            ->join($pfx . 'product_option_value as pov', 'pocv.product_option_value_id', '=', 'pov.product_option_value_id')
-            ->join($pfx . 'option_description as od', function ($j) use ($langId) {
+        $values = DB::table('product_variation_parts as pocv')
+            ->join('product_variation_values as pov', 'pocv.product_option_value_id', '=', 'pov.product_option_value_id')
+            ->join('variation_type_descriptions as od', function ($j) use ($langId) {
                 $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
             })
-            ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+            ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
                 $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
             })
             ->whereIn('pocv.combination_id', $combos->pluck('id')->all())
@@ -476,11 +472,10 @@ class VentaCartProductPush
 
     public function rememberHeld(int $productId, iterable $skus): void
     {
-        $pfx = (string) config('catalog.prefix');
-        if ((\App\Channels\Push\PushLedger::erpVariationSkus([$productId], $pfx)[$productId] ?? []) === []) {
+        if ((\App\Channels\Push\PushLedger::erpVariationSkus([$productId])[$productId] ?? []) === []) {
             return;
         }
-        $own = DB::table($pfx . 'product')->where('product_id', $productId)->first(['sku', 'model']);
+        $own = DB::table('products')->where('product_id', $productId)->first(['sku', 'model']);
         $parent = array_filter([strtolower(trim((string) ($own->sku ?? ''))), strtolower(trim((string) ($own->model ?? '')))]);
         $held = [];
         foreach ($skus as $sku) {

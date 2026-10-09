@@ -12,18 +12,17 @@ final class CatalogPickerSearch
         if (strlen($q) < 2) {
             return [];
         }
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $optionMatchIds = DB::table($pfx . 'product_option_value')
+        $optionMatchIds = DB::table('product_variation_values')
             ->where('sku', 'like', '%' . $q . '%')->whereNotNull('sku')->where('sku', '!=', '')
             ->pluck('product_id')->unique()->all();
-        $comboMatchIds = DB::table('product_option_combinations')
+        $comboMatchIds = DB::table('product_variations')
             ->where('sku', 'like', '%' . $q . '%')->whereNotNull('sku')->where('sku', '!=', '')
             ->pluck('product_id')->unique()->all();
 
-        $rows = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $rows = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->where(function ($sub) use ($q, $optionMatchIds, $comboMatchIds) {
@@ -43,15 +42,15 @@ final class CatalogPickerSearch
         }
         $productIds = $rows->pluck('product_id')->map(fn ($v) => (int) $v)->all();
 
-        $options = DB::table($pfx . 'product_option_value as pov')
-            ->leftJoin($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+        $options = DB::table('product_variation_values as pov')
+            ->leftJoin('variation_value_descriptions as ovd', function ($j) use ($langId) {
                 $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
             })
             ->whereIn('pov.product_id', $productIds)
             ->whereNotNull('pov.sku')->where('pov.sku', '!=', '')
             ->get(['pov.product_id', 'pov.sku', 'pov.quantity', 'ovd.name as value_name'])
             ->groupBy('product_id');
-        $combos = DB::table('product_option_combinations')
+        $combos = DB::table('product_variations')
             ->whereIn('product_id', $productIds)->whereNotNull('sku')->where('sku', '!=', '')
             ->get(['product_id', 'sku'])->groupBy('product_id');
         $linked = $linkedLabelFor($productIds);

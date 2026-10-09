@@ -67,13 +67,12 @@ class TikTokController extends Controller
             TikTokApiLog::query(), 'api_path', fn ($q) => $q->where('ok', 0)
         );
 
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $orderStatusMap = TikTokOrderStatusMap::where('context', 'order')
             ->pluck('order_status_id', 'tiktok_status')->all();
 
-        $erpOrderStatuses = DB::table($pfx . 'order_status')
+        $erpOrderStatuses = DB::table('order_statuses')
             ->where('language_id', $langId)
             ->orderBy('order_status_id')
             ->get(['order_status_id', 'name']);

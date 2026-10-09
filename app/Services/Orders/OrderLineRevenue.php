@@ -9,9 +9,8 @@ final class OrderLineRevenue
 {
     public static function foreign(int $coreOrderId): float
     {
-        $pfx = (string) config('catalog.prefix');
-        $rate = (float) (DB::table($pfx . 'order')->where('order_id', $coreOrderId)->value('currency_value') ?: 1);
-        $base = (float) DB::table($pfx . 'order_product')->where('order_id', $coreOrderId)->sum('total');
+        $rate = (float) (DB::table('orders')->where('order_id', $coreOrderId)->value('currency_value') ?: 1);
+        $base = (float) DB::table('order_products')->where('order_id', $coreOrderId)->sum('total');
 
         return OrderCurrencyService::toForeign($base, $rate);
     }

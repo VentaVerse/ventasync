@@ -13,8 +13,7 @@ class SkuSyncService
             return [];
         }
 
-        $pfx = (string) config('catalog.prefix');
-        $status = DB::table($pfx . 'product')->where('product_id', $productId)->value('status');
+        $status = DB::table('products')->where('product_id', $productId)->value('status');
         if ((int) $status === 0) {
             return [];
         }

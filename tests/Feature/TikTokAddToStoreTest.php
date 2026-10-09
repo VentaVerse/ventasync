@@ -54,13 +54,12 @@ class TikTokAddToStoreTest extends TestCase
 
     private function seedProduct(string $name, string $sku, int $status = 1): int
     {
-        $pfx = (string) config('catalog.prefix');
-        $pid = DB::table($pfx . 'product')->insertGetId([
+        $pid = DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100, 'status' => $status,
             'image' => '', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1, 'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $pid, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => $name, 'description' => '', 'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);

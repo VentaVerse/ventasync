@@ -48,15 +48,14 @@ class GroupScopeStripsTest extends TestCase
 
     private function seedProduct(string $name, string $sku): int
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
-        $pid = DB::table($pfx . 'product')->insertGetId([
+        $pid = DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => '', 'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5,
             'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $pid, 'language_id' => $langId,
             'name' => $name, 'description' => '',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',

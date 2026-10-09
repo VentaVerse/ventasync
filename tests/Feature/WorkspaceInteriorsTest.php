@@ -1378,16 +1378,15 @@ class WorkspaceInteriorsTest extends TestCase
 
     private function seedCatalogProduct(string $name, string $sku): int
     {
-        $prefix = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $id = DB::table($prefix.'product')->insertGetId([
+        $id = DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 6,
             'price' => 249.0000, 'status' => 1, 'image' => null,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
 
-        DB::table($prefix.'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $id, 'language_id' => $langId, 'name' => $name,
             'description' => '', 'tag' => '', 'meta_title' => $name,
             'meta_description' => '', 'meta_keyword' => '',

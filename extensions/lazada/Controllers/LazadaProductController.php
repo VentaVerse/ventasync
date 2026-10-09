@@ -77,8 +77,7 @@ class LazadaProductController extends Controller
 
     private function lazadaReadinessStamps(array $ids, int $storeId): array
     {
-        $pfx = (string) config('catalog.prefix');
-        $prod = DB::table($pfx . 'product')->whereIn('product_id', $ids)->pluck('date_modified', 'product_id');
+        $prod = DB::table('products')->whereIn('product_id', $ids)->pluck('date_modified', 'product_id');
         $listing = DB::table('ch_lazada_listings')->whereIn('product_id', $ids)
             ->selectRaw('product_id, MAX(updated_at) as mu')->groupBy('product_id')->pluck('mu', 'product_id');
         $group = DB::table('ch_lazada_product_group_products as gp')
@@ -194,7 +193,6 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
 
     public function index(Request $request)
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $listTab = $request->query('list') === 'add' ? 'add' : 'store';
@@ -268,12 +266,12 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
             ->when(app()->bound('lazada.route-store'), fn ($q) => $q->where('store_id', app('lazada.route-store')->id))
             ->groupBy('product_id');
 
-        $query = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $query = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
                     ->where('pd.language_id', '=', $langId);
             })
-            ->leftJoin($pfx . 'brand as m', 'p.brand_id', '=', 'm.brand_id')
+            ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
             ->leftJoinSub($lpPick, 'lps', 'lps.product_id', '=', 'p.product_id')
             ->leftJoin('ch_lazada_listings as lp', 'lp.id', '=', 'lps.pick_id')
             ->select(
@@ -535,7 +533,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
 
 
 
-        $allBrands = DB::table($pfx . 'brand')
+        $allBrands = DB::table('brands')
             ->orderBy('name')
             ->pluck('name', 'brand_id');
 
@@ -589,7 +587,6 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
 
     private function addCatalog(Request $request)
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $q = trim((string) $request->query('q', ''));
@@ -610,11 +607,11 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
             ->when(app()->bound('lazada.route-store'), fn ($sub) => $sub->where('store_id', app('lazada.route-store')->id))
             ->groupBy('product_id');
 
-        $query = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $query = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
-            ->leftJoin($pfx . 'brand as m', 'p.brand_id', '=', 'm.brand_id')
+            ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
             ->leftJoinSub($lpPick, 'lps', 'lps.product_id', '=', 'p.product_id')
             ->select('p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as brand_name', 'lps.pick_id as listing_id');
 
@@ -657,10 +654,10 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
 
         $productThumbsById = $products->mapWithKeys(fn ($r) => [(int) $r->product_id => $this->images()->toDisplayImageUrl($r->image ?? null)]);
 
-        $catalogTotal = (int) DB::table($pfx . 'product')->count();
+        $catalogTotal = (int) DB::table('products')->count();
         $onStoreTotal = (int) LazadaListing::query()->whereNotNull('product_id')->distinct()->count('product_id');
 
-        $allBrands = DB::table($pfx . 'brand')->orderBy('name')->pluck('name', 'brand_id');
+        $allBrands = DB::table('brands')->orderBy('name')->pluck('name', 'brand_id');
         $allGroups = \Extensions\Lazada\Models\LazadaProductGroup::query()->orderBy('name')->pluck('name', 'id');
 
         return view('ext-lazada::products.add', [
@@ -683,7 +680,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
 
     public function addToStore(Request $request, int $productId)
     {
-        $exists = DB::table((string) config('catalog.prefix') . 'product')->where('product_id', $productId)->exists();
+        $exists = DB::table('products')->where('product_id', $productId)->exists();
         abort_unless($exists, 404);
 
         $row = LazadaListing::firstOrCreate(['product_id' => $productId]);
@@ -702,7 +699,6 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
 
     public function catalogSearch(Request $request)
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $q = trim((string) $request->query('q', ''));
         $showAll = $request->boolean('all');
@@ -714,8 +710,8 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
             ->when(app()->bound('lazada.route-store'), fn ($sub) => $sub->where('store_id', app('lazada.route-store')->id))
             ->groupBy('product_id');
 
-        $query = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $query = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->leftJoinSub($lpPick, 'lps', 'lps.product_id', '=', 'p.product_id')
@@ -819,7 +815,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
         $data = $request->validate(['product_ids' => ['required', 'array'], 'product_ids.*' => ['integer']]);
         $ids = array_values(array_unique(array_map('intval', $data['product_ids'])));
 
-        $valid = DB::table((string) config('catalog.prefix') . 'product')->whereIn('product_id', $ids)->pluck('product_id')->all();
+        $valid = DB::table('products')->whereIn('product_id', $ids)->pluck('product_id')->all();
         $added = 0;
         foreach ($valid as $pid) {
             $row = LazadaListing::firstOrCreate(['product_id' => (int) $pid]);
@@ -872,11 +868,9 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
                 ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
         }
 
-        $pfx = (string) config('catalog.prefix');
-
         $productId = (int) $listing->product_id;
 
-        $product = DB::table($pfx.'product as p')
+        $product = DB::table('products as p')
             ->where('p.product_id', $productId)
             ->first(['p.product_id', 'p.sku', 'p.quantity', 'p.status']);
 
@@ -891,7 +885,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
         }
 
         $results = app(\Extensions\Lazada\Services\Lazada\LazadaStockPricePush::class)
-            ->push('stock', $store, $creds, [$listing], $pfx);
+            ->push('stock', $store, $creds, [$listing]);
         $clause = \Extensions\Lazada\Services\Lazada\LazadaStockPricePush::ledgerClause($results);
 
         $msg = $results['ok'] > 0
@@ -913,11 +907,9 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
                 ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
         }
 
-        $pfx = (string) config('catalog.prefix');
-
         $productId = (int) $listing->product_id;
 
-        $product = DB::table($pfx.'product as p')
+        $product = DB::table('products as p')
             ->where('p.product_id', $productId)
             ->first(['p.product_id', 'p.sku', 'p.price']);
 
@@ -944,7 +936,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
         $mPct = (float) ($percentMarkup ?? 0);
         $mFixed = (float) ($fixedMarkup ?? 0);
         $results = app(\Extensions\Lazada\Services\Lazada\LazadaStockPricePush::class)
-            ->push('price', $store, $creds, [$listing], $pfx,
+            ->push('price', $store, $creds, [$listing],
                 fn (int $pid, float $base) => \Extensions\Lazada\Services\Lazada\LazadaPushPayload::computeFinalPrice($base, $mFixed, $mPct));
         $clause = \Extensions\Lazada\Services\Lazada\LazadaStockPricePush::ledgerClause($results);
 
@@ -967,9 +959,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
                 ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
         }
 
-        $pfx = (string) config('catalog.prefix');
-
-        $product = DB::table($pfx.'product as p')
+        $product = DB::table('products as p')
             ->where('p.product_id', (int) $listing->product_id)
             ->first(['p.product_id', 'p.sku']);
 
@@ -1127,9 +1117,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
                 ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
         }
 
-        $pfx = (string) config('catalog.prefix');
-
-        $product = DB::table($pfx.'product as p')
+        $product = DB::table('products as p')
             ->where('p.product_id', (int) $listing->product_id)
             ->first(['p.product_id', 'p.sku']);
 
@@ -1141,7 +1129,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
 
         $mainSku = trim((string) ($product->sku ?? ''));
 
-        $ovSkus = DB::table($pfx . 'product_option_value')
+        $ovSkus = DB::table('product_variation_values')
             ->where('product_id', (int) $listing->product_id)
             ->whereNotNull('sku')
             ->where('sku', '!=', '')
@@ -1239,7 +1227,6 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
 
             return ['ok' => false, 'message' => $refusal, 'errors' => $rowErrors];
         }
-        $pfx = (string) config('catalog.prefix');
 
         $picturesLeftOut = 0;
         try {
@@ -1323,8 +1310,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
                 $saved->save();
                 $skuList = data_get($result, 'body.data.sku_list', []);
                 if (is_array($skuList)) {
-                    $pfxPost = (string) config('catalog.prefix');
-                    $erpPovRows = DB::table($pfxPost . 'product_option_value')
+                    $erpPovRows = DB::table('product_variation_values')
                         ->where('product_id', (int) $listing->product_id)
                         ->whereNotNull('sku')
                         ->where('sku', '!=', '')
@@ -1682,7 +1668,6 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
         }
 
         $listings = LazadaListing::query()->whereIn('id', $ids)->get();
-        $pfx = (string) config('catalog.prefix');
         $okCount = 0;
         $errCount = 0;
         $skipCount = 0;
@@ -1704,10 +1689,10 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
                 continue;
             }
 
-            $product = DB::table($pfx . 'product')->where('product_id', (int) $listing->product_id)->first(['sku']);
+            $product = DB::table('products')->where('product_id', (int) $listing->product_id)->first(['sku']);
             $mainSku = trim((string) ($product->sku ?? ''));
 
-            $ovSkus = DB::table($pfx . 'product_option_value')
+            $ovSkus = DB::table('product_variation_values')
                 ->where('product_id', (int) $listing->product_id)
                 ->whereNotNull('sku')
                 ->where('sku', '!=', '')
@@ -1832,12 +1817,10 @@ public function bulkSyncQuantity(Request $request, LazadaClient $client)
         return redirect()->to(url()->previous(route('ext.lazada.products.index')))
             ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
     }
-
-    $pfx = (string) config('catalog.prefix');
     $listings = LazadaListing::query()->whereIn('id', $ids)->get();
 
     $results = app(\Extensions\Lazada\Services\Lazada\LazadaStockPricePush::class)
-        ->push('stock', $store, $creds, $listings, $pfx);
+        ->push('stock', $store, $creds, $listings);
 
     $msg = "Bulk Sync Qty: {$results['ok']} ok, {$results['err']} failed"
         . ($results['skipped'] > 0 ? ", {$results['skipped']} skipped (disabled)" : '') . '.'
@@ -1861,8 +1844,6 @@ public function bulkSyncPrice(Request $request, LazadaClient $client)
         return redirect()->to(url()->previous(route('ext.lazada.products.index')))
             ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
     }
-
-    $pfx = (string) config('catalog.prefix');
     $listings = LazadaListing::query()->whereIn('id', $ids)->get();
 
     $rules = [];
@@ -1877,7 +1858,7 @@ public function bulkSyncPrice(Request $request, LazadaClient $client)
     }
 
     $results = app(\Extensions\Lazada\Services\Lazada\LazadaStockPricePush::class)
-        ->push('price', $store, $creds, $listings, $pfx,
+        ->push('price', $store, $creds, $listings,
             function (int $pid, float $base) use ($rules): float {
                 [$fixed, $pct] = $rules[$pid] ?? [null, null];
 
@@ -1906,14 +1887,12 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         return redirect()->to(url()->previous(route('ext.lazada.products.index')))
             ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
     }
-
-    $pfx = (string) config('catalog.prefix');
     $listings = LazadaListing::query()->whereIn('id', $ids)->get();
     $okCount = 0;
     $errCount = 0;
 
     foreach ($listings as $listing) {
-        $product = DB::table($pfx.'product as p')
+        $product = DB::table('products as p')
             ->where('p.product_id', (int) $listing->product_id)
             ->first(['p.product_id', 'p.sku']);
 
@@ -2065,12 +2044,10 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                 }
             }
         }
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $products = DB::table($pfx.'product as p')
-            ->leftJoin($pfx.'product_description as pd', function ($j) use ($langId) {
+        $products = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
                     ->where('pd.language_id', '=', $langId);
             })
@@ -2110,12 +2087,12 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             }
         }
 
-        $variants = DB::table($pfx.'product_option_value as pov')
-            ->leftJoin($pfx.'option_description as od', function ($j) use ($langId) {
+        $variants = DB::table('product_variation_values as pov')
+            ->leftJoin('variation_type_descriptions as od', function ($j) use ($langId) {
                 $j->on('pov.option_id', '=', 'od.option_id')
                     ->where('od.language_id', '=', $langId);
             })
-            ->leftJoin($pfx.'option_value_description as ovd', function ($j) use ($langId) {
+            ->leftJoin('variation_value_descriptions as ovd', function ($j) use ($langId) {
                 $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
                     ->where('ovd.language_id', '=', $langId);
             })
@@ -2152,7 +2129,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         if (!$listing->brand_id && $brandSuggestion['brand_id']) {
         }
 
-        $covSkus = \App\Channels\Listings\ListingVariations::sold('lazada', (int) ($listing->store_id ?? 0), [(int) $listing->product_id], $pfx)[(int) $listing->product_id] ?? [];
+        $covSkus = \App\Channels\Listings\ListingVariations::sold('lazada', (int) ($listing->store_id ?? 0), [(int) $listing->product_id])[(int) $listing->product_id] ?? [];
         $covVariantSkus = $listing->variants->pluck('seller_sku')->map(fn ($v) => strtolower(trim((string) $v)))->flip();
         $coverage = [
             'total' => count($covSkus),
@@ -2332,9 +2309,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $listing->brand_name_override = $noBrand ? 'No Brand' : null;
         $listing->markup_fixed = $data['markup_fixed'] ?? null;
         $listing->markup_percent = $data['markup_percent'] ?? null;
-
-        $pfx = (string) config('catalog.prefix');
-        $hasVariations = DB::table($pfx . 'product_option_value')->where('product_id', (int) $listing->product_id)->exists();
+        $hasVariations = DB::table('product_variation_values')->where('product_id', (int) $listing->product_id)->exists();
         if ($hasVariations) {
             $listing->price = null;
         } elseif ($request->has('price')) {
@@ -2468,7 +2443,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
     private function attributeSheet(LazadaListing $listing, array $attributes): array
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $productOwnSaved = LazadaListingAttribute::query()
@@ -2486,12 +2460,12 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         }
         $saved = array_merge($groupAttrs, $productOwnSaved);
 
-        $productRow = DB::table($pfx.'product as p')
-            ->leftJoin($pfx.'product_description as pd', function ($j) use ($langId) {
+        $productRow = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
                     ->where('pd.language_id', '=', $langId);
             })
-            ->leftJoin($pfx.'brand as m', 'p.brand_id', '=', 'm.brand_id')
+            ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
             ->where('p.product_id', (int)$listing->product_id)
             ->first([
                 'p.product_id','p.sku','p.model','p.image','p.price','p.quantity',
@@ -2969,14 +2943,12 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             ->map(fn($v) => (string) $v)
             ->unique()
             ->all();
-
-        $pfx = (string) config('catalog.prefix');
         $existingSkus = [];
-        foreach (DB::table($pfx . 'product')->get(['model', 'sku']) as $ep) {
+        foreach (DB::table('products')->get(['model', 'sku']) as $ep) {
             if ($ep->model !== null && trim((string) $ep->model) !== '') $existingSkus[strtolower(trim((string) $ep->model))] = true;
             if ($ep->sku !== null && trim((string) $ep->sku) !== '') $existingSkus[strtolower(trim((string) $ep->sku))] = true;
         }
-        $ovSkus = DB::table($pfx . 'product_option_value')
+        $ovSkus = DB::table('product_variation_values')
             ->whereNotNull('sku')
             ->where('sku', '!=', '')
             ->pluck('sku');
@@ -3069,9 +3041,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'product_id' => 'required|integer|min:1',
         ]);
         $productId = (int) $data['product_id'];
-
-        $pfx = (string) config('catalog.prefix');
-        if (! DB::table($pfx . 'product')->where('product_id', $productId)->exists()) {
+        if (! DB::table('products')->where('product_id', $productId)->exists()) {
             return redirect()->back()->with('error', 'Master Catalog product not found.');
         }
 

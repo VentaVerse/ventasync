@@ -61,14 +61,13 @@ class ShopeeCatalogChangeTest extends TestCase
 
     private function product(string $name, string $description): int
     {
-        $pfx = (string) config('catalog.prefix');
-        $id = DB::table($pfx . 'product')->insertGetId([
+        $id = DB::table('products')->insertGetId([
             'model' => 'SCC', 'sku' => 'SCC-' . uniqid(), 'quantity' => 5, 'price' => 130,
             'status' => 1, 'image' => 'catalog/plug.jpg', 'weight' => 0.05, 'length' => 2, 'width' => 2, 'height' => 1,
             'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now()->subMinute(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $id, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => $name, 'description' => $description,
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -79,11 +78,10 @@ class ShopeeCatalogChangeTest extends TestCase
 
     private function editCatalog(int $productId, array $words = []): void
     {
-        $pfx = (string) config('catalog.prefix');
         if ($words !== []) {
-            DB::table($pfx . 'product_description')->where('product_id', $productId)->update($words);
+            DB::table('product_descriptions')->where('product_id', $productId)->update($words);
         }
-        DB::table($pfx . 'product')->where('product_id', $productId)->update(['date_modified' => now()->addMinute()]);
+        DB::table('products')->where('product_id', $productId)->update(['date_modified' => now()->addMinute()]);
     }
 
     public function test_the_listing_page_shows_the_catalog_change_when_the_catalog_moved(): void
@@ -143,9 +141,7 @@ class ShopeeCatalogChangeTest extends TestCase
             'catalog' => ['title' => 'Plug, catalog name', 'description_edited' => '0'],
         ])->assertRedirect(route('ext.shopee.listings.edit', $pid) . '?back=' . urlencode('/channels'))
             ->assertSessionHas('status', 'Saved.');
-
-        $pfx = (string) config('catalog.prefix');
-        $this->assertSame('Plug, catalog name', DB::table($pfx . 'product_description')->where('product_id', $pid)->value('name'));
+        $this->assertSame('Plug, catalog name', DB::table('product_descriptions')->where('product_id', $pid)->value('name'));
 
         $listing = ShopeeListing::query()->where('product_id', $pid)->first();
         $this->assertSame('Plug for Shopee', $listing->item_name);

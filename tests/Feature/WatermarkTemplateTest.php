@@ -184,12 +184,11 @@ class WatermarkTemplateTest extends TestCase
     public function test_an_out_of_range_preview_still_draws_a_picture(): void
     {
         $markPath = $this->mark();
-        $pfx = (string) config('catalog.prefix');
         $im = imagecreatetruecolor(200, 200);
         ob_start();
         imagejpeg($im);
         Storage::disk('public')->put('catalog/sample.jpg', ob_get_clean());
-        \DB::table($pfx . 'product')->insert([
+        \DB::table('products')->insert([
             'model' => 'S', 'sku' => 'S', 'price' => 1, 'quantity' => 1, 'status' => 1, 'image' => 'catalog/sample.jpg',
             'date_added' => now(), 'date_modified' => now(),
         ]);
@@ -206,18 +205,17 @@ class WatermarkTemplateTest extends TestCase
     public function test_a_stale_newest_product_does_not_blank_the_preview(): void
     {
         $markPath = $this->mark();
-        $pfx = (string) config('catalog.prefix');
 
         $im = imagecreatetruecolor(200, 200);
         ob_start();
         imagejpeg($im);
         Storage::disk('public')->put('catalog/real.jpg', ob_get_clean());
 
-        \DB::table($pfx . 'product')->insert([
+        \DB::table('products')->insert([
             'model' => 'REAL', 'sku' => 'REAL', 'price' => 1, 'quantity' => 1, 'status' => 1,
             'image' => 'catalog/real.jpg', 'date_added' => now(), 'date_modified' => now(),
         ]);
-        \DB::table($pfx . 'product')->insert([
+        \DB::table('products')->insert([
             'model' => 'STALE', 'sku' => 'STALE', 'price' => 1, 'quantity' => 1, 'status' => 1,
             'image' => 'catalog/deleted-last-year.jpg', 'date_added' => now(), 'date_modified' => now(),
         ]);

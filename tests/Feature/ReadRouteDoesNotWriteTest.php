@@ -41,9 +41,8 @@ class ReadRouteDoesNotWriteTest extends TestCase
 
     private function seedAdoptableRow(): int
     {
-        $pfx = (string) config('catalog.prefix');
 
-        DB::table($pfx.'product')->insert([
+        DB::table('products')->insert([
             'product_id' => self::PRODUCT,
             'sku' => 'ADOPT-ME',
             'model' => 'ADOPT-ME',
@@ -54,7 +53,7 @@ class ReadRouteDoesNotWriteTest extends TestCase
             'date_modified' => now(),
         ]);
 
-        DB::table($pfx.'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => self::PRODUCT,
             'language_id' => (int) config('catalog.default_language_id'),
             'name' => 'Adoptable product',

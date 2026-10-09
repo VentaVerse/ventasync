@@ -131,8 +131,7 @@ class TikTokReturnsTest extends TestCase
 
     public function test_a_mapped_return_status_moves_the_linked_sales_order(): void
     {
-        $pfx = (string) config('catalog.prefix');
-        $catalogOrderId = DB::table($pfx . 'order')->insertGetId($this->orderColumnDefaults() + ['order_status_id' => 5, 'total' => 450]);
+        $catalogOrderId = DB::table('orders')->insertGetId($this->orderColumnDefaults() + ['order_status_id' => 5, 'total' => 450]);
         DB::table('ch_tiktok_orders')->insert(['store_id' => $this->tiktokStore->id, 'region' => 'PH', 'order_id' => 'ord-1', 'status' => 'COMPLETED', 'catalog_order_id' => $catalogOrderId, 'raw' => '{}', 'created_at' => now(), 'updated_at' => now()]);
         TikTokOrderStatusMap::create(['tiktok_status' => 'RETURN_OR_REFUND_REQUEST_COMPLETE', 'context' => 'return', 'order_status_id' => 11]);
         $this->callResponses['POST /return_refund/202309/returns/search'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success',
@@ -140,8 +139,8 @@ class TikTokReturnsTest extends TestCase
 
         $this->actingAs($this->manager())->post(route('ext.tiktok.orders.fetch_returns'));
 
-        $this->assertSame(11, (int) DB::table($pfx . 'order')->where('order_id', $catalogOrderId)->value('order_status_id'));
-        $this->assertSame(1, DB::table($pfx . 'order_history')->where('order_id', $catalogOrderId)->where('order_status_id', 11)->count());
+        $this->assertSame(11, (int) DB::table('orders')->where('order_id', $catalogOrderId)->value('order_status_id'));
+        $this->assertSame(1, DB::table('order_history')->where('order_id', $catalogOrderId)->where('order_status_id', 11)->count());
         $this->assertStringContainsString('1 sales order moved by the return status map', session('tiktok_returns_last_result')['message']);
     }
 

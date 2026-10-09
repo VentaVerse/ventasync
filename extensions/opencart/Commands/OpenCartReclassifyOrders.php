@@ -27,8 +27,7 @@ class OpenCartReclassifyOrders extends Command
     public function handle(): int
     {
         $dryRun = $this->option('dry-run');
-        $pfx = (string) config('catalog.prefix');
-        $table = $pfx . 'order';
+        $table = 'orders';
 
         $this->info($dryRun ? 'DRY RUN: no changes will be made.' : 'Reclassifying opencart orders...');
         $this->newLine();

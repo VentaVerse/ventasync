@@ -77,13 +77,12 @@ class VentaCartListingPageTest extends TestCase
 
     private function product(string $sku = 'GP-200', float $price = 1000): int
     {
-        $pfx = (string) config('catalog.prefix');
-        $pid = (int) DB::table($pfx . 'product')->insertGetId([
+        $pid = (int) DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'price' => $price, 'quantity' => 7, 'status' => 1,
             'image' => '', 'weight' => 0, 'length' => 0, 'width' => 0, 'height' => 0,
             'date_added' => now(), 'date_modified' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $pid, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => 'Guitar Pedal 200', 'description' => 'The catalog description.',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -244,7 +243,7 @@ class VentaCartListingPageTest extends TestCase
         $store = $this->store();
         $pid = $this->product('TEE');
         foreach ([['TEE-S', 1], ['TEE-M', 2], ['TEE-L', 3]] as [$sku, $sort]) {
-            DB::table('product_option_combinations')->insert([
+            DB::table('product_variations')->insert([
                 'product_id' => $pid, 'sku' => $sku, 'quantity' => 4, 'absolute_price' => 1000, 'status' => 1, 'sort_order' => $sort,
             ]);
         }
@@ -462,9 +461,7 @@ class VentaCartListingPageTest extends TestCase
             ->put(route('ext.ventacart.listings.update', [$store->id, $pid]), ['name' => 'Pedal, store wording', 'description' => '<p><br></p>', 'description_edited' => '1'])
             ->assertRedirect();
         $this->assertNull($listing->fresh()->description);
-
-        $pfx = (string) config('catalog.prefix');
-        $this->assertSame('Guitar Pedal 200', DB::table($pfx . 'product_description')->where('product_id', $pid)->value('name'));
+        $this->assertSame('Guitar Pedal 200', DB::table('product_descriptions')->where('product_id', $pid)->value('name'));
     }
 
     public function test_a_catalog_edit_shows_a_catalog_change_that_save_and_ignore_clear(): void
@@ -473,12 +470,10 @@ class VentaCartListingPageTest extends TestCase
         $pid = $this->product();
         VentaCartListing::create(['store_id' => $store->id, 'product_id' => $pid]);
         Http::fake([self::BASE . '/*' => Http::response(['error' => 'Product not found'], 404)]);
-
-        $pfx = (string) config('catalog.prefix');
         $minutes = 0;
-        $editCatalog = function (array $words) use ($pfx, $pid, &$minutes) {
-            DB::table($pfx . 'product_description')->where('product_id', $pid)->update($words);
-            DB::table($pfx . 'product')->where('product_id', $pid)->update(['date_modified' => now()->addMinutes(++$minutes)]);
+        $editCatalog = function (array $words) use ( $pid, &$minutes) {
+            DB::table('product_descriptions')->where('product_id', $pid)->update($words);
+            DB::table('products')->where('product_id', $pid)->update(['date_modified' => now()->addMinutes(++$minutes)]);
         };
         $listing = fn () => VentaCartListing::where('store_id', $store->id)->where('product_id', $pid)->firstOrFail();
 
@@ -517,11 +512,10 @@ class VentaCartListingPageTest extends TestCase
 
     public function test_a_fees_only_pull_never_rewrites_an_order_line(): void
     {
-        $pfx = (string) config('catalog.prefix');
         $store = $this->store();
         $pid = $this->product();
 
-        $oid = (int) DB::table($pfx . 'order')->insertGetId([
+        $oid = (int) DB::table('orders')->insertGetId([
             'invoice_prefix' => 'INV-', 'store_id' => 0, 'store_name' => 'Test store', 'store_url' => '',
             'customer_id' => 0, 'customer_group_id' => 0, 'firstname' => 'A', 'lastname' => 'B', 'email' => 'a@b.test',
             'telephone' => '', 'fax' => '', 'custom_field' => '',
@@ -540,7 +534,7 @@ class VentaCartListingPageTest extends TestCase
             'shipping_cost' => 0, 'payment_cost' => 0, 'extra_cost' => 0,
             'date_added' => '2026-06-15 10:00:00', 'date_modified' => '2026-06-15 10:00:00',
         ]);
-        DB::table($pfx . 'order_product')->insert([
+        DB::table('order_products')->insert([
             'order_id' => $oid, 'product_id' => $pid, 'name' => 'Guitar Pedal 200', 'model' => 'GP-200',
             'quantity' => 1, 'price' => 1000, 'total' => 1000, 'tax' => 0, 'reward' => 0,
             'cost' => 111.11,
@@ -569,11 +563,11 @@ class VentaCartListingPageTest extends TestCase
         ))->setFeesOnly()->setSkipStockAdjust()->pull(since: '2026-06-01', full: true, maxPages: 1);
 
 
-        $this->assertSame(111.11, round((float) DB::table($pfx . 'order_product')->where('order_id', $oid)->value('cost'), 2),
+        $this->assertSame(111.11, round((float) DB::table('order_products')->where('order_id', $oid)->value('cost'), 2),
             'A fees run re-stamped the cost of goods from the catalog. That moves every profit figure in the system.');
-        $this->assertSame(1, DB::table($pfx . 'order_product')->where('order_id', $oid)->count());
+        $this->assertSame(1, DB::table('order_products')->where('order_id', $oid)->count());
 
-        $rows = DB::table($pfx . 'order_total')->where('order_id', $oid)
+        $rows = DB::table('order_totals')->where('order_id', $oid)
             ->whereIn('code', ['marketplace_payment_fee', 'marketplace_shipping_fee'])->pluck('value', 'code');
         $this->assertSame(-25.5, round((float) ($rows['marketplace_payment_fee'] ?? 0), 2));
         $this->assertSame(-60.0, round((float) ($rows['marketplace_shipping_fee'] ?? 0), 2));
@@ -583,7 +577,6 @@ class VentaCartListingPageTest extends TestCase
     {
         $store = $this->store();
         $this->product();
-        $pfx = (string) config('catalog.prefix');
         $order = [
             'id' => 88, 'order_number' => 88, 'status' => 'shipped',
             'created_at' => '2026-06-15T10:00:00Z', 'updated_at' => '2026-06-15T10:00:00Z',
@@ -603,7 +596,7 @@ class VentaCartListingPageTest extends TestCase
         };
 
         $pull($order);
-        $url = fn () => DB::table($pfx . 'order')->where('channel', 'ventacart:' . $store->id)->where('marketplace_order_id', '88')->value('tracking_url');
+        $url = fn () => DB::table('orders')->where('channel', 'ventacart:' . $store->id)->where('marketplace_order_id', '88')->value('tracking_url');
         $this->assertSame('https://app.gogoxpress.com/track/QX12345', $url());
 
         unset($order['tracking_link']);
@@ -1084,7 +1077,7 @@ class VentaCartListingPageTest extends TestCase
     {
         $store = $this->store();
         $pid = $this->product('TEE');
-        DB::table('product_option_combinations')->insert([
+        DB::table('product_variations')->insert([
             'product_id' => $pid, 'sku' => 'TEE-S', 'quantity' => 4, 'absolute_price' => 1000, 'status' => 1, 'sort_order' => 1,
         ]);
         Http::fake([self::BASE . '/*' => Http::response(['error' => 'Product not found'], 404)]);
@@ -1105,7 +1098,7 @@ class VentaCartListingPageTest extends TestCase
     {
         $store = $this->store();
         $pid = $this->product();
-        DB::table(config('catalog.prefix') . 'product')->where('product_id', $pid)->update(['weight' => 2, 'length' => 10, 'width' => 20, 'height' => 5]);
+        DB::table('products')->where('product_id', $pid)->update(['weight' => 2, 'length' => 10, 'width' => 20, 'height' => 5]);
         $this->fakeAStoreWithoutTheProduct();
 
         $this->actingAs($this->manager())
@@ -1146,7 +1139,7 @@ class VentaCartListingPageTest extends TestCase
         $store = $this->store();
         $pid = $this->product();
         foreach (['GP-200-S', 'GP-200-M', 'GP-200-L'] as $i => $sku) {
-            DB::table('product_option_combinations')->insert([
+            DB::table('product_variations')->insert([
                 'product_id' => $pid, 'sku' => $sku, 'quantity' => 3, 'absolute_price' => 1000, 'status' => 1, 'sort_order' => $i,
             ]);
         }
@@ -1177,28 +1170,27 @@ class VentaCartListingPageTest extends TestCase
 
     private function productNamedByTheCatalog(bool $linked = true, bool $withSize = false): array
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $store = $this->store();
         $pid = $this->product('TEE');
 
-        $option = function (string $name) use ($pfx, $langId, $pid): array {
-            $optionId = (int) DB::table($pfx . 'option')->insertGetId(['type' => 'select', 'sort_order' => 0]);
-            DB::table($pfx . 'option_description')->insert(['option_id' => $optionId, 'language_id' => $langId, 'name' => $name]);
-            $productOptionId = (int) DB::table($pfx . 'product_option')->insertGetId([
+        $option = function (string $name) use ( $langId, $pid): array {
+            $optionId = (int) DB::table('variation_types')->insertGetId(['type' => 'select', 'sort_order' => 0]);
+            DB::table('variation_type_descriptions')->insert(['option_id' => $optionId, 'language_id' => $langId, 'name' => $name]);
+            $productOptionId = (int) DB::table('product_variation_types')->insertGetId([
                 'product_id' => $pid, 'option_id' => $optionId, 'value' => '', 'required' => 0,
             ]);
 
             return [$optionId, $productOptionId];
         };
-        $value = function (array $option, string $name, string $sku, int $sort) use ($pfx, $langId, $pid): int {
+        $value = function (array $option, string $name, string $sku, int $sort) use ( $langId, $pid): int {
             [$optionId, $productOptionId] = $option;
-            $valueId = (int) DB::table($pfx . 'option_value')->insertGetId(['option_id' => $optionId, 'image' => '', 'sort_order' => $sort]);
-            DB::table($pfx . 'option_value_description')->insert([
+            $valueId = (int) DB::table('variation_values')->insertGetId(['option_id' => $optionId, 'image' => '', 'sort_order' => $sort]);
+            DB::table('variation_value_descriptions')->insert([
                 'option_value_id' => $valueId, 'language_id' => $langId, 'option_id' => $optionId, 'name' => $name,
             ]);
 
-            return (int) DB::table($pfx . 'product_option_value')->insertGetId([
+            return (int) DB::table('product_variation_values')->insertGetId([
                 'product_option_id' => $productOptionId, 'product_id' => $pid,
                 'option_id' => $optionId, 'option_value_id' => $valueId,
                 'sku' => $sku, 'quantity' => 4, 'subtract' => 1,
@@ -1214,13 +1206,13 @@ class VentaCartListingPageTest extends TestCase
 
         foreach ([['Crimson', 'TEE-RED'], ['Navy', 'TEE-BLU']] as $i => [$name, $sku]) {
             $povId = $value($color, $name, $sku, $i);
-            $comboId = (int) DB::table('product_option_combinations')->insertGetId([
+            $comboId = (int) DB::table('product_variations')->insertGetId([
                 'product_id' => $pid, 'sku' => $sku, 'quantity' => 4, 'absolute_price' => 1000,
                 'status' => 1, 'sort_order' => $i, 'created_at' => now(), 'updated_at' => now(),
             ]);
-            DB::table('product_option_combination_values')->insert(['combination_id' => $comboId, 'product_option_value_id' => $povId]);
+            DB::table('product_variation_parts')->insert(['combination_id' => $comboId, 'product_option_value_id' => $povId]);
             if ($sizeM !== null) {
-                DB::table('product_option_combination_values')->insert(['combination_id' => $comboId, 'product_option_value_id' => $sizeM]);
+                DB::table('product_variation_parts')->insert(['combination_id' => $comboId, 'product_option_value_id' => $sizeM]);
             }
         }
 

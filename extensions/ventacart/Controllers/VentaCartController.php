@@ -51,9 +51,8 @@ class VentaCartController extends Controller
             ->get()
             ->groupBy('store_id');
 
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
-        $erpOrderStatuses = DB::table($pfx . 'order_status')
+        $erpOrderStatuses = DB::table('order_statuses')
             ->where('language_id', $langId)
             ->orderBy('order_status_id')
             ->get(['order_status_id', 'name']);

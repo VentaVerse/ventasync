@@ -17,7 +17,7 @@ final class ShopeeVariationSwitches
 
     public function readFor(ShopeeClient $client, array $auth, int $itemId, int $productId): ?array
     {
-        if (! DB::table('product_option_combinations')->where('product_id', $productId)->exists()) {
+        if (! DB::table('product_variations')->where('product_id', $productId)->exists()) {
             return null;
         }
 
@@ -113,7 +113,7 @@ final class ShopeeVariationSwitches
         }
 
         $catalog = [];
-        foreach (PushLedger::erpVariationSkus([$productId], (string) config('catalog.prefix'))[$productId] ?? [] as $sku) {
+        foreach (PushLedger::erpVariationSkus([$productId])[$productId] ?? [] as $sku) {
             $catalog[$this->key($sku)] = true;
         }
         $held = [];
@@ -227,11 +227,10 @@ final class ShopeeVariationSwitches
         ShopeeListingStates::rememberHeld($this->storeId($auth), $productId, array_merge($held, $addedSkus));
 
         if ($addedSkus !== []) {
-            $pfx = (string) config('catalog.prefix');
-            $skus = DB::table($pfx . 'product_option_value')
+            $skus = DB::table('product_variation_values')
                 ->where('product_id', $productId)->whereNotNull('sku')->where('sku', '!=', '')
                 ->pluck('sku')->map(fn ($v) => strtolower(trim((string) $v)))
-                ->merge(DB::table('product_option_combinations')
+                ->merge(DB::table('product_variations')
                     ->where('product_id', $productId)->whereNotNull('sku')->where('sku', '!=', '')
                     ->pluck('sku')->map(fn ($v) => strtolower(trim((string) $v))))
                 ->unique()->values()->all();

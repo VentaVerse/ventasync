@@ -342,7 +342,6 @@ class LazadaCatalogOrderSync
 
     private function resolveOptionByVariation(int $productId, string $variation): int
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $parts = array_map('trim', explode(',', $variation));
@@ -362,8 +361,8 @@ class LazadaCatalogOrderSync
             return 0;
         }
 
-        $match = DB::table($pfx . 'product_option_value as pov')
-            ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+        $match = DB::table('product_variation_values as pov')
+            ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
                 $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
                     ->where('ovd.language_id', '=', $langId);
             })

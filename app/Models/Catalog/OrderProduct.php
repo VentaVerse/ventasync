@@ -4,6 +4,8 @@ namespace App\Models\Catalog;
 
 class OrderProduct extends BaseModel
 {
+    protected $table = 'order_products';
+
     protected $primaryKey = 'order_product_id';
 
     protected $fillable = [
@@ -22,11 +24,6 @@ class OrderProduct extends BaseModel
         'cost',
         'supplier_id',
     ];
-
-    public function getTable()
-    {
-        return $this->tableName('order_product');
-    }
 
     public function order()
     {

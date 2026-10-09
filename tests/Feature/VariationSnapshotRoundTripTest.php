@@ -14,13 +14,12 @@ class VariationSnapshotRoundTripTest extends TestCase
 
     private function product(string $sku): int
     {
-        $p = (string) config('catalog.prefix');
-        $id = (int) DB::table($p . 'product')->insertGetId([
+        $id = (int) DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 0, 'price' => 180, 'status' => 1, 'image' => '',
             'cost_amount' => 0, 'cost_percentage' => 5, 'cost_additional' => 3, 'cost' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($p . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $id, 'language_id' => (int) config('catalog.default_language_id'), 'name' => $sku,
             'description' => '', 'tag' => '', 'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '',
         ]);
@@ -30,11 +29,10 @@ class VariationSnapshotRoundTripTest extends TestCase
 
     private function state(int $productId): array
     {
-        $p = (string) config('catalog.prefix');
-        $povs = DB::table($p . 'product_option_value')->where('product_id', $productId)->orderBy('product_option_value_id')
+        $povs = DB::table('product_variation_values')->where('product_id', $productId)->orderBy('product_option_value_id')
             ->get(['product_option_value_id', 'option_value_id', 'sku', 'quantity', 'absolute_price'])
             ->map(fn ($r) => (array) $r)->all();
-        $combos = DB::table('product_option_combinations')->where('product_id', $productId)->orderBy('sku')
+        $combos = DB::table('product_variations')->where('product_id', $productId)->orderBy('sku')
             ->get(['sku', 'status', 'image', 'quantity', 'absolute_price', 'cost_amount', 'cost_additional', 'absolute_cost'])
             ->map(fn ($r) => array_map(fn ($v) => is_numeric($v) ? round((float) $v, 4) : $v, (array) $r))->all();
 

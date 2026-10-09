@@ -17,7 +17,6 @@ class BackfillOrderProductCosts extends Command
 
     public function handle(): int
     {
-        $pfx = (string) config('catalog.prefix');
         $apply = (bool) $this->option('apply');
         $force = (bool) $this->option('force');
         $from = $this->option('from');
@@ -31,8 +30,8 @@ class BackfillOrderProductCosts extends Command
             $this->warn('Reporting only. Add --apply to write.');
         }
 
-        $query = DB::table($pfx . 'order_product as op')
-            ->join($pfx . 'order as o', 'o.order_id', '=', 'op.order_id')
+        $query = DB::table('order_products as op')
+            ->join('orders as o', 'o.order_id', '=', 'op.order_id')
             ->where('op.product_id', '>', 0)
             ->orderBy('op.order_product_id');
 
@@ -43,14 +42,14 @@ class BackfillOrderProductCosts extends Command
             $query->where('o.date_added', '>=', $from . ' 00:00:00');
         }
 
-        $variationByLine = DB::table($pfx . 'order_option as oo')
-            ->join($pfx . 'order_product as op', 'op.order_product_id', '=', 'oo.order_product_id')
+        $variationByLine = DB::table('order_options as oo')
+            ->join('order_products as op', 'op.order_product_id', '=', 'oo.order_product_id')
             ->where('oo.product_option_value_id', '>', 0)
             ->orderBy('oo.order_option_id')
             ->pluck('oo.product_option_value_id', 'oo.order_product_id')
             ->all();
 
-        $names = DB::table($pfx . 'product_description')
+        $names = DB::table('product_descriptions')
             ->where('language_id', (int) config('catalog.default_language_id', 1))
             ->pluck('name', 'product_id')
             ->all();
@@ -84,7 +83,7 @@ class BackfillOrderProductCosts extends Command
             $changes[$pid]['to'] += $new;
 
             if ($apply) {
-                DB::table($pfx . 'order_product')
+                DB::table('order_products')
                     ->where('order_product_id', $line->order_product_id)
                     ->update(['cost' => round($new, 4)]);
             }

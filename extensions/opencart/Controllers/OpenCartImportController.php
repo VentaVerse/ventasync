@@ -122,9 +122,7 @@ class OpenCartImportController extends Controller
             'sku' => 'nullable|string|max:191',
             'product_id' => 'required|integer|min:1',
         ]);
-
-        $pfx = (string) config('catalog.prefix');
-        if (! DB::table($pfx . 'product')->where('product_id', (int) $data['product_id'])->exists()) {
+        if (! DB::table('products')->where('product_id', (int) $data['product_id'])->exists()) {
             return redirect()->back()->with('error', 'That Master Catalog product does not exist.');
         }
 
@@ -143,11 +141,9 @@ class OpenCartImportController extends Controller
         if (strlen($q) < 2) {
             return response()->json(['items' => []]);
         }
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
-        $rows = DB::table($pfx . 'product as p')
-            ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $rows = DB::table('products as p')
+            ->join('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->where(function ($w) use ($q) {
@@ -164,13 +160,12 @@ class OpenCartImportController extends Controller
 
     private function knownSkus(): \Illuminate\Support\Collection
     {
-        $pfx = (string) config('catalog.prefix');
 
         return collect()
-            ->merge(DB::table($pfx . 'product')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku'))
-            ->merge(DB::table($pfx . 'product')->whereNotNull('model')->where('model', '!=', '')->pluck('model'))
-            ->merge(DB::table($pfx . 'product_option_value')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku'))
-            ->merge(DB::table('product_option_combinations')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku'))
+            ->merge(DB::table('products')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku'))
+            ->merge(DB::table('products')->whereNotNull('model')->where('model', '!=', '')->pluck('model'))
+            ->merge(DB::table('product_variation_values')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku'))
+            ->merge(DB::table('product_variations')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku'))
             ->map(fn ($v) => strtolower(trim((string) $v)))
             ->flip();
     }

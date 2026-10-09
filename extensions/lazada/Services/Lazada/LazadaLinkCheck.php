@@ -27,9 +27,7 @@ class LazadaLinkCheck
         $limit = 200;
         $skippedForSize = max(0, count($productIds) - $limit);
         $productIds = array_slice($productIds, 0, $limit);
-
-        $pfx = (string) config('catalog.prefix');
-        $skusByProduct = $this->erpSkusByProduct($pfx, $productIds);
+        $skusByProduct = $this->erpSkusByProduct( $productIds);
         $allSkus = array_values(array_unique(array_merge(...array_values($skusByProduct ?: [[]]))));
         try {
             $found = $this->live->itemsBySkus($store, $creds, $allSkus);
@@ -167,20 +165,20 @@ class LazadaLinkCheck
         return $holder !== null ? (int) $holder : null;
     }
 
-    private function erpSkusByProduct(string $pfx, array $productIds): array
+    private function erpSkusByProduct( array $productIds): array
     {
         $out = [];
-        foreach (DB::table($pfx . 'product')->whereIn('product_id', $productIds)->get(['product_id', 'sku', 'model']) as $p) {
+        foreach (DB::table('products')->whereIn('product_id', $productIds)->get(['product_id', 'sku', 'model']) as $p) {
             foreach ([$p->sku, $p->model] as $v) {
                 if (trim((string) $v) !== '') {
                     $out[(int) $p->product_id][] = trim((string) $v);
                 }
             }
         }
-        foreach (DB::table($pfx . 'product_option_value')->whereIn('product_id', $productIds)->whereNotNull('sku')->where('sku', '!=', '')->get(['product_id', 'sku']) as $r) {
+        foreach (DB::table('product_variation_values')->whereIn('product_id', $productIds)->whereNotNull('sku')->where('sku', '!=', '')->get(['product_id', 'sku']) as $r) {
             $out[(int) $r->product_id][] = trim((string) $r->sku);
         }
-        foreach (DB::table('product_option_combinations')->whereIn('product_id', $productIds)->whereNotNull('sku')->where('sku', '!=', '')->get(['product_id', 'sku']) as $r) {
+        foreach (DB::table('product_variations')->whereIn('product_id', $productIds)->whereNotNull('sku')->where('sku', '!=', '')->get(['product_id', 'sku']) as $r) {
             $out[(int) $r->product_id][] = trim((string) $r->sku);
         }
         foreach ($out as $pid => $skus) {

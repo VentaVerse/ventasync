@@ -175,7 +175,6 @@ class TikTokProductGroupController extends Controller
 
     public function index()
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $groups = TikTokProductGroup::orderByDesc('id')->get();
@@ -299,7 +298,6 @@ class TikTokProductGroupController extends Controller
     public function products(Request $request, int $id)
     {
         $group = TikTokProductGroup::findOrFail($id);
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $productIds = $this->getMatchingProductIds($group);
@@ -363,12 +361,12 @@ class TikTokProductGroupController extends Controller
             ]);
         }
 
-        $query = DB::table($pfx . 'product as p')
-            ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $query = DB::table('products as p')
+            ->join('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
                     ->where('pd.language_id', '=', $langId);
             })
-            ->leftJoin($pfx . 'brand as m', 'p.brand_id', '=', 'm.brand_id')
+            ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
             ->whereIn('p.product_id', $productIds)
             ->select('p.product_id', 'pd.name', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'p.image', 'p.date_modified', 'm.name as brand_name');
 
@@ -452,8 +450,6 @@ class TikTokProductGroupController extends Controller
     public function productSearch(Request $request, int $id)
     {
         $group = TikTokProductGroup::query()->findOrFail($id);
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $q = trim((string) $request->query('q', ''));
         $showAll = $request->boolean('all');
@@ -463,8 +459,8 @@ class TikTokProductGroupController extends Controller
             ->where('tiktok_product_group_id', $group->id)
             ->select('product_id');
 
-        $query = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $query = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->leftJoinSub(TikTokStoreProducts::query(), 'os', 'os.product_id', '=', 'p.product_id')
@@ -522,7 +518,7 @@ class TikTokProductGroupController extends Controller
     public function addProduct(Request $request, int $id, int $productId)
     {
         $group = TikTokProductGroup::query()->findOrFail($id);
-        $inCatalog = DB::table((string) config('catalog.prefix') . 'product')
+        $inCatalog = DB::table('products')
             ->where('product_id', $productId)->where('status', 1)->exists();
         abort_unless($inCatalog, 404);
 
@@ -604,16 +600,14 @@ class TikTokProductGroupController extends Controller
         if (!$appKey || !$appSecret || !$token) {
             return redirect()->back()->with('error', 'Missing TikTok credentials.');
         }
-
-        $pfx = (string) config('catalog.prefix');
         $client = app(TikTokClient::class);
 
-        $productRow = DB::table($pfx . 'product')->where('product_id', $product)->first(['sku', 'model']);
+        $productRow = DB::table('products')->where('product_id', $product)->first(['sku', 'model']);
         $skus = [];
         if ($productRow->sku && trim($productRow->sku) !== '') $skus[] = strtolower(trim($productRow->sku));
         if ($productRow->model && trim($productRow->model) !== '') $skus[] = strtolower(trim($productRow->model));
 
-        $optSkus = DB::table($pfx . 'product_option_value')
+        $optSkus = DB::table('product_variation_values')
             ->where('product_id', $product)
             ->whereNotNull('sku')->where('sku', '!=', '')
             ->pluck('sku')->map(fn($s) => strtolower(trim($s)))->unique()->toArray();
@@ -839,10 +833,10 @@ class TikTokProductGroupController extends Controller
             ->with('status', $deleted . ' product(s) deleted from TikTok Shop.');
     }
 
-    private function erpProducts(string $pfx, int $langId, array $productIds)
+    private function erpProducts( int $langId, array $productIds)
     {
-        return DB::table($pfx . 'product as p')
-            ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
+        return DB::table('products as p')
+            ->join('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->whereIn('p.product_id', $productIds ?: [0])
@@ -1018,9 +1012,8 @@ class TikTokProductGroupController extends Controller
 
     private function sendRows(TikTokProductGroup $group, $pivotRows, array $c, TikTokClient $client): array
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
-        $erpProducts = $this->erpProducts($pfx, $langId, $pivotRows->pluck('product_id')->all());
+        $erpProducts = $this->erpProducts( $langId, $pivotRows->pluck('product_id')->all());
         $opts = $this->groupPushOptions($group, $c);
         $pusher = app(TikTokProductPush::class);
 
@@ -1122,7 +1115,6 @@ class TikTokProductGroupController extends Controller
         $group = TikTokProductGroup::findOrFail($id);
         $c = $this->creds();
         $client = app(TikTokClient::class);
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
 
@@ -1138,7 +1130,7 @@ class TikTokProductGroupController extends Controller
             return $this->productsRedirect($id)->with('error', 'No products found.');
         }
 
-        $erpProducts = $this->erpProducts($pfx, $langId, $pivotRows->pluck('product_id')->all());
+        $erpProducts = $this->erpProducts( $langId, $pivotRows->pluck('product_id')->all());
         $opts = $this->groupPushOptions($group, $c);
         $pusher = app(TikTokProductPush::class);
 
@@ -1199,7 +1191,6 @@ class TikTokProductGroupController extends Controller
         $group = TikTokProductGroup::findOrFail($id);
         $c = $this->creds();
         $client = app(TikTokClient::class);
-        $pfx = (string) config('catalog.prefix');
 
         $query = $group->groupProducts()->whereNotNull('tiktok_product_id');
         $specificIds = $request->input('ids');
@@ -1214,7 +1205,7 @@ class TikTokProductGroupController extends Controller
         }
 
         $results = app(\Extensions\TikTok\Services\TikTok\TikTokStockPricePush::class)->push(
-            $what === 'price' ? 'price' : 'stock', $c, $pivotRows, $pfx,
+            $what === 'price' ? 'price' : 'stock', $c, $pivotRows,
             \Extensions\TikTok\Commands\TikTokPushPrice::priceRule($pivotRows)
         );
         $ok = $results['ok'];

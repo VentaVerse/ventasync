@@ -13,10 +13,9 @@ class VariationRows
             return collect();
         }
 
-        $p = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $comboRows = DB::table('product_option_combinations as c')
+        $comboRows = DB::table('product_variations as c')
             ->whereIn('c.product_id', $productIds)
             ->orderBy('c.product_id')
             ->orderBy('c.sort_order')
@@ -25,17 +24,17 @@ class VariationRows
         $comboIds = $comboRows->pluck('id')->all();
         $pivotData = [];
         if (!empty($comboIds)) {
-            $pivots = DB::table('product_option_combination_values as cv')
-                ->join($p . 'product_option_value as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
-                ->join($p . 'option_value_description as ovd', function ($j) use ($langId) {
+            $pivots = DB::table('product_variation_parts as cv')
+                ->join('product_variation_values as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
+                ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
                     $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
                       ->where('ovd.language_id', '=', $langId);
                 })
-                ->join($p . 'option_description as od', function ($j) use ($langId) {
+                ->join('variation_type_descriptions as od', function ($j) use ($langId) {
                     $j->on('pov.option_id', '=', 'od.option_id')
                       ->where('od.language_id', '=', $langId);
                 })
-                ->join($p . 'product_option as po', 'pov.product_option_id', '=', 'po.product_option_id')
+                ->join('product_variation_types as po', 'pov.product_option_id', '=', 'po.product_option_id')
                 ->whereIn('cv.combination_id', $comboIds)
                 ->orderBy('po.product_option_id')
                 ->get(['cv.combination_id', 'cv.product_option_value_id', 'ovd.name as value_name', 'od.name as option_name']);
@@ -64,11 +63,11 @@ class VariationRows
             $rows->keys()->all()
         ));
         if (!empty($missing)) {
-            $povRows = DB::table($p . 'product_option_value as pov')
-                ->join($p . 'option_description as od', function ($j) use ($langId) {
+            $povRows = DB::table('product_variation_values as pov')
+                ->join('variation_type_descriptions as od', function ($j) use ($langId) {
                     $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
                 })
-                ->join($p . 'option_value_description as ovd', function ($j) use ($langId) {
+                ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
                     $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
                 })
                 ->whereIn('pov.product_id', $missing)

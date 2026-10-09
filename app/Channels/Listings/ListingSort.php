@@ -99,11 +99,10 @@ final class ListingSort
 
     public static function soldLast30Days(string $storeKey, string $productId = 'p.product_id'): Builder
     {
-        $pfx = (string) config('catalog.prefix');
-        $counted = DB::table($pfx . 'order_status')->where('add_revenue', 1)->distinct()->pluck('order_status_id')->all();
+        $counted = DB::table('order_statuses')->where('add_revenue', 1)->distinct()->pluck('order_status_id')->all();
 
-        $sold = DB::table($pfx . 'order_product as sop')
-            ->join($pfx . 'order as so', 'so.order_id', '=', 'sop.order_id')
+        $sold = DB::table('order_products as sop')
+            ->join('orders as so', 'so.order_id', '=', 'sop.order_id')
             ->whereColumn('sop.product_id', $productId)
             ->where('so.date_added', '>=', now()->subDays(30))
             ->whereIn('so.order_status_id', $counted ?: [0])
@@ -115,8 +114,7 @@ final class ListingSort
 
     public static function storePrice(string $listing, ?string $group = null, string $product = 'p'): Expression
     {
-        $pfx = (string) config('catalog.prefix');
-        $hasVariations = "EXISTS (SELECT 1 FROM `{$pfx}product_option_value` spov WHERE spov.product_id = {$product}.product_id)";
+        $hasVariations = "EXISTS (SELECT 1 FROM `product_variation_values` spov WHERE spov.product_id = {$product}.product_id)";
         $start = "(CASE WHEN {$listing}.price IS NOT NULL AND {$listing}.price > 0 AND NOT {$hasVariations} THEN {$listing}.price ELSE {$product}.price END)";
         $rule = fn (string $alias) => "({$start} + {$start} * COALESCE({$alias}.markup_percent, 0) / 100 + COALESCE({$alias}.markup_fixed, 0))";
 

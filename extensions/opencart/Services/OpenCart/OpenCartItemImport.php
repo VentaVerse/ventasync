@@ -28,8 +28,6 @@ class OpenCartItemImport
         if (empty($item)) {
             return ['ok' => false, 'message' => 'OpenCart answered with no product for ' . $ocProductId . '.'];
         }
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $name = trim(html_entity_decode((string) ($item['name'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?: ('OpenCart product ' . $ocProductId);
@@ -40,8 +38,8 @@ class OpenCartItemImport
         $multiOption = count($optionNames) > 1;
 
         try {
-            $productId = DB::transaction(function () use ($pfx, $langId, $item, $optionValues, $multiOption, $name, $sku, $store, $ocProductId) {
-                $productId = DB::table($pfx . 'product')->insertGetId([
+            $productId = DB::transaction(function () use ( $langId, $item, $optionValues, $multiOption, $name, $sku, $store, $ocProductId) {
+                $productId = DB::table('products')->insertGetId([
                     'model' => trim((string) ($item['model'] ?? '')) ?: $sku,
                     'sku' => $sku,
                     'quantity' => (int) ($item['quantity'] ?? 0),
@@ -56,7 +54,7 @@ class OpenCartItemImport
                     'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
                 ]);
 
-                DB::table($pfx . 'product_description')->insert([
+                DB::table('product_descriptions')->insert([
                     'product_id' => $productId,
                     'language_id' => $langId,
                     'name' => Str::limit($name, 250, ''),
@@ -78,9 +76,9 @@ class OpenCartItemImport
                 }
                 $paths = $this->downloadImages($urls, (string) $ocProductId);
                 if ($paths !== []) {
-                    DB::table($pfx . 'product')->where('product_id', $productId)->update(['image' => $paths[0]]);
+                    DB::table('products')->where('product_id', $productId)->update(['image' => $paths[0]]);
                     foreach (array_slice($paths, 1) as $i => $path) {
-                        DB::table($pfx . 'product_image')->insert([
+                        DB::table('product_images')->insert([
                             'product_id' => $productId, 'image' => $path, 'sort_order' => $i,
                         ]);
                     }

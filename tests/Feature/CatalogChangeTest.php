@@ -50,14 +50,13 @@ class CatalogChangeTest extends TestCase
 
     private function product(string $name, string $description, string $image = 'catalog/plug.jpg'): int
     {
-        $pfx = (string) config('catalog.prefix');
-        $id = DB::table($pfx . 'product')->insertGetId([
+        $id = DB::table('products')->insertGetId([
             'model' => 'CC', 'sku' => 'CC-' . uniqid(), 'quantity' => 5, 'price' => 130,
             'status' => 1, 'image' => $image, 'weight' => 0.05, 'length' => 2, 'width' => 2, 'height' => 1,
             'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now()->subMinute(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $id, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => $name, 'description' => $description,
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -68,11 +67,10 @@ class CatalogChangeTest extends TestCase
 
     private function editCatalog(int $productId, array $words = [], array $product = []): void
     {
-        $pfx = (string) config('catalog.prefix');
         if ($words !== []) {
-            DB::table($pfx . 'product_description')->where('product_id', $productId)->update($words);
+            DB::table('product_descriptions')->where('product_id', $productId)->update($words);
         }
-        DB::table($pfx . 'product')->where('product_id', $productId)->update($product + ['date_modified' => now()->addMinute()]);
+        DB::table('products')->where('product_id', $productId)->update($product + ['date_modified' => now()->addMinute()]);
     }
 
     public function test_a_new_listing_starts_as_an_exact_copy_of_the_catalog(): void
@@ -115,7 +113,7 @@ class CatalogChangeTest extends TestCase
         $this->editCatalog($pid);
 
         $this->assertSame([], $listing->fresh()->catalogChange());
-        $modified = \Illuminate\Support\Carbon::parse(DB::table((string) config('catalog.prefix') . 'product')->where('product_id', $pid)->value('date_modified'));
+        $modified = \Illuminate\Support\Carbon::parse(DB::table('products')->where('product_id', $pid)->value('date_modified'));
         $this->assertTrue($listing->fresh()->catalog_seen_at->gte($modified), 'a listing found the same is marked compared as of that change');
         $this->assertTrue($listing->fresh()->catalog_seen_at->gt($seen));
 
@@ -158,10 +156,8 @@ class CatalogChangeTest extends TestCase
             'catalog' => ['title' => 'Plug, catalog name', 'description' => '<p>Catalog words.</p>', 'description_edited' => '0', 'price' => '150'],
         ])->assertRedirect(route('ext.lazada.products.edit', $pid) . '?back=' . urlencode('/channels'))
             ->assertSessionHas('status', 'Saved.');
-
-        $pfx = (string) config('catalog.prefix');
-        $this->assertSame('Plug, catalog name', DB::table($pfx . 'product_description')->where('product_id', $pid)->value('name'));
-        $this->assertEquals(150, (float) DB::table($pfx . 'product')->where('product_id', $pid)->value('price'));
+        $this->assertSame('Plug, catalog name', DB::table('product_descriptions')->where('product_id', $pid)->value('name'));
+        $this->assertEquals(150, (float) DB::table('products')->where('product_id', $pid)->value('price'));
 
         $listing = LazadaListing::query()->where('product_id', $pid)->first();
         $this->assertSame('Plug for Lazada', $listing->item_name);
@@ -173,8 +169,7 @@ class CatalogChangeTest extends TestCase
     public function test_a_catalog_size_with_decimals_or_a_missing_weight_never_blocks_save(): void
     {
         $pid = $this->product('Plug', '<p>Words.</p>');
-        $pfx = (string) config('catalog.prefix');
-        DB::table($pfx . 'product')->where('product_id', $pid)->update(['weight' => 0, 'length' => 2.5]);
+        DB::table('products')->where('product_id', $pid)->update(['weight' => 0, 'length' => 2.5]);
         LazadaListing::query()->create(['product_id' => $pid]);
         $this->editCatalog($pid, ['name' => 'Plug v2']);
 
@@ -192,8 +187,8 @@ class CatalogChangeTest extends TestCase
             ->assertRedirect(route('ext.lazada.products.edit', $pid) . '?back=' . urlencode('/channels'))
             ->assertSessionHas('status', 'Saved.');
 
-        $this->assertEquals(0, (float) DB::table($pfx . 'product')->where('product_id', $pid)->value('weight'), 'an empty catalog weight saves as it was');
-        $this->assertEquals(2.5, (float) DB::table($pfx . 'product')->where('product_id', $pid)->value('length'));
+        $this->assertEquals(0, (float) DB::table('products')->where('product_id', $pid)->value('weight'), 'an empty catalog weight saves as it was');
+        $this->assertEquals(2.5, (float) DB::table('products')->where('product_id', $pid)->value('length'));
         $listing = LazadaListing::query()->where('product_id', $pid)->first();
         $this->assertNull($listing->package_length, 'the listing keeps following the catalog size');
         $this->assertNull($listing->weight);
@@ -210,9 +205,7 @@ class CatalogChangeTest extends TestCase
             'listing' => ['title' => 'Plug v2'],
             'catalog' => ['title' => 'Somebody else\'s name'],
         ])->assertRedirect();
-
-        $pfx = (string) config('catalog.prefix');
-        $this->assertSame('Plug v2', DB::table($pfx . 'product_description')->where('product_id', $pid)->value('name'));
+        $this->assertSame('Plug v2', DB::table('product_descriptions')->where('product_id', $pid)->value('name'));
         $this->assertSame('Plug v2', LazadaListing::query()->where('product_id', $pid)->value('item_name'));
     }
 

@@ -64,7 +64,6 @@ class DashboardController extends Controller
 
     public function index(Request $request)
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $range = array_key_exists((string) $request->query('range'), self::RANGES)
@@ -123,7 +122,7 @@ class DashboardController extends Controller
         $platformSlices = $this->buildPlatformData($range, $storeKey);
 
         $recentOrders = $this->orders($storeKey, 'o')
-            ->leftJoin($pfx . 'order_status as os', function ($j) use ($langId) {
+            ->leftJoin('order_statuses as os', function ($j) use ($langId) {
                 $j->on('o.order_status_id', '=', 'os.order_status_id')
                     ->where('os.language_id', '=', $langId);
             })
@@ -146,7 +145,7 @@ class DashboardController extends Controller
             'monthlyPoSpend' => 0,
         ];
 
-        $invRow = DB::table($pfx . 'product')
+        $invRow = DB::table('products')
             ->where('status', 1)
             ->selectRaw('COUNT(*) as products, SUM(quantity * cost) as at_cost, SUM(quantity * price) as at_sale')
             ->first();
@@ -231,7 +230,7 @@ class DashboardController extends Controller
 
     private function orders(string $storeKey, string $alias = ''): \Illuminate\Database\Query\Builder
     {
-        $table = (string) config('catalog.prefix') . 'order';
+        $table = 'orders';
         $q = DB::table($alias !== '' ? $table . ' as ' . $alias : $table);
         if ($storeKey !== '') {
             StoreKey::apply($q, [$storeKey], $alias !== '' ? $alias : $table);
@@ -242,7 +241,6 @@ class DashboardController extends Controller
 
     private function buildPlatformData(string $range, string $storeKey = ''): array
     {
-        $pfx = (string) config('catalog.prefix');
         $revIds = OrderStatus::where('add_revenue', 1)->pluck('order_status_id');
 
         $window = $this->rangeWindow($range);
@@ -363,7 +361,7 @@ class DashboardController extends Controller
             return $this->firstOrderMonth->copy();
         }
 
-        $first = DB::table((string) config('catalog.prefix') . 'order')->min('date_added');
+        $first = DB::table('orders')->min('date_added');
 
         $this->firstOrderMonth = $first
             ? \Carbon\Carbon::parse($first)->startOfMonth()
@@ -374,7 +372,6 @@ class DashboardController extends Controller
 
     private function buildChartData(string $range, string $storeKey = ''): array
     {
-        $pfx = (string) config('catalog.prefix');
         $revIds = OrderStatus::where('add_revenue', 1)->pluck('order_status_id');
         $revCase = 'SUM(CASE WHEN order_status_id IN (' . ($revIds->isNotEmpty() ? $revIds->implode(',') : '0') . ') THEN total ELSE 0 END) as revenue';
 

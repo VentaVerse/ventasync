@@ -71,9 +71,9 @@ class ShopeeListing extends Model
             return [];
         }
         $set = array_fill_keys(array_map('intval', array_keys(
-            \App\Channels\Push\PushLedger::erpVariationSkus($productIds, (string) config('catalog.prefix'))
+            \App\Channels\Push\PushLedger::erpVariationSkus($productIds)
         )), true);
-        foreach (\Illuminate\Support\Facades\DB::table('product_option_combinations')
+        foreach (\Illuminate\Support\Facades\DB::table('product_variations')
             ->whereIn('product_id', $productIds)->distinct()->pluck('product_id') as $pid) {
             $set[(int) $pid] = true;
         }

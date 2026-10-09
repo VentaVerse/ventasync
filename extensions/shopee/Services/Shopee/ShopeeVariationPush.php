@@ -13,8 +13,7 @@ class ShopeeVariationPush
 
     public function refusalFor(int $productId, \Closure $priceFor, int $storeId = 0): ?string
     {
-        $pfx = (string) config('catalog.prefix');
-        $all = DB::table('product_option_combinations')
+        $all = DB::table('product_variations')
             ->where('product_id', $productId)
             ->get(['sku', 'absolute_price']);
         if ($all->isEmpty()) {
@@ -29,7 +28,7 @@ class ShopeeVariationPush
             return 'Shopee accepts at most 50 variations per item; this product has ' . $combos->count() . '.';
         }
 
-        $base = (float) (DB::table($pfx . 'product')->where('product_id', $productId)->value('price') ?? 0);
+        $base = (float) (DB::table('products')->where('product_id', $productId)->value('price') ?? 0);
         $prices = $combos->map(function ($c) use ($base, $priceFor) {
             $core = $c->absolute_price !== null ? (float) $c->absolute_price : $base;
 
@@ -82,10 +81,8 @@ class ShopeeVariationPush
                 ? 'The item had no variations; its whole structure went up (' . $r['models'] . ' variations).'
                 : $r['message'], 'added' => $r['ok'] ? (int) $r['models'] : 0];
         }
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
-        $combos = DB::table('product_option_combinations')
+        $combos = DB::table('product_variations')
             ->where('product_id', $productId)
             ->orderBy('sort_order')
             ->get(['id', 'sku', 'quantity', 'absolute_price', 'image']);
@@ -111,9 +108,9 @@ class ShopeeVariationPush
             return ['ok' => true, 'message' => 'Every Master Catalog variation is already on Shopee.', 'added' => 0];
         }
 
-        $values = DB::table('product_option_combination_values as cv')
-            ->join($pfx . 'product_option_value as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
-            ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+        $values = DB::table('product_variation_parts as cv')
+            ->join('product_variation_values as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
+            ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
                 $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
                   ->where('ovd.language_id', '=', $langId);
             })
@@ -135,7 +132,7 @@ class ShopeeVariationPush
                 . ' tier' . (count($shopeeTiers) === 1 ? '' : 's') . '. Restructuring a live listing is not safe to do blind - adjust it in Seller Centre, then press Re-read variations.', 'added' => 0];
         }
 
-        $parentPrice = (float) (DB::table($pfx . 'product')->where('product_id', $productId)->value('price') ?? 0);
+        $parentPrice = (float) (DB::table('products')->where('product_id', $productId)->value('price') ?? 0);
         $prices = [];
         foreach ($shopeeModels as $m) {
             $existing = (float) ($m['price_info'][0]['original_price'] ?? 0);
@@ -439,10 +436,9 @@ class ShopeeVariationPush
 
     private function build(int $productId, \Closure $priceFor, ?\Closure $uploadImageId, int $storeId = 0): ?array
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $all = DB::table('product_option_combinations')
+        $all = DB::table('product_variations')
             ->where('product_id', $productId)
             ->orderBy('sort_order')
             ->get(['id', 'sku', 'quantity', 'absolute_price', 'image', 'status']);
@@ -459,13 +455,13 @@ class ShopeeVariationPush
             return ['refused' => 'Shopee accepts at most 50 variations per item; this product has ' . $combos->count() . '.'];
         }
 
-        $values = DB::table('product_option_combination_values as cv')
-            ->join($pfx . 'product_option_value as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
-            ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+        $values = DB::table('product_variation_parts as cv')
+            ->join('product_variation_values as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
+            ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
                 $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
                   ->where('ovd.language_id', '=', $langId);
             })
-            ->join($pfx . 'option_description as od', function ($j) use ($langId) {
+            ->join('variation_type_descriptions as od', function ($j) use ($langId) {
                 $j->on('pov.option_id', '=', 'od.option_id')
                   ->where('od.language_id', '=', $langId);
             })
@@ -506,7 +502,7 @@ class ShopeeVariationPush
 
         $axisIds = array_keys($axes);
 
-        $itemName = html_entity_decode((string) (DB::table($pfx . 'product_description')
+        $itemName = html_entity_decode((string) (DB::table('product_descriptions')
             ->where('product_id', $productId)->where('language_id', $langId)
             ->value('name') ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
@@ -541,7 +537,7 @@ class ShopeeVariationPush
             ];
         }
 
-        $parentPrice = (float) (DB::table($pfx . 'product')->where('product_id', $productId)->value('price') ?? 0);
+        $parentPrice = (float) (DB::table('products')->where('product_id', $productId)->value('price') ?? 0);
 
         $models = [];
         $modelSkus = [];

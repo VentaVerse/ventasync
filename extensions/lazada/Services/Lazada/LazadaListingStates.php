@@ -178,7 +178,6 @@ class LazadaListingStates
 
     private function bucket(string $bucket): \Illuminate\Database\Eloquent\Builder
     {
-        $pfx = (string) config('catalog.prefix');
 
         $linked = LazadaListing::query()
             ->whereNotNull('lazada_item_id')->where('lazada_item_id', '!=', '')
@@ -187,7 +186,7 @@ class LazadaListingStates
         if ($bucket === 'drift') {
             return LazadaListing::query()
                 ->select('ch_lazada_listings.*')
-                ->join($pfx . 'product as p', 'p.product_id', '=', 'ch_lazada_listings.product_id')
+                ->join('products as p', 'p.product_id', '=', 'ch_lazada_listings.product_id')
                 ->where(fn ($q) => $q->whereNull('ch_lazada_listings.catalog_seen_at')
                     ->orWhereColumn('p.date_modified', '>', 'ch_lazada_listings.catalog_seen_at'));
         }
@@ -202,15 +201,13 @@ class LazadaListingStates
             return [];
         }
 
-        $pfx = (string) config('catalog.prefix');
-
         $rows = LazadaListing::query()
             ->whereIn('product_id', $productIds)
             ->orderBy('id')
             ->get()
             ->groupBy('product_id');
 
-        $modified = DB::table($pfx . 'product')
+        $modified = DB::table('products')
             ->whereIn('product_id', $productIds)
             ->pluck('date_modified', 'product_id');
 
@@ -338,16 +335,15 @@ class LazadaListingStates
         if ($storeId <= 0 || $productId <= 0) {
             return;
         }
-        $pfx = (string) config('catalog.prefix');
         $variations = [];
-        foreach (PushLedger::erpVariationSkus([$productId], $pfx)[$productId] ?? [] as $sku) {
+        foreach (PushLedger::erpVariationSkus([$productId])[$productId] ?? [] as $sku) {
             $variations[strtolower(trim((string) $sku))] = true;
         }
         if ($variations === []) {
             return;
         }
 
-        $parent = DB::table($pfx . 'product')->where('product_id', $productId)->first(['sku', 'model']);
+        $parent = DB::table('products')->where('product_id', $productId)->first(['sku', 'model']);
         $own = [];
         foreach ([$parent->sku ?? '', $parent->model ?? ''] as $s) {
             $k = strtolower(trim((string) $s));

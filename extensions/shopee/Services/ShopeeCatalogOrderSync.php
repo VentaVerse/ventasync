@@ -208,8 +208,6 @@ class ShopeeCatalogOrderSync
                 }
             }
 
-            $pfx = (string) config('catalog.prefix');
-
             foreach ($grouped as $item) {
                 $price = $item['price'];
                 $qty = $item['quantity'];
@@ -223,7 +221,7 @@ class ShopeeCatalogOrderSync
                 $resolvedOptionValueId = 0;
                 $sellerSku = $item['sku'];
                 if ($sellerSku !== '') {
-                    $pov = DB::table($pfx . 'product_option_value')
+                    $pov = DB::table('product_variation_values')
                         ->where('sku', $sellerSku)
                         ->first();
                     if ($pov) {
@@ -232,7 +230,7 @@ class ShopeeCatalogOrderSync
                     }
 
                     if ($resolvedProductId === 0) {
-                        $prod = DB::table($pfx . 'product')
+                        $prod = DB::table('products')
                             ->where('sku', $sellerSku)
                             ->first(['product_id']);
                         if ($prod) {
@@ -244,7 +242,7 @@ class ShopeeCatalogOrderSync
                 if ($resolvedProductId > 0 && $resolvedOptionValueId === 0) {
                     $variation = trim($item['variation'] ?? '');
                     if ($variation !== '') {
-                        $resolvedOptionValueId = $this->resolveOptionByVariation($pfx, $resolvedProductId, $variation);
+                        $resolvedOptionValueId = $this->resolveOptionByVariation( $resolvedProductId, $variation);
                     }
                 }
 
@@ -337,7 +335,7 @@ class ShopeeCatalogOrderSync
         });
     }
 
-    private function resolveOptionByVariation(string $pfx, int $productId, string $variation): int
+    private function resolveOptionByVariation( int $productId, string $variation): int
     {
         $langId = (int) config('catalog.default_language_id');
 
@@ -358,8 +356,8 @@ class ShopeeCatalogOrderSync
             return 0;
         }
 
-        $match = DB::table($pfx . 'product_option_value as pov')
-            ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+        $match = DB::table('product_variation_values as pov')
+            ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
                 $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
                     ->where('ovd.language_id', '=', $langId);
             })

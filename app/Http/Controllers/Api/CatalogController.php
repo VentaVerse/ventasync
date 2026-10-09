@@ -51,12 +51,10 @@ class CatalogController extends Controller
         if ($term === '') {
             return response()->json([]);
         }
-
-        $p = config('catalog.prefix');
         $lang = (int) config('catalog.default_language_id');
 
-        $tableCat = $p.'category_description';
-        $tablePath = $p.'category_path';
+        $tableCat = 'category_descriptions';
+        $tablePath = 'category_paths';
 
         $rows = DB::table($tablePath.' as cp')
             ->join($tableCat.' as cd1', function($j) use ($lang){
@@ -113,12 +111,10 @@ class CatalogController extends Controller
         if ($term === '') {
             return response()->json([]);
         }
-
-        $p = config('catalog.prefix');
         $lang = (int) config('catalog.default_language_id');
 
-        $rows = DB::table($p.'option as o')
-            ->join($p.'option_description as od', function($j) use ($lang){
+        $rows = DB::table('variation_types as o')
+            ->join('variation_type_descriptions as od', function($j) use ($lang){
                 $j->on('o.option_id','=','od.option_id')->where('od.language_id','=',$lang);
             })
             ->where('od.name','like','%'.$term.'%')
@@ -144,10 +140,9 @@ class CatalogController extends Controller
     public function optionValues(Request $request, int $optionId)
     {
         $term = trim((string) $request->query('term',''));
-        $p = config('catalog.prefix');
         $lang = (int) config('catalog.default_language_id');
 
-        $q = DB::table($p.'option_value_description as ovd')
+        $q = DB::table('variation_value_descriptions as ovd')
             ->where('ovd.option_id', $optionId)
             ->where('ovd.language_id', $lang);
 

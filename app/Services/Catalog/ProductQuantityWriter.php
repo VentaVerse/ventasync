@@ -31,7 +31,7 @@ final class ProductQuantityWriter
         }
 
         $sku = trim((string) $variationSku);
-        $hasVariations = DB::table('product_option_combinations')->where('product_id', $productId)->exists();
+        $hasVariations = DB::table('product_variations')->where('product_id', $productId)->exists();
 
         if ($sku === '' && $hasVariations) {
             throw new RuntimeException(
@@ -69,7 +69,7 @@ final class ProductQuantityWriter
     private function setVariation(Product $product, string $sku, ?int $newQuantity, ?int $changeBy, string $reason, string $actor): array
     {
         $needle = strtolower($sku);
-        $combo = DB::table('product_option_combinations')
+        $combo = DB::table('product_variations')
             ->where('product_id', $product->product_id)
             ->whereRaw('LOWER(TRIM(sku)) = ?', [$needle])
             ->first(['id', 'quantity']);
@@ -85,22 +85,22 @@ final class ProductQuantityWriter
         $after = $this->resolve($before, $newQuantity, $changeBy);
         $parentBefore = (int) $product->quantity;
 
-        $valueIds = DB::table('product_option_combination_values')
+        $valueIds = DB::table('product_variation_parts')
             ->where('combination_id', $combo->id)->pluck('product_option_value_id');
         $lonePovId = $valueIds->count() === 1 ? (int) $valueIds->first() : null;
 
         $parentAfter = DB::transaction(function () use ($combo, $after, $lonePovId, $product) {
-            DB::table('product_option_combinations')->where('id', $combo->id)
+            DB::table('product_variations')->where('id', $combo->id)
                 ->update(['quantity' => $after, 'updated_at' => now()]);
 
             if ($lonePovId !== null) {
-                DB::table($this->prefix() . 'product_option_value')
+                DB::table('product_variation_values')
                     ->where('product_option_value_id', $lonePovId)
                     ->where('product_id', $product->product_id)
                     ->update(['quantity' => $after]);
             }
 
-            $sum = (int) DB::table('product_option_combinations')
+            $sum = (int) DB::table('product_variations')
                 ->where('product_id', $product->product_id)->sum('quantity');
 
             DB::table($this->productTable())->where('product_id', $product->product_id)
@@ -170,13 +170,8 @@ final class ProductQuantityWriter
             ->update(['quantity' => $quantity]);
     }
 
-    private function prefix(): string
-    {
-        return (string) config('catalog.prefix');
-    }
-
     private function productTable(): string
     {
-        return $this->prefix() . 'product';
+        return 'products';
     }
 }

@@ -49,7 +49,6 @@ class OpenCartProductSync
 
     private function autoPopulateMaps(): void
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         if (empty($this->categoryMap)) {
@@ -61,7 +60,7 @@ class OpenCartProductSync
                     $name = trim($cat['name'] ?? '');
                     if ($ocId <= 0 || $name === '') continue;
 
-                    $local = DB::table($pfx . 'category_description')
+                    $local = DB::table('category_descriptions')
                         ->where('language_id', $langId)
                         ->where('name', $name)
                         ->value('category_id');
@@ -82,7 +81,7 @@ class OpenCartProductSync
                     $name = trim($mfg['name'] ?? '');
                     if ($ocId <= 0 || $name === '') continue;
 
-                    $local = DB::table($pfx . 'brand')
+                    $local = DB::table('brands')
                         ->where('name', $name)
                         ->value('brand_id');
 
@@ -102,8 +101,8 @@ class OpenCartProductSync
                     $name = trim($opt['name'] ?? '');
                     if ($ocOptionId <= 0 || $name === '') continue;
 
-                    $local = DB::table($pfx . 'option AS o')
-                        ->join($pfx . 'option_description AS od', function ($join) use ($langId) {
+                    $local = DB::table('variation_types AS o')
+                        ->join('variation_type_descriptions AS od', function ($join) use ($langId) {
                             $join->on('o.option_id', '=', 'od.option_id')
                                 ->where('od.language_id', '=', $langId);
                         })
@@ -119,8 +118,8 @@ class OpenCartProductSync
                             $valName = trim($val['name'] ?? '');
                             if ($ocValueId <= 0 || $valName === '') continue;
 
-                            $localVal = DB::table($pfx . 'option_value AS ov')
-                                ->join($pfx . 'option_value_description AS ovd', function ($join) use ($langId) {
+                            $localVal = DB::table('variation_values AS ov')
+                                ->join('variation_value_descriptions AS ovd', function ($join) use ($langId) {
                                     $join->on('ov.option_value_id', '=', 'ovd.option_value_id')
                                         ->where('ovd.language_id', '=', $langId);
                                 })
@@ -224,7 +223,6 @@ class OpenCartProductSync
 
     public function push(array $productIds): array
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $updated = 0;
         $created = 0;
@@ -254,7 +252,7 @@ class OpenCartProductSync
             $chunkMap = [];
 
             foreach ($chunk as $pid) {
-                $product = DB::table($pfx . 'product')
+                $product = DB::table('products')
                     ->where('product_id', (int) $pid)
                     ->first();
 
@@ -266,7 +264,7 @@ class OpenCartProductSync
                     continue;
                 }
 
-                $desc = DB::table($pfx . 'product_description')
+                $desc = DB::table('product_descriptions')
                     ->where('product_id', (int) $pid)
                     ->where('language_id', $langId)
                     ->first();
@@ -276,7 +274,7 @@ class OpenCartProductSync
 
                 $mfgName = '';
                 if ((int) $product->brand_id > 0) {
-                    $mfg = DB::table($pfx . 'brand')
+                    $mfg = DB::table('brands')
                         ->where('brand_id', (int) $product->brand_id)
                         ->first();
                     if ($mfg) $mfgName = $mfg->name;
@@ -308,7 +306,7 @@ class OpenCartProductSync
                     }
                 }
 
-                $addlImages = DB::table($pfx . 'product_image')
+                $addlImages = DB::table('product_images')
                     ->where('product_id', (int) $pid)
                     ->orderBy('sort_order')
                     ->get();
@@ -330,7 +328,7 @@ class OpenCartProductSync
                     $productData['images'] = $imagesPayload;
                 }
 
-                $options = $this->buildOptionsPayload((int) $pid, $pfx, $langId);
+                $options = $this->buildOptionsPayload((int) $pid, $langId);
                 if (!empty($options)) {
                     $productData['options'] = $options;
                 }
@@ -378,7 +376,7 @@ class OpenCartProductSync
         }
 
         foreach ($toCreate as $pid) {
-            $createStatus = DB::table($pfx . 'product')->where('product_id', (int) $pid)->value('status');
+            $createStatus = DB::table('products')->where('product_id', (int) $pid)->value('status');
             if ((int) $createStatus === 0) {
                 $failed++;
                 $errors[] = ['product_id' => $pid, 'error' => 'Product is disabled (status=0), skipped create.'];
@@ -386,7 +384,7 @@ class OpenCartProductSync
             }
 
             try {
-                $payload = $this->buildCreatePayload((int) $pid, $pfx, $langId);
+                $payload = $this->buildCreatePayload((int) $pid, $langId);
                 if ($payload === null) {
                     $failed++;
                     $errors[] = ['product_id' => $pid, 'error' => 'Product not found'];
@@ -427,15 +425,15 @@ class OpenCartProductSync
         return compact('updated', 'created', 'failed', 'errors');
     }
 
-    private function buildCreatePayload(int $productId, string $pfx, int $langId): ?array
+    private function buildCreatePayload(int $productId, int $langId): ?array
     {
-        $product = DB::table($pfx . 'product')
+        $product = DB::table('products')
             ->where('product_id', $productId)
             ->first();
 
         if (!$product) return null;
 
-        $desc = DB::table($pfx . 'product_description')
+        $desc = DB::table('product_descriptions')
             ->where('product_id', $productId)
             ->where('language_id', $langId)
             ->first();
@@ -472,7 +470,7 @@ class OpenCartProductSync
         ];
 
         if ((int) $product->brand_id > 0) {
-            $mfg = DB::table($pfx . 'brand')
+            $mfg = DB::table('brands')
                 ->where('brand_id', (int) $product->brand_id)
                 ->first();
             if ($mfg) {
@@ -480,13 +478,13 @@ class OpenCartProductSync
             }
         }
 
-        $catIds = DB::table($pfx . 'product_to_category')
+        $catIds = DB::table('product_categories')
             ->where('product_id', $productId)
             ->pluck('category_id');
 
         $categoryNames = [];
         foreach ($catIds as $catId) {
-            $path = $this->buildCategoryPath((int) $catId, $pfx, $langId);
+            $path = $this->buildCategoryPath((int) $catId, $langId);
             if ($path !== '') {
                 $categoryNames[] = $path;
             }
@@ -503,7 +501,7 @@ class OpenCartProductSync
             }
         }
 
-        $images = DB::table($pfx . 'product_image')
+        $images = DB::table('product_images')
             ->where('product_id', $productId)
             ->orderBy('sort_order')
             ->get();
@@ -525,7 +523,7 @@ class OpenCartProductSync
             $payload['images'] = $imagesPayload;
         }
 
-        $specials = DB::table($pfx . 'product_special')
+        $specials = DB::table('product_specials')
             ->where('product_id', $productId)
             ->get();
 
@@ -539,7 +537,7 @@ class OpenCartProductSync
             ])->toArray();
         }
 
-        $optionsPayload = $this->buildOptionsPayload($productId, $pfx, $langId);
+        $optionsPayload = $this->buildOptionsPayload($productId, $langId);
         if (!empty($optionsPayload)) {
             $payload['options'] = $optionsPayload;
         }
@@ -547,16 +545,16 @@ class OpenCartProductSync
         return $payload;
     }
 
-    private function buildOptionsPayload(int $productId, string $pfx, int $langId): array
+    private function buildOptionsPayload(int $productId, int $langId): array
     {
-        $basePrice = (float) DB::table($pfx . 'product')->where('product_id', $productId)->value('price');
+        $basePrice = (float) DB::table('products')->where('product_id', $productId)->value('price');
 
-        $productOptions = DB::table($pfx . 'product_option AS po')
-            ->join($pfx . 'option_description AS od', function ($join) use ($langId) {
+        $productOptions = DB::table('product_variation_types AS po')
+            ->join('variation_type_descriptions AS od', function ($join) use ($langId) {
                 $join->on('po.option_id', '=', 'od.option_id')
                     ->where('od.language_id', '=', $langId);
             })
-            ->join($pfx . 'option AS o', 'po.option_id', '=', 'o.option_id')
+            ->join('variation_types AS o', 'po.option_id', '=', 'o.option_id')
             ->where('po.product_id', $productId)
             ->select('po.product_option_id', 'po.option_id', 'po.required', 'od.name AS option_name', 'o.type')
             ->get();
@@ -567,8 +565,8 @@ class OpenCartProductSync
 
         $optionsPayload = [];
         foreach ($productOptions as $po) {
-            $values = DB::table($pfx . 'product_option_value AS pov')
-                ->join($pfx . 'option_value_description AS ovd', function ($join) use ($langId) {
+            $values = DB::table('product_variation_values AS pov')
+                ->join('variation_value_descriptions AS ovd', function ($join) use ($langId) {
                     $join->on('pov.option_value_id', '=', 'ovd.option_value_id')
                         ->where('ovd.language_id', '=', $langId);
                 })
@@ -628,10 +626,10 @@ class OpenCartProductSync
         return base64_encode($contents);
     }
 
-    private function buildCategoryPath(int $categoryId, string $pfx, int $langId): string
+    private function buildCategoryPath(int $categoryId, int $langId): string
     {
-        $rows = DB::table($pfx . 'category_path AS cp')
-            ->join($pfx . 'category_description AS cd', function ($join) use ($langId) {
+        $rows = DB::table('category_paths AS cp')
+            ->join('category_descriptions AS cd', function ($join) use ($langId) {
                 $join->on('cp.path_id', '=', 'cd.category_id')
                     ->where('cd.language_id', '=', $langId);
             })
@@ -644,7 +642,6 @@ class OpenCartProductSync
 
     private function upsertProduct(array $raw): bool
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $ocProductId = (int) ($raw['product_id'] ?? 0);
         $sku = trim($raw['sku'] ?? '');
@@ -657,7 +654,7 @@ class OpenCartProductSync
             ? $this->brandMap[$ocMfgId]
             : 0;
 
-        DB::transaction(function () use ($raw, $pfx, $langId, $sku, $ocProductId, $coreMfgId, &$created, &$coreProductId, &$linkedToOtherStore) {
+        DB::transaction(function () use ($raw, $langId, $sku, $ocProductId, $coreMfgId, &$created, &$coreProductId, &$linkedToOtherStore) {
             $data = [
                 'model'           => $raw['model'] ?? '',
                 'sku'             => $sku,
@@ -692,7 +689,7 @@ class OpenCartProductSync
 
             $existing = null;
             if ($sku !== '') {
-                $existing = DB::table($pfx . 'product')
+                $existing = DB::table('products')
                     ->where('sku', $sku)
                     ->select('product_id')
                     ->first();
@@ -702,7 +699,7 @@ class OpenCartProductSync
                     ->where('oc_product_id', $ocProductId)
                     ->first();
                 if ($link) {
-                    $existing = DB::table($pfx . 'product')
+                    $existing = DB::table('products')
                         ->where('product_id', $link->product_id)
                         ->select('product_id')
                         ->first();
@@ -719,7 +716,7 @@ class OpenCartProductSync
                 if ($existingLink) {
                     $linkedToOtherStore = true;
                 } else {
-                    DB::table($pfx . 'product')
+                    DB::table('products')
                         ->where('product_id', $coreProductId)
                         ->update($data);
                 }
@@ -728,7 +725,7 @@ class OpenCartProductSync
                     throw new \App\Plans\PlanLimitReached('Not imported. ' . $full);
                 }
                 $data['date_added'] = (isset($raw['date_added']) && $raw['date_added'] !== '0000-00-00 00:00:00') ? $raw['date_added'] : now()->toDateTimeString();
-                $coreProductId = DB::table($pfx . 'product')->insertGetId($data, 'product_id');
+                $coreProductId = DB::table('products')->insertGetId($data, 'product_id');
                 $created = true;
             }
         });
@@ -748,8 +745,8 @@ class OpenCartProductSync
             return false;
         }
 
-        $this->syncSubTable('product_description', $coreProductId, function () use ($pfx, $langId, $coreProductId, $raw) {
-            DB::table($pfx . 'product_description')->updateOrInsert(
+        $this->syncSubTable('product_description', $coreProductId, function () use ( $langId, $coreProductId, $raw) {
+            DB::table('product_descriptions')->updateOrInsert(
                 ['product_id' => $coreProductId, 'language_id' => $langId],
                 [
                     'name'             => $raw['name'] ?? '',
@@ -762,10 +759,10 @@ class OpenCartProductSync
             );
         });
 
-        $this->syncSubTable('product_to_category', $coreProductId, function () use ($pfx, $coreProductId, $raw) {
+        $this->syncSubTable('product_to_category', $coreProductId, function () use ( $coreProductId, $raw) {
             if (!isset($raw['categories']) || !is_array($raw['categories'])) return;
 
-            DB::table($pfx . 'product_to_category')
+            DB::table('product_categories')
                 ->where('product_id', $coreProductId)
                 ->delete();
 
@@ -773,17 +770,17 @@ class OpenCartProductSync
                 $coreCatId = $this->categoryMap[(int) $ocCatId] ?? null;
                 if ($coreCatId === null) continue;
 
-                DB::table($pfx . 'product_to_category')->insert([
+                DB::table('product_categories')->insert([
                     'product_id'  => $coreProductId,
                     'category_id' => $coreCatId,
                 ]);
             }
         });
 
-        $this->syncSubTable('product_option', $coreProductId, function () use ($pfx, $coreProductId, $raw) {
+        $this->syncSubTable('product_option', $coreProductId, function () use ( $coreProductId, $raw) {
             if (!isset($raw['options']) || !is_array($raw['options'])) return;
 
-            DB::table($pfx . 'product_option')
+            DB::table('product_variation_types')
                 ->where('product_id', $coreProductId)
                 ->delete();
 
@@ -792,7 +789,7 @@ class OpenCartProductSync
                 $coreOptionId = $this->optionMap[$ocOptionId] ?? null;
                 if ($coreOptionId === null) continue;
 
-                DB::table($pfx . 'product_option')->insert([
+                DB::table('product_variation_types')->insert([
                     'product_id' => $coreProductId,
                     'option_id'  => $coreOptionId,
                     'value'      => $po['value'] ?? '',
@@ -801,15 +798,15 @@ class OpenCartProductSync
             }
         });
 
-        $this->syncSubTable('product_option_value', $coreProductId, function () use ($pfx, $coreProductId, $raw) {
+        $this->syncSubTable('product_option_value', $coreProductId, function () use ( $coreProductId, $raw) {
             if (!isset($raw['option_values']) || !is_array($raw['option_values'])) return;
 
-            DB::table($pfx . 'product_option_value')
+            DB::table('product_variation_values')
                 ->where('product_id', $coreProductId)
                 ->delete();
 
             $poMap = [];
-            $corePos = DB::table($pfx . 'product_option')
+            $corePos = DB::table('product_variation_types')
                 ->where('product_id', $coreProductId)
                 ->get();
 
@@ -833,7 +830,7 @@ class OpenCartProductSync
                 $ovPrefix     = $ov['price_prefix'] ?? '+';
                 $absolutePrice = $basePrice + ($ovPrefix === '+' ? $ovPrice : -$ovPrice);
 
-                DB::table($pfx . 'product_option_value')->insert([
+                DB::table('product_variation_values')->insert([
                     'product_option_id' => $corePoId,
                     'product_id'        => $coreProductId,
                     'option_id'         => $coreOptionId,
@@ -854,15 +851,15 @@ class OpenCartProductSync
 
         $this->syncCombinationsFromPov($coreProductId);
 
-        $this->syncSubTable('product_special', $coreProductId, function () use ($pfx, $coreProductId, $raw) {
+        $this->syncSubTable('product_special', $coreProductId, function () use ( $coreProductId, $raw) {
             if (!isset($raw['specials']) || !is_array($raw['specials'])) return;
 
-            DB::table($pfx . 'product_special')
+            DB::table('product_specials')
                 ->where('product_id', $coreProductId)
                 ->delete();
 
             foreach ($raw['specials'] as $sp) {
-                DB::table($pfx . 'product_special')->insert([
+                DB::table('product_specials')->insert([
                     'product_id'        => $coreProductId,
                     'customer_group_id' => (int) ($sp['customer_group_id'] ?? 0),
                     'priority'          => (int) ($sp['priority'] ?? 0),
@@ -873,15 +870,15 @@ class OpenCartProductSync
             }
         });
 
-        $this->syncSubTable('product_image', $coreProductId, function () use ($pfx, $coreProductId, $raw) {
+        $this->syncSubTable('product_image', $coreProductId, function () use ( $coreProductId, $raw) {
             if (!isset($raw['images']) || !is_array($raw['images'])) return;
 
-            DB::table($pfx . 'product_image')
+            DB::table('product_images')
                 ->where('product_id', $coreProductId)
                 ->delete();
 
             foreach ($raw['images'] as $img) {
-                DB::table($pfx . 'product_image')->insert([
+                DB::table('product_images')->insert([
                     'product_id' => $coreProductId,
                     'image'      => $img['image'] ?? '',
                     'sort_order' => (int) ($img['sort_order'] ?? 0),
@@ -903,7 +900,6 @@ class OpenCartProductSync
         ]);
 
         try {
-            $pfx = (string) config('catalog.prefix');
             $updated = 0;
             $skipped = 0;
             $failed = 0;
@@ -923,15 +919,15 @@ class OpenCartProductSync
             }
 
             $localProductIds = $links->pluck('product_id')->unique()->toArray();
-            $localQty = DB::table($pfx . 'product')
+            $localQty = DB::table('products')
                 ->whereIn('product_id', $localProductIds)
                 ->where('status', 1)
                 ->pluck('quantity', 'product_id')
                 ->toArray();
 
             $langId = (int) config('catalog.default_language_id');
-            $optionValues = DB::table($pfx . 'product_option_value as pov')
-                ->leftJoin($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+            $optionValues = DB::table('product_variation_values as pov')
+                ->leftJoin('variation_value_descriptions as ovd', function ($j) use ($langId) {
                     $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
                         ->where('ovd.language_id', '=', $langId);
                 })
@@ -1034,7 +1030,6 @@ class OpenCartProductSync
         ]);
 
         try {
-            $pfx = (string) config('catalog.prefix');
             $updated = 0;
             $skipped = 0;
             $failed = 0;
@@ -1050,15 +1045,15 @@ class OpenCartProductSync
             }
 
             $localProductIds = $links->pluck('product_id')->unique()->toArray();
-            $localPrice = DB::table($pfx . 'product')
+            $localPrice = DB::table('products')
                 ->whereIn('product_id', $localProductIds)
                 ->where('status', 1)
                 ->pluck('price', 'product_id')
                 ->toArray();
 
             $langId = (int) config('catalog.default_language_id');
-            $optionValues = DB::table($pfx . 'product_option_value as pov')
-                ->leftJoin($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+            $optionValues = DB::table('product_variation_values as pov')
+                ->leftJoin('variation_value_descriptions as ovd', function ($j) use ($langId) {
                     $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
                         ->where('ovd.language_id', '=', $langId);
                 })
@@ -1155,7 +1150,6 @@ class OpenCartProductSync
         ]);
 
         try {
-            $pfx = (string) config('catalog.prefix');
             $page = 1;
             $limit = 100;
             $updated = 0;
@@ -1185,7 +1179,7 @@ class OpenCartProductSync
                         if (!$coreProductId) {
                             $sku = trim($raw['sku'] ?? '');
                             if ($sku !== '') {
-                                $found = DB::table($pfx . 'product')->where('sku', $sku)->value('product_id');
+                                $found = DB::table('products')->where('sku', $sku)->value('product_id');
                                 if ($found) $coreProductId = (int) $found;
                             }
                         }
@@ -1195,7 +1189,7 @@ class OpenCartProductSync
                             continue;
                         }
 
-                        DB::table($pfx . 'product')
+                        DB::table('products')
                             ->where('product_id', $coreProductId)
                             ->update(['quantity' => (int) ($raw['quantity'] ?? 0)]);
 
@@ -1204,7 +1198,7 @@ class OpenCartProductSync
                                 $ovSku = trim($ov['sku'] ?? '');
                                 if ($ovSku === '') continue;
 
-                                DB::table($pfx . 'product_option_value')
+                                DB::table('product_variation_values')
                                     ->where('product_id', $coreProductId)
                                     ->where('sku', $ovSku)
                                     ->update(['quantity' => (int) ($ov['quantity'] ?? 0)]);
@@ -1261,16 +1255,15 @@ class OpenCartProductSync
     private function syncCombinationsFromPov(int $productId): void
     {
         try {
-            $pfx = config('catalog.prefix');
 
-            DB::table('product_option_combination_values')
+            DB::table('product_variation_parts')
                 ->whereIn('combination_id', function ($q) use ($productId) {
-                    $q->select('id')->from('product_option_combinations')->where('product_id', $productId);
+                    $q->select('id')->from('product_variations')->where('product_id', $productId);
                 })
                 ->delete();
-            DB::table('product_option_combinations')->where('product_id', $productId)->delete();
+            DB::table('product_variations')->where('product_id', $productId)->delete();
 
-            $povRows = DB::table($pfx . 'product_option_value')
+            $povRows = DB::table('product_variation_values')
                 ->where('product_id', $productId)
                 ->orderBy('product_option_id')
                 ->get();
@@ -1284,7 +1277,7 @@ class OpenCartProductSync
             if ($groupCount === 1) {
                 $sortOrder = 0;
                 foreach ($povRows as $pov) {
-                    $comboId = DB::table('product_option_combinations')->insertGetId([
+                    $comboId = DB::table('product_variations')->insertGetId([
                         'product_id' => $productId,
                         'sku' => $pov->sku ?? '',
                         'quantity' => (int) $pov->quantity,
@@ -1295,7 +1288,7 @@ class OpenCartProductSync
                         'created_at' => $now,
                         'updated_at' => $now,
                     ]);
-                    DB::table('product_option_combination_values')->insert([
+                    DB::table('product_variation_parts')->insert([
                         'combination_id' => $comboId,
                         'product_option_value_id' => (int) $pov->product_option_value_id,
                     ]);
@@ -1304,7 +1297,7 @@ class OpenCartProductSync
                 $groups = $grouped->values();
                 $group1 = $groups[0];
                 $group2 = $groups[1];
-                $basePrice = (float) DB::table($pfx . 'product')->where('product_id', $productId)->value('price');
+                $basePrice = (float) DB::table('products')->where('product_id', $productId)->value('price');
                 $sortOrder = 0;
 
                 foreach ($group1 as $pov1) {
@@ -1315,7 +1308,7 @@ class OpenCartProductSync
 
                         $comboSku = ($pov1->sku ?? '') . ($pov2->sku ? '-' . $pov2->sku : '');
 
-                        $comboId = DB::table('product_option_combinations')->insertGetId([
+                        $comboId = DB::table('product_variations')->insertGetId([
                             'product_id' => $productId,
                             'sku' => $comboSku,
                             'quantity' => (int) $pov1->quantity,
@@ -1326,7 +1319,7 @@ class OpenCartProductSync
                             'created_at' => $now,
                             'updated_at' => $now,
                         ]);
-                        DB::table('product_option_combination_values')->insert([
+                        DB::table('product_variation_parts')->insert([
                             ['combination_id' => $comboId, 'product_option_value_id' => (int) $pov1->product_option_value_id],
                             ['combination_id' => $comboId, 'product_option_value_id' => (int) $pov2->product_option_value_id],
                         ]);

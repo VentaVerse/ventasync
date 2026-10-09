@@ -60,12 +60,11 @@ class VentaCartListingsIndexTest extends TestCase
 
     private function product(string $sku, string $name): int
     {
-        $pfx = (string) config('catalog.prefix');
-        $pid = (int) DB::table($pfx . 'product')->insertGetId([
+        $pid = (int) DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'price' => 500, 'quantity' => 3, 'status' => 1, 'image' => '',
             'weight' => 0, 'length' => 0, 'width' => 0, 'height' => 0, 'date_added' => now(), 'date_modified' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $pid, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => $name, 'description' => '', 'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
@@ -159,8 +158,7 @@ class VentaCartListingsIndexTest extends TestCase
     {
         $store = $this->store();
         $ids = $this->scope($store);
-        $pfx = (string) config('catalog.prefix');
-        DB::table($pfx . 'product')->whereIn('product_id', [$ids['U-1'], $ids['N-1']])->update(['sku' => '']);
+        DB::table('products')->whereIn('product_id', [$ids['U-1'], $ids['N-1']])->update(['sku' => '']);
         Http::fake();
         $user = $this->manager();
 
@@ -295,7 +293,7 @@ class VentaCartListingsIndexTest extends TestCase
         $store = $this->store();
         $pid = $this->product('TEE', 'Tee');
         foreach (['TEE-S', 'TEE-M', 'TEE-L'] as $i => $sku) {
-            DB::table('product_option_combinations')->insert([
+            DB::table('product_variations')->insert([
                 'product_id' => $pid, 'sku' => $sku, 'quantity' => 3, 'absolute_price' => 500, 'status' => 1, 'sort_order' => $i,
             ]);
         }
@@ -332,7 +330,7 @@ class VentaCartListingsIndexTest extends TestCase
 
         $tee = $this->product('TEE', 'Missing tee');
         foreach (['TEE-S', 'TEE-L'] as $i => $sku) {
-            DB::table('product_option_combinations')->insert([
+            DB::table('product_variations')->insert([
                 'product_id' => $tee, 'sku' => $sku, 'quantity' => 3, 'absolute_price' => 500, 'status' => 1, 'sort_order' => $i,
             ]);
         }

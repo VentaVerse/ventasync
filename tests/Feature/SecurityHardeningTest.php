@@ -302,7 +302,7 @@ class SecurityHardeningTest extends TestCase
         ]);
         $response->assertRedirect(route('categories.index'));
 
-        return (int) DB::table(config('catalog.prefix').'category_description')
+        return (int) DB::table('category_descriptions')
             ->where('name', $name)->value('category_id');
     }
 
@@ -324,7 +324,7 @@ class SecurityHardeningTest extends TestCase
 
         $response->assertRedirect(route('products.index'));
 
-        $stored = DB::table(config('catalog.prefix').'product_description')
+        $stored = DB::table('product_descriptions')
             ->where('meta_title', 'like', 'Sec Test XSS Product %')
             ->value('description');
 
@@ -350,7 +350,7 @@ class SecurityHardeningTest extends TestCase
         $response->assertRedirect('/catalog/products');
 
         $langId = (int) config('catalog.default_language_id');
-        $stored = DB::table(config('catalog.prefix').'product_description')
+        $stored = DB::table('product_descriptions')
             ->where('product_id', $product->product_id)
             ->where('language_id', $langId)
             ->value('description');
@@ -376,7 +376,7 @@ class SecurityHardeningTest extends TestCase
         $response->assertRedirect('/catalog/products');
 
         $langId = (int) config('catalog.default_language_id');
-        $stored = DB::table(config('catalog.prefix').'product_description')
+        $stored = DB::table('product_descriptions')
             ->where('product_id', $product->product_id)
             ->where('language_id', $langId)
             ->value('description');
@@ -397,7 +397,7 @@ class SecurityHardeningTest extends TestCase
 
         $response->assertRedirect(route('categories.index'));
 
-        $stored = DB::table(config('catalog.prefix').'category_description')
+        $stored = DB::table('category_descriptions')
             ->where('name', $name)->value('description');
 
         $this->assertNotNull($stored);
@@ -421,7 +421,7 @@ class SecurityHardeningTest extends TestCase
         $response->assertRedirect(route('categories.index'));
 
         $langId = (int) config('catalog.default_language_id');
-        $stored = DB::table(config('catalog.prefix').'category_description')
+        $stored = DB::table('category_descriptions')
             ->where('category_id', $categoryId)
             ->where('language_id', $langId)
             ->value('description');
@@ -437,9 +437,8 @@ class SecurityHardeningTest extends TestCase
         $user = $this->userWithPermission('manage_catalog/product');
         $product = $this->testProduct();
         $langId = (int) config('catalog.default_language_id');
-        $pfx = config('catalog.prefix');
 
-        DB::table($pfx.'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $product->product_id,
             'language_id' => $langId,
             'name' => 'Sec Render Test Product',
@@ -453,7 +452,7 @@ class SecurityHardeningTest extends TestCase
         $this->assertStringNotContainsString('onerror', $html);
         $this->assertStringNotContainsString('javascript:alert', $html);
 
-        $rawStored = DB::table($pfx.'product_description')
+        $rawStored = DB::table('product_descriptions')
             ->where('product_id', $product->product_id)->where('language_id', $langId)
             ->value('description');
         $this->assertSame($this->xssAndLegitPayload(), $rawStored);
@@ -464,9 +463,8 @@ class SecurityHardeningTest extends TestCase
         $user = $this->userWithPermission('manage_catalog/category');
         $categoryId = $this->createCategory($user, 'Sec Render Test Category ' . uniqid());
         $langId = (int) config('catalog.default_language_id');
-        $pfx = config('catalog.prefix');
 
-        DB::table($pfx.'category_description')
+        DB::table('category_descriptions')
             ->where('category_id', $categoryId)->where('language_id', $langId)
             ->update(['description' => $this->xssAndLegitPayload()]);
 
@@ -476,7 +474,7 @@ class SecurityHardeningTest extends TestCase
         $this->assertStringNotContainsString('onerror', $html);
         $this->assertStringNotContainsString('javascript:alert', $html);
 
-        $rawStored = DB::table($pfx.'category_description')
+        $rawStored = DB::table('category_descriptions')
             ->where('category_id', $categoryId)->where('language_id', $langId)
             ->value('description');
         $this->assertSame($this->xssAndLegitPayload(), $rawStored);

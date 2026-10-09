@@ -163,12 +163,11 @@ class ShopeeListingStates
 
     private function bucket(string $bucket): \Illuminate\Database\Eloquent\Builder
     {
-        $pfx = (string) config('catalog.prefix');
 
         if ($bucket === 'drift') {
             return ShopeeListing::query()
                 ->select('ch_shopee_listings.*')
-                ->join($pfx . 'product as p', 'p.product_id', '=', 'ch_shopee_listings.product_id')
+                ->join('products as p', 'p.product_id', '=', 'ch_shopee_listings.product_id')
                 ->where(fn ($q) => $q->whereNull('ch_shopee_listings.catalog_seen_at')
                     ->orWhereColumn('p.date_modified', '>', 'ch_shopee_listings.catalog_seen_at'));
         }
@@ -219,16 +218,15 @@ class ShopeeListingStates
         if ($storeId <= 0 || $productId <= 0) {
             return;
         }
-        $pfx = (string) config('catalog.prefix');
         $variations = [];
-        foreach (PushLedger::erpVariationSkus([$productId], $pfx)[$productId] ?? [] as $sku) {
+        foreach (PushLedger::erpVariationSkus([$productId])[$productId] ?? [] as $sku) {
             $variations[strtolower(trim((string) $sku))] = true;
         }
         if ($variations === []) {
             return;
         }
 
-        $parent = DB::table($pfx . 'product')->where('product_id', $productId)->first(['sku', 'model']);
+        $parent = DB::table('products')->where('product_id', $productId)->first(['sku', 'model']);
         $own = [];
         foreach ([$parent->sku ?? '', $parent->model ?? ''] as $s) {
             $k = strtolower(trim((string) $s));
@@ -254,8 +252,6 @@ class ShopeeListingStates
         if ($productIds === []) {
             return [];
         }
-
-        $pfx = (string) config('catalog.prefix');
 
         $links = ShopeeListingLink::query()
             ->whereIn('product_id', $productIds)

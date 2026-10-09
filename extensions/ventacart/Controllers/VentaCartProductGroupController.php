@@ -84,12 +84,12 @@ class VentaCartProductGroupController extends Controller
         );
     }
 
-    private function candidateSkus(string $pfx, int $productId): array
+    private function candidateSkus( int $productId): array
     {
         return VentaCartProductPush::for(new VentaCartStore())->candidateSkus($productId);
     }
 
-    private function reconcileLink(VentaCartClient $client, int $store, int $productId, string $pfx): array
+    private function reconcileLink(VentaCartClient $client, int $store, int $productId): array
     {
         return (new VentaCartProductPush($this->store_($store), $client))->reconcileLink($productId);
     }
@@ -237,8 +237,6 @@ class VentaCartProductGroupController extends Controller
     {
         $setting = $this->store_($store);
         $g = VentaCartProductGroup::where('store_id', $store)->findOrFail($group);
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $productIds = $this->getMatchingProductIds($g);
@@ -258,12 +256,12 @@ class VentaCartProductGroupController extends Controller
         $syncStatus = (string) $request->input('sync_status', 'all');
         $erpStatus = (string) $request->input('erp_status', 'all');
 
-        $query = DB::table($pfx . 'product as p')
-            ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $query = DB::table('products as p')
+            ->join('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
                     ->where('pd.language_id', '=', $langId);
             })
-            ->leftJoin($pfx . 'brand as m', 'p.brand_id', '=', 'm.brand_id')
+            ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
             ->leftJoin('ch_ventacart_listing_links as vpl', function ($j) use ($store) {
                 $j->on('p.product_id', '=', 'vpl.product_id')
                     ->where('vpl.store_id', '=', $store);
@@ -372,11 +370,9 @@ class VentaCartProductGroupController extends Controller
             return $this->productsRedirect($store, $group)
                 ->with('error', 'Product not in this product group.');
         }
-
-        $pfx = (string) config('catalog.prefix');
         $client = new VentaCartClient($setting);
 
-        $prod = DB::table($pfx . 'product')->where('product_id', $product)->first(['sku', 'model']);
+        $prod = DB::table('products')->where('product_id', $product)->first(['sku', 'model']);
         if (!$prod) {
             return $this->productsRedirect($store, $group)
                 ->with('error', 'Product not found in catalog.');
@@ -390,7 +386,7 @@ class VentaCartProductGroupController extends Controller
             $skus[] = trim($prod->model);
         }
 
-        $optSkus = DB::table($pfx . 'product_option_value')
+        $optSkus = DB::table('product_variation_values')
             ->where('product_id', $product)
             ->whereNotNull('sku')
             ->where('sku', '!=', '')
@@ -600,7 +596,6 @@ class VentaCartProductGroupController extends Controller
         $client = new VentaCartClient($setting);
         $push = VentaCartProductPush::for($setting);
         $states = \Extensions\VentaCart\Services\VentaCart\VentaCartListingStates::for($store);
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $created = 0;
@@ -614,12 +609,12 @@ class VentaCartProductGroupController extends Controller
         $errors = [];
 
         foreach ($ids as $pid) {
-            $prod = DB::table($pfx . 'product as p')
-                ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
+            $prod = DB::table('products as p')
+                ->join('product_descriptions as pd', function ($j) use ($langId) {
                     $j->on('p.product_id', '=', 'pd.product_id')
                         ->where('pd.language_id', '=', $langId);
                 })
-                ->leftJoin($pfx . 'brand as m', 'p.brand_id', '=', 'm.brand_id')
+                ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
                 ->where('p.product_id', $pid)
                 ->first([
                     'p.product_id', 'pd.name', 'pd.description', 'p.model', 'p.sku',
@@ -670,7 +665,7 @@ class VentaCartProductGroupController extends Controller
                 \Extensions\VentaCart\Models\VentaCartListing::categoryFor($listing, $g)
             );
 
-            $verdict = $this->reconcileLink($client, $store, $pid, $pfx);
+            $verdict = $this->reconcileLink($client, $store, $pid);
             $verdicts[$verdict['state']] = ($verdicts[$verdict['state']] ?? 0) + 1;
 
             if ($verdict['state'] === 'blocked' || $verdict['state'] === 'unreachable') {
@@ -1113,22 +1108,20 @@ class VentaCartProductGroupController extends Controller
     public function searchProducts(Request $request, int $store)
     {
         $this->store_($store);
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $q = trim((string) $request->input('q'));
         $categoryId = (int) $request->input('category_id', 0);
         $brandId = (int) $request->input('brand_id', 0);
 
-        $query = DB::table($pfx . 'product as p')
-            ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $query = DB::table('products as p')
+            ->join('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
                     ->where('pd.language_id', '=', $langId);
             })
             ->select('p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.price', 'p.quantity');
 
         if ($categoryId > 0) {
-            $query->join($pfx . 'product_to_category as ptc', 'p.product_id', '=', 'ptc.product_id')
+            $query->join('product_categories as ptc', 'p.product_id', '=', 'ptc.product_id')
                   ->where('ptc.category_id', $categoryId);
         }
 

@@ -27,7 +27,7 @@ class QuotaTest extends TestCase
 
     private function product(string $sku): int
     {
-        return (int) DB::table(config('catalog.prefix') . 'product')->insertGetId([
+        return (int) DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 1, 'price' => 100, 'status' => 1, 'image' => '',
             'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1, 'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
@@ -115,7 +115,7 @@ class QuotaTest extends TestCase
 
     public function test_everything_that_makes_a_product_asks_the_quota(): void
     {
-        $makers = $this->filesMatching("/'product'\\)\\s*->insertGetId\\(|new Product\\(\\)/");
+        $makers = $this->filesMatching("/'products'\\)\\s*->insertGetId\\(|new Product\\(\\)/");
 
         foreach ($makers as $path => $code) {
             $this->assertStringContainsString('Quota::', $code, $path . ' makes products without asking the plan');
@@ -203,7 +203,9 @@ class QuotaTest extends TestCase
 
     public function test_every_core_order_insert_asks_the_quota(): void
     {
-        foreach ($this->filesMatching("/'order'\\)\\s*->insertGetId\\(/") as $path => $code) {
+        $makers = $this->filesMatching("/'orders'\\)\\s*->insertGetId\\(/");
+        $this->assertNotEmpty($makers, 'the search no longer finds the code that makes orders');
+        foreach ($makers as $path => $code) {
             $this->assertStringContainsString('Quota::', $code, $path . ' makes orders without asking the plan');
         }
     }

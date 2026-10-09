@@ -24,7 +24,7 @@ final class ListingVariations
     public static function offInCatalog(array $productIds): array
     {
         $out = [];
-        foreach (DB::table('product_option_combinations')
+        foreach (DB::table('product_variations')
             ->whereIn('product_id', $productIds ?: [0])
             ->where('status', 0)
             ->whereNotNull('sku')->where('sku', '!=', '')
@@ -65,9 +65,9 @@ final class ListingVariations
         return $k === '' || ! isset($hidden[$productId][$k]);
     }
 
-    public static function sold(string $channel, int $storeId, array $productIds, ?string $pfx = null): array
+    public static function sold(string $channel, int $storeId, array $productIds): array
     {
-        $all = PushLedger::erpVariationSkus($productIds, $pfx ?? (string) config('catalog.prefix'));
+        $all = PushLedger::erpVariationSkus($productIds);
         $hidden = self::hidden($channel, $storeId, $productIds);
         foreach ($all as $pid => $skus) {
             $all[$pid] = array_values(array_filter($skus, fn ($sku) => self::allows($hidden, (int) $pid, $sku)));
@@ -78,7 +78,7 @@ final class ListingVariations
 
     public static function noneSold(string $channel, int $storeId, int $productId): bool
     {
-        $all = PushLedger::erpVariationSkus([$productId], (string) config('catalog.prefix'))[$productId] ?? [];
+        $all = PushLedger::erpVariationSkus([$productId])[$productId] ?? [];
 
         return $all !== [] && (self::sold($channel, $storeId, [$productId])[$productId] ?? []) === [];
     }
@@ -170,18 +170,17 @@ final class ListingVariations
 
     public static function cardData(string $channel, int $storeId, int $productId, ?array $storeSkus): array
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $catalog = [];
 
-        $combos = DB::table('product_option_combinations')
+        $combos = DB::table('product_variations')
             ->where('product_id', $productId)
             ->orderBy('sort_order')->orderBy('id')
             ->get(['id', 'sku', 'status']);
         if ($combos->isNotEmpty()) {
-            $names = DB::table('product_option_combination_values as cv')
-                ->join($pfx . 'product_option_value as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
-                ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+            $names = DB::table('product_variation_parts as cv')
+                ->join('product_variation_values as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
+                ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
                     $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
                 })
                 ->whereIn('cv.combination_id', $combos->pluck('id')->all())
@@ -196,8 +195,8 @@ final class ListingVariations
                 ];
             }
         } else {
-            foreach (DB::table($pfx . 'product_option_value as pov')
-                ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+            foreach (DB::table('product_variation_values as pov')
+                ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
                     $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
                 })
                 ->where('pov.product_id', $productId)
@@ -229,7 +228,7 @@ final class ListingVariations
         }
 
         $parent = [];
-        $product = DB::table($pfx . 'product')->where('product_id', $productId)->first(['sku', 'model']);
+        $product = DB::table('products')->where('product_id', $productId)->first(['sku', 'model']);
         foreach ([$product->sku ?? '', $product->model ?? ''] as $own) {
             if (($k = self::key($own)) !== '') {
                 $parent[$k] = true;
@@ -261,7 +260,7 @@ final class ListingVariations
         $on = array_flip(array_map(fn ($s) => self::key($s), $onSkus));
         $coreOff = self::offInCatalog([$productId])[$productId] ?? [];
         $shown = [];
-        foreach (PushLedger::erpVariationSkus([$productId], (string) config('catalog.prefix'))[$productId] ?? [] as $sku) {
+        foreach (PushLedger::erpVariationSkus([$productId])[$productId] ?? [] as $sku) {
             $k = self::key($sku);
             if ($k !== '' && ! isset($coreOff[$k])) {
                 $shown[$k] = trim((string) $sku);

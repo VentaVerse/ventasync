@@ -50,9 +50,7 @@ class LazadaPushStock extends Command implements \App\Channels\Contracts\Steppab
             return 1;
         }
 
-        $pfx = (string) config('catalog.prefix');
-
-        $this->resolveUnknownVariants($setting, $client, $pfx);
+        $this->resolveUnknownVariants($setting, $client);
 
         $query = LazadaListing::query()
             ->where('product_id', '>', 0)
@@ -78,7 +76,7 @@ class LazadaPushStock extends Command implements \App\Channels\Contracts\Steppab
         $skipped = 0;
 
         foreach ($listings as $listing) {
-            $product = DB::table($pfx . 'product')
+            $product = DB::table('products')
                 ->where('product_id', (int) $listing->product_id)
                 ->first(['product_id', 'sku', 'quantity', 'status']);
 
@@ -92,7 +90,7 @@ class LazadaPushStock extends Command implements \App\Channels\Contracts\Steppab
                 continue;
             }
 
-            $items = $this->buildPushItems($pfx, $listing, $product);
+            $items = $this->buildPushItems( $listing, $product);
             if (empty($items)) {
                 $skipped++;
                 continue;
@@ -169,7 +167,7 @@ class LazadaPushStock extends Command implements \App\Channels\Contracts\Steppab
         return $totalErr > 0 ? 1 : 0;
     }
 
-    private function resolveUnknownVariants(object $store, LazadaClient $client, string $pfx): void
+    private function resolveUnknownVariants(object $store, LazadaClient $client): void
     {
         $maxFetches = 20;
         $fetched = 0;
@@ -209,7 +207,7 @@ class LazadaPushStock extends Command implements \App\Channels\Contracts\Steppab
                 ->map(fn ($s) => trim((string) $s))
                 ->toArray();
 
-            $erpSkus = \App\Channels\Listings\ListingVariations::sold('lazada', (int) ($listing->store_id ?? 0), [(int) $listing->product_id], $pfx)[(int) $listing->product_id] ?? [];
+            $erpSkus = \App\Channels\Listings\ListingVariations::sold('lazada', (int) ($listing->store_id ?? 0), [(int) $listing->product_id])[(int) $listing->product_id] ?? [];
 
             if (empty($erpSkus) || empty(array_diff($erpSkus, $cachedSkus))) {
                 continue;
@@ -225,11 +223,11 @@ class LazadaPushStock extends Command implements \App\Channels\Contracts\Steppab
         }
     }
 
-    private function buildPushItems(string $pfx, LazadaListing $listing, object $product): array
+    private function buildPushItems( LazadaListing $listing, object $product): array
     {
         $service = app(LazadaStockPushService::class);
-        $rows = $service->buildPushItems($listing, $product, $pfx);
-        $hasVariations = !empty(\App\Channels\Push\PushLedger::erpVariationSkus([(int) $listing->product_id], $pfx)[(int) $listing->product_id] ?? []);
+        $rows = $service->buildPushItems($listing, $product);
+        $hasVariations = !empty(\App\Channels\Push\PushLedger::erpVariationSkus([(int) $listing->product_id])[(int) $listing->product_id] ?? []);
         if ($hasVariations) {
             $rows = array_values(array_filter($rows, fn ($r) => $r['matched'] ?? true));
         }

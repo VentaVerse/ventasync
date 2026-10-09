@@ -21,7 +21,6 @@ class VentaCartLinkCheck
     {
         $storeId = (int) $store->id;
         $storeName = $store->store_name ?: 'Unnamed store';
-        $pfx = (string) config('catalog.prefix');
         $push = VentaCartProductPush::for($store);
 
         $verdicts = [];
@@ -32,7 +31,6 @@ class VentaCartLinkCheck
         $ids = array_slice($ids, 0, $limit);
 
         $storeName = $store->store_name ?: 'Unnamed store';
-        $pfx = (string) config('catalog.prefix');
         $client = new VentaCartClient($store);
 
         $verdicts = [];

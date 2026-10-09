@@ -15,23 +15,22 @@ class PurgeOrphanProductRows extends Command
 
     public function handle(): int
     {
-        $pfx = (string) config('catalog.prefix');
         $orphans = [];
         foreach (ProductDeleter::OWNED_TABLES as $table) {
-            if (! Schema::hasTable($pfx . $table)) {
+            if (! Schema::hasTable($table)) {
                 continue;
             }
-            $ids = DB::table($pfx . $table . ' as x')
-                ->leftJoin($pfx . 'product as p', 'p.product_id', '=', 'x.product_id')
+            $ids = DB::table($table . ' as x')
+                ->leftJoin('products as p', 'p.product_id', '=', 'x.product_id')
                 ->whereNull('p.product_id')
                 ->distinct()->pluck('x.product_id')->map(fn ($v) => (int) $v)->all();
             $orphans[$table] = $ids;
         }
-        $comboOwners = DB::table('product_option_combinations as c')
-            ->leftJoin($pfx . 'product as p', 'p.product_id', '=', 'c.product_id')
+        $comboOwners = DB::table('product_variations as c')
+            ->leftJoin('products as p', 'p.product_id', '=', 'c.product_id')
             ->whereNull('p.product_id')
             ->distinct()->pluck('c.product_id')->map(fn ($v) => (int) $v)->all();
-        $orphans['product_option_combinations'] = $comboOwners;
+        $orphans['product_variations'] = $comboOwners;
 
         $products = array_values(array_unique(array_merge(...array_values($orphans))));
         if ($products === []) {
@@ -50,7 +49,7 @@ class PurgeOrphanProductRows extends Command
             return self::SUCCESS;
         }
         foreach ($products as $pid) {
-            ProductDeleter::forgetOwnedRows($pfx, $pid);
+            ProductDeleter::forgetOwnedRows( $pid);
         }
         $this->info('Removed the rows of ' . count($products) . ' deleted product(s).');
 

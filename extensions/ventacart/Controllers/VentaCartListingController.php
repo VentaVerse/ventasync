@@ -183,9 +183,7 @@ class VentaCartListingController extends Controller
             'channel_id' => 'nullable|integer',
             'product_id' => 'required|integer|min:1',
         ]);
-
-        $pfx = (string) config('catalog.prefix');
-        if (! DB::table($pfx . 'product')->where('product_id', (int) $data['product_id'])->exists()) {
+        if (! DB::table('products')->where('product_id', (int) $data['product_id'])->exists()) {
             return redirect()->back()->with('error', 'That Master Catalog product does not exist.');
         }
 
@@ -211,13 +209,12 @@ class VentaCartListingController extends Controller
 
     private function knownSkus(): \Illuminate\Support\Collection
     {
-        $pfx = (string) config('catalog.prefix');
 
         return collect()
-            ->merge(DB::table($pfx . 'product')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku'))
-            ->merge(DB::table($pfx . 'product')->whereNotNull('model')->where('model', '!=', '')->pluck('model'))
-            ->merge(DB::table($pfx . 'product_option_value')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku'))
-            ->merge(DB::table('product_option_combinations')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku'))
+            ->merge(DB::table('products')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku'))
+            ->merge(DB::table('products')->whereNotNull('model')->where('model', '!=', '')->pluck('model'))
+            ->merge(DB::table('product_variation_values')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku'))
+            ->merge(DB::table('product_variations')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku'))
             ->map(fn ($v) => strtolower(trim((string) $v)))
             ->flip();
     }
@@ -236,7 +233,6 @@ class VentaCartListingController extends Controller
     public function index(Request $request, int $store)
     {
         $setting = VentaCartStore::findOrFail($store);
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $q = trim((string) $request->get('q', ''));
@@ -281,11 +277,11 @@ class VentaCartListingController extends Controller
             ->groupBy('product_id')
             ->map(fn ($rows) => $rows->map(fn ($r) => ['id' => (int) $r->id, 'name' => (string) $r->name])->all());
 
-        $query = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $query = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
-            ->leftJoin($pfx . 'brand as m', 'p.brand_id', '=', 'm.brand_id')
+            ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
             ->whereIn('p.product_id', $scopeIds ?: [0])
             ->select('p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as brand_name');
 
@@ -542,8 +538,7 @@ class VentaCartListingController extends Controller
 
     private function ventaCartReadinessStamps(array $ids, int $store): array
     {
-        $pfx = (string) config('catalog.prefix');
-        $prod = DB::table($pfx . 'product')->whereIn('product_id', $ids)->pluck('date_modified', 'product_id');
+        $prod = DB::table('products')->whereIn('product_id', $ids)->pluck('date_modified', 'product_id');
         $listing = DB::table('ch_ventacart_listings')->where('store_id', $store)->whereIn('product_id', $ids)
             ->selectRaw('product_id, MAX(updated_at) as mu')->groupBy('product_id')->pluck('mu', 'product_id');
         $group = DB::table('ch_ventacart_product_group_products as gp')
@@ -574,13 +569,12 @@ class VentaCartListingController extends Controller
     public function catalogSearch(Request $request, int $store)
     {
         VentaCartStore::findOrFail($store);
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $q = trim((string) $request->query('q', ''));
         $showAll = $request->boolean('all');
         $limit = 25;
-        $query = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', fn ($j) => $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId))
+        $query = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', fn ($j) => $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId))
             ->leftJoinSub(\Extensions\VentaCart\Services\VentaCart\VentaCartStoreProducts::query($store), 'os', 'os.product_id', '=', 'p.product_id')
             ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.model', 'p.quantity', 'p.price', 'os.product_id as on_store_pid')
             ->where('p.status', 1);
@@ -608,7 +602,7 @@ class VentaCartListingController extends Controller
     public function addToStore(Request $request, int $store, int $productId)
     {
         VentaCartStore::findOrFail($store);
-        abort_unless(DB::table((string) config('catalog.prefix') . 'product')->where('product_id', $productId)->exists(), 404);
+        abort_unless(DB::table('products')->where('product_id', $productId)->exists(), 404);
         $wasOn = \Extensions\VentaCart\Services\VentaCart\VentaCartStoreProducts::has($store, $productId);
         VentaCartListing::query()->firstOrCreate(['store_id' => $store, 'product_id' => $productId]);
 
@@ -627,7 +621,7 @@ class VentaCartListingController extends Controller
     {
         VentaCartStore::findOrFail($store);
         $data = $request->validate(['product_ids' => ['required', 'array'], 'product_ids.*' => ['integer']]);
-        $valid = DB::table((string) config('catalog.prefix') . 'product')->whereIn('product_id', array_map('intval', $data['product_ids']))->pluck('product_id')->all();
+        $valid = DB::table('products')->whereIn('product_id', array_map('intval', $data['product_ids']))->pluck('product_id')->all();
         $added = 0;
         foreach ($valid as $pid) {
             $wasOn = \Extensions\VentaCart\Services\VentaCart\VentaCartStoreProducts::has($store, (int) $pid);

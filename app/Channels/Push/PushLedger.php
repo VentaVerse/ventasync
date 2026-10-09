@@ -48,16 +48,16 @@ final class PushLedger
         return 'Variations do not match ' . $channelName . ': ' . $names . '. Nothing was pushed. ' . implode(' ', $fixes);
     }
 
-    public static function erpVariationSkus(array $productIds, string $pfx): array
+    public static function erpVariationSkus(array $productIds): array
     {
         $skus = [];
-        foreach (DB::table('product_option_combinations')
+        foreach (DB::table('product_variations')
             ->whereIn('product_id', $productIds ?: [0])
             ->whereNotNull('sku')->where('sku', '!=', '')
             ->get(['product_id', 'sku']) as $r) {
             $skus[(int) $r->product_id][trim((string) $r->sku)] = true;
         }
-        foreach (DB::table($pfx . 'product_option_value')
+        foreach (DB::table('product_variation_values')
             ->whereIn('product_id', $productIds ?: [0])
             ->whereNotNull('sku')->where('sku', '!=', '')
             ->get(['product_id', 'sku']) as $r) {

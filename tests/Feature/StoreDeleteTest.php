@@ -88,7 +88,7 @@ class StoreDeleteTest extends TestCase
         $this->assertSame(1, DB::table('ch_shopee_logistics')->where('store_id', $kept->id)->count());
         $this->assertSame(1, DB::table('scheduled_jobs')->where('store_id', $kept->id)->count());
 
-        $this->assertSame('Outlet', DB::table(config('catalog.prefix') . 'order')->where('order_id', $coreId)->value('store_name'), 'core orders keep the name');
+        $this->assertSame('Outlet', DB::table('orders')->where('order_id', $coreId)->value('store_name'), 'core orders keep the name');
         $this->assertDatabaseHas('activity_logs', ['action' => 'shopee.store.deleted', 'subject_id' => $gone->id]);
     }
 

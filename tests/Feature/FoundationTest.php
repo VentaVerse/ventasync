@@ -134,8 +134,8 @@ class FoundationTest extends TestCase
     public function test_no_query_prefixes_a_table_this_application_owns(): void
     {
         $ownTables = [
-            'product_option_combinations',
-            'product_option_combination_values',
+            'product_variations',
+            'product_variation_parts',
         ];
 
         $offenders = [];

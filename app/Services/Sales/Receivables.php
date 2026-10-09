@@ -21,11 +21,10 @@ final class Receivables
 
     public function rows(array $customerKeys = [], array $orderIds = [], ?string $from = null, ?string $to = null, ?string $search = null): Collection
     {
-        $pfx = (string) config('catalog.prefix');
         $lang = (int) config('catalog.default_language_id');
 
-        $query = DB::table($pfx . 'order as o')
-            ->leftJoin($pfx . 'order_status as os', fn ($j) => $j->on('os.order_status_id', '=', 'o.order_status_id')->where('os.language_id', '=', $lang))
+        $query = DB::table('orders as o')
+            ->leftJoin('order_statuses as os', fn ($j) => $j->on('os.order_status_id', '=', 'o.order_status_id')->where('os.language_id', '=', $lang))
             ->leftJoin(DB::raw('(SELECT order_id, SUM(amount) AS paid, COUNT(*) AS payments, MAX(paid_at) AS last_paid_at FROM order_payments GROUP BY order_id) as pay'),
                 'pay.order_id', '=', 'o.order_id')
             ->where('o.track_payments', true);

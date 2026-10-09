@@ -17,14 +17,13 @@ final class CatalogBasicsWriter
 
     public function edit(int $productId, array $fields, array $by = []): array
     {
-        $pfx = (string) config('catalog.prefix');
         $lang = (int) config('catalog.default_language_id');
 
-        $product = DB::table($pfx . 'product')->where('product_id', $productId)->first();
+        $product = DB::table('products')->where('product_id', $productId)->first();
         if ($product === null) {
             return [];
         }
-        $words = DB::table($pfx . 'product_description')->where('product_id', $productId)->where('language_id', $lang)->first();
+        $words = DB::table('product_descriptions')->where('product_id', $productId)->where('language_id', $lang)->first();
 
         $changes = [];
         $productUpdate = [];
@@ -91,7 +90,7 @@ final class CatalogBasicsWriter
         $categoryIds = null;
         if (array_key_exists('category_ids', $fields)) {
             $wanted = array_values(array_unique(array_map('intval', (array) $fields['category_ids'])));
-            $held = DB::table($pfx . 'product_to_category')->where('product_id', $productId)->orderBy('category_id')->pluck('category_id')->map(fn ($id) => (int) $id)->all();
+            $held = DB::table('product_categories')->where('product_id', $productId)->orderBy('category_id')->pluck('category_id')->map(fn ($id) => (int) $id)->all();
             $sorted = $wanted;
             sort($sorted);
             if ($sorted !== $held) {
@@ -104,12 +103,12 @@ final class CatalogBasicsWriter
             return [];
         }
 
-        DB::transaction(function () use ($pfx, $lang, $productId, $words, $wordsUpdate, $productUpdate, $photos, $categoryIds) {
+        DB::transaction(function () use ( $lang, $productId, $words, $wordsUpdate, $productUpdate, $photos, $categoryIds) {
             if ($wordsUpdate !== []) {
                 if ($words !== null) {
-                    DB::table($pfx . 'product_description')->where('product_id', $productId)->where('language_id', $lang)->update($wordsUpdate);
+                    DB::table('product_descriptions')->where('product_id', $productId)->where('language_id', $lang)->update($wordsUpdate);
                 } else {
-                    DB::table($pfx . 'product_description')->insert($wordsUpdate + [
+                    DB::table('product_descriptions')->insert($wordsUpdate + [
                         'product_id' => $productId, 'language_id' => $lang,
                         'name' => $wordsUpdate['name'] ?? '', 'description' => $wordsUpdate['description'] ?? '',
                         'meta_title' => $wordsUpdate['meta_title'] ?? '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -120,12 +119,12 @@ final class CatalogBasicsWriter
                 app(ProductCreator::class)->saveImages($productId, $photos);
             }
             if ($categoryIds !== null) {
-                DB::table($pfx . 'product_to_category')->where('product_id', $productId)->delete();
+                DB::table('product_categories')->where('product_id', $productId)->delete();
                 foreach ($categoryIds as $categoryId) {
-                    DB::table($pfx . 'product_to_category')->insert(['product_id' => $productId, 'category_id' => $categoryId]);
+                    DB::table('product_categories')->insert(['product_id' => $productId, 'category_id' => $categoryId]);
                 }
             }
-            DB::table($pfx . 'product')->where('product_id', $productId)->update($productUpdate + ['date_modified' => now()]);
+            DB::table('products')->where('product_id', $productId)->update($productUpdate + ['date_modified' => now()]);
         });
 
         $name = $wordsUpdate['name'] ?? CatalogCopy::title((string) ($words->name ?? ''));

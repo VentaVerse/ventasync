@@ -4,6 +4,8 @@ namespace App\Models\Catalog;
 
 class Product extends BaseModel
 {
+    protected $table = 'products';
+
     protected $primaryKey = 'product_id';
 
     protected $fillable = [
@@ -14,11 +16,6 @@ class Product extends BaseModel
         'date_added','date_modified',
         'add_cart','product_additionals','meta_robots','seo_canonical'
     ];
-
-    public function getTable()
-    {
-        return $this->tableName('product');
-    }
 
     public function descriptions()
     {

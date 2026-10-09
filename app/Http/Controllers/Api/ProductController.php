@@ -11,7 +11,6 @@ class ProductController extends Controller
 {
     public function index(Request $request)
     {
-        $p = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $q = trim((string) $request->get('q', ''));
@@ -30,12 +29,12 @@ class ProductController extends Controller
             $sort = 'product_id';
         }
 
-        $optQtySub = DB::table($p . 'product_option_value as pov')
+        $optQtySub = DB::table('product_variation_values as pov')
             ->select('pov.product_id', DB::raw('SUM(pov.quantity) as options_quantity'))
             ->groupBy('pov.product_id');
 
-        $query = DB::table($p . 'product as p')
-            ->leftJoin($p . 'product_description as pd', function ($j) use ($langId) {
+        $query = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
                     ->where('pd.language_id', '=', $langId);
             })
@@ -55,7 +54,7 @@ class ProductController extends Controller
             );
 
         if ($q !== '') {
-            $ids = DB::table($p . 'product_description as pd')
+            $ids = DB::table('product_descriptions as pd')
                 ->where('pd.language_id', '=', $langId)
                 ->where('pd.name', 'like', "%{$q}%")
                 ->limit(800)
@@ -92,25 +91,24 @@ class ProductController extends Controller
 
     public function showQuantity(int $id)
     {
-        $p = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $product = DB::table($p . 'product')->where('product_id', $id)->first();
+        $product = DB::table('products')->where('product_id', $id)->first();
         if (! $product) {
             return response()->json(['message' => 'Product not found'], 404);
         }
 
-        $name = DB::table($p . 'product_description')
+        $name = DB::table('product_descriptions')
             ->where('product_id', $id)
             ->where('language_id', $langId)
             ->value('name') ?? '';
 
-        $optionValues = DB::table($p . 'product_option_value as pov')
-            ->join($p . 'option_description as od', function ($j) use ($langId) {
+        $optionValues = DB::table('product_variation_values as pov')
+            ->join('variation_type_descriptions as od', function ($j) use ($langId) {
                 $j->on('pov.option_id', '=', 'od.option_id')
                     ->where('od.language_id', '=', $langId);
             })
-            ->join($p . 'option_value_description as ovd', function ($j) use ($langId) {
+            ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
                 $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
                     ->where('ovd.language_id', '=', $langId);
             })
@@ -155,14 +153,13 @@ class ProductController extends Controller
 
     public function updateQuantity(Request $request, int $id)
     {
-        $p = (string) config('catalog.prefix');
 
-        $product = DB::table($p . 'product')->where('product_id', $id)->first();
+        $product = DB::table('products')->where('product_id', $id)->first();
         if (! $product) {
             return response()->json(['message' => 'Product not found'], 404);
         }
 
-        $hasOptions = DB::table($p . 'product_option_value')
+        $hasOptions = DB::table('product_variation_values')
             ->where('product_id', $id)
             ->exists();
 
@@ -180,12 +177,12 @@ class ProductController extends Controller
                 $povId = (int) $opt['product_option_value_id'];
                 $qty = (int) $opt['quantity'];
 
-                $oldOptQty = (int) DB::table($p . 'product_option_value')
+                $oldOptQty = (int) DB::table('product_variation_values')
                     ->where('product_option_value_id', $povId)
                     ->where('product_id', $id)
                     ->value('quantity');
 
-                DB::table($p . 'product_option_value')
+                DB::table('product_variation_values')
                     ->where('product_option_value_id', $povId)
                     ->where('product_id', $id)
                     ->update(['quantity' => $qty]);
@@ -213,19 +210,19 @@ class ProductController extends Controller
                     }
                 }
 
-                $linkedComboIds = DB::table('product_option_combination_values')
+                $linkedComboIds = DB::table('product_variation_parts')
                     ->where('product_option_value_id', $povId)
                     ->pluck('combination_id');
 
                 if ($linkedComboIds->isNotEmpty()) {
-                    $singleValueComboIds = DB::table('product_option_combination_values')
+                    $singleValueComboIds = DB::table('product_variation_parts')
                         ->whereIn('combination_id', $linkedComboIds)
                         ->groupBy('combination_id')
                         ->havingRaw('COUNT(*) = 1')
                         ->pluck('combination_id');
 
                     if ($singleValueComboIds->isNotEmpty()) {
-                        DB::table('product_option_combinations')
+                        DB::table('product_variations')
                             ->whereIn('id', $singleValueComboIds)
                             ->where('product_id', $id)
                             ->update(['quantity' => $qty, 'updated_at' => now()]);
@@ -233,7 +230,7 @@ class ProductController extends Controller
                 }
             }
 
-            DB::table($p . 'product')
+            DB::table('products')
                 ->where('product_id', $id)
                 ->update([
                     'quantity'      => $totalQty,
@@ -259,7 +256,7 @@ class ProductController extends Controller
 
             $newQty = (int) $request->input('quantity');
 
-            DB::table($p . 'product')
+            DB::table('products')
                 ->where('product_id', $id)
                 ->update([
                     'quantity'      => $newQty,

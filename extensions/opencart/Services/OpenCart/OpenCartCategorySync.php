@@ -39,7 +39,6 @@ class OpenCartCategorySync
             }
 
             $categories = $result['body']['data'] ?? [];
-            $pfx = (string) config('catalog.prefix');
             $langId = (int) config('catalog.default_language_id');
             $created = 0;
             $updated = 0;
@@ -66,8 +65,8 @@ class OpenCartCategorySync
                         $coreParentId = $this->categoryMap[$ocParentId];
                     }
 
-                    $existing = DB::table($pfx . 'category AS c')
-                        ->join($pfx . 'category_description AS cd', function ($join) use ($langId) {
+                    $existing = DB::table('categories AS c')
+                        ->join('category_descriptions AS cd', function ($join) use ($langId) {
                             $join->on('c.category_id', '=', 'cd.category_id')
                                 ->where('cd.language_id', '=', $langId);
                         })
@@ -88,17 +87,17 @@ class OpenCartCategorySync
 
                     if ($existing) {
                         $coreCatId = (int) $existing->category_id;
-                        DB::table($pfx . 'category')
+                        DB::table('categories')
                             ->where('category_id', $coreCatId)
                             ->update($data);
                         $updated++;
                     } else {
                         $data['date_added'] = $raw['date_added'] ?? now()->toDateTimeString();
-                        $coreCatId = DB::table($pfx . 'category')->insertGetId($data, 'category_id');
+                        $coreCatId = DB::table('categories')->insertGetId($data, 'category_id');
                         $created++;
                     }
 
-                    DB::table($pfx . 'category_description')->updateOrInsert(
+                    DB::table('category_descriptions')->updateOrInsert(
                         ['category_id' => $coreCatId, 'language_id' => $langId],
                         [
                             'name'             => $name,
@@ -113,7 +112,7 @@ class OpenCartCategorySync
                         ]
                     );
 
-                    DB::table($pfx . 'category_path')
+                    DB::table('category_paths')
                         ->where('category_id', $coreCatId)
                         ->delete();
 
@@ -128,14 +127,14 @@ class OpenCartCategorySync
                                 $corePathId = $coreCatId;
                             }
 
-                            DB::table($pfx . 'category_path')->insert([
+                            DB::table('category_paths')->insert([
                                 'category_id' => $coreCatId,
                                 'path_id'     => $corePathId,
                                 'level'       => (int) ($p['level'] ?? 0),
                             ]);
                         }
                     } else {
-                        DB::table($pfx . 'category_path')->insert([
+                        DB::table('category_paths')->insert([
                             'category_id' => $coreCatId,
                             'path_id'     => $coreCatId,
                             'level'       => 0,

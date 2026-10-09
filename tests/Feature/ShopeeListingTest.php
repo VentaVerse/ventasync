@@ -92,17 +92,16 @@ class ShopeeListingTest extends TestCase
 
     private function seedProduct(float $price = 300.0): int
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $productId = DB::table($pfx . 'product')->insertGetId([
+        $productId = DB::table('products')->insertGetId([
             'model' => 'LST-1', 'sku' => 'LST-SKU-1', 'quantity' => 5, 'price' => $price,
             'status' => 1, 'image' => 'catalog/__listing-test.png', 'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5,
             'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
 
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => $langId,
             'name' => 'Listing test product', 'description' => 'A perfectly real description.',
             'meta_title' => 'Listing test product', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',

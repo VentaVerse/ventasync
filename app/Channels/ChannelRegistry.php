@@ -296,7 +296,7 @@ class ChannelRegistry
             }
         }
 
-        $query = \Illuminate\Support\Facades\DB::table((string) config('catalog.prefix') . 'order')
+        $query = \Illuminate\Support\Facades\DB::table('orders')
             ->where('channel', '<>', '')
             ->whereNotNull('channel')
             ->groupByRaw("channel, store_id, DATE_FORMAT(date_added, '%Y-%m')")
@@ -317,7 +317,7 @@ class ChannelRegistry
         }
         $rows = collect(array_values($rows));
 
-        $names = $rows->isEmpty() ? collect() : \Illuminate\Support\Facades\DB::table((string) config('catalog.prefix') . 'order')
+        $names = $rows->isEmpty() ? collect() : \Illuminate\Support\Facades\DB::table('orders')
             ->whereIn('order_id', $rows->pluck('latest'))->pluck('store_name', 'order_id');
 
         $extensions = app(ExtensionManager::class);

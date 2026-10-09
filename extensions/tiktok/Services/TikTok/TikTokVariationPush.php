@@ -10,7 +10,6 @@ class TikTokVariationPush
 
     public function skus(object $erp, \Closure $priceFor, ?string $warehouseId, ?\Closure $uploadUri = null, ?array $existing = null): array
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $productId = (int) $erp->product_id;
         $basePrice = (float) ($erp->price ?? 0);
@@ -24,7 +23,7 @@ class TikTokVariationPush
         };
         $money = fn (float $amount) => ['amount' => (string) round($amount), 'currency' => 'PHP'];
 
-        $combos = DB::table('product_option_combinations')
+        $combos = DB::table('product_variations')
             ->where('product_id', $productId)
             ->orderBy('sort_order')
             ->get(['id', 'sku', 'quantity', 'absolute_price', 'image', 'status']);
@@ -38,12 +37,12 @@ class TikTokVariationPush
         }
 
         if ($combos->isNotEmpty()) {
-            $values = DB::table('product_option_combination_values as cv')
-                ->join($pfx . 'product_option_value as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
-                ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+            $values = DB::table('product_variation_parts as cv')
+                ->join('product_variation_values as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
+                ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
                     $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
                 })
-                ->join($pfx . 'option_description as od', function ($j) use ($langId) {
+                ->join('variation_type_descriptions as od', function ($j) use ($langId) {
                     $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
                 })
                 ->whereIn('cv.combination_id', $combos->pluck('id')->all())
@@ -95,7 +94,7 @@ class TikTokVariationPush
             return ['skus' => $skus, 'kind' => 'combos', 'keys' => $keys, 'refused' => null];
         }
 
-        $optionValues = $this->optionValues($pfx, $langId, $productId);
+        $optionValues = $this->optionValues( $langId, $productId);
         if (!empty($optionValues)) {
             $optionValues = array_values(array_filter($optionValues, fn ($ov) => \App\Channels\Listings\ListingVariations::allows($hidden, $productId, $ov->sku)));
             if ($optionValues === []) {
@@ -182,11 +181,10 @@ class TikTokVariationPush
         if ($productIds === []) {
             return [];
         }
-        $pfx = (string) config('catalog.prefix');
-        $combos = DB::table('product_option_combinations')->whereIn('product_id', $productIds)->distinct()->pluck('product_id');
-        $values = DB::table($pfx . 'product_option_value as pov')
-            ->join($pfx . 'product_option as po', 'po.product_option_id', '=', 'pov.product_option_id')
-            ->join($pfx . 'option as o', 'o.option_id', '=', 'po.option_id')
+        $combos = DB::table('product_variations')->whereIn('product_id', $productIds)->distinct()->pluck('product_id');
+        $values = DB::table('product_variation_values as pov')
+            ->join('product_variation_types as po', 'po.product_option_id', '=', 'pov.product_option_id')
+            ->join('variation_types as o', 'o.option_id', '=', 'po.option_id')
             ->whereIn('pov.product_id', $productIds)
             ->whereIn('o.type', ['select', 'radio'])
             ->distinct()->pluck('pov.product_id');
@@ -194,15 +192,15 @@ class TikTokVariationPush
         return array_fill_keys($combos->merge($values)->map(fn ($v) => (int) $v)->unique()->values()->all(), true);
     }
 
-    public function optionValues(string $pfx, int $langId, int $productId): array
+    public function optionValues( int $langId, int $productId): array
     {
-        return DB::table($pfx . 'product_option_value as pov')
-            ->join($pfx . 'product_option as po', 'po.product_option_id', '=', 'pov.product_option_id')
-            ->join($pfx . 'option as o', 'o.option_id', '=', 'po.option_id')
-            ->join($pfx . 'option_description as od', function ($j) use ($langId) {
+        return DB::table('product_variation_values as pov')
+            ->join('product_variation_types as po', 'po.product_option_id', '=', 'pov.product_option_id')
+            ->join('variation_types as o', 'o.option_id', '=', 'po.option_id')
+            ->join('variation_type_descriptions as od', function ($j) use ($langId) {
                 $j->on('od.option_id', '=', 'o.option_id')->where('od.language_id', '=', $langId);
             })
-            ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+            ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
                 $j->on('ovd.option_value_id', '=', 'pov.option_value_id')->where('ovd.language_id', '=', $langId);
             })
             ->where('pov.product_id', $productId)

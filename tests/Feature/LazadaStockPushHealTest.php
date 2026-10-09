@@ -84,21 +84,20 @@ class LazadaStockPushHealTest extends TestCase
 
     private function comboProduct(array $skuQty): int
     {
-        $pfx = (string) config('catalog.prefix');
-        $pid = DB::table($pfx . 'product')->insertGetId([
+        $pid = DB::table('products')->insertGetId([
             'model' => 'LZ', 'sku' => 'LZ', 'quantity' => 99, 'price' => 100,
             'status' => 1, 'image' => 'catalog/x.png', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
             'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $pid, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => 'LZ push product', 'description' => '',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
         $i = 0;
         foreach ($skuQty as $sku => $qty) {
-            DB::table('product_option_combinations')->insert([
+            DB::table('product_variations')->insert([
                 'product_id' => $pid, 'sku' => $sku, 'quantity' => $qty,
                 'absolute_price' => 100 + $qty, 'image' => null, 'status' => 1,
                 'sort_order' => $i++, 'created_at' => now(), 'updated_at' => now(),
@@ -128,7 +127,7 @@ class LazadaStockPushHealTest extends TestCase
 
     private function named(int $pid, string $name): int
     {
-        DB::table((string) config('catalog.prefix') . 'product_description')->where('product_id', $pid)->update(['name' => $name]);
+        DB::table('product_descriptions')->where('product_id', $pid)->update(['name' => $name]);
 
         return $pid;
     }

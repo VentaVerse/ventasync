@@ -112,38 +112,37 @@ class ShopeeVariationPushTest extends TestCase
 
     private function seedVariationProduct(): int
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $productId = DB::table($pfx . 'product')->insertGetId([
+        $productId = DB::table('products')->insertGetId([
             'model' => 'VP-1', 'sku' => 'VP-SKU', 'quantity' => 32, 'price' => 21990,
             'status' => 1, 'image' => 'catalog/__vp-parent.png', 'weight' => 3, 'length' => 20, 'width' => 20, 'height' => 20,
             'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => $langId,
             'name' => 'Variation push product', 'description' => 'Two colors.',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
 
-        $optionId = (int) DB::table($pfx . 'option')->insertGetId(['type' => 'select', 'sort_order' => 0]);
-        DB::table($pfx . 'option_description')->insert([
+        $optionId = (int) DB::table('variation_types')->insertGetId(['type' => 'select', 'sort_order' => 0]);
+        DB::table('variation_type_descriptions')->insert([
             'option_id' => $optionId, 'language_id' => $langId, 'name' => 'Color',
         ]);
-        $productOptionId = (int) DB::table($pfx . 'product_option')->insertGetId([
+        $productOptionId = (int) DB::table('product_variation_types')->insertGetId([
             'product_id' => $productId, 'option_id' => $optionId, 'value' => '', 'required' => 0,
         ]);
 
         foreach ([['Red', 'VP-RED', 14, 'catalog/__vp-red.png'], ['Black', 'VP-BLACK', 18, null]] as $i => [$name, $sku, $qty, $image]) {
-            $valueId = (int) DB::table($pfx . 'option_value')->insertGetId([
+            $valueId = (int) DB::table('variation_values')->insertGetId([
                 'option_id' => $optionId, 'image' => '', 'sort_order' => $i,
             ]);
-            DB::table($pfx . 'option_value_description')->insert([
+            DB::table('variation_value_descriptions')->insert([
                 'option_value_id' => $valueId, 'language_id' => $langId,
                 'option_id' => $optionId, 'name' => $name,
             ]);
-            $povId = (int) DB::table($pfx . 'product_option_value')->insertGetId([
+            $povId = (int) DB::table('product_variation_values')->insertGetId([
                 'product_option_id' => $productOptionId, 'product_id' => $productId,
                 'option_id' => $optionId, 'option_value_id' => $valueId,
                 'sku' => $sku, 'quantity' => $qty, 'subtract' => 1,
@@ -152,12 +151,12 @@ class ShopeeVariationPushTest extends TestCase
                 'cost' => 0, 'cost_amount' => 0, 'cost_percentage' => 0, 'cost_additional' => 0,
                 'absolute_cost' => 0, 'cost_prefix' => '+', 'absolute_price' => 21990,
             ]);
-            $comboId = (int) DB::table('product_option_combinations')->insertGetId([
+            $comboId = (int) DB::table('product_variations')->insertGetId([
                 'product_id' => $productId, 'sku' => $sku, 'quantity' => $qty,
                 'absolute_price' => 21990, 'image' => $image, 'status' => 1,
                 'sort_order' => $i, 'created_at' => now(), 'updated_at' => now(),
             ]);
-            DB::table('product_option_combination_values')->insert([
+            DB::table('product_variation_parts')->insert([
                 'combination_id' => $comboId, 'product_option_value_id' => $povId,
             ]);
         }
@@ -229,14 +228,13 @@ class ShopeeVariationPushTest extends TestCase
 
     public function test_a_plain_product_triggers_no_tier_call(): void
     {
-        $pfx = (string) config('catalog.prefix');
-        $productId = DB::table($pfx . 'product')->insertGetId([
+        $productId = DB::table('products')->insertGetId([
             'model' => 'VP-2', 'sku' => 'VP2-SKU', 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => 'catalog/__vp-parent.png', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
             'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => 'Plain product', 'description' => 'No colors.',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -257,7 +255,7 @@ class ShopeeVariationPushTest extends TestCase
     public function test_a_knowable_price_ratio_stops_the_push_at_the_door(): void
     {
         $productId = $this->seedVariationProduct();
-        DB::table('product_option_combinations')
+        DB::table('product_variations')
             ->where('product_id', $productId)->where('sku', 'VP-RED')
             ->update(['absolute_price' => 21990 * 6]);
         ShopeeListing::query()->create([

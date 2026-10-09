@@ -143,14 +143,13 @@ class TikTokListingStates
 
     private function bucket(string $bucket): \Illuminate\Database\Eloquent\Builder
     {
-        $pfx = (string) config('catalog.prefix');
 
         $linked = TikTokListing::query()->whereNotNull('tiktok_product_id');
 
         if ($bucket === 'drift') {
             return TikTokListing::query()
                 ->select('ch_tiktok_listings.*')
-                ->join($pfx . 'product as p', 'p.product_id', '=', 'ch_tiktok_listings.product_id')
+                ->join('products as p', 'p.product_id', '=', 'ch_tiktok_listings.product_id')
                 ->where(fn ($q) => $q->whereNull('ch_tiktok_listings.catalog_seen_at')
                     ->orWhereColumn('p.date_modified', '>', 'ch_tiktok_listings.catalog_seen_at'));
         }
@@ -290,16 +289,15 @@ class TikTokListingStates
         if ($storeId <= 0 || $productId <= 0) {
             return;
         }
-        $pfx = (string) config('catalog.prefix');
         $variations = [];
-        foreach (PushLedger::erpVariationSkus([$productId], $pfx)[$productId] ?? [] as $sku) {
+        foreach (PushLedger::erpVariationSkus([$productId])[$productId] ?? [] as $sku) {
             $variations[strtolower(trim((string) $sku))] = true;
         }
         if ($variations === []) {
             return;
         }
 
-        $parent = DB::table($pfx . 'product')->where('product_id', $productId)->first(['sku', 'model']);
+        $parent = DB::table('products')->where('product_id', $productId)->first(['sku', 'model']);
         $own = ['__single__' => true];
         foreach ([$parent->sku ?? '', $parent->model ?? ''] as $s) {
             $k = strtolower(trim((string) $s));

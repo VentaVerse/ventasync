@@ -239,8 +239,6 @@ class ShopeeProductGroupController extends Controller
     public function products(Request $request, int $id)
     {
         $group = ShopeeProductGroup::query()->findOrFail($id);
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $q = trim((string) $request->input('q'));
@@ -267,15 +265,15 @@ class ShopeeProductGroupController extends Controller
 
         $pivotTable = 'ch_shopee_product_group_products';
 
-        $query = DB::table($pfx . 'product as p')
-            ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $query = DB::table('products as p')
+            ->join('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->join($pivotTable . ' as gp', function ($j) use ($group) {
                 $j->on('p.product_id', '=', 'gp.product_id')
                     ->where('gp.shopee_product_group_id', '=', $group->id);
             })
-            ->leftJoin($pfx . 'brand as m', 'p.brand_id', '=', 'm.brand_id')
+            ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
             ->select(
                 'p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.price',
                 'p.quantity', 'p.image', 'p.status', 'p.date_modified',
@@ -391,13 +389,13 @@ class ShopeeProductGroupController extends Controller
         ]);
     }
 
-    private function buildTierVariation(int $productId, string $pfx, int $langId, float $markupPct, float $markupFixed, float $baseProductPrice): array
+    private function buildTierVariation(int $productId, int $langId, float $markupPct, float $markupFixed, float $baseProductPrice): array
     {
         if ($productId <= 0) {
             return ['tier_variation' => [], 'models' => []];
         }
 
-        $combos = DB::table('product_option_combinations')
+        $combos = DB::table('product_variations')
             ->where('product_id', $productId)
             ->orderBy('sort_order')
             ->get(['id', 'sku', 'quantity', 'absolute_price']);
@@ -407,12 +405,12 @@ class ShopeeProductGroupController extends Controller
             return ['tier_variation' => [], 'models' => []];
         }
 
-        $values = DB::table('product_option_combination_values as pocv')
-            ->join($pfx . 'product_option_value as pov', 'pocv.product_option_value_id', '=', 'pov.product_option_value_id')
-            ->join($pfx . 'option_description as od', function ($j) use ($langId) {
+        $values = DB::table('product_variation_parts as pocv')
+            ->join('product_variation_values as pov', 'pocv.product_option_value_id', '=', 'pov.product_option_value_id')
+            ->join('variation_type_descriptions as od', function ($j) use ($langId) {
                 $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
             })
-            ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+            ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
                 $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
             })
             ->whereIn('pocv.combination_id', $combos->pluck('id')->all())
@@ -879,8 +877,6 @@ class ShopeeProductGroupController extends Controller
     public function productSearch(Request $request, int $id)
     {
         $group = ShopeeProductGroup::query()->findOrFail($id);
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $q = trim((string) $request->query('q', ''));
         $showAll = $request->boolean('all');
@@ -890,8 +886,8 @@ class ShopeeProductGroupController extends Controller
             ->where('shopee_product_group_id', $group->id)
             ->select('product_id');
 
-        $query = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $query = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->leftJoinSub(ShopeeStoreProducts::query(), 'os', 'os.product_id', '=', 'p.product_id')
@@ -949,7 +945,7 @@ class ShopeeProductGroupController extends Controller
     public function addProduct(Request $request, int $id, int $productId)
     {
         $group = ShopeeProductGroup::query()->findOrFail($id);
-        $inCatalog = DB::table((string) config('catalog.prefix') . 'product')
+        $inCatalog = DB::table('products')
             ->where('product_id', $productId)->where('status', 1)->exists();
         abort_unless($inCatalog, 404);
 
@@ -1025,20 +1021,18 @@ class ShopeeProductGroupController extends Controller
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->back()->with('error', "Missing Shopee {$modeLabel} credentials.");
         }
-
-        $pfx = (string) config('catalog.prefix');
         $mode = $auth['mode'];
         $pid = (int) $auth['partner_id'];
         $pkey = (string) $auth['partner_key'];
         $token = (string) $auth['access_token'];
         $shopId = (int) $auth['shop_id'];
 
-        $product = DB::table($pfx . 'product')->where('product_id', $productId)->first(['sku', 'model']);
+        $product = DB::table('products')->where('product_id', $productId)->first(['sku', 'model']);
         $skus = [];
         if ($product->sku && trim($product->sku) !== '') $skus[] = strtolower(trim($product->sku));
         if ($product->model && trim($product->model) !== '') $skus[] = strtolower(trim($product->model));
 
-        $optSkus = DB::table($pfx . 'product_option_value')
+        $optSkus = DB::table('product_variation_values')
             ->where('product_id', $productId)
             ->whereNotNull('sku')->where('sku', '!=', '')
             ->pluck('sku')->map(fn($s) => strtolower(trim($s)))->unique()->toArray();
@@ -1346,8 +1340,6 @@ class ShopeeProductGroupController extends Controller
 
             return ['tone' => 'error', 'summary' => "Missing Shopee {$modeLabel} settings.", 'failed' => 0, 'stop' => true];
         }
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $verdicts = [];
@@ -1356,7 +1348,7 @@ class ShopeeProductGroupController extends Controller
         $blocked = [];
 
         foreach ($productIds as $productId) {
-            $verdict = $this->linkCheck->reconcile($client, $auth, (int) $productId, $pfx);
+            $verdict = $this->linkCheck->reconcile($client, $auth, (int) $productId);
             $verdicts[$verdict['state']] = ($verdicts[$verdict['state']] ?? 0) + 1;
 
             if ($verdict['state'] === 'taken' || $verdict['state'] === 'unreachable') {
@@ -1390,12 +1382,12 @@ class ShopeeProductGroupController extends Controller
             } elseif (empty($group->logistic_ids ?? [])) {
                 $blocked[] = 'Nothing new could be created: this product group has no logistics channels set.';
             } else {
-                $created = $this->createOnShopee($group, $toCreate, $client, $auth, $pfx, $langId);
+                $created = $this->createOnShopee($group, $toCreate, $client, $auth, $langId);
             }
         }
 
         if ($toUpdate) {
-            $updated = $this->updateOnShopee($group, $toUpdate, $client, $auth, $pfx, $langId);
+            $updated = $this->updateOnShopee($group, $toUpdate, $client, $auth, $langId);
         }
 
         $notes = [];
@@ -1445,7 +1437,7 @@ class ShopeeProductGroupController extends Controller
         return ['tone' => $tone, 'summary' => $summary, 'failed' => min(count($productIds), $errCount), 'stop' => false];
     }
 
-    private function createOnShopee(ShopeeProductGroup $group, array $productIds, ShopeeClient $client, array $auth, string $pfx, int $langId): array
+    private function createOnShopee(ShopeeProductGroup $group, array $productIds, ShopeeClient $client, array $auth, int $langId): array
     {
         $logisticIds = array_map('intval', $group->logistic_ids ?? []);
 
@@ -1483,8 +1475,8 @@ class ShopeeProductGroupController extends Controller
                 continue;
             }
 
-            $product = DB::table($pfx . 'product as p')
-                ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+            $product = DB::table('products as p')
+                ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                     $j->on('p.product_id', '=', 'pd.product_id')
                       ->where('pd.language_id', '=', $langId);
                 })
@@ -1545,7 +1537,7 @@ class ShopeeProductGroupController extends Controller
             $markupFixed = (float) ($eff->markup_fixed ?? 0);
             $sellingPrice = $eff->itemPriceFor($basePrice, ShopeeListing::hasVariations((int) $productId));
 
-            $tierData = $this->buildTierVariation((int) $productId, $pfx, $langId, $markupPct, $markupFixed, $basePrice);
+            $tierData = $this->buildTierVariation((int) $productId, $langId, $markupPct, $markupFixed, $basePrice);
             $hasTierVariation = !empty($tierData['tier_variation']) && !empty($tierData['models']);
 
             $payload = [
@@ -1669,14 +1661,14 @@ class ShopeeProductGroupController extends Controller
                         'last_pushed_at' => now(),
                     ]);
 
-                $erpSkus = DB::table($pfx . 'product_option_value')
+                $erpSkus = DB::table('product_variation_values')
                     ->where('product_id', $productId)
                     ->whereNotNull('sku')
                     ->where('sku', '!=', '')
                     ->pluck('sku')
                     ->map(fn ($s) => strtolower(trim((string) $s)))
                     ->all();
-                $comboSkus = DB::table('product_option_combinations')
+                $comboSkus = DB::table('product_variations')
                     ->where('product_id', $productId)
                     ->whereNotNull('sku')
                     ->where('sku', '!=', '')
@@ -1730,7 +1722,7 @@ class ShopeeProductGroupController extends Controller
         return ['ok' => $okCount, 'skip' => $skipCount, 'err' => $errCount, 'errors' => $errors];
     }
 
-    private function updateOnShopee(ShopeeProductGroup $group, array $productIds, ShopeeClient $client, array $auth, string $pfx, int $langId): array
+    private function updateOnShopee(ShopeeProductGroup $group, array $productIds, ShopeeClient $client, array $auth, int $langId): array
     {
         $okCount = 0;
         $skipCount = 0;
@@ -1747,8 +1739,8 @@ class ShopeeProductGroupController extends Controller
 
             $itemId = (int) $link->shopee_item_id;
 
-            $product = DB::table($pfx . 'product as p')
-                ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+            $product = DB::table('products as p')
+                ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                     $j->on('p.product_id', '=', 'pd.product_id')
                       ->where('pd.language_id', '=', $langId);
                 })
@@ -1871,8 +1863,8 @@ class ShopeeProductGroupController extends Controller
             if (($result['ok'] ?? false) && $respError === '') {
                 $links = ShopeeListingLink::query()->where('product_id', $productId)->get();
                 $synced = [
-                    $this->pushPriceForLinks($client, $auth, $pfx, $links, $group),
-                    $this->pushStockForLinks($client, $auth, $pfx, $links),
+                    $this->pushPriceForLinks($client, $auth, $links, $group),
+                    $this->pushStockForLinks($client, $auth, $links),
                 ];
                 app(\Extensions\Shopee\Services\Shopee\ShopeeLiveListing::class)->confirm($auth, $links->pluck('shopee_item_id')->all());
 
@@ -1942,11 +1934,9 @@ class ShopeeProductGroupController extends Controller
         if (empty($logisticIds)) {
             return $this->productsRedirect($id)->with('error', 'This product group has no logistics channels configured.');
         }
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $r = $this->createOnShopee($group, $productIds, $client, $auth, $pfx, $langId);
+        $r = $this->createOnShopee($group, $productIds, $client, $auth, $langId);
         $okCount = $r['ok']; $skipCount = $r['skip']; $errCount = $r['err']; $errors = $r['errors'];
 
         $summary = "Push: {$okCount} pushed";
@@ -1971,11 +1961,9 @@ class ShopeeProductGroupController extends Controller
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return $this->productsRedirect($id)->with('error', "Missing Shopee {$modeLabel} settings.");
         }
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $r = $this->updateOnShopee($group, $productIds, $client, $auth, $pfx, $langId);
+        $r = $this->updateOnShopee($group, $productIds, $client, $auth, $langId);
         $okCount = $r['ok']; $skipCount = $r['skip']; $errCount = $r['err']; $errors = $r['errors'];
 
         $summary = "Update: {$okCount} updated";
@@ -2001,12 +1989,10 @@ class ShopeeProductGroupController extends Controller
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return $this->productsRedirect($id)->with('error', "Missing Shopee {$modeLabel} settings.");
         }
-
-        $pfx = (string) config('catalog.prefix');
         $links = ShopeeListingLink::query()->whereIn('product_id', $productIds)->get();
         $skip = count($productIds) - $links->pluck('product_id')->unique()->count();
 
-        $results = $this->pushPriceForLinks($client, $auth, $pfx, $links, $group);
+        $results = $this->pushPriceForLinks($client, $auth, $links, $group);
         $this->recordSyncOutcomes($group->id, $results['outcomes'] ?? []);
 
         return $this->productsRedirect($id)->with(
@@ -2031,9 +2017,7 @@ class ShopeeProductGroupController extends Controller
             return $this->productsRedirect($id)->with('error', "Missing Shopee {$modeLabel} settings.");
         }
 
-        $pfx = (string) config('catalog.prefix');
-
-        $enabledIds = DB::table($pfx . 'product')
+        $enabledIds = DB::table('products')
             ->whereIn('product_id', $productIds)
             ->where('status', 1)
             ->pluck('product_id')
@@ -2043,7 +2027,7 @@ class ShopeeProductGroupController extends Controller
         $links = ShopeeListingLink::query()->whereIn('product_id', $enabledIds)->get();
         $skip = count($enabledIds) - $links->pluck('product_id')->unique()->count();
 
-        $results = $this->pushStockForLinks($client, $auth, $pfx, $links);
+        $results = $this->pushStockForLinks($client, $auth, $links);
         $this->recordSyncOutcomes($group->id, $results['outcomes'] ?? []);
 
         $msg = "Sync Qty: {$results['ok']} success, {$results['err']} error, {$skip} skipped (not linked)";
@@ -2214,24 +2198,24 @@ class ShopeeProductGroupController extends Controller
         return array_values(array_unique(array_filter(array_map(fn($v) => (int) $v, $ids), fn($v) => $v > 0)));
     }
 
-    private function pushStockForLinks(ShopeeClient $client, array $auth, string $pfx, $links): array
+    private function pushStockForLinks(ShopeeClient $client, array $auth, $links): array
     {
         $results = app(\Extensions\Shopee\Services\Shopee\ShopeeStockPricePush::class)
-            ->push('stock', $auth, $links, $pfx);
+            ->push('stock', $auth, $links);
         $this->lastPushLedger = $results;
         [$ok, $err, $outcomes] = [$results['ok'], $results['err'], $results['outcomes']];
 
         return ['ok' => $ok, 'err' => $err, 'outcomes' => $outcomes];
     }
 
-    private function pushPriceForLinks(ShopeeClient $client, array $auth, string $pfx, $links, ShopeeProductGroup $group): array
+    private function pushPriceForLinks(ShopeeClient $client, array $auth, $links, ShopeeProductGroup $group): array
     {
         $priceFor = \Extensions\Shopee\Commands\ShopeePushPrice::priceRule(
             collect($links)->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all()
         );
 
         $results = app(\Extensions\Shopee\Services\Shopee\ShopeeStockPricePush::class)
-            ->push('price', $auth, $links, $pfx, $priceFor);
+            ->push('price', $auth, $links, $priceFor);
         $this->lastPushLedger = $results;
         [$ok, $err, $outcomes] = [$results['ok'], $results['err'], $results['outcomes']];
 

@@ -649,9 +649,8 @@ class MultistoreWorkspaceTest extends TestCase
 
     private function opencartOrder(int $storeId, string $firstname, string $marketplaceOrderId): int
     {
-        $prefix = (string) config('catalog.prefix');
 
-        return (int) \Illuminate\Support\Facades\DB::table($prefix.'order')->insertGetId([
+        return (int) \Illuminate\Support\Facades\DB::table('orders')->insertGetId([
             'firstname' => $firstname, 'lastname' => 'Buyer',
             'email' => strtolower($firstname).'@example.test',
             'channel' => 'opencart:'.$storeId,

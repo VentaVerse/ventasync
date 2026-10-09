@@ -4,6 +4,8 @@ namespace App\Models\Catalog;
 
 class ProductOptionValue extends BaseModel
 {
+    protected $table = 'product_variation_values';
+
     protected $primaryKey = 'product_option_value_id';
 
     protected $fillable = [
@@ -20,9 +22,4 @@ class ProductOptionValue extends BaseModel
         'weight',
         'weight_prefix',
     ];
-
-    public function getTable()
-    {
-        return $this->tableName('product_option_value');
-    }
 }

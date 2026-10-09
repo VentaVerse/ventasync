@@ -48,14 +48,13 @@ class TikTokCatalogChangeTest extends TestCase
 
     private function product(string $name, string $description): int
     {
-        $pfx = (string) config('catalog.prefix');
-        $id = DB::table($pfx . 'product')->insertGetId([
+        $id = DB::table('products')->insertGetId([
             'model' => 'TCC', 'sku' => 'TCC-' . uniqid(), 'quantity' => 5, 'price' => 130,
             'status' => 1, 'image' => 'catalog/plug.jpg', 'weight' => 0.05, 'length' => 2, 'width' => 2, 'height' => 1,
             'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now()->subMinute(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $id, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => $name, 'description' => $description,
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -66,9 +65,8 @@ class TikTokCatalogChangeTest extends TestCase
 
     private function editCatalog(int $productId, array $words): void
     {
-        $pfx = (string) config('catalog.prefix');
-        DB::table($pfx . 'product_description')->where('product_id', $productId)->update($words);
-        DB::table($pfx . 'product')->where('product_id', $productId)->update(['date_modified' => now()->addMinute()]);
+        DB::table('product_descriptions')->where('product_id', $productId)->update($words);
+        DB::table('products')->where('product_id', $productId)->update(['date_modified' => now()->addMinute()]);
     }
 
     public function test_the_listing_page_and_the_table_show_a_catalog_change(): void
@@ -127,9 +125,7 @@ class TikTokCatalogChangeTest extends TestCase
             'catalog' => ['title' => 'Not allowed'],
         ])->assertRedirect(route('ext.tiktok.listings.edit', $pid) . '?back=' . urlencode('/channels'))
             ->assertSessionHas('status', 'Saved.');
-
-        $pfx = (string) config('catalog.prefix');
-        $this->assertSame('Plug v2', DB::table($pfx . 'product_description')->where('product_id', $pid)->value('name'), 'no catalog permission, no catalog write');
+        $this->assertSame('Plug v2', DB::table('product_descriptions')->where('product_id', $pid)->value('name'), 'no catalog permission, no catalog write');
 
         $listing = TikTokListing::query()->where('product_id', $pid)->first();
         $this->assertSame('Plug v2', $listing->title);

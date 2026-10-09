@@ -13,12 +13,11 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $totalOrders = DB::table($pfx . 'order')->count();
+        $totalOrders = DB::table('orders')->count();
         $revenueStatusIds = OrderStatus::where('add_revenue', 1)->pluck('order_status_id');
-        $totalRevenue = (float) DB::table($pfx . 'order')->whereIn('order_status_id', $revenueStatusIds)->sum('total');
+        $totalRevenue = (float) DB::table('orders')->whereIn('order_status_id', $revenueStatusIds)->sum('total');
 
         $lazadaPending = 0;
         if (Schema::hasTable('ch_lazada_orders')) {
@@ -44,7 +43,7 @@ class DashboardController extends Controller
             : collect();
         $storePending = [];
         foreach ($ocStores as $store) {
-            $count = DB::table($pfx . 'order')
+            $count = DB::table('orders')
                 ->where('channel', 'opencart:' . $store->id)
                 ->whereIn('order_status_id', $pendingStatusIds)
                 ->count();
@@ -56,8 +55,8 @@ class DashboardController extends Controller
 
         $chart = $this->buildChartData('30d');
 
-        $recentOrders = DB::table($pfx . 'order as o')
-            ->leftJoin($pfx . 'order_status as os', function ($j) use ($langId) {
+        $recentOrders = DB::table('orders as o')
+            ->leftJoin('order_statuses as os', function ($j) use ($langId) {
                 $j->on('o.order_status_id', '=', 'os.order_status_id')
                     ->where('os.language_id', '=', $langId);
             })
@@ -113,14 +112,13 @@ class DashboardController extends Controller
 
     private function buildChartData(string $range): array
     {
-        $pfx = (string) config('catalog.prefix');
         $revIds = OrderStatus::where('add_revenue', 1)->pluck('order_status_id');
         $revCase = 'SUM(CASE WHEN order_status_id IN (' . ($revIds->isNotEmpty() ? $revIds->implode(',') : '0') . ') THEN total ELSE 0 END) as revenue';
 
         if ($range === 'yearly') {
             $startDate = now()->subYears(4)->startOfYear();
 
-            $rows = DB::table($pfx . 'order')
+            $rows = DB::table('orders')
                 ->select(DB::raw('YEAR(date_added) as period'), DB::raw($revCase), DB::raw('COUNT(*) as orders'))
                 ->where('date_added', '>=', $startDate)
                 ->groupBy(DB::raw('YEAR(date_added)'))
@@ -140,7 +138,7 @@ class DashboardController extends Controller
         } elseif ($range === 'monthly') {
             $startDate = now()->subMonths(11)->startOfMonth();
 
-            $rows = DB::table($pfx . 'order')
+            $rows = DB::table('orders')
                 ->select(DB::raw("DATE_FORMAT(date_added, '%Y-%m') as period"), DB::raw($revCase), DB::raw('COUNT(*) as orders'))
                 ->where('date_added', '>=', $startDate)
                 ->groupBy(DB::raw("DATE_FORMAT(date_added, '%Y-%m')"))
@@ -162,7 +160,7 @@ class DashboardController extends Controller
             $chartDays = 30;
             $startDate = now()->subDays($chartDays - 1)->startOfDay();
 
-            $rows = DB::table($pfx . 'order')
+            $rows = DB::table('orders')
                 ->select(DB::raw('DATE(date_added) as period'), DB::raw($revCase), DB::raw('COUNT(*) as orders'))
                 ->where('date_added', '>=', $startDate)
                 ->groupBy(DB::raw('DATE(date_added)'))

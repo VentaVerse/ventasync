@@ -17,16 +17,15 @@ final class VentaCartStockPricePush
 
     public function push(array $productIds, bool $stock, bool $price): array
     {
-        $pfx = (string) config('catalog.prefix');
         $ids = array_values(array_unique(array_map('intval', $productIds)));
         $out = ['ok' => 0, 'failed' => 0, 'skipped' => 0, 'errors' => [], 'outcomes' => []];
         if ($ids === []) {
             return $out;
         }
         $links = VentaCartListingLink::query()->where('store_id', $this->store->id)->whereIn('product_id', $ids)->get()->keyBy('product_id');
-        $products = DB::table($pfx . 'product')->whereIn('product_id', $ids)->get(['product_id', 'sku', 'quantity', 'price', 'status'])->keyBy('product_id');
-        $combos = DB::table('product_option_combinations')->whereIn('product_id', $ids)->get(['product_id', 'sku', 'quantity', 'absolute_price'])->groupBy(fn ($r) => (int) $r->product_id);
-        $options = DB::table($pfx . 'product_option_value')->whereIn('product_id', $ids)->whereNotNull('sku')->where('sku', '!=', '')
+        $products = DB::table('products')->whereIn('product_id', $ids)->get(['product_id', 'sku', 'quantity', 'price', 'status'])->keyBy('product_id');
+        $combos = DB::table('product_variations')->whereIn('product_id', $ids)->get(['product_id', 'sku', 'quantity', 'absolute_price'])->groupBy(fn ($r) => (int) $r->product_id);
+        $options = DB::table('product_variation_values')->whereIn('product_id', $ids)->whereNotNull('sku')->where('sku', '!=', '')
             ->get(['product_id', 'sku', 'quantity', 'price', 'price_prefix', 'absolute_price'])->groupBy(fn ($r) => (int) $r->product_id);
         $hidden = \App\Channels\Listings\ListingVariations::hidden('ventacart', (int) $this->store->id, $ids);
         $listings = \Extensions\VentaCart\Models\VentaCartListing::query()->where('store_id', $this->store->id)->whereIn('product_id', $ids)->get()->keyBy(fn ($l) => (int) $l->product_id);

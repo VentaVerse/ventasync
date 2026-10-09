@@ -8,8 +8,7 @@ trait MakesCoreOrders
 {
     protected function coreOrder(array $overrides = []): int
     {
-        $pfx = (string) config('catalog.prefix');
-        $revenueStatus = (int) (DB::table($pfx . 'order_status')->where('add_revenue', 1)->value('order_status_id') ?: 1);
+        $revenueStatus = (int) (DB::table('order_statuses')->where('add_revenue', 1)->value('order_status_id') ?: 1);
         $now = now();
 
         $blank = array_fill_keys([
@@ -29,12 +28,12 @@ trait MakesCoreOrders
             'date_added' => $now, 'date_modified' => $now,
         ], $overrides);
 
-        return (int) DB::table($pfx . 'order')->insertGetId($row);
+        return (int) DB::table('orders')->insertGetId($row);
     }
 
     protected function coreOrderLine(int $orderId, float $price = 100, float $cost = 40, int $qty = 1): void
     {
-        DB::table(config('catalog.prefix') . 'order_product')->insert([
+        DB::table('order_products')->insert([
             'order_id' => $orderId, 'product_id' => 1, 'name' => 'Thing', 'model' => 'T', 'quantity' => $qty,
             'price' => $price, 'total' => $price * $qty, 'tax' => 0, 'reward' => 0, 'cost' => $cost,
         ]);

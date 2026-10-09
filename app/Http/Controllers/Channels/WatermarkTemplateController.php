@@ -213,10 +213,9 @@ abstract class WatermarkTemplateController extends Controller
 
     private function anyCatalogImage(): ?string
     {
-        $pfx = (string) config('catalog.prefix');
         $disk = Storage::disk('public');
 
-        $paths = \Illuminate\Support\Facades\DB::table($pfx . 'product')
+        $paths = \Illuminate\Support\Facades\DB::table('products')
             ->whereNotNull('image')->where('image', '<>', '')
             ->orderByDesc('product_id')->limit(50)->pluck('image');
 

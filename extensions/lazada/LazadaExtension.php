@@ -528,8 +528,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
             return [];
         }
 
-        $pfx = (string) config('catalog.prefix');
-        $opTable = $pfx . 'order_product';
+        $opTable = 'order_products';
         if (!Schema::hasTable($opTable)) {
             return [];
         }

@@ -131,8 +131,7 @@ class ChannelWebhooksTest extends TestCase
 
     public function test_a_signed_tiktok_product_push_refreshes_the_mirror(): void
     {
-        $pfx = (string) config('catalog.prefix');
-        $pid = DB::table($pfx . 'product')->insertGetId([
+        $pid = DB::table('products')->insertGetId([
             'model' => 'WH', 'sku' => 'WH', 'quantity' => 1, 'price' => 1, 'status' => 1, 'image' => '',
             'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1, 'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),

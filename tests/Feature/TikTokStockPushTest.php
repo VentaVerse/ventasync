@@ -109,16 +109,15 @@ class TikTokStockPushTest extends TestCase
 
     private function seedTwoAxisProduct(): array
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $productId = DB::table($pfx . 'product')->insertGetId([
+        $productId = DB::table('products')->insertGetId([
             'model' => 'TTV-1', 'sku' => 'TTV', 'quantity' => 10, 'price' => 1000,
             'status' => 1, 'image' => 'catalog/__tt-stock-test.png', 'weight' => 1, 'length' => 10, 'width' => 10, 'height' => 10,
             'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => $langId,
             'name' => 'Two axis TikTok product with a long enough name', 'description' => 'Colors and sizes.',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -127,17 +126,17 @@ class TikTokStockPushTest extends TestCase
         $ovIds = [];
         $povIds = [];
         foreach (['Color' => ['Red', 'Black'], 'Size' => ['S', 'M']] as $axis => $values) {
-            $optionId = (int) DB::table($pfx . 'option')->insertGetId(['type' => 'select', 'sort_order' => 0]);
-            DB::table($pfx . 'option_description')->insert(['option_id' => $optionId, 'language_id' => $langId, 'name' => $axis]);
-            $productOptionId = (int) DB::table($pfx . 'product_option')->insertGetId([
+            $optionId = (int) DB::table('variation_types')->insertGetId(['type' => 'select', 'sort_order' => 0]);
+            DB::table('variation_type_descriptions')->insert(['option_id' => $optionId, 'language_id' => $langId, 'name' => $axis]);
+            $productOptionId = (int) DB::table('product_variation_types')->insertGetId([
                 'product_id' => $productId, 'option_id' => $optionId, 'value' => '', 'required' => 0,
             ]);
             foreach ($values as $i => $name) {
-                $valueId = (int) DB::table($pfx . 'option_value')->insertGetId(['option_id' => $optionId, 'image' => '', 'sort_order' => $i]);
-                DB::table($pfx . 'option_value_description')->insert([
+                $valueId = (int) DB::table('variation_values')->insertGetId(['option_id' => $optionId, 'image' => '', 'sort_order' => $i]);
+                DB::table('variation_value_descriptions')->insert([
                     'option_value_id' => $valueId, 'language_id' => $langId, 'option_id' => $optionId, 'name' => $name,
                 ]);
-                $povIds[$name] = (int) DB::table($pfx . 'product_option_value')->insertGetId([
+                $povIds[$name] = (int) DB::table('product_variation_values')->insertGetId([
                     'product_option_id' => $productOptionId, 'product_id' => $productId,
                     'option_id' => $optionId, 'option_value_id' => $valueId,
                     'sku' => 'TTV-' . strtoupper($name), 'quantity' => 99, 'subtract' => 1,
@@ -153,12 +152,12 @@ class TikTokStockPushTest extends TestCase
         $qty = 1;
         foreach (['Red', 'Black'] as $color) {
             foreach (['S', 'M'] as $size) {
-                $comboId = (int) DB::table('product_option_combinations')->insertGetId([
+                $comboId = (int) DB::table('product_variations')->insertGetId([
                     'product_id' => $productId, 'sku' => "TTV-{$color}-{$size}", 'quantity' => $qty,
                     'absolute_price' => 1000 + $qty * 100, 'image' => $color === 'Red' ? 'catalog/__tt-stock-test.png' : null, 'status' => 1,
                     'sort_order' => $qty, 'created_at' => now(), 'updated_at' => now(),
                 ]);
-                DB::table('product_option_combination_values')->insert([
+                DB::table('product_variation_parts')->insert([
                     ['combination_id' => $comboId, 'product_option_value_id' => $povIds[$color]],
                     ['combination_id' => $comboId, 'product_option_value_id' => $povIds[$size]],
                 ]);
@@ -300,8 +299,7 @@ class TikTokStockPushTest extends TestCase
 
     public function test_the_price_cron_starts_a_simple_product_from_the_listings_own_price(): void
     {
-        $pfx = (string) config('catalog.prefix');
-        $simple = DB::table($pfx . 'product')->insertGetId([
+        $simple = DB::table('products')->insertGetId([
             'model' => 'TTS-1', 'sku' => 'TTS', 'quantity' => 4, 'price' => 300,
             'status' => 1, 'image' => 'catalog/__tt-stock-test.png', 'weight' => 1, 'length' => 10, 'width' => 10, 'height' => 10,
             'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),

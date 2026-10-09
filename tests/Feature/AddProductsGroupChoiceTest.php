@@ -39,13 +39,12 @@ class AddProductsGroupChoiceTest extends TestCase
         $this->cables = ShopeeProductGroup::create(['name' => 'Cables', 'shopee_category_id' => 1, 'logistic_ids' => [1], 'store_id' => $this->store->id]);
         $this->pedals = ShopeeProductGroup::create(['name' => 'Pedals', 'shopee_category_id' => 1, 'logistic_ids' => [1], 'store_id' => $this->store->id]);
 
-        $pfx = (string) config('catalog.prefix');
-        $this->productId = (int) DB::table($pfx . 'product')->insertGetId([
+        $this->productId = (int) DB::table('products')->insertGetId([
             'model' => 'P', 'sku' => 'SKU-P', 'quantity' => 5, 'price' => 100, 'status' => 1, 'image' => '',
             'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1, 'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert(['product_id' => $this->productId, 'language_id' => (int) config('catalog.default_language_id'), 'name' => 'Patch cable',
+        DB::table('product_descriptions')->insert(['product_id' => $this->productId, 'language_id' => (int) config('catalog.default_language_id'), 'name' => 'Patch cable',
             'description' => '', 'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '']);
     }
 

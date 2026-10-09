@@ -39,17 +39,16 @@ class TikTokLinkCheck
             }
         }
 
-        $pfx = (string) config('catalog.prefix');
         $skusByProduct = [];
-        foreach (DB::table($pfx . 'product')->whereIn('product_id', $productIds)->get(['product_id', 'sku', 'model']) as $p) {
+        foreach (DB::table('products')->whereIn('product_id', $productIds)->get(['product_id', 'sku', 'model']) as $p) {
             foreach ([$p->sku, $p->model] as $v) {
                 if (trim((string) $v) !== '') $skusByProduct[(int) $p->product_id][] = strtolower(trim((string) $v));
             }
         }
-        foreach (DB::table($pfx . 'product_option_value')->whereIn('product_id', $productIds)->whereNotNull('sku')->where('sku', '!=', '')->get(['product_id', 'sku']) as $r) {
+        foreach (DB::table('product_variation_values')->whereIn('product_id', $productIds)->whereNotNull('sku')->where('sku', '!=', '')->get(['product_id', 'sku']) as $r) {
             $skusByProduct[(int) $r->product_id][] = strtolower(trim((string) $r->sku));
         }
-        foreach (DB::table('product_option_combinations')->whereIn('product_id', $productIds)->whereNotNull('sku')->where('sku', '!=', '')->get(['product_id', 'sku']) as $r) {
+        foreach (DB::table('product_variations')->whereIn('product_id', $productIds)->whereNotNull('sku')->where('sku', '!=', '')->get(['product_id', 'sku']) as $r) {
             $skusByProduct[(int) $r->product_id][] = strtolower(trim((string) $r->sku));
         }
 

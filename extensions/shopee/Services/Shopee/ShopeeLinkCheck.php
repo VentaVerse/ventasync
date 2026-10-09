@@ -107,13 +107,11 @@ class ShopeeLinkCheck
                 }
             }
         }
-
-        $pfx = (string) config('catalog.prefix');
         $verdicts = [];
         $problems = [];
 
         foreach ($productIds as $productId) {
-            $verdict = $this->reconcile($client, $auth, (int) $productId, $pfx);
+            $verdict = $this->reconcile($client, $auth, (int) $productId);
             $state = $verdict['state'];
             $verdicts[$state] = ($verdicts[$state] ?? 0) + 1;
 
@@ -201,9 +199,9 @@ class ShopeeLinkCheck
         return ['tone' => $tone, 'summary' => $summary];
     }
 
-    private function shopeeCandidateSkus(int $productId, string $pfx): array
+    private function shopeeCandidateSkus(int $productId): array
     {
-        $product = DB::table($pfx.'product')->where('product_id', $productId)->first(['sku', 'model']);
+        $product = DB::table('products')->where('product_id', $productId)->first(['sku', 'model']);
 
         if (! $product) {
             return [];
@@ -217,12 +215,12 @@ class ShopeeLinkCheck
             }
         }
 
-        $optSkus = DB::table($pfx.'product_option_value')
+        $optSkus = DB::table('product_variation_values')
             ->where('product_id', $productId)
             ->whereNotNull('sku')->where('sku', '!=', '')
             ->pluck('sku')->map(fn ($v) => strtolower(trim((string) $v)))->all();
 
-        $comboSkus = DB::table('product_option_combinations')
+        $comboSkus = DB::table('product_variations')
             ->where('product_id', $productId)
             ->whereNotNull('sku')->where('sku', '!=', '')
             ->pluck('sku')->map(fn ($v) => strtolower(trim((string) $v)))->all();
@@ -402,7 +400,7 @@ class ShopeeLinkCheck
         return $out;
     }
 
-    public function reconcile(ShopeeClient $client, array $auth, int $productId, string $pfx): array
+    public function reconcile(ShopeeClient $client, array $auth, int $productId): array
     {
         $this->actingStore = (int) ($auth['store_id'] ?? 0);
 
@@ -429,7 +427,7 @@ class ShopeeLinkCheck
             }
         }
 
-        $skus = $this->shopeeCandidateSkus($productId, $pfx);
+        $skus = $this->shopeeCandidateSkus($productId);
 
         if (empty($skus)) {
             return [

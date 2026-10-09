@@ -11,7 +11,7 @@ final class Counters
 {
     public static function products(): int
     {
-        return (int) DB::table(config('catalog.prefix') . 'product')->count();
+        return (int) DB::table('products')->count();
     }
 
     public static function users(): int
@@ -40,7 +40,7 @@ final class Counters
 
     public static function ordersThisMonth(): int
     {
-        return (int) DB::table(config('catalog.prefix') . 'order')
+        return (int) DB::table('orders')
             ->where('date_added', '>=', now()->startOfMonth())
             ->count();
     }

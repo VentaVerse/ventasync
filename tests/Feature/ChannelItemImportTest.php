@@ -126,14 +126,12 @@ class ChannelItemImportTest extends TestCase
         $r->assertSessionHas('status');
         $this->assertStringContainsString('Imported "Imported Cable Pack"', session('status'));
         $this->assertStringContainsString('2 variations', session('status'));
-
-        $pfx = (string) config('catalog.prefix');
-        $product = DB::table($pfx . 'product')->where('model', 'like', 'LZD-%')->orWhere('quantity', 10)->orderByDesc('product_id')->first();
+        $product = DB::table('products')->where('model', 'like', 'LZD-%')->orWhere('quantity', 10)->orderByDesc('product_id')->first();
         $this->assertNotNull($product);
         $this->assertSame(10, (int) $product->quantity, 'quantity is the sum of the variations');
         $this->assertSame(0.2, (float) $product->weight, 'the parcel arrives from the first sku');
 
-        $combos = DB::table('product_option_combinations')->where('product_id', $product->product_id)->get();
+        $combos = DB::table('product_variations')->where('product_id', $product->product_id)->get();
         $this->assertEqualsCanonicalizing(['LZI-1M', 'LZI-3M'], $combos->pluck('sku')->all());
         $this->assertSame(399.0, (float) $combos->firstWhere('sku', 'LZI-3M')->absolute_price, 'the special price wins where it exists');
 
@@ -156,13 +154,11 @@ class ChannelItemImportTest extends TestCase
 
         $r->assertSessionHas('status');
         $this->assertStringContainsString('Imported "Imported Strap"', session('status'));
-
-        $pfx = (string) config('catalog.prefix');
-        $product = DB::table($pfx . 'product')->orderByDesc('product_id')->first();
+        $product = DB::table('products')->orderByDesc('product_id')->first();
         $this->assertSame(7, (int) $product->quantity);
         $this->assertSame(0.3, (float) $product->weight);
 
-        $combos = DB::table('product_option_combinations')->where('product_id', $product->product_id)->get();
+        $combos = DB::table('product_variations')->where('product_id', $product->product_id)->get();
         $this->assertEqualsCanonicalizing(['TTI-BLK', 'TTI-TAN'], $combos->pluck('sku')->all());
 
         $listing = TikTokListing::where('product_id', $product->product_id)->first();

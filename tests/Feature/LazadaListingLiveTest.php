@@ -89,16 +89,15 @@ class LazadaListingLiveTest extends TestCase
 
     private function seedProduct(string $name, string $sku): int
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $productId = DB::table($pfx . 'product')->insertGetId([
+        $productId = DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => '', 'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5,
             'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => $langId,
             'name' => $name, 'description' => '',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -135,19 +134,18 @@ class LazadaListingLiveTest extends TestCase
 
     private function addOption(int $pid, string $name, array $values, array $skus = []): array
     {
-        $pfx = (string) config('catalog.prefix');
         $lang = (int) config('catalog.default_language_id');
         $optionId = ++$this->optSeq;
-        DB::table($pfx . 'option')->insert(['option_id' => $optionId, 'type' => 'select', 'sort_order' => 0]);
-        DB::table($pfx . 'option_description')->insert(['option_id' => $optionId, 'language_id' => $lang, 'name' => $name]);
-        $productOptionId = DB::table($pfx . 'product_option')->insertGetId(['product_id' => $pid, 'option_id' => $optionId, 'value' => '', 'required' => 1]);
+        DB::table('variation_types')->insert(['option_id' => $optionId, 'type' => 'select', 'sort_order' => 0]);
+        DB::table('variation_type_descriptions')->insert(['option_id' => $optionId, 'language_id' => $lang, 'name' => $name]);
+        $productOptionId = DB::table('product_variation_types')->insertGetId(['product_id' => $pid, 'option_id' => $optionId, 'value' => '', 'required' => 1]);
 
         $out = [];
         foreach (array_values($values) as $i => $value) {
             $valueId = $optionId * 10 + $i;
-            DB::table($pfx . 'option_value')->insert(['option_value_id' => $valueId, 'option_id' => $optionId, 'image' => '', 'sort_order' => $i]);
-            DB::table($pfx . 'option_value_description')->insert(['option_value_id' => $valueId, 'language_id' => $lang, 'option_id' => $optionId, 'name' => $value]);
-            $out[$value] = (int) DB::table($pfx . 'product_option_value')->insertGetId([
+            DB::table('variation_values')->insert(['option_value_id' => $valueId, 'option_id' => $optionId, 'image' => '', 'sort_order' => $i]);
+            DB::table('variation_value_descriptions')->insert(['option_value_id' => $valueId, 'language_id' => $lang, 'option_id' => $optionId, 'name' => $value]);
+            $out[$value] = (int) DB::table('product_variation_values')->insertGetId([
                 'product_option_id' => $productOptionId, 'product_id' => $pid, 'option_id' => $optionId, 'option_value_id' => $valueId,
                 'sku' => $skus[$value] ?? '', 'quantity' => 3, 'subtract' => 1, 'price' => 0, 'price_prefix' => '+', 'absolute_price' => 100,
                 'cost' => 0, 'cost_amount' => 0, 'cost_percentage' => 0, 'cost_additional' => 0, 'absolute_cost' => 0, 'cost_prefix' => '+',
@@ -161,7 +159,7 @@ class LazadaListingLiveTest extends TestCase
     private function productWithPicture(string $sku): int
     {
         $pid = $this->seedProduct('Qable IC50', $sku);
-        DB::table((string) config('catalog.prefix') . 'product')->where('product_id', $pid)->update(['image' => 'catalog/qable.png']);
+        DB::table('products')->where('product_id', $pid)->update(['image' => 'catalog/qable.png']);
 
         return $pid;
     }
@@ -212,12 +210,12 @@ class LazadaListingLiveTest extends TestCase
         $length = $this->addOption($pid, 'Length', ['1ft', '3ft']);
         $color = $this->addOption($pid, 'Shade', ['Black']);
         foreach (['1ft', '3ft'] as $i => $value) {
-            $comboId = DB::table('product_option_combinations')->insertGetId([
+            $comboId = DB::table('product_variations')->insertGetId([
                 'product_id' => $pid, 'sku' => 'QB-TWO-' . $value, 'status' => 1, 'quantity' => 5,
                 'absolute_price' => 100, 'absolute_cost' => 0, 'cost_amount' => 0, 'cost_additional' => 0,
                 'subtract' => 1, 'sort_order' => $i, 'created_at' => now(), 'updated_at' => now(),
             ]);
-            DB::table('product_option_combination_values')->insert([
+            DB::table('product_variation_parts')->insert([
                 ['combination_id' => $comboId, 'product_option_value_id' => $length[$value]],
                 ['combination_id' => $comboId, 'product_option_value_id' => $color['Black']],
             ]);
@@ -285,12 +283,12 @@ class LazadaListingLiveTest extends TestCase
         $a = $this->addOption($pid, $first, $firstValues);
         $b = $this->addOption($pid, $second, [$secondValue]);
         foreach ($firstValues as $i => $value) {
-            $comboId = DB::table('product_option_combinations')->insertGetId([
+            $comboId = DB::table('product_variations')->insertGetId([
                 'product_id' => $pid, 'sku' => $sku . '-' . $value, 'status' => 1, 'quantity' => 5,
                 'absolute_price' => 100, 'absolute_cost' => 0, 'cost_amount' => 0, 'cost_additional' => 0,
                 'subtract' => 1, 'sort_order' => $i, 'created_at' => now(), 'updated_at' => now(),
             ]);
-            DB::table('product_option_combination_values')->insert([
+            DB::table('product_variation_parts')->insert([
                 ['combination_id' => $comboId, 'product_option_value_id' => $a[$value]],
                 ['combination_id' => $comboId, 'product_option_value_id' => $b[$secondValue]],
             ]);
@@ -558,9 +556,7 @@ class LazadaListingLiveTest extends TestCase
         $listing->refresh();
         $this->assertSame('Lazada name', $listing->item_name);
         $this->assertSame('Lazada words', $listing->description);
-
-        $pfx = (string) config('catalog.prefix');
-        $this->assertSame('Catalog name', DB::table($pfx . 'product_description')->where('product_id', $productId)->value('name'));
+        $this->assertSame('Catalog name', DB::table('product_descriptions')->where('product_id', $productId)->value('name'));
 
         $this->actingAs($this->manager())
             ->put(route('ext.lazada.products.update', $productId), [
@@ -583,8 +579,7 @@ class LazadaListingLiveTest extends TestCase
     {
         $productId = $this->seedProduct('Variant product', 'LZT-VAR');
         $listing = LazadaListing::query()->create(['product_id' => $productId]);
-        $pfx = (string) config('catalog.prefix');
-        $povId = DB::table($pfx . 'product_option_value')->insertGetId([
+        $povId = DB::table('product_variation_values')->insertGetId([
             'product_option_id' => 1, 'product_id' => $productId, 'option_id' => 1, 'option_value_id' => 1,
             'quantity' => 3, 'subtract' => 1, 'price' => 0, 'price_prefix' => '+', 'points' => 0, 'points_prefix' => '+',
             'weight' => 0, 'weight_prefix' => '+', 'sku' => 'LZT-VAR-RED',
@@ -620,7 +615,7 @@ class LazadaListingLiveTest extends TestCase
         $setting = LazadaStore::defaultStore()->decrypted();
         app(\Extensions\Lazada\Services\Lazada\LazadaStockPricePush::class)->push(
             'price', $setting, LazadaStore::activeCredentials($setting), $listings,
-            (string) config('catalog.prefix'), \Extensions\Lazada\Commands\LazadaPushPrice::priceRule($listings)
+            \Extensions\Lazada\Commands\LazadaPushPrice::priceRule($listings)
         );
 
         $sent = collect($this->sentPosts)->firstWhere('path', '/product/price_quantity/update');
@@ -950,8 +945,7 @@ class LazadaListingLiveTest extends TestCase
     public function test_a_group_push_sends_the_listings_own_values_and_fills_its_blanks_from_the_group(): void
     {
         $productId = $this->seedProduct('Group-dressed product', 'GRP-DRESS');
-        $pfx = (string) config('catalog.prefix');
-        DB::table($pfx . 'product')->where('product_id', $productId)->update(['image' => 'catalog/x.png']);
+        DB::table('products')->where('product_id', $productId)->update(['image' => 'catalog/x.png']);
 
         $listing = LazadaListing::query()->create([
             'product_id' => $productId, 'primary_category_id' => 111,
@@ -1033,7 +1027,7 @@ class LazadaListingLiveTest extends TestCase
     {
         $pid = $this->colorProduct($sku);
         $this->liveColors($sku);
-        DB::table((string) config('catalog.prefix') . 'product_description')->where('product_id', $pid)->update(['description' => $html]);
+        DB::table('product_descriptions')->where('product_id', $pid)->update(['description' => $html]);
         LazadaListing::query()->where('product_id', $pid)->update(['description' => $html]);
 
         return $pid;

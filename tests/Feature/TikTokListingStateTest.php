@@ -58,16 +58,15 @@ class TikTokListingStateTest extends TestCase
 
     private function seedProduct(string $name, string $sku, string $image = 'catalog/x.png'): int
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $productId = DB::table($pfx . 'product')->insertGetId([
+        $productId = DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => $image, 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
             'brand_id' => 0,
             'date_added' => now()->subDays(30), 'date_modified' => now()->subDays(30), 'date_available' => now()->subDays(30),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => $langId,
             'name' => $name, 'description' => '',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -148,21 +147,20 @@ class TikTokListingStateTest extends TestCase
 
     public function test_drift_true_false_and_null(): void
     {
-        $pfx = (string) config('catalog.prefix');
 
         $inSync = $this->seedProduct('In sync', 'DR-1');
         TikTokListing::create(['product_id' => $inSync, 'tiktok_product_id' => 'tt-801', 'live_status' => 'ACTIVATE', 'live_checked_at' => now(), 'last_pushed_at' => now()]);
-        DB::table($pfx . 'product')->where('product_id', $inSync)->update(['date_modified' => now()->addMinute()]);
+        DB::table('products')->where('product_id', $inSync)->update(['date_modified' => now()->addMinute()]);
 
         $behind = $this->seedProduct('Behind', 'DR-2');
         TikTokListing::create(['product_id' => $behind, 'tiktok_product_id' => 'tt-802', 'live_status' => 'ACTIVATE', 'live_checked_at' => now(), 'last_pushed_at' => now()]);
-        DB::table($pfx . 'product_description')->where('product_id', $behind)->update(['name' => 'Behind, renamed']);
-        DB::table($pfx . 'product')->where('product_id', $behind)->update(['date_modified' => now()->addMinute()]);
+        DB::table('product_descriptions')->where('product_id', $behind)->update(['name' => 'Behind, renamed']);
+        DB::table('products')->where('product_id', $behind)->update(['date_modified' => now()->addMinute()]);
 
         $notListed = $this->seedProduct('Not listed yet', 'DR-3');
         TikTokListing::create(['product_id' => $notListed]);
-        DB::table($pfx . 'product_description')->where('product_id', $notListed)->update(['name' => 'Not listed, renamed']);
-        DB::table($pfx . 'product')->where('product_id', $notListed)->update(['date_modified' => now()->addMinute()]);
+        DB::table('product_descriptions')->where('product_id', $notListed)->update(['name' => 'Not listed, renamed']);
+        DB::table('products')->where('product_id', $notListed)->update(['date_modified' => now()->addMinute()]);
 
         $pivotOnly = $this->seedProduct('Pivot only', 'DR-4');
         $grp = TikTokProductGroup::create(['name' => 'Drift group', 'tiktok_category_id' => '900009']);
@@ -215,7 +213,6 @@ class TikTokListingStateTest extends TestCase
 
     public function test_summary_counts_attention_and_drift(): void
     {
-        $pfx = (string) config('catalog.prefix');
 
         $frozen = $this->seedProduct('Frozen', 'SM-1');
         TikTokListing::create(['product_id' => $frozen, 'tiktok_product_id' => 'tt-601', 'live_status' => 'FREEZE', 'live_checked_at' => now()]);
@@ -225,12 +222,12 @@ class TikTokListingStateTest extends TestCase
 
         $behind = $this->seedProduct('Behind', 'SM-3');
         TikTokListing::create(['product_id' => $behind, 'tiktok_product_id' => 'tt-603', 'live_status' => 'ACTIVATE', 'live_checked_at' => now(), 'last_pushed_at' => now()]);
-        DB::table($pfx . 'product_description')->where('product_id', $behind)->update(['name' => 'Behind, renamed']);
-        DB::table($pfx . 'product')->where('product_id', $behind)->update(['date_modified' => now()->addMinute()]);
+        DB::table('product_descriptions')->where('product_id', $behind)->update(['name' => 'Behind, renamed']);
+        DB::table('products')->where('product_id', $behind)->update(['date_modified' => now()->addMinute()]);
 
         $touched = $this->seedProduct('Touched', 'SM-5');
         TikTokListing::create(['product_id' => $touched, 'tiktok_product_id' => 'tt-605', 'live_status' => 'ACTIVATE', 'live_checked_at' => now()]);
-        DB::table($pfx . 'product')->where('product_id', $touched)->update(['date_modified' => now()->addMinute()]);
+        DB::table('products')->where('product_id', $touched)->update(['date_modified' => now()->addMinute()]);
 
         $unlinked = $this->seedProduct('Unlinked leftover', 'SM-4');
         TikTokListing::create(['product_id' => $unlinked, 'tiktok_product_id' => null, 'live_status' => 'FREEZE', 'live_checked_at' => now()]);
@@ -305,7 +302,7 @@ class TikTokListingStateTest extends TestCase
     {
         $pid = $this->seedProduct('Three sizes', 'EXL110');
         foreach (['EXL110-1046', 'EXL110-0942', 'EXL110-1149'] as $i => $sku) {
-            DB::table('product_option_combinations')->insert([
+            DB::table('product_variations')->insert([
                 'product_id' => $pid, 'sku' => $sku, 'quantity' => 3, 'absolute_price' => 100, 'status' => 1, 'sort_order' => $i,
             ]);
         }
@@ -473,7 +470,7 @@ class TikTokListingStateTest extends TestCase
 
         $short = $this->linkedSingle('Short a variation', 'MV1', 'tt-701');
         foreach (['MV1-A', 'MV1-B'] as $i => $sku) {
-            DB::table('product_option_combinations')->insert([
+            DB::table('product_variations')->insert([
                 'product_id' => $short, 'sku' => $sku, 'quantity' => 3, 'absolute_price' => 100, 'status' => 1, 'sort_order' => $i,
             ]);
         }

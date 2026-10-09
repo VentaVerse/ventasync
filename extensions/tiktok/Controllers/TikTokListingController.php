@@ -82,10 +82,8 @@ class TikTokListingController extends Controller
 
         $listingState = app(\Extensions\TikTok\Services\TikTok\TikTokListingStates::class)
             ->forProducts([$productId])[$productId] ?? null;
-
-        $covPfx = (string) config('catalog.prefix');
         $covStoreId = (int) (TikTokStore::defaultStore()?->id ?? 0);
-        $covSkus = \App\Channels\Listings\ListingVariations::sold('tiktok', $covStoreId, [$productId], $covPfx)[$productId] ?? [];
+        $covSkus = \App\Channels\Listings\ListingVariations::sold('tiktok', $covStoreId, [$productId])[$productId] ?? [];
         $covRaw = \Extensions\TikTok\Models\TikTokListing::query()->where('product_id', $productId)->value('tiktok_sku_id')
             ?? \Extensions\TikTok\Models\TikTokProductGroupProduct::query()->onStore($covStoreId)->where('product_id', $productId)
                 ->whereNotNull('tiktok_product_id')->orderByDesc('last_pushed_at')->value('tiktok_sku_id');
@@ -324,8 +322,8 @@ class TikTokListingController extends Controller
             'title' => $listing->title, 'description' => $listing->description,
             'image_order' => $listing->image_order,
         ];
-        $erp = DB::table((string) config('catalog.prefix') . 'product as p')
-            ->leftJoin((string) config('catalog.prefix') . 'product_description as pd', function ($j) {
+        $erp = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) {
                 $j->on('pd.product_id', '=', 'p.product_id')->where('pd.language_id', (int) config('catalog.default_language_id'));
             })
             ->where('p.product_id', $productId)
@@ -452,11 +450,10 @@ class TikTokListingController extends Controller
 
     private function productOrFail(int $productId): object
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $product = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', function ($join) use ($langId) {
+        $product = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($join) use ($langId) {
                 $join->on('pd.product_id', '=', 'p.product_id')->where('pd.language_id', $langId);
             })
             ->where('p.product_id', $productId)

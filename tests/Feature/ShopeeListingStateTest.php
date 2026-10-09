@@ -40,16 +40,15 @@ class ShopeeListingStateTest extends TestCase
 
     private function product(string $sku, string $image = 'catalog/x.png', ?string $modified = null): int
     {
-        $pfx = (string) config('catalog.prefix');
 
-        $id = (int) DB::table($pfx . 'product')->insertGetId([
+        $id = (int) DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => $image, 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
             'brand_id' => 0,
             'date_added' => now()->subDays(30), 'date_modified' => $modified ?? now()->subDays(30),
             'date_available' => now()->subDays(30),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $id, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => 'Product ' . $sku, 'description' => 'A description.',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -60,11 +59,10 @@ class ShopeeListingStateTest extends TestCase
 
     private function editCatalog(int $productId, ?string $name = null): void
     {
-        $pfx = (string) config('catalog.prefix');
         if ($name !== null) {
-            DB::table($pfx . 'product_description')->where('product_id', $productId)->update(['name' => $name]);
+            DB::table('product_descriptions')->where('product_id', $productId)->update(['name' => $name]);
         }
-        DB::table($pfx . 'product')->where('product_id', $productId)->update(['date_modified' => now()->addMinute()]);
+        DB::table('products')->where('product_id', $productId)->update(['date_modified' => now()->addMinute()]);
     }
 
     private function readyListing(int $productId, array $extra = []): ShopeeListing
@@ -176,7 +174,7 @@ class ShopeeListingStateTest extends TestCase
     {
         $pid = $this->product('EXL110');
         foreach (['EXL110-1046', 'EXL110-0942', 'EXL110-1149'] as $i => $sku) {
-            DB::table('product_option_combinations')->insert([
+            DB::table('product_variations')->insert([
                 'product_id' => $pid, 'sku' => $sku, 'quantity' => 3, 'absolute_price' => 100, 'status' => 1, 'sort_order' => $i,
             ]);
         }
@@ -206,11 +204,10 @@ class ShopeeListingStateTest extends TestCase
     public function test_a_push_sends_every_picture_that_is_on_main_first(): void
     {
         $pid = $this->product('MANY', 'catalog/main.png');
-        $pfx = (string) config('catalog.prefix');
         for ($i = 1; $i <= 12; $i++) {
-            \Illuminate\Support\Facades\DB::table($pfx . 'product_image')->insert(['product_id' => $pid, 'image' => "catalog/g{$i}.png", 'sort_order' => $i]);
+            \Illuminate\Support\Facades\DB::table('product_images')->insert(['product_id' => $pid, 'image' => "catalog/g{$i}.png", 'sort_order' => $i]);
         }
-        $product = \Illuminate\Support\Facades\DB::table($pfx . 'product')->where('product_id', $pid)->first();
+        $product = \Illuminate\Support\Facades\DB::table('products')->where('product_id', $pid)->first();
         $create = app(\Extensions\Shopee\Services\Shopee\ShopeeItemCreate::class);
 
         $paths = $create->catalogImagePaths($product);
@@ -400,8 +397,7 @@ class ShopeeListingStateTest extends TestCase
     public function test_a_groupless_never_pushed_product_on_the_store_is_visible_by_default(): void
     {
         $pid = $this->product('FIRSTEVER');
-        $pfx = (string) config('catalog.prefix');
-        DB::table($pfx . 'product_description')->where('product_id', $pid)->update([
+        DB::table('product_descriptions')->where('product_id', $pid)->update([
             'name' => 'My very first product', 'description' => '',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
@@ -446,7 +442,7 @@ class ShopeeListingStateTest extends TestCase
     public function test_the_group_page_offers_the_toggle_the_listing_page_offers(): void
     {
         $pid = $this->product('TGL-GRP');
-        DB::table((string) config('catalog.prefix') . 'product_description')->where('product_id', $pid)->update([
+        DB::table('product_descriptions')->where('product_id', $pid)->update([
             'name' => 'Togglable in group', 'description' => '',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
@@ -592,7 +588,7 @@ class ShopeeListingStateTest extends TestCase
     {
         $missing = $this->product('MISSVAR');
         foreach (['MISSVAR-A', 'MISSVAR-B'] as $i => $sku) {
-            DB::table('product_option_combinations')->insert([
+            DB::table('product_variations')->insert([
                 'product_id' => $missing, 'sku' => $sku, 'quantity' => 3, 'absolute_price' => 100, 'status' => 1, 'sort_order' => $i,
             ]);
         }
@@ -637,7 +633,7 @@ class ShopeeListingStateTest extends TestCase
         $this->linkedProduct('LISTOK', 7001);
 
         $gap = $this->product('LISTGAP');
-        DB::table((string) config('catalog.prefix') . 'product')->where('product_id', $gap)->update(['weight' => 0]);
+        DB::table('products')->where('product_id', $gap)->update(['weight' => 0]);
         $this->readyListing($gap);
         ShopeeListingLink::create([
             'product_id' => $gap, 'shopee_item_id' => 7002, 'sku' => 'LISTGAP',

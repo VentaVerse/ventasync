@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Log;
 // Combination rows take precedence; product_option_value is used only when none exist.
 class LazadaStockPushService
 {
-    public function buildPushItems(LazadaListing $listing, object $product, string $pfx): array
+    public function buildPushItems(LazadaListing $listing, object $product): array
     {
         $lazadaVariants = $listing->variants;
         if ($lazadaVariants->isEmpty()) {
@@ -24,7 +24,7 @@ class LazadaStockPushService
         $erpQtyByPov   = [];
         $erpPriceByPov = [];
 
-        $combos = DB::table('product_option_combinations')
+        $combos = DB::table('product_variations')
             ->where('product_id', $productId)
             ->get(['id', 'sku', 'quantity', 'absolute_price']);
 
@@ -37,7 +37,7 @@ class LazadaStockPushService
                 }
             }
         } else {
-            $povRows = DB::table($pfx . 'product_option_value')
+            $povRows = DB::table('product_variation_values')
                 ->where('product_id', $productId)
                 ->get(['product_option_value_id', 'sku', 'quantity', 'absolute_price']);
 

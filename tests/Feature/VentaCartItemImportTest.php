@@ -51,15 +51,14 @@ class VentaCartItemImportTest extends TestCase
 
     private function seedProduct(string $sku): int
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
-        $pid = DB::table($pfx . 'product')->insertGetId([
+        $pid = DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => '', 'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5,
             'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $pid, 'language_id' => $langId,
             'name' => 'Existing ' . $sku, 'description' => '',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -123,13 +122,11 @@ class VentaCartItemImportTest extends TestCase
         $this->actingAs($this->manager())
             ->post(route('ext.ventacart.products.import_one', $setting->id), ['ref' => 'IMP-1'])
             ->assertRedirect();
-
-        $pfx = (string) config('catalog.prefix');
-        $product = DB::table($pfx . 'product')->where('sku', 'IMP-1')->first();
+        $product = DB::table('products')->where('sku', 'IMP-1')->first();
         $this->assertNotNull($product, 'the import must create the catalog product');
         $this->assertSame(1, (int) $product->status, 'already selling on the store: it arrives enabled');
 
-        $variantSkus = DB::table($pfx . 'product_option_value')
+        $variantSkus = DB::table('product_variation_values')
             ->where('product_id', $product->product_id)->pluck('sku')->all();
         $this->assertEqualsCanonicalizing(['IMP-1-RED', 'IMP-1-BLUE'], $variantSkus,
             'variants become a single Variation axis with their own SKUs');
@@ -158,8 +155,7 @@ class VentaCartItemImportTest extends TestCase
 
         $r->assertSessionHas('error');
         $this->assertStringContainsString('Not imported', session('error'));
-        $pfx = (string) config('catalog.prefix');
-        $this->assertNull(DB::table($pfx . 'product')->where('sku', 'IMP-2')->first(),
+        $this->assertNull(DB::table('products')->where('sku', 'IMP-2')->first(),
             'a refused import must leave nothing half-created');
     }
 
@@ -189,9 +185,8 @@ class VentaCartItemImportTest extends TestCase
 
         $this->assertStringContainsString('Imported 1 of 2 selected items', session('status'),
             'a mixed run reports what landed and what did not');
-        $pfx = (string) config('catalog.prefix');
-        $this->assertNotNull(DB::table($pfx . 'product')->where('sku', 'SEL-1')->first());
-        $this->assertNull(DB::table($pfx . 'product')->where('sku', 'SEL-2')->first(),
+        $this->assertNotNull(DB::table('products')->where('sku', 'SEL-1')->first());
+        $this->assertNull(DB::table('products')->where('sku', 'SEL-2')->first(),
             'the refused import rolled back alone - it did not take the good one with it');
     }
 

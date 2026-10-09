@@ -26,9 +26,8 @@ class PaletteSearchTest extends TestCase
 
     private function seedOrder(int $orderId): void
     {
-        $p = (string) config('catalog.prefix');
 
-        \DB::table($p.'order')->insert([
+        \DB::table('orders')->insert([
             'order_id' => $orderId, 'currency_code' => 'PHP', 'currency_value' => 1,
             'total' => 100, 'order_status_id' => 1, 'date_added' => '2021-04-19 00:00:00',
             'date_modified' => '2021-04-19 00:00:00',

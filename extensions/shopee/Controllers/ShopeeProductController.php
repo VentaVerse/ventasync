@@ -76,8 +76,7 @@ class ShopeeProductController extends Controller
 
     private function shopeeReadinessStamps(array $ids, int $storeId): array
     {
-        $pfx = (string) config('catalog.prefix');
-        $prod = DB::table($pfx . 'product')->whereIn('product_id', $ids)->pluck('date_modified', 'product_id');
+        $prod = DB::table('products')->whereIn('product_id', $ids)->pluck('date_modified', 'product_id');
         $listing = DB::table('ch_shopee_listings')->whereIn('product_id', $ids)
             ->selectRaw('product_id, MAX(updated_at) as mu')->groupBy('product_id')->pluck('mu', 'product_id');
         $link = DB::table('ch_shopee_listing_links')->whereIn('product_id', $ids)
@@ -113,7 +112,6 @@ class ShopeeProductController extends Controller
 
     public function index(Request $request, ShopeeClient $client)
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $q = trim((string) $request->get('q', ''));
         $syncStatus = (string) $request->get('sync_status', 'all');
@@ -171,12 +169,12 @@ class ShopeeProductController extends Controller
 
         $groupMapping = $this->getGroupProductMapping();
 
-        $query = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $query = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
                   ->where('pd.language_id', '=', $langId);
             })
-            ->leftJoin($pfx . 'brand as m', 'p.brand_id', '=', 'm.brand_id')
+            ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
             ->select(
                 'p.product_id',
                 'pd.name',
@@ -406,7 +404,7 @@ class ShopeeProductController extends Controller
             ->forProducts(array_map('intval', $pageIds));
 
 
-        $allBrands = DB::table($pfx . 'brand')
+        $allBrands = DB::table('brands')
             ->orderBy('name')
             ->pluck('name', 'brand_id');
 
@@ -475,7 +473,6 @@ class ShopeeProductController extends Controller
 
     private function addCatalog(Request $request)
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $q = trim((string) $request->query('q', ''));
@@ -490,11 +487,11 @@ class ShopeeProductController extends Controller
         }
         $dir = strtolower((string) $request->query('dir', 'desc')) === 'asc' ? 'asc' : 'desc';
 
-        $query = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $query = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
-            ->leftJoin($pfx . 'brand as m', 'p.brand_id', '=', 'm.brand_id')
+            ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
             ->leftJoinSub(ShopeeStoreProducts::query(), 'os', 'os.product_id', '=', 'p.product_id')
             ->select('p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as brand_name', 'os.product_id as on_store_pid');
 
@@ -540,7 +537,7 @@ class ShopeeProductController extends Controller
             'products' => $products,
             'paginator' => $products,
             'productThumbsById' => $productThumbsById,
-            'allBrands' => DB::table($pfx . 'brand')->orderBy('name')->pluck('name', 'brand_id'),
+            'allBrands' => DB::table('brands')->orderBy('name')->pluck('name', 'brand_id'),
             'allGroups' => ShopeeProductGroup::query()->orderBy('name')->pluck('name', 'id'),
             'q' => $q,
             'brandFilter' => $brandFilter,
@@ -548,7 +545,7 @@ class ShopeeProductController extends Controller
             'onStore' => $onStore,
             'sort' => $sort,
             'dir' => $dir,
-            'catalogTotal' => (int) DB::table($pfx . 'product')->count(),
+            'catalogTotal' => (int) DB::table('products')->count(),
             'onStoreTotal' => ShopeeStoreProducts::count(),
             'listTab' => 'add',
         ]);
@@ -563,7 +560,7 @@ class ShopeeProductController extends Controller
 
     public function addToStore(Request $request, int $productId)
     {
-        $exists = DB::table((string) config('catalog.prefix') . 'product')->where('product_id', $productId)->exists();
+        $exists = DB::table('products')->where('product_id', $productId)->exists();
         abort_unless($exists, 404);
 
         $wasOn = ShopeeStoreProducts::has($productId);
@@ -583,14 +580,13 @@ class ShopeeProductController extends Controller
 
     public function catalogSearch(Request $request)
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $q = trim((string) $request->query('q', ''));
         $showAll = $request->boolean('all');
         $limit = 25;
 
-        $query = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $query = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->leftJoinSub(ShopeeStoreProducts::query(), 'os', 'os.product_id', '=', 'p.product_id')
@@ -667,7 +663,7 @@ class ShopeeProductController extends Controller
         $data = $request->validate(['product_ids' => ['required', 'array'], 'product_ids.*' => ['integer']]);
         $ids = array_values(array_unique(array_map('intval', $data['product_ids'])));
 
-        $valid = DB::table((string) config('catalog.prefix') . 'product')->whereIn('product_id', $ids)->pluck('product_id')->all();
+        $valid = DB::table('products')->whereIn('product_id', $ids)->pluck('product_id')->all();
         $added = 0;
         foreach ($valid as $pid) {
             $pid = (int) $pid;
@@ -855,11 +851,10 @@ class ShopeeProductController extends Controller
 
     public function pushReview(int $productId)
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $product = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $product = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->where('p.product_id', $productId)
@@ -879,7 +874,7 @@ class ShopeeProductController extends Controller
             ? \Extensions\Shopee\Models\ShopeeLogistic::query()->whereIn('logistics_channel_id', $listing->logistic_ids)->pluck('logistics_channel_name')->all()
             : [];
         $imageCount = count(\App\Support\Catalog\ProductImages::paths($productId, $listing?->image_order));
-        $variationCount = DB::table('product_option_combinations')->where('product_id', $productId)->count();
+        $variationCount = DB::table('product_variations')->where('product_id', $productId)->count();
 
         $content = \App\Channels\Listings\ListingContent::of(
             $listing,
@@ -961,7 +956,6 @@ class ShopeeProductController extends Controller
 
     private function pushOne(int $productId, array $auth, ShopeeClient $client): array
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $existingLink = ShopeeListingLink::query()->where('product_id', $productId)->first();
@@ -982,7 +976,7 @@ class ShopeeProductController extends Controller
         }
 
         $verdict = app(\Extensions\Shopee\Services\Shopee\ShopeeLinkCheck::class)
-            ->reconcile($client, $auth, $productId, $pfx);
+            ->reconcile($client, $auth, $productId);
 
         if (in_array($verdict['state'], ['confirmed', 'adopted', 'repointed'], true)) {
             return ['ok' => false, 'message' => 'Not pushed: Shopee already holds this product as item ' . $verdict['item_id']
@@ -992,8 +986,8 @@ class ShopeeProductController extends Controller
             return ['ok' => false, 'message' => 'Not pushed: ' . $verdict['message']];
         }
 
-        $product = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $product = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
                   ->where('pd.language_id', '=', $langId);
             })
@@ -1152,15 +1146,13 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', 'Product not linked to Shopee. Sync Product IDs first.');
         }
 
-        $pfx = (string) config('catalog.prefix');
-
-        $erpStatus = DB::table($pfx . 'product')->where('product_id', $productId)->value('status');
+        $erpStatus = DB::table('products')->where('product_id', $productId)->value('status');
         if ((int) $erpStatus === 0) {
             return redirect()->back()->with('error', 'Cannot sync quantity for a disabled product. Enable it first.');
         }
 
         $results = app(\Extensions\Shopee\Services\Shopee\ShopeeStockPricePush::class)
-            ->push('stock', $auth, $links, $pfx);
+            ->push('stock', $auth, $links);
         $clause = \Extensions\Shopee\Services\Shopee\ShopeeStockPricePush::ledgerClause($results);
 
         $msg = $results['ok'] > 0
@@ -1183,10 +1175,8 @@ class ShopeeProductController extends Controller
         if ($links->isEmpty()) {
             return redirect()->back()->with('error', 'Product not linked to Shopee. Sync Product IDs first.');
         }
-
-        $pfx = (string) config('catalog.prefix');
         $results = app(\Extensions\Shopee\Services\Shopee\ShopeeStockPricePush::class)
-            ->push('price', $auth, $links, $pfx, \Extensions\Shopee\Commands\ShopeePushPrice::priceRule([$productId]));
+            ->push('price', $auth, $links, \Extensions\Shopee\Commands\ShopeePushPrice::priceRule([$productId]));
         $clause = \Extensions\Shopee\Services\Shopee\ShopeeStockPricePush::ledgerClause($results);
 
         if (!empty($results['skipped_products']) && $results['ok'] === 0) {
@@ -1466,8 +1456,6 @@ class ShopeeProductController extends Controller
             return [null, "Missing Shopee {$modeLabel} settings."];
         }
 
-        $pfx = (string) config('catalog.prefix');
-
         $allItemIds = $this->fetchLiveItemIds($client, $auth);
         if ($allItemIds === null) {
             return [null, 'Shopee did not answer the fetch. Check the connection and try again.'];
@@ -1484,12 +1472,12 @@ class ShopeeProductController extends Controller
         }
 
         $erpSkus = [];
-        $erpProducts = DB::table($pfx . 'product')->whereNotNull('model')->where('model', '!=', '')->get(['model', 'sku']);
+        $erpProducts = DB::table('products')->whereNotNull('model')->where('model', '!=', '')->get(['model', 'sku']);
         foreach ($erpProducts as $ep) {
             if ($ep->model !== null && $ep->model !== '') $erpSkus[strtolower(trim($ep->model))] = true;
             if ($ep->sku !== null && $ep->sku !== '') $erpSkus[strtolower(trim($ep->sku))] = true;
         }
-        $optSkus = DB::table($pfx . 'product_option_value')
+        $optSkus = DB::table('product_variation_values')
             ->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku');
         foreach ($optSkus as $os) {
             $erpSkus[strtolower(trim($os))] = true;
@@ -1613,9 +1601,7 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', "Missing Shopee {$modeLabel} settings.");
         }
 
-        $pfx = (string) config('catalog.prefix');
-
-        $enabledIds = DB::table($pfx . 'product')
+        $enabledIds = DB::table('products')
             ->whereIn('product_id', $ids)
             ->where('status', 1)
             ->pluck('product_id')
@@ -1627,7 +1613,7 @@ class ShopeeProductController extends Controller
         $skip = count($enabledIds) - $links->pluck('product_id')->unique()->count();
 
         $results = app(\Extensions\Shopee\Services\Shopee\ShopeeStockPricePush::class)
-            ->push('stock', $auth, $links, $pfx);
+            ->push('stock', $auth, $links);
         $ok = $results['ok'];
         $err = $results['err'];
 
@@ -1653,14 +1639,12 @@ class ShopeeProductController extends Controller
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->back()->with('error', "Missing Shopee {$modeLabel} settings.");
         }
-
-        $pfx = (string) config('catalog.prefix');
         $links = ShopeeListingLink::query()->whereIn('product_id', $ids)->get();
 
         $skip = count($ids) - $links->pluck('product_id')->unique()->count();
 
         $results = app(\Extensions\Shopee\Services\Shopee\ShopeeStockPricePush::class)
-            ->push('price', $auth, $links, $pfx, \Extensions\Shopee\Commands\ShopeePushPrice::priceRule($ids));
+            ->push('price', $auth, $links, \Extensions\Shopee\Commands\ShopeePushPrice::priceRule($ids));
 
         $summary = "Bulk Sync Price: {$results['ok']} success, {$results['err']} error, {$skip} skipped (not linked).";
 
@@ -1689,9 +1673,7 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('status', 'Product already linked to Shopee item ' . $existingLink->shopee_item_id . ' (SKU: ' . $existingLink->sku . '). Use Unlink to re-sync.');
         }
 
-        $pfx = (string) config('catalog.prefix');
-
-        $ovSkus = DB::table($pfx . 'product_option_value')
+        $ovSkus = DB::table('product_variation_values')
             ->where('product_id', $productId)
             ->whereNotNull('sku')
             ->where('sku', '!=', '')
@@ -1702,7 +1684,7 @@ class ShopeeProductController extends Controller
             ->values()
             ->toArray();
 
-        $product = DB::table($pfx . 'product')->where('product_id', $productId)->first(['model', 'sku']);
+        $product = DB::table('products')->where('product_id', $productId)->first(['model', 'sku']);
         $mainModel = trim((string) ($product->model ?? ''));
         $mainSku = trim((string) ($product->sku ?? ''));
 
@@ -1970,9 +1952,7 @@ class ShopeeProductController extends Controller
             'sku' => 'nullable|string|max:191',
             'product_id' => 'required|integer|min:1',
         ]);
-
-        $pfx = (string) config('catalog.prefix');
-        if (! DB::table($pfx . 'product')->where('product_id', (int) $data['product_id'])->exists()) {
+        if (! DB::table('products')->where('product_id', (int) $data['product_id'])->exists()) {
             return redirect()->back()->with('error', 'Master Catalog product not found.');
         }
 
@@ -2014,9 +1994,8 @@ class ShopeeProductController extends Controller
 
     private function parcelGapFor(array $productIds): array
     {
-        $pfx = (string) config('catalog.prefix');
         $out = [];
-        $rows = DB::table($pfx . 'product')->whereIn('product_id', $productIds)
+        $rows = DB::table('products')->whereIn('product_id', $productIds)
             ->get(['product_id', 'weight', 'length', 'width', 'height']);
         foreach ($rows as $r) {
             $missing = [];
@@ -2042,17 +2021,17 @@ class ShopeeProductController extends Controller
         return array_values(array_unique(array_filter(array_map(fn($v) => (int) $v, $ids), fn($v) => $v > 0)));
     }
 
-    private function matchProductBySku(string $pfx, string $sku): int
+    private function matchProductBySku( string $sku): int
     {
         if ($sku === '') return 0;
 
-        $pov = DB::table($pfx . 'product_option_value')->where('sku', $sku)->first(['product_id']);
+        $pov = DB::table('product_variation_values')->where('sku', $sku)->first(['product_id']);
         if ($pov) return (int) $pov->product_id;
 
-        $prod = DB::table($pfx . 'product')->where('model', $sku)->first(['product_id']);
+        $prod = DB::table('products')->where('model', $sku)->first(['product_id']);
         if ($prod) return (int) $prod->product_id;
 
-        $prod = DB::table($pfx . 'product')->where('sku', $sku)->first(['product_id']);
+        $prod = DB::table('products')->where('sku', $sku)->first(['product_id']);
         if ($prod) return (int) $prod->product_id;
 
         return 0;
@@ -2213,11 +2192,10 @@ class ShopeeProductController extends Controller
 
     public function listing(int $productId, ShopeeLiveListing $liveListing)
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $product = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $product = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
                   ->where('pd.language_id', '=', $langId);
             })
@@ -2285,7 +2263,7 @@ class ShopeeProductController extends Controller
             ->forProducts([$productId])[$productId] ?? null;
 
         $shopeeStoreId = (int) (ShopeeStore::defaultStore()?->id ?? 0);
-        $variationSkus = collect(\App\Channels\Listings\ListingVariations::sold('shopee', $shopeeStoreId, [$productId], $pfx)[$productId] ?? []);
+        $variationSkus = collect(\App\Channels\Listings\ListingVariations::sold('shopee', $shopeeStoreId, [$productId])[$productId] ?? []);
         $linkedSkus = $links->pluck('sku')->map(fn ($v) => strtolower(trim((string) $v)))->filter()->flip();
         $coverageRows = $variationSkus->map(fn ($sku) => [
             'name' => '',
@@ -2409,15 +2387,13 @@ class ShopeeProductController extends Controller
         if (!$store || !$auth['complete']) {
             return redirect()->back()->with('error', 'Missing Shopee settings.');
         }
-
-        $pfx = (string) config('catalog.prefix');
-        $skus = DB::table($pfx . 'product_option_value')
+        $skus = DB::table('product_variation_values')
             ->where('product_id', $productId)->whereNotNull('sku')->where('sku', '!=', '')
             ->pluck('sku')->map(fn ($v) => strtolower(trim((string) $v)))->all();
-        $comboSkus = DB::table('product_option_combinations')
+        $comboSkus = DB::table('product_variations')
             ->where('product_id', $productId)->whereNotNull('sku')->where('sku', '!=', '')
             ->pluck('sku')->map(fn ($v) => strtolower(trim((string) $v)))->all();
-        $main = strtolower(trim((string) DB::table($pfx . 'product')->where('product_id', $productId)->value('sku')));
+        $main = strtolower(trim((string) DB::table('products')->where('product_id', $productId)->value('sku')));
         $allSkus = array_values(array_unique(array_filter(array_merge($skus, $comboSkus, [$main]))));
 
         $r = app(\Extensions\Shopee\Services\Shopee\ShopeeModelLinkRepair::class)
@@ -2471,11 +2447,10 @@ class ShopeeProductController extends Controller
         $this->listingStates()->recordOutcome($productId, null);
 
         if ($r['added'] > 0) {
-            $pfx = (string) config('catalog.prefix');
-            $skus = DB::table($pfx . 'product_option_value')
+            $skus = DB::table('product_variation_values')
                 ->where('product_id', $productId)->whereNotNull('sku')->where('sku', '!=', '')
                 ->pluck('sku')->map(fn ($v) => strtolower(trim((string) $v)))
-                ->merge(DB::table('product_option_combinations')
+                ->merge(DB::table('product_variations')
                     ->where('product_id', $productId)->whereNotNull('sku')->where('sku', '!=', '')
                     ->pluck('sku')->map(fn ($v) => strtolower(trim((string) $v))))
                 ->unique()->values()->all();
@@ -2488,8 +2463,7 @@ class ShopeeProductController extends Controller
 
     public function saveListing(Request $request, int $productId, ShopeeClient $client)
     {
-        $pfx = (string) config('catalog.prefix');
-        $exists = DB::table($pfx . 'product')->where('product_id', $productId)->exists();
+        $exists = DB::table('products')->where('product_id', $productId)->exists();
         if (!$exists) {
             abort(404, 'Product not found.');
         }
@@ -2670,18 +2644,16 @@ class ShopeeProductController extends Controller
         if ($links->isEmpty()) {
             return $answer;
         }
-
-        $pfx = (string) config('catalog.prefix');
         $push = app(\Extensions\Shopee\Services\Shopee\ShopeeStockPricePush::class);
         $left = [];
 
-        $price = $push->push('price', $auth, $links, $pfx, \Extensions\Shopee\Commands\ShopeePushPrice::priceRule([$productId]));
+        $price = $push->push('price', $auth, $links, \Extensions\Shopee\Commands\ShopeePushPrice::priceRule([$productId]));
         if (($price['ok'] ?? 0) < 1) {
             $left[] = 'the price (' . (($price['last_error'] ?: null) ?? 'Shopee did not say why') . ')';
         }
 
-        if ((int) DB::table($pfx . 'product')->where('product_id', $productId)->value('status') === 1) {
-            $stock = $push->push('stock', $auth, $links, $pfx);
+        if ((int) DB::table('products')->where('product_id', $productId)->value('status') === 1) {
+            $stock = $push->push('stock', $auth, $links);
             if (($stock['ok'] ?? 0) < 1) {
                 $left[] = 'the stock (' . (($stock['last_error'] ?: null) ?? 'Shopee did not say why') . ')';
             }
@@ -2706,11 +2678,9 @@ class ShopeeProductController extends Controller
         if (!$readiness['ready']) {
             return ['ok' => false, 'message' => \App\Channels\Listings\CatalogGaps::refusal($readiness, 'update')];
         }
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
-        $product = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $product = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
                   ->where('pd.language_id', '=', $langId);
             })

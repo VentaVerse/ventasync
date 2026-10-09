@@ -144,9 +144,9 @@ class ShopeeReconcileTest extends TestCase
     {
         $body = $this->methodBody('shopeeCandidateSkus');
 
-        $this->assertStringContainsString('product_option_value', $body,
+        $this->assertStringContainsString('product_variation_values', $body,
             'Variation SKUs are no longer candidates.');
-        $this->assertStringContainsString('product_option_combinations', $body,
+        $this->assertStringContainsString('product_variations', $body,
             'Combination SKUs are not candidates, so a product whose variations live there and whose '
             .'parent carries no SKU can never be matched back to its Shopee item - which is exactly the '
             .'product Maria pushed four times. Lazada and TikTok have always read both tables.');

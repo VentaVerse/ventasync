@@ -12,7 +12,7 @@ class OrderStatusDefaultsTest extends TestCase
 
     private function statuses()
     {
-        return DB::table(config('catalog.prefix') . 'order_status')
+        return DB::table('order_statuses')
             ->where('language_id', (int) config('catalog.default_language_id'))
             ->pluck('subtract_stock', 'name')
             ->map(fn ($v) => (int) $v);
@@ -52,7 +52,7 @@ class OrderStatusDefaultsTest extends TestCase
 
     public function test_every_channel_mapping_points_at_a_status_that_exists(): void
     {
-        $ids = DB::table(config('catalog.prefix') . 'order_status')->pluck('order_status_id')->all();
+        $ids = DB::table('order_statuses')->pluck('order_status_id')->all();
 
         foreach (['ch_shopee_order_status_map', 'ch_lazada_order_status_map', 'ch_tiktok_order_status_map'] as $table) {
             foreach (DB::table($table)->pluck('order_status_id') as $mapped) {
@@ -78,7 +78,7 @@ class OrderStatusDefaultsTest extends TestCase
 
     public function test_every_channel_keeps_stock_taken_from_paid_to_delivered_on_a_new_install(): void
     {
-        $subtracts = DB::table(config('catalog.prefix') . 'order_status')->pluck('subtract_stock', 'order_status_id')->map(fn ($v) => (int) $v);
+        $subtracts = DB::table('order_statuses')->pluck('subtract_stock', 'order_status_id')->map(fn ($v) => (int) $v);
 
         foreach (self::JOURNEYS as $table => [$column, $journey]) {
             $map = DB::table($table)->where('context', 'order')->pluck('order_status_id', $column);

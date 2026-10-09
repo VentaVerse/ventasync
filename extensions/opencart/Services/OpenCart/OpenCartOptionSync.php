@@ -40,7 +40,6 @@ class OpenCartOptionSync
             }
 
             $options = $result['body']['data'] ?? [];
-            $pfx = (string) config('catalog.prefix');
             $langId = (int) config('catalog.default_language_id');
             $created = 0;
             $updated = 0;
@@ -55,8 +54,8 @@ class OpenCartOptionSync
                     $name = trim($raw['name'] ?? '');
                     if ($name === '') continue;
 
-                    $existing = DB::table($pfx . 'option AS o')
-                        ->join($pfx . 'option_description AS od', function ($join) use ($langId) {
+                    $existing = DB::table('variation_types AS o')
+                        ->join('variation_type_descriptions AS od', function ($join) use ($langId) {
                             $join->on('o.option_id', '=', 'od.option_id')
                                 ->where('od.language_id', '=', $langId);
                         })
@@ -66,7 +65,7 @@ class OpenCartOptionSync
 
                     if ($existing) {
                         $coreOptionId = (int) $existing->option_id;
-                        DB::table($pfx . 'option')
+                        DB::table('variation_types')
                             ->where('option_id', $coreOptionId)
                             ->update([
                                 'type'       => $raw['type'] ?? 'select',
@@ -74,12 +73,12 @@ class OpenCartOptionSync
                             ]);
                         $updated++;
                     } else {
-                        $coreOptionId = DB::table($pfx . 'option')->insertGetId([
+                        $coreOptionId = DB::table('variation_types')->insertGetId([
                             'type'       => $raw['type'] ?? 'select',
                             'sort_order' => (int) ($raw['sort_order'] ?? 0),
                         ], 'option_id');
 
-                        DB::table($pfx . 'option_description')->insert([
+                        DB::table('variation_type_descriptions')->insert([
                             'option_id'   => $coreOptionId,
                             'language_id' => $langId,
                             'name'        => $name,
@@ -97,8 +96,8 @@ class OpenCartOptionSync
                         $valName = trim($val['name'] ?? '');
                         if ($valName === '') continue;
 
-                        $existingVal = DB::table($pfx . 'option_value AS ov')
-                            ->join($pfx . 'option_value_description AS ovd', function ($join) use ($langId) {
+                        $existingVal = DB::table('variation_values AS ov')
+                            ->join('variation_value_descriptions AS ovd', function ($join) use ($langId) {
                                 $join->on('ov.option_value_id', '=', 'ovd.option_value_id')
                                     ->where('ovd.language_id', '=', $langId);
                             })
@@ -109,20 +108,20 @@ class OpenCartOptionSync
 
                         if ($existingVal) {
                             $coreValueId = (int) $existingVal->option_value_id;
-                            DB::table($pfx . 'option_value')
+                            DB::table('variation_values')
                                 ->where('option_value_id', $coreValueId)
                                 ->update([
                                     'image'      => $val['image'] ?? '',
                                     'sort_order' => (int) ($val['sort_order'] ?? 0),
                                 ]);
                         } else {
-                            $coreValueId = DB::table($pfx . 'option_value')->insertGetId([
+                            $coreValueId = DB::table('variation_values')->insertGetId([
                                 'option_id'  => $coreOptionId,
                                 'image'      => $val['image'] ?? '',
                                 'sort_order' => (int) ($val['sort_order'] ?? 0),
                             ], 'option_value_id');
 
-                            DB::table($pfx . 'option_value_description')->insert([
+                            DB::table('variation_value_descriptions')->insert([
                                 'option_value_id' => $coreValueId,
                                 'language_id'     => $langId,
                                 'option_id'       => $coreOptionId,

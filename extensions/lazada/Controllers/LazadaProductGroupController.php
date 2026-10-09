@@ -284,16 +284,14 @@ class LazadaProductGroupController extends Controller
     public function products(Request $request, int $id)
     {
         $group = LazadaProductGroup::query()->findOrFail($id);
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $q = trim((string) $request->input('q'));
         $syncStatus = (string) $request->input('sync_status', 'all');
         $erpStatus = (string) $request->input('erp_status', 'all');
 
-        $query = DB::table($pfx . 'product as p')
-            ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $query = DB::table('products as p')
+            ->join('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->join('ch_lazada_product_group_products as gp', function ($j) use ($group) {
@@ -301,7 +299,7 @@ class LazadaProductGroupController extends Controller
                     ->where('gp.lazada_product_group_id', '=', $group->id);
             })
             ->leftJoin('ch_lazada_listings as lp', 'gp.lazada_listing_id', '=', 'lp.id')
-            ->leftJoin($pfx . 'brand as m', 'p.brand_id', '=', 'm.brand_id')
+            ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
             ->select(
                 'p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.price',
                 'p.quantity', 'p.image', 'p.status',
@@ -403,8 +401,6 @@ class LazadaProductGroupController extends Controller
     public function productSearch(Request $request, int $id)
     {
         $group = LazadaProductGroup::query()->findOrFail($id);
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $q = trim((string) $request->query('q', ''));
         $showAll = $request->boolean('all');
@@ -421,8 +417,8 @@ class LazadaProductGroupController extends Controller
             ->when(app()->bound('lazada.route-store'), fn ($sub) => $sub->where('store_id', app('lazada.route-store')->id))
             ->groupBy('product_id');
 
-        $query = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $query = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->leftJoinSub($lpPick, 'lps', 'lps.product_id', '=', 'p.product_id')
@@ -480,7 +476,7 @@ class LazadaProductGroupController extends Controller
     public function addProduct(Request $request, int $id, int $productId)
     {
         $group = LazadaProductGroup::query()->findOrFail($id);
-        $inCatalog = DB::table((string) config('catalog.prefix') . 'product')
+        $inCatalog = DB::table('products')
             ->where('product_id', $productId)->where('status', 1)->exists();
         abort_unless($inCatalog, 404);
 
@@ -543,16 +539,14 @@ class LazadaProductGroupController extends Controller
         if (!$store || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->back()->with('error', 'Missing Lazada credentials.');
         }
-
-        $pfx = (string) config('catalog.prefix');
         $client = app(\Extensions\Lazada\Services\Lazada\LazadaClient::class);
 
-        $product = DB::table($pfx . 'product')->where('product_id', $productId)->first(['sku', 'model']);
+        $product = DB::table('products')->where('product_id', $productId)->first(['sku', 'model']);
         $skus = [];
         if ($product->sku && trim($product->sku) !== '') $skus[] = trim($product->sku);
         if ($product->model && trim($product->model) !== '' && !in_array(trim($product->model), $skus)) $skus[] = trim($product->model);
 
-        $optSkus = DB::table($pfx . 'product_option_value')
+        $optSkus = DB::table('product_variation_values')
             ->where('product_id', $productId)
             ->whereNotNull('sku')->where('sku', '!=', '')
             ->pluck('sku')->map(fn($s) => trim($s))->unique()->toArray();
@@ -741,8 +735,6 @@ class LazadaProductGroupController extends Controller
         if (!$store || !$store->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return ['tone' => 'error', 'summary' => 'Missing Lazada settings.', 'failed' => 0, 'stop' => true];
         }
-
-        $pfx = (string) config('catalog.prefix');
 
         $okCount = 0;
         $updatedCount = 0;
@@ -1162,12 +1154,10 @@ class LazadaProductGroupController extends Controller
         if (!$store || !$store->region || !$creds['complete']) {
             return $this->productsRedirect($id)->with('error', 'Missing Lazada settings.');
         }
-
-        $pfx = (string) config('catalog.prefix');
         $listings = LazadaListing::query()->whereNotNull('product_id')->whereIn('product_id', $ids)->get();
 
         $results = app(\Extensions\Lazada\Services\Lazada\LazadaStockPricePush::class)
-            ->push('price', $store, $creds, $listings, $pfx,
+            ->push('price', $store, $creds, $listings,
                 \Extensions\Lazada\Commands\LazadaPushPrice::priceRule($listings));
 
         foreach ($results['outcomes'] as $pid => $outcome) {
@@ -1199,12 +1189,10 @@ class LazadaProductGroupController extends Controller
         if (!$store || !$store->region || !$creds['complete']) {
             return $this->productsRedirect($id)->with('error', 'Missing Lazada settings.');
         }
-
-        $pfx = (string) config('catalog.prefix');
         $listings = LazadaListing::query()->whereNotNull('product_id')->whereIn('product_id', $ids)->get();
 
         $results = app(\Extensions\Lazada\Services\Lazada\LazadaStockPricePush::class)
-            ->push('stock', $store, $creds, $listings, $pfx);
+            ->push('stock', $store, $creds, $listings);
 
         foreach ($results['outcomes'] as $pid => $outcome) {
             LazadaProductGroupProduct::query()
@@ -1236,8 +1224,6 @@ class LazadaProductGroupController extends Controller
             return $this->productsRedirect($id)->with('error', 'Missing Lazada settings.');
         }
 
-        $pfx = (string) config('catalog.prefix');
-
         $pivotRows = LazadaProductGroupProduct::query()
             ->where('lazada_product_group_id', $group->id)
             ->whereIn('product_id', $productIds)
@@ -1258,7 +1244,7 @@ class LazadaProductGroupController extends Controller
                 continue;
             }
 
-            $product = DB::table($pfx . 'product as p')
+            $product = DB::table('products as p')
                 ->where('p.product_id', (int) $listing->product_id)
                 ->first(['p.product_id', 'p.sku']);
 
@@ -1425,12 +1411,10 @@ class LazadaProductGroupController extends Controller
         $existingLpMap = LazadaListing::query()
             ->whereIn('product_id', $productIds)
             ->pluck('id', 'product_id');
-
-        $pfx = (string) config('catalog.prefix');
         $newProductIds = array_values(array_diff($productIds, $existingLpMap->keys()->toArray()));
         $erpPrices = [];
         if (!empty($newProductIds)) {
-            $erpPrices = DB::table($pfx . 'product')
+            $erpPrices = DB::table('products')
                 ->whereIn('product_id', $newProductIds)
                 ->pluck('price', 'product_id')
                 ->toArray();

@@ -61,8 +61,6 @@ class TikTokPushStock extends Command implements \App\Channels\Contracts\Steppab
             $this->warn('TikTok access token expired. Refresh it first.');
             return 1;
         }
-
-        $pfx = (string) config('catalog.prefix');
         $client = app(TikTokClient::class);
 
         $pivotRows = TikTokProductGroupProduct::query()
@@ -84,7 +82,7 @@ class TikTokPushStock extends Command implements \App\Channels\Contracts\Steppab
             'shop_cipher' => $shopCipher, 'warehouse_id' => $warehouseId,
         ];
         $results = app(\Extensions\TikTok\Services\TikTok\TikTokStockPricePush::class)
-            ->push('stock', $c, $pivotRows, $pfx);
+            ->push('stock', $c, $pivotRows);
         \Extensions\TikTok\Services\TikTok\TikTokStockPricePush::recordOutcomes('stock', $results['outcomes'], $store);
 
         $totalOk = $results['ok'];

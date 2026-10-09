@@ -4,6 +4,8 @@ namespace App\Models\Catalog;
 
 class OrderHistory extends BaseModel
 {
+    protected $table = 'order_history';
+
     protected $primaryKey = 'order_history_id';
 
     protected $fillable = [
@@ -19,11 +21,6 @@ class OrderHistory extends BaseModel
         'powertrack_carrier',
         'powertrack_trackcode',
     ];
-
-    public function getTable()
-    {
-        return $this->tableName('order_history');
-    }
 
     public function order()
     {

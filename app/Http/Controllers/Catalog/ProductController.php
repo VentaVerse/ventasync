@@ -180,12 +180,7 @@ private function isWordStartMatch(string $haystack, string $term): bool
 
 public function index(Request $request)
 {
-    $p = config('catalog.prefix');
     $langId = (int) config('catalog.default_language_id');
-
-    
-
-        $pfx = config('catalog.prefix');
 $q = trim((string) $request->get('q', ''));
 
     $sort = (string) $request->get('sort', 'product_id');
@@ -209,12 +204,12 @@ $q = trim((string) $request->get('q', ''));
         $sort = 'product_id';
     }
 
-    $optQtySub = DB::table($p.'product_option_value as pov')
+    $optQtySub = DB::table('product_variation_values as pov')
         ->select('pov.product_id', DB::raw('SUM(pov.quantity) as options_quantity'))
         ->groupBy('pov.product_id');
 
-    $query = DB::table($p.'product as p')
-        ->leftJoin($p.'product_description as pd', function ($j) use ($langId) {
+    $query = DB::table('products as p')
+        ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
             $j->on('p.product_id', '=', 'pd.product_id')
               ->where('pd.language_id', '=', $langId);
         })
@@ -238,7 +233,7 @@ $q = trim((string) $request->get('q', ''));
     }
 
 if ($q !== '') {
-    $nameIds = DB::table($p.'product_description as pd')
+    $nameIds = DB::table('product_descriptions as pd')
         ->where('pd.language_id', '=', $langId)
         ->where('pd.name', 'like', "%{$q}%")
         ->limit(800)
@@ -251,7 +246,7 @@ if ($q !== '') {
         }
     }
 
-    $skuMatched = DB::table($p.'product')
+    $skuMatched = DB::table('products')
         ->where(function ($w) use ($q) {
             $w->where('sku', 'like', "%{$q}%")
               ->orWhere('model', 'like', "%{$q}%");
@@ -261,7 +256,7 @@ if ($q !== '') {
         ->map(fn($v) => (int) $v)
         ->toArray();
 
-    $optSkuMatched = DB::table($p.'product_option_value')
+    $optSkuMatched = DB::table('product_variation_values')
         ->where('sku', 'like', "%{$q}%")
         ->limit(800)
         ->pluck('product_id')
@@ -304,7 +299,6 @@ if ($q !== '') {
         }
 
         $productImages = [];
-$pfx = config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $existingOptions = collect();
@@ -366,9 +360,7 @@ $pfx = config('catalog.prefix');
         $disk = Storage::disk('public');
         $token = preg_replace('/[^A-Za-z0-9_-]/', '', (string) $token);
         $tmpBase = 'tmp/product-images/' . ($token ?: 'default');
-
-        $pfx = config('catalog.prefix');
-        $mid = (int) DB::table($pfx . 'product')->where('product_id', $productId)->value('brand_id');
+        $mid = (int) DB::table('products')->where('product_id', $productId)->value('brand_id');
         $finalDir = $this->resolveBrandDir($mid);
         $disk->makeDirectory($finalDir);
 
@@ -595,11 +587,10 @@ $pfx = config('catalog.prefix');
 
     public function salesHistory($id)
     {
-        $pfx = config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $product = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $product = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
                     ->where('pd.language_id', '=', $langId);
             })
@@ -611,8 +602,8 @@ $pfx = config('catalog.prefix');
 
         $product->name = html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-        $sales = DB::table($pfx . 'order_product as op')
-            ->join($pfx . 'order as o', 'o.order_id', '=', 'op.order_id')
+        $sales = DB::table('order_products as op')
+            ->join('orders as o', 'o.order_id', '=', 'op.order_id')
             ->where('op.product_id', (int) $id)
             ->where('o.order_status_id', '>', 0)
             ->select(
@@ -633,7 +624,7 @@ $pfx = config('catalog.prefix');
         $opIds = $sales->pluck('order_product_id')->all();
         $optionsByOpId = [];
         if (!empty($opIds)) {
-            $options = DB::table($pfx . 'order_option')
+            $options = DB::table('order_options')
                 ->whereIn('order_product_id', $opIds)
                 ->get(['order_product_id', 'name', 'value']);
             foreach ($options as $opt) {
@@ -662,11 +653,10 @@ $pfx = config('catalog.prefix');
 
     public function stockHistory($id)
     {
-        $pfx = config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $product = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $product = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
                     ->where('pd.language_id', '=', $langId);
             })
@@ -678,8 +668,8 @@ $pfx = config('catalog.prefix');
 
         $product->name = html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-        $optionValueNames = DB::table($pfx . 'product_option_value as pov')
-            ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+        $optionValueNames = DB::table('product_variation_values as pov')
+            ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
                 $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
                     ->where('ovd.language_id', '=', $langId);
             })
@@ -708,15 +698,14 @@ $pfx = config('catalog.prefix');
 
     public function edit($id)
     {
-        $pfx = config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $product = DB::table($pfx.'product as p')
-            ->leftJoin($pfx.'product_description as pd', function ($j) use ($langId) {
+        $product = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
                   ->where('pd.language_id', '=', $langId);
             })
-            ->leftJoin($pfx.'brand as m', 'p.brand_id', '=', 'm.brand_id')
+            ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
             ->select('p.*', 'pd.name as name', 'pd.description as description', 'm.name as brand_name')
             ->where('p.product_id', (int) $id)
             ->first();
@@ -731,7 +720,7 @@ $pfx = config('catalog.prefix');
         $product->description = DescriptionHtml::store($product->description ?? '');
 
 
-        $currentCategoryIds = DB::table($pfx.'product_to_category')
+        $currentCategoryIds = DB::table('product_categories')
             ->where('product_id', (int) $id)
             ->pluck('category_id')
             ->map(fn ($v) => (int) $v)
@@ -739,7 +728,7 @@ $pfx = config('catalog.prefix');
 
         $currentCategories = [];
         if (!empty($currentCategoryIds)) {
-            $currentCategories = DB::table($pfx.'category_description')
+            $currentCategories = DB::table('category_descriptions')
                 ->whereIn('category_id', $currentCategoryIds)
                 ->where('language_id', $langId)
                 ->get(['category_id', 'name'])
@@ -754,9 +743,9 @@ $pfx = config('catalog.prefix');
 
         $existingOptions = collect();
 
-            $existingOptions = DB::table($pfx.'product_option as po')
-                ->join($pfx.'option as o', 'po.option_id', '=', 'o.option_id')
-                ->join($pfx.'option_description as od', function ($j) use ($langId) {
+            $existingOptions = DB::table('product_variation_types as po')
+                ->join('variation_types as o', 'po.option_id', '=', 'o.option_id')
+                ->join('variation_type_descriptions as od', function ($j) use ($langId) {
                     $j->on('po.option_id', '=', 'od.option_id')
                       ->where('od.language_id', '=', $langId);
                 })
@@ -776,8 +765,8 @@ $pfx = config('catalog.prefix');
 
             $existingValuesByPoId = [];
             if (!empty($poIds)) {
-                $rows = DB::table($pfx.'product_option_value as pov')
-                    ->join($pfx.'option_value_description as ovd', function ($j) use ($langId) {
+                $rows = DB::table('product_variation_values as pov')
+                    ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
                         $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
                           ->where('ovd.language_id', '=', $langId);
                     })
@@ -829,8 +818,8 @@ $pfx = config('catalog.prefix');
             $statusByPovId = [];
             $costAmountByPovId = [];
             $costAddByPovId = [];
-            $comboImages = DB::table('product_option_combinations as c')
-                ->join('product_option_combination_values as cv', 'cv.combination_id', '=', 'c.id')
+            $comboImages = DB::table('product_variations as c')
+                ->join('product_variation_parts as cv', 'cv.combination_id', '=', 'c.id')
                 ->where('c.product_id', (int) $id)
                 ->get(['cv.product_option_value_id', 'c.image', 'c.status', 'c.cost_amount', 'c.cost_additional']);
 
@@ -869,19 +858,19 @@ $pfx = config('catalog.prefix');
 
             $existingCombinations = [];
             if ($existingOptions->count() > 1) {
-                $combos = DB::table('product_option_combinations as c')
+                $combos = DB::table('product_variations as c')
                     ->where('c.product_id', (int) $id)
                     ->orderBy('c.sort_order')
                     ->get();
 
                 foreach ($combos as $combo) {
-                    $pivotRows = DB::table('product_option_combination_values as cv')
-                        ->join($pfx.'product_option_value as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
-                        ->join($pfx.'option_value_description as ovd', function ($j) use ($langId) {
+                    $pivotRows = DB::table('product_variation_parts as cv')
+                        ->join('product_variation_values as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
+                        ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
                             $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
                               ->where('ovd.language_id', '=', $langId);
                         })
-                        ->join($pfx.'product_option as po', 'pov.product_option_id', '=', 'po.product_option_id')
+                        ->join('product_variation_types as po', 'pov.product_option_id', '=', 'po.product_option_id')
                         ->where('cv.combination_id', $combo->id)
                         ->orderBy('po.product_option_id')
                         ->get(['ovd.name', 'po.product_option_id']);
@@ -909,7 +898,7 @@ $pfx = config('catalog.prefix');
         if (!empty($product->image)) {
             $productImages[] = (string) $product->image;
         }
-        $additionalImgs = DB::table($pfx.'product_image')
+        $additionalImgs = DB::table('product_images')
             ->where('product_id', (int) $id)
             ->orderBy('sort_order')
             ->pluck('image')
@@ -939,7 +928,7 @@ $pfx = config('catalog.prefix');
 
     public function update(Request $request, $id)
     {
-        $pfxProduct = config('catalog.prefix') . 'product';
+        $pfxProduct = 'products';
 
         $request->validate([
             'name' => 'required|string|max:255',
@@ -1010,8 +999,6 @@ $pfx = config('catalog.prefix');
             if ($fallback > 0) $categoryIds = [$fallback];
         }
 
-        $pfx = config('catalog.prefix');
-
         $forcedQty = $request->has('_options_format')
             ? $this->totalAbsoluteOptionsQuantity($request)
             : $this->totalOptionsQuantity($request->input('options', []));
@@ -1020,7 +1007,7 @@ $pfx = config('catalog.prefix');
         $originalAttrs = null;
         $updatedAttrs = null;
         $variationsBefore = \App\Services\VariationForgetService::snapshot((int) $id);
-        DB::transaction(function () use ($request, $id, $langId, $pfx, $resolvedBrandId, $categoryIds, $forcedQty, &$skuChanges, &$originalAttrs, &$updatedAttrs) {
+        DB::transaction(function () use ($request, $id, $langId, $resolvedBrandId, $categoryIds, $forcedQty, &$skuChanges, &$originalAttrs, &$updatedAttrs) {
             $p = Product::where('product_id', (int) $id)->firstOrFail();
             $originalAttrs = $p->getAttributes();
 
@@ -1070,12 +1057,12 @@ $pfx = config('catalog.prefix');
 
 
 
-            $d = DB::table($pfx.'product_description')
+            $d = DB::table('product_descriptions')
                 ->where('product_id', (int) $id)
                 ->where('language_id', (int) $langId)
                 ->first();
 
-            DB::table($pfx.'product_description')->updateOrInsert(
+            DB::table('product_descriptions')->updateOrInsert(
                 [
                     'product_id' => (int) $id,
                     'language_id' => (int) $langId,
@@ -1090,7 +1077,7 @@ $pfx = config('catalog.prefix');
                 ]
             );
 
-            DB::table($pfx.'product_to_category')->where('product_id', (int) $id)->delete();
+            DB::table('product_categories')->where('product_id', (int) $id)->delete();
             foreach ($categoryIds as $catId) {
                 ProductToCategory::create([
                     'product_id' => (int) $id,
@@ -1178,7 +1165,6 @@ $pfx = config('catalog.prefix');
     {
         $skus = array_filter(array_map('trim', (array) $request->input('skus', [])));
         $excludeId = (int) $request->input('exclude_product_id', 0);
-        $p = (string) config('catalog.prefix');
 
         $taken = [];
         foreach ($skus as $sku) {
@@ -1186,11 +1172,11 @@ $pfx = config('catalog.prefix');
             $key = strtolower($sku);
             if (isset($taken[$key])) continue;
 
-            $pq = DB::table($p . 'product')->where('sku', $sku);
+            $pq = DB::table('products')->where('sku', $sku);
             if ($excludeId) $pq->where('product_id', '!=', $excludeId);
             if ($pq->exists()) { $taken[$key] = 'product'; continue; }
 
-            $oq = DB::table($p . 'product_option_value')->where('sku', $sku);
+            $oq = DB::table('product_variation_values')->where('sku', $sku);
             if ($excludeId) $oq->where('product_id', '!=', $excludeId);
             if ($oq->exists()) { $taken[$key] = 'option_value'; continue; }
         }
@@ -1216,8 +1202,6 @@ $pfx = config('catalog.prefix');
             return redirect()->route('products.index')->with('status', 'Invalid action.');
         }
 
-        $pfx = config('catalog.prefix');
-
         if ($action === 'delete') {
             $deleter = app(\App\Services\Catalog\ProductDeleter::class);
             $flash = $deleter->flash($deleter->delete($ids), count($ids));
@@ -1226,7 +1210,7 @@ $pfx = config('catalog.prefix');
         }
 
         $newStatus = $action === 'enable' ? 1 : 0;
-        DB::table($pfx.'product')->whereIn('product_id', $ids)->update(['status' => $newStatus]);
+        DB::table('products')->whereIn('product_id', $ids)->update(['status' => $newStatus]);
 
         return redirect()->route('products.index')->with('status', $newStatus === 1 ? 'Enabled selected products.' : 'Disabled selected products.');
     }
@@ -1250,11 +1234,10 @@ $pfx = config('catalog.prefix');
 
     private function saveProductOptions(int $productId, array $options, array &$skuChanges = []): void
     {
-        $p = config('catalog.prefix');
 
         $options = array_values(array_filter($options ?? [], fn ($o) => is_array($o)));
 
-        $parentSku = strtolower(trim((string) DB::table($p . 'product')->where('product_id', $productId)->value('sku')));
+        $parentSku = strtolower(trim((string) DB::table('products')->where('product_id', $productId)->value('sku')));
         $skuRule = new UniqueSku($productId);
         $errors = [];
         $seenSkus = [];
@@ -1284,22 +1267,22 @@ $pfx = config('catalog.prefix');
             throw \Illuminate\Validation\ValidationException::withMessages(['option_sku' => $errors]);
         }
 
-        $existingPo = DB::table($p.'product_option')
+        $existingPo = DB::table('product_variation_types')
             ->where('product_id', $productId)
             ->get()
             ->keyBy('option_id');
 
-        $existingPov = DB::table($p.'product_option_value')
+        $existingPov = DB::table('product_variation_values')
             ->where('product_id', $productId)
             ->get()
             ->keyBy(fn ($r) => $r->option_id . ':' . $r->option_value_id);
 
         if (empty($options)) {
             if ($existingPov->isNotEmpty()) {
-                DB::table($p.'product_option_value')->where('product_id', $productId)->delete();
+                DB::table('product_variation_values')->where('product_id', $productId)->delete();
             }
             if ($existingPo->isNotEmpty()) {
-                DB::table($p.'product_option')->where('product_id', $productId)->delete();
+                DB::table('product_variation_types')->where('product_id', $productId)->delete();
             }
             return;
         }
@@ -1308,7 +1291,7 @@ $pfx = config('catalog.prefix');
 
         $optionIds = collect($options)->pluck('option_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
 
-        $types = DB::table($p.'option')
+        $types = DB::table('variation_types')
             ->whereIn('option_id', $optionIds)
             ->pluck('type', 'option_id');
 
@@ -1335,11 +1318,11 @@ $pfx = config('catalog.prefix');
 
             if (isset($existingPo[$optionId])) {
                 $productOptionId = (int) $existingPo[$optionId]->product_option_id;
-                DB::table($p.'product_option')
+                DB::table('product_variation_types')
                     ->where('product_option_id', $productOptionId)
                     ->update(['required' => $required]);
             } else {
-                $productOptionId = DB::table($p.'product_option')->insertGetId([
+                $productOptionId = DB::table('product_variation_types')->insertGetId([
                     'product_id' => $productId,
                     'option_id' => $optionId,
                     'value' => '',
@@ -1418,11 +1401,11 @@ $pfx = config('catalog.prefix');
                         $skuChanges['option_skus'][$povId] = ['old' => $oldSku, 'new' => $newSku];
                     }
 
-                    DB::table($p.'product_option_value')
+                    DB::table('product_variation_values')
                         ->where('product_option_value_id', $existingPov[$key]->product_option_value_id)
                         ->update(array_merge($data, ['product_option_id' => $productOptionId]));
                 } else {
-                    DB::table($p.'product_option_value')->insert(array_merge($data, [
+                    DB::table('product_variation_values')->insert(array_merge($data, [
                         'product_option_id' => $productOptionId,
                         'product_id' => $productId,
                         'option_id' => $optionId,
@@ -1438,21 +1421,21 @@ $pfx = config('catalog.prefix');
         foreach ($existingPov as $key => $row) {
             if (!in_array($key, $seenPovKeys, true)) {
                 $deletedPovIds[] = (int) $row->product_option_value_id;
-                DB::table($p.'product_option_value')->where('product_option_value_id', $row->product_option_value_id)->delete();
+                DB::table('product_variation_values')->where('product_option_value_id', $row->product_option_value_id)->delete();
             }
         }
 
         foreach ($existingPo as $optId => $row) {
             if (!in_array((int) $optId, $seenPoOptionIds, true)) {
-                $groupPovIds = DB::table($p.'product_option_value')
+                $groupPovIds = DB::table('product_variation_values')
                     ->where('product_option_id', $row->product_option_id)
                     ->pluck('product_option_value_id')
                     ->map(fn ($v) => (int) $v)
                     ->all();
                 $deletedPovIds = array_merge($deletedPovIds, $groupPovIds);
 
-                DB::table($p.'product_option_value')->where('product_option_id', $row->product_option_id)->delete();
-                DB::table($p.'product_option')->where('product_option_id', $row->product_option_id)->delete();
+                DB::table('product_variation_values')->where('product_option_id', $row->product_option_id)->delete();
+                DB::table('product_variation_types')->where('product_option_id', $row->product_option_id)->delete();
             }
         }
 

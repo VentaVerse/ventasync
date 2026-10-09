@@ -23,7 +23,7 @@ class ShopeeStockPricePush
 
     private const DEAD_MODEL = '/model.*(?:not|no|doesn\'?t|does not).*(?:exist|found)|invalid model|no such model|model.*deleted/i';
 
-    public function push(string $kind, array $auth, $links, string $pfx, ?callable $priceFor = null): array
+    public function push(string $kind, array $auth, $links, ?callable $priceFor = null): array
     {
         $links = collect($links)->values();
         $out = [
@@ -37,7 +37,7 @@ class ShopeeStockPricePush
 
         $productIds = $links->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
 
-        $erpVariationSkus = $this->erpVariationSkus($productIds, $pfx);
+        $erpVariationSkus = $this->erpVariationSkus($productIds);
 
         $modelLevelItems = $this->modelLevelItems($links);
         $itemsToHeal = $links
@@ -46,7 +46,7 @@ class ShopeeStockPricePush
             ->map(fn ($l) => [(int) $l->product_id, (int) $l->shopee_item_id])
             ->unique(fn ($pair) => $pair[0] . ':' . $pair[1]);
         foreach ($itemsToHeal as [$pid, $itemId]) {
-            $r = $this->repair->forItem($auth, $pid, $itemId, $this->skusFor($pid, $pfx, $erpVariationSkus));
+            $r = $this->repair->forItem($auth, $pid, $itemId, $this->skusFor($pid, $erpVariationSkus));
             if (!isset($r['error'])) {
                 $out['healed_items'][] = $itemId;
             }
@@ -55,7 +55,7 @@ class ShopeeStockPricePush
             $links = ShopeeListingLink::query()->whereIn('product_id', $productIds)->get();
         }
 
-        $rows = $this->resolver->resolve($links, $pfx);
+        $rows = $this->resolver->resolve($links);
 
         $hidden = \App\Channels\Listings\ListingVariations::hidden('shopee', (int) ($auth['store_id'] ?? 0), $productIds);
         $grouped = [];
@@ -64,7 +64,7 @@ class ShopeeStockPricePush
         }
 
         foreach ($grouped as $itemId => $itemRows) {
-            $this->pushItem($kind, $auth, (int) $itemId, $itemRows, $pfx, $priceFor, $erpVariationSkus, $hidden, $out, true);
+            $this->pushItem($kind, $auth, (int) $itemId, $itemRows, $priceFor, $erpVariationSkus, $hidden, $out, true);
         }
 
         $states = app(ShopeeListingStates::class)->forStore((int) ($auth['store_id'] ?? 0));
@@ -77,7 +77,7 @@ class ShopeeStockPricePush
         return $out;
     }
 
-    private function pushItem(string $kind, array $auth, int $itemId, array $rows, string $pfx, ?callable $priceFor, array $erpVariationSkus, array $hidden, array &$out, bool $mayHeal): void
+    private function pushItem(string $kind, array $auth, int $itemId, array $rows, ?callable $priceFor, array $erpVariationSkus, array $hidden, array &$out, bool $mayHeal): void
     {
         $list = [];
         $sentRows = [];
@@ -125,7 +125,7 @@ class ShopeeStockPricePush
             $pids = collect($rows)->map(fn ($r) => (int) $r['link']->product_id)->unique();
             $healedAny = false;
             foreach ($pids as $pid) {
-                $r = $this->repair->forItem($auth, $pid, $itemId, $this->skusFor($pid, $pfx, $erpVariationSkus));
+                $r = $this->repair->forItem($auth, $pid, $itemId, $this->skusFor($pid, $erpVariationSkus));
                 if (!isset($r['error'])) {
                     $healedAny = true;
                 }
@@ -136,9 +136,9 @@ class ShopeeStockPricePush
                     ->whereIn('product_id', $pids->all())
                     ->where('shopee_item_id', $itemId)
                     ->get();
-                $freshRows = $this->sendable($this->resolver->resolve($fresh, $pfx), $erpVariationSkus, $hidden);
+                $freshRows = $this->sendable($this->resolver->resolve($fresh), $erpVariationSkus, $hidden);
                 if (!empty($freshRows)) {
-                    $this->pushItem($kind, $auth, $itemId, $freshRows, $pfx, $priceFor, $erpVariationSkus, $hidden, $out, false);
+                    $this->pushItem($kind, $auth, $itemId, $freshRows, $priceFor, $erpVariationSkus, $hidden, $out, false);
                 }
                 return;
             }
@@ -208,15 +208,15 @@ class ShopeeStockPricePush
         return \App\Channels\Push\PushLedger::clause($results, 'Shopee');
     }
 
-    private function erpVariationSkus(array $productIds, string $pfx): array
+    private function erpVariationSkus(array $productIds): array
     {
-        return \App\Channels\Push\PushLedger::erpVariationSkus($productIds, $pfx);
+        return \App\Channels\Push\PushLedger::erpVariationSkus($productIds);
     }
 
-    private function skusFor(int $productId, string $pfx, array $erpVariationSkus): array
+    private function skusFor(int $productId, array $erpVariationSkus): array
     {
         $skus = array_map('strtolower', $erpVariationSkus[$productId] ?? []);
-        $main = strtolower(trim((string) DB::table($pfx . 'product')->where('product_id', $productId)->value('sku')));
+        $main = strtolower(trim((string) DB::table('products')->where('product_id', $productId)->value('sku')));
         if ($main !== '' && !in_array($main, $skus, true)) {
             $skus[] = $main;
         }

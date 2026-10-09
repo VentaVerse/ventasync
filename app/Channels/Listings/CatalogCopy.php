@@ -20,11 +20,9 @@ final class CatalogCopy
         if ($ids === []) {
             return [];
         }
-
-        $pfx = (string) config('catalog.prefix');
         $lang = (int) config('catalog.default_language_id');
-        $rows = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($lang) {
+        $rows = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($lang) {
                 $j->on('pd.product_id', '=', 'p.product_id')->where('pd.language_id', '=', $lang);
             })
             ->whereIn('p.product_id', $ids)
@@ -131,9 +129,7 @@ final class CatalogCopy
         if ($rows === []) {
             return [];
         }
-
-        $pfx = (string) config('catalog.prefix');
-        $modified = DB::table($pfx . 'product')
+        $modified = DB::table('products')
             ->whereIn('product_id', array_map(fn ($r) => (int) $r->product_id, $rows))
             ->pluck('date_modified', 'product_id');
 
@@ -179,7 +175,7 @@ final class CatalogCopy
 
     public static function seenAtFor(int $productId): Carbon
     {
-        $modified = DB::table((string) config('catalog.prefix') . 'product')->where('product_id', $productId)->value('date_modified');
+        $modified = DB::table('products')->where('product_id', $productId)->value('date_modified');
 
         return self::seenAt($modified !== null ? (string) $modified : null);
     }

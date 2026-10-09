@@ -81,16 +81,15 @@ class LazadaListingStateTest extends TestCase
 
     private function seedProduct(string $name, string $sku, string $image = 'img.jpg'): int
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $productId = DB::table($pfx . 'product')->insertGetId([
+        $productId = DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => $image, 'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5,
             'brand_id' => 0,
             'date_added' => now()->subDays(30), 'date_modified' => now()->subDays(30), 'date_available' => now()->subDays(30),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => $langId,
             'name' => $name, 'description' => '',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -167,7 +166,6 @@ class LazadaListingStateTest extends TestCase
 
     public function test_drift_true_false_and_null(): void
     {
-        $pfx = (string) config('catalog.prefix');
 
         $inSync = $this->seedProduct('In sync', 'DR-1');
         LazadaListing::create([
@@ -180,15 +178,15 @@ class LazadaListingStateTest extends TestCase
             'product_id' => $behind, 'lazada_item_id' => '802',
             'live_status' => 'active', 'live_checked_at' => now(),
         ]);
-        DB::table($pfx . 'product_description')->where('product_id', $behind)->update(['name' => 'Behind, renamed']);
-        DB::table($pfx . 'product')->where('product_id', $behind)->update(['date_modified' => now()->addMinute()]);
+        DB::table('product_descriptions')->where('product_id', $behind)->update(['name' => 'Behind, renamed']);
+        DB::table('products')->where('product_id', $behind)->update(['date_modified' => now()->addMinute()]);
 
         $savedUnchanged = $this->seedProduct('Saved unchanged', 'DR-3');
         LazadaListing::create([
             'product_id' => $savedUnchanged, 'lazada_item_id' => '803',
             'live_status' => 'active', 'live_checked_at' => now(),
         ]);
-        DB::table($pfx . 'product')->where('product_id', $savedUnchanged)->update(['date_modified' => now()->addMinute()]);
+        DB::table('products')->where('product_id', $savedUnchanged)->update(['date_modified' => now()->addMinute()]);
 
         $noListing = $this->seedProduct('No listing', 'DR-4');
 
@@ -245,7 +243,6 @@ class LazadaListingStateTest extends TestCase
 
     public function test_summary_counts_attention_and_drift(): void
     {
-        $pfx = (string) config('catalog.prefix');
 
         $rejected = $this->seedProduct('Rejected', 'SM-1');
         LazadaListing::create(['product_id' => $rejected, 'lazada_item_id' => '601', 'live_status' => 'rejected', 'live_checked_at' => now()]);
@@ -255,8 +252,8 @@ class LazadaListingStateTest extends TestCase
 
         $behind = $this->seedProduct('Behind', 'SM-3');
         LazadaListing::create(['product_id' => $behind, 'lazada_item_id' => '603', 'live_status' => 'active', 'live_checked_at' => now()]);
-        DB::table($pfx . 'product_description')->where('product_id', $behind)->update(['name' => 'Behind, renamed']);
-        DB::table($pfx . 'product')->where('product_id', $behind)->update(['date_modified' => now()->addMinute()]);
+        DB::table('product_descriptions')->where('product_id', $behind)->update(['name' => 'Behind, renamed']);
+        DB::table('products')->where('product_id', $behind)->update(['date_modified' => now()->addMinute()]);
 
         $unlinked = $this->seedProduct('Unlinked leftover', 'SM-4');
         LazadaListing::create(['product_id' => $unlinked, 'lazada_item_id' => '604', 'live_status' => 'rejected', 'live_checked_at' => now(), 'unlinked_at' => now()]);
@@ -356,7 +353,7 @@ class LazadaListingStateTest extends TestCase
     private function threeCombos(int $pid, array $skus): void
     {
         foreach ($skus as $i => $sku) {
-            DB::table('product_option_combinations')->insert([
+            DB::table('product_variations')->insert([
                 'product_id' => $pid, 'sku' => $sku, 'quantity' => 3, 'absolute_price' => 100, 'status' => 1, 'sort_order' => $i,
             ]);
         }

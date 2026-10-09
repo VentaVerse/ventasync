@@ -4,7 +4,7 @@
     $catalog = \App\Channels\Listings\CatalogCopy::catalog([$pid])[$pid] ?? null;
     $own = $catalog !== null ? \App\Channels\Listings\CatalogCopy::listing($listing, $cols, $catalog) : null;
     $canCatalog = (bool) (auth()->user()?->hasPermission('manage_catalog/product') ?? false);
-    $hasVariations = \Illuminate\Support\Facades\DB::table((string) config('catalog.prefix') . 'product_option_value')->where('product_id', $pid)->exists();
+    $hasVariations = \Illuminate\Support\Facades\DB::table('product_variation_values')->where('product_id', $pid)->exists();
     $panelErrors = collect($errors->keys())->contains(fn ($k) => str_starts_with($k, 'listing.') || str_starts_with($k, 'catalog.'));
     $openNow = request()->boolean('compare') || $panelErrors;
     $photosOf = function (string $side, array $stored) {

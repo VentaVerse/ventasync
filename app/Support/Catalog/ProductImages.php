@@ -14,14 +14,13 @@ class ProductImages
             return $chosen;
         }
 
-        $pfx = (string) config('catalog.prefix');
         $paths = [];
 
-        $main = DB::table($pfx . 'product')->where('product_id', $productId)->value('image');
+        $main = DB::table('products')->where('product_id', $productId)->value('image');
         if ($main !== null && trim((string) $main) !== '') {
             $paths[] = trim((string) $main);
         }
-        foreach (DB::table($pfx . 'product_image')->where('product_id', $productId)->orderBy('sort_order')->pluck('image') as $img) {
+        foreach (DB::table('product_images')->where('product_id', $productId)->orderBy('sort_order')->pluck('image') as $img) {
             if ($img !== null && trim((string) $img) !== '') {
                 $paths[] = trim((string) $img);
             }

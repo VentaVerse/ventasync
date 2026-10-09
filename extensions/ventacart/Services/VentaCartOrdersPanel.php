@@ -205,7 +205,7 @@ class VentaCartOrdersPanel
             ->all();
 
         if ($linkIds !== []) {
-            $linkImages = DB::table('product')
+            $linkImages = DB::table('products')
                 ->whereIn('product_id', array_values($linkIds))
                 ->where('image', '!=', '')
                 ->whereNotNull('image')

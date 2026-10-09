@@ -19,17 +19,15 @@ final class OrderReads
             'search'    => ['nullable', 'string', 'max:255'],
             'per_page'  => ['nullable', 'integer', 'min:1', 'max:200'],
         ]);
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $perPage = max(1, min((int) $request->integer('per_page', 50), 200));
 
-        $query = DB::table($pfx . 'order as o')
-            ->leftJoin($pfx . 'order_status as os', function ($j) use ($langId) {
+        $query = DB::table('orders as o')
+            ->leftJoin('order_statuses as os', function ($j) use ($langId) {
                 $j->on('os.order_status_id', '=', 'o.order_status_id')
                     ->where('os.language_id', '=', $langId);
             })
-            ->leftJoin(DB::raw("(SELECT order_id, COUNT(*) as items, SUM(quantity) as units FROM `{$pfx}order_product` GROUP BY order_id) as op"),
+            ->leftJoin(DB::raw("(SELECT order_id, COUNT(*) as items, SUM(quantity) as units FROM `order_products` GROUP BY order_id) as op"),
                 'op.order_id', '=', 'o.order_id')
             ->select(
                 'o.order_id',
@@ -77,11 +75,10 @@ final class OrderReads
 
     public function show(Input $request, int $id): array
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $order = DB::table($pfx . 'order as o')
-            ->leftJoin($pfx . 'order_status as os', function ($j) use ($langId) {
+        $order = DB::table('orders as o')
+            ->leftJoin('order_statuses as os', function ($j) use ($langId) {
                 $j->on('os.order_status_id', '=', 'o.order_status_id')
                     ->where('os.language_id', '=', $langId);
             })
@@ -101,7 +98,7 @@ final class OrderReads
 
         $order = self::applyCurrencyShape($order, Money::defaultCode());
 
-        $items = DB::table($pfx . 'order_product')
+        $items = DB::table('order_products')
             ->where('order_id', $id)
             ->select('product_id', 'name', 'model', 'quantity', 'price', 'total', 'cost')
             ->get();

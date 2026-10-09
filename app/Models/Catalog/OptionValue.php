@@ -4,6 +4,8 @@ namespace App\Models\Catalog;
 
 class OptionValue extends BaseModel
 {
+    protected $table = 'variation_values';
+
     protected $primaryKey = 'option_value_id';
 
     protected $fillable = [
@@ -11,9 +13,4 @@ class OptionValue extends BaseModel
         'image',
         'sort_order',
     ];
-
-    public function getTable()
-    {
-        return $this->tableName('option_value');
-    }
 }

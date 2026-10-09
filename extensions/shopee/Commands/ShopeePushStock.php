@@ -59,16 +59,14 @@ class ShopeePushStock extends Command implements \App\Channels\Contracts\Steppab
 
         $this->info("Pushing stock for {$links->count()} link(s)...");
 
-        $pfx = (string) config('catalog.prefix');
-
-        $enabledIds = DB::table($pfx . 'product')
+        $enabledIds = DB::table('products')
             ->whereIn('product_id', $links->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->all())
             ->where('status', 1)
             ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
         $totalSkipped = $links->count() - ($links = $links->filter(fn ($l) => in_array((int) $l->product_id, $enabledIds, true))->values())->count();
 
         $results = app(\Extensions\Shopee\Services\Shopee\ShopeeStockPricePush::class)
-            ->push('stock', $auth, $links, $pfx);
+            ->push('stock', $auth, $links);
 
         $totalOk = $results['ok'];
         $totalErr = $results['err'];

@@ -37,7 +37,7 @@ class ProductFormVariationsCreateTest extends TestCase
 
     private function productId(string $sku): int
     {
-        return (int) DB::table((string) config('catalog.prefix') . 'product')->where('sku', $sku)->value('product_id');
+        return (int) DB::table('products')->where('sku', $sku)->value('product_id');
     }
 
     public function test_the_form_saves_a_product_without_a_photo(): void
@@ -46,7 +46,7 @@ class ProductFormVariationsCreateTest extends TestCase
             'sku' => 'NOPIC-1', 'images_json' => '[]',
         ]))->assertSessionHasNoErrors();
 
-        $image = \Illuminate\Support\Facades\DB::table((string) config('catalog.prefix') . 'product')
+        $image = \Illuminate\Support\Facades\DB::table('products')
             ->where('product_id', $this->productId('NOPIC-1'))->value('image');
         $this->assertSame('', (string) $image);
     }
@@ -62,13 +62,11 @@ class ProductFormVariationsCreateTest extends TestCase
                  'cost_amount' => '250', 'cost_additional' => '', 'status' => '0'],
             ],
         ]))->assertRedirect(route('products.index'))->assertSessionHasNoErrors();
-
-        $p = (string) config('catalog.prefix');
         $id = $this->productId('FORM-TEE');
         $this->assertGreaterThan(0, $id);
-        $this->assertSame(10, (int) DB::table($p . 'product')->where('product_id', $id)->value('quantity'));
+        $this->assertSame(10, (int) DB::table('products')->where('product_id', $id)->value('quantity'));
 
-        $povs = DB::table($p . 'product_option_value')->where('product_id', $id)->get()->keyBy('sku');
+        $povs = DB::table('product_variation_values')->where('product_id', $id)->get()->keyBy('sku');
         $this->assertCount(2, $povs);
         $this->assertSame(4, (int) $povs['FORM-TEE-S']->quantity);
         $this->assertEqualsWithDelta(600, (float) $povs['FORM-TEE-L']->absolute_price, 0.0001);
@@ -77,18 +75,18 @@ class ProductFormVariationsCreateTest extends TestCase
         $this->assertEqualsWithDelta(10, (float) $povs['FORM-TEE-L']->cost_percentage, 0.0001);
         $this->assertEqualsWithDelta(5, (float) $povs['FORM-TEE-L']->cost_additional, 0.0001, 'a blank additional is the parent\'s');
 
-        $combos = DB::table('product_option_combinations')->where('product_id', $id)->orderBy('sort_order')->get();
+        $combos = DB::table('product_variations')->where('product_id', $id)->orderBy('sort_order')->get();
         $this->assertSame(['FORM-TEE-S', 'FORM-TEE-L'], $combos->pluck('sku')->all());
         $this->assertSame('catalog/small.jpg', $combos[0]->image);
         $this->assertNull($combos[1]->image);
         $this->assertSame([1, 0], $combos->pluck('status')->map(fn ($s) => (int) $s)->all());
         $this->assertEqualsWithDelta(255, (float) $combos[0]->absolute_cost, 0.0001);
         foreach ($combos as $combo) {
-            $this->assertSame(1, DB::table('product_option_combination_values')->where('combination_id', $combo->id)->count());
+            $this->assertSame(1, DB::table('product_variation_parts')->where('combination_id', $combo->id)->count());
         }
 
         $optionId = (int) $povs['FORM-TEE-S']->option_id;
-        $this->assertSame('Size', DB::table($p . 'option_description')->where('option_id', $optionId)->value('name'));
+        $this->assertSame('Size', DB::table('variation_type_descriptions')->where('option_id', $optionId)->value('name'));
     }
 
     public function test_the_form_saves_two_variation_types_as_before(): void
@@ -107,22 +105,20 @@ class ProductFormVariationsCreateTest extends TestCase
                 $row('L', 'Blue', 'FT-L-B', '4', '600') + ['cost_additional' => '0'],
             ],
         ]))->assertRedirect(route('products.index'))->assertSessionHasNoErrors();
-
-        $p = (string) config('catalog.prefix');
         $id = $this->productId('FORM-TEE');
-        $this->assertSame(10, (int) DB::table($p . 'product')->where('product_id', $id)->value('quantity'));
+        $this->assertSame(10, (int) DB::table('products')->where('product_id', $id)->value('quantity'));
 
-        $combos = DB::table('product_option_combinations')->where('product_id', $id)->orderBy('sort_order')->get()->keyBy('sku');
+        $combos = DB::table('product_variations')->where('product_id', $id)->orderBy('sort_order')->get()->keyBy('sku');
         $this->assertSame(['FT-S-R', 'FT-S-B', 'FT-L-R', 'FT-L-B'], $combos->keys()->all());
         $this->assertSame('catalog/s-red.jpg', $combos['FT-S-R']->image);
         $this->assertSame(0, (int) $combos['FT-L-R']->status);
         $this->assertEqualsWithDelta(255, (float) $combos['FT-S-B']->absolute_cost, 0.0001);
         $this->assertEqualsWithDelta(260, (float) $combos['FT-L-B']->absolute_cost, 0.0001, 'a typed 0 additional is a real 0');
         foreach ($combos as $combo) {
-            $this->assertSame(2, DB::table('product_option_combination_values')->where('combination_id', $combo->id)->count());
+            $this->assertSame(2, DB::table('product_variation_parts')->where('combination_id', $combo->id)->count());
         }
 
-        $povs = DB::table($p . 'product_option_value')->where('product_id', $id)->get();
+        $povs = DB::table('product_variation_values')->where('product_id', $id)->get();
         $this->assertCount(4, $povs);
         $this->assertSame([''], $povs->pluck('sku')->unique()->values()->all());
     }

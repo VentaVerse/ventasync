@@ -21,7 +21,6 @@ class LazadaListingReadiness
             return [];
         }
 
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $region = (string) (LazadaStore::defaultStore()?->region ?? '');
         $attrs = app(LazadaAttributes::class);
@@ -47,8 +46,8 @@ class LazadaListingReadiness
         }
         $sharedAnswers = array_filter((array) ($overrides['attributes'] ?? []), fn ($v) => trim((string) $v) !== '');
 
-        $products = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $products = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->whereIn('p.product_id', $productIds)
@@ -69,15 +68,15 @@ class LazadaListingReadiness
             ->get()
             ->groupBy('lazada_listing_id');
 
-        $povByProduct = DB::table($pfx . 'product_option_value as pov')
-            ->leftJoin($pfx . 'option_description as od', function ($j) use ($langId) {
+        $povByProduct = DB::table('product_variation_values as pov')
+            ->leftJoin('variation_type_descriptions as od', function ($j) use ($langId) {
                 $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
             })
             ->whereIn('pov.product_id', $productIds)
             ->orderBy('pov.product_option_value_id')
             ->get(['pov.product_id', 'pov.product_option_value_id', 'pov.option_id', 'pov.sku', 'pov.absolute_price', 'od.name as option_name'])
             ->groupBy('product_id');
-        $combosByProduct = DB::table('product_option_combinations')
+        $combosByProduct = DB::table('product_variations')
             ->whereIn('product_id', $productIds)
             ->orderBy('sort_order')
             ->get(['id', 'product_id', 'sku', 'absolute_price'])
@@ -85,9 +84,9 @@ class LazadaListingReadiness
         $axisByProduct = [];
         $allComboIds = $combosByProduct->collapse()->pluck('id')->all();
         if ($allComboIds !== []) {
-            foreach (DB::table('product_option_combination_values as pocv')
-                ->join($pfx . 'product_option_value as pov2', 'pocv.product_option_value_id', '=', 'pov2.product_option_value_id')
-                ->join('product_option_combinations as c', 'pocv.combination_id', '=', 'c.id')
+            foreach (DB::table('product_variation_parts as pocv')
+                ->join('product_variation_values as pov2', 'pocv.product_option_value_id', '=', 'pov2.product_option_value_id')
+                ->join('product_variations as c', 'pocv.combination_id', '=', 'c.id')
                 ->whereIn('pocv.combination_id', $allComboIds)
                 ->get(['c.product_id', 'pov2.option_id'])
                 ->groupBy('product_id') as $pid => $rows) {

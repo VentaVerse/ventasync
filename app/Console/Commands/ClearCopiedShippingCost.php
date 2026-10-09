@@ -14,10 +14,9 @@ class ClearCopiedShippingCost extends Command
 
     public function handle(): int
     {
-        $pfx = (string) config('catalog.prefix');
 
-        $orderIds = DB::table($pfx . 'order as o')
-            ->join($pfx . 'order_total as ot', function ($join) {
+        $orderIds = DB::table('orders as o')
+            ->join('order_totals as ot', function ($join) {
                 $join->on('ot.order_id', '=', 'o.order_id')->where('ot.code', '=', 'shipping');
             })
             ->where(function ($query) {
@@ -44,7 +43,7 @@ class ClearCopiedShippingCost extends Command
         }
 
         foreach (array_chunk($orderIds, 500) as $chunk) {
-            DB::table($pfx . 'order')->whereIn('order_id', $chunk)->update(['shipping_cost' => 0]);
+            DB::table('orders')->whereIn('order_id', $chunk)->update(['shipping_cost' => 0]);
         }
         $this->info('Cleared the shipping cost on ' . count($orderIds) . ' orders.');
 

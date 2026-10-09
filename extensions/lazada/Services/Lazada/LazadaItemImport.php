@@ -44,8 +44,6 @@ class LazadaItemImport
 
         $axes = $this->axes($skus);
         $hasVariations = count($skus) > 1 && $axes !== [];
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         try {
@@ -57,8 +55,8 @@ class LazadaItemImport
                 }
             }
 
-            $productId = DB::transaction(function () use ($pfx, $langId, $data, $attrs, $skus, $first, $name, $sku, $price, $qty, $itemId, $axes, $hasVariations, $store, $creds) {
-                $productId = DB::table($pfx . 'product')->insertGetId([
+            $productId = DB::transaction(function () use ( $langId, $data, $attrs, $skus, $first, $name, $sku, $price, $qty, $itemId, $axes, $hasVariations, $store, $creds) {
+                $productId = DB::table('products')->insertGetId([
                     'model' => ($hasVariations ? '' : $sku) ?: ('LZD-' . $itemId),
                     'sku' => $hasVariations ? '' : $sku,
                     'quantity' => $qty,
@@ -73,7 +71,7 @@ class LazadaItemImport
                     'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
                 ]);
 
-                DB::table($pfx . 'product_description')->insert([
+                DB::table('product_descriptions')->insert([
                     'product_id' => $productId,
                     'language_id' => $langId,
                     'name' => Str::limit($name, 250, ''),
@@ -85,9 +83,9 @@ class LazadaItemImport
                 $imageUrls = LazadaImages::ofItem($data);
                 $paths = $this->downloadImages($imageUrls, $itemId);
                 if ($paths !== []) {
-                    DB::table($pfx . 'product')->where('product_id', $productId)->update(['image' => $paths[0]]);
+                    DB::table('products')->where('product_id', $productId)->update(['image' => $paths[0]]);
                     foreach (array_slice($paths, 1) as $i => $path) {
-                        DB::table($pfx . 'product_image')->insert([
+                        DB::table('product_images')->insert([
                             'product_id' => $productId, 'image' => $path, 'sort_order' => $i,
                         ]);
                     }

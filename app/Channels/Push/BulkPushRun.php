@@ -45,8 +45,7 @@ final class BulkPushRun
 
     public static function label(int $productId): string
     {
-        $pfx = (string) config('catalog.prefix');
-        $name = DB::table($pfx . 'product_description')
+        $name = DB::table('product_descriptions')
             ->where('product_id', $productId)
             ->where('language_id', (int) config('catalog.default_language_id'))
             ->value('name');

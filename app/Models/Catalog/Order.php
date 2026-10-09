@@ -4,6 +4,8 @@ namespace App\Models\Catalog;
 
 class Order extends BaseModel
 {
+    protected $table = 'orders';
+
     protected static function booted(): void
     {
         static::creating(fn () => \App\Plans\Quota::refuseOrder());
@@ -88,11 +90,6 @@ class Order extends BaseModel
     protected $casts = [
         'track_payments' => 'boolean',
     ];
-
-    public function getTable()
-    {
-        return $this->tableName('order');
-    }
 
     public function status()
     {

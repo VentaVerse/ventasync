@@ -32,7 +32,6 @@ final class TikTokPushSteps
 
     public static function step(string $kind, array $units): array
     {
-        $pfx = (string) config('catalog.prefix');
         $byStore = [];
         foreach ($units as $u) {
             [$sid, $pid] = array_pad(explode(':', (string) $u, 2), 2, 0);
@@ -64,7 +63,7 @@ final class TikTokPushSteps
                 $pivots = TikTokProductGroupProduct::query()
                     ->whereIn('tiktok_product_group_id', TikTokProductGroup::query()->select('id'))
                     ->whereIn('product_id', $pids)->whereNotNull('tiktok_product_id')->where('tiktok_product_id', '!=', '')->get();
-                $results = app(TikTokStockPricePush::class)->push($kind, $c, $pivots, $pfx, $kind === 'price' ? TikTokPushPrice::priceRule($pivots) : null);
+                $results = app(TikTokStockPricePush::class)->push($kind, $c, $pivots, $kind === 'price' ? TikTokPushPrice::priceRule($pivots) : null);
                 TikTokStockPricePush::recordOutcomes($kind, $results['outcomes'], $raw);
                 foreach ($pids as $pid) {
                     $outcome = $results['outcomes'][$pid] ?? null;

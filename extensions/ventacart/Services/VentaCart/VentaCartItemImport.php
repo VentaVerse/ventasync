@@ -34,8 +34,6 @@ class VentaCartItemImport
         if ($vAnswer['ok'] ?? false) {
             $variants = array_values((array) ($vAnswer['body']['data'] ?? $vAnswer['body'] ?? []));
         }
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $name = trim((string) ($item['name'] ?? '')) ?: ('VentaCart item ' . $importSku);
@@ -43,8 +41,8 @@ class VentaCartItemImport
         $ventaCartId = (int) ($item['id'] ?? 0);
 
         try {
-            $productId = DB::transaction(function () use ($pfx, $langId, $item, $variants, $name, $sku, $ventaCartId, $store) {
-                $productId = DB::table($pfx . 'product')->insertGetId([
+            $productId = DB::transaction(function () use ( $langId, $item, $variants, $name, $sku, $ventaCartId, $store) {
+                $productId = DB::table('products')->insertGetId([
                     'model' => $sku,
                     'sku' => $sku,
                     'quantity' => (int) ($item['quantity'] ?? 0),
@@ -57,7 +55,7 @@ class VentaCartItemImport
                     'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
                 ]);
 
-                DB::table($pfx . 'product_description')->insert([
+                DB::table('product_descriptions')->insert([
                     'product_id' => $productId,
                     'language_id' => $langId,
                     'name' => Str::limit($name, 250, ''),
@@ -72,9 +70,9 @@ class VentaCartItemImport
                 );
                 $paths = $this->downloadImages($urls, $sku);
                 if ($paths !== []) {
-                    DB::table($pfx . 'product')->where('product_id', $productId)->update(['image' => $paths[0]]);
+                    DB::table('products')->where('product_id', $productId)->update(['image' => $paths[0]]);
                     foreach (array_slice($paths, 1) as $i => $path) {
-                        DB::table($pfx . 'product_image')->insert([
+                        DB::table('product_images')->insert([
                             'product_id' => $productId, 'image' => $path, 'sort_order' => $i,
                         ]);
                     }

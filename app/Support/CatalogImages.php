@@ -13,10 +13,9 @@ final class CatalogImages
         $skus = array_values(array_unique(array_filter(array_map(fn ($s) => trim((string) $s), $skus), fn ($s) => $s !== '')));
         $wanted = array_values(array_filter($skus, fn ($s) => !array_key_exists($s, self::$memo)));
         if ($wanted) {
-            $pfx = (string) config('catalog.prefix');
             $found = [];
 
-            foreach (DB::table($pfx . 'product')->where(function ($w) use ($wanted) {
+            foreach (DB::table('products')->where(function ($w) use ($wanted) {
                 $w->whereIn('sku', $wanted)->orWhereIn('model', $wanted);
             })->get(['sku', 'model', 'image']) as $p) {
                 if (trim((string) $p->image) === '') {
@@ -30,8 +29,8 @@ final class CatalogImages
                 }
             }
 
-            foreach (DB::table('product_option_combinations as c')
-                ->join($pfx . 'product as p', 'p.product_id', '=', 'c.product_id')
+            foreach (DB::table('product_variations as c')
+                ->join('products as p', 'p.product_id', '=', 'c.product_id')
                 ->whereIn('c.sku', $wanted)
                 ->get(['c.sku', 'c.image as own', 'p.image as parent']) as $r) {
                 $k = trim((string) $r->sku);
@@ -41,8 +40,8 @@ final class CatalogImages
                 }
             }
 
-            foreach (DB::table($pfx . 'product_option_value as pov')
-                ->join($pfx . 'product as p', 'p.product_id', '=', 'pov.product_id')
+            foreach (DB::table('product_variation_values as pov')
+                ->join('products as p', 'p.product_id', '=', 'pov.product_id')
                 ->whereIn('pov.sku', $wanted)
                 ->get(['pov.sku', 'p.image']) as $r) {
                 $k = trim((string) $r->sku);

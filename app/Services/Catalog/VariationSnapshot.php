@@ -8,11 +8,10 @@ final class VariationSnapshot
 {
     public function wire(int $productId): ?array
     {
-        $pfx = (string) config('catalog.prefix');
         $lang = (int) config('catalog.default_language_id');
 
-        $types = DB::table($pfx . 'product_option as po')
-            ->leftJoin($pfx . 'option_description as od', fn ($j) => $j->on('od.option_id', '=', 'po.option_id')->where('od.language_id', '=', $lang))
+        $types = DB::table('product_variation_types as po')
+            ->leftJoin('variation_type_descriptions as od', fn ($j) => $j->on('od.option_id', '=', 'po.option_id')->where('od.language_id', '=', $lang))
             ->where('po.product_id', $productId)
             ->orderBy('po.product_option_id')
             ->get(['po.product_option_id', 'po.option_id', 'od.name']);
@@ -21,14 +20,14 @@ final class VariationSnapshot
             return null;
         }
 
-        $values = DB::table($pfx . 'product_option_value as pov')
-            ->leftJoin($pfx . 'option_value_description as ovd', fn ($j) => $j->on('ovd.option_value_id', '=', 'pov.option_value_id')->where('ovd.language_id', '=', $lang))
+        $values = DB::table('product_variation_values as pov')
+            ->leftJoin('variation_value_descriptions as ovd', fn ($j) => $j->on('ovd.option_value_id', '=', 'pov.option_value_id')->where('ovd.language_id', '=', $lang))
             ->where('pov.product_id', $productId)
             ->orderBy('pov.product_option_value_id')
             ->get(['pov.product_option_value_id', 'pov.product_option_id', 'pov.option_value_id', 'pov.sku', 'pov.quantity', 'pov.absolute_price', 'ovd.name']);
 
-        $combos = DB::table('product_option_combinations')->where('product_id', $productId)->orderBy('sort_order')->orderBy('id')->get();
-        $pivot = DB::table('product_option_combination_values')
+        $combos = DB::table('product_variations')->where('product_id', $productId)->orderBy('sort_order')->orderBy('id')->get();
+        $pivot = DB::table('product_variation_parts')
             ->whereIn('combination_id', $combos->pluck('id')->all())
             ->get()
             ->groupBy('combination_id');

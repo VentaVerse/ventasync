@@ -187,9 +187,8 @@ class OrderController extends Controller
 
     public function ship(Request $request, $id)
     {
-        $pfx = (string) config('catalog.prefix');
         $data = $request->validate([
-            'order_status_id' => ['required', 'integer', Rule::exists($pfx . 'order_status', 'order_status_id')],
+            'order_status_id' => ['required', 'integer', Rule::exists('order_statuses', 'order_status_id')],
             'tracking_number' => ['required', 'string', 'max:32'],
             'courier_name'    => ['nullable', 'string', 'max:64'],
             'comment'         => ['nullable', 'string', 'max:1000'],

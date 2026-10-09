@@ -78,20 +78,19 @@ class ShopeeStockPushHealTest extends TestCase
 
     private function productWithVariations(array $skuQty): int
     {
-        $pfx = (string) config('catalog.prefix');
-        $pid = DB::table($pfx . 'product')->insertGetId([
+        $pid = DB::table('products')->insertGetId([
             'model' => 'PAR', 'sku' => 'PAR', 'quantity' => 99, 'price' => 100,
             'status' => 1, 'image' => 'catalog/x.png', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
             'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $pid, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => 'Pushable product', 'description' => '',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
         foreach ($skuQty as $sku => $qty) {
-            DB::table($pfx . 'product_option_value')->insert([
+            DB::table('product_variation_values')->insert([
                 'product_id' => $pid, 'product_option_id' => 1, 'option_id' => 1, 'option_value_id' => 1,
                 'sku' => $sku, 'quantity' => $qty, 'subtract' => 1, 'price' => 0, 'price_prefix' => '+',
                 'points' => 0, 'points_prefix' => '+', 'weight' => 0, 'weight_prefix' => '+',

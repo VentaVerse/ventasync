@@ -49,14 +49,13 @@ class LazadaAttributeAutoFillTest extends TestCase
 
     private function seedProduct(string $name, string $sku, string $description = 'A real description.'): int
     {
-        $pfx = (string) config('catalog.prefix');
-        $productId = DB::table($pfx . 'product')->insertGetId([
+        $productId = DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => 'catalog/x.png', 'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5,
             'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => $name, 'description' => $description,
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',

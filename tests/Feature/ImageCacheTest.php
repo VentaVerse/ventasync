@@ -152,7 +152,7 @@ class ImageCacheTest extends TestCase
     public function test_lazada_is_handed_the_push_copy(): void
     {
         $this->noisyPhoto('catalog/heavy.jpg', 1400);
-        $pid = (int) DB::table((string) config('catalog.prefix') . 'product')->insertGetId([
+        $pid = (int) DB::table('products')->insertGetId([
             'model' => 'IC-1', 'sku' => 'IC-1', 'quantity' => 1, 'price' => 100, 'status' => 1,
             'image' => 'catalog/heavy.jpg', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
             'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),

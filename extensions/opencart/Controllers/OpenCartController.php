@@ -42,10 +42,8 @@ class OpenCartController extends Controller
             ->orderBy('oc_status_id')
             ->get()
             ->groupBy('store_id');
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
-        $erpOrderStatuses = DB::table($pfx . 'order_status')
+        $erpOrderStatuses = DB::table('order_statuses')
             ->where('language_id', $langId)
             ->orderBy('order_status_id')
             ->get(['order_status_id', 'name']);
@@ -410,10 +408,8 @@ class OpenCartController extends Controller
 
             $sync = new OpenCartProductSync($client, $setting);
             $result = $sync->push([$product]);
-
-            $pfx = config('catalog.prefix');
             $langId = (int) config('catalog.default_language_id');
-            $name = DB::table($pfx . 'product_description')
+            $name = DB::table('product_descriptions')
                 ->where('product_id', $product)
                 ->where('language_id', $langId)
                 ->value('name') ?? "Product #{$product}";

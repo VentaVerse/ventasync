@@ -11,14 +11,13 @@ final class ShopeePushSteps
 {
     public static function units(): array
     {
-        $pfx = (string) config('catalog.prefix');
         $units = [];
         foreach (ShopeeStore::query()->where('enabled', true)->orderBy('id')->get() as $store) {
             $pids = ShopeeListingLink::forStore($store)->whereNotNull('shopee_item_id')->distinct()->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
             if ($pids === []) {
                 continue;
             }
-            $enabled = DB::table($pfx . 'product')->whereIn('product_id', $pids)->where('status', 1)->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+            $enabled = DB::table('products')->whereIn('product_id', $pids)->where('status', 1)->pluck('product_id')->map(fn ($v) => (int) $v)->all();
             foreach ($enabled as $pid) {
                 $units[] = $store->id . ':' . $pid;
             }
@@ -29,7 +28,6 @@ final class ShopeePushSteps
 
     public static function step(string $kind, array $units): array
     {
-        $pfx = (string) config('catalog.prefix');
         $byStore = [];
         foreach ($units as $u) {
             [$sid, $pid] = array_pad(explode(':', (string) $u, 2), 2, 0);
@@ -52,7 +50,7 @@ final class ShopeePushSteps
                     return ['error' => 'Store ' . ($store->store_name ?: '#' . $store->id) . ' is not connected to Shopee.'];
                 }
                 $links = ShopeeListingLink::forStore($store)->whereIn('product_id', $pids)->get();
-                $results = app(ShopeeStockPricePush::class)->push($kind, $auth, $links, $pfx, $kind === 'price' ? ShopeePushPrice::priceRule($pids) : null);
+                $results = app(ShopeeStockPricePush::class)->push($kind, $auth, $links, $kind === 'price' ? ShopeePushPrice::priceRule($pids) : null);
                 foreach ($pids as $pid) {
                     $outcome = $results['outcomes'][$pid] ?? null;
                     if ($outcome !== null && ! empty($outcome['ok'])) {

@@ -64,10 +64,8 @@ class LazadaPushPrice extends Command implements \App\Channels\Contracts\Steppab
 
             return 0;
         }
-
-        $pfx = (string) config('catalog.prefix');
         $this->info("Pushing prices for {$listings->count()} listing(s)...");
-        $results = app(LazadaStockPricePush::class)->push('price', $setting, $creds, $listings, $pfx, self::priceRule($listings));
+        $results = app(LazadaStockPricePush::class)->push('price', $setting, $creds, $listings, self::priceRule($listings));
 
         if ($results['err'] > 0) {
             Log::warning('Lazada push-price: ' . $results['err'] . ' listing(s) failed', ['last_error' => $results['last_error']]);

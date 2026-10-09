@@ -64,13 +64,12 @@ class DescriptionMediaLibraryTest extends TestCase
 
     private function product(string $description): int
     {
-        $pfx = (string) config('catalog.prefix');
-        $pid = (int) DB::table($pfx . 'product')->insertGetId([
+        $pid = (int) DB::table('products')->insertGetId([
             'model' => 'GP-200', 'sku' => 'GP-200', 'price' => 1000, 'quantity' => 7, 'status' => 1,
             'image' => '', 'weight' => 0, 'length' => 0, 'width' => 0, 'height' => 0,
             'date_added' => now(), 'date_modified' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $pid, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => 'Guitar Pedal 200', 'description' => $description,
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',

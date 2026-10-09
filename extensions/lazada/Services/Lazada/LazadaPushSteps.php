@@ -29,7 +29,6 @@ final class LazadaPushSteps
 
     public static function step(string $kind, array $units): array
     {
-        $pfx = (string) config('catalog.prefix');
         $byStore = [];
         foreach ($units as $u) {
             [$sid, $pid] = array_pad(explode(':', (string) $u, 2), 2, 0);
@@ -52,7 +51,7 @@ final class LazadaPushSteps
                     return ['error' => 'Store ' . ($store->store_name ?: '#' . $store->id) . ' is not connected to Lazada.'];
                 }
                 $listings = LazadaListing::query()->whereIn('product_id', $pids)->whereNotNull('lazada_item_id')->where('lazada_item_id', '!=', '')->get();
-                $results = app(LazadaStockPricePush::class)->push($kind, $setting, $creds, $listings, $pfx, $kind === 'price' ? LazadaPushPrice::priceRule($listings) : null);
+                $results = app(LazadaStockPricePush::class)->push($kind, $setting, $creds, $listings, $kind === 'price' ? LazadaPushPrice::priceRule($listings) : null);
                 foreach ($pids as $pid) {
                     $outcome = $results['outcomes'][$pid] ?? null;
                     if ($outcome !== null && ! empty($outcome['ok'])) {

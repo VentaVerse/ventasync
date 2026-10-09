@@ -114,14 +114,13 @@ class TikTokListingsTest extends TestCase
 
     private function seedProduct(string $suffix = 'A', float $price = 300): int
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
-        $productId = DB::table($pfx . 'product')->insertGetId([
+        $productId = DB::table('products')->insertGetId([
             'model' => 'TTL-' . $suffix, 'sku' => 'TTL-SKU-' . $suffix, 'quantity' => 5, 'price' => $price,
             'status' => 1, 'image' => 'catalog/__tt-listing-test.png', 'weight' => 1, 'length' => 10, 'width' => 10, 'height' => 10,
             'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => $langId,
             'name' => 'TikTok listing product ' . $suffix, 'description' => 'Words.',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -325,7 +324,7 @@ class TikTokListingsTest extends TestCase
     public function test_an_unready_push_is_refused_before_any_call(): void
     {
         $productId = $this->seedProduct('U');
-        DB::table((string) config('catalog.prefix') . 'product')->where('product_id', $productId)->update(['status' => 0]);
+        DB::table('products')->where('product_id', $productId)->update(['status' => 0]);
 
         $r = $this->actingAs($this->manager())->post(route('ext.tiktok.products.push_direct', $productId));
 
@@ -397,7 +396,7 @@ class TikTokListingsTest extends TestCase
     public function test_a_variation_product_has_no_price_field_and_keeps_no_price(): void
     {
         $productId = $this->seedProduct('VP', 300);
-        DB::table('product_option_combinations')->insert([
+        DB::table('product_variations')->insert([
             'product_id' => $productId, 'sku' => 'TTL-VP-RED', 'quantity' => 2, 'absolute_price' => 0,
             'status' => 1, 'sort_order' => 1, 'created_at' => now(), 'updated_at' => now(),
         ]);

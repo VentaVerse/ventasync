@@ -75,38 +75,37 @@ class ShopeeAddModelTest extends TestCase
 
     private function packProduct(array $packs): int
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $productId = DB::table($pfx . 'product')->insertGetId([
+        $productId = DB::table('products')->insertGetId([
             'model' => 'PK', 'sku' => 'PK', 'quantity' => 30, 'price' => 100,
             'status' => 1, 'image' => 'catalog/x.png', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
             'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => $langId,
             'name' => 'Pack product', 'description' => '',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
 
-        $optionId = (int) DB::table($pfx . 'option')->insertGetId(['type' => 'select', 'sort_order' => 0]);
-        DB::table($pfx . 'option_description')->insert([
+        $optionId = (int) DB::table('variation_types')->insertGetId(['type' => 'select', 'sort_order' => 0]);
+        DB::table('variation_type_descriptions')->insert([
             'option_id' => $optionId, 'language_id' => $langId, 'name' => 'Pack size',
         ]);
-        $productOptionId = (int) DB::table($pfx . 'product_option')->insertGetId([
+        $productOptionId = (int) DB::table('product_variation_types')->insertGetId([
             'product_id' => $productId, 'option_id' => $optionId, 'value' => '', 'required' => 0,
         ]);
 
         foreach ($packs as $i => [$name, $sku, $qty, $price]) {
-            $valueId = (int) DB::table($pfx . 'option_value')->insertGetId([
+            $valueId = (int) DB::table('variation_values')->insertGetId([
                 'option_id' => $optionId, 'image' => '', 'sort_order' => $i,
             ]);
-            DB::table($pfx . 'option_value_description')->insert([
+            DB::table('variation_value_descriptions')->insert([
                 'option_value_id' => $valueId, 'language_id' => $langId,
                 'option_id' => $optionId, 'name' => $name,
             ]);
-            $povId = (int) DB::table($pfx . 'product_option_value')->insertGetId([
+            $povId = (int) DB::table('product_variation_values')->insertGetId([
                 'product_option_id' => $productOptionId, 'product_id' => $productId,
                 'option_id' => $optionId, 'option_value_id' => $valueId,
                 'sku' => $sku, 'quantity' => $qty, 'subtract' => 1,
@@ -115,12 +114,12 @@ class ShopeeAddModelTest extends TestCase
                 'cost' => 0, 'cost_amount' => 0, 'cost_percentage' => 0, 'cost_additional' => 0,
                 'absolute_cost' => 0, 'cost_prefix' => '+', 'absolute_price' => $price,
             ]);
-            $comboId = (int) DB::table('product_option_combinations')->insertGetId([
+            $comboId = (int) DB::table('product_variations')->insertGetId([
                 'product_id' => $productId, 'sku' => $sku, 'quantity' => $qty,
                 'absolute_price' => $price, 'image' => null, 'status' => 1,
                 'sort_order' => $i, 'created_at' => now(), 'updated_at' => now(),
             ]);
-            DB::table('product_option_combination_values')->insert([
+            DB::table('product_variation_parts')->insert([
                 'combination_id' => $comboId, 'product_option_value_id' => $povId,
             ]);
         }
@@ -217,16 +216,15 @@ class ShopeeAddModelTest extends TestCase
 
     private function variationProduct(array $options, array $combos): int
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $productId = DB::table($pfx . 'product')->insertGetId([
+        $productId = DB::table('products')->insertGetId([
             'model' => 'VR', 'sku' => 'VR', 'quantity' => 30, 'price' => 100,
             'status' => 1, 'image' => 'catalog/x.png', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
             'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => $langId,
             'name' => 'Variation product', 'description' => 'Sold by the pack.',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -234,22 +232,22 @@ class ShopeeAddModelTest extends TestCase
 
         $povIds = [];
         foreach ($options as $optionName => $values) {
-            $optionId = (int) DB::table($pfx . 'option')->insertGetId(['type' => 'select', 'sort_order' => 0]);
-            DB::table($pfx . 'option_description')->insert([
+            $optionId = (int) DB::table('variation_types')->insertGetId(['type' => 'select', 'sort_order' => 0]);
+            DB::table('variation_type_descriptions')->insert([
                 'option_id' => $optionId, 'language_id' => $langId, 'name' => $optionName,
             ]);
-            $productOptionId = (int) DB::table($pfx . 'product_option')->insertGetId([
+            $productOptionId = (int) DB::table('product_variation_types')->insertGetId([
                 'product_id' => $productId, 'option_id' => $optionId, 'value' => '', 'required' => 0,
             ]);
             foreach ($values as $i => $valueName) {
-                $valueId = (int) DB::table($pfx . 'option_value')->insertGetId([
+                $valueId = (int) DB::table('variation_values')->insertGetId([
                     'option_id' => $optionId, 'image' => '', 'sort_order' => $i,
                 ]);
-                DB::table($pfx . 'option_value_description')->insert([
+                DB::table('variation_value_descriptions')->insert([
                     'option_value_id' => $valueId, 'language_id' => $langId,
                     'option_id' => $optionId, 'name' => $valueName,
                 ]);
-                $povIds[$optionName][$valueName] = (int) DB::table($pfx . 'product_option_value')->insertGetId([
+                $povIds[$optionName][$valueName] = (int) DB::table('product_variation_values')->insertGetId([
                     'product_option_id' => $productOptionId, 'product_id' => $productId,
                     'option_id' => $optionId, 'option_value_id' => $valueId,
                     'sku' => '', 'quantity' => 5, 'subtract' => 1,
@@ -264,13 +262,13 @@ class ShopeeAddModelTest extends TestCase
         $optionNames = array_keys($options);
         $n = 0;
         foreach ($combos as $sku => $picked) {
-            $comboId = (int) DB::table('product_option_combinations')->insertGetId([
+            $comboId = (int) DB::table('product_variations')->insertGetId([
                 'product_id' => $productId, 'sku' => $sku, 'quantity' => 5,
                 'absolute_price' => 100, 'image' => null, 'status' => 1,
                 'sort_order' => $n++, 'created_at' => now(), 'updated_at' => now(),
             ]);
             foreach ($picked as $k => $valueName) {
-                DB::table('product_option_combination_values')->insert([
+                DB::table('product_variation_parts')->insert([
                     'combination_id' => $comboId, 'product_option_value_id' => $povIds[$optionNames[$k]][$valueName],
                 ]);
             }

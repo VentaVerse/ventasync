@@ -4,6 +4,8 @@ namespace App\Models\Catalog;
 
 class ProductImage extends BaseModel
 {
+    protected $table = 'product_images';
+
     protected $primaryKey = 'product_image_id';
 
     protected $fillable = [
@@ -11,9 +13,4 @@ class ProductImage extends BaseModel
         'image',
         'sort_order',
     ];
-
-    public function getTable()
-    {
-        return $this->tableName('product_image');
-    }
 }

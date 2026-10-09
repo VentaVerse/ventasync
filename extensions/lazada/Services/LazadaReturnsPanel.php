@@ -88,17 +88,15 @@ class LazadaReturnsPanel
                 ->limit(400)
                 ->pluck('sku'));
 
-            $pfx = (string) config('catalog.prefix');
-
-            $skus = $skus->merge(\DB::table($pfx . 'product_description as pd')
-                ->join($pfx . 'product as p', 'p.product_id', '=', 'pd.product_id')
+            $skus = $skus->merge(\DB::table('product_descriptions as pd')
+                ->join('products as p', 'p.product_id', '=', 'pd.product_id')
                 ->where('pd.name', 'like', $like)
                 ->limit(400)
                 ->pluck('p.sku'));
 
-            $skus = $skus->merge(\DB::table($pfx . 'product_description as pd')
-                ->join($pfx . 'product as p', 'p.product_id', '=', 'pd.product_id')
-                ->join($pfx . 'product_option_value as pov', 'pov.product_id', '=', 'p.product_id')
+            $skus = $skus->merge(\DB::table('product_descriptions as pd')
+                ->join('products as p', 'p.product_id', '=', 'pd.product_id')
+                ->join('product_variation_values as pov', 'pov.product_id', '=', 'p.product_id')
                 ->where('pd.name', 'like', $like)
                 ->limit(400)
                 ->pluck('pov.sku'));
@@ -171,13 +169,12 @@ class LazadaReturnsPanel
             ->pluck('image', 'sku');
 
         if ($skus->isNotEmpty()) {
-            $pfx = (string) config('catalog.prefix');
-            $catImg = \DB::table($pfx . 'product')
+            $catImg = \DB::table('products')
                 ->whereIn('sku', $skus->all())
                 ->whereNotNull('image')->where('image', '!=', '')
                 ->pluck('image', 'sku');
-            $ovImg = \DB::table($pfx . 'product_option_value as pov')
-                ->join($pfx . 'product as p', 'p.product_id', '=', 'pov.product_id')
+            $ovImg = \DB::table('product_variation_values as pov')
+                ->join('products as p', 'p.product_id', '=', 'pov.product_id')
                 ->whereIn('pov.sku', $skus->all())
                 ->whereNotNull('p.image')->where('p.image', '!=', '')
                 ->pluck('p.image', 'pov.sku');
@@ -188,17 +185,16 @@ class LazadaReturnsPanel
         $nameMap = collect();
 
         if ($skus->isNotEmpty()) {
-            $pfx = (string) config('catalog.prefix');
 
-            $catName = \DB::table($pfx . 'product as p')
-                ->join($pfx . 'product_description as pd', 'pd.product_id', '=', 'p.product_id')
+            $catName = \DB::table('products as p')
+                ->join('product_descriptions as pd', 'pd.product_id', '=', 'p.product_id')
                 ->whereIn('p.sku', $skus->all())
                 ->whereNotNull('pd.name')->where('pd.name', '!=', '')
                 ->pluck('pd.name', 'p.sku');
 
-            $ovName = \DB::table($pfx . 'product_option_value as pov')
-                ->join($pfx . 'product as p', 'p.product_id', '=', 'pov.product_id')
-                ->join($pfx . 'product_description as pd', 'pd.product_id', '=', 'p.product_id')
+            $ovName = \DB::table('product_variation_values as pov')
+                ->join('products as p', 'p.product_id', '=', 'pov.product_id')
+                ->join('product_descriptions as pd', 'pd.product_id', '=', 'p.product_id')
                 ->whereIn('pov.sku', $skus->all())
                 ->whereNotNull('pd.name')->where('pd.name', '!=', '')
                 ->pluck('pd.name', 'pov.sku');

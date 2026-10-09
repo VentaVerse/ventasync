@@ -61,16 +61,14 @@ class ShopeePushPrice extends Command implements \App\Channels\Contracts\Steppab
 
             return 0;
         }
-
-        $pfx = (string) config('catalog.prefix');
-        $enabledIds = DB::table($pfx . 'product')
+        $enabledIds = DB::table('products')
             ->whereIn('product_id', $links->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->all())
             ->where('status', 1)
             ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
         $skipped = $links->count() - ($links = $links->filter(fn ($l) => in_array((int) $l->product_id, $enabledIds, true))->values())->count();
 
         $this->info("Pushing prices for {$links->count()} link(s)...");
-        $results = app(ShopeeStockPricePush::class)->push('price', $auth, $links, $pfx, self::priceRule($enabledIds));
+        $results = app(ShopeeStockPricePush::class)->push('price', $auth, $links, self::priceRule($enabledIds));
 
         if ($results['err'] > 0) {
             Log::warning('Shopee push-price: ' . $results['err'] . ' model(s) failed', ['last_error' => $results['last_error']]);
