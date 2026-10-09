@@ -28,7 +28,7 @@ class FailedSaveKeepsTypingTest extends TestCase
         $productId = DB::table($pfx . 'product')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 300,
             'status' => 1, 'image' => '', 'weight' => 1, 'length' => 10, 'width' => 10, 'height' => 10,
-            'manufacturer_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
         DB::table($pfx . 'product_description')->insert([
             'product_id' => $productId, 'language_id' => (int) config('catalog.default_language_id'),
@@ -45,7 +45,7 @@ class FailedSaveKeepsTypingTest extends TestCase
             'name' => 'Edited product', 'model' => 'KEEP-1', 'sku' => 'KEEP-1',
             'price' => '250.00', 'quantity' => '17', 'status' => '1',
             'weight' => '1', 'length' => '10', 'width' => '10', 'height' => '10',
-            'manufacturer_id' => '0', 'images_json' => '["catalog/demo.jpg"]',
+            'brand_id' => '0', 'images_json' => '["catalog/demo.jpg"]',
             'description' => 'A dependable test product description that comfortably clears the eighty character floor the marketplaces set.',
             '_options_format' => 'absolute',
         ], $overrides);

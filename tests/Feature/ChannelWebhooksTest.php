@@ -134,7 +134,7 @@ class ChannelWebhooksTest extends TestCase
         $pfx = (string) config('catalog.prefix');
         $pid = DB::table($pfx . 'product')->insertGetId([
             'model' => 'WH', 'sku' => 'WH', 'quantity' => 1, 'price' => 1, 'status' => 1, 'image' => '',
-            'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1, 'manufacturer_id' => 0,
+            'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1, 'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
         $listing = TikTokListing::create(['product_id' => $pid, 'tiktok_product_id' => 'tt-900', 'live_status' => 'ACTIVATE', 'live_checked_at' => now()->subHour()]);

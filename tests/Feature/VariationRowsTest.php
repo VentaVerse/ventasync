@@ -18,7 +18,7 @@ class VariationRowsTest extends TestCase
         return (int) DB::table($pfx . 'product')->insertGetId([
             'model' => $model, 'sku' => $model, 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => '', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
-            'manufacturer_id' => 0,
+            'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
     }

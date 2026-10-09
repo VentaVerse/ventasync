@@ -45,7 +45,7 @@ class FulfilmentPolishTest extends TestCase
         $langId = (int) config('catalog.default_language_id');
         $productId = DB::table($pfx . 'product')->insertGetId([
             'model' => 'GP200', 'sku' => 'GP200', 'quantity' => 1, 'price' => 100, 'status' => 1, 'image' => '',
-            'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1, 'manufacturer_id' => 0,
+            'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1, 'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
         $povIds = [];

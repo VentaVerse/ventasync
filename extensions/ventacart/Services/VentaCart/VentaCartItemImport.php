@@ -53,7 +53,7 @@ class VentaCartItemImport
                     'image' => '',
                     'weight' => (float) ($item['weight'] ?? 0),
                     'length' => 0, 'width' => 0, 'height' => 0,
-                    'manufacturer_id' => 0,
+                    'brand_id' => 0,
                     'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
                 ]);
 

@@ -139,7 +139,7 @@ function initCopy(root) {
     });
 }
 
-function initManufacturerFilter(root) {
+function initBrandFilter(root) {
     const input = root.querySelector('[data-pd-mfg-filter]');
     const table = root.querySelector('[data-pd-mfg-table]');
     const empty = root.querySelector('[data-pd-mfg-empty]');
@@ -172,6 +172,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const reference = document.querySelector('[data-pedallion-reference]');
     if (reference) {
-        initManufacturerFilter(reference);
+        initBrandFilter(reference);
     }
 });

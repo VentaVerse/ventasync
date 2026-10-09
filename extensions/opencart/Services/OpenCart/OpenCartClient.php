@@ -120,7 +120,7 @@ class OpenCartClient
         return $this->get('api/erp/categories', $params);
     }
 
-    public function getManufacturers(): array
+    public function getBrands(): array
     {
         return $this->get('api/erp/manufacturers');
     }

@@ -118,7 +118,7 @@ class ShopeeVariationPushTest extends TestCase
         $productId = DB::table($pfx . 'product')->insertGetId([
             'model' => 'VP-1', 'sku' => 'VP-SKU', 'quantity' => 32, 'price' => 21990,
             'status' => 1, 'image' => 'catalog/__vp-parent.png', 'weight' => 3, 'length' => 20, 'width' => 20, 'height' => 20,
-            'manufacturer_id' => 0,
+            'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
         DB::table($pfx . 'product_description')->insert([
@@ -233,7 +233,7 @@ class ShopeeVariationPushTest extends TestCase
         $productId = DB::table($pfx . 'product')->insertGetId([
             'model' => 'VP-2', 'sku' => 'VP2-SKU', 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => 'catalog/__vp-parent.png', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
-            'manufacturer_id' => 0,
+            'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
         DB::table($pfx . 'product_description')->insert([

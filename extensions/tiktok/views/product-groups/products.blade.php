@@ -169,8 +169,8 @@
             $isManual = in_array((int) $p->product_id, $manualIds, true);
 
             $metaParts = [$pSku !== '' ? $pSku : 'No SKU'];
-            if (!empty($p->manufacturer_name)) {
-                $metaParts[] = (string) $p->manufacturer_name;
+            if (!empty($p->brand_name)) {
+                $metaParts[] = (string) $p->brand_name;
             }
             $metaParts[] = $isManual ? 'added by hand' : 'matched by the product group filter';
             $meta = implode(' / ', $metaParts);

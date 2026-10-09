@@ -411,18 +411,18 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "api/catalog/categories",
-        "name": "api.catalog.categories"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "api/catalog/manufacturers",
-        "name": "api.catalog.manufacturers"
+        "uri": "api/catalog/brands",
+        "name": "api.catalog.brands"
     },
     {
         "method": "POST",
-        "uri": "api/catalog/manufacturers",
-        "name": "api.catalog.manufacturers.store"
+        "uri": "api/catalog/brands",
+        "name": "api.catalog.brands.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/catalog/categories",
+        "name": "api.catalog.categories"
     },
     {
         "method": "GET|HEAD",
@@ -1071,6 +1071,41 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "catalog/brands",
+        "name": "brands.index"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/brands",
+        "name": "brands.store"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/brands/bulk-delete",
+        "name": "brands.bulk_delete"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "catalog/brands/create",
+        "name": "brands.create"
+    },
+    {
+        "method": "DELETE",
+        "uri": "catalog/brands/{id}",
+        "name": "brands.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "catalog/brands/{id}",
+        "name": "brands.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "catalog/brands/{id}/edit",
+        "name": "brands.edit"
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "catalog/categories",
         "name": "categories.index"
     },
@@ -1106,38 +1141,8 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "catalog/manufacturers",
-        "name": "manufacturers.index"
-    },
-    {
-        "method": "POST",
-        "uri": "catalog/manufacturers",
-        "name": "manufacturers.store"
-    },
-    {
-        "method": "POST",
-        "uri": "catalog/manufacturers/bulk-delete",
-        "name": "manufacturers.bulk_delete"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "catalog/manufacturers/create",
-        "name": "manufacturers.create"
-    },
-    {
-        "method": "DELETE",
-        "uri": "catalog/manufacturers/{id}",
-        "name": "manufacturers.destroy"
-    },
-    {
-        "method": "PUT",
-        "uri": "catalog/manufacturers/{id}",
-        "name": "manufacturers.update"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "catalog/manufacturers/{id}/edit",
-        "name": "manufacturers.edit"
+        "uri": "catalog/manufacturers/{any?}",
+        "name": null
     },
     {
         "method": "GET|HEAD",
@@ -4821,13 +4826,13 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "lookup/categories",
-        "name": "categories.lookup"
+        "uri": "lookup/brands",
+        "name": "brands.lookup"
     },
     {
         "method": "GET|HEAD",
-        "uri": "lookup/manufacturers",
-        "name": "manufacturers.lookup"
+        "uri": "lookup/categories",
+        "name": "categories.lookup"
     },
     {
         "method": "DELETE",

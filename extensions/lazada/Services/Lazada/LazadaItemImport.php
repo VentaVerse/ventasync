@@ -69,7 +69,7 @@ class LazadaItemImport
                     'length' => (float) ($first['package_length'] ?? 0),
                     'width' => (float) ($first['package_width'] ?? 0),
                     'height' => (float) ($first['package_height'] ?? 0),
-                    'manufacturer_id' => 0,
+                    'brand_id' => 0,
                     'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
                 ]);
 

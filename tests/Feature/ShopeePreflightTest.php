@@ -67,7 +67,7 @@ class ShopeePreflightTest extends TestCase
             'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 300,
             'status' => 1, 'image' => 'catalog/x.png',
             'weight' => $weight, 'length' => $dims, 'width' => $dims, 'height' => $dims,
-            'manufacturer_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
         DB::table($pfx . 'product_description')->insert([
             'product_id' => $productId, 'language_id' => (int) config('catalog.default_language_id'),

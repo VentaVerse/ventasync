@@ -11,7 +11,7 @@
     $storeName = $setting->store_name ?: 'Unnamed store';
 
     $categoryOptions = $catalogCategories->map(fn ($c) => ['id' => (int) $c->category_id, 'name' => (string) $c->name])->values();
-    $manufacturerOptions = ($manufacturers ?? collect())->map(fn ($m) => ['id' => (int) $m->manufacturer_id, 'name' => (string) $m->name])->values();
+    $brandOptions = ($brands ?? collect())->map(fn ($m) => ['id' => (int) $m->brand_id, 'name' => (string) $m->name])->values();
 
 
     $jsonFlags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;

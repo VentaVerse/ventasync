@@ -63,9 +63,9 @@ class OpenCartProductGroupController extends Controller
             ->orderBy('name')
             ->get(['category_id', 'name']);
 
-        $manufacturers = DB::table($pfx . 'manufacturer')
+        $brands = DB::table($pfx . 'brand')
             ->orderBy('name')
-            ->get(['manufacturer_id', 'name']);
+            ->get(['brand_id', 'name']);
 
         $productCount = count($this->getMatchingProductIds($group));
 
@@ -74,7 +74,7 @@ class OpenCartProductGroupController extends Controller
             'group' => $group,
             'mode' => $mode,
             'catalogCategories' => $catalogCategories,
-            'manufacturers' => $manufacturers,
+            'brands' => $brands,
             'productCount' => $productCount,
         ]);
     }

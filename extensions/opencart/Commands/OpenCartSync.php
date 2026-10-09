@@ -5,7 +5,7 @@ namespace Extensions\OpenCart\Commands;
 use Extensions\OpenCart\Models\OpenCartStore;
 use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
 use Extensions\OpenCart\Services\OpenCart\OpenCartCategorySync;
-use Extensions\OpenCart\Services\OpenCart\OpenCartManufacturerSync;
+use Extensions\OpenCart\Services\OpenCart\OpenCartBrandSync;
 use Extensions\OpenCart\Services\OpenCart\OpenCartOptionSync;
 use Extensions\OpenCart\Services\OpenCart\OpenCartOrderSync;
 use Extensions\OpenCart\Services\OpenCart\OpenCartProductSync;
@@ -14,7 +14,7 @@ use Illuminate\Console\Command;
 class OpenCartSync extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     protected $signature = 'opencart:sync
-        {entity : Entity to sync (products|orders|categories|manufacturers|options|all)}
+        {entity : Entity to sync (products|orders|categories|brands|options|all)}
         {--store= : Store ID (opencart_settings.id). Omit to sync all enabled stores}
         {--full : Full sync (ignore last sync timestamp)}
         {--page=1 : Start page for resuming interrupted imports}
@@ -27,7 +27,7 @@ class OpenCartSync extends Command implements \App\Channels\Contracts\SteppableA
     public function handle(): int
     {
         $storeId = $this->option('store');
-        $entity = $this->argument('entity');
+        $entity = $this->argument('entity') === 'manufacturers' ? 'brands' : $this->argument('entity');
 
         if ($storeId) {
             $settings = OpenCartStore::where('id', (int) $storeId)
@@ -77,11 +77,11 @@ class OpenCartSync extends Command implements \App\Channels\Contracts\SteppableA
         $this->info('Connected. Store: ' . ($info['store'] ?? '?') . ', Version: ' . ($info['version'] ?? '?'));
 
         $entities = $entity === 'all'
-            ? ['categories', 'manufacturers', 'options', 'products', 'orders']
+            ? ['categories', 'brands', 'options', 'products', 'orders']
             : [$entity];
 
         $categoryMap = [];
-        $manufacturerMap = [];
+        $brandMap = [];
         $optionMap = [];
         $optionValueMap = [];
 
@@ -97,11 +97,11 @@ class OpenCartSync extends Command implements \App\Channels\Contracts\SteppableA
                     $categoryMap = $result['map'];
                     break;
 
-                case 'manufacturers':
-                    $sync = new OpenCartManufacturerSync($client, $store);
+                case 'brands':
+                    $sync = new OpenCartBrandSync($client, $store);
                     $result = $sync->pull();
                     $log = $result['log'];
-                    $manufacturerMap = $result['map'];
+                    $brandMap = $result['map'];
                     break;
 
                 case 'options':
@@ -115,7 +115,7 @@ class OpenCartSync extends Command implements \App\Channels\Contracts\SteppableA
                 case 'products':
                     $sync = new OpenCartProductSync($client, $store);
                     $sync->setCategoryMap($categoryMap);
-                    $sync->setManufacturerMap($manufacturerMap);
+                    $sync->setBrandMap($brandMap);
                     $sync->setOptionMap($optionMap);
                     $sync->setOptionValueMap($optionValueMap);
                     $productId = $this->option('product-id') ? (int) $this->option('product-id') : null;
@@ -152,7 +152,7 @@ class OpenCartSync extends Command implements \App\Channels\Contracts\SteppableA
             if (!empty($log->details) && is_array($log->details)) {
                 $shown = array_slice($log->details, 0, 5);
                 foreach ($shown as $err) {
-                    $id = $err['product_id'] ?? $err['order_id'] ?? $err['category_id'] ?? $err['manufacturer_id'] ?? $err['option_id'] ?? '?';
+                    $id = $err['product_id'] ?? $err['order_id'] ?? $err['category_id'] ?? $err['brand_id'] ?? $err['option_id'] ?? '?';
                     $this->error("  [{$id}] {$err['error']}");
                 }
                 if (count($log->details) > 5) {

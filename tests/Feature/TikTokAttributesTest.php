@@ -116,7 +116,7 @@ class TikTokAttributesTest extends TestCase
         $productId = DB::table($pfx . 'product')->insertGetId([
             'model' => 'TTA-1', 'sku' => 'TTA-SKU', 'quantity' => 5, 'price' => 300,
             'status' => 1, 'image' => 'catalog/__tt-attr-test.png', 'weight' => 1, 'length' => 10, 'width' => 10, 'height' => 10,
-            'manufacturer_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
         DB::table($pfx . 'product_description')->insert([
             'product_id' => $productId, 'language_id' => $langId,

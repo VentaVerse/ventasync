@@ -12,7 +12,7 @@ VentaSync uses one word for each idea. The screens use the words a seller uses; 
 | Products (a store's page) | `listing` | A store's own copy of a Master Catalog product: its title, price, category and status on that store. |
 | Product Group | `product_group` | A set of listings on one store that share settings. |
 | Variation | `option`, `product_option_value`, `combination` | One sellable version of a product, such as a color or a size. |
-| Brand | `manufacturer` in the Master Catalog, `brand` on channels | Who makes the product. |
+| Brand | `brand` in the Master Catalog, `brand` on channels | Who makes the product. |
 | Supplier | `supplier` | Who the business buys from. |
 | Extension | `extensions/<id>/` | A packaged add-on. Every channel is an extension; not every extension is a channel. |
 

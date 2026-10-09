@@ -4,7 +4,7 @@ namespace App\Services\Media;
 
 use Illuminate\Support\Facades\Storage;
 
-final class BrandImage
+final class LogoImage
 {
     public const NAV = 'nav';
     public const LOGIN = 'login';

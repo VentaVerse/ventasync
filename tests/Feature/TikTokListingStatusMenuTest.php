@@ -49,7 +49,7 @@ class TikTokListingStatusMenuTest extends TestCase
         $pfx = (string) config('catalog.prefix');
         $id = DB::table($pfx . 'product')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100, 'status' => 1, 'image' => '',
-            'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5, 'manufacturer_id' => 0,
+            'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5, 'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now()->subMinute(), 'date_available' => now(),
         ]);
         DB::table($pfx . 'product_description')->insert([

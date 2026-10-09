@@ -12,7 +12,7 @@
         || $tiktokTab !== 'all'
         || ($failedFlag ?? false)
         || ($changeFlag ?? false)
-        || $manufacturerFilter !== 'all'
+        || $brandFilter !== 'all'
         || $groupFilter !== 'all'
         || $erpStatus !== 'all';
     $toggleDir = fn (string $col) => $sort !== $col ? 'asc' : ($dir === 'asc' ? 'desc' : 'asc');
@@ -149,10 +149,10 @@
     @endif
     <x-ui.input type="search" name="q" class="x-filters__search" value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search listings" />
     <div class="x-select-wrap x-filters__select">
-        <select name="manufacturer" class="x-input" data-autosubmit aria-label="Filter by manufacturer">
-            <option value="all">All manufacturers</option>
-            @foreach($allManufacturers as $mId => $mName)
-                <option value="{{ $mId }}" @selected($manufacturerFilter === (string) $mId)>{{ $mName }}</option>
+        <select name="brand" class="x-input" data-autosubmit aria-label="Filter by brand">
+            <option value="all">All brands</option>
+            @foreach($allBrands as $mId => $mName)
+                <option value="{{ $mId }}" @selected($brandFilter === (string) $mId)>{{ $mName }}</option>
             @endforeach
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
@@ -308,7 +308,7 @@
                             @if($listed)
                                 <span class="co-item__sku lsm-chanid">TikTok {{ $ttId }}</span>
                             @endif
-                            @if($p->manufacturer_name)<span>{{ $p->manufacturer_name }}</span>@endif
+                            @if($p->brand_name)<span>{{ $p->brand_name }}</span>@endif
                             @if(($groupFilter ?? 'all') === 'all' && count($pGroups) > 0)
                                 <a class="co-item__var" href="{{ route('ext.tiktok.products.index', array_merge(request()->except(['page', 'sync_status', 'group']), ['group' => $pGroups[0]['id']])) }}">Product group: {{ $pGroups[0]['name'] }}</a>
                             @endif

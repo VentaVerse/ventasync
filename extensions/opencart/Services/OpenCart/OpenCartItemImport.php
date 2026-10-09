@@ -52,7 +52,7 @@ class OpenCartItemImport
                     'length' => (float) ($item['length'] ?? 0),
                     'width' => (float) ($item['width'] ?? 0),
                     'height' => (float) ($item['height'] ?? 0),
-                    'manufacturer_id' => 0,
+                    'brand_id' => 0,
                     'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
                 ]);
 

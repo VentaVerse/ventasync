@@ -282,7 +282,7 @@
                             @if($listed)
                                 <span class="co-item__sku lsm-chanid">VentaCart {{ $link->ventacart_product_id }}</span>
                             @endif
-                            @if($p->manufacturer_name)<span>{{ $p->manufacturer_name }}</span>@endif
+                            @if($p->brand_name)<span>{{ $p->brand_name }}</span>@endif
                             @if(($groupFilter ?? 'all') === 'all' && count($pGroups) > 0)
                                 <a class="co-item__var" href="{{ $indexUrl(array_merge(request()->except(['page', 'sync_status', 'group']), ['group' => $pGroups[0]['id']])) }}">Product group: {{ $pGroups[0]['name'] }}</a>
                             @endif

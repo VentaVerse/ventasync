@@ -29,7 +29,7 @@ class VentaCartProductPush
             ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
-            ->leftJoin($pfx . 'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
+            ->leftJoin($pfx . 'brand as m', 'p.brand_id', '=', 'm.brand_id')
             ->where('p.product_id', $productId)
             ->first([
                 'p.product_id', 'pd.name', 'pd.description', 'pd.meta_title', 'pd.meta_description',

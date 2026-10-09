@@ -10,7 +10,7 @@
 
     $q = (string) ($q ?? '');
     $syncStatus = (string) ($syncStatus ?? 'all');
-    $manufacturerFilter = (string) ($manufacturerFilter ?? 'all');
+    $brandFilter = (string) ($brandFilter ?? 'all');
     $groupFilter = (string) ($groupFilter ?? 'all');
     $erpStatus = (string) ($erpStatus ?? 'all');
     $sort = (string) ($sort ?? 'id');
@@ -21,7 +21,7 @@
         || ($lazadaTab ?? 'all') !== 'all'
         || ($failedFlag ?? false)
         || ($changeFlag ?? false)
-        || $manufacturerFilter !== 'all'
+        || $brandFilter !== 'all'
         || $groupFilter !== 'all'
         || $erpStatus !== 'all';
 
@@ -172,10 +172,10 @@
                 value="{{ $q }}" placeholder="Name, model, SKU or Lazada ID" aria-label="Search listings" />
 
     <div class="x-select-wrap x-filters__select">
-        <select name="manufacturer" class="x-input" data-autosubmit aria-label="Filter by manufacturer">
-            <option value="all">All manufacturers</option>
-            @foreach(($allManufacturers ?? collect()) as $mId => $mName)
-                <option value="{{ $mId }}" @selected($manufacturerFilter === (string) $mId)>{{ $mName }}</option>
+        <select name="brand" class="x-input" data-autosubmit aria-label="Filter by brand">
+            <option value="all">All brands</option>
+            @foreach(($allBrands ?? collect()) as $mId => $mName)
+                <option value="{{ $mId }}" @selected($brandFilter === (string) $mId)>{{ $mName }}</option>
             @endforeach
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
@@ -323,7 +323,7 @@
             $pSku = (string) ($row->sku ?? '');
             $pQty = (int) ($row->quantity ?? 0);
             $pStatus = (int) ($row->status ?? 0);
-            $pMfg = (string) ($row->manufacturer_name ?? '');
+            $pMfg = (string) ($row->brand_name ?? '');
 
             $isDeleted = !is_null($row->lazada_deleted_at);
             $hasItemId = !is_null($row->lazada_item_id) && (string) $row->lazada_item_id !== '';

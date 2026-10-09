@@ -2,7 +2,7 @@
 
 namespace App\Services\Catalog;
 
-use App\Models\Catalog\Manufacturer;
+use App\Models\Catalog\Brand;
 use App\Models\Catalog\Product;
 use App\Models\Catalog\ProductToCategory;
 use App\Plans\Quota;
@@ -42,7 +42,7 @@ class ProductCreator
             $p->height = (float) ($data['height'] ?? 0);
             $p->stock_status_id = 0;
             $p->image = null;
-            $p->manufacturer_id = (int) ($data['manufacturer_id'] ?? 0);
+            $p->brand_id = (int) ($data['brand_id'] ?? 0);
             $p->shipping = 1;
             $p->status = (int) ($data['status'] ?? 1);
 
@@ -122,23 +122,23 @@ class ProductCreator
         return $productId;
     }
 
-    public function resolveManufacturerId(?int $manufacturerId, ?string $manufacturerName): int
+    public function resolveBrandId(?int $brandId, ?string $brandName): int
     {
-        $manufacturerId = (int) ($manufacturerId ?? 0);
-        if ($manufacturerId > 0) {
-            return $manufacturerId;
+        $brandId = (int) ($brandId ?? 0);
+        if ($brandId > 0) {
+            return $brandId;
         }
 
-        $name = trim((string) ($manufacturerName ?? ''));
+        $name = trim((string) ($brandName ?? ''));
         if ($name === '') {
             return 0;
         }
 
-        $row = Manufacturer::query()
+        $row = Brand::query()
             ->whereRaw('LOWER(name) = ?', [mb_strtolower($name, 'UTF-8')])
-            ->first(['manufacturer_id']);
+            ->first(['brand_id']);
 
-        return $row ? (int) $row->manufacturer_id : 0;
+        return $row ? (int) $row->brand_id : 0;
     }
 
     public function resolveCategoryId(?int $categoryId, ?string $categoryName): int
@@ -163,12 +163,12 @@ class ProductCreator
         return $row ? (int) $row->category_id : 0;
     }
 
-    public function imageFolder(int $manufacturerId): string
+    public function imageFolder(int $brandId): string
     {
         $disk = Storage::disk('public');
 
-        if ($manufacturerId > 0) {
-            $m = Manufacturer::query()->where('manufacturer_id', $manufacturerId)->first(['name']);
+        if ($brandId > 0) {
+            $m = Brand::query()->where('brand_id', $brandId)->first(['name']);
             if ($m && $m->name) {
                 $name = (string) $m->name;
                 $slug = Str::slug($name);
@@ -193,7 +193,7 @@ class ProductCreator
             }
         }
 
-        return 'catalog/_no_manufacturer_';
+        return 'catalog/_no_brand_';
     }
 
     public function saveImages(int $productId, array $paths): void

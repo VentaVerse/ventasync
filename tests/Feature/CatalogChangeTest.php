@@ -54,7 +54,7 @@ class CatalogChangeTest extends TestCase
         $id = DB::table($pfx . 'product')->insertGetId([
             'model' => 'CC', 'sku' => 'CC-' . uniqid(), 'quantity' => 5, 'price' => 130,
             'status' => 1, 'image' => $image, 'weight' => 0.05, 'length' => 2, 'width' => 2, 'height' => 1,
-            'manufacturer_id' => 0,
+            'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now()->subMinute(), 'date_available' => now(),
         ]);
         DB::table($pfx . 'product_description')->insert([

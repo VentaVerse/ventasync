@@ -368,9 +368,9 @@ class TikTokProductGroupController extends Controller
                 $j->on('p.product_id', '=', 'pd.product_id')
                     ->where('pd.language_id', '=', $langId);
             })
-            ->leftJoin($pfx . 'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
+            ->leftJoin($pfx . 'brand as m', 'p.brand_id', '=', 'm.brand_id')
             ->whereIn('p.product_id', $productIds)
-            ->select('p.product_id', 'pd.name', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'p.image', 'p.date_modified', 'm.name as manufacturer_name');
+            ->select('p.product_id', 'pd.name', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'p.image', 'p.date_modified', 'm.name as brand_name');
 
         if ($q !== '') {
             $query->where(function ($w) use ($q, $group) {

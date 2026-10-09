@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @php
-        $logo = \App\Services\Media\BrandImage::show($appSetting->logo_path ?? null, \App\Services\Media\BrandImage::LOGIN);
+        $logo = \App\Services\Media\LogoImage::show($appSetting->logo_path ?? null, \App\Services\Media\LogoImage::LOGIN);
         $favicon = !empty($appSetting->favicon_path ?? null)
             ? asset('storage/' . $appSetting->favicon_path)
             : asset('images/brand/ventasync-icon.png');

@@ -28,7 +28,7 @@ class ParcelRequiredTest extends TestCase
         $productId = DB::table($pfx . 'product')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 300,
             'status' => 1, 'image' => '', 'weight' => $weight, 'length' => $weight > 0 ? 10 : 0, 'width' => $weight > 0 ? 10 : 0, 'height' => $weight > 0 ? 10 : 0,
-            'manufacturer_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
         DB::table($pfx . 'product_description')->insert([
             'product_id' => $productId, 'language_id' => (int) config('catalog.default_language_id'),
@@ -74,7 +74,7 @@ class ParcelRequiredTest extends TestCase
             'name' => 'Renamed, parcel untouched', 'model' => 'OLD-ZERO', 'sku' => 'OLD-ZERO',
             'price' => '300', 'quantity' => '5', 'status' => '1',
             'weight' => '0', 'length' => '0', 'width' => '0', 'height' => '0',
-            'manufacturer_id' => '0', 'images_json' => '["catalog/demo.jpg"]',
+            'brand_id' => '0', 'images_json' => '["catalog/demo.jpg"]',
             'description' => 'A well-made product description with easily more than the eighty characters of text the strictest marketplace demands.',
         ])->assertSessionHasErrors(['weight', 'length', 'width', 'height']);
 
@@ -82,7 +82,7 @@ class ParcelRequiredTest extends TestCase
             'name' => 'Renamed, parcel filled', 'model' => 'OLD-ZERO', 'sku' => 'OLD-ZERO',
             'price' => '300', 'quantity' => '5', 'status' => '1',
             'weight' => '0.5', 'length' => '10', 'width' => '5', 'height' => '3',
-            'manufacturer_id' => '0', 'images_json' => '["catalog/demo.jpg"]',
+            'brand_id' => '0', 'images_json' => '["catalog/demo.jpg"]',
             'description' => 'A well-made product description with easily more than the eighty characters of text the strictest marketplace demands.',
         ])->assertSessionHasNoErrors();
     }

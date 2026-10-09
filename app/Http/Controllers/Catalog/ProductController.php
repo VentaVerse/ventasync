@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Catalog;
 
 use App\Http\Controllers\Controller;
-use App\Models\Catalog\Manufacturer;
+use App\Models\Catalog\Brand;
 use App\Models\Catalog\Product;
 use App\Models\Catalog\ProductDescription;
 use App\Models\Catalog\ProductToCategory;
@@ -60,9 +60,9 @@ class ProductController extends Controller
         return $this->variationWriter()->totalQuantity($request->input());
     }
 
-    private function resolveManufacturerId(?int $manufacturerId, ?string $manufacturerName): int
+    private function resolveBrandId(?int $brandId, ?string $brandName): int
     {
-        return app(\App\Services\Catalog\ProductCreator::class)->resolveManufacturerId($manufacturerId, $manufacturerName);
+        return app(\App\Services\Catalog\ProductCreator::class)->resolveBrandId($brandId, $brandName);
     }
 
     private function resolveCategoryId(?int $categoryId, ?string $categoryName): int
@@ -317,22 +317,22 @@ $pfx = config('catalog.prefix');
 
 
     
-    private function manufacturerSlugFromId(int $manufacturerId): string
+    private function brandSlugFromId(int $brandId): string
     {
-        $manufacturerId = (int) $manufacturerId;
-        if ($manufacturerId <= 0) {
-            return '_no_manufacturer_';
+        $brandId = (int) $brandId;
+        if ($brandId <= 0) {
+            return '_no_brand_';
         }
 
-        $m = \App\Models\Catalog\Manufacturer::query()
-            ->where('manufacturer_id', $manufacturerId)
+        $m = \App\Models\Catalog\Brand::query()
+            ->where('brand_id', $brandId)
             ->first(['name']);
         if (!$m) {
-            return '_no_manufacturer_';
+            return '_no_brand_';
         }
 
         $slug = Str::slug((string) $m->name);
-        return $slug !== '' ? $slug : '_no_manufacturer_';
+        return $slug !== '' ? $slug : '_no_brand_';
     }
 
     private function uniqueTargetPath(string $dir, string $filename): string
@@ -356,20 +356,20 @@ $pfx = config('catalog.prefix');
         }
     }
 
-    private function resolveManufacturerDir(int $manufacturerId): string
+    private function resolveBrandDir(int $brandId): string
     {
-        return app(\App\Services\Catalog\ProductCreator::class)->imageFolder($manufacturerId);
+        return app(\App\Services\Catalog\ProductCreator::class)->imageFolder($brandId);
     }
 
-    private function finalizeTempImages(string $token, string $manufacturerSlug, int $productId, array $items): array
+    private function finalizeTempImages(string $token, string $brandSlug, int $productId, array $items): array
     {
         $disk = Storage::disk('public');
         $token = preg_replace('/[^A-Za-z0-9_-]/', '', (string) $token);
         $tmpBase = 'tmp/product-images/' . ($token ?: 'default');
 
         $pfx = config('catalog.prefix');
-        $mid = (int) DB::table($pfx . 'product')->where('product_id', $productId)->value('manufacturer_id');
-        $finalDir = $this->resolveManufacturerDir($mid);
+        $mid = (int) DB::table($pfx . 'product')->where('product_id', $productId)->value('brand_id');
+        $finalDir = $this->resolveBrandDir($mid);
         $disk->makeDirectory($finalDir);
 
         $out = [];
@@ -485,8 +485,8 @@ $pfx = config('catalog.prefix');
             'width'  => 'required|numeric|gt:0',
             'height' => 'required|numeric|gt:0',
             'status' => 'required|in:0,1',
-            'manufacturer_id' => 'nullable|integer',
-            'manufacturer_name' => 'nullable|string|max:255',
+            'brand_id' => 'nullable|integer',
+            'brand_name' => 'nullable|string|max:255',
             'category_ids' => 'nullable|array',
             'category_ids.*' => 'integer|min:1',
             'category_id' => 'nullable|integer',
@@ -526,9 +526,9 @@ $pfx = config('catalog.prefix');
             'height.gt' => 'Each package dimension must be more than zero.',
         ]);
 
-        $resolvedManufacturerId = $this->resolveManufacturerId(
-            (int) $request->input('manufacturer_id', 0),
-            (string) $request->input('manufacturer_name', '')
+        $resolvedBrandId = $this->resolveBrandId(
+            (int) $request->input('brand_id', 0),
+            (string) $request->input('brand_name', '')
         );
 
         $categoryIds = array_filter(array_map('intval', $request->input('category_ids', [])));
@@ -564,7 +564,7 @@ $pfx = config('catalog.prefix');
                 'cost_amount' => (float) ($request->cost_amount ?? 0),
                 'cost_percentage' => (float) ($request->cost_percentage ?? 0),
                 'cost_additional' => (float) ($request->cost_additional ?? 0),
-                'manufacturer_id' => (int) ($resolvedManufacturerId ?? 0),
+                'brand_id' => (int) ($resolvedBrandId ?? 0),
                 'category_ids' => $categoryIds,
                 'description' => (string) $request->input('description', ''),
             ],
@@ -716,8 +716,8 @@ $pfx = config('catalog.prefix');
                 $j->on('p.product_id', '=', 'pd.product_id')
                   ->where('pd.language_id', '=', $langId);
             })
-            ->leftJoin($pfx.'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
-            ->select('p.*', 'pd.name as name', 'pd.description as description', 'm.name as manufacturer_name')
+            ->leftJoin($pfx.'brand as m', 'p.brand_id', '=', 'm.brand_id')
+            ->select('p.*', 'pd.name as name', 'pd.description as description', 'm.name as brand_name')
             ->where('p.product_id', (int) $id)
             ->first();
 
@@ -750,7 +750,7 @@ $pfx = config('catalog.prefix');
         $currentCategoryId = $currentCategoryIds[0] ?? 0;
         $categoryName = $currentCategories[0]['name'] ?? null;
 
-        $manufacturerName = $product->manufacturer_name ?? null;
+        $brandName = $product->brand_name ?? null;
 
         $existingOptions = collect();
 
@@ -934,7 +934,7 @@ $pfx = config('catalog.prefix');
 
         $productVideo = \App\Models\ProductVideo::query()->where('product_id', (int) $id)->first()?->summary();
 
-        return view('catalog.products.edit', compact('product', 'currentCategoryId', 'categoryName', 'currentCategories', 'manufacturerName', 'existingOptions', 'existingCombinations', 'productImages', 'productVideo', 'returnUrl', 'currencies', 'channelNote'));
+        return view('catalog.products.edit', compact('product', 'currentCategoryId', 'categoryName', 'currentCategories', 'brandName', 'existingOptions', 'existingCombinations', 'productImages', 'productVideo', 'returnUrl', 'currencies', 'channelNote'));
     }
 
     public function update(Request $request, $id)
@@ -955,8 +955,8 @@ $pfx = config('catalog.prefix');
             'width'  => 'required|numeric|gt:0',
             'height' => 'required|numeric|gt:0',
             'status' => 'required|in:0,1',
-            'manufacturer_id' => 'nullable|integer',
-            'manufacturer_name' => 'nullable|string|max:255',
+            'brand_id' => 'nullable|integer',
+            'brand_name' => 'nullable|string|max:255',
             'category_ids' => 'nullable|array',
             'category_ids.*' => 'integer|min:1',
             'category_id' => 'nullable|integer',
@@ -1002,7 +1002,7 @@ $pfx = config('catalog.prefix');
 
         $langId = (int) config('catalog.default_language_id');
 
-        $resolvedManufacturerId = $this->resolveManufacturerId($request->manufacturer_id, $request->manufacturer_name);
+        $resolvedBrandId = $this->resolveBrandId($request->brand_id, $request->brand_name);
 
         $categoryIds = array_filter(array_map('intval', $request->input('category_ids', [])));
         if (empty($categoryIds)) {
@@ -1020,11 +1020,11 @@ $pfx = config('catalog.prefix');
         $originalAttrs = null;
         $updatedAttrs = null;
         $variationsBefore = \App\Services\VariationForgetService::snapshot((int) $id);
-        DB::transaction(function () use ($request, $id, $langId, $pfx, $resolvedManufacturerId, $categoryIds, $forcedQty, &$skuChanges, &$originalAttrs, &$updatedAttrs) {
+        DB::transaction(function () use ($request, $id, $langId, $pfx, $resolvedBrandId, $categoryIds, $forcedQty, &$skuChanges, &$originalAttrs, &$updatedAttrs) {
             $p = Product::where('product_id', (int) $id)->firstOrFail();
             $originalAttrs = $p->getAttributes();
 
-            $oldManufacturerId = (int) ($p->manufacturer_id ?? 0);
+            $oldBrandId = (int) ($p->brand_id ?? 0);
 
             $oldProductSku = trim((string) $p->sku);
 
@@ -1044,7 +1044,7 @@ $pfx = config('catalog.prefix');
             $p->length = (float) ($request->input('length', $p->length ?? 0) ?? 0);
             $p->width  = (float) ($request->input('width',  $p->width  ?? 0) ?? 0);
             $p->height = (float) ($request->input('height', $p->height ?? 0) ?? 0);
-            $p->manufacturer_id = (int) ($resolvedManufacturerId ?? 0);
+            $p->brand_id = (int) ($resolvedBrandId ?? 0);
             $p->price = (float) $request->price;
             $p->cost_amount = (float) ($request->cost_amount ?? 0);
             $p->cost_percentage = (float) ($request->cost_percentage ?? 0);
@@ -1129,7 +1129,7 @@ $pfx = config('catalog.prefix');
             $status .= ' | Forgotten on every channel: ' . implode(', ', $forgotten);
         }
         $changes = $originalAttrs && $updatedAttrs
-            ? ActivityLogger::diff($originalAttrs, $updatedAttrs, ['sku', 'price', 'quantity', 'status', 'model', 'manufacturer_id'])
+            ? ActivityLogger::diff($originalAttrs, $updatedAttrs, ['sku', 'price', 'quantity', 'status', 'model', 'brand_id'])
             : null;
         ActivityLogger::log('updated', 'Product', (int) $id, $request->name . ' (SKU: ' . ($request->sku ?? '') . ')', $changes);
 

@@ -42,7 +42,7 @@ class AddProductsGroupChoiceTest extends TestCase
         $pfx = (string) config('catalog.prefix');
         $this->productId = (int) DB::table($pfx . 'product')->insertGetId([
             'model' => 'P', 'sku' => 'SKU-P', 'quantity' => 5, 'price' => 100, 'status' => 1, 'image' => '',
-            'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1, 'manufacturer_id' => 0,
+            'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1, 'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
         DB::table($pfx . 'product_description')->insert(['product_id' => $this->productId, 'language_id' => (int) config('catalog.default_language_id'), 'name' => 'Patch cable',

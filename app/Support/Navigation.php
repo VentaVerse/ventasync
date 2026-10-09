@@ -29,7 +29,7 @@ class Navigation
                  'keywords' => ['sku', 'variation', 'stock', 'price']],
                 ['label' => 'Categories', 'route' => 'categories.index',
                  'keywords' => ['taxonomy', 'group']],
-                ['label' => 'Manufacturers', 'route' => 'manufacturers.index',
+                ['label' => 'Brands', 'route' => 'brands.index',
                  'keywords' => ['brand', 'supplier']],
                 ['label' => 'Reviews', 'route' => 'ext.opencart.reviews.index',
                  'keywords' => ['rating', 'feedback', 'comment']],

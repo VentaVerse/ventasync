@@ -240,7 +240,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             $syncStatus = 'all';
         }
         $groupFilter = \App\Channels\Listings\StatusMenu::group($request->query('group'));
-        $manufacturerFilter = (string) $request->query('manufacturer', 'all');
+        $brandFilter = (string) $request->query('brand', 'all');
         $erpStatus = (string) $request->query('erp_status', 'all');
 
         $sortColumns = [
@@ -249,7 +249,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             'quantity' => 'p.quantity',
             'price' => 'p.price',
             'product_status' => 'p.status',
-            'manufacturer' => 'm.name',
+            'brand' => 'm.name',
         ];
         $sortExpressions = [
             'lazada_item_id' => "(lp.lazada_item_id IS NULL OR lp.lazada_item_id = ''), lp.lazada_item_id",
@@ -273,12 +273,12 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 $j->on('p.product_id', '=', 'pd.product_id')
                     ->where('pd.language_id', '=', $langId);
             })
-            ->leftJoin($pfx . 'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
+            ->leftJoin($pfx . 'brand as m', 'p.brand_id', '=', 'm.brand_id')
             ->leftJoinSub($lpPick, 'lps', 'lps.product_id', '=', 'p.product_id')
             ->leftJoin('lazada_products as lp', 'lp.id', '=', 'lps.pick_id')
             ->select(
                 'p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku',
-                'p.price', 'p.quantity', 'p.status', 'm.name as manufacturer_name',
+                'p.price', 'p.quantity', 'p.status', 'm.name as brand_name',
                 'lp.id as listing_id', 'lp.lazada_item_id', 'lp.live_status',
                 'lp.lazada_deleted_at', 'lp.unlinked_at',
                 'lp.last_sync_ok', 'lp.last_synced_at',
@@ -303,8 +303,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             return $query->whereIn('p.product_id', $ids ?: [0]);
         };
 
-        if ($manufacturerFilter !== 'all') {
-            $query->where('p.manufacturer_id', (int) $manufacturerFilter);
+        if ($brandFilter !== 'all') {
+            $query->where('p.brand_id', (int) $brandFilter);
         }
 
         if ($erpStatus === 'enabled') {
@@ -535,9 +535,9 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
 
 
-        $allManufacturers = DB::table($pfx . 'manufacturer')
+        $allBrands = DB::table($pfx . 'brand')
             ->orderBy('name')
-            ->pluck('name', 'manufacturer_id');
+            ->pluck('name', 'brand_id');
 
         $allGroups = \Extensions\Lazada\Models\LazadaProductGroup::query()->orderBy('name')->pluck('name', 'id');
 
@@ -551,14 +551,14 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             'productThumbsById' => $productThumbsById,
             'optionRowsByProductId' => $optionRowsByProductId,
             'allGroups' => $allGroups,
-            'allManufacturers' => $allManufacturers,
+            'allBrands' => $allBrands,
             'order' => $order,
             'orderOptions' => \App\Channels\Listings\ListingSort::options(array_keys($sortMenu)),
             'sort' => $sort,
             'dir' => $dir,
             'q' => $q,
             'syncStatus' => $syncStatus,
-            'manufacturerFilter' => $manufacturerFilter,
+            'brandFilter' => $brandFilter,
             'erpStatus' => $erpStatus,
             'groupFilter' => $groupFilter,
             'paginator' => $products,
@@ -593,7 +593,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $langId = (int) config('catalog.default_language_id');
 
         $q = trim((string) $request->query('q', ''));
-        $manufacturerFilter = (string) $request->query('manufacturer', 'all');
+        $brandFilter = (string) $request->query('brand', 'all');
         $groupFilter = (string) $request->query('group', 'all');
         $onStore = (string) $request->query('on_store', 'all');
 
@@ -614,9 +614,9 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
-            ->leftJoin($pfx . 'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
+            ->leftJoin($pfx . 'brand as m', 'p.brand_id', '=', 'm.brand_id')
             ->leftJoinSub($lpPick, 'lps', 'lps.product_id', '=', 'p.product_id')
-            ->select('p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as manufacturer_name', 'lps.pick_id as listing_id');
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as brand_name', 'lps.pick_id as listing_id');
 
         if ($q !== '') {
             $query->where(function ($sub) use ($q) {
@@ -625,8 +625,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                     ->orWhere('p.sku', 'like', '%' . $q . '%');
             });
         }
-        if ($manufacturerFilter !== 'all') {
-            $query->where('p.manufacturer_id', (int) $manufacturerFilter);
+        if ($brandFilter !== 'all') {
+            $query->where('p.brand_id', (int) $brandFilter);
         }
         if ($groupFilter === 'none') {
             $groupedIds = \Extensions\Lazada\Models\LazadaProductGroupProduct::query()->onStore()->whereNotNull('product_id')->pluck('product_id')->unique()->all();
@@ -660,17 +660,17 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $catalogTotal = (int) DB::table($pfx . 'product')->count();
         $onStoreTotal = (int) LazadaProduct::query()->whereNotNull('product_id')->distinct()->count('product_id');
 
-        $allManufacturers = DB::table($pfx . 'manufacturer')->orderBy('name')->pluck('name', 'manufacturer_id');
+        $allBrands = DB::table($pfx . 'brand')->orderBy('name')->pluck('name', 'brand_id');
         $allGroups = \Extensions\Lazada\Models\LazadaProductGroup::query()->orderBy('name')->pluck('name', 'id');
 
         return view('ext-lazada::products.add', [
             'products' => $products,
             'paginator' => $products,
             'productThumbsById' => $productThumbsById,
-            'allManufacturers' => $allManufacturers,
+            'allBrands' => $allBrands,
             'allGroups' => $allGroups,
             'q' => $q,
-            'manufacturerFilter' => $manufacturerFilter,
+            'brandFilter' => $brandFilter,
             'groupFilter' => $groupFilter,
             'onStore' => $onStore,
             'sort' => $sort,
@@ -2148,7 +2148,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
         $productImageUrl = $this->images()->toDisplayImageUrl($productRow->image ?? null);
 
-        $brandSuggestion = $this->attrs()->suggestBrandFromManufacturer($productRow->manufacturer_name ?? null);
+        $brandSuggestion = $this->attrs()->suggestBrandFromBrand($productRow->brand_name ?? null);
         if (!$listing->brand_id && $brandSuggestion['brand_id']) {
         }
 
@@ -2491,14 +2491,14 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                 $j->on('p.product_id', '=', 'pd.product_id')
                     ->where('pd.language_id', '=', $langId);
             })
-            ->leftJoin($pfx.'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
+            ->leftJoin($pfx.'brand as m', 'p.brand_id', '=', 'm.brand_id')
             ->where('p.product_id', (int)$listing->product_id)
             ->first([
                 'p.product_id','p.sku','p.model','p.image','p.price','p.quantity',
                 'p.weight','p.length','p.width','p.height','p.date_modified',
                 'p.upc','p.ean','p.jan','p.isbn','p.mpn',
                 'pd.name','pd.description','pd.meta_title','pd.meta_description',
-                'm.name as manufacturer_name',
+                'm.name as brand_name',
             ]);
 
         return [

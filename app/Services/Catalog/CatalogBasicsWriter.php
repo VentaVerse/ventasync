@@ -83,9 +83,9 @@ final class CatalogBasicsWriter
             $changes['status'] = ['old' => (bool) $product->status, 'new' => (bool) $fields['status']];
         }
 
-        if (array_key_exists('manufacturer_id', $fields) && (int) $fields['manufacturer_id'] !== (int) $product->manufacturer_id) {
-            $productUpdate['manufacturer_id'] = (int) $fields['manufacturer_id'];
-            $changes['manufacturer_id'] = ['old' => (int) $product->manufacturer_id, 'new' => (int) $fields['manufacturer_id']];
+        if (array_key_exists('brand_id', $fields) && (int) $fields['brand_id'] !== (int) $product->brand_id) {
+            $productUpdate['brand_id'] = (int) $fields['brand_id'];
+            $changes['brand_id'] = ['old' => (int) $product->brand_id, 'new' => (int) $fields['brand_id']];
         }
 
         $categoryIds = null;

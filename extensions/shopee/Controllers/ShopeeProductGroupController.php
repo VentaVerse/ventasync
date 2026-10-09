@@ -275,11 +275,11 @@ class ShopeeProductGroupController extends Controller
                 $j->on('p.product_id', '=', 'gp.product_id')
                     ->where('gp.shopee_product_group_id', '=', $group->id);
             })
-            ->leftJoin($pfx . 'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
+            ->leftJoin($pfx . 'brand as m', 'p.brand_id', '=', 'm.brand_id')
             ->select(
                 'p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.price',
                 'p.quantity', 'p.image', 'p.status', 'p.date_modified',
-                'm.name as manufacturer_name',
+                'm.name as brand_name',
                 'gp.shopee_item_id', 'gp.sync_status', 'gp.last_pushed_at', 'gp.last_confirmed_at', 'gp.push_error'
             );
 

@@ -16,7 +16,7 @@
         <h1 class="x-page-title">Product Groups</h1>
         <p class="x-page-sub">
             {{ number_format($groups->count()) }} {{ $groups->count() === 1 ? 'product group' : 'product groups' }} on {{ $storeName }}.
-            <x-ui.hint label="What a product group is">A product group picks Master Catalog products by category and manufacturer, then pushes them to this store together.</x-ui.hint>
+            <x-ui.hint label="What a product group is">A product group picks Master Catalog products by category and brand, then pushes them to this store together.</x-ui.hint>
         </p>
     </div>
     @if($canManageOpencart)

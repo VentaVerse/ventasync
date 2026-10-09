@@ -64,7 +64,7 @@ class LazadaBulkPackTest extends TestCase
 
     public function test_someone_with_no_lazada_permission_reaches_neither(): void
     {
-        $outsider = $this->userWith(['view_catalog/manufacturer', 'view_catalog/category', 'view_api/catalog', 'view_catalog/product', 'view_catalog/product_image']);
+        $outsider = $this->userWith(['view_catalog/brand', 'view_catalog/category', 'view_api/catalog', 'view_catalog/product', 'view_catalog/product_image']);
 
         $this->actingAs($outsider)
             ->post(route('ext.lazada.orders.bulk_pack_print'), ['ids' => [1]])

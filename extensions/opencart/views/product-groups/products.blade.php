@@ -58,7 +58,7 @@
     <x-ui.empty title="{{ $hasSearch ? 'Nothing matches that search' : 'No products in this product group' }}"
                 :description="$hasSearch
                     ? 'Clear the search to see everything in the product group.'
-                    : 'Edit the product group to widen its category and manufacturer filter, or add products one at a time below.'">
+                    : 'Edit the product group to widen its category and brand filter, or add products one at a time below.'">
         @if($canManageOpencart && !$hasSearch)
         <x-slot:action>
             <x-ui.button variant="primary" :href="route('ext.opencart.product-groups.edit', [$setting->id, $group->id])">Edit product group</x-ui.button>
@@ -185,7 +185,7 @@
     <div class="fm-section__head">
         <h2 class="fm-section__title">Add a product by name</h2>
     </div>
-    <p class="fm-section__note">For a product the product group's category and manufacturer filter does not pick up. Type at least two characters.</p>
+    <p class="fm-section__note">For a product the product group's category and brand filter does not pick up. Type at least two characters.</p>
 
     <form id="opencart-add-products" method="POST" action="{{ route('ext.opencart.product-groups.addProducts', [$setting->id, $group->id]) }}">
         @csrf

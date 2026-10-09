@@ -155,7 +155,7 @@ class ImageCacheTest extends TestCase
         $pid = (int) DB::table((string) config('catalog.prefix') . 'product')->insertGetId([
             'model' => 'IC-1', 'sku' => 'IC-1', 'quantity' => 1, 'price' => 100, 'status' => 1,
             'image' => 'catalog/heavy.jpg', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
-            'manufacturer_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
 
         $urls = app(\Extensions\Lazada\Services\Lazada\LazadaImages::class)->getProductImageUrls($pid, null);

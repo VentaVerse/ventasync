@@ -7,12 +7,12 @@ use Extensions\OpenCart\Models\OpenCartSyncLog;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class OpenCartManufacturerSync
+class OpenCartBrandSync
 {
     private OpenCartClient $client;
     private OpenCartStore $store;
 
-    private array $manufacturerMap = [];
+    private array $brandMap = [];
 
     public function __construct(OpenCartClient $client, OpenCartStore $store)
     {
@@ -24,27 +24,27 @@ class OpenCartManufacturerSync
     {
         $log = OpenCartSyncLog::create([
             'store_id' => $this->store->id,
-            'entity_type' => 'manufacturer',
+            'entity_type' => 'brand',
             'direction'   => 'pull',
             'status'      => 'started',
             'started_at'  => now(),
         ]);
 
         try {
-            $result = $this->client->getManufacturers();
+            $result = $this->client->getBrands();
 
             if (!$result['ok']) {
                 throw new \RuntimeException('API error: ' . json_encode($result['body']));
             }
 
-            $manufacturers = $result['body']['data'] ?? [];
+            $brands = $result['body']['data'] ?? [];
             $pfx = (string) config('catalog.prefix');
             $created = 0;
             $updated = 0;
             $failed = 0;
             $errors = [];
 
-            foreach ($manufacturers as $raw) {
+            foreach ($brands as $raw) {
                 try {
                     $ocMfgId = (int) ($raw['manufacturer_id'] ?? 0);
                     if ($ocMfgId <= 0) continue;
@@ -52,9 +52,9 @@ class OpenCartManufacturerSync
                     $name = trim($raw['name'] ?? '');
                     if ($name === '') continue;
 
-                    $existing = DB::table($pfx . 'manufacturer')
+                    $existing = DB::table($pfx . 'brand')
                         ->where('name', $name)
-                        ->select('manufacturer_id')
+                        ->select('brand_id')
                         ->first();
 
                     $data = [
@@ -64,27 +64,27 @@ class OpenCartManufacturerSync
                     ];
 
                     if ($existing) {
-                        $coreMfgId = (int) $existing->manufacturer_id;
-                        DB::table($pfx . 'manufacturer')
-                            ->where('manufacturer_id', $coreMfgId)
+                        $coreMfgId = (int) $existing->brand_id;
+                        DB::table($pfx . 'brand')
+                            ->where('brand_id', $coreMfgId)
                             ->update($data);
                         $updated++;
                     } else {
-                        $coreMfgId = DB::table($pfx . 'manufacturer')->insertGetId($data, 'manufacturer_id');
+                        $coreMfgId = DB::table($pfx . 'brand')->insertGetId($data, 'brand_id');
                         $created++;
                     }
 
-                    $this->manufacturerMap[$ocMfgId] = $coreMfgId;
+                    $this->brandMap[$ocMfgId] = $coreMfgId;
                 } catch (\Throwable $e) {
                     $failed++;
                     $errors[] = [
-                        'manufacturer_id' => $raw['manufacturer_id'] ?? '?',
+                        'brand_id' => $raw['manufacturer_id'] ?? '?',
                         'error'           => $e->getMessage(),
                     ];
                 }
             }
 
-            $this->store->update(['last_manufacturer_sync_at' => now()]);
+            $this->store->update(['last_brand_sync_at' => now()]);
 
             $log->update([
                 'status'            => 'completed',
@@ -101,14 +101,14 @@ class OpenCartManufacturerSync
                 'error_message' => $e->getMessage(),
                 'completed_at'  => now(),
             ]);
-            Log::error('OpenCart manufacturer sync failed', ['error' => $e->getMessage()]);
+            Log::error('OpenCart brand sync failed', ['error' => $e->getMessage()]);
         }
 
-        return ['log' => $log, 'map' => $this->manufacturerMap];
+        return ['log' => $log, 'map' => $this->brandMap];
     }
 
-    public function getManufacturerMap(): array
+    public function getBrandMap(): array
     {
-        return $this->manufacturerMap;
+        return $this->brandMap;
     }
 }

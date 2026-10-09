@@ -65,7 +65,7 @@ class TikTokItemImport
                     'length' => (float) (data_get($d, 'package_dimensions.length') ?? 0),
                     'width' => (float) (data_get($d, 'package_dimensions.width') ?? 0),
                     'height' => (float) (data_get($d, 'package_dimensions.height') ?? 0),
-                    'manufacturer_id' => 0,
+                    'brand_id' => 0,
                     'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
                 ]);
 

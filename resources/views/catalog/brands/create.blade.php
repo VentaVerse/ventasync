@@ -1,8 +1,8 @@
 @extends('layouts.blotter')
-@section('title', 'New manufacturer')
+@section('title', 'New brand')
 
 @section('content')
-<form method="POST" action="{{ route('manufacturers.store') }}" class="fm-page" data-guard-unsaved>
+<form method="POST" action="{{ route('brands.store') }}" class="fm-page" data-guard-unsaved>
     @csrf
 
     <div class="fm-flash" role="status" aria-live="polite">
@@ -15,10 +15,10 @@
 
     <div class="fm-head">
         <div class="fm-head__main">
-            <a class="fm-back" href="{{ route('manufacturers.index') }}" data-guard-leave>
-                <x-ui.icon name="chevron-left" size="14" /> Manufacturers
+            <a class="fm-back" href="{{ route('brands.index') }}" data-guard-leave>
+                <x-ui.icon name="chevron-left" size="14" /> Brands
             </a>
-            <h1 class="fm-title">New manufacturer</h1>
+            <h1 class="fm-title">New brand</h1>
         </div>
     </div>
 
@@ -31,8 +31,8 @@
                 </div>
 
                 <div class="fm-fields">
-                    <x-ui.field label="Name" for="manufacturer_name_field" name="name" :required="true" wide>
-                        <x-ui.input id="manufacturer_name_field" name="name" value="{{ old('name') }}" />
+                    <x-ui.field label="Name" for="brand_name_field" name="name" :required="true" wide>
+                        <x-ui.input id="brand_name_field" name="name" value="{{ old('name') }}" />
                     </x-ui.field>
                 </div>
             </section>
@@ -51,9 +51,9 @@
         </div>
     </div>
 
-    <x-ui.form-bar :cancel="route('manufacturers.index')">
-        <x-slot:note>Nothing is saved until you create the manufacturer.</x-slot:note>
-        <x-slot:primary><x-ui.button type="submit" variant="primary">Create manufacturer</x-ui.button></x-slot:primary>
+    <x-ui.form-bar :cancel="route('brands.index')">
+        <x-slot:note>Nothing is saved until you create the brand.</x-slot:note>
+        <x-slot:primary><x-ui.button type="submit" variant="primary">Create brand</x-ui.button></x-slot:primary>
     </x-ui.form-bar>
 </form>
 @endsection

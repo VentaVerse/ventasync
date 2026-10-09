@@ -42,7 +42,7 @@ class TikTokProductController extends Controller
         if ($syncStatus === 'error') {
             $syncStatus = 'all';
         }
-        $manufacturerFilter = (string) $request->get('manufacturer', 'all');
+        $brandFilter = (string) $request->get('brand', 'all');
         $groupFilter = \App\Channels\Listings\StatusMenu::group($request->get('group'));
         $erpStatus = (string) $request->get('erp_status', 'all');
         $tiktokTab = (string) $request->get('tiktok_tab', 'all');
@@ -69,7 +69,7 @@ class TikTokProductController extends Controller
 
         $sortColumns = [
             'id' => 'p.product_id', 'product' => 'pd.name', 'quantity' => 'p.quantity',
-            'price' => 'p.price', 'product_status' => 'p.status', 'manufacturer' => 'm.name',
+            'price' => 'p.price', 'product_status' => 'p.status', 'brand' => 'm.name',
         ];
         $sort = array_key_exists((string) $request->get('sort', 'id'), $sortColumns) ? (string) $request->get('sort', 'id') : 'id';
         $dir = strtolower((string) $request->get('dir', 'asc')) === 'desc' ? 'desc' : 'asc';
@@ -85,8 +85,8 @@ class TikTokProductController extends Controller
             ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
-            ->leftJoin($pfx . 'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
-            ->select('p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as manufacturer_name');
+            ->leftJoin($pfx . 'brand as m', 'p.brand_id', '=', 'm.brand_id')
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as brand_name');
         $query->whereIn('p.product_id', TikTokStoreProducts::query());
         $listedProductIds = TikTokStoreProducts::listedIds();
 
@@ -104,8 +104,8 @@ class TikTokProductController extends Controller
 
             return $query->whereIn('p.product_id', $ids ?: [0]);
         };
-        if ($manufacturerFilter !== 'all') {
-            $query->where('p.manufacturer_id', (int) $manufacturerFilter);
+        if ($brandFilter !== 'all') {
+            $query->where('p.brand_id', (int) $brandFilter);
         }
         if ($erpStatus === 'enabled') {
             $query->where('p.status', 1);
@@ -323,9 +323,9 @@ class TikTokProductController extends Controller
             'rowErrors' => $rowErrors,
             'listedTotal' => $listedTotal,
             'q' => $q, 'sort' => $sort, 'dir' => $dir,
-            'syncStatus' => $syncStatus, 'manufacturerFilter' => $manufacturerFilter,
+            'syncStatus' => $syncStatus, 'brandFilter' => $brandFilter,
             'groupFilter' => $groupFilter, 'erpStatus' => $erpStatus,
-            'allManufacturers' => DB::table($pfx . 'manufacturer')->orderBy('name')->pluck('name', 'manufacturer_id'),
+            'allBrands' => DB::table($pfx . 'brand')->orderBy('name')->pluck('name', 'brand_id'),
             'allGroups' => TikTokProductGroup::query()->orderBy('name')->pluck('name', 'id'),
             'groupsByProductId' => $groupsByProductId,
             'optionRowsByProductId' => \App\Support\VariationRows::forListing($pageIds, 'tiktok', (int) (TikTokStore::defaultStore()?->id ?? 0)),
@@ -429,7 +429,7 @@ class TikTokProductController extends Controller
         $langId = (int) config('catalog.default_language_id');
 
         $q = trim((string) $request->query('q', ''));
-        $manufacturerFilter = (string) $request->query('manufacturer', 'all');
+        $brandFilter = (string) $request->query('brand', 'all');
         $groupFilter = (string) $request->query('group', 'all');
         $onStore = (string) $request->query('on_store', 'all');
 
@@ -444,9 +444,9 @@ class TikTokProductController extends Controller
             ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
-            ->leftJoin($pfx . 'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
+            ->leftJoin($pfx . 'brand as m', 'p.brand_id', '=', 'm.brand_id')
             ->leftJoinSub(TikTokStoreProducts::query(), 'os', 'os.product_id', '=', 'p.product_id')
-            ->select('p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as manufacturer_name', 'os.product_id as on_store_pid');
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as brand_name', 'os.product_id as on_store_pid');
 
         if ($q !== '') {
             $query->where(function ($sub) use ($q) {
@@ -455,8 +455,8 @@ class TikTokProductController extends Controller
                     ->orWhere('p.sku', 'like', '%' . $q . '%');
             });
         }
-        if ($manufacturerFilter !== 'all') {
-            $query->where('p.manufacturer_id', (int) $manufacturerFilter);
+        if ($brandFilter !== 'all') {
+            $query->where('p.brand_id', (int) $brandFilter);
         }
         if ($groupFilter === 'none') {
             $groupedIds = TikTokProductGroupProduct::query()
@@ -491,10 +491,10 @@ class TikTokProductController extends Controller
             'products' => $products,
             'paginator' => $products,
             'productThumbsById' => $productThumbsById,
-            'allManufacturers' => DB::table($pfx . 'manufacturer')->orderBy('name')->pluck('name', 'manufacturer_id'),
+            'allBrands' => DB::table($pfx . 'brand')->orderBy('name')->pluck('name', 'brand_id'),
             'allGroups' => TikTokProductGroup::query()->orderBy('name')->pluck('name', 'id'),
             'q' => $q,
-            'manufacturerFilter' => $manufacturerFilter,
+            'brandFilter' => $brandFilter,
             'groupFilter' => $groupFilter,
             'onStore' => $onStore,
             'sort' => $sort,

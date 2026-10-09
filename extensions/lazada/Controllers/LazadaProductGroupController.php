@@ -301,11 +301,11 @@ class LazadaProductGroupController extends Controller
                     ->where('gp.lazada_product_group_id', '=', $group->id);
             })
             ->leftJoin('lazada_products as lp', 'gp.lazada_product_id', '=', 'lp.id')
-            ->leftJoin($pfx . 'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
+            ->leftJoin($pfx . 'brand as m', 'p.brand_id', '=', 'm.brand_id')
             ->select(
                 'p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.price',
                 'p.quantity', 'p.image', 'p.status',
-                'm.name as manufacturer_name',
+                'm.name as brand_name',
                 'lp.lazada_item_id', 'lp.lazada_deleted_at',
                 'lp.last_pushed_at as listing_last_pushed_at', 'lp.last_push_source',
                 'p.date_modified',

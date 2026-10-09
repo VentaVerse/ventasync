@@ -317,9 +317,9 @@
                         </x-ui.field>
                     </div>
 
-                    @if(!empty($productRow?->manufacturer_name))
+                    @if(!empty($productRow?->brand_name))
                         <p class="fm-section__note">
-                            This product's manufacturer is <strong>{{ $productRow->manufacturer_name }}</strong>.
+                            This product's brand is <strong>{{ $productRow->brand_name }}</strong>.
                             @if(!empty($brandSuggestion['brand_id']))
                                 The closest Lazada brand is <strong>{{ $brandSuggestion['brand_name'] }}</strong> ({{ $brandSuggestion['brand_id'] }}).
                             @else

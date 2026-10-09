@@ -235,7 +235,7 @@ class OpenCartController extends Controller
         $storeId = $request->input('store_id');
         $wantsJson = $request->expectsJson();
 
-        $allowed = ['products', 'orders', 'categories', 'manufacturers', 'options', 'all'];
+        $allowed = ['products', 'orders', 'categories', 'brands', 'options', 'all'];
         if (!in_array($entity, $allowed)) {
             return $wantsJson
                 ? response()->json(['error' => 'Invalid sync entity.'])

@@ -13,6 +13,9 @@ $withQuery = function (string $path): string {
 Route::get('/vendors/{any?}', fn (?string $any = null) => redirect($withQuery('/purchasing/suppliers'.($any ? '/'.$any : '')), 301))
     ->where('any', '.*');
 
+Route::get('/catalog/manufacturers/{any?}', fn (?string $any = null) => redirect($withQuery('/catalog/brands'.($any ? '/'.$any : '')), 301))
+    ->where('any', '.*');
+
 Route::get('/purchasing/vendors/{any?}', fn (?string $any = null) => redirect($withQuery('/purchasing/suppliers'.($any ? '/'.$any : '')), 301))
     ->where('any', '.*');
 

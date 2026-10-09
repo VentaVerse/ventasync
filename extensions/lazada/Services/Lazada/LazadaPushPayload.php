@@ -66,14 +66,14 @@ class LazadaPushPayload
                 $j->on('p.product_id', '=', 'pd.product_id')
                     ->where('pd.language_id', '=', $langId);
             })
-            ->leftJoin($pfx.'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
+            ->leftJoin($pfx.'brand as m', 'p.brand_id', '=', 'm.brand_id')
             ->where('p.product_id', (int)$listing->product_id)
             ->first([
                 'p.product_id','p.sku','p.model','p.image','p.price','p.quantity',
                 'p.weight','p.length','p.width','p.height','p.date_modified',
                 'p.upc','p.ean','p.jan','p.isbn','p.mpn',
                 'pd.name','pd.description','pd.meta_title','pd.meta_description',
-                'm.name as manufacturer_name',
+                'm.name as brand_name',
             ]);
 
         if ($product) {

@@ -36,7 +36,7 @@ final class ProductWrites
             'length' => 'sometimes|numeric|gt:0',
             'width' => 'sometimes|numeric|gt:0',
             'height' => 'sometimes|numeric|gt:0',
-            'manufacturer_name' => 'sometimes|nullable|string|max:255',
+            'brand_name' => 'sometimes|nullable|string|max:255',
             'category_names' => 'sometimes|array|max:10',
             'category_names.*' => 'string|max:255',
             'photos' => 'sometimes|array|max:' . $maxImages,
@@ -71,13 +71,13 @@ final class ProductWrites
             }
         }
 
-        if (array_key_exists('manufacturer_name', $data)) {
-            $brand = trim((string) ($data['manufacturer_name'] ?? ''));
-            $manufacturerId = $creator->resolveManufacturerId(0, $brand);
-            if ($brand !== '' && $manufacturerId === 0) {
+        if (array_key_exists('brand_name', $data)) {
+            $brand = trim((string) ($data['brand_name'] ?? ''));
+            $brandId = $creator->resolveBrandId(0, $brand);
+            if ($brand !== '' && $brandId === 0) {
                 $notes[] = 'No brand named "' . $brand . '" exists, so the brand was left as it was.';
             } else {
-                $fields['manufacturer_id'] = $manufacturerId;
+                $fields['brand_id'] = $brandId;
             }
         }
 
@@ -115,7 +115,7 @@ final class ProductWrites
             }
 
             $importer = app(CatalogImageImporter::class);
-            $folder = $creator->imageFolder((int) ($fields['manufacturer_id'] ?? $product->manufacturer_id));
+            $folder = $creator->imageFolder((int) ($fields['brand_id'] ?? $product->brand_id));
             $where = '';
             try {
                 foreach ($urls as $i => $url) {
@@ -174,7 +174,7 @@ final class ProductWrites
         return $this->json([
             'product_id' => $id,
             'changed' => array_values(array_map(fn ($k) => match ($k) {
-                'title' => 'name', 'manufacturer_id' => 'brand', 'category_ids' => 'categories', 'images' => 'photos', 'status' => 'enabled', default => $k,
+                'title' => 'name', 'brand_id' => 'brand', 'category_ids' => 'categories', 'images' => 'photos', 'status' => 'enabled', default => $k,
             }, $changed)),
             'before' => array_intersect_key($before, $this->shown($changed)),
             'after' => array_intersect_key($after, $this->shown($changed)),
@@ -212,7 +212,7 @@ final class ProductWrites
 
         $creator = app(ProductCreator::class);
         $importer = app(CatalogImageImporter::class);
-        $folder = $creator->imageFolder((int) Product::whereKey($id)->value('manufacturer_id'));
+        $folder = $creator->imageFolder((int) Product::whereKey($id)->value('brand_id'));
         $stored = [];
         $where = '';
         try {
@@ -258,7 +258,7 @@ final class ProductWrites
     private function shown(array $changed): array
     {
         $keys = ['name' => 'name', 'title' => 'name', 'description' => 'description', 'sku' => 'sku', 'status' => 'status',
-            'manufacturer_id' => 'brand', 'category_ids' => 'categories', 'images' => 'photos',
+            'brand_id' => 'brand', 'category_ids' => 'categories', 'images' => 'photos',
             'weight' => 'weight', 'length' => 'length', 'width' => 'width', 'height' => 'height'];
 
         return array_flip(array_values(array_intersect_key($keys, array_flip($changed))));
@@ -270,8 +270,8 @@ final class ProductWrites
         $lang = (int) config('catalog.default_language_id');
         $id = (int) $product->product_id;
 
-        $brand = (int) $product->manufacturer_id > 0
-            ? \Illuminate\Support\Facades\DB::table($pfx . 'manufacturer')->where('manufacturer_id', $product->manufacturer_id)->value('name')
+        $brand = (int) $product->brand_id > 0
+            ? \Illuminate\Support\Facades\DB::table($pfx . 'brand')->where('brand_id', $product->brand_id)->value('name')
             : null;
         $categories = \Illuminate\Support\Facades\DB::table($pfx . 'product_to_category as ptc')
             ->leftJoin($pfx . 'category_description as cd', fn ($j) => $j->on('cd.category_id', '=', 'ptc.category_id')->where('cd.language_id', '=', $lang))
@@ -345,7 +345,7 @@ final class ProductWrites
             'cost_amount' => 'nullable|numeric|min:0',
             'cost_percentage' => 'nullable|numeric|min:0|max:100',
             'cost_additional' => 'nullable|numeric|min:0|max:99999999',
-            'manufacturer_name' => 'nullable|string|max:255',
+            'brand_name' => 'nullable|string|max:255',
             'category_names' => 'nullable|array|max:10',
             'category_names.*' => 'string|max:255',
             'image_urls' => 'nullable|array|max:' . $maxImages,
@@ -397,9 +397,9 @@ final class ProductWrites
             $writer->validateSkus(0, $wire);
         }
 
-        $brand = trim((string) ($data['manufacturer_name'] ?? ''));
-        $manufacturerId = $creator->resolveManufacturerId(0, $brand);
-        if ($brand !== '' && $manufacturerId === 0) {
+        $brand = trim((string) ($data['brand_name'] ?? ''));
+        $brandId = $creator->resolveBrandId(0, $brand);
+        if ($brand !== '' && $brandId === 0) {
             $notes[] = 'No brand named "' . $brand . '" exists, so the product was saved without one.';
         }
 
@@ -415,7 +415,7 @@ final class ProductWrites
 
         $disk = Storage::disk('public');
         $importer = app(CatalogImageImporter::class);
-        $folder = $creator->imageFolder($manufacturerId);
+        $folder = $creator->imageFolder($brandId);
         $stored = [];
         $paths = [];
         $where = '';
@@ -469,7 +469,7 @@ final class ProductWrites
                 'cost_amount' => (float) ($data['cost_amount'] ?? 0),
                 'cost_percentage' => (float) ($data['cost_percentage'] ?? 0),
                 'cost_additional' => (float) ($data['cost_additional'] ?? 0),
-                'manufacturer_id' => $manufacturerId,
+                'brand_id' => $brandId,
                 'category_ids' => array_values(array_unique($categoryIds)),
                 'description' => (string) ($data['description'] ?? ''),
                 'image_paths' => $paths,

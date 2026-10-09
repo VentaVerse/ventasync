@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Catalog;
 
 use App\Http\Controllers\Controller;
-use App\Models\Catalog\Manufacturer;
+use App\Models\Catalog\Brand;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 
-class ManufacturerController extends Controller
+class BrandController extends Controller
 {
 
 private function isWordStartMatch(string $haystack, string $term): bool
@@ -23,7 +23,7 @@ private function isWordStartMatch(string $haystack, string $term): bool
     {
         $q = trim((string) $request->get('q', ''));
 
-        $manufacturers = Manufacturer::query()
+        $brands = Brand::query()
             ->when($q !== '', function ($query) use ($q) {
                 $query->where('name', 'like', '%' . $q . '%');
             })
@@ -31,16 +31,16 @@ private function isWordStartMatch(string $haystack, string $term): bool
             ->paginate(50)
             ->withQueryString();
 
-        foreach ($manufacturers as $row) {
+        foreach ($brands as $row) {
     if (isset($row->name)) $row->name = html_entity_decode($row->name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 }
 
-return view('catalog.manufacturers.index', compact('manufacturers', 'q'));
+return view('catalog.brands.index', compact('brands', 'q'));
     }
 
     public function create()
     {
-        return view('catalog.manufacturers.create');
+        return view('catalog.brands.create');
     }
 
     public function store(Request $request)
@@ -50,26 +50,26 @@ return view('catalog.manufacturers.index', compact('manufacturers', 'q'));
         'sort_order' => 'nullable|integer',
     ]);
 
-    $m = Manufacturer::create([
+    $m = Brand::create([
         'name' => $request->name,
         'image' => null,
         'sort_order' => (int) ($request->sort_order ?? 0),
     ]);
 
-    ActivityLogger::log('created', 'Manufacturer', (int) $m->manufacturer_id, $request->name);
+    ActivityLogger::log('created', 'Brand', (int) $m->brand_id, $request->name);
 
-    return redirect()->route('manufacturers.index')->with('status','Saved');
+    return redirect()->route('brands.index')->with('status','Saved');
 }
 
 
     public function edit($id)
 {
-    $manufacturer = Manufacturer::where('manufacturer_id', (int) $id)->firstOrFail();
+    $brand = Brand::where('brand_id', (int) $id)->firstOrFail();
 
     $cameFrom = \App\Support\BackTo::capture();
-    $returnUrl = str_contains($cameFrom, '/manufacturers') && !str_contains($cameFrom, '/manufacturers/' . $id) ? $cameFrom : null;
+    $returnUrl = str_contains($cameFrom, '/brands') && !str_contains($cameFrom, '/brands/' . $id) ? $cameFrom : null;
 
-    return view('catalog.manufacturers.edit', compact('manufacturer', 'returnUrl'));
+    return view('catalog.brands.edit', compact('brand', 'returnUrl'));
 }
 
 
@@ -80,25 +80,25 @@ return view('catalog.manufacturers.index', compact('manufacturers', 'q'));
         'sort_order' => 'nullable|integer',
     ]);
 
-    $m = Manufacturer::where('manufacturer_id', (int) $id)->firstOrFail();
+    $m = Brand::where('brand_id', (int) $id)->firstOrFail();
     $original = $m->getAttributes();
     $m->name = $request->name;
     $m->sort_order = (int) ($request->sort_order ?? 0);
     $m->save();
 
     $changes = ActivityLogger::diff($original, $m->getAttributes(), ['name', 'sort_order']);
-    ActivityLogger::log('updated', 'Manufacturer', (int) $id, $request->name, $changes);
+    ActivityLogger::log('updated', 'Brand', (int) $id, $request->name, $changes);
 
-    return \App\Support\BackTo::follow($request->input('_return'), 'manufacturers.index')->with('status', 'Saved');
+    return \App\Support\BackTo::follow($request->input('_return'), 'brands.index')->with('status', 'Saved');
 }
 
 
     public function destroy($id)
     {
-        $name = Manufacturer::where('manufacturer_id', (int) $id)->value('name') ?? '#' . $id;
-        Manufacturer::where('manufacturer_id', (int) $id)->delete();
-        ActivityLogger::log('deleted', 'Manufacturer', (int) $id, $name);
-        return redirect()->route('manufacturers.index')->with('status','Saved');
+        $name = Brand::where('brand_id', (int) $id)->value('name') ?? '#' . $id;
+        Brand::where('brand_id', (int) $id)->delete();
+        ActivityLogger::log('deleted', 'Brand', (int) $id, $name);
+        return redirect()->route('brands.index')->with('status','Saved');
     }
 
     public function bulkDestroy(Request $request)
@@ -110,14 +110,14 @@ return view('catalog.manufacturers.index', compact('manufacturers', 'q'));
         $ids = array_values(array_unique(array_filter(array_map('intval', $ids), fn ($v) => $v > 0)));
 
         if (empty($ids)) {
-            return redirect()->route('manufacturers.index')->with('status', 'No items selected.');
+            return redirect()->route('brands.index')->with('status', 'No items selected.');
         }
 
-        Manufacturer::whereIn('manufacturer_id', $ids)->delete();
+        Brand::whereIn('brand_id', $ids)->delete();
 
-        ActivityLogger::log('deleted', 'Manufacturer', null, count($ids) . ' manufacturers');
+        ActivityLogger::log('deleted', 'Brand', null, count($ids) . ' brands');
 
-        return redirect()->route('manufacturers.index')->with('status', 'Deleted selected manufacturers.');
+        return redirect()->route('brands.index')->with('status', 'Deleted selected brands.');
     }
 
     public function storeInline(Request $request)
@@ -129,30 +129,30 @@ return view('catalog.manufacturers.index', compact('manufacturers', 'q'));
 
         $name = trim($data['name']);
 
-        $existing = Manufacturer::query()
+        $existing = Brand::query()
             ->whereRaw('LOWER(name) = ?', [mb_strtolower($name, 'UTF-8')])
-            ->first(['manufacturer_id', 'name']);
+            ->first(['brand_id', 'name']);
 
         if ($existing) {
             return response()->json([
                 'ok' => true,
-                'id' => (int) $existing->manufacturer_id,
+                'id' => (int) $existing->brand_id,
                 'name' => (string) $existing->name,
                 'created' => false,
             ]);
         }
 
-        $m = Manufacturer::create([
+        $m = Brand::create([
             'name' => $name,
             'image' => null,
             'sort_order' => (int) ($data['sort_order'] ?? 0),
         ]);
 
-        ActivityLogger::log('created', 'Manufacturer', (int) $m->manufacturer_id, $name);
+        ActivityLogger::log('created', 'Brand', (int) $m->brand_id, $name);
 
         return response()->json([
             'ok' => true,
-            'id' => (int) $m->manufacturer_id,
+            'id' => (int) $m->brand_id,
             'name' => (string) $m->name,
             'created' => true,
         ], 201);
@@ -161,11 +161,11 @@ return view('catalog.manufacturers.index', compact('manufacturers', 'q'));
     public function lookup(Request $request)
     {
         $q = trim((string) $request->get('q', ''));
-        $rows = Manufacturer::query()
+        $rows = Brand::query()
             ->when($q !== '', fn($query) => $query->where('name', 'like', '%' . $q . '%'))
             ->orderBy('name')
             ->limit(20)
-            ->get(['manufacturer_id', 'name']);
+            ->get(['brand_id', 'name']);
 
         return response()->json($rows);
     }

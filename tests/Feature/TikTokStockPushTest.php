@@ -115,7 +115,7 @@ class TikTokStockPushTest extends TestCase
         $productId = DB::table($pfx . 'product')->insertGetId([
             'model' => 'TTV-1', 'sku' => 'TTV', 'quantity' => 10, 'price' => 1000,
             'status' => 1, 'image' => 'catalog/__tt-stock-test.png', 'weight' => 1, 'length' => 10, 'width' => 10, 'height' => 10,
-            'manufacturer_id' => 0,
+            'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
         DB::table($pfx . 'product_description')->insert([
@@ -304,7 +304,7 @@ class TikTokStockPushTest extends TestCase
         $simple = DB::table($pfx . 'product')->insertGetId([
             'model' => 'TTS-1', 'sku' => 'TTS', 'quantity' => 4, 'price' => 300,
             'status' => 1, 'image' => 'catalog/__tt-stock-test.png', 'weight' => 1, 'length' => 10, 'width' => 10, 'height' => 10,
-            'manufacturer_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
         ['product_id' => $varied] = $this->seedTwoAxisProduct();
         $group = TikTokProductGroup::create(['name' => 'Own price group', 'tiktok_category_id' => '900001']);

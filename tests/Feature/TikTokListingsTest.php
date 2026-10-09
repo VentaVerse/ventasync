@@ -119,7 +119,7 @@ class TikTokListingsTest extends TestCase
         $productId = DB::table($pfx . 'product')->insertGetId([
             'model' => 'TTL-' . $suffix, 'sku' => 'TTL-SKU-' . $suffix, 'quantity' => 5, 'price' => $price,
             'status' => 1, 'image' => 'catalog/__tt-listing-test.png', 'weight' => 1, 'length' => 10, 'width' => 10, 'height' => 10,
-            'manufacturer_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
         DB::table($pfx . 'product_description')->insert([
             'product_id' => $productId, 'language_id' => $langId,

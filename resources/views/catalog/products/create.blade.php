@@ -8,7 +8,7 @@
 
 <form method="POST" action="{{ route('products.store') }}" class="fm-page"
       data-product-form
-      data-manufacturer-store-url="{{ route('api.catalog.manufacturers.store') }}">
+      data-brand-store-url="{{ route('api.catalog.brands.store') }}">
     @csrf
 
     <div class="fm-flash" role="status" aria-live="polite">
@@ -40,15 +40,15 @@
                 </div>
 
                 <div class="fm-fields">
-                    <x-ui.field label="Manufacturer" for="manufacturer_search" name="manufacturer_name"
+                    <x-ui.field label="Brand" for="brand_search" name="brand_name"
                                 hint="Type to search, then pick from the list. Used on marketplace listings."
                                 wide>
                         <div class="fm-ta">
-                        <x-ui.input id="manufacturer_search" name="manufacturer_name" autocomplete="off"
-                                    placeholder="Search manufacturers"
-                                    value="{{ old('manufacturer_name', '') }}" />
-                        <input type="hidden" name="manufacturer_id" id="manufacturer_id" value="{{ old('manufacturer_id', 0) }}">
-                        <div class="fm-ta__list" id="manufacturer_list"></div>
+                        <x-ui.input id="brand_search" name="brand_name" autocomplete="off"
+                                    placeholder="Search brands"
+                                    value="{{ old('brand_name', '') }}" />
+                        <input type="hidden" name="brand_id" id="brand_id" value="{{ old('brand_id', 0) }}">
+                        <div class="fm-ta__list" id="brand_list"></div>
                         </div>
                     </x-ui.field>
 

@@ -43,21 +43,21 @@ class ProductFormSubmitPathTest extends TestCase
         );
     }
 
-    public function test_the_manufacturer_guard_is_retired(): void
+    public function test_the_brand_guard_is_retired(): void
     {
         $js = File::get(resource_path('js/pages/product-form.js'));
 
-        $this->assertStringNotContainsString("err.textContent = 'Choose a manufacturer from the list.'", $js,
+        $this->assertStringNotContainsString("err.textContent = 'Choose a brand from the list.'", $js,
             'the guard is retired');
 
-        $this->assertStringContainsString("inputId: 'manufacturer_search'", $js);
+        $this->assertStringContainsString("inputId: 'brand_search'", $js);
     }
 
-    public function test_the_controller_still_treats_manufacturer_as_optional(): void
+    public function test_the_controller_still_treats_brand_as_optional(): void
     {
         $controller = File::get(base_path('app/Http/Controllers/Catalog/ProductController.php'));
 
-        $this->assertStringContainsString("'manufacturer_id' => 'nullable|integer'", $controller);
+        $this->assertStringContainsString("'brand_id' => 'nullable|integer'", $controller);
     }
 
     public function test_every_editable_grid_field_is_serialised_into_the_payload(): void

@@ -118,7 +118,7 @@ class ShopeeItemImportTest extends TestCase
         DB::table($pfx . 'product')->insert([
             'model' => 'HOLDER', 'sku' => 'IMP-OD1-9', 'quantity' => 1, 'price' => 10,
             'status' => 1, 'image' => '', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
-            'manufacturer_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
         $r = $this->actingAs($this->manager())
             ->post(route('ext.shopee.products.import_one'), ['ref' => 990001]);

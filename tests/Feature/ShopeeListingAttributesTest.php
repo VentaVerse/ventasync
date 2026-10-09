@@ -125,7 +125,7 @@ class ShopeeListingAttributesTest extends TestCase
         $productId = DB::table($pfx . 'product')->insertGetId([
             'model' => 'ATTR-1', 'sku' => 'ATTR-SKU', 'quantity' => 5, 'price' => 300,
             'status' => 1, 'image' => 'catalog/__attr-test.png', 'weight' => 1, 'length' => 10, 'width' => 10, 'height' => 10,
-            'manufacturer_id' => 0,
+            'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
         DB::table($pfx . 'product_description')->insert([

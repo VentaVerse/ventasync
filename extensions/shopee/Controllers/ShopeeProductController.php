@@ -126,7 +126,7 @@ class ShopeeProductController extends Controller
         if ($syncStatus === 'error') {
             $syncStatus = 'all';
         }
-        $manufacturerFilter = (string) $request->get('manufacturer', 'all');
+        $brandFilter = (string) $request->get('brand', 'all');
         $groupFilter = \App\Channels\Listings\StatusMenu::group($request->get('group'));
         $erpStatus = (string) $request->get('erp_status', 'all');
 
@@ -161,7 +161,7 @@ class ShopeeProductController extends Controller
             'quantity' => 'p.quantity',
             'price' => 'p.price',
             'product_status' => 'p.status',
-            'manufacturer' => 'm.name',
+            'brand' => 'm.name',
         ];
         $sort = (string) $request->get('sort', 'id');
         if (!array_key_exists($sort, $sortColumns)) {
@@ -176,7 +176,7 @@ class ShopeeProductController extends Controller
                 $j->on('p.product_id', '=', 'pd.product_id')
                   ->where('pd.language_id', '=', $langId);
             })
-            ->leftJoin($pfx . 'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
+            ->leftJoin($pfx . 'brand as m', 'p.brand_id', '=', 'm.brand_id')
             ->select(
                 'p.product_id',
                 'pd.name',
@@ -186,7 +186,7 @@ class ShopeeProductController extends Controller
                 'p.price',
                 'p.quantity',
                 'p.status',
-                'm.name as manufacturer_name'
+                'm.name as brand_name'
             );
 
         $groupedIds = $groupMapping['ids'] ?: [];
@@ -202,8 +202,8 @@ class ShopeeProductController extends Controller
         };
         $query->whereIn('p.product_id', ShopeeStoreProducts::query());
 
-        if ($manufacturerFilter !== 'all') {
-            $query->where('p.manufacturer_id', (int) $manufacturerFilter);
+        if ($brandFilter !== 'all') {
+            $query->where('p.brand_id', (int) $brandFilter);
         }
 
         if ($erpStatus === 'enabled') {
@@ -406,9 +406,9 @@ class ShopeeProductController extends Controller
             ->forProducts(array_map('intval', $pageIds));
 
 
-        $allManufacturers = DB::table($pfx . 'manufacturer')
+        $allBrands = DB::table($pfx . 'brand')
             ->orderBy('name')
-            ->pluck('name', 'manufacturer_id');
+            ->pluck('name', 'brand_id');
 
         $allGroups = ShopeeProductGroup::query()->orderBy('name')->pluck('name', 'id');
 
@@ -439,10 +439,10 @@ class ShopeeProductController extends Controller
             'order' => $order,
             'orderOptions' => \App\Channels\Listings\ListingSort::options(array_keys($sortMenu)),
             'syncStatus' => $syncStatus,
-            'manufacturerFilter' => $manufacturerFilter,
+            'brandFilter' => $brandFilter,
             'groupFilter' => $groupFilter,
             'erpStatus' => $erpStatus,
-            'allManufacturers' => $allManufacturers,
+            'allBrands' => $allBrands,
             'allGroups' => $allGroups,
             'groupsByProductId' => $pageGroupMap,
             'optionRowsByProductId' => $optionRowsByProductId,
@@ -479,7 +479,7 @@ class ShopeeProductController extends Controller
         $langId = (int) config('catalog.default_language_id');
 
         $q = trim((string) $request->query('q', ''));
-        $manufacturerFilter = (string) $request->query('manufacturer', 'all');
+        $brandFilter = (string) $request->query('brand', 'all');
         $groupFilter = (string) $request->query('group', 'all');
         $onStore = (string) $request->query('on_store', 'all');
 
@@ -494,9 +494,9 @@ class ShopeeProductController extends Controller
             ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
-            ->leftJoin($pfx . 'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
+            ->leftJoin($pfx . 'brand as m', 'p.brand_id', '=', 'm.brand_id')
             ->leftJoinSub(ShopeeStoreProducts::query(), 'os', 'os.product_id', '=', 'p.product_id')
-            ->select('p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as manufacturer_name', 'os.product_id as on_store_pid');
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as brand_name', 'os.product_id as on_store_pid');
 
         if ($q !== '') {
             $query->where(function ($sub) use ($q) {
@@ -505,8 +505,8 @@ class ShopeeProductController extends Controller
                     ->orWhere('p.sku', 'like', '%' . $q . '%');
             });
         }
-        if ($manufacturerFilter !== 'all') {
-            $query->where('p.manufacturer_id', (int) $manufacturerFilter);
+        if ($brandFilter !== 'all') {
+            $query->where('p.brand_id', (int) $brandFilter);
         }
         if ($groupFilter === 'none') {
             $groupedIds = $this->getGroupProductMapping()['ids'] ?? [];
@@ -540,10 +540,10 @@ class ShopeeProductController extends Controller
             'products' => $products,
             'paginator' => $products,
             'productThumbsById' => $productThumbsById,
-            'allManufacturers' => DB::table($pfx . 'manufacturer')->orderBy('name')->pluck('name', 'manufacturer_id'),
+            'allBrands' => DB::table($pfx . 'brand')->orderBy('name')->pluck('name', 'brand_id'),
             'allGroups' => ShopeeProductGroup::query()->orderBy('name')->pluck('name', 'id'),
             'q' => $q,
-            'manufacturerFilter' => $manufacturerFilter,
+            'brandFilter' => $brandFilter,
             'groupFilter' => $groupFilter,
             'onStore' => $onStore,
             'sort' => $sort,
@@ -1002,7 +1002,7 @@ class ShopeeProductController extends Controller
                 'p.product_id', 'pd.name', 'pd.description', 'p.image',
                 'p.sku', 'p.price', 'p.quantity', 'p.status',
                 'p.weight', 'p.length', 'p.width', 'p.height',
-                'p.manufacturer_id',
+                'p.brand_id',
             ]);
 
         if (!$product) {

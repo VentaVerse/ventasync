@@ -68,15 +68,15 @@
                 @endforeach
 
                 @foreach([
-                    \App\Services\Media\BrandImage::NAV => 'Sidebar logo height (px)',
-                    \App\Services\Media\BrandImage::LOGIN => 'Sign-in logo height (px)',
+                    \App\Services\Media\LogoImage::NAV => 'Sidebar logo height (px)',
+                    \App\Services\Media\LogoImage::LOGIN => 'Sign-in logo height (px)',
                 ] as $place => $label)
                     <x-ui.field :label="$label" for="st-logo-{{ $place }}-h" name="logo_{{ $place }}_h">
                         <x-ui.input type="number" id="st-logo-{{ $place }}-h" name="logo_{{ $place }}_h"
-                                    min="{{ \App\Services\Media\BrandImage::LIMITS['h'][0] }}"
-                                    max="{{ \App\Services\Media\BrandImage::LIMITS['h'][1] }}"
+                                    min="{{ \App\Services\Media\LogoImage::LIMITS['h'][0] }}"
+                                    max="{{ \App\Services\Media\LogoImage::LIMITS['h'][1] }}"
                                     class="fm-input--num" :readonly="$ro"
-                                    value="{{ old('logo_' . $place . '_h', \App\Services\Media\BrandImage::height($place)) }}" />
+                                    value="{{ old('logo_' . $place . '_h', \App\Services\Media\LogoImage::height($place)) }}" />
                     </x-ui.field>
                 @endforeach
             </div>

@@ -15,7 +15,7 @@ class OpenCartProductSync
 
     private array $categoryMap = [];
 
-    private array $manufacturerMap = [];
+    private array $brandMap = [];
 
     private array $optionMap = [];
 
@@ -32,9 +32,9 @@ class OpenCartProductSync
         $this->categoryMap = $map;
     }
 
-    public function setManufacturerMap(array $map): void
+    public function setBrandMap(array $map): void
     {
-        $this->manufacturerMap = $map;
+        $this->brandMap = $map;
     }
 
     public function setOptionMap(array $map): void
@@ -73,8 +73,8 @@ class OpenCartProductSync
             }
         }
 
-        if (empty($this->manufacturerMap)) {
-            $result = $this->client->getManufacturers();
+        if (empty($this->brandMap)) {
+            $result = $this->client->getBrands();
             if ($result['ok']) {
                 $ocMfgs = $result['body']['data'] ?? [];
                 foreach ($ocMfgs as $mfg) {
@@ -82,12 +82,12 @@ class OpenCartProductSync
                     $name = trim($mfg['name'] ?? '');
                     if ($ocId <= 0 || $name === '') continue;
 
-                    $local = DB::table($pfx . 'manufacturer')
+                    $local = DB::table($pfx . 'brand')
                         ->where('name', $name)
-                        ->value('manufacturer_id');
+                        ->value('brand_id');
 
                     if ($local) {
-                        $this->manufacturerMap[$ocId] = (int) $local;
+                        $this->brandMap[$ocId] = (int) $local;
                     }
                 }
             }
@@ -139,7 +139,7 @@ class OpenCartProductSync
 
         Log::info('OpenCart product sync auto-populated maps', [
             'categories'    => count($this->categoryMap),
-            'manufacturers' => count($this->manufacturerMap),
+            'brands' => count($this->brandMap),
             'options'       => count($this->optionMap),
             'optionValues'  => count($this->optionValueMap),
         ]);
@@ -275,9 +275,9 @@ class OpenCartProductSync
                 $ocPid = (int) $link->oc_product_id;
 
                 $mfgName = '';
-                if ((int) $product->manufacturer_id > 0) {
-                    $mfg = DB::table($pfx . 'manufacturer')
-                        ->where('manufacturer_id', (int) $product->manufacturer_id)
+                if ((int) $product->brand_id > 0) {
+                    $mfg = DB::table($pfx . 'brand')
+                        ->where('brand_id', (int) $product->brand_id)
                         ->first();
                     if ($mfg) $mfgName = $mfg->name;
                 }
@@ -471,9 +471,9 @@ class OpenCartProductSync
             'tag'              => $desc->tag ?? '',
         ];
 
-        if ((int) $product->manufacturer_id > 0) {
-            $mfg = DB::table($pfx . 'manufacturer')
-                ->where('manufacturer_id', (int) $product->manufacturer_id)
+        if ((int) $product->brand_id > 0) {
+            $mfg = DB::table($pfx . 'brand')
+                ->where('brand_id', (int) $product->brand_id)
                 ->first();
             if ($mfg) {
                 $payload['manufacturer_name'] = $mfg->name;
@@ -653,8 +653,8 @@ class OpenCartProductSync
         $linkedToOtherStore = false;
 
         $ocMfgId = (int) ($raw['manufacturer_id'] ?? 0);
-        $coreMfgId = ($ocMfgId > 0 && isset($this->manufacturerMap[$ocMfgId]))
-            ? $this->manufacturerMap[$ocMfgId]
+        $coreMfgId = ($ocMfgId > 0 && isset($this->brandMap[$ocMfgId]))
+            ? $this->brandMap[$ocMfgId]
             : 0;
 
         DB::transaction(function () use ($raw, $pfx, $langId, $sku, $ocProductId, $coreMfgId, &$created, &$coreProductId, &$linkedToOtherStore) {
@@ -670,7 +670,7 @@ class OpenCartProductSync
                 'quantity'        => (int) ($raw['quantity'] ?? 0),
                 'stock_status_id' => (int) ($raw['stock_status_id'] ?? 0),
                 'image'           => $raw['image'] ?? '',
-                'manufacturer_id' => $coreMfgId,
+                'brand_id' => $coreMfgId,
                 'shipping'        => (int) ($raw['shipping'] ?? 1),
                 'price'           => $raw['price'] ?? 0,
                 'points'          => (int) ($raw['points'] ?? 0),

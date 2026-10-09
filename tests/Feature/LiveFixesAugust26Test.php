@@ -39,7 +39,7 @@ class LiveFixesAugust26Test extends TestCase
         $productId = DB::table($pfx . 'product')->insertGetId([
             'model' => 'LF-1', 'sku' => 'LF', 'quantity' => 10, 'price' => 100,
             'status' => 1, 'image' => 'catalog/parent.png', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
-            'manufacturer_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
         DB::table('product_option_combinations')->insert([
             ['product_id' => $productId, 'sku' => 'LF-RED', 'quantity' => 1, 'absolute_price' => 100, 'image' => 'catalog/red.png', 'status' => 1, 'sort_order' => 1, 'created_at' => now(), 'updated_at' => now()],

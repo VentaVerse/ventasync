@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\Catalog\Manufacturer;
+use App\Models\Catalog\Brand;
 use Illuminate\Support\Facades\DB;
 
 class CatalogController extends Controller
@@ -18,24 +18,24 @@ class CatalogController extends Controller
         return (bool) preg_match('/(^|[^a-z0-9])' . preg_quote($t, '/') . '/i', $h);
     }
 
-    public function manufacturers(Request $request)
+    public function brands(Request $request)
     {
         $term = trim((string) $request->query('term',''));
         if ($term === '') {
             return response()->json([]);
         }
 
-        $rows = Manufacturer::query()
+        $rows = Brand::query()
             ->where('name', 'like', '%'.$term.'%')
             ->orderBy('name')
             ->limit(80)
-            ->get(['manufacturer_id','name']);
+            ->get(['brand_id','name']);
 
         $out = [];
         foreach ($rows as $r) {
             if ($this->isWordStartMatch((string)$r->name, $term)) {
                 $out[] = [
-                    'manufacturer_id' => (int) $r->manufacturer_id,
+                    'brand_id' => (int) $r->brand_id,
                     'name' => html_entity_decode((string)$r->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                 ];
             }

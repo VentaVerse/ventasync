@@ -263,7 +263,7 @@ class VentaCartProductGroupController extends Controller
                 $j->on('p.product_id', '=', 'pd.product_id')
                     ->where('pd.language_id', '=', $langId);
             })
-            ->leftJoin($pfx . 'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
+            ->leftJoin($pfx . 'brand as m', 'p.brand_id', '=', 'm.brand_id')
             ->leftJoin('ventacart_product_links as vpl', function ($j) use ($store) {
                 $j->on('p.product_id', '=', 'vpl.product_id')
                     ->where('vpl.store_id', '=', $store);
@@ -282,7 +282,7 @@ class VentaCartProductGroupController extends Controller
                 'p.quantity',
                 'p.status',
                 'p.image',
-                'm.name as manufacturer_name',
+                'm.name as brand_name',
                 'vpl.ventacart_product_id',
                 'vpl.sku as ventacart_sku',
                 'vpgp.sync_status',
@@ -619,7 +619,7 @@ class VentaCartProductGroupController extends Controller
                     $j->on('p.product_id', '=', 'pd.product_id')
                         ->where('pd.language_id', '=', $langId);
                 })
-                ->leftJoin($pfx . 'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
+                ->leftJoin($pfx . 'brand as m', 'p.brand_id', '=', 'm.brand_id')
                 ->where('p.product_id', $pid)
                 ->first([
                     'p.product_id', 'pd.name', 'pd.description', 'p.model', 'p.sku',
@@ -1118,7 +1118,7 @@ class VentaCartProductGroupController extends Controller
         $langId = (int) config('catalog.default_language_id');
         $q = trim((string) $request->input('q'));
         $categoryId = (int) $request->input('category_id', 0);
-        $manufacturerId = (int) $request->input('manufacturer_id', 0);
+        $brandId = (int) $request->input('brand_id', 0);
 
         $query = DB::table($pfx . 'product as p')
             ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
@@ -1132,8 +1132,8 @@ class VentaCartProductGroupController extends Controller
                   ->where('ptc.category_id', $categoryId);
         }
 
-        if ($manufacturerId > 0) {
-            $query->where('p.manufacturer_id', $manufacturerId);
+        if ($brandId > 0) {
+            $query->where('p.brand_id', $brandId);
         }
 
         if (strlen($q) >= 2) {

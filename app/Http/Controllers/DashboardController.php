@@ -6,7 +6,7 @@ use App\Channels\ChannelRegistry;
 use App\Models\Catalog\Order;
 use App\Models\Catalog\Product;
 use App\Models\Catalog\Category;
-use App\Models\Catalog\Manufacturer;
+use App\Models\Catalog\Brand;
 use App\Models\Catalog\OrderStatus;
 use App\Support\StoreKey;
 use Illuminate\Http\Request;

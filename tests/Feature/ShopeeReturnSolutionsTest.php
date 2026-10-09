@@ -54,7 +54,7 @@ class ShopeeReturnSolutionsTest extends TestCase
 
     public function test_someone_with_no_shopee_permission_cannot_ask(): void
     {
-        $outsider = $this->userWith(['view_catalog/manufacturer', 'view_catalog/category', 'view_api/catalog', 'view_catalog/product', 'view_catalog/product_image']);
+        $outsider = $this->userWith(['view_catalog/brand', 'view_catalog/category', 'view_api/catalog', 'view_catalog/product', 'view_catalog/product_image']);
 
         $this->actingAs($outsider)
             ->get(route('ext.shopee.orders.return_solutions', ['returnSn' => '220106202649696']))

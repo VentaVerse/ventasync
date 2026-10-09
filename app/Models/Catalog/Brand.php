@@ -2,13 +2,13 @@
 
 namespace App\Models\Catalog;
 
-class Manufacturer extends BaseModel
+class Brand extends BaseModel
 {
-    protected $primaryKey = 'manufacturer_id';
+    protected $primaryKey = 'brand_id';
     protected $fillable = ['name','image','sort_order'];
 
     public function getTable()
     {
-        return $this->tableName('manufacturer');
+        return $this->tableName('brand');
     }
 }

@@ -48,7 +48,7 @@ return [
         'sales/order' => 'Orders',
         'catalog/product' => 'Products',
         'catalog/category' => 'Categories',
-        'catalog/manufacturer' => 'Manufacturers',
+        'catalog/brand' => 'Brands',
         'catalog/product_image' => 'Product Images',
         'catalog/product_option' => 'Variations',
         'purchasing/purchase_order' => 'Purchase Orders',

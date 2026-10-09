@@ -437,15 +437,15 @@ class LazadaAttributes
         return $s;
     }
 
-    public function suggestBrandFromManufacturer(?string $manufacturerName): array
+    public function suggestBrandFromBrand(?string $brandName): array
     {
-        $manufacturerName = trim((string)$manufacturerName);
-        if ($manufacturerName === '') {
+        $brandName = trim((string)$brandName);
+        if ($brandName === '') {
             return ['brand_id' => null, 'brand_name' => null];
         }
 
         $region = $this->region();
-        $needle = $this->normalizeName($manufacturerName);
+        $needle = $this->normalizeName($brandName);
 
         $all = LazadaBrand::query()
             ->where('region', $region)

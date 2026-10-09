@@ -30,7 +30,7 @@ class ProductSortSelectTest extends TestCase
         $id = DB::table($p . 'product')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 1, 'price' => 100,
             'status' => 1, 'image' => '', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
-            'manufacturer_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
         DB::table($p . 'product_description')->insert([
             'product_id' => $id, 'language_id' => (int) config('catalog.default_language_id'),

@@ -64,8 +64,8 @@ class SettingController extends Controller
             'image_thumb_size'    => ['nullable', 'integer', 'between:' . implode(',', \App\Services\Media\ImageCache::LIMITS['thumb'])],
             'image_preview_size'  => ['nullable', 'integer', 'between:' . implode(',', \App\Services\Media\ImageCache::LIMITS['preview'])],
             'image_push_size'     => ['nullable', 'integer', 'between:' . implode(',', \App\Services\Media\ImageCache::LIMITS['push'])],
-            'logo_nav_h'          => ['nullable', 'integer', 'between:' . implode(',', \App\Services\Media\BrandImage::LIMITS['h'])],
-            'logo_login_h'        => ['nullable', 'integer', 'between:' . implode(',', \App\Services\Media\BrandImage::LIMITS['h'])],
+            'logo_nav_h'          => ['nullable', 'integer', 'between:' . implode(',', \App\Services\Media\LogoImage::LIMITS['h'])],
+            'logo_login_h'        => ['nullable', 'integer', 'between:' . implode(',', \App\Services\Media\LogoImage::LIMITS['h'])],
         ]);
         foreach ([
             'image_thumb_size', 'image_preview_size', 'image_push_size',
@@ -111,7 +111,7 @@ class SettingController extends Controller
 
         MailConfigServiceProvider::flushCache();
         \App\Services\Media\ImageCache::forget();
-        \App\Services\Media\BrandImage::forget();
+        \App\Services\Media\LogoImage::forget();
 
         $changes = ActivityLogger::diff($original, $setting->getAttributes(), [
             'company_name', 'company_email', 'phone', 'address_line1', 'address_line2', 'city', 'state', 'postal_code', 'country',
