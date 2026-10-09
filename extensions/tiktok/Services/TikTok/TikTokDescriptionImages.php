@@ -2,7 +2,7 @@
 
 namespace Extensions\TikTok\Services\TikTok;
 
-use App\Integrations\Listings\RichDescription;
+use App\Channels\Listings\RichDescription;
 use App\Services\Media\StoreReadyImages;
 use Extensions\TikTok\Models\TikTokApiLog;
 use Extensions\TikTok\Models\TikTokDescriptionImage;

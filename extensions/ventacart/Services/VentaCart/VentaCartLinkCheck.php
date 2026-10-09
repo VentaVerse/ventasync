@@ -12,7 +12,7 @@ class VentaCartLinkCheck
     {
         $linked = \Extensions\VentaCart\Models\VentaCartProductLink::query()->where('ventacart_setting_id', $setting->id)
             ->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
-        $linked = \App\Integrations\Support\LinkCheckCursor::rotate('ventacart:' . (int) $setting->id, $linked);
+        $linked = \App\Channels\Support\LinkCheckCursor::rotate('ventacart:' . (int) $setting->id, $linked);
 
         return $linked !== [] ? $this->run($setting, $linked) : null;
     }

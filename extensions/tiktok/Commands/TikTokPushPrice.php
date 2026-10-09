@@ -10,7 +10,7 @@ use Extensions\TikTok\Services\TikTok\TikTokStockPricePush;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
-class TikTokPushPrice extends Command implements \App\Integrations\Contracts\SteppableAutomation
+class TikTokPushPrice extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     protected $signature = 'tiktok:push-price';
 

@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 
 trait DrivesGroupSendRuns
 {
-    abstract protected function groupSendIntegration(): string;
+    abstract protected function groupSendChannel(): string;
 
     abstract protected function groupSendStoreId(Request $request): int;
 
@@ -31,7 +31,7 @@ trait DrivesGroupSendRuns
         $groupId = $this->groupSendGroupId($request);
         $runner = app(AutomationRunner::class);
         $run = $runner->beginWork(
-            $this->groupSendIntegration(),
+            $this->groupSendChannel(),
             $this->groupSendStoreId($request),
             'group:' . $groupId,
             $this->groupSendMembers($groupId),
@@ -80,7 +80,7 @@ trait DrivesGroupSendRuns
         return AutomationRun::query()
             ->whereKey((int) $request->route('run'))
             ->whereNull('scheduled_job_id')
-            ->where('integration', $this->groupSendIntegration())
+            ->where('extension', $this->groupSendChannel())
             ->where('store_id', $this->groupSendStoreId($request))
             ->where('subject', 'group:' . $this->groupSendGroupId($request))
             ->firstOrFail();

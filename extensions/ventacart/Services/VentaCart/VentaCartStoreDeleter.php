@@ -43,7 +43,7 @@ final class VentaCartStoreDeleter
             }
             if (Schema::hasTable('scheduled_jobs')) {
                 $removed['scheduled_jobs'] = DB::table('scheduled_jobs')
-                    ->where('integration', 'ventacart')->where('store_id', $store->id)->delete();
+                    ->where('extension', 'ventacart')->where('store_id', $store->id)->delete();
             }
             DB::table('ventacart_settings')->where('id', $store->id)->delete();
 

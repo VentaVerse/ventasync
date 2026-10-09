@@ -21,8 +21,8 @@ class ClearCopiedShippingCost extends Command
                 $join->on('ot.order_id', '=', 'o.order_id')->where('ot.code', '=', 'shipping');
             })
             ->where(function ($query) {
-                $query->where('o.marketplace_source', 'like', 'ventacart:%')
-                    ->orWhere('o.marketplace_source', 'like', 'woocommerce:%');
+                $query->where('o.channel', 'like', 'ventacart:%')
+                    ->orWhere('o.channel', 'like', 'woocommerce:%');
             })
             ->where('o.shipping_cost', '>', 0)
             ->whereRaw('ABS(o.shipping_cost - ot.value) < 0.005')

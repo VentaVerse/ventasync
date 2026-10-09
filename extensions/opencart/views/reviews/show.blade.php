@@ -1,6 +1,6 @@
 @extends('layouts.blotter')
-@section('title', 'Review ' . $review->platform_review_id)
-@section('breadcrumb', $review->platform_review_id)
+@section('title', 'Review ' . $review->channel_review_id)
+@section('breadcrumb', $review->channel_review_id)
 
 @section('content')
 @php
@@ -67,7 +67,7 @@
     <div class="od-stamps">
         <span class="od-stamp">
             <span class="od-stamp__k">Channel</span>
-            <span class="od-stamp__v">{{ Str::headline($review->platform) }}</span>
+            <span class="od-stamp__v">{{ Str::headline($review->channel) }}</span>
         </span>
         <span class="od-stamp">
             <span class="od-stamp__k">Reviewed</span>
@@ -264,18 +264,18 @@
                 <div class="od-card__body od-card__body--tight">
                     <div class="od-fact">
                         <span class="od-fact__k">Review</span>
-                        <span class="od-fact__v od-fact__v--mono">{{ $review->platform_review_id }}</span>
+                        <span class="od-fact__v od-fact__v--mono">{{ $review->channel_review_id }}</span>
                     </div>
-                    @if($review->platform_item_id)
+                    @if($review->channel_item_id)
                         <div class="od-fact">
                             <span class="od-fact__k">Listing</span>
-                            <span class="od-fact__v od-fact__v--mono">{{ $review->platform_item_id }}</span>
+                            <span class="od-fact__v od-fact__v--mono">{{ $review->channel_item_id }}</span>
                         </div>
                     @endif
-                    @if($review->platform_order_id)
+                    @if($review->channel_order_id)
                         <div class="od-fact">
                             <span class="od-fact__k">Order</span>
-                            <span class="od-fact__v od-fact__v--mono">{{ $review->platform_order_id }}</span>
+                            <span class="od-fact__v od-fact__v--mono">{{ $review->channel_order_id }}</span>
                         </div>
                     @endif
                     @if($review->product_id)

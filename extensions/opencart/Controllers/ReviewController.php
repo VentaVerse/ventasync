@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Process;
 
 class ReviewController extends Controller
 {
-    private const PLATFORMS = [
+    private const CHANNELS = [
         'all'    => ['label' => 'All'],
         'shopee' => ['label' => 'Shopee'],
         'lazada' => ['label' => 'Lazada'],
@@ -21,7 +21,7 @@ class ReviewController extends Controller
 
     public function index(Request $request)
     {
-        $platform   = trim((string) $request->get('platform', 'all'));
+        $channel   = trim((string) $request->get('channel', 'all'));
         $rating     = (int) $request->get('rating', 0);
         $syncStatus = trim((string) $request->get('sync_status', ''));
         $hasMedia   = trim((string) $request->get('has_media', ''));
@@ -39,8 +39,8 @@ class ReviewController extends Controller
             ->select('marketplace_reviews.*', 'pd.name as product_name')
             ->orderByDesc('marketplace_reviews.reviewed_at');
 
-        if ($platform !== 'all' && isset(self::PLATFORMS[$platform])) {
-            $query->where('marketplace_reviews.platform', $platform);
+        if ($channel !== 'all' && isset(self::CHANNELS[$channel])) {
+            $query->where('marketplace_reviews.channel', $channel);
         }
 
         if ($rating > 0 && $rating <= 5) {
@@ -80,19 +80,19 @@ class ReviewController extends Controller
 
         $reviews = $query->paginate(50)->withQueryString();
 
-        $platformCounts = [];
-        $platformCounts['all'] = MarketplaceReview::count();
-        $platformCounts['shopee'] = MarketplaceReview::where('platform', 'shopee')->count();
-        $platformCounts['lazada'] = MarketplaceReview::where('platform', 'lazada')->count();
+        $channelCounts = [];
+        $channelCounts['all'] = MarketplaceReview::count();
+        $channelCounts['shopee'] = MarketplaceReview::where('channel', 'shopee')->count();
+        $channelCounts['lazada'] = MarketplaceReview::where('channel', 'lazada')->count();
 
         $avgRating = MarketplaceReview::avg('rating');
         $pendingCount = MarketplaceReview::where('oc_sync_status', 'pending')->count();
 
-        $platforms = self::PLATFORMS;
+        $channels = self::CHANNELS;
 
         return view('ext-opencart::reviews.index', compact(
-            'reviews', 'platform', 'rating', 'syncStatus', 'hasMedia', 'q', 'dateFrom', 'dateTo',
-            'platforms', 'platformCounts', 'avgRating', 'pendingCount'
+            'reviews', 'channel', 'rating', 'syncStatus', 'hasMedia', 'q', 'dateFrom', 'dateTo',
+            'channels', 'channelCounts', 'avgRating', 'pendingCount'
         ));
     }
 
@@ -147,8 +147,8 @@ class ReviewController extends Controller
             'rating'             => $review->rating,
             'status'             => $autoApprove ? 1 : 0,
             'date_added'         => $review->reviewed_at?->format('Y-m-d H:i:s') ?? now()->format('Y-m-d H:i:s'),
-            'platform'           => $review->platform,
-            'platform_review_id' => $review->platform_review_id,
+            'platform'           => $review->channel,
+            'platform_review_id' => $review->channel_review_id,
         ]);
 
         if ($res['ok'] ?? false) {
@@ -223,8 +223,8 @@ class ReviewController extends Controller
                     'rating'             => $review->rating,
                     'status'             => $autoApprove ? 1 : 0,
                     'date_added'         => $review->reviewed_at?->format('Y-m-d H:i:s') ?? now()->format('Y-m-d H:i:s'),
-                    'platform'           => $review->platform,
-                    'platform_review_id' => $review->platform_review_id,
+                    'platform'           => $review->channel,
+                    'platform_review_id' => $review->channel_review_id,
                 ]);
 
                 if ($res['ok'] ?? false) {
@@ -258,34 +258,34 @@ class ReviewController extends Controller
         $data = $request->validate([
             'date_from' => 'required|date',
             'date_to'   => 'required|date|after_or_equal:date_from',
-            'platform'  => 'nullable|string|in:all,shopee,lazada',
+            'channel'  => 'nullable|string|in:all,shopee,lazada',
         ]);
 
         $from = $data['date_from'];
-        $platform = $data['platform'] ?? 'all';
+        $channel = $data['channel'] ?? 'all';
         $daysBack = max(1, (int) abs(now()->diffInDays(\Carbon\Carbon::parse($from))) + 1);
 
         $php = PHP_BINARY ?: '/usr/bin/php';
         $artisan = base_path('artisan');
         $launched = [];
 
-        if ($platform === 'all' || $platform === 'shopee') {
+        if ($channel === 'all' || $channel === 'shopee') {
             \Extensions\Shopee\Models\ShopeeSetting::query()->update(['last_review_sync_at' => $from . ' 00:00:00']);
             Process::start([$php, $artisan, 'shopee:sync-reviews', '--days=' . $daysBack]);
             $launched[] = 'Shopee';
         }
 
-        if ($platform === 'all' || $platform === 'lazada') {
+        if ($channel === 'all' || $channel === 'lazada') {
             \Extensions\Lazada\Models\LazadaSetting::query()->update(['last_review_sync_at' => $from . ' 00:00:00']);
             Process::start([$php, $artisan, 'lazada:sync-reviews', '--days=' . $daysBack, '--limit=100']);
             $launched[] = 'Lazada';
         }
 
-        $platformLabel = implode(' + ', $launched);
+        $channelLabel = implode(' + ', $launched);
 
         return redirect()->route('ext.opencart.reviews.index')->with('review_result', [
             'ok'      => true,
-            'message' => "Fetching reviews in background ({$platformLabel}). Refresh the page in a few minutes to see results.",
+            'message' => "Fetching reviews in background ({$channelLabel}). Refresh the page in a few minutes to see results.",
         ]);
     }
 

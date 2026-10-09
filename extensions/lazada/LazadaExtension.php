@@ -3,26 +3,26 @@
 namespace Extensions\Lazada;
 
 use App\Extensions\ExtensionProvider;
-use App\Integrations\Contracts\CredentialRevealer;
-use App\Integrations\Concerns\RevealsCredentials;
-use App\Integrations\Contracts\DashboardContributor;
-use App\Integrations\Contracts\LayoutBannerContributor;
-use App\Integrations\Contracts\ListingStateSource;
-use App\Integrations\Contracts\MarketplaceSourceOptionsProvider;
-use App\Integrations\Contracts\MobileMarketplaceProvider;
-use App\Integrations\Contracts\OrderFeesContributor;
-use App\Integrations\Contracts\OrderImagesContributor;
-use App\Integrations\Contracts\SkuResolver;
-use App\Integrations\Contracts\SkuSyncContributor;
+use App\Channels\Contracts\CredentialRevealer;
+use App\Channels\Concerns\RevealsCredentials;
+use App\Channels\Contracts\DashboardContributor;
+use App\Channels\Contracts\LayoutBannerContributor;
+use App\Channels\Contracts\ListingStateSource;
+use App\Channels\Contracts\ChannelOptionsProvider;
+use App\Channels\Contracts\MobileMarketplaceProvider;
+use App\Channels\Contracts\OrderFeesContributor;
+use App\Channels\Contracts\OrderImagesContributor;
+use App\Channels\Contracts\SkuResolver;
+use App\Channels\Contracts\SkuSyncContributor;
 use Illuminate\Http\Request;
 use App\Models\Catalog\Order;
-use App\Integrations\Dto\RecentOrder;
-use App\Integrations\Dto\TopProduct;
-use App\Integrations\IntegrationCard;
-use App\Integrations\IntegrationProvider;
-use App\Integrations\IntegrationRegistry;
-use App\Integrations\MenuItem;
-use App\Integrations\OrderTab;
+use App\Channels\Dto\RecentOrder;
+use App\Channels\Dto\TopProduct;
+use App\Channels\ChannelCard;
+use App\Channels\ChannelProvider;
+use App\Channels\ChannelRegistry;
+use App\Channels\MenuItem;
+use App\Channels\OrderTab;
 use Extensions\Lazada\Models\LazadaApiLog;
 use Extensions\Lazada\Models\LazadaOrder;
 use Extensions\Lazada\Models\LazadaProduct;
@@ -33,7 +33,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver, SkuSyncContributor, DashboardContributor, OrderImagesContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, \App\Integrations\Contracts\MobileFulfilmentProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, ListingStateSource, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter, \App\Integrations\Contracts\MarketplaceOrderRefRenderer, \App\Integrations\Contracts\SaleLinesSource
+class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuResolver, SkuSyncContributor, DashboardContributor, OrderImagesContributor, OrderFeesContributor, \App\Channels\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, \App\Channels\Contracts\MobileFulfilmentProvider, LayoutBannerContributor, ChannelOptionsProvider, CredentialRevealer, ListingStateSource, \App\Channels\Contracts\StoreOptionsProvider, \App\Channels\Contracts\ProductRemover, \App\Channels\Contracts\VariationForgetter, \App\Channels\Contracts\MarketplaceOrderRefRenderer, \App\Channels\Contracts\SaleLinesSource
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['unpaid'],
@@ -68,7 +68,7 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
             \Extensions\Lazada\Commands\LazadaSyncReviews::class,
         ]);
 
-        $this->app->make(IntegrationRegistry::class)->register($this);
+        $this->app->make(ChannelRegistry::class)->register($this);
 
         $this->app->make(\App\Services\Payouts\PayoutRegistry::class)->register(new \App\Services\Payouts\PayoutChannel(
             id: 'lazada',
@@ -86,17 +86,13 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
         \Extensions\Lazada\Services\Lazada\LazadaVariationForgetter::forget($productId, $skus);
     }
 
-    public function integrationId(): string
-    {
-        return $this->id;
-    }
 
-    public function integrationCards(): array
+    public function channelCards(): array
     {
         $stores = [];
         foreach ($this->allStores() as $store) {
             $p = ['store' => (int) $store->id];
-            $stores[] = new \App\Integrations\StoreLink(
+            $stores[] = new \App\Channels\StoreLink(
                 id: $this->id . ':' . $store->id,
                 label: $store->store_name ?: ('Store #' . $store->id),
                 menu: [
@@ -123,16 +119,16 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
         }
 
         return [
-            new IntegrationCard(
+            new ChannelCard(
                 id: $this->id,
                 name: 'Lazada',
-                tagline: 'Lazada marketplace integration. Products, orders, returns.',
+                tagline: 'Lazada marketplace channel. Products, orders, returns.',
                 icon: 'lazada',
                 accent: '#0f146d',
                 permission: 'view_lazada/dashboard',
                 menu: [],
                 stores: $stores,
-                addStore: new \App\Integrations\AddStoreAction(
+                addStore: new \App\Channels\AddStoreAction(
                     route: 'ext.lazada.stores.store',
                     permission: 'manage_lazada/settings',
                     label: 'Add store',
@@ -450,7 +446,7 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
                 try {
                     $sum = app(\Extensions\Lazada\Services\Lazada\LazadaListingStates::class)->summary();
                     $attention = (int) $sum['attention'];
-                    $flags = \App\Integrations\Listings\ListingTrouble::figures($sum, fn (string $bucket) => route('ext.lazada.products.index', ['store' => $lzSetting->id, 'state' => $bucket]));
+                    $flags = \App\Channels\Listings\ListingTrouble::figures($sum, fn (string $bucket) => route('ext.lazada.products.index', ['store' => $lzSetting->id, 'state' => $bucket]));
                 } catch (\Throwable) {
                 }
 
@@ -494,7 +490,7 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
                 app()->instance('lazada.route-store', $store);
                 $sum = app(\Extensions\Lazada\Services\Lazada\LazadaListingStates::class)->summary();
                 $attention = (int) $sum['attention'];
-                $flags = \App\Integrations\Listings\ListingTrouble::figures($sum, fn (string $bucket) => route('ext.lazada.products.index', ['store' => $store->id, 'state' => $bucket]));
+                $flags = \App\Channels\Listings\ListingTrouble::figures($sum, fn (string $bucket) => route('ext.lazada.products.index', ['store' => $store->id, 'state' => $bucket]));
             } catch (\Throwable) {
             } finally {
                 if ($previous !== null) {
@@ -584,8 +580,8 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
             return null;
         }
 
-        $payload = \App\Integrations\Orders\FeePayload::decode($row->fees);
-        if (\App\Integrations\Orders\FeePayload::isEmpty($payload)) {
+        $payload = \App\Channels\Orders\FeePayload::decode($row->fees);
+        if (\App\Channels\Orders\FeePayload::isEmpty($payload)) {
             return null;
         }
 
@@ -597,17 +593,17 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
         }
 
         return [
-            'commission' => \App\Integrations\Orders\FeePayload::amount($payload, 'commission'),
-            'payment' => \App\Integrations\Orders\FeePayload::amount($payload, 'payment_fee'),
-            'shipping' => \App\Integrations\Orders\FeePayload::amount($payload, 'shipping_service_cost'),
+            'commission' => \App\Channels\Orders\FeePayload::amount($payload, 'commission'),
+            'payment' => \App\Channels\Orders\FeePayload::amount($payload, 'payment_fee'),
+            'shipping' => \App\Channels\Orders\FeePayload::amount($payload, 'shipping_service_cost'),
             'other' => $other,
-            'voucher' => \App\Integrations\Orders\FeePayload::amount($payload, 'voucher_seller'),
+            'voucher' => \App\Channels\Orders\FeePayload::amount($payload, 'voucher_seller'),
         ];
     }
 
-    public function renderOrderRef(string $marketplaceSource, string $marketplaceOrderId): ?array
+    public function renderOrderRef(string $orderChannel, string $marketplaceOrderId): ?array
     {
-        if ($marketplaceSource !== 'lazada') {
+        if ($orderChannel !== 'lazada') {
             return null;
         }
 
@@ -618,7 +614,7 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
 
     public function feesForOrder(Order $order): ?array
     {
-        if ((string) $order->marketplace_source !== 'lazada') {
+        if ((string) $order->channel !== 'lazada') {
             return null;
         }
 

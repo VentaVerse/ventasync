@@ -249,7 +249,7 @@ class VentaCartListingPageTest extends TestCase
             ]);
         }
         VentaCartProductLink::create(['ventacart_setting_id' => $store->id, 'product_id' => $pid, 'ventacart_product_id' => 5001, 'sku' => 'TEE']);
-        DB::table(\App\Integrations\Listings\ListingVariations::TABLE)->insert(['channel' => 'ventacart', 'store_id' => $store->id, 'product_id' => $pid, 'sku' => 'tee-m']);
+        DB::table(\App\Channels\Listings\ListingVariations::TABLE)->insert(['channel' => 'ventacart', 'store_id' => $store->id, 'product_id' => $pid, 'sku' => 'tee-m']);
         $group = VentaCartProductGroup::create(['ventacart_setting_id' => $store->id, 'name' => 'Tees']);
         VentaCartProductGroupProduct::create(['ventacart_product_group_id' => $group->id, 'product_id' => $pid]);
 
@@ -270,7 +270,7 @@ class VentaCartListingPageTest extends TestCase
         $this->assertNull(VentaCartListing::where('ventacart_setting_id', $store->id)->where('product_id', $pid)->value('last_push_error'),
             'a variation the store lacks is not a failed push');
         $this->assertNotSame('error', DB::table('ventacart_product_group_products')->where('product_id', $pid)->value('sync_status'));
-        $this->assertSame(['TEE-L'], array_column(\App\Integrations\Listings\ListingVariations::missing('ventacart', $store->id, [$pid])[$pid] ?? [], 'sku'));
+        $this->assertSame(['TEE-L'], array_column(\App\Channels\Listings\ListingVariations::missing('ventacart', $store->id, [$pid])[$pid] ?? [], 'sku'));
     }
 
     public function test_the_scheduled_stock_push_sends_only_what_the_store_sells_and_names_what_it_lacks(): void
@@ -410,15 +410,15 @@ class VentaCartListingPageTest extends TestCase
         Http::fake([self::BASE . '/*' => Http::response(['error' => 'Product not found'], 404)]);
 
         $prefix = DescriptionTemplate::create([
-            'integration' => 'ventacart', 'store_id' => $store->id, 'name' => 'Returns',
+            'channel' => 'ventacart', 'store_id' => $store->id, 'name' => 'Returns',
             'body' => '<p>Returns accepted within 30 days.</p>',
         ]);
         $suffix = DescriptionTemplate::create([
-            'integration' => 'ventacart', 'store_id' => $store->id, 'name' => 'Warranty',
+            'channel' => 'ventacart', 'store_id' => $store->id, 'name' => 'Warranty',
             'body' => '<p>One year warranty.</p><script>alert("xss-script")</script><img src="javascript:alert(\'xss-src\')" onerror="alert(\'xss-onerror\')">',
         ]);
         $foreign = DescriptionTemplate::create([
-            'integration' => 'ventacart', 'store_id' => $store->id + 1000, 'name' => 'Elsewhere', 'body' => 'Another store policy',
+            'channel' => 'ventacart', 'store_id' => $store->id + 1000, 'name' => 'Elsewhere', 'body' => 'Another store policy',
         ]);
         VentaCartListing::create([
             'ventacart_setting_id' => $store->id, 'product_id' => $pid,
@@ -536,7 +536,7 @@ class VentaCartListingPageTest extends TestCase
             'currency_id' => 1, 'currency_code' => 'PHP', 'currency_value' => 1,
             'ip' => '', 'forwarded_ip' => '', 'user_agent' => '', 'accept_language' => '',
             'courier_id' => 0, 'tracking_number' => '', 'oe_import' => 0,
-            'marketplace_source' => 'ventacart:' . $store->id, 'marketplace_order_id' => '77',
+            'channel' => 'ventacart:' . $store->id, 'marketplace_order_id' => '77',
             'shipping_cost' => 0, 'payment_cost' => 0, 'extra_cost' => 0,
             'date_added' => '2026-06-15 10:00:00', 'date_modified' => '2026-06-15 10:00:00',
         ]);
@@ -603,7 +603,7 @@ class VentaCartListingPageTest extends TestCase
         };
 
         $pull($order);
-        $url = fn () => DB::table($pfx . 'order')->where('marketplace_source', 'ventacart:' . $store->id)->where('marketplace_order_id', '88')->value('tracking_url');
+        $url = fn () => DB::table($pfx . 'order')->where('channel', 'ventacart:' . $store->id)->where('marketplace_order_id', '88')->value('tracking_url');
         $this->assertSame('https://app.gogoxpress.com/track/QX12345', $url());
 
         unset($order['tracking_link']);
@@ -975,8 +975,8 @@ class VentaCartListingPageTest extends TestCase
         \Extensions\VentaCart\Models\VentaCartProductLink::create(['ventacart_setting_id' => $store->id, 'ventacart_product_id' => 9001, 'product_id' => $pid, 'sku' => 'GP-200']);
         \Extensions\VentaCart\Models\VentaCartListing::create(['ventacart_setting_id' => $store->id, 'product_id' => $pid, 'live_status' => 'active', 'live_checked_at' => now(), 'last_pushed_at' => now()]);
         $states = (new \Extensions\VentaCart\VentaCartExtension($this->app))->listingStates([$pid, $nowhere]);
-        $this->assertSame(\App\Integrations\Listings\ListingState::LIVE, $states[$pid]->state);
-        $this->assertSame(\App\Integrations\Listings\ListingState::NOT_LISTED, $states[$nowhere]->state);
+        $this->assertSame(\App\Channels\Listings\ListingState::LIVE, $states[$pid]->state);
+        $this->assertSame(\App\Channels\Listings\ListingState::NOT_LISTED, $states[$nowhere]->state);
         $this->assertContains($pid, (new \Extensions\VentaCart\VentaCartExtension($this->app))->listedProductIds());
         $this->assertStringContainsString('/listings/' . $pid, (new \Extensions\VentaCart\VentaCartExtension($this->app))->listingUrls([$pid])[$pid]);
 

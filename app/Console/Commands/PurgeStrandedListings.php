@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Integrations\IntegrationRegistry;
+use App\Channels\ChannelRegistry;
 use App\Services\Catalog\ProductDeleter;
 use Illuminate\Console\Command;
 
@@ -12,7 +12,7 @@ class PurgeStrandedListings extends Command
 
     protected $description = 'Remove channel listings whose catalog product was deleted before deletes reached the channels';
 
-    public function handle(IntegrationRegistry $registry, ProductDeleter $deleter): int
+    public function handle(ChannelRegistry $registry, ProductDeleter $deleter): int
     {
         $ids = [];
         foreach ($registry->productRemovers() as $remover) {

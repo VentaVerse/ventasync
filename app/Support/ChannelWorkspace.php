@@ -2,10 +2,10 @@
 
 namespace App\Support;
 
-use App\Integrations\IntegrationCard;
-use App\Integrations\IntegrationRegistry;
-use App\Integrations\MenuItem;
-use App\Integrations\StoreLink;
+use App\Channels\ChannelCard;
+use App\Channels\ChannelRegistry;
+use App\Channels\MenuItem;
+use App\Channels\StoreLink;
 use App\Models\User;
 use App\Support\Money;
 use Illuminate\Support\Carbon;
@@ -16,21 +16,21 @@ class ChannelWorkspace
 {
     public const GROUPS = ['Sell', 'Catalog', 'Channel'];
 
-    public function __construct(private IntegrationRegistry $registry)
+    public function __construct(private ChannelRegistry $registry)
     {
     }
 
-    public function card(string $channel, ?User $user): ?IntegrationCard
+    public function card(string $channel, ?User $user): ?ChannelCard
     {
         return $this->resolve($this->registry->visibleCards($user), $channel);
     }
 
-    public function cardForAuthorisedPage(string $channel, ?User $user): ?IntegrationCard
+    public function cardForAuthorisedPage(string $channel, ?User $user): ?ChannelCard
     {
         return $this->resolve($this->registry->cardsForAuthorisedRequest($user), $channel);
     }
 
-    private function resolve(array $cards, string $channel): ?IntegrationCard
+    private function resolve(array $cards, string $channel): ?ChannelCard
     {
         $parsed = $this->parseKey($channel);
 
@@ -103,7 +103,7 @@ class ChannelWorkspace
         return [$channelId, (int) $storeId];
     }
 
-    private function storeOn(IntegrationCard $card, ?int $storeId): ?StoreLink
+    private function storeOn(ChannelCard $card, ?int $storeId): ?StoreLink
     {
         if ($storeId === null) {
             return null;
@@ -118,7 +118,7 @@ class ChannelWorkspace
         return null;
     }
 
-    public function store(IntegrationCard $card, ?string $channel): ?StoreLink
+    public function store(ChannelCard $card, ?string $channel): ?StoreLink
     {
         if ($channel === null) {
             return null;
@@ -133,12 +133,12 @@ class ChannelWorkspace
         return $this->storeOn($card, $parsed[1]);
     }
 
-    private function menuFor(IntegrationCard $card, ?string $channel): array
+    private function menuFor(ChannelCard $card, ?string $channel): array
     {
         return $this->store($card, $channel)?->menu ?? $card->menu;
     }
 
-    public function hasWorkspace(IntegrationCard $card): bool
+    public function hasWorkspace(ChannelCard $card): bool
     {
         if ($card->stores !== []) {
             foreach ($card->stores as $store) {
@@ -161,12 +161,12 @@ class ChannelWorkspace
         return false;
     }
 
-    public function state(IntegrationCard $card, ?string $channel = null): string
+    public function state(ChannelCard $card, ?string $channel = null): string
     {
         return $this->stateWithReason($card, $channel)['state'];
     }
 
-    public function stateWithReason(IntegrationCard $card, ?string $channel = null): array
+    public function stateWithReason(ChannelCard $card, ?string $channel = null): array
     {
         $store = $this->store($card, $channel);
 
@@ -219,7 +219,7 @@ class ChannelWorkspace
         };
     }
 
-    public function waiting(IntegrationCard $card, ?User $user, ?string $channel = null): array
+    public function waiting(ChannelCard $card, ?User $user, ?string $channel = null): array
     {
         $tab = null;
 
@@ -258,7 +258,7 @@ class ChannelWorkspace
         ];
     }
 
-    public function health(IntegrationCard $card, ?string $channel = null): array
+    public function health(ChannelCard $card, ?string $channel = null): array
     {
         $figures = $this->tokenFigures($card->id, $this->storeIdOf($this->store($card, $channel)));
 
@@ -310,7 +310,7 @@ class ChannelWorkspace
         ];
     }
 
-    public function action(IntegrationCard $card, string $state, ?User $user, ?string $channel = null): ?array
+    public function action(ChannelCard $card, string $state, ?User $user, ?string $channel = null): ?array
     {
         if ($state === 'setup') {
             if ($card->id === 'shopee' && Route::has('ext.shopee.authorize')) {
@@ -497,7 +497,7 @@ class ChannelWorkspace
         return ctype_digit($suffix) ? (int) $suffix : null;
     }
 
-    public function groups(IntegrationCard $card, ?User $user, ?string $channel = null): array
+    public function groups(ChannelCard $card, ?User $user, ?string $channel = null): array
     {
         $buckets = array_fill_keys(self::GROUPS, []);
 

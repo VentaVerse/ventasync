@@ -3,23 +3,23 @@
 namespace Extensions\Shopee;
 
 use App\Extensions\ExtensionProvider;
-use App\Integrations\Contracts\DashboardContributor;
-use App\Integrations\Contracts\LayoutBannerContributor;
-use App\Integrations\Contracts\MarketplaceSourceOptionsProvider;
-use App\Integrations\Contracts\MobileMarketplaceProvider;
-use App\Integrations\Contracts\OrderFeesContributor;
-use App\Integrations\Contracts\RootRouteHandler;
-use App\Integrations\Contracts\SkuSyncContributor;
+use App\Channels\Contracts\DashboardContributor;
+use App\Channels\Contracts\LayoutBannerContributor;
+use App\Channels\Contracts\ChannelOptionsProvider;
+use App\Channels\Contracts\MobileMarketplaceProvider;
+use App\Channels\Contracts\OrderFeesContributor;
+use App\Channels\Contracts\RootRouteHandler;
+use App\Channels\Contracts\SkuSyncContributor;
 use App\Models\Catalog\Order;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use App\Integrations\Dto\RecentOrder;
-use App\Integrations\Dto\TopProduct;
-use App\Integrations\IntegrationCard;
-use App\Integrations\IntegrationProvider;
-use App\Integrations\IntegrationRegistry;
-use App\Integrations\MenuItem;
-use App\Integrations\OrderTab;
+use App\Channels\Dto\RecentOrder;
+use App\Channels\Dto\TopProduct;
+use App\Channels\ChannelCard;
+use App\Channels\ChannelProvider;
+use App\Channels\ChannelRegistry;
+use App\Channels\MenuItem;
+use App\Channels\OrderTab;
 use Extensions\Shopee\Models\ShopeeApiLog;
 use Extensions\Shopee\Models\ShopeeOrder;
 use Extensions\Shopee\Models\ShopeeProductLink;
@@ -29,11 +29,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-use App\Integrations\Contracts\CredentialRevealer;
-use App\Integrations\Contracts\ListingStateSource;
-use App\Integrations\Concerns\RevealsCredentials;
+use App\Channels\Contracts\CredentialRevealer;
+use App\Channels\Contracts\ListingStateSource;
+use App\Channels\Concerns\RevealsCredentials;
 
-class ShopeeExtension extends ExtensionProvider implements ListingStateSource, IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, \App\Integrations\Contracts\MobileFulfilmentProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, RootRouteHandler, CredentialRevealer, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter, \App\Integrations\Contracts\MarketplaceOrderRefRenderer, \App\Integrations\Contracts\SaleLinesSource
+class ShopeeExtension extends ExtensionProvider implements ListingStateSource, ChannelProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, \App\Channels\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, \App\Channels\Contracts\MobileFulfilmentProvider, LayoutBannerContributor, ChannelOptionsProvider, RootRouteHandler, CredentialRevealer, \App\Channels\Contracts\WebhookReceiver, \App\Channels\Contracts\StoreOptionsProvider, \App\Channels\Contracts\ProductRemover, \App\Channels\Contracts\VariationForgetter, \App\Channels\Contracts\MarketplaceOrderRefRenderer, \App\Channels\Contracts\SaleLinesSource
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],
@@ -80,7 +80,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             \Extensions\Shopee\Commands\ShopeeSyncReviews::class,
         ]);
 
-        $this->app->make(IntegrationRegistry::class)->register($this);
+        $this->app->make(ChannelRegistry::class)->register($this);
 
         $this->app->make(\App\Services\Payouts\PayoutRegistry::class)->register(new \App\Services\Payouts\PayoutChannel(
             id: 'shopee',
@@ -98,17 +98,13 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         \Extensions\Shopee\Services\Shopee\ShopeeVariationForgetter::forget($productId, $skus);
     }
 
-    public function integrationId(): string
-    {
-        return $this->id;
-    }
 
-    public function integrationCards(): array
+    public function channelCards(): array
     {
         $stores = [];
         foreach ($this->allStores() as $store) {
             $p = ['store' => (int) $store->id];
-            $stores[] = new \App\Integrations\StoreLink(
+            $stores[] = new \App\Channels\StoreLink(
                 id: $this->id . ':' . $store->id,
                 label: $store->store_name ?: ('Store #' . $store->id),
                 menu: [
@@ -135,10 +131,10 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         }
 
         return [
-            new IntegrationCard(
+            new ChannelCard(
                 id: $this->id,
                 name: 'Shopee',
-                tagline: 'Shopee marketplace integration. OAuth, products, orders, returns.',
+                tagline: 'Shopee marketplace channel. OAuth, products, orders, returns.',
                 icon: 'shopee',
                 accent: '#ee4d2d',
                 permission: 'view_shopee/dashboard',
@@ -146,7 +142,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                     new MenuItem('Settings', 'ext.shopee.index', 'view_shopee/settings', group: 'Channel'),
                 ],
                 stores: $stores,
-                addStore: new \App\Integrations\AddStoreAction(
+                addStore: new \App\Channels\AddStoreAction(
                     route: 'ext.shopee.stores.store',
                     permission: 'manage_shopee/settings',
                     label: 'Add store',
@@ -418,7 +414,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                 try {
                     $sum = app(\Extensions\Shopee\Services\Shopee\ShopeeListingStates::class)->summary();
                     $attention = (int) $sum['attention'];
-                    $flags = \App\Integrations\Listings\ListingTrouble::figures($sum, fn (string $bucket) => route('ext.shopee.products.index', ['store' => $spSetting->id, 'state' => $bucket]));
+                    $flags = \App\Channels\Listings\ListingTrouble::figures($sum, fn (string $bucket) => route('ext.shopee.products.index', ['store' => $spSetting->id, 'state' => $bucket]));
                 } catch (\Throwable) {
                 }
 
@@ -462,7 +458,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                 app()->instance('shopee.route-store', $store);
                 $sum = app(\Extensions\Shopee\Services\Shopee\ShopeeListingStates::class)->summary();
                 $attention = (int) $sum['attention'];
-                $flags = \App\Integrations\Listings\ListingTrouble::figures($sum, fn (string $bucket) => route('ext.shopee.products.index', ['store' => $store->id, 'state' => $bucket]));
+                $flags = \App\Channels\Listings\ListingTrouble::figures($sum, fn (string $bucket) => route('ext.shopee.products.index', ['store' => $store->id, 'state' => $bucket]));
             } catch (\Throwable) {
             } finally {
                 if ($previous !== null) {
@@ -509,13 +505,13 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             return null;
         }
 
-        $payload = \App\Integrations\Orders\FeePayload::decode($row->fees);
+        $payload = \App\Channels\Orders\FeePayload::decode($row->fees);
         $income = is_array($payload['order_income'] ?? null) ? $payload['order_income'] : $payload;
-        if (\App\Integrations\Orders\FeePayload::isEmpty($income)) {
+        if (\App\Channels\Orders\FeePayload::isEmpty($income)) {
             return null;
         }
 
-        $amount = fn (string $k) => \App\Integrations\Orders\FeePayload::amount($income, $k);
+        $amount = fn (string $k) => \App\Channels\Orders\FeePayload::amount($income, $k);
 
         $borne = $amount('actual_shipping_fee')
             - $amount('shopee_shipping_rebate')
@@ -538,9 +534,9 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         ];
     }
 
-    public function renderOrderRef(string $marketplaceSource, string $marketplaceOrderId): ?array
+    public function renderOrderRef(string $orderChannel, string $marketplaceOrderId): ?array
     {
-        if ($marketplaceSource !== 'shopee') {
+        if ($orderChannel !== 'shopee') {
             return null;
         }
 
@@ -551,7 +547,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
 
     public function feesForOrder(Order $order): ?array
     {
-        if ((string) $order->marketplace_source !== 'shopee') {
+        if ((string) $order->channel !== 'shopee') {
             return null;
         }
 

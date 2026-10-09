@@ -7,7 +7,7 @@ use Extensions\VentaCart\Models\VentaCartSetting;
 use Extensions\VentaCart\Services\VentaCart\VentaCartStockPricePush;
 use Illuminate\Console\Command;
 
-class VentaCartPushStock extends Command implements \App\Integrations\Contracts\SteppableAutomation
+class VentaCartPushStock extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     protected $signature = 'ventacart:push-stock
         {--store= : Store ID (ventacart_settings.id). Omit to push for all enabled stores}';

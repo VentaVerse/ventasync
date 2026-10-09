@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Extensions\ExtensionManager;
-use App\Integrations\Listings\ListingVariations;
+use App\Channels\Listings\ListingVariations;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;

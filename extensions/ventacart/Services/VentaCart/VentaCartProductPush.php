@@ -84,7 +84,7 @@ class VentaCartProductPush
             'width'       => $parcel['width'],
             'height'      => $parcel['height'],
             'status'      => (bool) $prod->status,
-            'description' => \App\Integrations\Listings\ListingContent::wrapDescription(
+            'description' => \App\Channels\Listings\ListingContent::wrapDescription(
                 (string) ($overrides['description'] ?? ($prod->description ?? '')),
                 'ventacart',
                 (int) $this->setting->id,
@@ -136,7 +136,7 @@ class VentaCartProductPush
             ->orderBy('poc.sort_order')
             ->get();
 
-        $hidden = \App\Integrations\Listings\ListingVariations::hidden('ventacart', (int) $this->setting->id, [$pid]);
+        $hidden = \App\Channels\Listings\ListingVariations::hidden('ventacart', (int) $this->setting->id, [$pid]);
 
         if ($combos->isNotEmpty()) {
             $comboValues = DB::table('product_option_combination_values as pocv')
@@ -161,7 +161,7 @@ class VentaCartProductPush
                     'quantity'    => (int) $c->quantity,
                     'weight'      => $weight,
                     'image'       => $variantImage($c->image ?? null),
-                    'status'      => \App\Integrations\Listings\ListingVariations::allows($hidden, $pid, $c->sku),
+                    'status'      => \App\Channels\Listings\ListingVariations::allows($hidden, $pid, $c->sku),
                 ];
             }
 
@@ -217,7 +217,7 @@ class VentaCartProductPush
                 'quantity'    => (int) $ov->variant_qty,
                 'weight'      => $weight,
                 'image'       => $variantImage(null),
-                'status'      => \App\Integrations\Listings\ListingVariations::allows($hidden, $pid, (string) ($ov->variant_sku ?? '')),
+                'status'      => \App\Channels\Listings\ListingVariations::allows($hidden, $pid, (string) ($ov->variant_sku ?? '')),
             ];
         }
 
@@ -426,13 +426,13 @@ class VentaCartProductPush
             return self::outcome(false, 'failed', 'The Master Catalog product no longer exists.');
         }
 
-        if (\App\Integrations\Listings\ListingVariations::noneSold('ventacart', (int) $this->setting->id, $productId)) {
-            return self::outcome(false, 'failed', \App\Integrations\Listings\ListingVariations::noneSoldMessage((string) $this->setting->store_name));
+        if (\App\Channels\Listings\ListingVariations::noneSold('ventacart', (int) $this->setting->id, $productId)) {
+            return self::outcome(false, 'failed', \App\Channels\Listings\ListingVariations::noneSoldMessage((string) $this->setting->store_name));
         }
 
         $readiness = VentaCartListingReadiness::forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => []];
         if (! $readiness['ready']) {
-            return self::outcome(false, 'failed', \App\Integrations\Listings\CatalogGaps::refusal($readiness));
+            return self::outcome(false, 'failed', \App\Channels\Listings\CatalogGaps::refusal($readiness));
         }
         $sku = self::skuOf($prod);
 
@@ -477,7 +477,7 @@ class VentaCartProductPush
     public function rememberHeld(int $productId, iterable $skus): void
     {
         $pfx = (string) config('catalog.prefix');
-        if ((\App\Integrations\Push\PushLedger::erpVariationSkus([$productId], $pfx)[$productId] ?? []) === []) {
+        if ((\App\Channels\Push\PushLedger::erpVariationSkus([$productId], $pfx)[$productId] ?? []) === []) {
             return;
         }
         $own = DB::table($pfx . 'product')->where('product_id', $productId)->first(['sku', 'model']);
@@ -489,7 +489,7 @@ class VentaCartProductPush
                 $held[] = $sku;
             }
         }
-        \App\Integrations\Listings\ListingVariations::remember('ventacart', (int) $this->setting->id, $productId, $held);
+        \App\Channels\Listings\ListingVariations::remember('ventacart', (int) $this->setting->id, $productId, $held);
     }
 
     private function rememberAnswer(int $productId, array $result): void

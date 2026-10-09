@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers\Concerns;
 
-use App\Integrations\Listings\CatalogCopy;
-use App\Integrations\Listings\ListingContent;
-use App\Integrations\Listings\ListingImages;
+use App\Channels\Listings\CatalogCopy;
+use App\Channels\Listings\ListingContent;
+use App\Channels\Listings\ListingImages;
 use App\Services\Catalog\CatalogBasicsWriter;
 use App\Support\BackTo;
 use App\Support\Catalog\ProductImages;

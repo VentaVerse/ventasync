@@ -86,7 +86,7 @@ class TikTokCatalogOrderSync
             }
 
             if (!$catalogOrder) {
-                $catalogOrder = Order::where('marketplace_source', 'tiktok')
+                $catalogOrder = Order::where('channel', 'tiktok')
                     ->where('marketplace_order_id', $tiktokOrderId)
                     ->first();
             }
@@ -166,7 +166,7 @@ class TikTokCatalogOrderSync
                 'accept_language'       => '',
                 'courier_id'            => 0,
                 'tracking_number'       => $trackingNumber,
-                'marketplace_source'    => 'tiktok',
+                'channel'    => 'tiktok',
                 'marketplace_order_id'  => $tiktokOrderId,
                 'oe_import'             => 0,
             ];

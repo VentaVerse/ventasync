@@ -115,7 +115,7 @@ class TikTokStockPushHealTest extends TestCase
     {
         $pid = $this->comboProduct(['RM-1' => 1, 'RM-2' => 2, 'RM-3' => 3]);
         $storeId = (int) TikTokSetting::defaultStore()->id;
-        $missing = fn () => array_column(\App\Integrations\Listings\ListingVariations::missing('tiktok', $storeId, [$pid])[$pid] ?? [], 'sku');
+        $missing = fn () => array_column(\App\Channels\Listings\ListingVariations::missing('tiktok', $storeId, [$pid])[$pid] ?? [], 'sku');
         $this->getProductAnswers['tt-rm'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'data' => [
             'status' => 'ACTIVATE', 'title' => 'TT', 'skus' => [
                 ['id' => 's1', 'seller_sku' => 'RM-1', 'inventory' => []],

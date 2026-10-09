@@ -60,7 +60,7 @@ final class LazadaAppFulfilment
     {
         return AppFulfilment::answer(
             AppFulfilment::webOutcome($answer, 'lazada_orders_last_result'),
-            app(\App\Integrations\IntegrationRegistry::class)->mobileProviderFor('lazada')?->mobileShowResponse($id),
+            app(\App\Channels\ChannelRegistry::class)->mobileProviderFor('lazada')?->mobileShowResponse($id),
         );
     }
 

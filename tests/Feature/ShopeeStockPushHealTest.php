@@ -121,13 +121,13 @@ class ShopeeStockPushHealTest extends TestCase
         $repair = app(\Extensions\Shopee\Services\Shopee\ShopeeModelLinkRepair::class);
 
         $this->assertSame('models', $repair->forItem($auth, $pid, 900, ['rr-1', 'rr-2', 'rr-3'])['mode']);
-        $missing = \App\Integrations\Listings\ListingVariations::missing('shopee', $storeId, [$pid]);
+        $missing = \App\Channels\Listings\ListingVariations::missing('shopee', $storeId, [$pid]);
         $this->assertSame(['RR-3'], array_column($missing[$pid] ?? [], 'sku'));
-        $this->assertStringContainsString('STRANGER', (string) DB::table(\App\Integrations\Listings\ListingVariations::STORE_SKUS)->where('product_id', $pid)->value('skus'), 'an unmatched model is still held');
+        $this->assertStringContainsString('STRANGER', (string) DB::table(\App\Channels\Listings\ListingVariations::STORE_SKUS)->where('product_id', $pid)->value('skus'), 'an unmatched model is still held');
 
         $this->getResponses['/api/v2/product/get_model_list'] = ['ok' => false, 'status' => 500, 'body' => ['error' => 'error', 'message' => 'down']];
         $this->assertArrayHasKey('error', $repair->forItem($auth, $pid, 900, ['rr-1', 'rr-2', 'rr-3']));
-        $missing = \App\Integrations\Listings\ListingVariations::missing('shopee', $storeId, [$pid]);
+        $missing = \App\Channels\Listings\ListingVariations::missing('shopee', $storeId, [$pid]);
         $this->assertSame(['RR-3'], array_column($missing[$pid] ?? [], 'sku'));
     }
 
@@ -352,7 +352,7 @@ class ShopeeStockPushHealTest extends TestCase
             $pids[] = $pid;
         }
         $job = \App\Models\ScheduledJob::create([
-            'integration' => 'shopee', 'display_name' => 'Push Stock', 'command' => 'shopee:push-stock',
+            'extension' => 'shopee', 'display_name' => 'Push Stock', 'command' => 'shopee:push-stock',
             'cadence_value' => 30, 'cadence_unit' => 'minute', 'enabled' => true, 'options' => [],
         ]);
         $user = $this->automationsManager();
@@ -387,7 +387,7 @@ class ShopeeStockPushHealTest extends TestCase
         $this->assertSame('Stopped after 10 products of 12: 10 ok.', \App\Services\AutomationRunner::outcome(\App\Models\AutomationRun::find($third['id'])));
 
         $whole = \App\Models\ScheduledJob::create([
-            'integration' => 'shopee', 'display_name' => 'Say something', 'command' => 'inspire',
+            'extension' => 'shopee', 'display_name' => 'Say something', 'command' => 'inspire',
             'cadence_value' => 1, 'cadence_unit' => 'hour', 'enabled' => false, 'options' => [],
         ]);
         $this->actingAs($user)->postJson(route('automations.run', $whole->id))->assertOk()->assertJsonPath('done', true)->assertJsonPath('ok', true);
@@ -424,7 +424,7 @@ class ShopeeStockPushHealTest extends TestCase
         $this->getResponses['/api/v2/order/get_order_list'] = ['ok' => true, 'status' => 200, 'body' => ['error' => '', 'response' => ['order_list' => [], 'more' => false]]];
         $this->getResponses['/api/v2/returns/get_return_list'] = ['ok' => true, 'status' => 200, 'body' => ['error' => '', 'response' => ['return' => [], 'more' => false]]];
         $job = \App\Models\ScheduledJob::create([
-            'integration' => 'shopee', 'display_name' => 'Sync Orders', 'command' => 'shopee:sync-orders',
+            'extension' => 'shopee', 'display_name' => 'Sync Orders', 'command' => 'shopee:sync-orders',
             'cadence_value' => 15, 'cadence_unit' => 'minute', 'enabled' => true, 'options' => ['no_returns' => true],
         ]);
         $user = $this->automationsManager();

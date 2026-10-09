@@ -21,10 +21,10 @@ class OrderFetchRun extends Model
         'date_to' => 'date',
     ];
 
-    public static function resumable(string $integration, ?int $storeId): ?self
+    public static function resumable(string $channel, ?int $storeId): ?self
     {
         return static::query()
-            ->where('integration', $integration)
+            ->where('channel', $channel)
             ->where(fn ($q) => $storeId === null ? $q->whereNull('store_id') : $q->where('store_id', $storeId))
             ->whereIn('status', [self::STOPPED, self::FAILED, self::RUNNING])
             ->orderByDesc('id')

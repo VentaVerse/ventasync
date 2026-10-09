@@ -13,7 +13,7 @@ class ShopeeItemCreate
 {
     public function catalogImagePaths(object $product, ?ShopeeListing $listing = null): array
     {
-        $paths = \App\Integrations\Listings\ListingImages::sending(
+        $paths = \App\Channels\Listings\ListingImages::sending(
             \App\Support\Catalog\ProductImages::paths((int) $product->product_id, $listing?->image_order),
             $listing
         );
@@ -140,7 +140,7 @@ class ShopeeItemCreate
             $logisticInfo[] = ['logistic_id' => (int) $lid, 'enabled' => true];
         }
 
-        $content = \App\Integrations\Listings\ListingContent::of(
+        $content = \App\Channels\Listings\ListingContent::of(
             $listing, $itemName, $description, 'shopee', (int) ($listing->shopee_setting_id ?? 0)
         );
 
@@ -150,11 +150,11 @@ class ShopeeItemCreate
             'item_name' => mb_substr($content['title'], 0, 255),
             'seller_stock' => [['stock' => max(0, (int) $product->quantity)]],
             'item_sku' => (string) ($product->sku ?? ''),
-            'weight' => \App\Integrations\Listings\ParcelPrecision::of($listing->weight, $product->weight, \App\Integrations\Listings\ParcelPrecision::SHOPEE['weight']),
+            'weight' => \App\Channels\Listings\ParcelPrecision::of($listing->weight, $product->weight, \App\Channels\Listings\ParcelPrecision::SHOPEE['weight']),
             'dimension' => [
-                'package_length' => \App\Integrations\Listings\ParcelPrecision::of($listing->package_length, $product->length, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
-                'package_width' => \App\Integrations\Listings\ParcelPrecision::of($listing->package_width, $product->width, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
-                'package_height' => \App\Integrations\Listings\ParcelPrecision::of($listing->package_height, $product->height, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
+                'package_length' => \App\Channels\Listings\ParcelPrecision::of($listing->package_length, $product->length, \App\Channels\Listings\ParcelPrecision::SHOPEE['dimension']),
+                'package_width' => \App\Channels\Listings\ParcelPrecision::of($listing->package_width, $product->width, \App\Channels\Listings\ParcelPrecision::SHOPEE['dimension']),
+                'package_height' => \App\Channels\Listings\ParcelPrecision::of($listing->package_height, $product->height, \App\Channels\Listings\ParcelPrecision::SHOPEE['dimension']),
             ],
             'category_id' => (int) $listing->shopee_category_id,
             'image' => ['image_id_list' => $imageIds],

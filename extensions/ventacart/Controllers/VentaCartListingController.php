@@ -240,12 +240,12 @@ class VentaCartListingController extends Controller
         $langId = (int) config('catalog.default_language_id');
 
         $q = trim((string) $request->get('q', ''));
-        $groupFilter = \App\Integrations\Listings\StatusMenu::group($request->get('group'));
+        $groupFilter = \App\Channels\Listings\StatusMenu::group($request->get('group'));
         $erpStatus = (string) $request->get('erp_status', 'all');
         $syncStatus = (string) $request->get('sync_status', 'all');
         $syncStatus = ['listed' => 'uploaded', 'not_listed' => 'not_uploaded'][$syncStatus] ?? $syncStatus;
         if ($syncStatus !== 'error') {
-            $syncStatus = \App\Integrations\Listings\StatusMenu::stand($syncStatus);
+            $syncStatus = \App\Channels\Listings\StatusMenu::stand($syncStatus);
         }
         $failedFlag = $request->boolean('failed') || $syncStatus === 'error';
         $changeFlag = $request->boolean('change');
@@ -322,7 +322,7 @@ class VentaCartListingController extends Controller
         }
         $states = \Extensions\VentaCart\Services\VentaCart\VentaCartListingStates::for($store);
 
-        $troubleFilter = \App\Integrations\Listings\ListingTrouble::asked($request->query('state'));
+        $troubleFilter = \App\Channels\Listings\ListingTrouble::asked($request->query('state'));
         if ($troubleFilter !== null) {
             $query->whereIn('p.product_id', $states->productIdsIn($troubleFilter) ?: [0]);
         }
@@ -422,7 +422,7 @@ class VentaCartListingController extends Controller
         }
         $groupRail[] = [
             'id' => 'none',
-            'name' => \App\Integrations\Listings\StatusMenu::UNGROUPED,
+            'name' => \App\Channels\Listings\StatusMenu::UNGROUPED,
             'count' => $applyGroup(clone $railBase, 'none')->count(),
         ];
 
@@ -433,9 +433,9 @@ class VentaCartListingController extends Controller
         $applyMenu($query);
         $applyTab($query);
 
-        $storeId = \App\Integrations\Listings\ListingStore::id('ventacart');
+        $storeId = \App\Channels\Listings\ListingStore::id('ventacart');
         $sortMenu = \Extensions\VentaCart\Services\VentaCartListingSort::columns($storeId);
-        $order = \App\Integrations\Listings\ListingSort::chosen($request, 'ventacart.listings.' . $storeId);
+        $order = \App\Channels\Listings\ListingSort::chosen($request, 'ventacart.listings.' . $storeId);
         if ($request->filled('sort')) {
             $query->orderBy($sortColumns[$sort], $dir);
             if ($sortColumns[$sort] !== 'p.product_id') {
@@ -443,7 +443,7 @@ class VentaCartListingController extends Controller
             }
         } else {
             \Extensions\VentaCart\Services\VentaCartListingSort::join($query, $storeId);
-            \App\Integrations\Listings\ListingSort::apply($query, $order, $sortMenu);
+            \App\Channels\Listings\ListingSort::apply($query, $order, $sortMenu);
         }
         $products = $query->paginate(50)->withQueryString();
         foreach ($products as $row) {
@@ -460,12 +460,12 @@ class VentaCartListingController extends Controller
             $liveCheckedAt = $mirror->checkedAt();
         }
         if ($fillError !== null) {
-            session()->now('error', \App\Integrations\Listings\BlankFillRefusal::sentence((string) $setting->store_name, $fillError));
+            session()->now('error', \App\Channels\Listings\BlankFillRefusal::sentence((string) $setting->store_name, $fillError));
         }
 
         $listingsByProductId = VentaCartListing::query()->where('ventacart_setting_id', $store)
             ->whereIn('product_id', $pageIds ?: [0])->get()->keyBy(fn ($l) => (int) $l->product_id);
-        $rowTitles = \App\Integrations\Listings\ListingContent::rowTitles($products, $listingsByProductId);
+        $rowTitles = \App\Channels\Listings\ListingContent::rowTitles($products, $listingsByProductId);
         $lastAttempts = VentaCartProductGroupProduct::query()
             ->whereIn('ventacart_product_group_id', $groupIds ?: [0])
             ->whereIn('product_id', $pageIds ?: [0])
@@ -477,7 +477,7 @@ class VentaCartListingController extends Controller
             'products' => $products,
             'rowTitles' => $rowTitles,
             'q' => $q, 'sort' => $sort, 'dir' => $dir,
-            'order' => $order, 'orderOptions' => \App\Integrations\Listings\ListingSort::options(array_keys($sortMenu)),
+            'order' => $order, 'orderOptions' => \App\Channels\Listings\ListingSort::options(array_keys($sortMenu)),
             'groupFilter' => $groupFilter, 'erpStatus' => $erpStatus, 'syncStatus' => $syncStatus,
             'allGroups' => VentaCartProductGroup::where('ventacart_setting_id', $store)->orderBy('name')->pluck('name', 'id'),
             'groupsByProductId' => $groupsByProductId,
@@ -496,7 +496,7 @@ class VentaCartListingController extends Controller
             'failedFlag' => $failedFlag,
             'changeFlag' => $changeFlag,
             'groupSize' => ctype_digit((string) $groupFilter) ? app(\Extensions\VentaCart\Controllers\VentaCartProductGroupController::class)->groupSendSize((int) $groupFilter) : null,
-            'statusMenu' => \App\Integrations\Listings\StatusMenu::build([
+            'statusMenu' => \App\Channels\Listings\StatusMenu::build([
                 'url' => fn (array $params) => route('ext.ventacart.listings.index', array_merge(['store' => $store], $params)),
                 'query' => $request->query(),
                 'sync' => $syncStatus,
@@ -533,7 +533,7 @@ class VentaCartListingController extends Controller
         }
         $ids = array_values(array_unique(array_map('intval', $productIds)));
 
-        return $this->readinessRich[$store] = \App\Integrations\Listings\ReadinessCache::resolve(
+        return $this->readinessRich[$store] = \App\Channels\Listings\ReadinessCache::resolve(
             'ventacart', $store, $ids,
             fn (array $x) => $this->ventaCartReadinessStamps($x, $store),
             fn (array $x) => $this->ventaCartReadinessCompute($x),
@@ -614,7 +614,7 @@ class VentaCartListingController extends Controller
 
         $groupId = (int) $request->input('group', 0);
         if ($groupId > 0) {
-            \App\Integrations\OneGroupRule::place('ventacart_product_group_products', 'ventacart_product_group_id', 'ventacart_product_groups', 'ventacart_setting_id', $store, $groupId, $productId);
+            \App\Channels\OneGroupRule::place('ventacart_product_group_products', 'ventacart_product_group_id', 'ventacart_product_groups', 'ventacart_setting_id', $store, $groupId, $productId);
         }
         if ($request->wantsJson()) {
             return response()->json(['ok' => true, 'product_id' => $productId, 'added' => ! $wasOn]);
@@ -862,7 +862,7 @@ class VentaCartListingController extends Controller
             }
         }
 
-        $groupId = \App\Integrations\Listings\ListingGroup::current([
+        $groupId = \App\Channels\Listings\ListingGroup::current([
             'pivot' => 'ventacart_product_group_products', 'fk' => 'ventacart_product_group_id',
             'groups' => 'ventacart_product_groups', 'storeFk' => 'ventacart_setting_id', 'storeId' => $store,
         ], $productId);
@@ -892,7 +892,7 @@ class VentaCartListingController extends Controller
         $hasVariations = VentaCartListing::withVariations([$productId]) !== [];
         $pushPrice = VentaCartListing::ruleFor($listing, $group)(VentaCartListing::startFor($listing, (float) $product->price, $hasVariations));
 
-        return view('ext-ventacart::listings.edit', \App\Integrations\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('ventacart_product_groups', 'ventacart_product_group_products', 'ventacart_product_group_id', $productId, 'ventacart_setting_id', $store), 'ventacart', \App\Integrations\Listings\ListingStore::id('ventacart')) + [
+        return view('ext-ventacart::listings.edit', \App\Channels\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('ventacart_product_groups', 'ventacart_product_group_products', 'ventacart_product_group_id', $productId, 'ventacart_setting_id', $store), 'ventacart', \App\Channels\Listings\ListingStore::id('ventacart')) + [
             'readiness' => \Extensions\VentaCart\Services\VentaCart\VentaCartListingReadiness::forProducts([$productId])[$productId] ?? null,
             'setting' => $setting,
             'product' => $product,
@@ -901,7 +901,7 @@ class VentaCartListingController extends Controller
             'link' => $link,
             'live' => $live,
             'liveError' => $liveError,
-            ...\App\Integrations\Listings\ListingVariations::cardData(
+            ...\App\Channels\Listings\ListingVariations::cardData(
                 'ventacart', $store, $productId,
                 ($live['state'] ?? '') === 'found' ? collect($live['variants'] ?? [])->pluck('sku')->all() : ($link ? null : [])
             ),
@@ -941,13 +941,13 @@ class VentaCartListingController extends Controller
             'meta_description' => 'nullable|string|max:500',
             'image_order' => 'nullable|string|max:20000',
             'ventacart_category_id' => 'nullable|integer|min:0',
-            ...\App\Integrations\Listings\ListingVariations::rules(),
-            ...\App\Integrations\Listings\ListingGroup::rules(),
+            ...\App\Channels\Listings\ListingVariations::rules(),
+            ...\App\Channels\Listings\ListingGroup::rules(),
         ]);
 
         $images = $request->has('image_order')
-            ? ['image_order' => \App\Integrations\Listings\ListingImages::submitted($productId, $data['image_order'] ?? null),
-               'image_off' => \App\Integrations\Listings\ListingImages::submittedOff($productId, $request->input('image_off'))]
+            ? ['image_order' => \App\Channels\Listings\ListingImages::submitted($productId, $data['image_order'] ?? null),
+               'image_off' => \App\Channels\Listings\ListingImages::submittedOff($productId, $request->input('image_off'))]
             : [];
 
         $blank =fn ($v) => ($v === null || trim((string) $v) === '') ? null : $v;
@@ -957,9 +957,9 @@ class VentaCartListingController extends Controller
             throw \Illuminate\Validation\ValidationException::withMessages(['ventacart_category_id' => 'Pick one of this store\'s categories.']);
         }
 
-        $picked = \App\Integrations\Listings\ListingGroup::submitted($request);
+        $picked = \App\Channels\Listings\ListingGroup::submitted($request);
         if ($picked['present']) {
-            \App\Integrations\Listings\ListingGroup::assign([
+            \App\Channels\Listings\ListingGroup::assign([
                 'pivot' => 'ventacart_product_group_products', 'fk' => 'ventacart_product_group_id',
                 'groups' => 'ventacart_product_groups', 'storeFk' => 'ventacart_setting_id', 'storeId' => $store,
             ], $productId, $picked['id'], ['created_at' => now(), 'updated_at' => now()]);
@@ -971,10 +971,10 @@ class VentaCartListingController extends Controller
         $currentDescription = VentaCartListing::query()->where('ventacart_setting_id', $store)->where('product_id', $productId)->value('description');
         $words = [];
         if ($request->has('name')) {
-            $words['name'] = \App\Integrations\Listings\ListingContent::own($data['name'] ?? null);
+            $words['name'] = \App\Channels\Listings\ListingContent::own($data['name'] ?? null);
         }
         if ($request->has('description')) {
-            $words['description'] = \App\Integrations\Listings\ListingContent::descriptionToSave($data['description'] ?? null, $currentDescription, $request->input('description_edited'));
+            $words['description'] = \App\Channels\Listings\ListingContent::descriptionToSave($data['description'] ?? null, $currentDescription, $request->input('description_edited'));
         }
 
         VentaCartListing::query()->updateOrCreate(
@@ -988,8 +988,8 @@ class VentaCartListingController extends Controller
                 'package_width' => $blank($data['package_width'] ?? null),
                 'package_height' => $blank($data['package_height'] ?? null),
                 'description_prefix_id' => ((int) ($data['description_prefix_id'] ?? 0)) ?: null,
-                ...\App\Integrations\Listings\ListingImages::submittedWatermark($request, 'ventacart', \App\Integrations\Listings\ListingStore::id('ventacart')),
-                ...\App\Integrations\Listings\ListingVideo::submitted($request),
+                ...\App\Channels\Listings\ListingImages::submittedWatermark($request, 'ventacart', \App\Channels\Listings\ListingStore::id('ventacart')),
+                ...\App\Channels\Listings\ListingVideo::submitted($request),
                 'description_suffix_id' => ((int) ($data['description_suffix_id'] ?? 0)) ?: null,
                 'meta_title' => $blank($data['meta_title'] ?? null),
                 'meta_description' => $blank($data['meta_description'] ?? null),
@@ -1002,7 +1002,7 @@ class VentaCartListingController extends Controller
             ->first(['g.ventacart_category_id', 'g.markup_percent', 'g.markup_fixed', 'g.watermark_template_id']);
         $savedRow = VentaCartListing::query()->where('ventacart_setting_id', $store)->where('product_id', $productId)->first();
         if ($groupRow && $savedRow) {
-            \App\Integrations\Listings\ListingGroup::follow($savedRow, [
+            \App\Channels\Listings\ListingGroup::follow($savedRow, [
                 'ventacart_category_id' => $groupRow->ventacart_category_id,
                 'watermark_template_id' => $groupRow->watermark_template_id,
                 'markup_percent' => $groupRow->markup_percent,
@@ -1013,8 +1013,8 @@ class VentaCartListingController extends Controller
             $savedRow->forceFill(['ventacart_category_id' => null])->save();
         }
 
-        if (($sellHere = \App\Integrations\Listings\ListingVariations::submitted($request)) !== null) {
-            \App\Integrations\Listings\ListingVariations::save('ventacart', $store, $productId, $sellHere);
+        if (($sellHere = \App\Channels\Listings\ListingVariations::submitted($request)) !== null) {
+            \App\Channels\Listings\ListingVariations::save('ventacart', $store, $productId, $sellHere);
         }
 
         $back = \App\Support\BackTo::safe($request->input('back'), '');
@@ -1120,7 +1120,7 @@ class VentaCartListingController extends Controller
             return redirect()->back()->with('error', 'That VentaCart store is turned off, so nothing was sent to it. Enable it in its settings first.');
         }
 
-        $answer = \App\Integrations\Push\BulkPushRun::over(
+        $answer = \App\Channels\Push\BulkPushRun::over(
             (array) $request->input('product_ids', []),
             (string) $setting->store_name,
             fn (int $productId) => $this->pushOne($setting, $productId)

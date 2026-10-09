@@ -46,7 +46,7 @@ final class TikTokAppFulfilment
         return match ($action) {
             'ship' => AppFulfilment::answer(
                 AppFulfilment::webOutcome(app()->call([$web, 'shipOrder'], ['request' => $request, 'id' => $id]), 'tiktok_orders_last_result'),
-                app(\App\Integrations\IntegrationRegistry::class)->mobileProviderFor('tiktok')?->mobileShowResponse($id),
+                app(\App\Channels\ChannelRegistry::class)->mobileProviderFor('tiktok')?->mobileShowResponse($id),
             ),
             'awb' => $this->waybill(app()->call([$web, 'awbPdf'], ['request' => $request, 'id' => $id]), (string) $order->order_id),
             'tracking' => $this->tracking(app()->call([$web, 'tracking'], ['id' => $id])),

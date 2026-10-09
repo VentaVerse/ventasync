@@ -44,7 +44,7 @@ final class ShopeeStoreDeleter
             }
 
             $removed['scheduled_jobs'] = DB::table('scheduled_jobs')
-                ->where('integration', 'shopee')->where('store_id', $store->id)->delete();
+                ->where('extension', 'shopee')->where('store_id', $store->id)->delete();
 
             DB::table('shopee_settings')->where('id', $store->id)->delete();
 

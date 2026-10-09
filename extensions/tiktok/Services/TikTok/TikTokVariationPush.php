@@ -29,11 +29,11 @@ class TikTokVariationPush
             ->orderBy('sort_order')
             ->get(['id', 'sku', 'quantity', 'absolute_price', 'image', 'status']);
 
-        $hidden = \App\Integrations\Listings\ListingVariations::hidden('tiktok', (int) (\Extensions\TikTok\Models\TikTokSetting::defaultStore()?->id ?? 0), [$productId]);
+        $hidden = \App\Channels\Listings\ListingVariations::hidden('tiktok', (int) (\Extensions\TikTok\Models\TikTokSetting::defaultStore()?->id ?? 0), [$productId]);
         if ($combos->isNotEmpty()) {
-            $combos = $combos->filter(fn ($c) => \App\Integrations\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
+            $combos = $combos->filter(fn ($c) => \App\Channels\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
             if ($combos->isEmpty()) {
-                return ['skus' => [], 'kind' => 'combos', 'keys' => [], 'refused' => \App\Integrations\Listings\ListingVariations::noneSoldMessage('TikTok Shop')];
+                return ['skus' => [], 'kind' => 'combos', 'keys' => [], 'refused' => \App\Channels\Listings\ListingVariations::noneSoldMessage('TikTok Shop')];
             }
         }
 
@@ -97,9 +97,9 @@ class TikTokVariationPush
 
         $optionValues = $this->optionValues($pfx, $langId, $productId);
         if (!empty($optionValues)) {
-            $optionValues = array_values(array_filter($optionValues, fn ($ov) => \App\Integrations\Listings\ListingVariations::allows($hidden, $productId, $ov->sku)));
+            $optionValues = array_values(array_filter($optionValues, fn ($ov) => \App\Channels\Listings\ListingVariations::allows($hidden, $productId, $ov->sku)));
             if ($optionValues === []) {
-                return ['skus' => [], 'kind' => 'pov', 'keys' => [], 'refused' => \App\Integrations\Listings\ListingVariations::noneSoldMessage('TikTok Shop')];
+                return ['skus' => [], 'kind' => 'pov', 'keys' => [], 'refused' => \App\Channels\Listings\ListingVariations::noneSoldMessage('TikTok Shop')];
             }
         }
         if (!empty($optionValues)) {

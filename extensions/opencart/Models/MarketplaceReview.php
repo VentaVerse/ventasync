@@ -11,11 +11,11 @@ class MarketplaceReview extends Model
     protected $table = 'marketplace_reviews';
 
     protected $fillable = [
-        'platform',
-        'platform_review_id',
+        'channel',
+        'channel_review_id',
         'product_id',
-        'platform_item_id',
-        'platform_order_id',
+        'channel_item_id',
+        'channel_order_id',
         'author',
         'rating',
         'comment',
@@ -55,12 +55,12 @@ class MarketplaceReview extends Model
 
     public function scopeShopee($query)
     {
-        return $query->where('platform', 'shopee');
+        return $query->where('channel', 'shopee');
     }
 
     public function scopeLazada($query)
     {
-        return $query->where('platform', 'lazada');
+        return $query->where('channel', 'lazada');
     }
 
     public function scopePending($query)

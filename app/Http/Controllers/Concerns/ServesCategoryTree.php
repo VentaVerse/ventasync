@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Concerns;
 
-use App\Integrations\Listings\CategoryTree;
-use App\Integrations\Listings\ListingStore;
+use App\Channels\Listings\CategoryTree;
+use App\Channels\Listings\ListingStore;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 

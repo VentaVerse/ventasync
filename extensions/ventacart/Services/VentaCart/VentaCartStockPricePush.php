@@ -28,7 +28,7 @@ final class VentaCartStockPricePush
         $combos = DB::table('product_option_combinations')->whereIn('product_id', $ids)->get(['product_id', 'sku', 'quantity', 'absolute_price'])->groupBy(fn ($r) => (int) $r->product_id);
         $options = DB::table($pfx . 'product_option_value')->whereIn('product_id', $ids)->whereNotNull('sku')->where('sku', '!=', '')
             ->get(['product_id', 'sku', 'quantity', 'price', 'price_prefix', 'absolute_price'])->groupBy(fn ($r) => (int) $r->product_id);
-        $hidden = \App\Integrations\Listings\ListingVariations::hidden('ventacart', (int) $this->setting->id, $ids);
+        $hidden = \App\Channels\Listings\ListingVariations::hidden('ventacart', (int) $this->setting->id, $ids);
         $listings = \Extensions\VentaCart\Models\VentaCartListing::query()->where('ventacart_setting_id', $this->setting->id)->whereIn('product_id', $ids)->get()->keyBy(fn ($l) => (int) $l->product_id);
         $groupsByProduct = DB::table('ventacart_product_group_products as gp')
             ->join('ventacart_product_groups as g', 'g.id', '=', 'gp.ventacart_product_group_id')
@@ -48,7 +48,7 @@ final class VentaCartStockPricePush
             $fine = true;
             $why = '';
             $allVariants = ($combos->get($pid) ?? collect())->isNotEmpty() ? $combos->get($pid) : ($options->get($pid) ?? collect());
-            $variants = $allVariants->filter(fn ($v) => \App\Integrations\Listings\ListingVariations::allows($hidden, $pid, (string) ($v->sku ?? '')));
+            $variants = $allVariants->filter(fn ($v) => \App\Channels\Listings\ListingVariations::allows($hidden, $pid, (string) ($v->sku ?? '')));
             if ($allVariants->isNotEmpty() && $variants->isEmpty()) {
                 $out['skipped']++;
                 continue;
@@ -131,7 +131,7 @@ final class VentaCartStockPricePush
     private function rememberHeld(int $productId, array $answers): void
     {
         $held = [];
-        $before = DB::table(\App\Integrations\Listings\ListingVariations::STORE_SKUS)
+        $before = DB::table(\App\Channels\Listings\ListingVariations::STORE_SKUS)
             ->where('channel', 'ventacart')->where('store_id', $this->setting->id)->where('product_id', $productId)
             ->value('skus');
         foreach ((array) json_decode((string) $before, true) as $sku) {
@@ -145,7 +145,7 @@ final class VentaCartStockPricePush
                 $held[] = $sku;
             }
         }
-        \App\Integrations\Listings\ListingVariations::remember('ventacart', (int) $this->setting->id, $productId, $held);
+        \App\Channels\Listings\ListingVariations::remember('ventacart', (int) $this->setting->id, $productId, $held);
     }
 
     public static function variantPrice(object $v, float $basePrice): float

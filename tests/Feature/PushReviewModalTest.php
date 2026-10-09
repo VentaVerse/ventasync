@@ -94,7 +94,7 @@ class PushReviewModalTest extends TestCase
     {
         $pid = $this->seedProduct('Ceramic Dripper', 'CD-2');
         $storeId = (int) ShopeeSetting::query()->value('id');
-        $prefix = \App\Models\DescriptionTemplate::query()->create(['integration' => 'shopee', 'store_id' => $storeId, 'name' => 'Returns', 'body' => 'Returns within 7 days.']);
+        $prefix = \App\Models\DescriptionTemplate::query()->create(['channel' => 'shopee', 'store_id' => $storeId, 'name' => 'Returns', 'body' => 'Returns within 7 days.']);
         ShopeeListing::create([
             'product_id' => $pid, 'shopee_setting_id' => $storeId, 'shopee_category_id' => 100200,
             'logistic_ids' => [8003], 'description_prefix_id' => $prefix->id,

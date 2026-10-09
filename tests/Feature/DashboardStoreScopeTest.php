@@ -39,9 +39,9 @@ class DashboardStoreScopeTest extends TestCase
     {
         $a = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
         $b = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Outlet']);
-        $this->coreOrder(['marketplace_source' => 'shopee', 'store_id' => $a->id, 'store_name' => 'Main store', 'total' => 100]);
-        $this->coreOrder(['marketplace_source' => 'shopee', 'store_id' => $b->id, 'store_name' => 'Outlet', 'total' => 300]);
-        $this->coreOrder(['marketplace_source' => 'shopee', 'store_id' => 424242, 'store_name' => 'Gone store', 'total' => 50]);
+        $this->coreOrder(['channel' => 'shopee', 'store_id' => $a->id, 'store_name' => 'Main store', 'total' => 100]);
+        $this->coreOrder(['channel' => 'shopee', 'store_id' => $b->id, 'store_name' => 'Outlet', 'total' => 300]);
+        $this->coreOrder(['channel' => 'shopee', 'store_id' => 424242, 'store_name' => 'Gone store', 'total' => 50]);
         $user = $this->viewer();
 
         $all = $this->actingAs($user)->get(route('dashboard'))->assertOk();
@@ -68,7 +68,7 @@ class DashboardStoreScopeTest extends TestCase
     public function test_one_store_on_a_channel_ranks_under_the_channel_name(): void
     {
         $a = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
-        $this->coreOrder(['marketplace_source' => 'shopee', 'store_id' => $a->id, 'store_name' => 'Main store']);
+        $this->coreOrder(['channel' => 'shopee', 'store_id' => $a->id, 'store_name' => 'Main store']);
 
         $slices = $this->actingAs($this->viewer())->get(route('dashboard'))->assertOk()->viewData('platformSlices');
         $this->assertSame('Shopee: Main store', $slices[0]['name']);

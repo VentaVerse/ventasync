@@ -80,7 +80,7 @@ class Order extends BaseModel
         'date_added',
         'date_modified',
         'oe_import',
-        'marketplace_source',
+        'channel',
         'marketplace_order_id',
         'track_payments',
     ];

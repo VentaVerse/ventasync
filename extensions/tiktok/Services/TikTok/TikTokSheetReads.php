@@ -2,7 +2,7 @@
 
 namespace Extensions\TikTok\Services\TikTok;
 
-use App\Integrations\Listings\SheetReads;
+use App\Channels\Listings\SheetReads;
 use Extensions\TikTok\Models\TikTokCategoryTemplate;
 use Extensions\TikTok\Models\TikTokListing;
 use Extensions\TikTok\Models\TikTokProductGroup;

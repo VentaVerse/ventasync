@@ -619,7 +619,7 @@ $pfx = config('catalog.prefix');
                 'op.order_product_id',
                 'o.order_id',
                 'o.date_added',
-                'o.marketplace_source',
+                'o.channel',
                 'op.name',
                 'op.quantity',
                 'op.price',
@@ -653,7 +653,7 @@ $pfx = config('catalog.prefix');
         }
 
         $sourceLabelsMap = [];
-        foreach (app(\App\Integrations\IntegrationRegistry::class)->availableMarketplaceSourceOptions() as $opt) {
+        foreach (app(\App\Channels\ChannelRegistry::class)->availableChannelOptions() as $opt) {
             $sourceLabelsMap[$opt['value']] = $opt;
         }
 

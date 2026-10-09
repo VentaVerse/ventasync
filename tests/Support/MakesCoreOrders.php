@@ -25,7 +25,7 @@ trait MakesCoreOrders
             'store_id' => 0, 'payment_country_id' => 0, 'payment_zone_id' => 0, 'shipping_country_id' => 0, 'shipping_zone_id' => 0,
             'affiliate_id' => 0, 'commission' => 0, 'marketing_id' => 0, 'language_id' => 1, 'currency_id' => 1, 'currency_code' => 'PHP',
             'currency_value' => 1, 'courier_id' => 0, 'oe_import' => 0, 'total' => 100, 'order_status_id' => $revenueStatus,
-            'marketplace_source' => '', 'marketplace_order_id' => uniqid('t'), 'firstname' => 'Test', 'lastname' => 'Buyer',
+            'channel' => '', 'marketplace_order_id' => uniqid('t'), 'firstname' => 'Test', 'lastname' => 'Buyer',
             'date_added' => $now, 'date_modified' => $now,
         ], $overrides);
 

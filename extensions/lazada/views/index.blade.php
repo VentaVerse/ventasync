@@ -732,7 +732,7 @@
             <h2 class="fm-section__title">Scheduled jobs</h2>
             <x-ui.hint label="About the scheduled jobs">How often each Lazada sync runs, and how far back it looks. Changes here take effect the next time the scheduler wakes up.</x-ui.hint>
         </div>
-        @include('partials._automations_tab', ['integration' => 'lazada', 'storeId' => null])
+        @include('partials._automations_tab', ['extension' => 'lazada', 'storeId' => null])
     </section>
 </div>
 @endif

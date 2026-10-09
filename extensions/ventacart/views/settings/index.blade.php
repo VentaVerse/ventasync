@@ -317,7 +317,7 @@
             <x-ui.hint label="About the scheduled jobs">How often each VentaCart sync runs for {{ $storeName }}. Changes take effect the next time the scheduler wakes up.</x-ui.hint>
         </div>
 
-        @include('partials._automations_tab', ['integration' => 'ventacart', 'storeId' => $store->id])
+        @include('partials._automations_tab', ['extension' => 'ventacart', 'storeId' => $store->id])
     </section>
 </div>
 

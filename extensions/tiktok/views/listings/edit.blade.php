@@ -117,7 +117,7 @@
                     <div class="fm-section__head"><h2 class="fm-section__title">Content on this channel</h2></div>
                     <div class="fm-fields">
                         <x-ui.field label="Title" for="tl-title" name="title" wide>
-                            <x-ui.input id="tl-title" name="title" :value="old('title', \App\Integrations\Listings\ListingContent::editable($listing->title ?? null, (string) $product->name))" maxlength="255" :disabled="!$canManage" />
+                            <x-ui.input id="tl-title" name="title" :value="old('title', \App\Channels\Listings\ListingContent::editable($listing->title ?? null, (string) $product->name))" maxlength="255" :disabled="!$canManage" />
                         </x-ui.field>
                         @include('partials.channel-description-pick', [
                             'id' => 'tl-prefix', 'label' => 'Prefix description', 'name' => 'description_prefix_id',
@@ -126,7 +126,7 @@
                         ])
                         @include('partials.channel-description-compose', [
                             'id' => 'tl-description', 'label' => 'Description', 'name' => 'description',
-                            'value' => old('description', \App\Integrations\Listings\ListingContent::editable($listing->description ?? null, (string) $coreDescription)),
+                            'value' => old('description', \App\Channels\Listings\ListingContent::editable($listing->description ?? null, (string) $coreDescription)),
                             'rich' => true, 'disabled' => !$canManage, 'rows' => 6, 'maxlength' => null,
                             'prefixFor' => 'tl-prefix', 'suffixFor' => 'tl-suffix',
                             'prefix' => $listing->description_prefix_id ?? null, 'suffix' => $listing->description_suffix_id ?? null,
@@ -202,7 +202,7 @@
                     'productId' => (int) $product->product_id,
                     'uploadUrl' => route('products.video.upload'),
                     'canManage' => $canManage,
-                ] + \App\Integrations\Listings\ListingVideo::cardData((int) $product->product_id, $listing ?? null))
+                ] + \App\Channels\Listings\ListingVideo::cardData((int) $product->product_id, $listing ?? null))
 
                 @include('partials.listing-variations-card', [
                     'title' => 'Variations on TikTok Shop', 'storeName' => 'TikTok Shop', 'canManage' => $canManage,

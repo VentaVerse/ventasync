@@ -1,6 +1,6 @@
 <?php
 
-use App\Integrations\Listings\CatalogCopy;
+use App\Channels\Listings\CatalogCopy;
 use App\Support\Catalog\DescriptionText;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;

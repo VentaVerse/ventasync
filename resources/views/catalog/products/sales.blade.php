@@ -92,7 +92,7 @@
                 <td data-label="Order"><a class="x-row-link x-num" href="{{ route('orders.show', $s->order_id) }}">{{ $s->order_id }}</a></td>
                 <td data-label="Date"><span class="x-num">{{ \Carbon\Carbon::parse($s->date_added)->format('Y-m-d') }}</span></td>
                 @php
-                    $src = trim((string) ($s->marketplace_source ?? ''));
+                    $src = trim((string) ($s->channel ?? ''));
                     $chanKey = $src === '' ? '' : strtok($src, ':');
                     $chanTone = $src === '' ? 'neutral' : $chanKey;
                     $chanOpt = $src === '' ? null : (($sourceLabelsMap ?? [])[$src] ?? null);

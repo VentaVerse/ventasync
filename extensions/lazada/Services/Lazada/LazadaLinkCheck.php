@@ -17,7 +17,7 @@ class LazadaLinkCheck
     {
         $linked = \Extensions\Lazada\Models\LazadaProduct::query()->whereNotNull('lazada_item_id')->whereNull('lazada_deleted_at')
             ->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
-        $linked = \App\Integrations\Support\LinkCheckCursor::rotate('lazada:' . (int) $setting->id, $linked);
+        $linked = \App\Channels\Support\LinkCheckCursor::rotate('lazada:' . (int) $setting->id, $linked);
 
         return $linked !== [] ? $this->run($setting, $creds, $linked) : null;
     }
@@ -90,7 +90,7 @@ class LazadaLinkCheck
                     $this->markPushed($pivots);
                     $verdicts['linked']++;
                 } else {
-                    \App\Integrations\Listings\DroppedLink::write(
+                    \App\Channels\Listings\DroppedLink::write(
                         'Lazada', 'Lazada Product', (int) $productId, (string) $listing->lazada_item_id,
                         (int) $setting->id, $skusByProduct[$productId] ?? [], count($found)
                     );
@@ -118,7 +118,7 @@ class LazadaLinkCheck
                     foreach ($pivots as $p) {
                         $p->update(['lazada_product_id' => $listing->id] + (in_array($p->sync_status, ['error', 'failed'], true) ? [] : ['sync_status' => 'pushed']));
                     }
-                } elseif ($group !== null && \App\Integrations\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'lazada_setting_id', $group->id, [(int) $productId])['free'] !== []) {
+                } elseif ($group !== null && \App\Channels\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'lazada_setting_id', $group->id, [(int) $productId])['free'] !== []) {
                     LazadaProductGroupProduct::create(['lazada_product_group_id' => $group->id, 'product_id' => $productId, 'lazada_product_id' => $listing->id, 'sync_status' => 'pushed']);
                 }
                 $verdicts['linked']++;

@@ -11,7 +11,7 @@ use Extensions\OpenCart\Services\OpenCart\OpenCartOrderSync;
 use Extensions\OpenCart\Services\OpenCart\OpenCartProductSync;
 use Illuminate\Console\Command;
 
-class OpenCartSync extends Command implements \App\Integrations\Contracts\SteppableAutomation
+class OpenCartSync extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     protected $signature = 'opencart:sync
         {entity : Entity to sync (products|orders|categories|manufacturers|options|all)}

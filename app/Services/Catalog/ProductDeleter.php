@@ -2,14 +2,14 @@
 
 namespace App\Services\Catalog;
 
-use App\Integrations\Contracts\ProductRemover;
-use App\Integrations\IntegrationRegistry;
+use App\Channels\Contracts\ProductRemover;
+use App\Channels\ChannelRegistry;
 use App\Services\ActivityLogger;
 use Illuminate\Support\Facades\DB;
 
 final class ProductDeleter
 {
-    public function __construct(private readonly IntegrationRegistry $registry) {}
+    public function __construct(private readonly ChannelRegistry $registry) {}
 
     public function presence(array $productIds): array
     {
@@ -69,7 +69,7 @@ final class ProductDeleter
                 DB::table($pfx . $table)->where('product_id', $productId)->delete();
             }
         }
-        \App\Integrations\Listings\ListingVariations::forgetProducts([$productId]);
+        \App\Channels\Listings\ListingVariations::forgetProducts([$productId]);
     }
 
     public function delete(array $productIds): array

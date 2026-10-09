@@ -3,7 +3,7 @@
 namespace App\Support;
 
 use App\Extensions\ExtensionManager;
-use App\Integrations\Support\AutomationCatalog;
+use App\Channels\Support\AutomationCatalog;
 use App\Services\PermissionHierarchy;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;

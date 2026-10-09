@@ -89,14 +89,14 @@ class LiveFixesAugust26Test extends TestCase
         ]);
 
         $card = null;
-        foreach (app(\App\Integrations\IntegrationRegistry::class)->all() as $provider) {
-            foreach ($provider->integrationCards() as $c) {
+        foreach (app(\App\Channels\ChannelRegistry::class)->all() as $provider) {
+            foreach ($provider->channelCards() as $c) {
                 if ($c->id === 'shopee') {
                     $card = $c;
                 }
             }
         }
-        $this->assertNotNull($card, 'Shopee did not register an IntegrationCard.');
+        $this->assertNotNull($card, 'Shopee did not register an ChannelCard.');
         $resolved = app(ChannelWorkspace::class)->stateWithReason($card, 'shopee');
 
         $this->assertSame(['state' => 'connected', 'reason' => null], $resolved);
@@ -115,7 +115,7 @@ class LiveFixesAugust26Test extends TestCase
     public function test_the_settings_key_saves_an_automation_schedule(): void
     {
         $job = ScheduledJob::create([
-            'command' => 'shopee:sync-orders', 'display_name' => 'Sync orders', 'integration' => 'shopee',
+            'command' => 'shopee:sync-orders', 'display_name' => 'Sync orders', 'extension' => 'shopee',
             'cadence_value' => 15, 'cadence_unit' => 'minute', 'enabled' => true,
         ]);
 
@@ -189,7 +189,7 @@ class LiveFixesAugust26Test extends TestCase
     public function test_run_now_runs_the_job_by_hand_and_stamps_the_row(): void
     {
         $job = \App\Models\ScheduledJob::create([
-            'integration' => 'shopee', 'display_name' => 'Say something', 'command' => 'inspire',
+            'extension' => 'shopee', 'display_name' => 'Say something', 'command' => 'inspire',
             'cadence_value' => 1, 'cadence_unit' => 'hour', 'enabled' => false, 'options' => [],
         ]);
         $this->assertNull($job->last_run_at);
@@ -205,7 +205,7 @@ class LiveFixesAugust26Test extends TestCase
         $this->assertTrue($job->last_run_ok);
 
         $broken = \App\Models\ScheduledJob::create([
-            'integration' => 'shopee', 'display_name' => 'Broken job', 'command' => 'no:such-command',
+            'extension' => 'shopee', 'display_name' => 'Broken job', 'command' => 'no:such-command',
             'cadence_value' => 1, 'cadence_unit' => 'hour', 'enabled' => false, 'options' => [],
         ]);
         $this->actingAs($manager)->post(route('automations.run', $broken->id))->assertRedirect()->assertSessionHas('error');

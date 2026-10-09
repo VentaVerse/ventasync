@@ -253,7 +253,7 @@
             <td class="cc-col-sync" data-label="Listing">
                 @if($listed)
                     @php $rowState = ($listingStates ?? [])[(int) $p->product_id] ?? null; @endphp
-                    @if($rowState && $rowState->state !== \App\Integrations\Listings\ListingState::UNKNOWN)
+                    @if($rowState && $rowState->state !== \App\Channels\Listings\ListingState::UNKNOWN)
                         <x-ui.badge :tone="$rowState->tone()">{{ $rowState->label() }}</x-ui.badge>
                     @else
                         <x-ui.badge tone="success">Listed</x-ui.badge>
@@ -287,9 +287,9 @@
                         $menu['link'] = ['action' => route('ext.shopee.products.sync_shopee_id', $p->product_id)];
                     } else {
                         $menu['update'] = ['action' => route('ext.shopee.product-groups.send', $group->id), 'label' => 'Send to Shopee', 'fields' => $gf];
-                        if ($canToggleListing && $rowState?->state === \App\Integrations\Listings\ListingState::LIVE) {
+                        if ($canToggleListing && $rowState?->state === \App\Channels\Listings\ListingState::LIVE) {
                             $menu['switch'] = ['action' => route('ext.shopee.listings.toggle', $p->product_id), 'label' => 'Delist from Shopee', 'fields' => ['action' => 'unlist'], 'confirm' => "Delist {$pName} from Shopee? Buyers stop seeing it immediately. It can be published again at any time.", 'verb' => 'Delist'];
-                        } elseif ($canToggleListing && $rowState?->state === \App\Integrations\Listings\ListingState::INACTIVE) {
+                        } elseif ($canToggleListing && $rowState?->state === \App\Channels\Listings\ListingState::INACTIVE) {
                             $menu['switch'] = ['action' => route('ext.shopee.listings.toggle', $p->product_id), 'label' => 'Publish on Shopee', 'fields' => ['action' => 'list'], 'confirm' => "Publish {$pName} on Shopee? Buyers see it again immediately.", 'verb' => 'Publish', 'tone' => 'primary'];
                         }
                         $menu['check'] = ['action' => route('ext.shopee.product-groups.check', $group->id), 'label' => 'Check against Shopee', 'fields' => $gf];

@@ -240,8 +240,8 @@ class LazadaSyncReviews extends Command
 
         $reviewData = [
             'product_id'        => $productId,
-            'platform_item_id'  => $itemId ?: null,
-            'platform_order_id' => (string) ($r['trade_order_id'] ?? $r['order_id'] ?? ''),
+            'channel_item_id'  => $itemId ?: null,
+            'channel_order_id' => (string) ($r['trade_order_id'] ?? $r['order_id'] ?? ''),
             'author'            => (string) ($r['buyer_name'] ?? $r['reviewer_name'] ?? $r['buyer'] ?? '') ?: 'Lazada Buyer',
             'rating'            => $rating,
             'comment'           => (string) ($r['review_content'] ?? $r['content'] ?? $r['comment'] ?? ''),
@@ -255,8 +255,8 @@ class LazadaSyncReviews extends Command
 
         $model = MarketplaceReview::query()->updateOrCreate(
             [
-                'platform'           => 'lazada',
-                'platform_review_id' => $reviewId,
+                'channel'           => 'lazada',
+                'channel_review_id' => $reviewId,
             ],
             $reviewData
         );

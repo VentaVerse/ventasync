@@ -41,7 +41,7 @@ final class LazadaStoreDeleter
             }
 
             $removed['scheduled_jobs'] = DB::table('scheduled_jobs')
-                ->where('integration', 'lazada')->where('store_id', $store->id)->delete();
+                ->where('extension', 'lazada')->where('store_id', $store->id)->delete();
 
             DB::table('lazada_settings')->where('id', $store->id)->delete();
 

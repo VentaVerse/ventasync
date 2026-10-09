@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Extensions\ExtensionManager;
-use App\Integrations\Listings\StatusMenu;
+use App\Channels\Listings\StatusMenu;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;

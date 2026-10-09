@@ -250,9 +250,9 @@
                         $menu['link'] = ['action' => route('ext.ventacart.product-groups.link', [$setting->id, $group->id, $p->product_id]), 'fields' => ['_return' => $returnTo]];
                     } else {
                         $menu['update'] = ['action' => route('ext.ventacart.product-groups.push', [$setting->id, $group->id]), 'label' => 'Send to ' . $storeName, 'fields' => $gf];
-                        if ($gRow?->state === \App\Integrations\Listings\ListingState::LIVE) {
+                        if ($gRow?->state === \App\Channels\Listings\ListingState::LIVE) {
                             $menu['switch'] = ['action' => route('ext.ventacart.listings.toggle', [$setting->id, $p->product_id]), 'label' => 'Unlist on ' . $storeName, 'fields' => ['action' => 'unlist'], 'confirm' => "Unlist {$pName} on {$storeName}? Buyers stop seeing it. It can be relisted at any time.", 'verb' => 'Unlist'];
-                        } elseif ($gRow?->state === \App\Integrations\Listings\ListingState::INACTIVE) {
+                        } elseif ($gRow?->state === \App\Channels\Listings\ListingState::INACTIVE) {
                             $menu['switch'] = ['action' => route('ext.ventacart.listings.toggle', [$setting->id, $p->product_id]), 'label' => 'Relist on ' . $storeName, 'fields' => ['action' => 'relist'], 'confirm' => "Relist {$pName} on {$storeName}? Buyers see it again at once.", 'verb' => 'Relist', 'tone' => 'primary'];
                         }
                         $menu['check'] = ['action' => route('ext.ventacart.product-groups.check', [$setting->id, $group->id]), 'label' => 'Check against ' . $storeName, 'fields' => $gf];

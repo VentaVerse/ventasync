@@ -67,7 +67,7 @@ class ShopeeProductController extends Controller
         $scope = DB::query()->fromSub(ShopeeStoreProducts::query(), 'os')
             ->pluck('os.product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
 
-        return $this->readinessRich = \App\Integrations\Listings\ReadinessCache::resolve(
+        return $this->readinessRich = \App\Channels\Listings\ReadinessCache::resolve(
             'shopee', $storeId, $scope,
             fn (array $ids) => $this->shopeeReadinessStamps($ids, $storeId),
             fn (array $ids) => $this->shopeeReadinessCompute($ids),
@@ -119,7 +119,7 @@ class ShopeeProductController extends Controller
         $syncStatus = (string) $request->get('sync_status', 'all');
         $syncStatus = ['listed' => 'uploaded', 'not_listed' => 'not_uploaded'][$syncStatus] ?? $syncStatus;
         if ($syncStatus !== 'error') {
-            $syncStatus = \App\Integrations\Listings\StatusMenu::stand($syncStatus);
+            $syncStatus = \App\Channels\Listings\StatusMenu::stand($syncStatus);
         }
         $failedFlag = $request->boolean('failed') || $syncStatus === 'error';
         $changeFlag = $request->boolean('change');
@@ -127,7 +127,7 @@ class ShopeeProductController extends Controller
             $syncStatus = 'all';
         }
         $manufacturerFilter = (string) $request->get('manufacturer', 'all');
-        $groupFilter = \App\Integrations\Listings\StatusMenu::group($request->get('group'));
+        $groupFilter = \App\Channels\Listings\StatusMenu::group($request->get('group'));
         $erpStatus = (string) $request->get('erp_status', 'all');
 
         if ($request->query('list') === 'add') {
@@ -260,7 +260,7 @@ class ShopeeProductController extends Controller
             return $query;
         };
 
-        $troubleFilter = \App\Integrations\Listings\ListingTrouble::asked($request->query('state'));
+        $troubleFilter = \App\Channels\Listings\ListingTrouble::asked($request->query('state'));
         $troubleIds = $troubleFilter === null ? null
             : app(\Extensions\Shopee\Services\Shopee\ShopeeListingStates::class)->productIdsIn($troubleFilter);
         $applyTrouble = fn ($query) => $troubleIds === null ? $query : $query->whereIn('p.product_id', $troubleIds ?: [0]);
@@ -326,7 +326,7 @@ class ShopeeProductController extends Controller
         }
         $groupRail[] = [
             'id' => 'none',
-            'name' => \App\Integrations\Listings\StatusMenu::UNGROUPED,
+            'name' => \App\Channels\Listings\StatusMenu::UNGROUPED,
             'count' => $applyGroup(clone $railBase, 'none')->count(),
         ];
 
@@ -341,9 +341,9 @@ class ShopeeProductController extends Controller
         $applyTrouble($query);
         $applyTab($query);
 
-        $storeId = \App\Integrations\Listings\ListingStore::id('shopee');
+        $storeId = \App\Channels\Listings\ListingStore::id('shopee');
         $sortMenu = \Extensions\Shopee\Services\ShopeeListingSort::columns($storeId);
-        $order = \App\Integrations\Listings\ListingSort::chosen($request, 'shopee.listings.' . $storeId);
+        $order = \App\Channels\Listings\ListingSort::chosen($request, 'shopee.listings.' . $storeId);
         if ($request->filled('sort')) {
             $query->orderBy($sortColumns[$sort], $dir);
             if ($sortColumns[$sort] !== 'p.product_id') {
@@ -351,7 +351,7 @@ class ShopeeProductController extends Controller
             }
         } else {
             \Extensions\Shopee\Services\ShopeeListingSort::join($query, $storeId);
-            \App\Integrations\Listings\ListingSort::apply($query, $order, $sortMenu);
+            \App\Channels\Listings\ListingSort::apply($query, $order, $sortMenu);
         }
 
         $products = $query->paginate(50)->withQueryString();
@@ -367,7 +367,7 @@ class ShopeeProductController extends Controller
             ->forStore(ShopeeSetting::defaultStore())
             ->whereIn('product_id', $pageIds)
             ->get();
-        $rowTitles = \App\Integrations\Listings\ListingContent::rowTitles($products, $pageListings);
+        $rowTitles = \App\Channels\Listings\ListingContent::rowTitles($products, $pageListings);
         $pageListings = $pageListings->keyBy(fn ($l) => (int) $l->product_id);
         $withVariations = ShopeeListing::withVariations($pageIds);
         $rowPrices = collect($products->items())->mapWithKeys(fn ($p) => [(int) $p->product_id => ($pageListings->get((int) $p->product_id) ?? new ShopeeListing())
@@ -387,7 +387,7 @@ class ShopeeProductController extends Controller
             $filled = app(\Extensions\Shopee\Services\Shopee\ShopeeLiveListing::class)
                 ->fillBlanks($auth, $shopeeLinks->flatten(), $fillError);
             if ($fillError !== null) {
-                session()->now('error', \App\Integrations\Listings\BlankFillRefusal::sentence('Shopee', $fillError));
+                session()->now('error', \App\Channels\Listings\BlankFillRefusal::sentence('Shopee', $fillError));
             }
             if ($filled) {
                 $liveCounts = $tabCounts($tabBase);
@@ -437,7 +437,7 @@ class ShopeeProductController extends Controller
             'sort' => $sort,
             'dir' => $dir,
             'order' => $order,
-            'orderOptions' => \App\Integrations\Listings\ListingSort::options(array_keys($sortMenu)),
+            'orderOptions' => \App\Channels\Listings\ListingSort::options(array_keys($sortMenu)),
             'syncStatus' => $syncStatus,
             'manufacturerFilter' => $manufacturerFilter,
             'groupFilter' => $groupFilter,
@@ -458,7 +458,7 @@ class ShopeeProductController extends Controller
             'failedFlag' => $failedFlag,
             'changeFlag' => $changeFlag,
             'groupSize' => ctype_digit((string) $groupFilter) ? app(\Extensions\Shopee\Controllers\ShopeeProductGroupController::class)->groupSendSize((int) $groupFilter) : null,
-            'statusMenu' => \App\Integrations\Listings\StatusMenu::build([
+            'statusMenu' => \App\Channels\Listings\StatusMenu::build([
                 'url' => fn (array $params) => route('ext.shopee.products.index', $params),
                 'query' => $request->query(),
                 'sync' => $syncStatus,
@@ -571,7 +571,7 @@ class ShopeeProductController extends Controller
 
         $groupId = (int) $request->input('group', 0);
         if ($groupId > 0) {
-            \App\Integrations\OneGroupRule::place('shopee_product_group_products', 'shopee_product_group_id', 'shopee_product_groups', 'shopee_setting_id', \App\Integrations\Listings\ListingStore::id('shopee'), $groupId, $productId);
+            \App\Channels\OneGroupRule::place('shopee_product_group_products', 'shopee_product_group_id', 'shopee_product_groups', 'shopee_setting_id', \App\Channels\Listings\ListingStore::id('shopee'), $groupId, $productId);
         }
 
         if ($request->wantsJson()) {
@@ -697,7 +697,7 @@ class ShopeeProductController extends Controller
         }
         $checked = app(\Extensions\Shopee\Services\Shopee\ShopeeLinkCheck::class)->runNext(app(ShopeeClient::class), $auth, (int) $setting->id);
         $sheets = app(\Extensions\Shopee\Services\Shopee\ShopeeSheetReads::class)
-            ->readMissing($auth, app(ShopeeClient::class), \App\Integrations\Listings\SheetReads::PER_PRESS);
+            ->readMissing($auth, app(ShopeeClient::class), \App\Channels\Listings\SheetReads::PER_PRESS);
 
         $labels = ['NORMAL' => 'live', 'UNLIST' => 'unlisted', 'BANNED' => 'in violation', 'REVIEWING' => 'under review',
             'SELLER_DELETE' => 'deleted', 'SHOPEE_DELETE' => 'deleted by Shopee', 'MISSING' => 'not found on Shopee'];
@@ -881,7 +881,7 @@ class ShopeeProductController extends Controller
         $imageCount = count(\App\Support\Catalog\ProductImages::paths($productId, $listing?->image_order));
         $variationCount = DB::table('product_option_combinations')->where('product_id', $productId)->count();
 
-        $content = \App\Integrations\Listings\ListingContent::of(
+        $content = \App\Channels\Listings\ListingContent::of(
             $listing,
             html_entity_decode((string) $product->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
             \App\Support\Catalog\DescriptionText::of((string) ($product->description ?? '')),
@@ -929,7 +929,7 @@ class ShopeeProductController extends Controller
             ]);
             $description = null;
             if (trim((string) ($data['description'] ?? '')) !== '') {
-                $description = \App\Integrations\Listings\ListingContent::descriptionToSave(
+                $description = \App\Channels\Listings\ListingContent::descriptionToSave(
                     $data['description'],
                     ShopeeListing::query()->where('product_id', $productId)->value('description'),
                     null,
@@ -978,7 +978,7 @@ class ShopeeProductController extends Controller
         $readiness = app(\Extensions\Shopee\Services\Shopee\ShopeeListingReadiness::class)
             ->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => []];
         if (!$readiness['ready']) {
-            return ['ok' => false, 'message' => \App\Integrations\Listings\CatalogGaps::refusal($readiness)];
+            return ['ok' => false, 'message' => \App\Channels\Listings\CatalogGaps::refusal($readiness)];
         }
 
         $verdict = app(\Extensions\Shopee\Services\Shopee\ShopeeLinkCheck::class)
@@ -1119,7 +1119,7 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', "Push failed: Missing Shopee {$modeLabel} settings.");
         }
 
-        $answer = \App\Integrations\Push\BulkPushRun::over(
+        $answer = \App\Channels\Push\BulkPushRun::over(
             $productIds,
             'Shopee',
             function (int $productId) use ($auth, $client) {
@@ -2285,7 +2285,7 @@ class ShopeeProductController extends Controller
             ->forProducts([$productId])[$productId] ?? null;
 
         $shopeeStoreId = (int) (ShopeeSetting::defaultStore()?->id ?? 0);
-        $variationSkus = collect(\App\Integrations\Listings\ListingVariations::sold('shopee', $shopeeStoreId, [$productId], $pfx)[$productId] ?? []);
+        $variationSkus = collect(\App\Channels\Listings\ListingVariations::sold('shopee', $shopeeStoreId, [$productId], $pfx)[$productId] ?? []);
         $linkedSkus = $links->pluck('sku')->map(fn ($v) => strtolower(trim((string) $v)))->filter()->flip();
         $coverageRows = $variationSkus->map(fn ($sku) => [
             'name' => '',
@@ -2305,7 +2305,7 @@ class ShopeeProductController extends Controller
                 ->get(['brand_id', 'name'])
             : collect();
 
-        return view('ext-shopee::listings.edit', \App\Integrations\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('shopee_product_groups', 'shopee_product_group_products', 'shopee_product_group_id', $productId, 'shopee_setting_id', (int) ($listing->shopee_setting_id ?? 0) ?: null), 'shopee', \App\Integrations\Listings\ListingStore::id('shopee')) + [
+        return view('ext-shopee::listings.edit', \App\Channels\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('shopee_product_groups', 'shopee_product_group_products', 'shopee_product_group_id', $productId, 'shopee_setting_id', (int) ($listing->shopee_setting_id ?? 0) ?: null), 'shopee', \App\Channels\Listings\ListingStore::id('shopee')) + [
             'listingState' => $listingState,
             'product' => $product,
             'listing' => $listing,
@@ -2313,7 +2313,7 @@ class ShopeeProductController extends Controller
             'link' => $link,
             'links' => $links,
             'coverage' => $coverage,
-            ...\App\Integrations\Listings\ListingVariations::cardData(
+            ...\App\Channels\Listings\ListingVariations::cardData(
                 'shopee', $shopeeStoreId, $productId,
                 $live !== null
                     ? collect($live['models'] ?? [])->pluck('model_sku')->all()
@@ -2337,7 +2337,7 @@ class ShopeeProductController extends Controller
 
     private function groupBandFor(int $productId, int $storeId): array
     {
-        $current = \App\Integrations\Listings\ListingGroup::current([
+        $current = \App\Channels\Listings\ListingGroup::current([
             'pivot' => 'shopee_product_group_products', 'fk' => 'shopee_product_group_id',
             'groups' => 'shopee_product_groups', 'storeFk' => 'shopee_setting_id',
             'storeId' => $storeId,
@@ -2515,20 +2515,20 @@ class ShopeeProductController extends Controller
             'attributes' => 'nullable|array',
             'attributes.*' => 'nullable|string|max:500',
             'image_order' => 'nullable|string|max:20000',
-            ...\App\Integrations\Listings\ListingVariations::rules(),
-            ...\App\Integrations\Listings\ListingGroup::rules(),
+            ...\App\Channels\Listings\ListingVariations::rules(),
+            ...\App\Channels\Listings\ListingGroup::rules(),
         ]);
 
-        $imageOrder = \App\Integrations\Listings\ListingImages::submitted($productId, $data['image_order'] ?? null);
-        $imageOff = \App\Integrations\Listings\ListingImages::submittedOff($productId, $request->input('image_off'));
+        $imageOrder = \App\Channels\Listings\ListingImages::submitted($productId, $data['image_order'] ?? null);
+        $imageOff = \App\Channels\Listings\ListingImages::submittedOff($productId, $request->input('image_off'));
 
         $blank = fn ($v) => ($v === null || trim((string) $v) === '') ? null : $v;
 
         $fields = [
             'shopee_category_id' => $data['shopee_category_id'] ?? null,
             'description_prefix_id' => ((int) ($data['description_prefix_id'] ?? 0)) ?: null,
-            ...\App\Integrations\Listings\ListingImages::submittedWatermark($request, 'shopee', \App\Integrations\Listings\ListingStore::id('shopee')),
-            ...\App\Integrations\Listings\ListingVideo::submitted($request),
+            ...\App\Channels\Listings\ListingImages::submittedWatermark($request, 'shopee', \App\Channels\Listings\ListingStore::id('shopee')),
+            ...\App\Channels\Listings\ListingVideo::submitted($request),
             'image_off' => $imageOff,
             'description_suffix_id' => ((int) ($data['description_suffix_id'] ?? 0)) ?: null,
             'shopee_brand_id' => ((int) ($data['shopee_brand_id'] ?? 0)) > 0 ? (int) $data['shopee_brand_id'] : null,
@@ -2552,22 +2552,22 @@ class ShopeeProductController extends Controller
         }
 
         if ($request->has('item_name')) {
-            $fields['item_name'] = \App\Integrations\Listings\ListingContent::own($data['item_name'] ?? null);
+            $fields['item_name'] = \App\Channels\Listings\ListingContent::own($data['item_name'] ?? null);
         }
         if ($request->has('description')) {
             $current = ShopeeListing::query()->where('product_id', $productId)->first();
-            $fields['description'] = \App\Integrations\Listings\ListingContent::descriptionToSave(
+            $fields['description'] = \App\Channels\Listings\ListingContent::descriptionToSave(
                 $data['description'] ?? null,
                 $current !== null
                     ? $current->description
-                    : (\App\Integrations\Listings\CatalogCopy::catalog([$productId])[$productId]['description'] ?? null),
+                    : (\App\Channels\Listings\CatalogCopy::catalog([$productId])[$productId]['description'] ?? null),
                 $request->input('description_edited')
             );
         }
 
-        $picked = \App\Integrations\Listings\ListingGroup::submitted($request);
+        $picked = \App\Channels\Listings\ListingGroup::submitted($request);
         if ($picked['present']) {
-            \App\Integrations\Listings\ListingGroup::assign([
+            \App\Channels\Listings\ListingGroup::assign([
                 'pivot' => 'shopee_product_group_products', 'fk' => 'shopee_product_group_id',
                 'groups' => 'shopee_product_groups', 'storeFk' => 'shopee_setting_id',
                 'storeId' => (int) (ShopeeSetting::defaultStore()?->id ?? 0),
@@ -2580,9 +2580,9 @@ class ShopeeProductController extends Controller
         $savedRow = ShopeeListing::query()->where('product_id', $productId)->first();
         if ($followed && $savedRow) {
             if (is_array($savedRow->attribute_values)) {
-                $savedRow->attribute_values = \App\Integrations\Listings\ListingGroup::ownAnswers($savedRow->attribute_values, (array) ($followed['attributes'] ?? [])) ?: null;
+                $savedRow->attribute_values = \App\Channels\Listings\ListingGroup::ownAnswers($savedRow->attribute_values, (array) ($followed['attributes'] ?? [])) ?: null;
             }
-            \App\Integrations\Listings\ListingGroup::follow($savedRow, [
+            \App\Channels\Listings\ListingGroup::follow($savedRow, [
                 'shopee_category_id' => $followed['category_id'],
                 'shopee_brand_id' => $followed['brand_id'],
                 'logistic_ids' => $followed['logistic_ids'],
@@ -2592,8 +2592,8 @@ class ShopeeProductController extends Controller
             ], [['markup_percent', 'markup_fixed']]);
         }
 
-        if (($sellHere = \App\Integrations\Listings\ListingVariations::submitted($request)) !== null) {
-            \App\Integrations\Listings\ListingVariations::save('shopee', (int) (ShopeeSetting::defaultStore()?->id ?? 0), $productId, $sellHere);
+        if (($sellHere = \App\Channels\Listings\ListingVariations::submitted($request)) !== null) {
+            \App\Channels\Listings\ListingVariations::save('shopee', (int) (ShopeeSetting::defaultStore()?->id ?? 0), $productId, $sellHere);
         }
 
         $back = \App\Support\BackTo::safe($request->input('back'), '');
@@ -2622,7 +2622,7 @@ class ShopeeProductController extends Controller
 
             if (!$readiness['ready']) {
                 return redirect()->route('ext.shopee.listings.edit', $editRoute)
-                    ->with('error', 'Saved, but not pushed: ' . \App\Integrations\Listings\CatalogGaps::stillNeeds($readiness['missing']));
+                    ->with('error', 'Saved, but not pushed: ' . \App\Channels\Listings\CatalogGaps::stillNeeds($readiness['missing']));
             }
 
             return $this->pushDirect($request, $productId, $client);
@@ -2704,7 +2704,7 @@ class ShopeeProductController extends Controller
         $readiness = app(\Extensions\Shopee\Services\Shopee\ShopeeListingReadiness::class)
             ->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => []];
         if (!$readiness['ready']) {
-            return ['ok' => false, 'message' => \App\Integrations\Listings\CatalogGaps::refusal($readiness, 'update')];
+            return ['ok' => false, 'message' => \App\Channels\Listings\CatalogGaps::refusal($readiness, 'update')];
         }
 
         $pfx = (string) config('catalog.prefix');
@@ -2729,7 +2729,7 @@ class ShopeeProductController extends Controller
         $coreName = html_entity_decode((string) ($product->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $coreDescription = \App\Support\Catalog\DescriptionText::of((string) ($product->description ?? ''));
 
-        $content = \App\Integrations\Listings\ListingContent::of(
+        $content = \App\Channels\Listings\ListingContent::of(
             $listing, $coreName, $coreDescription, 'shopee', (int) ($listing?->shopee_setting_id ?? 0)
         );
         $itemName = $content['title'];
@@ -2739,11 +2739,11 @@ class ShopeeProductController extends Controller
             'item_id' => (int) $link->shopee_item_id,
             'item_name' => mb_substr($itemName, 0, 255),
             'description' => mb_substr(\App\Support\Catalog\DescriptionText::of($description), 0, 5000),
-            'weight' => \App\Integrations\Listings\ParcelPrecision::of($listing?->weight, $product->weight, \App\Integrations\Listings\ParcelPrecision::SHOPEE['weight']),
+            'weight' => \App\Channels\Listings\ParcelPrecision::of($listing?->weight, $product->weight, \App\Channels\Listings\ParcelPrecision::SHOPEE['weight']),
             'dimension' => [
-                'package_length' => \App\Integrations\Listings\ParcelPrecision::of($listing?->package_length, $product->length, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
-                'package_width' => \App\Integrations\Listings\ParcelPrecision::of($listing?->package_width, $product->width, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
-                'package_height' => \App\Integrations\Listings\ParcelPrecision::of($listing?->package_height, $product->height, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
+                'package_length' => \App\Channels\Listings\ParcelPrecision::of($listing?->package_length, $product->length, \App\Channels\Listings\ParcelPrecision::SHOPEE['dimension']),
+                'package_width' => \App\Channels\Listings\ParcelPrecision::of($listing?->package_width, $product->width, \App\Channels\Listings\ParcelPrecision::SHOPEE['dimension']),
+                'package_height' => \App\Channels\Listings\ParcelPrecision::of($listing?->package_height, $product->height, \App\Channels\Listings\ParcelPrecision::SHOPEE['dimension']),
             ],
         ];
         if ($listing && $listing->shopee_category_id) {
@@ -2777,7 +2777,7 @@ class ShopeeProductController extends Controller
 
         $described = (new \Extensions\Shopee\Services\Shopee\ShopeeDescription($client))->write(
             $payload, $auth, (int) $link->shopee_item_id,
-            \App\Integrations\Listings\ListingContent::of(
+            \App\Channels\Listings\ListingContent::of(
                 $listing, $coreName, (string) ($product->description ?? ''), 'shopee', (int) ($listing?->shopee_setting_id ?? 0)
             )['description']
         );

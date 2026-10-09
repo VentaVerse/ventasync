@@ -161,7 +161,7 @@
                     <div class="fm-fields">
                         <x-ui.field label="Title" for="sl-name" name="item_name" wide>
                             <x-ui.input id="sl-name" name="item_name" maxlength="255"
-                                        :value="old('item_name', \App\Integrations\Listings\ListingContent::editable($listing->item_name ?? null, (string) $product->name))"
+                                        :value="old('item_name', \App\Channels\Listings\ListingContent::editable($listing->item_name ?? null, (string) $product->name))"
                                         :disabled="!$canManage" />
                         </x-ui.field>
                         @include('partials.channel-description-pick', [
@@ -171,7 +171,7 @@
                         ])
                         @include('partials.channel-description-compose', [
                             'id' => 'sl-description', 'label' => 'Description', 'name' => 'description',
-                            'value' => old('description', \App\Integrations\Listings\ListingContent::editable($listing->description ?? null, (string) $coreDescription)),
+                            'value' => old('description', \App\Channels\Listings\ListingContent::editable($listing->description ?? null, (string) $coreDescription)),
                             'rich' => true, 'disabled' => !$canManage, 'rows' => 6, 'maxlength' => null,
                             'prefixFor' => 'sl-prefix', 'suffixFor' => 'sl-suffix',
                             'prefix' => $listing->description_prefix_id ?? null, 'suffix' => $listing->description_suffix_id ?? null,
@@ -274,7 +274,7 @@
                     'productId' => (int) $product->product_id,
                     'uploadUrl' => route('products.video.upload'),
                     'canManage' => $canManage,
-                ] + \App\Integrations\Listings\ListingVideo::cardData((int) $product->product_id, $listing ?? null))
+                ] + \App\Channels\Listings\ListingVideo::cardData((int) $product->product_id, $listing ?? null))
 
                 @include('partials.listing-variations-card', [
                     'title' => 'Variations on Shopee', 'storeName' => 'Shopee', 'canManage' => $canManage,

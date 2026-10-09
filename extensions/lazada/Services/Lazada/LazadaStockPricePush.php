@@ -2,7 +2,7 @@
 
 namespace Extensions\Lazada\Services\Lazada;
 
-use App\Integrations\Push\PushLedger;
+use App\Channels\Push\PushLedger;
 use Extensions\Lazada\Models\LazadaApiLog;
 use Extensions\Lazada\Models\LazadaProduct;
 use Extensions\Lazada\Services\LazadaStockPushService;

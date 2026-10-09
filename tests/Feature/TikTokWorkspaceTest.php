@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Extensions\ExtensionManager;
-use App\Integrations\IntegrationRegistry;
+use App\Channels\ChannelRegistry;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
@@ -62,19 +62,19 @@ class TikTokWorkspaceTest extends TestCase
         $this->tiktokStore = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
-    private function tiktokCard(): \App\Integrations\IntegrationCard
+    private function tiktokCard(): \App\Channels\ChannelCard
     {
-        $registry = app(IntegrationRegistry::class);
+        $registry = app(ChannelRegistry::class);
 
         foreach ($registry->all() as $provider) {
-            foreach ($provider->integrationCards() as $card) {
+            foreach ($provider->channelCards() as $card) {
                 if ($card->id === 'tiktok') {
                     return $card;
                 }
             }
         }
 
-        $this->fail('TikTok did not register an IntegrationCard.');
+        $this->fail('TikTok did not register an ChannelCard.');
     }
 
     private function tiktokMenu(): array

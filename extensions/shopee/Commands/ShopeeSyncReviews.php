@@ -195,8 +195,8 @@ class ShopeeSyncReviews extends Command
 
                 $reviewData = [
                     'product_id'        => $productId,
-                    'platform_item_id'  => $itemId,
-                    'platform_order_id' => (string) ($c['order_sn'] ?? ''),
+                    'channel_item_id'  => $itemId,
+                    'channel_order_id' => (string) ($c['order_sn'] ?? ''),
                     'author'            => (string) ($c['buyer_username'] ?? $c['username'] ?? ''),
                     'rating'            => max(1, min(5, (int) ($c['rating_star'] ?? ($c['rating'] ?? 5)))),
                     'comment'           => (string) ($c['comment'] ?? ''),
@@ -209,8 +209,8 @@ class ShopeeSyncReviews extends Command
                 ];
 
                 $existing = MarketplaceReview::query()
-                    ->where('platform', 'shopee')
-                    ->where('platform_review_id', $commentId)
+                    ->where('channel', 'shopee')
+                    ->where('channel_review_id', $commentId)
                     ->first();
 
                 if ($existing) {
@@ -218,8 +218,8 @@ class ShopeeSyncReviews extends Command
                     $updated++;
                 } else {
                     MarketplaceReview::query()->create(array_merge($reviewData, [
-                        'platform'           => 'shopee',
-                        'platform_review_id' => $commentId,
+                        'channel'           => 'shopee',
+                        'channel_review_id' => $commentId,
                     ]));
                     $created++;
                 }

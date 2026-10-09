@@ -35,7 +35,7 @@ final class CustomerLedger
             ->orderByDesc('o.date_added')
             ->limit(2000)
             ->get(['o.order_id', 'o.firstname', 'o.lastname', 'o.email', 'o.telephone', 'o.customer_group',
-                'o.marketplace_source', 'o.store_id', 'o.store_name', 'o.order_status_id', 'o.date_added']);
+                'o.channel', 'o.store_id', 'o.store_name', 'o.order_status_id', 'o.date_added']);
 
         return $this->summarise($orders)->take($limit)->values()->all();
     }
@@ -67,7 +67,7 @@ final class CustomerLedger
 
         $orders = $query->leftJoin($pfx . 'order_status as os', fn ($j) => $j->on('os.order_status_id', '=', 'o.order_status_id')->where('os.language_id', '=', $lang))
             ->orderByDesc('o.date_added')
-            ->get(['o.order_id', 'o.firstname', 'o.lastname', 'o.email', 'o.telephone', 'o.customer_group', 'o.marketplace_source',
+            ->get(['o.order_id', 'o.firstname', 'o.lastname', 'o.email', 'o.telephone', 'o.customer_group', 'o.channel',
                 'o.store_id', 'o.store_name', 'o.order_status_id', 'o.date_added', 'o.marketplace_order_id', 'os.name as status']);
 
         $orders = $orders->filter(fn ($o) => in_array($this->identity($o), $keys, true))->values();
@@ -137,7 +137,7 @@ final class CustomerLedger
             'orders' => $orders->map(fn ($o) => [
                 'order_id' => (int) $o->order_id,
                 'date' => substr((string) $o->date_added, 0, 10),
-                'store' => $o->store_name ?: ($o->marketplace_source ?: 'Manual'),
+                'store' => $o->store_name ?: ($o->channel ?: 'Manual'),
                 'store_ref' => $this->storeRef($o),
                 'status' => $o->status,
                 'counted' => in_array((int) $o->order_status_id, $counted, true),
@@ -149,7 +149,7 @@ final class CustomerLedger
 
     private function storeRef(object $order): array
     {
-        $source = (string) ($order->marketplace_source ?? '');
+        $source = (string) ($order->channel ?? '');
         if ($source === '') {
             return ['key' => \App\Support\StoreKey::MANUAL, 'channel' => 'Manual', 'name' => ''];
         }
@@ -206,7 +206,7 @@ final class CustomerLedger
                     'email' => ($latest->email && ! str_contains($latest->email, '*')) ? $latest->email : null,
                     'phone' => ($latest->telephone && ! str_contains($latest->telephone, '*')) ? $latest->telephone : null,
                     'customer_types' => $g->pluck('customer_group')->filter()->unique()->values()->all(),
-                    'stores' => $g->map(fn ($o) => $o->store_name ?: ($o->marketplace_source ?: 'Manual'))->unique()->values()->all(),
+                    'stores' => $g->map(fn ($o) => $o->store_name ?: ($o->channel ?: 'Manual'))->unique()->values()->all(),
                     'store_refs' => $g->map(fn ($o) => $this->storeRef($o))->unique('key')->values()->all(),
                     'orders' => $g->count(),
                     'spent' => round((float) $g->sum(fn ($o) => (float) ($spent[$o->order_id] ?? 0)), 2),

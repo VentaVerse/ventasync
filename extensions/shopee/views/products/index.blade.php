@@ -257,9 +257,9 @@
 
     @php
 
-        $marks = new \App\Integrations\Listings\ListingMarks(
+        $marks = new \App\Channels\Listings\ListingMarks(
 
-            'shopee', \App\Integrations\Listings\ListingStore::id('shopee'),
+            'shopee', \App\Channels\Listings\ListingStore::id('shopee'),
 
             $products->pluck('product_id')->map(fn ($v) => (int) $v)->all(),
 
@@ -342,11 +342,11 @@
                 @php $rowState = $listingStates[(int) $p->product_id] ?? null; @endphp
                 @if($rowState === null)
                     <x-ui.badge tone="neutral">Not listed</x-ui.badge>
-                @elseif($rowState->state === \App\Integrations\Listings\ListingState::UNKNOWN && $link && ($liveCounts ?? null) === null)
+                @elseif($rowState->state === \App\Channels\Listings\ListingState::UNKNOWN && $link && ($liveCounts ?? null) === null)
                     <x-ui.badge tone="success">Listed</x-ui.badge>
-                @elseif($rowState->state === \App\Integrations\Listings\ListingState::UNKNOWN)
+                @elseif($rowState->state === \App\Channels\Listings\ListingState::UNKNOWN)
                     <x-ui.badge tone="neutral" title="Press Refresh from Shopee to read its status">{{ $rowState->label() }}</x-ui.badge>
-                @elseif($rowState->state === \App\Integrations\Listings\ListingState::NOT_LISTED)
+                @elseif($rowState->state === \App\Channels\Listings\ListingState::NOT_LISTED)
                     <x-ui.badge :tone="$rowState->tone()">{{ $rowState->label() }}</x-ui.badge>
                 @else
                     <span @if($rowState->checkedAt) title="Checked {{ $rowState->checkedAt->diffForHumans() }}" @endif>
@@ -378,9 +378,9 @@
                             $menu['link'] = ['action' => route('ext.shopee.products.sync_shopee_id', $p->product_id)];
                         } else {
                             $menu['update'] = ['action' => route('ext.shopee.listings.push_update', $p->product_id), 'label' => 'Send to Shopee', 'confirm' => "Send this listing's content and settings to the live Shopee item? Title, description, package, category, couriers, attributes, price and stock are updated.", 'verb' => 'Send', 'tone' => 'primary'];
-                            if ($rowState?->state === \App\Integrations\Listings\ListingState::LIVE) {
+                            if ($rowState?->state === \App\Channels\Listings\ListingState::LIVE) {
                                 $menu['switch'] = ['action' => route('ext.shopee.listings.toggle', $p->product_id), 'label' => 'Delist from Shopee', 'fields' => ['action' => 'unlist'], 'confirm' => 'Delist this item from Shopee? Buyers stop seeing it immediately. It can be published again at any time.', 'verb' => 'Delist'];
-                            } elseif ($rowState?->state === \App\Integrations\Listings\ListingState::INACTIVE) {
+                            } elseif ($rowState?->state === \App\Channels\Listings\ListingState::INACTIVE) {
                                 $menu['switch'] = ($parcelGaps[$p->product_id] ?? null) !== null
                                     ? ['href' => route('products.edit', $p->product_id), 'label' => 'Add weight and size, then publish', 'title' => 'Shopee will refuse to publish without ' . $parcelGaps[$p->product_id]]
                                     : ['action' => route('ext.shopee.listings.toggle', $p->product_id), 'label' => 'Publish on Shopee', 'fields' => ['action' => 'list'], 'confirm' => 'Publish this item on Shopee? Buyers see it again immediately.', 'verb' => 'Publish', 'tone' => 'primary'];
@@ -429,8 +429,8 @@
         id="shopee-add-panel"
         :search-url="route('ext.shopee.products.catalog_search')"
         :add-url="route('ext.shopee.products.add_to_store', ['productId' => '__PID__'])"
-        :groups="\App\Integrations\Listings\StatusMenu::groupChoices($statusMenu ?? [])"
-        :group="\App\Integrations\Listings\StatusMenu::chosenGroup($statusMenu ?? [])"
+        :groups="\App\Channels\Listings\StatusMenu::groupChoices($statusMenu ?? [])"
+        :group="\App\Channels\Listings\StatusMenu::chosenGroup($statusMenu ?? [])"
         sub="Search your Master Catalog. Each product you add joins this store's list, ready to configure and push to Shopee."
         toggle-label="Show products already on this store"
         in-label="On this store"

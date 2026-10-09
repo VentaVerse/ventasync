@@ -85,7 +85,7 @@ class TikTokListingController extends Controller
 
         $covPfx = (string) config('catalog.prefix');
         $covStoreId = (int) (TikTokSetting::defaultStore()?->id ?? 0);
-        $covSkus = \App\Integrations\Listings\ListingVariations::sold('tiktok', $covStoreId, [$productId], $covPfx)[$productId] ?? [];
+        $covSkus = \App\Channels\Listings\ListingVariations::sold('tiktok', $covStoreId, [$productId], $covPfx)[$productId] ?? [];
         $covRaw = \Extensions\TikTok\Models\TikTokListing::query()->where('product_id', $productId)->value('tiktok_sku_id')
             ?? \Extensions\TikTok\Models\TikTokProductGroupProduct::query()->onStore($covStoreId)->where('product_id', $productId)
                 ->whereNotNull('tiktok_product_id')->orderByDesc('last_pushed_at')->value('tiktok_sku_id');
@@ -109,7 +109,7 @@ class TikTokListingController extends Controller
             ->get(['tiktok_product_group_id', 'attribute_key', 'value'])
             ->groupBy('tiktok_product_group_id');
         $groupBand = [
-            'current' => \App\Integrations\Listings\ListingGroup::current([
+            'current' => \App\Channels\Listings\ListingGroup::current([
                 'pivot' => 'tiktok_product_group_products', 'fk' => 'tiktok_product_group_id',
                 'groups' => 'tiktok_product_groups', 'storeFk' => 'tiktok_setting_id',
                 'storeId' => $covStoreId,
@@ -140,9 +140,9 @@ class TikTokListingController extends Controller
 
         $hasVariations = isset(\Extensions\TikTok\Services\TikTok\TikTokVariationPush::withVariations([$productId])[$productId]);
 
-        return view('ext-tiktok::listings.edit', \App\Integrations\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('tiktok_product_groups', 'tiktok_product_group_products', 'tiktok_product_group_id', $productId, 'tiktok_setting_id', (int) ($listing->tiktok_setting_id ?? 0) ?: null), 'tiktok', \App\Integrations\Listings\ListingStore::id('tiktok')) + [
+        return view('ext-tiktok::listings.edit', \App\Channels\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('tiktok_product_groups', 'tiktok_product_group_products', 'tiktok_product_group_id', $productId, 'tiktok_setting_id', (int) ($listing->tiktok_setting_id ?? 0) ?: null), 'tiktok', \App\Channels\Listings\ListingStore::id('tiktok')) + [
             'coverage' => $coverage,
-            ...\App\Integrations\Listings\ListingVariations::cardData(
+            ...\App\Channels\Listings\ListingVariations::cardData(
                 'tiktok', $covStoreId, $productId,
                 $live !== null ? collect($live['skus'] ?? [])->pluck('seller_sku')->all() : (empty($listing->tiktok_product_id ?? null) ? [] : null)
             ),
@@ -191,23 +191,23 @@ class TikTokListingController extends Controller
             'attributes' => 'nullable|array',
             'attributes.*' => 'nullable|string|max:500',
             'image_order' => 'nullable|string|max:20000',
-            ...\App\Integrations\Listings\ListingVariations::rules(),
-            ...\App\Integrations\Listings\ListingGroup::rules(),
+            ...\App\Channels\Listings\ListingVariations::rules(),
+            ...\App\Channels\Listings\ListingGroup::rules(),
         ]);
 
         $images = $request->has('image_order')
-            ? ['image_order' => \App\Integrations\Listings\ListingImages::submitted($productId, $data['image_order'] ?? null),
-                  'image_off' => \App\Integrations\Listings\ListingImages::submittedOff($productId, $request->input('image_off'))]
+            ? ['image_order' => \App\Channels\Listings\ListingImages::submitted($productId, $data['image_order'] ?? null),
+                  'image_off' => \App\Channels\Listings\ListingImages::submittedOff($productId, $request->input('image_off'))]
             : [];
 
         $words = [];
         if ($request->has('title')) {
-            $words['title'] = \App\Integrations\Listings\ListingContent::own($data['title'] ?? null);
+            $words['title'] = \App\Channels\Listings\ListingContent::own($data['title'] ?? null);
         }
         $blank = fn ($v) => ($v === null || trim((string) $v) === '') ? null : $v;
-        $picked = \App\Integrations\Listings\ListingGroup::submitted($request);
+        $picked = \App\Channels\Listings\ListingGroup::submitted($request);
         if ($picked['present']) {
-            \App\Integrations\Listings\ListingGroup::assign([
+            \App\Channels\Listings\ListingGroup::assign([
                 'pivot' => 'tiktok_product_group_products', 'fk' => 'tiktok_product_group_id',
                 'groups' => 'tiktok_product_groups', 'storeFk' => 'tiktok_setting_id',
                 'storeId' => (int) (TikTokSetting::defaultStore()?->id ?? 0),
@@ -215,7 +215,7 @@ class TikTokListingController extends Controller
         }
         if ($request->has('description')) {
             $currentDescription = TikTokListing::query()->where('product_id', $productId)->value('description');
-            $words['description'] = \App\Integrations\Listings\ListingContent::descriptionToSave($data['description'] ?? null, $currentDescription, $request->input('description_edited'));
+            $words['description'] = \App\Channels\Listings\ListingContent::descriptionToSave($data['description'] ?? null, $currentDescription, $request->input('description_edited'));
         }
         $hasVariations = isset(\Extensions\TikTok\Services\TikTok\TikTokVariationPush::withVariations([$productId])[$productId]);
         TikTokListing::query()->updateOrCreate(
@@ -232,8 +232,8 @@ class TikTokListingController extends Controller
                 'package_width' => $blank($data['package_width'] ?? null),
                 'package_height' => $blank($data['package_height'] ?? null),
                 'description_prefix_id' => ((int) ($data['description_prefix_id'] ?? 0)) ?: null,
-                ...\App\Integrations\Listings\ListingImages::submittedWatermark($request, 'tiktok', \App\Integrations\Listings\ListingStore::id('tiktok')),
-                ...\App\Integrations\Listings\ListingVideo::submitted($request),
+                ...\App\Channels\Listings\ListingImages::submittedWatermark($request, 'tiktok', \App\Channels\Listings\ListingStore::id('tiktok')),
+                ...\App\Channels\Listings\ListingVideo::submitted($request),
                 'description_suffix_id' => ((int) ($data['description_suffix_id'] ?? 0)) ?: null,
                 'attribute_values' => array_filter(
                     array_map(fn ($v) => trim((string) $v), $data['attributes'] ?? []),
@@ -247,9 +247,9 @@ class TikTokListingController extends Controller
         if ($followed && $savedRow) {
             $groupModel = \Extensions\TikTok\Models\TikTokProductGroup::query()->find($followed['group_id']);
             if (is_array($savedRow->attribute_values)) {
-                $savedRow->attribute_values = \App\Integrations\Listings\ListingGroup::ownAnswers($savedRow->attribute_values, (array) ($followed['attributes'] ?? [])) ?: null;
+                $savedRow->attribute_values = \App\Channels\Listings\ListingGroup::ownAnswers($savedRow->attribute_values, (array) ($followed['attributes'] ?? [])) ?: null;
             }
-            \App\Integrations\Listings\ListingGroup::follow($savedRow, [
+            \App\Channels\Listings\ListingGroup::follow($savedRow, [
                 'tiktok_category_id' => $followed['category_id'],
                 'watermark_template_id' => $groupModel?->watermark_template_id,
                 'markup_percent' => $groupModel?->markup_percent,
@@ -257,8 +257,8 @@ class TikTokListingController extends Controller
             ], [['markup_percent', 'markup_fixed']]);
         }
 
-        if (($sellHere = \App\Integrations\Listings\ListingVariations::submitted($request)) !== null) {
-            \App\Integrations\Listings\ListingVariations::save('tiktok', (int) (TikTokSetting::defaultStore()?->id ?? 0), $productId, $sellHere);
+        if (($sellHere = \App\Channels\Listings\ListingVariations::submitted($request)) !== null) {
+            \App\Channels\Listings\ListingVariations::save('tiktok', (int) (TikTokSetting::defaultStore()?->id ?? 0), $productId, $sellHere);
         }
 
         $back = \App\Support\BackTo::safe($request->input('back'), '');
@@ -273,7 +273,7 @@ class TikTokListingController extends Controller
             $readiness = app(TikTokListingReadiness::class)->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => ['its readiness could not be checked']];
             if (!$readiness['ready']) {
                 return redirect()->route('ext.tiktok.listings.edit', $back !== '' ? [$productId, 'back' => $back] : $productId)
-                    ->with('error', 'Saved, but not pushed: ' . \App\Integrations\Listings\CatalogGaps::stillNeeds($readiness['missing']));
+                    ->with('error', 'Saved, but not pushed: ' . \App\Channels\Listings\CatalogGaps::stillNeeds($readiness['missing']));
             }
 
             return app(TikTokProductController::class)->pushDirect($request, $productId, app(TikTokClient::class));
@@ -306,7 +306,7 @@ class TikTokListingController extends Controller
         }
         $readiness = app(TikTokListingReadiness::class)->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => ['a TikTok category']];
         if (!$readiness['ready']) {
-            $this->states()->recordOutcome($productId, \App\Integrations\Listings\CatalogGaps::refusal($readiness, 'update'));
+            $this->states()->recordOutcome($productId, \App\Channels\Listings\CatalogGaps::refusal($readiness, 'update'));
 
             return ['tone' => 'error', 'message' => 'Update failed: this listing still needs ' . implode(', ', $readiness['missing']) . '.'];
         }

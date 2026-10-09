@@ -77,7 +77,7 @@ class LazadaPushPayload
             ]);
 
         if ($product) {
-            $content = \App\Integrations\Listings\ListingContent::of(
+            $content = \App\Channels\Listings\ListingContent::of(
                 $listing,
                 (string) ($product->name ?? ''),
                 (string) ($product->description ?? ''),
@@ -205,12 +205,12 @@ class LazadaPushPayload
                 ->orderBy('poc.sort_order')
                 ->get();
 
-            $soldHidden = \App\Integrations\Listings\ListingVariations::hidden('lazada', (int) ($listing->lazada_setting_id ?? 0), [(int) $listing->product_id]);
+            $soldHidden = \App\Channels\Listings\ListingVariations::hidden('lazada', (int) ($listing->lazada_setting_id ?? 0), [(int) $listing->product_id]);
             if ($combos->isNotEmpty()) {
-                $combos = $combos->filter(fn ($c) => \App\Integrations\Listings\ListingVariations::allows($soldHidden, (int) $listing->product_id, $c->sku))->values();
+                $combos = $combos->filter(fn ($c) => \App\Channels\Listings\ListingVariations::allows($soldHidden, (int) $listing->product_id, $c->sku))->values();
                 if ($combos->isEmpty()) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
-                        'variants' => \App\Integrations\Listings\ListingVariations::noneSoldMessage('Lazada'),
+                        'variants' => \App\Channels\Listings\ListingVariations::noneSoldMessage('Lazada'),
                     ]);
                 }
             }
@@ -346,10 +346,10 @@ class LazadaPushPayload
                 $skus[] = $skuRow;
             }
         } elseif ($povRows->count() > 0) {
-            $soldPov = $povRows->filter(fn ($r) => \App\Integrations\Listings\ListingVariations::allows($soldHidden, (int) $listing->product_id, $r->sku))->values();
+            $soldPov = $povRows->filter(fn ($r) => \App\Channels\Listings\ListingVariations::allows($soldHidden, (int) $listing->product_id, $r->sku))->values();
             if ($soldPov->isEmpty()) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    'variants' => \App\Integrations\Listings\ListingVariations::noneSoldMessage('Lazada'),
+                    'variants' => \App\Channels\Listings\ListingVariations::noneSoldMessage('Lazada'),
                 ]);
             }
             foreach ($soldPov as $r) {

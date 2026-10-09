@@ -198,7 +198,7 @@ class VentaCartOrderController extends Controller
         return back()->with('status', \App\Services\OrderFetchRunner::outcome($run) . ($run->status === \App\Models\OrderFetchRun::RUNNING ? ' The page continues the rest.' : ''));
     }
 
-    protected function orderFetchIntegration(): string
+    protected function orderFetchChannel(): string
     {
         return 'ventacart';
     }

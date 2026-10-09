@@ -190,7 +190,7 @@ class LazadaStockPushHealTest extends TestCase
 
         $missing = $this->named($this->comboProduct(['LZ-1' => 5, 'LZ-2' => 8]), 'Missing size product');
         $a = LazadaProduct::create(['product_id' => $missing, 'lazada_item_id' => '900', 'live_status' => 'active']);
-        \App\Integrations\Listings\ListingVariations::remember('lazada', $storeId, $missing, ['LZ-1']);
+        \App\Channels\Listings\ListingVariations::remember('lazada', $storeId, $missing, ['LZ-1']);
 
         $refused = $this->named($this->comboProduct(['LZB-1' => 3]), 'Refused price product');
         $b = LazadaProduct::create(['product_id' => $refused, 'lazada_item_id' => '901', 'live_status' => 'active']);
@@ -331,7 +331,7 @@ class LazadaStockPushHealTest extends TestCase
         $listing = LazadaProduct::create(['product_id' => $pid, 'lazada_item_id' => '900']);
         LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
         LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-2', 'sku_id' => 12]);
-        \App\Integrations\Listings\ListingVariations::save('lazada', (int) ($listing->lazada_setting_id ?? 0), $pid, ['LZ-1']);
+        \App\Channels\Listings\ListingVariations::save('lazada', (int) ($listing->lazada_setting_id ?? 0), $pid, ['LZ-1']);
 
         $this->actingAs($this->manager())
             ->post(route('ext.lazada.products.sync_quantity', $listing->product_id))

@@ -169,7 +169,7 @@
             $variationCount = $optRows ? count($optRows) : 0;
 
             $rowState = ($listingStates ?? [])[(int) $p->product_id] ?? null;
-            $stateClass = \App\Integrations\Listings\ListingState::class;
+            $stateClass = \App\Channels\Listings\ListingState::class;
 
             $pName = (string) ($rowTitles[(int) $p->product_id] ?? html_entity_decode((string) ($p->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
             $pSku = (string) ($p->sku ?: ($p->model ?: ''));

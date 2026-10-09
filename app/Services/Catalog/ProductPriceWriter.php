@@ -84,7 +84,7 @@ final class ProductPriceWriter
 
     private function named(Product $product): string
     {
-        $name = \App\Integrations\Listings\CatalogCopy::title((string) DB::table(config('catalog.prefix') . 'product_description')
+        $name = \App\Channels\Listings\CatalogCopy::title((string) DB::table(config('catalog.prefix') . 'product_description')
             ->where('product_id', $product->product_id)
             ->where('language_id', (int) config('catalog.default_language_id'))
             ->value('name'));

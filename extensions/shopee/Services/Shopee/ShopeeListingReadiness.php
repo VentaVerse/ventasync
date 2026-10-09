@@ -2,8 +2,8 @@
 
 namespace Extensions\Shopee\Services\Shopee;
 
-use App\Integrations\Listings\CatalogGaps;
-use App\Integrations\Listings\ListingState;
+use App\Channels\Listings\CatalogGaps;
+use App\Channels\Listings\ListingState;
 use Extensions\Shopee\Models\ShopeeCategory;
 use Extensions\Shopee\Models\ShopeeCategoryTemplate;
 use Extensions\Shopee\Models\ShopeeListing;

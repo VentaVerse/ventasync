@@ -1,6 +1,6 @@
-@props(['integration', 'storeId' => null, 'formId', 'channelLabel', 'beginUrl', 'stepUrl', 'stopUrl', 'stateUrl'])
+@props(['channel', 'storeId' => null, 'formId', 'channelLabel', 'beginUrl', 'stepUrl', 'stopUrl', 'stateUrl'])
 @php
-    $resumable = \App\Models\OrderFetchRun::resumable($integration, $storeId !== null ? (int) $storeId : null);
+    $resumable = \App\Models\OrderFetchRun::resumable($channel, $storeId !== null ? (int) $storeId : null);
     $resumableState = $resumable ? $resumable->toState() : null;
     $resumableWhen = $resumable?->updated_at?->diffForHumans();
 @endphp
@@ -20,8 +20,8 @@
     </div>
 
     <div class="modal-backdrop of-backdrop" data-of-sheet hidden>
-        <div class="modal co-modal co-modal--sm of-run" role="dialog" aria-modal="true" aria-labelledby="of-sheet-title-{{ $integration }}">
-            <h2 class="of-run__title" id="of-sheet-title-{{ $integration }}" data-of-sheet-title>Fetching orders from {{ $channelLabel }}</h2>
+        <div class="modal co-modal co-modal--sm of-run" role="dialog" aria-modal="true" aria-labelledby="of-sheet-title-{{ $channel }}">
+            <h2 class="of-run__title" id="of-sheet-title-{{ $channel }}" data-of-sheet-title>Fetching orders from {{ $channelLabel }}</h2>
             <p class="of-run__sub" data-of-sheet-sub></p>
             <div class="of-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-of-bar><div class="of-bar__fill" data-of-fill></div></div>
             <div class="of-run__count"><span data-of-count></span><span class="of-run__page" data-of-page></span></div>

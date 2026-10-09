@@ -78,7 +78,7 @@ class ShopeeCatalogOrderSync
             }
 
             if (!$catalogOrder) {
-                $catalogOrder = Order::where('marketplace_source', 'shopee')
+                $catalogOrder = Order::where('channel', 'shopee')
                     ->where('marketplace_order_id', $orderSn)
                     ->first();
             }
@@ -158,7 +158,7 @@ class ShopeeCatalogOrderSync
                 'accept_language'       => '',
                 'courier_id'            => 0,
                 'tracking_number'       => $trackingNumber,
-                'marketplace_source'    => 'shopee',
+                'channel'    => 'shopee',
                 'marketplace_order_id'  => $orderSn,
                 'oe_import'             => 0,
             ];

@@ -301,7 +301,7 @@ class ShopeeOrderController extends Controller
         }
 
         $runner = app(\App\Services\OrderFetchRunner::class);
-        $run = $runner->begin($this->orderFetchIntegration(), $this->orderFetchStoreId($request), $data['date_from'], $data['date_to'], [
+        $run = $runner->begin($this->orderFetchChannel(), $this->orderFetchStoreId($request), $data['date_from'], $data['date_to'], [
             'no_stock' => ! empty($data['no_stock']),
         ]);
         $run = $runner->walk($run, fn (\App\Models\OrderFetchRun $r) => $this->orderFetchStep($r));
@@ -317,7 +317,7 @@ class ShopeeOrderController extends Controller
         ]);
     }
 
-    protected function orderFetchIntegration(): string
+    protected function orderFetchChannel(): string
     {
         return 'shopee';
     }

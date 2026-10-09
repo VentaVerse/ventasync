@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Extensions\ExtensionManager;
-use App\Integrations\IntegrationRegistry;
+use App\Channels\ChannelRegistry;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
@@ -60,19 +60,19 @@ class LazadaWorkspaceTest extends TestCase
         $this->lazadaStore = LazadaSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
-    private function lazadaCard(): \App\Integrations\IntegrationCard
+    private function lazadaCard(): \App\Channels\ChannelCard
     {
-        $registry = app(IntegrationRegistry::class);
+        $registry = app(ChannelRegistry::class);
 
         foreach ($registry->all() as $provider) {
-            foreach ($provider->integrationCards() as $card) {
+            foreach ($provider->channelCards() as $card) {
                 if ($card->id === 'lazada') {
                     return $card;
                 }
             }
         }
 
-        $this->fail('Lazada did not register an IntegrationCard.');
+        $this->fail('Lazada did not register an ChannelCard.');
     }
 
     private function lazadaMenu(): array

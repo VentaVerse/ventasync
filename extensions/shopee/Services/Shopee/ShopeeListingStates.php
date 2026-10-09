@@ -2,9 +2,9 @@
 
 namespace Extensions\Shopee\Services\Shopee;
 
-use App\Integrations\Listings\ListingState;
-use App\Integrations\Listings\ListingVariations;
-use App\Integrations\Push\PushLedger;
+use App\Channels\Listings\ListingState;
+use App\Channels\Listings\ListingVariations;
+use App\Channels\Push\PushLedger;
 use Extensions\Shopee\Models\ShopeeListing;
 use Extensions\Shopee\Models\ShopeeProductGroup;
 use Extensions\Shopee\Models\ShopeeProductLink;
@@ -145,7 +145,7 @@ class ShopeeListingStates
 
     private function catalogChanges(): array
     {
-        return \App\Integrations\Listings\CatalogCopy::pending(
+        return \App\Channels\Listings\CatalogCopy::pending(
             $this->bucket('drift')->get(), 'shopee_listings', ShopeeListing::copyColumns()
         );
     }
@@ -202,7 +202,7 @@ class ShopeeListingStates
                 ->sortByDesc('last_synced_at')->first();
             if ($failedSync) {
                 $found[] = [$failedSync->last_synced_at ? Carbon::parse($failedSync->last_synced_at) : Carbon::createFromTimestamp(0),
-                    trim((string) $failedSync->last_sync_error_message) ?: \App\Integrations\Push\PushLedger::NO_REASON];
+                    trim((string) $failedSync->last_sync_error_message) ?: \App\Channels\Push\PushLedger::NO_REASON];
             }
             usort($found, fn ($a, $b) => $b[0] <=> $a[0]);
             $out[$pid] = ListingVariations::withMissing(
@@ -267,7 +267,7 @@ class ShopeeListingStates
             ->get()
             ->keyBy('product_id');
 
-        $catalogChanges = \App\Integrations\Listings\CatalogCopy::pending($listings->values(), 'shopee_listings', ShopeeListing::copyColumns());
+        $catalogChanges = \App\Channels\Listings\CatalogCopy::pending($listings->values(), 'shopee_listings', ShopeeListing::copyColumns());
 
         $readiness = $this->readiness->forProducts($productIds);
 

@@ -7,7 +7,7 @@ use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
 use Extensions\OpenCart\Services\OpenCart\OpenCartProductSync;
 use Illuminate\Console\Command;
 
-class OpenCartPushPrice extends Command implements \App\Integrations\Contracts\SteppableAutomation
+class OpenCartPushPrice extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     protected $signature = 'opencart:push-price
         {--store= : Store ID (opencart_settings.id). Omit to push to all enabled stores}';

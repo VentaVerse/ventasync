@@ -2,7 +2,7 @@
 
 namespace Extensions\Lazada\Controllers;
 
-use App\Http\Controllers\Integrations\ChannelDashboardController;
+use App\Http\Controllers\Channels\ChannelDashboardController;
 
 class LazadaDashboardController extends ChannelDashboardController
 {

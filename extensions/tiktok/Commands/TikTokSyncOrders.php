@@ -12,7 +12,7 @@ use Extensions\TikTok\Services\TikTokCatalogOrderSync;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
-class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\SteppableAutomation
+class TikTokSyncOrders extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     use \App\Console\Concerns\StepsOutsideArtisan;
 

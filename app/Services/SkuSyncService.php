@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Integrations\IntegrationRegistry;
+use App\Channels\ChannelRegistry;
 use Illuminate\Support\Facades\DB;
 
 class SkuSyncService
@@ -20,8 +20,8 @@ class SkuSyncService
         }
 
         $messages = [];
-        foreach (app(IntegrationRegistry::class)->skuSyncContributors() as $contributor) {
-            $key = $contributor->integrationId();
+        foreach (app(ChannelRegistry::class)->skuSyncContributors() as $contributor) {
+            $key = $contributor->getId();
             $message = $contributor->pushSkuChanges($productId, $skuChanges);
             if ($message !== null) {
                 $messages[$key] = $message;

@@ -234,7 +234,7 @@ class OpenCartProductGroupController extends Controller
         $existing = $g->groupProducts()->pluck('product_id')->toArray();
         $ids = array_values(array_diff($ids, $existing));
 
-        $claim = \App\Integrations\OneGroupRule::claim('opencart_product_group_products', 'opencart_product_group_id', 'opencart_product_groups', 'opencart_setting_id', $g->id, $ids, array_map('intval', (array) $request->input('move_ids', [])));
+        $claim = \App\Channels\OneGroupRule::claim('opencart_product_group_products', 'opencart_product_group_id', 'opencart_product_groups', 'opencart_setting_id', $g->id, $ids, array_map('intval', (array) $request->input('move_ids', [])));
 
         $added = 0;
         foreach (array_merge($claim['free'], array_keys($claim['moved'])) as $pid) {
@@ -247,7 +247,7 @@ class OpenCartProductGroupController extends Controller
 
         return redirect()->route('ext.opencart.product-groups.products', [$store, $group])
             ->with($added > 0 ? 'status' : 'warning', "{$added} product(s) added to product group."
-                . \App\Integrations\OneGroupRule::heldClause($claim['held']));
+                . \App\Channels\OneGroupRule::heldClause($claim['held']));
     }
 
     public function removeProduct(int $store, int $group, int $product)

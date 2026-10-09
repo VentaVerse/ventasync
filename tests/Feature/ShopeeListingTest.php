@@ -392,11 +392,11 @@ class ShopeeListingTest extends TestCase
         ]);
         $storeId = (int) \Extensions\Shopee\Models\ShopeeSetting::query()->orderBy('id')->value('id');
         $prefix = \App\Models\DescriptionTemplate::create([
-            'integration' => 'shopee', 'store_id' => $storeId,
+            'channel' => 'shopee', 'store_id' => $storeId,
             'name' => 'Warranty', 'body' => 'One year warranty.',
         ]);
         $suffix = \App\Models\DescriptionTemplate::create([
-            'integration' => 'shopee', 'store_id' => $storeId,
+            'channel' => 'shopee', 'store_id' => $storeId,
             'name' => 'Returns', 'body' => 'Returns within 7 days.',
         ]);
         ShopeeListing::create([
@@ -418,7 +418,7 @@ class ShopeeListingTest extends TestCase
         );
 
         $other = \App\Models\DescriptionTemplate::create([
-            'integration' => 'shopee', 'store_id' => $storeId + 99,
+            'channel' => 'shopee', 'store_id' => $storeId + 99,
             'name' => 'Someone else', 'body' => 'Not ours.',
         ]);
         ShopeeListing::query()->where('product_id', $productId)->update(['description_prefix_id' => $other->id]);
@@ -497,10 +497,10 @@ class ShopeeListingTest extends TestCase
         ShopeeListing::create(['product_id' => $productId, 'shopee_category_id' => 100200, 'logistic_ids' => [8003]]);
         $gaps = fn () => array_column(app(\Extensions\Shopee\Services\Shopee\ShopeeListingReadiness::class)->forProducts([$productId])[$productId]['gaps'], 'code');
 
-        $this->assertContains(\App\Integrations\Listings\ListingState::GAP_PRICE, $gaps());
+        $this->assertContains(\App\Channels\Listings\ListingState::GAP_PRICE, $gaps());
 
         ShopeeListing::query()->where('product_id', $productId)->update(['price' => 500]);
-        $this->assertNotContains(\App\Integrations\Listings\ListingState::GAP_PRICE, $gaps());
+        $this->assertNotContains(\App\Channels\Listings\ListingState::GAP_PRICE, $gaps());
     }
 
     public function test_the_parcels_own_values_are_sent_and_blank_ones_follow_the_catalog(): void

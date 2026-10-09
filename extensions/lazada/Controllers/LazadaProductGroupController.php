@@ -30,7 +30,7 @@ class LazadaProductGroupController extends Controller
 {
     use \App\Http\Controllers\Concerns\DrivesGroupSendRuns;
 
-    protected function groupSendIntegration(): string
+    protected function groupSendChannel(): string
     {
         return 'lazada';
     }
@@ -197,7 +197,7 @@ class LazadaProductGroupController extends Controller
             'brand_id' => $data['brand_id'] ?? null,
             'brand_name_override' => !empty($request->input('no_brand')) ? 'No Brand' : null,
             'markup_fixed' => $data['markup_fixed'] ?? null,
-            'markup_percent' => $data['markup_percent'] ?? null, 'watermark_template_id' => \App\Models\WatermarkTemplate::idOrNull($data['watermark_template_id'] ?? null, 'lazada', \App\Integrations\Listings\ListingStore::id('lazada')),
+            'markup_percent' => $data['markup_percent'] ?? null, 'watermark_template_id' => \App\Models\WatermarkTemplate::idOrNull($data['watermark_template_id'] ?? null, 'lazada', \App\Channels\Listings\ListingStore::id('lazada')),
         ]);
 
         $this->saveGroupAttributes($group, (array) $request->input('attributes', []));
@@ -230,7 +230,7 @@ class LazadaProductGroupController extends Controller
             'brand_id' => $data['brand_id'] ?? null,
             'brand_name_override' => !empty($request->input('no_brand')) ? 'No Brand' : null,
             'markup_fixed' => $data['markup_fixed'] ?? null,
-            'markup_percent' => $data['markup_percent'] ?? null, 'watermark_template_id' => \App\Models\WatermarkTemplate::idOrNull($data['watermark_template_id'] ?? null, 'lazada', \App\Integrations\Listings\ListingStore::id('lazada')),
+            'markup_percent' => $data['markup_percent'] ?? null, 'watermark_template_id' => \App\Models\WatermarkTemplate::idOrNull($data['watermark_template_id'] ?? null, 'lazada', \App\Channels\Listings\ListingStore::id('lazada')),
         ]);
 
         $this->saveGroupAttributes($group, (array) $request->input('attributes', []));
@@ -344,11 +344,11 @@ class LazadaProductGroupController extends Controller
             $query->where('gp.sync_status', 'unlinked');
         }
 
-        $storeId = \App\Integrations\Listings\ListingStore::id('lazada');
+        $storeId = \App\Channels\Listings\ListingStore::id('lazada');
         $sortMenu = ['added' => 'gp.id', 'pushed' => 'gp.last_pushed_at'] + \Extensions\Lazada\Services\LazadaListingSort::columns($storeId);
-        $order = \App\Integrations\Listings\ListingSort::chosen($request, 'lazada.group.' . $group->id);
+        $order = \App\Channels\Listings\ListingSort::chosen($request, 'lazada.group.' . $group->id);
         \Extensions\Lazada\Services\LazadaListingSort::join($query, $storeId);
-        \App\Integrations\Listings\ListingSort::apply($query, $order, $sortMenu);
+        \App\Channels\Listings\ListingSort::apply($query, $order, $sortMenu);
 
         $products = $query->paginate(50)->appends($request->except('page'));
 
@@ -363,7 +363,7 @@ class LazadaProductGroupController extends Controller
 
         $manualIds = $group->groupProducts()->whereNotNull('product_id')->pluck('product_id')->toArray();
 
-        $rowTitles = \App\Integrations\Listings\ListingContent::rowTitles($products, LazadaProduct::query()
+        $rowTitles = \App\Channels\Listings\ListingContent::rowTitles($products, LazadaProduct::query()
             ->forStore(LazadaSetting::defaultStore())
             ->whereIn('product_id', $pivotProductIds ?: [0])
             ->orderBy('id')
@@ -375,7 +375,7 @@ class LazadaProductGroupController extends Controller
             'rowTitles' => $rowTitles,
             'pivotMap' => $pivotMap,
             'order' => $order,
-            'orderOptions' => \App\Integrations\Listings\ListingSort::options(array_keys($sortMenu)),
+            'orderOptions' => \App\Channels\Listings\ListingSort::options(array_keys($sortMenu)),
             'listingStates' => app(\Extensions\Lazada\Services\Lazada\LazadaListingStates::class)
                 ->forProducts(array_map('intval', $pivotProductIds)),
             'rowErrors' => $states->errors(array_map('intval', $pivotProductIds)),
@@ -502,7 +502,7 @@ class LazadaProductGroupController extends Controller
 
         if ($request->wantsJson()) {
             if (! $already && ! $added) {
-                return response()->json(['ok' => false, 'product_id' => $productId, 'message' => trim(\App\Integrations\OneGroupRule::heldClause($this->lastHeld))], 409);
+                return response()->json(['ok' => false, 'product_id' => $productId, 'message' => trim(\App\Channels\OneGroupRule::heldClause($this->lastHeld))], 409);
             }
 
             return response()->json(['ok' => true, 'product_id' => $productId, 'added' => $added, 'moved_from' => $movedFrom, 'listed' => $listedNow]);
@@ -512,7 +512,7 @@ class LazadaProductGroupController extends Controller
             ? "Product #{$productId} is already in this product group."
             : ($added
                 ? "Product #{$productId} added to the product group." . ($movedFrom !== null ? " Moved here from '{$movedFrom}'." : '') . ($listedNow ? ' It is on this store now too.' : '')
-                : trim(\App\Integrations\OneGroupRule::heldClause($this->lastHeld)));
+                : trim(\App\Channels\OneGroupRule::heldClause($this->lastHeld)));
 
         return $this->productsRedirect($group->id)->with($added ? 'status' : 'warning', $status);
     }
@@ -683,7 +683,7 @@ class LazadaProductGroupController extends Controller
 
         $already = $group->groupProducts()->whereIn('product_id', $ids)->pluck('product_id')->map(fn ($v) => (int) $v)->all();
         $wanted = array_values(array_diff($ids, $already));
-        $claim = \App\Integrations\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'lazada_setting_id', $group->id, $wanted, $wanted);
+        $claim = \App\Channels\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'lazada_setting_id', $group->id, $wanted, $wanted);
         $moved = 0;
         foreach (array_merge($claim['free'], array_keys($claim['moved'])) as $pid) {
             $listingId = LazadaProduct::query()->forStore($store)->where('product_id', (int) $pid)->value('id')
@@ -789,7 +789,7 @@ class LazadaProductGroupController extends Controller
             }
             $readiness = app(\Extensions\Lazada\Services\Lazada\LazadaListingReadiness::class)->forListings(collect([$gateRow]), $gateOverrides)[(int) $gateRow->id] ?? ['ready' => false, 'missing' => []];
             if (!$readiness['ready']) {
-                $refusal = \App\Integrations\Listings\CatalogGaps::refusal($readiness);
+                $refusal = \App\Channels\Listings\CatalogGaps::refusal($readiness);
                 $errors[] = "#{$productId}: {$refusal}";
                 $this->recordGroupFailure($group, $pivot, (int) $productId, $refusal);
                 $errCount++;
@@ -801,7 +801,7 @@ class LazadaProductGroupController extends Controller
 
                 if ($pivot) {
                     $pivot->update(['lazada_product_id' => $listing->id]);
-                } elseif (\App\Integrations\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'lazada_setting_id', $group->id, [(int) $productId])['free'] !== []) {
+                } elseif (\App\Channels\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'lazada_setting_id', $group->id, [(int) $productId])['free'] !== []) {
                     LazadaProductGroupProduct::create([
                         'lazada_product_group_id' => $group->id,
                         'product_id' => $productId,
@@ -1000,7 +1000,7 @@ class LazadaProductGroupController extends Controller
 
             $readiness = app(\Extensions\Lazada\Services\Lazada\LazadaListingReadiness::class)->forListings(collect([$listing]), $groupOverrides)[(int) $listing->id] ?? ['ready' => false, 'missing' => []];
             if (!$readiness['ready']) {
-                $refusal = \App\Integrations\Listings\CatalogGaps::refusal($readiness, 'update');
+                $refusal = \App\Channels\Listings\CatalogGaps::refusal($readiness, 'update');
                 $this->recordGroupFailure($group, $pivot, $productId, $refusal);
 
                 return ['ok' => false, 'message' => $refusal];
@@ -1179,7 +1179,7 @@ class LazadaProductGroupController extends Controller
         }
 
         return $this->productsRedirect($id)->with(
-            \App\Integrations\Push\PushLedger::batchTone($results['ok'], $results['err']),
+            \App\Channels\Push\PushLedger::batchTone($results['ok'], $results['err']),
             "Sync Price: {$results['ok']} ok, {$results['err']} failed"
                 . ($results['skipped'] > 0 ? ", {$results['skipped']} skipped (disabled)" : '') . '.'
                 . \Extensions\Lazada\Services\Lazada\LazadaStockPricePush::ledgerClause($results)
@@ -1215,7 +1215,7 @@ class LazadaProductGroupController extends Controller
         }
 
         return $this->productsRedirect($id)->with(
-            \App\Integrations\Push\PushLedger::batchTone($results['ok'], $results['err']),
+            \App\Channels\Push\PushLedger::batchTone($results['ok'], $results['err']),
             "Sync Qty: {$results['ok']} ok, {$results['err']} failed"
                 . ($results['skipped'] > 0 ? ", {$results['skipped']} skipped (disabled)" : '') . '.'
                 . \Extensions\Lazada\Services\Lazada\LazadaStockPricePush::ledgerClause($results)
@@ -1413,7 +1413,7 @@ class LazadaProductGroupController extends Controller
     {
         $existing = $group->groupProducts()->whereIn('product_id', $productIds)->pluck('product_id')->toArray();
 
-        $claim = \App\Integrations\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'lazada_setting_id', $group->id, array_values(array_diff(array_map('intval', $productIds), $existing)), $moveIds);
+        $claim = \App\Channels\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'lazada_setting_id', $group->id, array_values(array_diff(array_map('intval', $productIds), $existing)), $moveIds);
         $this->lastHeld = $claim['held'];
         $productIds = array_merge($claim['free'], array_keys($claim['moved']), array_map('intval', $existing));
         $added = 0;

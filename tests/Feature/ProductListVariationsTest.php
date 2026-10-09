@@ -63,8 +63,8 @@ class ProductListVariationsTest extends TestCase
         $this->assertStringContainsString("strtok(\$src, ':')", $view);
 
         $controller = File::get(base_path('app/Http/Controllers/Catalog/ProductController.php'));
-        $this->assertStringContainsString("'o.marketplace_source',", $controller);
-        $this->assertStringContainsString('availableMarketplaceSourceOptions()', $controller,
+        $this->assertStringContainsString("'o.channel',", $controller);
+        $this->assertStringContainsString('availableChannelOptions()', $controller,
             'the label map must come from the registry, not a hardcoded list');
     }
 }

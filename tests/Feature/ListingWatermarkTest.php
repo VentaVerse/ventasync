@@ -32,7 +32,7 @@ class ListingWatermarkTest extends TestCase
     private function template(string $name): WatermarkTemplate
     {
         return WatermarkTemplate::create([
-            'integration' => 'shopee', 'store_id' => 1,
+            'channel' => 'shopee', 'store_id' => 1,
             'name' => $name, 'image_path' => $this->png('catalog/marks/' . $name . '.png', true),
             'position' => 'bottom-right', 'size_percent' => 20, 'offset_x_percent' => 0, 'offset_y_percent' => 0, 'opacity' => 1,
         ]);

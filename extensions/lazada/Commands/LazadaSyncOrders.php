@@ -13,7 +13,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
-class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\SteppableAutomation
+class LazadaSyncOrders extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     use \App\Console\Concerns\StepsOutsideArtisan;
 

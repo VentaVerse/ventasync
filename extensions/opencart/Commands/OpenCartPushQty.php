@@ -7,7 +7,7 @@ use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
 use Extensions\OpenCart\Services\OpenCart\OpenCartProductSync;
 use Illuminate\Console\Command;
 
-class OpenCartPushQty extends Command implements \App\Integrations\Contracts\SteppableAutomation
+class OpenCartPushQty extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     protected $signature = 'opencart:push-qty
         {--store= : Store ID (opencart_settings.id). Omit to push to all enabled stores}';

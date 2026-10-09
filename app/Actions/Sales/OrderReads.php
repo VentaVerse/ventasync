@@ -33,7 +33,7 @@ final class OrderReads
                 'op.order_id', '=', 'o.order_id')
             ->select(
                 'o.order_id',
-                'o.marketplace_source',
+                'o.channel',
                 'o.marketplace_order_id',
                 'o.store_name',
                 DB::raw("TRIM(CONCAT(o.firstname, ' ', o.lastname)) as customer"),
@@ -57,7 +57,7 @@ final class OrderReads
             $query->where('o.order_status_id', (int) $request->integer('status'));
         }
         if ($source = $request->query('source')) {
-            $query->where('o.marketplace_source', $source);
+            $query->where('o.channel', $source);
         }
         if ($search = trim((string) $request->query('search', ''))) {
             $query->where(function ($q) use ($search) {
@@ -87,7 +87,7 @@ final class OrderReads
             })
             ->where('o.order_id', $id)
             ->select(
-                'o.order_id', 'o.marketplace_source', 'o.marketplace_order_id', 'o.store_name',
+                'o.order_id', 'o.channel', 'o.marketplace_order_id', 'o.store_name',
                 DB::raw("TRIM(CONCAT(o.firstname, ' ', o.lastname)) as customer"),
                 'o.email', 'o.telephone', 'o.payment_method',
                 'o.order_status_id', 'os.name as status',

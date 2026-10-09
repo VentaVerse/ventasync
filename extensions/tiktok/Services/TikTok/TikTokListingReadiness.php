@@ -2,8 +2,8 @@
 
 namespace Extensions\TikTok\Services\TikTok;
 
-use App\Integrations\Listings\CatalogGaps;
-use App\Integrations\Listings\ListingState;
+use App\Channels\Listings\CatalogGaps;
+use App\Channels\Listings\ListingState;
 use Extensions\TikTok\Models\TikTokCategory;
 use Extensions\TikTok\Models\TikTokCategoryTemplate;
 use Extensions\TikTok\Models\TikTokListing;

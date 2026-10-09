@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Integrations\IntegrationRegistry;
-use App\Integrations\Push\PushLedger;
+use App\Channels\ChannelRegistry;
+use App\Channels\Push\PushLedger;
 
 class VariationForgetService
 {
@@ -25,8 +25,8 @@ class VariationForgetService
         if ($removed === []) {
             return [];
         }
-        \App\Integrations\Listings\ListingVariations::forget($productId, $removed);
-        foreach (app(IntegrationRegistry::class)->variationForgetters() as $forgetter) {
+        \App\Channels\Listings\ListingVariations::forget($productId, $removed);
+        foreach (app(ChannelRegistry::class)->variationForgetters() as $forgetter) {
             $forgetter->forgetVariations($productId, $removed);
         }
 

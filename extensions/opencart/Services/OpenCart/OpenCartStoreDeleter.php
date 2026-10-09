@@ -31,7 +31,7 @@ final class OpenCartStoreDeleter
                 $removed[$table] = DB::table($table)->where('opencart_setting_id', $store->id)->delete();
             }
             if (Schema::hasTable('scheduled_jobs')) {
-                $removed['scheduled_jobs'] = DB::table('scheduled_jobs')->where('integration', 'opencart')->where('store_id', $store->id)->delete();
+                $removed['scheduled_jobs'] = DB::table('scheduled_jobs')->where('extension', 'opencart')->where('store_id', $store->id)->delete();
             }
             DB::table('opencart_settings')->where('id', $store->id)->delete();
 

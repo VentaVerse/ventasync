@@ -2,9 +2,9 @@
 
 namespace Extensions\Lazada\Services\Lazada;
 
-use App\Integrations\Listings\ListingState;
-use App\Integrations\Listings\ListingVariations;
-use App\Integrations\Push\PushLedger;
+use App\Channels\Listings\ListingState;
+use App\Channels\Listings\ListingVariations;
+use App\Channels\Push\PushLedger;
 use Extensions\Lazada\Models\LazadaProduct;
 use Extensions\Lazada\Models\LazadaProductGroupProduct;
 use Extensions\Lazada\Models\LazadaSetting;
@@ -160,7 +160,7 @@ class LazadaListingStates
 
     private function catalogChanges(): array
     {
-        return \App\Integrations\Listings\CatalogCopy::pending(
+        return \App\Channels\Listings\CatalogCopy::pending(
             $this->bucket('drift')->get(), 'lazada_products', LazadaProduct::copyColumns()
         );
     }
@@ -230,7 +230,7 @@ class LazadaListingStates
         }
 
         $rowReadiness = $this->readiness->forListings(collect(array_values($chosen)));
-        $catalogChanges = \App\Integrations\Listings\CatalogCopy::pending(array_values($chosen), 'lazada_products', LazadaProduct::copyColumns());
+        $catalogChanges = \App\Channels\Listings\CatalogCopy::pending(array_values($chosen), 'lazada_products', LazadaProduct::copyColumns());
         $rowless = array_values(array_filter($productIds, fn ($id) => !isset($chosen[$id])));
         $rowlessReadiness = $this->readiness->forProducts($rowless);
 
@@ -320,7 +320,7 @@ class LazadaListingStates
                 ->sortByDesc('last_synced_at')->first();
             if ($failedSync) {
                 $found[] = [$failedSync->last_synced_at ? Carbon::parse($failedSync->last_synced_at) : Carbon::createFromTimestamp(0),
-                    trim((string) $failedSync->last_sync_error_message) ?: \App\Integrations\Push\PushLedger::NO_REASON];
+                    trim((string) $failedSync->last_sync_error_message) ?: \App\Channels\Push\PushLedger::NO_REASON];
             }
             usort($found, fn ($a, $b) => $b[0] <=> $a[0]);
             $linked = $listing && !empty($listing->lazada_item_id) && !$listing->unlinked_at;

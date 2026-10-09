@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Extensions\ExtensionManager;
-use App\Integrations\IntegrationRegistry;
+use App\Channels\ChannelRegistry;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
@@ -39,7 +39,7 @@ class StoreOptionsTest extends TestCase
         $group->permissions()->attach(Permission::where('key', 'view_shopee/order')->pluck('id'));
         $user = User::factory()->create(['user_group_id' => $group->id]);
 
-        $options = app(IntegrationRegistry::class)->visibleStoreOptions($user);
+        $options = app(ChannelRegistry::class)->visibleStoreOptions($user);
         $this->assertSame(['shopee:' . $a->id, 'shopee:' . $b->id], array_column($options, 'key'),
             'both Shopee stores, paused one included; no Lazada without its permission');
         $this->assertSame(
@@ -49,7 +49,7 @@ class StoreOptionsTest extends TestCase
 
         $both = UserGroup::create(['name' => 'Both viewer']);
         $both->permissions()->attach(Permission::whereIn('key', ['view_shopee/order', 'view_lazada/order'])->pluck('id'));
-        $keys = array_column(app(IntegrationRegistry::class)->visibleStoreOptions(User::factory()->create(['user_group_id' => $both->id])), 'key');
+        $keys = array_column(app(ChannelRegistry::class)->visibleStoreOptions(User::factory()->create(['user_group_id' => $both->id])), 'key');
         $this->assertContains('lazada:' . LazadaSetting::query()->value('id'), $keys);
     }
 }

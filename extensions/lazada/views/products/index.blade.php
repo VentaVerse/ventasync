@@ -316,7 +316,7 @@
             $pid = (int) $row->product_id;
             $listing = $row->listing_id ? $listingsById->get((int) $row->listing_id) : null;
             $rowState = $listingStates[$pid] ?? null;
-            $stateClass = \App\Integrations\Listings\ListingState::class;
+            $stateClass = \App\Channels\Listings\ListingState::class;
 
             $thumbSrc = $productThumbsById->get($pid);
             $pName = (string) ($rowTitles[(int) $row->product_id] ?? $row->name ?? '');

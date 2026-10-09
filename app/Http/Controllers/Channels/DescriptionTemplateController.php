@@ -9,11 +9,11 @@ use Illuminate\Http\Request;
 
 abstract class DescriptionTemplateController extends Controller
 {
-    abstract protected function integration(): string;
+    abstract protected function channel(): string;
 
     protected function storeId(): int
     {
-        $key = $this->integration() . '.route-store';
+        $key = $this->channel() . '.route-store';
         if (app()->bound($key)) {
             return (int) app($key)->id;
         }
@@ -23,17 +23,17 @@ abstract class DescriptionTemplateController extends Controller
 
     protected function canManage(): bool
     {
-        return auth()->user()?->hasPermission('manage_' . $this->integration() . '/description_template') ?? false;
+        return auth()->user()?->hasPermission('manage_' . $this->channel() . '/description_template') ?? false;
     }
 
     public function index()
     {
-        $ch = $this->integration();
+        $ch = $this->channel();
         $store = $this->storeId();
 
         return view('channels.description-templates.index', [
             'richText' => $ch !== 'shopee',
-            'channelName' => app(\App\Integrations\IntegrationRegistry::class)->resolveMarketplaceSourceLabel($ch)
+            'channelName' => app(\App\Channels\ChannelRegistry::class)->resolveChannelLabel($ch)
                 ?? \Illuminate\Support\Str::headline($ch),
             'createUrl' => route('ext.' . $ch . '.description-templates.store', ['store' => $store]),
             'templates' => DescriptionTemplate::forStore($ch, $store)->map(fn ($t) => (object) [
@@ -55,7 +55,7 @@ abstract class DescriptionTemplateController extends Controller
         $data = $this->validated($request);
 
         $template = DescriptionTemplate::create([
-            'integration' => $this->integration(),
+            'channel' => $this->channel(),
             'store_id' => $this->storeId(),
             'name' => $data['name'],
             'body' => $this->body($data['body'] ?? null),
@@ -106,7 +106,7 @@ abstract class DescriptionTemplateController extends Controller
 
     private function body(?string $body): string
     {
-        if ($this->integration() === 'shopee') {
+        if ($this->channel() === 'shopee') {
             return \App\Support\Catalog\DescriptionText::of($body);
         }
 
@@ -117,7 +117,7 @@ abstract class DescriptionTemplateController extends Controller
     {
         return DescriptionTemplate::query()
             ->where('id', $id)
-            ->where('integration', $this->integration())
+            ->where('channel', $this->channel())
             ->where('store_id', $this->storeId())
             ->firstOrFail();
     }
@@ -125,7 +125,7 @@ abstract class DescriptionTemplateController extends Controller
     private function backToIndex(string $status)
     {
         return redirect()
-            ->route('ext.' . $this->integration() . '.description-templates.index', ['store' => $this->storeId()])
+            ->route('ext.' . $this->channel() . '.description-templates.index', ['store' => $this->storeId()])
             ->with('status', $status);
     }
 }

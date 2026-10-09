@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class LazadaPushStock extends Command implements \App\Integrations\Contracts\SteppableAutomation
+class LazadaPushStock extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     protected $signature = 'lazada:push-stock
         {--product-ids= : Comma-separated Lazada listing IDs to push (lazada_products.id)}';
@@ -209,7 +209,7 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
                 ->map(fn ($s) => trim((string) $s))
                 ->toArray();
 
-            $erpSkus = \App\Integrations\Listings\ListingVariations::sold('lazada', (int) ($listing->lazada_setting_id ?? 0), [(int) $listing->product_id], $pfx)[(int) $listing->product_id] ?? [];
+            $erpSkus = \App\Channels\Listings\ListingVariations::sold('lazada', (int) ($listing->lazada_setting_id ?? 0), [(int) $listing->product_id], $pfx)[(int) $listing->product_id] ?? [];
 
             if (empty($erpSkus) || empty(array_diff($erpSkus, $cachedSkus))) {
                 continue;
@@ -229,7 +229,7 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
     {
         $service = app(LazadaStockPushService::class);
         $rows = $service->buildPushItems($listing, $product, $pfx);
-        $hasVariations = !empty(\App\Integrations\Push\PushLedger::erpVariationSkus([(int) $listing->product_id], $pfx)[(int) $listing->product_id] ?? []);
+        $hasVariations = !empty(\App\Channels\Push\PushLedger::erpVariationSkus([(int) $listing->product_id], $pfx)[(int) $listing->product_id] ?? []);
         if ($hasVariations) {
             $rows = array_values(array_filter($rows, fn ($r) => $r['matched'] ?? true));
         }

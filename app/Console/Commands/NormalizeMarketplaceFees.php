@@ -24,7 +24,7 @@ class NormalizeMarketplaceFees extends Command
 
         $orders = DB::table($pfx . 'order')
             ->whereBetween('date_added', [$from, $to])
-            ->where('marketplace_source', '<>', '')
+            ->where('channel', '<>', '')
             ->orderBy('order_id')
             ->pluck('order_id');
 

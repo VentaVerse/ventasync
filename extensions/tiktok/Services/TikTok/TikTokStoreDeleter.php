@@ -44,7 +44,7 @@ final class TikTokStoreDeleter
             }
 
             $removed['scheduled_jobs'] = DB::table('scheduled_jobs')
-                ->where('integration', 'tiktok')->where('store_id', $store->id)->delete();
+                ->where('extension', 'tiktok')->where('store_id', $store->id)->delete();
 
             DB::table('tiktok_settings')->where('id', $store->id)->delete();
 

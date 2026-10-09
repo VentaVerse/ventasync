@@ -1,4 +1,4 @@
-@php $watermarkOptions = \App\Models\WatermarkTemplate::forStore($integration, \App\Integrations\Listings\ListingStore::id($integration)); @endphp
+@php $watermarkOptions = \App\Models\WatermarkTemplate::forStore($channel, \App\Channels\Listings\ListingStore::id($channel)); @endphp
 <x-ui.field label="Template" for="pg-watermark" name="watermark_template_id">
     <div class="x-select-wrap">
         <select id="pg-watermark" name="watermark_template_id" class="x-input" @disabled(!$canManage)>

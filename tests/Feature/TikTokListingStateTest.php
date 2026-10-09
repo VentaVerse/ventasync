@@ -3,8 +3,8 @@
 namespace Tests\Feature;
 
 use App\Extensions\ExtensionManager;
-use App\Integrations\IntegrationRegistry;
-use App\Integrations\Listings\ListingState;
+use App\Channels\ChannelRegistry;
+use App\Channels\Listings\ListingState;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
@@ -274,7 +274,7 @@ class TikTokListingStateTest extends TestCase
         $productId = $this->seedProduct('Contracted', 'CT-1');
         TikTokListing::create(['product_id' => $productId, 'tiktok_product_id' => 'tt-401', 'live_status' => 'ACTIVATE', 'live_checked_at' => now()]);
 
-        $sources = $this->app->make(IntegrationRegistry::class)->listingStateSources();
+        $sources = $this->app->make(ChannelRegistry::class)->listingStateSources();
         $tiktok = collect($sources)->first(fn ($src) => $src instanceof TikTokExtension);
 
         $this->assertNotNull($tiktok, 'TikTokExtension must register as a ListingStateSource');
@@ -311,14 +311,14 @@ class TikTokListingStateTest extends TestCase
         }
         TikTokListing::query()->create(['product_id' => $pid, 'tiktok_product_id' => 'tt-9', 'live_status' => 'ACTIVATE', 'live_checked_at' => now()]);
         $storeId = (int) TikTokSetting::defaultStore()->id;
-        \App\Integrations\Listings\ListingVariations::remember('tiktok', $storeId, $pid, ['EXL110-1046', 'EXL110-0942']);
+        \App\Channels\Listings\ListingVariations::remember('tiktok', $storeId, $pid, ['EXL110-1046', 'EXL110-0942']);
 
         $line = (string) $this->engine()->errors([$pid])[$pid];
         $this->assertStringContainsString('Not on TikTok Shop:', $line);
         $this->assertStringContainsString('EXL110-1149', $line);
         $this->assertStringNotContainsString('EXL110-0942', $line);
 
-        DB::table(\App\Integrations\Listings\ListingVariations::TABLE)->insert([
+        DB::table(\App\Channels\Listings\ListingVariations::TABLE)->insert([
             'channel' => 'tiktok', 'store_id' => $storeId, 'product_id' => $pid, 'sku' => 'exl110-1149',
         ]);
         $this->assertNull($this->engine()->errors([$pid])[$pid]);
@@ -341,8 +341,8 @@ class TikTokListingStateTest extends TestCase
 
         $codes = array_column(app(\Extensions\TikTok\Services\TikTok\TikTokListingReadiness::class)
             ->forProducts([$pid])[$pid]['gaps'], 'code');
-        $this->assertNotContains(\App\Integrations\Listings\ListingState::GAP_CATEGORY, $codes);
-        $this->assertContains(\App\Integrations\Listings\ListingState::GAP_SHEET, $codes, 'the inherited category is judged like its own: its sheet is still unread');
+        $this->assertNotContains(\App\Channels\Listings\ListingState::GAP_CATEGORY, $codes);
+        $this->assertContains(\App\Channels\Listings\ListingState::GAP_SHEET, $codes, 'the inherited category is judged like its own: its sheet is still unread');
 
         $this->assertNull(TikTokListing::query()->where('product_id', $pid)->value('tiktok_category_id'));
         $this->assertNull($listing->tiktok_category_id);
@@ -477,7 +477,7 @@ class TikTokListingStateTest extends TestCase
                 'product_id' => $short, 'sku' => $sku, 'quantity' => 3, 'absolute_price' => 100, 'status' => 1, 'sort_order' => $i,
             ]);
         }
-        \App\Integrations\Listings\ListingVariations::remember('tiktok', $storeId, $short, ['MV1-A']);
+        \App\Channels\Listings\ListingVariations::remember('tiktok', $storeId, $short, ['MV1-A']);
 
         $refused = $this->linkedSingle('Refused then fixed', 'RT-1', 'tt-702');
         $this->engine()->recordOutcome($refused, 'Stock push: refused.');

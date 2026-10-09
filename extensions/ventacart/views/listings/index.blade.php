@@ -231,9 +231,9 @@
 
     @php
 
-        $marks = new \App\Integrations\Listings\ListingMarks(
+        $marks = new \App\Channels\Listings\ListingMarks(
 
-            'ventacart', \App\Integrations\Listings\ListingStore::id('ventacart'),
+            'ventacart', \App\Channels\Listings\ListingStore::id('ventacart'),
 
             $products->pluck('product_id')->map(fn ($v) => (int) $v)->all(),
 
@@ -365,8 +365,8 @@
         id="ventacart-add-panel"
         :search-url="route('ext.ventacart.products.catalog_search', $setting->id)"
         :add-url="route('ext.ventacart.products.add_to_store', [$setting->id, '__PID__'])"
-        :groups="\App\Integrations\Listings\StatusMenu::groupChoices($statusMenu ?? [])"
-        :group="\App\Integrations\Listings\StatusMenu::chosenGroup($statusMenu ?? [])"
+        :groups="\App\Channels\Listings\StatusMenu::groupChoices($statusMenu ?? [])"
+        :group="\App\Channels\Listings\StatusMenu::chosenGroup($statusMenu ?? [])"
         sub="Search your Master Catalog. Each product you add joins this store's list, ready to configure and push to {{ $storeName }}."
         toggle-label="Show products already on this store"
         in-label="On this store"

@@ -131,7 +131,7 @@ class TikTokOrderController extends Controller
         ]);
 
         $runner = app(\App\Services\OrderFetchRunner::class);
-        $run = $runner->begin($this->orderFetchIntegration(), $this->orderFetchStoreId($request), $data['date_from'], $data['date_to'], []);
+        $run = $runner->begin($this->orderFetchChannel(), $this->orderFetchStoreId($request), $data['date_from'], $data['date_to'], []);
         $run = $runner->walk($run, fn (\App\Models\OrderFetchRun $r) => $this->orderFetchStep($r));
 
         $message = $run->status === \App\Models\OrderFetchRun::FAILED
@@ -142,7 +142,7 @@ class TikTokOrderController extends Controller
             ->with('tiktok_orders_last_result', ['ok' => $run->status !== \App\Models\OrderFetchRun::FAILED, 'message' => $message, 'run' => $run->id]);
     }
 
-    protected function orderFetchIntegration(): string
+    protected function orderFetchChannel(): string
     {
         return 'tiktok';
     }

@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Integrations\Listings\CategoryTree;
+use App\Channels\Listings\CategoryTree;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;

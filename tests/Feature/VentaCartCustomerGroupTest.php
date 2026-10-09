@@ -41,7 +41,7 @@ class VentaCartCustomerGroupTest extends TestCase
 
         $this->upsert($sync, $raw);
 
-        $order = Order::where('marketplace_source', 'ventacart:' . $setting->id)->where('marketplace_order_id', '777001')->firstOrFail();
+        $order = Order::where('channel', 'ventacart:' . $setting->id)->where('marketplace_order_id', '777001')->firstOrFail();
         $this->assertSame('Reseller', $order->customer_group);
         $this->assertSame(0, (int) $order->customer_group_id, 'the id stays 0: nothing here to point at (#132)');
         $this->assertSame('Reseller', VentaCartOrder::where('ventacart_order_id', 777001)->value('customer_group'));

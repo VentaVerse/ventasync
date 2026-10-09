@@ -52,7 +52,7 @@ final class Receivables
 
         $orders = $query->orderBy('o.date_added')->orderBy('o.order_id')->get([
             'o.order_id', 'o.date_added', 'o.firstname', 'o.lastname', 'o.email', 'o.telephone',
-            'o.store_name', 'o.marketplace_source', 'o.marketplace_order_id', 'os.name as status', 'o.total',
+            'o.store_name', 'o.channel', 'o.marketplace_order_id', 'os.name as status', 'o.total',
             'pay.paid', 'pay.payments', 'pay.last_paid_at',
         ]);
 
@@ -69,7 +69,7 @@ final class Receivables
                     'date' => substr((string) $o->date_added, 0, 10),
                     'customer' => trim(($o->firstname ?? '') . ' ' . ($o->lastname ?? '')),
                     'customer_key' => $this->ledger->identity($o),
-                    'store' => $o->store_name ?: ($o->marketplace_source ?: 'Manual'),
+                    'store' => $o->store_name ?: ($o->channel ?: 'Manual'),
                     'marketplace_order_id' => $o->marketplace_order_id ?: null,
                     'status' => $o->status,
                     'total' => $total,

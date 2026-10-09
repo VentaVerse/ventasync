@@ -2,7 +2,7 @@
 
 namespace Extensions\VentaCart\Controllers;
 
-use App\Http\Controllers\Integrations\ChannelDashboardController;
+use App\Http\Controllers\Channels\ChannelDashboardController;
 
 class VentaCartDashboardController extends ChannelDashboardController
 {

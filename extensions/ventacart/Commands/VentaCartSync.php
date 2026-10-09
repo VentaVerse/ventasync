@@ -7,7 +7,7 @@ use Extensions\VentaCart\Services\VentaCart\VentaCartClient;
 use Extensions\VentaCart\Services\VentaCart\VentaCartOrderSync;
 use Illuminate\Console\Command;
 
-class VentaCartSync extends Command implements \App\Integrations\Contracts\SteppableAutomation
+class VentaCartSync extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     protected $signature = 'ventacart:sync
         {entity : Entity to sync (orders)}

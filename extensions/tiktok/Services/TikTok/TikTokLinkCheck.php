@@ -17,7 +17,7 @@ class TikTokLinkCheck
         $linked = \Extensions\TikTok\Models\TikTokListing::query()->whereNotNull('tiktok_product_id')->pluck('product_id')
             ->merge(\Extensions\TikTok\Models\TikTokProductGroupProduct::query()->onStore($storeId)->whereNotNull('tiktok_product_id')->pluck('product_id'))
             ->map(fn ($v) => (int) $v)->unique()->sort()->values()->all();
-        $linked = \App\Integrations\Support\LinkCheckCursor::rotate('tiktok:' . $storeId, $linked);
+        $linked = \App\Channels\Support\LinkCheckCursor::rotate('tiktok:' . $storeId, $linked);
 
         return $linked !== [] ? $this->run($c, $linked, $storeId) : null;
     }
@@ -80,7 +80,7 @@ class TikTokLinkCheck
                     $this->writeProductStatus($groupIds, (int) $productId, ['tiktok_product_id' => $hit, 'tiktok_sku_id' => null, 'sync_status' => 'pushed']);
                     $verdicts['linked']++;
                 } else {
-                    \App\Integrations\Listings\DroppedLink::write(
+                    \App\Channels\Listings\DroppedLink::write(
                         'TikTok Shop', 'TikTok Listing', (int) $productId, (string) $known,
                         $storeId,
                         $skusByProduct[$productId] ?? [], count($shop['products'] ?? [])

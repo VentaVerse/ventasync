@@ -68,7 +68,7 @@ class ExtensionServiceProvider extends ServiceProvider
         if (!$this->app->runningUnitTests()) {
             $this->app->booted(function () {
                 try {
-                    $catalog = app(\App\Integrations\Support\AutomationCatalog::class);
+                    $catalog = app(\App\Channels\Support\AutomationCatalog::class);
                     $syncKey = 'automations_synced_' . $catalog->fingerprint();
                     if (!cache()->has($syncKey) && \Illuminate\Support\Facades\Schema::hasTable('scheduled_jobs')) {
                         $catalog->sync();

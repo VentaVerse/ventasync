@@ -96,7 +96,7 @@
 
     @foreach($orders as $o)
         @php
-            $src = trim((string) $o->marketplace_source);
+            $src = trim((string) $o->channel);
             $chanKey = $src === '' ? '' : strtok($src, ':');
             $chanTone = $src === '' ? 'neutral' : $chanKey;
             $chanOpt = $src === '' ? null : ($sourceLabelsMap[$src] ?? null);

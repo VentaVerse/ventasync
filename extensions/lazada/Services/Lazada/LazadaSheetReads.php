@@ -2,7 +2,7 @@
 
 namespace Extensions\Lazada\Services\Lazada;
 
-use App\Integrations\Listings\SheetReads;
+use App\Channels\Listings\SheetReads;
 use Extensions\Lazada\Controllers\LazadaProductController;
 use Extensions\Lazada\Models\LazadaCategoryTemplate;
 use Extensions\Lazada\Models\LazadaProduct;

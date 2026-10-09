@@ -118,6 +118,6 @@ final class ShopeeAppFulfilment
 
     private function payload(int $id): ?array
     {
-        return app(\App\Integrations\IntegrationRegistry::class)->mobileProviderFor('shopee')?->mobileShowResponse($id);
+        return app(\App\Channels\ChannelRegistry::class)->mobileProviderFor('shopee')?->mobileShowResponse($id);
     }
 }

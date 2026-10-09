@@ -3,21 +3,21 @@
 namespace Extensions\TikTok;
 
 use App\Extensions\ExtensionProvider;
-use App\Integrations\Contracts\DashboardContributor;
-use App\Integrations\Contracts\LayoutBannerContributor;
-use App\Integrations\Contracts\MarketplaceSourceOptionsProvider;
-use App\Integrations\Contracts\MobileMarketplaceProvider;
-use App\Integrations\Contracts\OrderFeesContributor;
-use App\Integrations\Contracts\SkuSyncContributor;
+use App\Channels\Contracts\DashboardContributor;
+use App\Channels\Contracts\LayoutBannerContributor;
+use App\Channels\Contracts\ChannelOptionsProvider;
+use App\Channels\Contracts\MobileMarketplaceProvider;
+use App\Channels\Contracts\OrderFeesContributor;
+use App\Channels\Contracts\SkuSyncContributor;
 use App\Models\Catalog\Order;
 use Illuminate\Http\Request;
-use App\Integrations\Dto\RecentOrder;
-use App\Integrations\Dto\TopProduct;
-use App\Integrations\IntegrationCard;
-use App\Integrations\IntegrationProvider;
-use App\Integrations\IntegrationRegistry;
-use App\Integrations\MenuItem;
-use App\Integrations\OrderTab;
+use App\Channels\Dto\RecentOrder;
+use App\Channels\Dto\TopProduct;
+use App\Channels\ChannelCard;
+use App\Channels\ChannelProvider;
+use App\Channels\ChannelRegistry;
+use App\Channels\MenuItem;
+use App\Channels\OrderTab;
 use Extensions\TikTok\Models\TikTokApiLog;
 use Extensions\TikTok\Models\TikTokOrder;
 use Extensions\TikTok\Models\TikTokProductGroupProduct;
@@ -27,10 +27,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-use App\Integrations\Contracts\CredentialRevealer;
-use App\Integrations\Concerns\RevealsCredentials;
+use App\Channels\Contracts\CredentialRevealer;
+use App\Channels\Concerns\RevealsCredentials;
 
-class TikTokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, \App\Integrations\Contracts\MobileFulfilmentProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, \App\Integrations\Contracts\ListingStateSource, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter, \App\Integrations\Contracts\SaleLinesSource, \App\Integrations\Contracts\MarketplaceOrderRefRenderer
+class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, \App\Channels\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, \App\Channels\Contracts\MobileFulfilmentProvider, LayoutBannerContributor, ChannelOptionsProvider, CredentialRevealer, \App\Channels\Contracts\ListingStateSource, \App\Channels\Contracts\WebhookReceiver, \App\Channels\Contracts\StoreOptionsProvider, \App\Channels\Contracts\ProductRemover, \App\Channels\Contracts\VariationForgetter, \App\Channels\Contracts\SaleLinesSource, \App\Channels\Contracts\MarketplaceOrderRefRenderer
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],
@@ -63,7 +63,7 @@ class TikTokExtension extends ExtensionProvider implements IntegrationProvider, 
             \Extensions\TikTok\Commands\TikTokBackfillPayouts::class,
         ]);
 
-        $this->app->make(IntegrationRegistry::class)->register($this);
+        $this->app->make(ChannelRegistry::class)->register($this);
 
         $this->app->make(\App\Services\Payouts\PayoutRegistry::class)->register(new \App\Services\Payouts\PayoutChannel(
             id: 'tiktok',
@@ -81,17 +81,13 @@ class TikTokExtension extends ExtensionProvider implements IntegrationProvider, 
         \Extensions\TikTok\Services\TikTok\TikTokVariationForgetter::forget($productId, $skus);
     }
 
-    public function integrationId(): string
-    {
-        return $this->id;
-    }
 
-    public function integrationCards(): array
+    public function channelCards(): array
     {
         $stores = [];
         foreach ($this->allStores() as $store) {
             $p = ['store' => (int) $store->id];
-            $stores[] = new \App\Integrations\StoreLink(
+            $stores[] = new \App\Channels\StoreLink(
                 id: $this->id . ':' . $store->id,
                 label: $store->store_name ?: ('Store #' . $store->id),
                 menu: [
@@ -117,16 +113,16 @@ class TikTokExtension extends ExtensionProvider implements IntegrationProvider, 
         }
 
         return [
-            new IntegrationCard(
+            new ChannelCard(
                 id: $this->id,
                 name: 'TikTok Shop',
-                tagline: 'TikTok Shop integration. OAuth, product sync, orders.',
+                tagline: 'TikTok Shop channel. OAuth, product sync, orders.',
                 icon: 'video',
                 accent: '#1e1e1e',
                 permission: 'view_tiktok/dashboard',
                 menu: [],
                 stores: $stores,
-                addStore: new \App\Integrations\AddStoreAction(
+                addStore: new \App\Channels\AddStoreAction(
                     route: 'ext.tiktok.stores.store',
                     permission: 'manage_tiktok/settings',
                     label: 'Add store',
@@ -353,7 +349,7 @@ class TikTokExtension extends ExtensionProvider implements IntegrationProvider, 
                 try {
                     $sum = app(\Extensions\TikTok\Services\TikTok\TikTokListingStates::class)->summary();
                     $attention = (int) $sum['attention'];
-                    $flags = \App\Integrations\Listings\ListingTrouble::figures($sum, fn (string $bucket) => route('ext.tiktok.products.index', ['store' => $ttSetting->id, 'state' => $bucket]));
+                    $flags = \App\Channels\Listings\ListingTrouble::figures($sum, fn (string $bucket) => route('ext.tiktok.products.index', ['store' => $ttSetting->id, 'state' => $bucket]));
                 } catch (\Throwable) {
                 }
 
@@ -402,7 +398,7 @@ class TikTokExtension extends ExtensionProvider implements IntegrationProvider, 
                 app()->instance('tiktok.route-store', $store);
                 $sum = app(\Extensions\TikTok\Services\TikTok\TikTokListingStates::class)->summary();
                 $attention = (int) $sum['attention'];
-                $flags = \App\Integrations\Listings\ListingTrouble::figures($sum, fn (string $bucket) => route('ext.tiktok.products.index', ['store' => $store->id, 'state' => $bucket]));
+                $flags = \App\Channels\Listings\ListingTrouble::figures($sum, fn (string $bucket) => route('ext.tiktok.products.index', ['store' => $store->id, 'state' => $bucket]));
             } catch (\Throwable) {
             } finally {
                 if ($previous !== null) {
@@ -425,9 +421,9 @@ class TikTokExtension extends ExtensionProvider implements IntegrationProvider, 
         return ['channelPending' => $pending, 'channelSyncStatuses' => $statuses];
     }
 
-    public function renderOrderRef(string $marketplaceSource, string $marketplaceOrderId): ?array
+    public function renderOrderRef(string $orderChannel, string $marketplaceOrderId): ?array
     {
-        if ($marketplaceSource !== 'tiktok') {
+        if ($orderChannel !== 'tiktok') {
             return null;
         }
         $row = \Extensions\TikTok\Models\TikTokOrder::query()->withoutGlobalScope('tiktokStore')->where('order_id', $marketplaceOrderId)->first(['id', 'tiktok_setting_id']);
@@ -458,8 +454,8 @@ class TikTokExtension extends ExtensionProvider implements IntegrationProvider, 
             return null;
         }
 
-        $payload = \App\Integrations\Orders\FeePayload::decode($row->fees);
-        if (\App\Integrations\Orders\FeePayload::isEmpty($payload)) {
+        $payload = \App\Channels\Orders\FeePayload::decode($row->fees);
+        if (\App\Channels\Orders\FeePayload::isEmpty($payload)) {
             return null;
         }
 
@@ -472,17 +468,17 @@ class TikTokExtension extends ExtensionProvider implements IntegrationProvider, 
         }
 
         return [
-            'commission' => \App\Integrations\Orders\FeePayload::amount($payload, 'commission'),
+            'commission' => \App\Channels\Orders\FeePayload::amount($payload, 'commission'),
             'payment' => 0.0,
-            'shipping' => \App\Integrations\Orders\FeePayload::amount($payload, 'shipping_fee'),
-            'other' => \App\Integrations\Orders\FeePayload::amount($payload, 'transaction_fee'),
+            'shipping' => \App\Channels\Orders\FeePayload::amount($payload, 'shipping_fee'),
+            'other' => \App\Channels\Orders\FeePayload::amount($payload, 'transaction_fee'),
             'voucher' => $sellerDiscount,
         ];
     }
 
     public function feesForOrder(Order $order): ?array
     {
-        if ((string) $order->marketplace_source !== 'tiktok') {
+        if ((string) $order->channel !== 'tiktok') {
             return null;
         }
 

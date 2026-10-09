@@ -93,7 +93,7 @@ class VentaCartListingsIndexTest extends TestCase
     {
         $store = $this->store();
 
-        $cards = $this->app->make(VentaCartExtension::class, ['app' => $this->app])->integrationCards();
+        $cards = $this->app->make(VentaCartExtension::class, ['app' => $this->app])->channelCards();
         $labels = collect($cards[0]->stores ?? [])->first()?->menu ?? [];
         $labels = array_map(fn ($m) => [$m->label, $m->routeName, $m->group], (array) $labels);
 
@@ -303,7 +303,7 @@ class VentaCartListingsIndexTest extends TestCase
         VentaCartProductGroupProduct::create(['ventacart_product_group_id' => $group->id, 'product_id' => $pid, 'sync_status' => 'pending']);
         VentaCartProductLink::create(['ventacart_setting_id' => $store->id, 'product_id' => $pid, 'ventacart_product_id' => 21, 'sku' => 'TEE']);
         VentaCartListing::create(['ventacart_setting_id' => $store->id, 'product_id' => $pid, 'live_status' => 'active', 'live_checked_at' => now()]);
-        \App\Integrations\Listings\ListingVariations::remember('ventacart', (int) $store->id, $pid, ['TEE-S', 'TEE-M']);
+        \App\Channels\Listings\ListingVariations::remember('ventacart', (int) $store->id, $pid, ['TEE-S', 'TEE-M']);
         Http::fake();
 
         $html = $this->actingAs($this->manager())
@@ -336,7 +336,7 @@ class VentaCartListingsIndexTest extends TestCase
                 'product_id' => $tee, 'sku' => $sku, 'quantity' => 3, 'absolute_price' => 500, 'status' => 1, 'sort_order' => $i,
             ]);
         }
-        \App\Integrations\Listings\ListingVariations::remember('ventacart', (int) $store->id, $tee, ['TEE-S']);
+        \App\Channels\Listings\ListingVariations::remember('ventacart', (int) $store->id, $tee, ['TEE-S']);
         $errored = $this->product('E-1', 'Errored pedal');
         $clean = $this->product('C-1', 'Clean pedal');
 

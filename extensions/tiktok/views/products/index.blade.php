@@ -251,9 +251,9 @@
 
     @php
 
-        $marks = new \App\Integrations\Listings\ListingMarks(
+        $marks = new \App\Channels\Listings\ListingMarks(
 
-            'tiktok', \App\Integrations\Listings\ListingStore::id('tiktok'),
+            'tiktok', \App\Channels\Listings\ListingStore::id('tiktok'),
 
             $products->pluck('product_id')->map(fn ($v) => (int) $v)->all(),
 
@@ -280,7 +280,7 @@
                 $rowLiveStatus = $liveStatuses[(string) $ttId] ?? null;
             }
             $rowState = ($listingStates ?? [])[$pid] ?? null;
-            $stateClass = \App\Integrations\Listings\ListingState::class;
+            $stateClass = \App\Channels\Listings\ListingState::class;
             $attemptFailed = $attempt && $attempt->sync_status === 'error';
             $pName = (string) ($rowTitles[(int) $pid] ?? $p->name);
             $rowLabel = $pName !== '' ? $pName : (string) ($p->sku ?: 'product ' . $pid);
@@ -403,8 +403,8 @@
         id="tiktok-add-panel"
         :search-url="route('ext.tiktok.products.catalog_search')"
         :add-url="route('ext.tiktok.products.add_to_store', ['productId' => '__PID__'])"
-        :groups="\App\Integrations\Listings\StatusMenu::groupChoices($statusMenu ?? [])"
-        :group="\App\Integrations\Listings\StatusMenu::chosenGroup($statusMenu ?? [])"
+        :groups="\App\Channels\Listings\StatusMenu::groupChoices($statusMenu ?? [])"
+        :group="\App\Channels\Listings\StatusMenu::chosenGroup($statusMenu ?? [])"
         sub="Search your Master Catalog. Each product you add joins this store's list, ready to configure and push to TikTok Shop."
         toggle-label="Show products already on this store"
         in-label="On this store"

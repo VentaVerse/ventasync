@@ -352,7 +352,7 @@
             <x-ui.hint label="About the scheduled jobs">How often each OpenCart sync runs for {{ $store->store_name ?: $store->base_url }}. Changes take effect the next time the scheduler wakes up.</x-ui.hint>
         </div>
 
-        @include('partials._automations_tab', ['integration' => 'opencart', 'storeId' => $store->id])
+        @include('partials._automations_tab', ['extension' => 'opencart', 'storeId' => $store->id])
     </section>
 </div>
 

@@ -241,7 +241,7 @@ class TikTokListingsTest extends TestCase
         $this->assertNull(TikTokCategoryTemplate::where('category_id', '900222')->first(), 'a refused read files nothing');
         $this->assertCount(0, $this->callsFor('GET', '/product/202309/categories/900009/attributes'), 'a sheet already read is not read again');
         $state = app(\Extensions\TikTok\Services\TikTok\TikTokListingReadiness::class)->forProducts([$own]);
-        $this->assertNotContains(\App\Integrations\Listings\ListingState::GAP_SHEET, array_column($state[$own]['gaps'], 'code'));
+        $this->assertNotContains(\App\Channels\Listings\ListingState::GAP_SHEET, array_column($state[$own]['gaps'], 'code'));
     }
 
     public function test_the_scheduled_refresh_reads_them_too(): void

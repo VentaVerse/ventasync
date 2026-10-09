@@ -224,7 +224,7 @@
             <td class="cc-col-sync" data-label="Listing">
                 @php
                     $rowState = ($listingStates ?? [])[(int) $p->product_id] ?? null;
-                    $stateClass = \App\Integrations\Listings\ListingState::class;
+                    $stateClass = \App\Channels\Listings\ListingState::class;
                 @endphp
                 @if($listed && $rowState && $rowState->state !== $stateClass::UNKNOWN && $rowState->state !== $stateClass::NOT_LISTED)
                     <x-ui.badge :tone="$rowState->tone()">{{ $rowState->label() }}</x-ui.badge>

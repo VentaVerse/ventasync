@@ -93,8 +93,8 @@ class VentaCartPushReviews extends Command
                         'body'               => $review->comment ?? '',
                         'status'             => 'approved',
                         'date_added'         => $review->reviewed_at?->format('Y-m-d H:i:s') ?? now()->format('Y-m-d H:i:s'),
-                        'platform'           => $review->platform,
-                        'platform_review_id' => $review->platform_review_id,
+                        'platform'           => $review->channel,
+                        'platform_review_id' => $review->channel_review_id,
                         'images'             => $images,
                     ]);
 

@@ -8,7 +8,7 @@ use App\Models\Catalog\OrderHistory;
 use App\Models\Catalog\OrderProduct;
 use App\Models\Catalog\OrderStatus;
 use App\Models\Catalog\Product;
-use App\Integrations\IntegrationRegistry;
+use App\Channels\ChannelRegistry;
 use App\Models\OrderPayment;
 use App\Services\ActivityLogger;
 use App\Services\OrderCurrencyService;
@@ -61,9 +61,9 @@ class OrderController extends Controller
             })
             ->when($source !== '', function ($query) use ($source) {
                 if ($source === 'manual') {
-                    $query->where('marketplace_source', '');
+                    $query->where('channel', '');
                 } else {
-                    $query->where('marketplace_source', $source);
+                    $query->where('channel', $source);
                 }
             })
             ->orderBy($sort, $dir)
@@ -75,8 +75,8 @@ class OrderController extends Controller
 
         $statuses = OrderStatus::orderBy('order_status_id')->get();
 
-        $sourceOptions = app(\App\Integrations\IntegrationRegistry::class)
-            ->availableMarketplaceSourceOptions();
+        $sourceOptions = app(\App\Channels\ChannelRegistry::class)
+            ->availableChannelOptions();
         $sourceLabelsMap = [];
         foreach ($sourceOptions as $opt) {
             $sourceLabelsMap[$opt['value']] = $opt;
@@ -865,7 +865,7 @@ class OrderController extends Controller
         }
 
         if ($skusToResolve) {
-            $resolvers = app(IntegrationRegistry::class)->skuResolvers();
+            $resolvers = app(ChannelRegistry::class)->skuResolvers();
             foreach ($skusToResolve as $opId => $sku) {
                 foreach ($resolvers as $resolver) {
                     $resolved = $resolver->resolveCatalogProduct($sku);
@@ -938,7 +938,7 @@ class OrderController extends Controller
         }
 
         $merged = [];
-        foreach (app(IntegrationRegistry::class)->orderImagesContributors() as $contributor) {
+        foreach (app(ChannelRegistry::class)->orderImagesContributors() as $contributor) {
             $merged += $contributor->imagesForCatalogOrders($catalogOrderIds);
         }
         return $merged;

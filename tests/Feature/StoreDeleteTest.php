@@ -65,13 +65,13 @@ class StoreDeleteTest extends TestCase
             ShopeeListing::create(['product_id' => 1]);
             ShopeeLogistic::create(['logistics_channel_id' => 8000 + $s->id, 'logistics_channel_name' => 'J&T', 'enabled' => true]);
             DB::table('scheduled_jobs')->insert([
-                'command' => 'shopee:sync-orders', 'display_name' => 'Sync', 'integration' => 'shopee', 'store_id' => $s->id,
+                'command' => 'shopee:sync-orders', 'display_name' => 'Sync', 'extension' => 'shopee', 'store_id' => $s->id,
                 'cadence_value' => 1, 'cadence_unit' => 'hour', 'cron_expression' => '0 * * * *', 'enabled' => 1,
                 'created_at' => now(), 'updated_at' => now(),
             ]);
         }
         app()->forgetInstance('shopee.route-store');
-        $coreId = $this->coreOrder(['marketplace_source' => 'shopee', 'marketplace_order_id' => 'SN-' . $gone->id, 'store_id' => $gone->id, 'store_name' => 'Outlet']);
+        $coreId = $this->coreOrder(['channel' => 'shopee', 'marketplace_order_id' => 'SN-' . $gone->id, 'store_id' => $gone->id, 'store_name' => 'Outlet']);
 
         $this->actingAs($this->user('manage'))
             ->post('/channels/shopee/' . $gone->id . '/delete', ['confirm_name' => 'Outlet'])
@@ -80,7 +80,7 @@ class StoreDeleteTest extends TestCase
 
         $this->assertDatabaseMissing('shopee_settings', ['id' => $gone->id]);
         $this->assertNoRowsLeft('shopee_setting_id', $gone->id);
-        $this->assertSame(0, DB::table('scheduled_jobs')->where('integration', 'shopee')->where('store_id', $gone->id)->count());
+        $this->assertSame(0, DB::table('scheduled_jobs')->where('extension', 'shopee')->where('store_id', $gone->id)->count());
 
         $this->assertDatabaseHas('shopee_settings', ['id' => $kept->id]);
         $this->assertSame(1, DB::table('shopee_orders')->where('shopee_setting_id', $kept->id)->count());

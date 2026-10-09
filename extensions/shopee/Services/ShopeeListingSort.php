@@ -2,7 +2,7 @@
 
 namespace Extensions\Shopee\Services;
 
-use App\Integrations\Listings\ListingSort;
+use App\Channels\Listings\ListingSort;
 use App\Support\StoreKey;
 use Illuminate\Database\Query\Builder;
 

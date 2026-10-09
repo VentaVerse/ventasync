@@ -257,17 +257,17 @@ class TikTokMultistoreTest extends TestCase
         $shape = fn ($store) => ['pivot' => 'tiktok_product_group_products', 'fk' => 'tiktok_product_group_id', 'groups' => 'tiktok_product_groups', 'storeFk' => 'tiktok_setting_id', 'storeId' => (int) $store->id];
         $pid = 77;
 
-        \App\Integrations\Listings\ListingGroup::assign($shape($one), $pid, (int) $x->id);
-        \App\Integrations\Listings\ListingGroup::assign($shape($two), $pid, (int) $onOutlet->id);
+        \App\Channels\Listings\ListingGroup::assign($shape($one), $pid, (int) $x->id);
+        \App\Channels\Listings\ListingGroup::assign($shape($two), $pid, (int) $onOutlet->id);
 
-        $this->assertSame((int) $x->id, \App\Integrations\Listings\ListingGroup::current($shape($one), $pid));
-        $this->assertSame((int) $onOutlet->id, \App\Integrations\Listings\ListingGroup::current($shape($two), $pid), 'the other store groups it too');
+        $this->assertSame((int) $x->id, \App\Channels\Listings\ListingGroup::current($shape($one), $pid));
+        $this->assertSame((int) $onOutlet->id, \App\Channels\Listings\ListingGroup::current($shape($two), $pid), 'the other store groups it too');
 
-        $claim = \App\Integrations\OneGroupRule::claim('tiktok_product_group_products', 'tiktok_product_group_id', 'tiktok_product_groups', 'tiktok_setting_id', (int) $y->id, [$pid]);
+        $claim = \App\Channels\OneGroupRule::claim('tiktok_product_group_products', 'tiktok_product_group_id', 'tiktok_product_groups', 'tiktok_setting_id', (int) $y->id, [$pid]);
         $this->assertSame([$pid => 'Group X'], $claim['held'], 'a second group on the same store is held');
 
-        \App\Integrations\Listings\ListingGroup::assign($shape($one), $pid, null);
-        $this->assertNull(\App\Integrations\Listings\ListingGroup::current($shape($one), $pid));
-        $this->assertSame((int) $onOutlet->id, \App\Integrations\Listings\ListingGroup::current($shape($two), $pid), 'No group on one store leaves the other store alone');
+        \App\Channels\Listings\ListingGroup::assign($shape($one), $pid, null);
+        $this->assertNull(\App\Channels\Listings\ListingGroup::current($shape($one), $pid));
+        $this->assertSame((int) $onOutlet->id, \App\Channels\Listings\ListingGroup::current($shape($two), $pid), 'No group on one store leaves the other store alone');
     }
 }

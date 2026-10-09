@@ -3,19 +3,19 @@
 namespace Extensions\OpenCart;
 
 use App\Extensions\ExtensionProvider;
-use App\Integrations\Contracts\DashboardContributor;
-use App\Integrations\Contracts\MarketplaceSourceOptionsProvider;
-use App\Integrations\Contracts\OrderFeesContributor;
-use App\Integrations\Contracts\SkuSyncContributor;
+use App\Channels\Contracts\DashboardContributor;
+use App\Channels\Contracts\ChannelOptionsProvider;
+use App\Channels\Contracts\OrderFeesContributor;
+use App\Channels\Contracts\SkuSyncContributor;
 use App\Models\Catalog\Order;
-use App\Integrations\Dto\RecentOrder;
-use App\Integrations\Dto\TopProduct;
-use App\Integrations\IntegrationCard;
-use App\Integrations\IntegrationProvider;
-use App\Integrations\IntegrationRegistry;
-use App\Integrations\MenuItem;
-use App\Integrations\OrderTab;
-use App\Integrations\StoreLink;
+use App\Channels\Dto\RecentOrder;
+use App\Channels\Dto\TopProduct;
+use App\Channels\ChannelCard;
+use App\Channels\ChannelProvider;
+use App\Channels\ChannelRegistry;
+use App\Channels\MenuItem;
+use App\Channels\OrderTab;
+use App\Channels\StoreLink;
 use App\Models\Catalog\OrderStatus;
 use Extensions\OpenCart\Models\OpenCartProductLink;
 use Extensions\OpenCart\Models\OpenCartSetting;
@@ -26,10 +26,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-use App\Integrations\Contracts\CredentialRevealer;
-use App\Integrations\Concerns\RevealsCredentials;
+use App\Channels\Contracts\CredentialRevealer;
+use App\Channels\Concerns\RevealsCredentials;
 
-class OpenCartExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover
+class OpenCartExtension extends ExtensionProvider implements ChannelProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, ChannelOptionsProvider, CredentialRevealer, \App\Channels\Contracts\StoreOptionsProvider, \App\Channels\Contracts\ProductRemover
 {
     protected string $id = 'opencart';
 
@@ -48,15 +48,11 @@ class OpenCartExtension extends ExtensionProvider implements IntegrationProvider
             \Extensions\OpenCart\Commands\OpenCartPushReviews::class,
         ]);
 
-        $this->app->make(IntegrationRegistry::class)->register($this);
+        $this->app->make(ChannelRegistry::class)->register($this);
     }
 
-    public function integrationId(): string
-    {
-        return $this->id;
-    }
 
-    public function integrationCards(): array
+    public function channelCards(): array
     {
         $stores = [];
         foreach ($this->allStores() as $store) {
@@ -81,7 +77,7 @@ class OpenCartExtension extends ExtensionProvider implements IntegrationProvider
         }
 
         return [
-            new IntegrationCard(
+            new ChannelCard(
                 id: $this->id,
                 name: 'OpenCart',
                 tagline: 'Multi-store OpenCart. Add stores, sync products, push reviews.',
@@ -91,7 +87,7 @@ class OpenCartExtension extends ExtensionProvider implements IntegrationProvider
                 menu: [
                     new MenuItem('Reviews', 'ext.opencart.reviews.index', 'view_opencart/review'),
                 ],
-                addStore: new \App\Integrations\AddStoreAction(
+                addStore: new \App\Channels\AddStoreAction(
                     route: 'ext.opencart.stores.store',
                     permission: 'manage_opencart/settings',
                     label: 'Add store',
@@ -131,7 +127,7 @@ class OpenCartExtension extends ExtensionProvider implements IntegrationProvider
 
     protected function buildOrderTab(int $storeId, string $storeName): OrderTab
     {
-        $marketplaceSource = 'opencart:' . $storeId;
+        $orderChannel = 'opencart:' . $storeId;
         $orderTable = (string) config('catalog.prefix') . 'order';
         $productTable = (string) config('catalog.prefix') . 'order_product';
 
@@ -143,7 +139,7 @@ class OpenCartExtension extends ExtensionProvider implements IntegrationProvider
             routeName: 'ext.opencart.orders.index',
             permission: 'view_opencart/order',
             routeParams: ['store' => $storeId],
-            unprocessedCounter: function () use ($marketplaceSource, $orderTable) {
+            unprocessedCounter: function () use ($orderChannel, $orderTable) {
                 if (!Schema::hasTable($orderTable)) {
                     return 0;
                 }
@@ -153,28 +149,28 @@ class OpenCartExtension extends ExtensionProvider implements IntegrationProvider
                 }
                 return DB::table($orderTable)
                     ->whereIn('order_status_id', $pendingStatusIds)
-                    ->where('marketplace_source', $marketplaceSource)
+                    ->where('channel', $orderChannel)
                     ->count();
             },
-            dailyOrdersCounter: function () use ($marketplaceSource, $orderTable) {
+            dailyOrdersCounter: function () use ($orderChannel, $orderTable) {
                 if (!Schema::hasTable($orderTable)) {
                     return 0;
                 }
                 return DB::table($orderTable)
-                    ->where('marketplace_source', $marketplaceSource)
+                    ->where('channel', $orderChannel)
                     ->where('date_added', '>=', now()->startOfDay())
                     ->count();
             },
-            dailyRevenueCounter: function () use ($marketplaceSource, $orderTable) {
+            dailyRevenueCounter: function () use ($orderChannel, $orderTable) {
                 if (!Schema::hasTable($orderTable)) {
                     return 0.0;
                 }
                 return (float) DB::table($orderTable)
-                    ->where('marketplace_source', $marketplaceSource)
+                    ->where('channel', $orderChannel)
                     ->where('date_added', '>=', now()->startOfDay())
                     ->sum('total');
             },
-            topProductsCallback: function (int $limit) use ($marketplaceSource, $orderTable, $productTable) {
+            topProductsCallback: function (int $limit) use ($orderChannel, $orderTable, $productTable) {
                 if (!Schema::hasTable($orderTable) || !Schema::hasTable($productTable)) {
                     return [];
                 }
@@ -182,7 +178,7 @@ class OpenCartExtension extends ExtensionProvider implements IntegrationProvider
                 return DB::table($productTable . ' as p')
                     ->join($orderTable . ' as o', 'o.order_id', '=', 'p.order_id')
                     ->leftJoin($catalogProductTable . ' as cp', 'cp.product_id', '=', 'p.product_id')
-                    ->where('o.marketplace_source', $marketplaceSource)
+                    ->where('o.channel', $orderChannel)
                     ->where('o.date_added', '>=', now()->startOfDay())
                     ->whereNotNull('p.model')
                     ->where('p.model', '!=', '')
@@ -208,7 +204,7 @@ class OpenCartExtension extends ExtensionProvider implements IntegrationProvider
                         variation: trim((string) ($r->variation ?? '')) ?: null,
                     ))->all();
             },
-            recentOrdersCallback: function (int $limit) use ($marketplaceSource, $orderTable) {
+            recentOrdersCallback: function (int $limit) use ($orderChannel, $orderTable) {
                 if (!Schema::hasTable($orderTable)) {
                     return [];
                 }
@@ -217,7 +213,7 @@ class OpenCartExtension extends ExtensionProvider implements IntegrationProvider
                     : [];
 
                 return DB::table($orderTable)
-                    ->where('marketplace_source', $marketplaceSource)
+                    ->where('channel', $orderChannel)
                     ->orderByDesc('date_added')
                     ->limit($limit)
                     ->select('order_id', 'firstname', 'lastname', 'total', 'order_status_id', 'date_added')
@@ -296,13 +292,13 @@ class OpenCartExtension extends ExtensionProvider implements IntegrationProvider
             $pendingStatusIds = OrderStatus::whereIn('name', ['Pending', 'Processing'])->pluck('order_status_id');
             if ($pendingStatusIds->isNotEmpty()) {
                 $rows = DB::table($orderTable)
-                    ->select('marketplace_source', DB::raw('COUNT(*) as cnt'))
+                    ->select('channel', DB::raw('COUNT(*) as cnt'))
                     ->whereIn('order_status_id', $pendingStatusIds)
-                    ->where('marketplace_source', 'like', 'opencart:%')
-                    ->groupBy('marketplace_source')
+                    ->where('channel', 'like', 'opencart:%')
+                    ->groupBy('channel')
                     ->get();
                 foreach ($rows as $row) {
-                    $src = (string) $row->marketplace_source;
+                    $src = (string) $row->channel;
                     if (str_starts_with($src, 'opencart:')) {
                         $storeId = (int) str_replace('opencart:', '', $src);
                         if ($storeId > 0) {
@@ -341,7 +337,7 @@ class OpenCartExtension extends ExtensionProvider implements IntegrationProvider
 
     public function feesForOrder(Order $order): ?array
     {
-        $source = (string) $order->marketplace_source;
+        $source = (string) $order->channel;
         if (!str_starts_with($source, 'opencart:')) {
             return null;
         }

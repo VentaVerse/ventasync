@@ -2,8 +2,8 @@
 
 namespace Extensions\Lazada\Services\Lazada;
 
-use App\Integrations\Listings\CatalogGaps;
-use App\Integrations\Listings\ListingState;
+use App\Channels\Listings\CatalogGaps;
+use App\Channels\Listings\ListingState;
 use Extensions\Lazada\Models\LazadaCategory;
 use Extensions\Lazada\Models\LazadaCategoryTemplate;
 use Extensions\Lazada\Models\LazadaProductAttribute;

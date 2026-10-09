@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class ShopeeListing extends Model
 {
-    use \Extensions\Shopee\Models\Concerns\BelongsToShopeeStore, \App\Integrations\Listings\KeepsItsOwnCopy;
+    use \Extensions\Shopee\Models\Concerns\BelongsToShopeeStore, \App\Channels\Listings\KeepsItsOwnCopy;
 
     protected $table = 'shopee_listings';
 
@@ -71,7 +71,7 @@ class ShopeeListing extends Model
             return [];
         }
         $set = array_fill_keys(array_map('intval', array_keys(
-            \App\Integrations\Push\PushLedger::erpVariationSkus($productIds, (string) config('catalog.prefix'))
+            \App\Channels\Push\PushLedger::erpVariationSkus($productIds, (string) config('catalog.prefix'))
         )), true);
         foreach (\Illuminate\Support\Facades\DB::table('product_option_combinations')
             ->whereIn('product_id', $productIds)->distinct()->pluck('product_id') as $pid) {

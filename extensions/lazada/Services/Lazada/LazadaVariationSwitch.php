@@ -2,7 +2,7 @@
 
 namespace Extensions\Lazada\Services\Lazada;
 
-use App\Integrations\Listings\ListingVariations;
+use App\Channels\Listings\ListingVariations;
 use App\Support\VariationRows;
 use Extensions\Lazada\Models\LazadaApiLog;
 

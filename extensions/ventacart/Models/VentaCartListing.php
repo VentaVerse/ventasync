@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class VentaCartListing extends Model
 {
-    use \App\Integrations\Listings\KeepsItsOwnCopy;
+    use \App\Channels\Listings\KeepsItsOwnCopy;
 
     public const STATUS_ACTIVE = 'active';
     public const STATUS_INACTIVE = 'inactive';

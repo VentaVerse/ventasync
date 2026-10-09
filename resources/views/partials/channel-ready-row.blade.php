@@ -2,7 +2,7 @@
     $rs = $state ?? null;
     $summary = $rs !== null && ! $rs->ready ? trim($rs->missingSummary()) : '';
     $fix = ($rs !== null && ! $rs->ready && (int) ($productId ?? 0) > 0)
-        ? \App\Integrations\Listings\GapLinks::action($rs->missing, (int) $productId)
+        ? \App\Channels\Listings\GapLinks::action($rs->missing, (int) $productId)
         : null;
     $fixHref = ($fix !== null && ! $fix['onPage']) ? $fix['href'] : null;
 @endphp

@@ -2,8 +2,8 @@
 
 namespace App\Services\Orders;
 
-use App\Integrations\Contracts\MarketplaceFeeSource;
-use App\Integrations\IntegrationRegistry;
+use App\Channels\Contracts\MarketplaceFeeSource;
+use App\Channels\ChannelRegistry;
 use Illuminate\Support\Facades\DB;
 
 // Replace the order's fee rows, never add to them (syncs re-run); amounts are stored negative.
@@ -17,7 +17,7 @@ class MarketplaceFeeNormalizer
         'voucher' => ['marketplace_voucher', 'Vouchers', 95],
     ];
 
-    public function __construct(private readonly IntegrationRegistry $registry) {}
+    public function __construct(private readonly ChannelRegistry $registry) {}
 
     public function forOrder(int $coreOrderId): bool
     {

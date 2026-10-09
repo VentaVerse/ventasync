@@ -10,7 +10,7 @@ use Extensions\Lazada\Services\Lazada\LazadaStockPricePush;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
-class LazadaPushPrice extends Command implements \App\Integrations\Contracts\SteppableAutomation
+class LazadaPushPrice extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     protected $signature = 'lazada:push-price';
 

@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Integrations\Contracts\CredentialRevealer;
+use App\Channels\Contracts\CredentialRevealer;
 use App\Support\Credentials;
 use Illuminate\Support\Facades\Crypt;
 use Tests\TestCase;

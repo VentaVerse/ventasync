@@ -258,18 +258,18 @@ class LazadaMultistoreTest extends TestCase
         $shape = fn ($store) => ['pivot' => 'lazada_product_group_products', 'fk' => 'lazada_product_group_id', 'groups' => 'lazada_product_groups', 'storeFk' => 'lazada_setting_id', 'storeId' => (int) $store->id];
         $extra = fn ($listing) => ['lazada_product_id' => $listing->id, 'created_at' => now()];
 
-        \App\Integrations\Listings\ListingGroup::assign($shape($one), $pid, (int) $x->id, $extra($rowOne));
-        \App\Integrations\Listings\ListingGroup::assign($shape($two), $pid, (int) $onOutlet->id, $extra($rowTwo));
+        \App\Channels\Listings\ListingGroup::assign($shape($one), $pid, (int) $x->id, $extra($rowOne));
+        \App\Channels\Listings\ListingGroup::assign($shape($two), $pid, (int) $onOutlet->id, $extra($rowTwo));
 
-        $this->assertSame((int) $x->id, \App\Integrations\Listings\ListingGroup::current($shape($one), $pid));
-        $this->assertSame((int) $onOutlet->id, \App\Integrations\Listings\ListingGroup::current($shape($two), $pid), 'the other store groups it too');
+        $this->assertSame((int) $x->id, \App\Channels\Listings\ListingGroup::current($shape($one), $pid));
+        $this->assertSame((int) $onOutlet->id, \App\Channels\Listings\ListingGroup::current($shape($two), $pid), 'the other store groups it too');
 
-        $claim = \App\Integrations\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'lazada_setting_id', (int) $y->id, [$pid]);
+        $claim = \App\Channels\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'lazada_setting_id', (int) $y->id, [$pid]);
         $this->assertSame([$pid => 'Group X'], $claim['held'], 'a second group on the same store is held');
 
-        \App\Integrations\Listings\ListingGroup::assign($shape($one), $pid, null);
-        $this->assertNull(\App\Integrations\Listings\ListingGroup::current($shape($one), $pid));
-        $this->assertSame((int) $onOutlet->id, \App\Integrations\Listings\ListingGroup::current($shape($two), $pid), 'No group on one store leaves the other store alone');
+        \App\Channels\Listings\ListingGroup::assign($shape($one), $pid, null);
+        $this->assertNull(\App\Channels\Listings\ListingGroup::current($shape($one), $pid));
+        $this->assertSame((int) $onOutlet->id, \App\Channels\Listings\ListingGroup::current($shape($two), $pid), 'No group on one store leaves the other store alone');
     }
 
 }

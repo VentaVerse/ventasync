@@ -39,6 +39,6 @@
 @php
 @endphp
 
-@include('partials.integration-banners', ['bannerOnly' => ($channelCard ?? null)?->id])
+@include('partials.channel-banners', ['bannerOnly' => ($channelCard ?? null)?->id])
 
 <div id="js-flash-container"></div>

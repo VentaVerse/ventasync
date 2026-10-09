@@ -11,7 +11,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class TikTokPushStock extends Command implements \App\Integrations\Contracts\SteppableAutomation
+class TikTokPushStock extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     protected $signature = 'tiktok:push-stock';
 

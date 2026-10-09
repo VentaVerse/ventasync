@@ -4,7 +4,7 @@ namespace Extensions\TikTok\Controllers;
 
 class TikTokWatermarkTemplateController extends \App\Http\Controllers\Channels\WatermarkTemplateController
 {
-    protected function integration(): string
+    protected function channel(): string
     {
         return 'tiktok';
     }

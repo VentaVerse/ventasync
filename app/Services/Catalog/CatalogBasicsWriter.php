@@ -2,7 +2,7 @@
 
 namespace App\Services\Catalog;
 
-use App\Integrations\Listings\CatalogCopy;
+use App\Channels\Listings\CatalogCopy;
 use App\Services\ActivityLogger;
 use App\Support\Catalog\DescriptionHtml;
 use App\Support\Catalog\ProductImages;

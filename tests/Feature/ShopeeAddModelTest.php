@@ -498,7 +498,7 @@ class ShopeeAddModelTest extends TestCase
 
     private function rememberedSkus(int $pid): array
     {
-        $skus = (array) json_decode((string) DB::table(\App\Integrations\Listings\ListingVariations::STORE_SKUS)
+        $skus = (array) json_decode((string) DB::table(\App\Channels\Listings\ListingVariations::STORE_SKUS)
             ->where('channel', 'shopee')->where('product_id', $pid)->value('skus'), true);
         sort($skus);
 
@@ -508,7 +508,7 @@ class ShopeeAddModelTest extends TestCase
     public function test_a_switched_off_variation_has_its_model_deleted_and_nothing_else(): void
     {
         $pid = $this->threePacksOnTheItem();
-        \App\Integrations\Listings\ListingVariations::save('shopee', $this->storeId(), $pid, ['PK-5', 'PK-20']);
+        \App\Channels\Listings\ListingVariations::save('shopee', $this->storeId(), $pid, ['PK-5', 'PK-20']);
         $this->itemHolds([
             'tier_variation' => $this->packTier(),
             'model' => [
@@ -577,7 +577,7 @@ class ShopeeAddModelTest extends TestCase
     public function test_a_refused_delete_is_the_listings_error(): void
     {
         $pid = $this->threePacksOnTheItem();
-        \App\Integrations\Listings\ListingVariations::save('shopee', $this->storeId(), $pid, ['PK-5', 'PK-20']);
+        \App\Channels\Listings\ListingVariations::save('shopee', $this->storeId(), $pid, ['PK-5', 'PK-20']);
         $this->itemHolds([
             'tier_variation' => $this->packTier(),
             'model' => [
@@ -607,7 +607,7 @@ class ShopeeAddModelTest extends TestCase
         $pid = $this->variationProduct(['Pack size' => ['5 pcs', '10 pcs']], ['PK-5' => ['5 pcs'], 'PK-10' => ['10 pcs']]);
         ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 800, 'shopee_model_id' => 82, 'sku' => 'PK-10']);
         ShopeeListing::create(['product_id' => $pid, 'shopee_category_id' => 100139, 'logistic_ids' => [8003]]);
-        \App\Integrations\Listings\ListingVariations::save('shopee', $this->storeId(), $pid, ['PK-5']);
+        \App\Channels\Listings\ListingVariations::save('shopee', $this->storeId(), $pid, ['PK-5']);
         $this->itemHolds([
             'tier_variation' => [['name' => 'Pack size', 'option_list' => [['option' => '5 pcs'], ['option' => '10 pcs']]]],
             'model' => [['model_id' => 82, 'model_sku' => 'PK-10', 'tier_index' => [1], 'price_info' => [['original_price' => 100]]]],
@@ -643,7 +643,7 @@ class ShopeeAddModelTest extends TestCase
     public function test_every_variation_off_is_refused_and_nothing_is_deleted(): void
     {
         $pid = $this->threePacksOnTheItem();
-        \App\Integrations\Listings\ListingVariations::save('shopee', $this->storeId(), $pid, []);
+        \App\Channels\Listings\ListingVariations::save('shopee', $this->storeId(), $pid, []);
         $this->itemHolds([
             'tier_variation' => $this->packTier(),
             'model' => [
@@ -663,7 +663,7 @@ class ShopeeAddModelTest extends TestCase
 
         $this->assertSame([], $this->sentTo('/api/v2/product/delete_model'));
         $this->assertSame(
-            \App\Integrations\Listings\ListingVariations::noneSoldMessage('Shopee'),
+            \App\Channels\Listings\ListingVariations::noneSoldMessage('Shopee'),
             ShopeeListing::query()->where('product_id', $pid)->value('last_push_error')
         );
     }
@@ -671,7 +671,7 @@ class ShopeeAddModelTest extends TestCase
     public function test_the_group_update_deletes_a_switched_off_variation(): void
     {
         $pid = $this->threePacksOnTheItem();
-        \App\Integrations\Listings\ListingVariations::save('shopee', $this->storeId(), $pid, ['PK-5', 'PK-10']);
+        \App\Channels\Listings\ListingVariations::save('shopee', $this->storeId(), $pid, ['PK-5', 'PK-10']);
         $this->itemHolds([
             'tier_variation' => $this->packTier(),
             'model' => [

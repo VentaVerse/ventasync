@@ -2,8 +2,8 @@
 
 namespace Extensions\VentaCart\Services\VentaCart;
 
-use App\Integrations\Listings\ListingState;
-use App\Integrations\Listings\ListingVariations;
+use App\Channels\Listings\ListingState;
+use App\Channels\Listings\ListingVariations;
 use Extensions\VentaCart\Models\VentaCartListing;
 use Extensions\VentaCart\Models\VentaCartProductGroup;
 use Extensions\VentaCart\Models\VentaCartProductGroupProduct;
@@ -32,7 +32,7 @@ class VentaCartListingStates
 
     private function catalogChanges(): array
     {
-        return \App\Integrations\Listings\CatalogCopy::pending(
+        return \App\Channels\Listings\CatalogCopy::pending(
             $this->bucket('drift')->get(), 'ventacart_listings', VentaCartListing::copyColumns()
         );
     }
@@ -73,7 +73,7 @@ class VentaCartListingStates
         }
         $links =VentaCartProductLink::query()->where('ventacart_setting_id', $this->storeId)->whereIn('product_id', $productIds)->whereNotNull('ventacart_product_id')->get()->keyBy(fn ($l) => (int) $l->product_id);
         $listings = VentaCartListing::query()->where('ventacart_setting_id', $this->storeId)->whereIn('product_id', $productIds)->get()->keyBy(fn ($l) => (int) $l->product_id);
-        $catalogChanges = \App\Integrations\Listings\CatalogCopy::pending($listings->values(), 'ventacart_listings', VentaCartListing::copyColumns());
+        $catalogChanges = \App\Channels\Listings\CatalogCopy::pending($listings->values(), 'ventacart_listings', VentaCartListing::copyColumns());
         $attempts = $this->latestAttempts($productIds);
         $readiness = VentaCartListingReadiness::forProducts($productIds);
 
@@ -133,7 +133,7 @@ class VentaCartListingStates
             }
             if ($a && in_array((string) $a->sync_status, ['error', 'failed'], true)) {
                 $found[] = [$a->last_pushed_at ? Carbon::parse($a->last_pushed_at) : Carbon::createFromTimestamp(0),
-                    trim((string) ($a->push_error ?? '')) ?: \App\Integrations\Push\PushLedger::NO_REASON];
+                    trim((string) ($a->push_error ?? '')) ?: \App\Channels\Push\PushLedger::NO_REASON];
             }
             usort($found, fn ($x, $y) => $y[0] <=> $x[0]);
             $out[$pid] = ListingVariations::withMissing($found === [] ? null : $found[0][1], isset($missing[$pid]) ? ListingVariations::missingMessage($storeName, $missing[$pid]) : null);
@@ -149,7 +149,7 @@ class VentaCartListingStates
 
             return;
         }
-        $text = trim($failure) !== '' ? trim($failure) : \App\Integrations\Push\PushLedger::NO_REASON;
+        $text = trim($failure) !== '' ? trim($failure) : \App\Channels\Push\PushLedger::NO_REASON;
         VentaCartListing::query()->firstOrCreate(['ventacart_setting_id' => $this->storeId, 'product_id' => $productId])
             ->forceFill(['last_push_error' => Str::limit($text, 480), 'last_push_failed_at' => now()])
             ->save();

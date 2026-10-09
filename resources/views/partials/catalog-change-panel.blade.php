@@ -1,8 +1,8 @@
 @php
     $pid = (int) $listing->product_id;
     $cols = $listing::copyColumns();
-    $catalog = \App\Integrations\Listings\CatalogCopy::catalog([$pid])[$pid] ?? null;
-    $own = $catalog !== null ? \App\Integrations\Listings\CatalogCopy::listing($listing, $cols, $catalog) : null;
+    $catalog = \App\Channels\Listings\CatalogCopy::catalog([$pid])[$pid] ?? null;
+    $own = $catalog !== null ? \App\Channels\Listings\CatalogCopy::listing($listing, $cols, $catalog) : null;
     $canCatalog = (bool) (auth()->user()?->hasPermission('manage_catalog/product') ?? false);
     $hasVariations = \Illuminate\Support\Facades\DB::table((string) config('catalog.prefix') . 'product_option_value')->where('product_id', $pid)->exists();
     $panelErrors = collect($errors->keys())->contains(fn ($k) => str_starts_with($k, 'listing.') || str_starts_with($k, 'catalog.'));
@@ -130,7 +130,7 @@
                                             <input type="number" class="x-input fm-input--num" name="{{ $side }}[{{ $key }}]" id="lcx-{{ $side }}-{{ $key }}"
                                                    step="{{ $key === 'weight' ? '0.001' : '0.01' }}"
                                                    min="{{ $mine ? ($key === 'weight' ? '0.001' : '0.01') : '0' }}"
-                                                   value="{{ old($side . '.' . $key, $mine ? $ownNum(((float) $listing->{\App\Integrations\Listings\CatalogCopy::PARCEL[$key]}) > 0 ? $listing->{\App\Integrations\Listings\CatalogCopy::PARCEL[$key]} : null, $places) : $num($s['values']['parcel'][$key], $places)) }}"
+                                                   value="{{ old($side . '.' . $key, $mine ? $ownNum(((float) $listing->{\App\Channels\Listings\CatalogCopy::PARCEL[$key]}) > 0 ? $listing->{\App\Channels\Listings\CatalogCopy::PARCEL[$key]} : null, $places) : $num($s['values']['parcel'][$key], $places)) }}"
                                                    @if($mine) placeholder="{{ $num($catalog['parcel'][$key], $places) }}" @else data-lcx-catalog @endif @disabled(!$s['can'])>
                                         </div>
                                     @endforeach

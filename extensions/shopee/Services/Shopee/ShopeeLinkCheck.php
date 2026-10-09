@@ -17,7 +17,7 @@ class ShopeeLinkCheck
     public function runNext(ShopeeClient $client, array $auth, int $storeId): ?array
     {
         return ($ids = $this->storeProductIds($storeId)) !== []
-            ? $this->run($client, $auth, \App\Integrations\Support\LinkCheckCursor::rotate('shopee:' . $storeId, $ids))
+            ? $this->run($client, $auth, \App\Channels\Support\LinkCheckCursor::rotate('shopee:' . $storeId, $ids))
             : null;
     }
 
@@ -460,7 +460,7 @@ class ShopeeLinkCheck
 
             if ($knownId > 0) {
                 // Dropping a link is destructive: do it only on an answer about this shop, keyed by shop id.
-                \App\Integrations\Listings\DroppedLink::write(
+                \App\Channels\Listings\DroppedLink::write(
                     'Shopee', 'Shopee Product', $productId, $knownId,
                     (int) ($auth['shop_id'] ?? 0), $skus, count($index['skus'])
                 );

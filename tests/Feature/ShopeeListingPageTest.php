@@ -795,8 +795,8 @@ class ShopeeListingPageTest extends TestCase
     {
         $productId = $this->seedProduct();
         $storeId = (int) ShopeeSetting::query()->value('id');
-        $prefix = \App\Models\DescriptionTemplate::query()->create(['integration' => 'shopee', 'store_id' => $storeId, 'name' => 'Returns', 'body' => 'Returns within 7 days.']);
-        $suffix = \App\Models\DescriptionTemplate::query()->create(['integration' => 'shopee', 'store_id' => $storeId, 'name' => 'Warranty', 'body' => 'One year warranty.']);
+        $prefix = \App\Models\DescriptionTemplate::query()->create(['channel' => 'shopee', 'store_id' => $storeId, 'name' => 'Returns', 'body' => 'Returns within 7 days.']);
+        $suffix = \App\Models\DescriptionTemplate::query()->create(['channel' => 'shopee', 'store_id' => $storeId, 'name' => 'Warranty', 'body' => 'One year warranty.']);
         ShopeeProductLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1',
         ]);

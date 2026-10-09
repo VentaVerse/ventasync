@@ -45,11 +45,11 @@ class OrderController extends Controller
             })
             ->when($source !== '', function ($query) use ($source) {
                 if ($source === 'manual') {
-                    $query->where('marketplace_source', '');
+                    $query->where('channel', '');
                 } elseif ($source === 'opencart') {
-                    $query->where('marketplace_source', 'like', 'opencart%');
+                    $query->where('channel', 'like', 'opencart%');
                 } else {
-                    $query->where('marketplace_source', $source);
+                    $query->where('channel', $source);
                 }
             })
             ->orderBy($sort, $dir)
@@ -84,9 +84,9 @@ class OrderController extends Controller
                 'order_status_id'      => (int) $order->order_status_id,
                 'status_name'          => $order->status->name ?? '',
                 'date_added'           => $order->date_added,
-                'marketplace_source'   => self::resolveSourceLabel($order->marketplace_source ?? '', $ocStoreNames),
+                'marketplace_source'   => self::resolveSourceLabel($order->channel ?? '', $ocStoreNames),
                 'marketplace_order_id' => $order->marketplace_order_id ?? '',
-                'store_id'             => self::storeIdOf($order->marketplace_source ?? '', $order->store_id),
+                'store_id'             => self::storeIdOf($order->channel ?? '', $order->store_id),
                 'store_name'           => (string) ($order->store_name ?? ''),
                 'product_image'        => $productImage,
                 'fulfilment'           => self::fulfilment($order),
@@ -137,9 +137,9 @@ class OrderController extends Controller
                 'tracking_number'    => $order->tracking_number ?? '',
                 'date_added'         => $order->date_added,
                 'date_modified'      => $order->date_modified,
-                'marketplace_source'   => self::resolveSourceLabel($order->marketplace_source ?? '', $ocStoreNames),
+                'marketplace_source'   => self::resolveSourceLabel($order->channel ?? '', $ocStoreNames),
                 'marketplace_order_id' => $order->marketplace_order_id ?? '',
-                'store_id'             => self::storeIdOf($order->marketplace_source ?? '', $order->store_id),
+                'store_id'             => self::storeIdOf($order->channel ?? '', $order->store_id),
                 'store_name'           => (string) ($order->store_name ?? ''),
                 'fulfilment'           => self::fulfilment($order),
             ],
@@ -196,7 +196,7 @@ class OrderController extends Controller
         ]);
 
         $order = Order::where('order_id', (int) $id)->firstOrFail();
-        if ((string) ($order->marketplace_source ?? '') !== '') {
+        if ((string) ($order->channel ?? '') !== '') {
             return AppFulfilment::refused('This order ships through its store.');
         }
         if (trim((string) $order->tracking_number) !== '') {
@@ -256,7 +256,7 @@ class OrderController extends Controller
 
     private static function fulfilment(Order $order): array
     {
-        if ((string) ($order->marketplace_source ?? '') !== '') {
+        if ((string) ($order->channel ?? '') !== '') {
             return AppFulfilment::block('sales', (int) $order->order_id, 'other', []);
         }
 

@@ -85,7 +85,7 @@
     $channels = [];
 
     try {
-        foreach (app(\App\Integrations\IntegrationRegistry::class)->visibleOrderTabs($user) as $tab) {
+        foreach (app(\App\Channels\ChannelRegistry::class)->visibleOrderTabs($user) as $tab) {
             $tabBase = explode(':', $tab->id, 2)[0];
             $sync = $syncFor[$tab->id] ?? $syncFor[$tabBase] ?? null;
 
@@ -281,7 +281,7 @@
                     <tbody>
                         @forelse($recentOrders as $order)
                             @php
-                                $src = $order->marketplace_source ?: 'direct';
+                                $src = $order->channel ?: 'direct';
                                 $opt = $sourceLabelsMap[$src] ?? null;
                                 $buyer = trim(($order->firstname ?? '') . ' ' . ($order->lastname ?? ''));
                             @endphp

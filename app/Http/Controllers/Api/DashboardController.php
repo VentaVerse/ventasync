@@ -45,7 +45,7 @@ class DashboardController extends Controller
         $storePending = [];
         foreach ($ocStores as $store) {
             $count = DB::table($pfx . 'order')
-                ->where('marketplace_source', 'opencart:' . $store->id)
+                ->where('channel', 'opencart:' . $store->id)
                 ->whereIn('order_status_id', $pendingStatusIds)
                 ->count();
             $storePending[] = [
@@ -72,7 +72,7 @@ class DashboardController extends Controller
                 'o.currency_code',
                 'o.date_added',
                 'os.name as status_name',
-                'o.marketplace_source',
+                'o.channel',
                 'o.store_name',
             ]);
 
@@ -99,7 +99,7 @@ class DashboardController extends Controller
                 'transaction_total'    => $o->foreign_total !== null ? (float) $o->foreign_total : null,
                 'date_added'           => $o->date_added,
                 'status_name'          => $o->status_name ?? '',
-                'marketplace_source'   => self::resolveSourceLabel($o->marketplace_source ?? '', $ocStoreNames),
+                'marketplace_source'   => self::resolveSourceLabel($o->channel ?? '', $ocStoreNames),
                 'store_name'           => (string) ($o->store_name ?? ''),
             ]),
         ]);

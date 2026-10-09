@@ -68,7 +68,7 @@ class VentaCartVariationImageTest extends TestCase
             ['product_id' => $pid, 'sku' => 'VIMG-1PC', 'quantity' => 3, 'absolute_price' => 100, 'absolute_cost' => 40, 'image' => null, 'sort_order' => 0, 'created_at' => now(), 'updated_at' => now()],
             ['product_id' => $pid, 'sku' => 'VIMG-5PC', 'quantity' => 2, 'absolute_price' => 450, 'absolute_cost' => 180, 'image' => null, 'sort_order' => 1, 'created_at' => now(), 'updated_at' => now()],
         ]);
-        \App\Integrations\Listings\ListingVariations::save('ventacart', 0, $pid, ['VIMG-1PC']);
+        \App\Channels\Listings\ListingVariations::save('ventacart', 0, $pid, ['VIMG-1PC']);
 
         $push = app(VentaCartProductPush::class);
         $variants = collect($push->payload($push->product($pid))['variants'] ?? [])->keyBy('sku');

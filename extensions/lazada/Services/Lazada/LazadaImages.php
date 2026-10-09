@@ -148,7 +148,7 @@ class LazadaImages
     public function getProductImageUrls(int $productId, ?object $productRow, ?array $own = null, ?object $listing = null): array
     {
         $paths = \App\Services\Media\ListingWatermark::paths(
-            \App\Integrations\Listings\ListingImages::sending(\App\Support\Catalog\ProductImages::paths($productId, $own), $listing),
+            \App\Channels\Listings\ListingImages::sending(\App\Support\Catalog\ProductImages::paths($productId, $own), $listing),
             $listing,
             \App\Services\Media\ListingWatermark::groupTemplateId('lazada_product_groups', 'lazada_product_group_products', 'lazada_product_group_id', $productId, 'lazada_setting_id', (int) ($listing?->lazada_setting_id ?? 0) ?: null),
             'lazada',

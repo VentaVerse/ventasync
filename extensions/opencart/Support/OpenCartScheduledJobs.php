@@ -2,7 +2,7 @@
 
 namespace Extensions\OpenCart\Support;
 
-use App\Integrations\Support\StoreScheduledJobs;
+use App\Channels\Support\StoreScheduledJobs;
 
 class OpenCartScheduledJobs
 {

@@ -16,7 +16,10 @@ class PermissionCatalog
         'App\Http\Controllers\HomeController',
         'App\Http\Controllers\SearchController',
         'App\Http\Controllers\PaletteController',
-        'App\\Http\\Controllers\\Integrations\\',
+        'App\\Http\\Controllers\\Channels\\ChannelController',
+        'App\\Http\\Controllers\\Channels\\ChannelDashboardController',
+        'App\\Http\\Controllers\\Channels\\CredentialRevealController',
+        'App\\Http\\Controllers\\Channels\\WebhookController',
         'App\\Http\\Controllers\\AutomationsController',
         'App\\Http\\Controllers\\Fulfilment\\',
     ];

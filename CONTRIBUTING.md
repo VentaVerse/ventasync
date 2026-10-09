@@ -7,7 +7,7 @@ VentaSync uses one word for each idea. The screens use the words a seller uses; 
 | On screen | In the code | Meaning |
 |---|---|---|
 | Master Catalog | `catalog`, `product` | The products the business owns. `product` in the code always means a Master Catalog product. |
-| Channel | `extensions/<id>/`, `app/Integrations` | A place the business sells: Shopee, Lazada, TikTok Shop, WooCommerce, VentaCart, OpenCart, Shopify. |
+| Channel | `extensions/<id>/`, `app/Channels` | A place the business sells: Shopee, Lazada, TikTok Shop, WooCommerce, VentaCart, OpenCart, Shopify. |
 | Store | `<Channel>Setting` model, `<channel>_setting_id` | One connected account on a channel. A business can connect several stores to one channel. |
 | Products (a store's page) | `listing` | A store's own copy of a Master Catalog product: its title, price, category and status on that store. |
 | Product Group | `product_group` | A set of listings on one store that share settings. |

@@ -44,7 +44,7 @@ class TikTokProductPush
         $paths = \App\Support\Catalog\ProductImages::paths((int) $erp->product_id, $own);
         $marking = \Extensions\TikTok\Models\TikTokListing::query()->where('product_id', (int) $erp->product_id)
             ->first(['tiktok_setting_id', 'watermark_template_id', 'watermark_all_images']);
-        $paths = \App\Services\Media\ListingWatermark::paths(\App\Integrations\Listings\ListingImages::sending($paths, $marking), $marking, \App\Services\Media\ListingWatermark::groupTemplateId('tiktok_product_groups', 'tiktok_product_group_products', 'tiktok_product_group_id', (int) $erp->product_id, 'tiktok_setting_id', (int) ($marking?->tiktok_setting_id ?? 0) ?: null), 'tiktok', (int) ($marking?->tiktok_setting_id ?? 0));
+        $paths = \App\Services\Media\ListingWatermark::paths(\App\Channels\Listings\ListingImages::sending($paths, $marking), $marking, \App\Services\Media\ListingWatermark::groupTemplateId('tiktok_product_groups', 'tiktok_product_group_products', 'tiktok_product_group_id', (int) $erp->product_id, 'tiktok_setting_id', (int) ($marking?->tiktok_setting_id ?? 0) ?: null), 'tiktok', (int) ($marking?->tiktok_setting_id ?? 0));
         $imageUris = [];
         foreach ($paths as $path) {
             $uri = $uploadUri($path);
@@ -72,15 +72,15 @@ class TikTokProductPush
         $title = mb_substr($title, 0, 255);
 
         $rawDesc = trim((string) ($opts['description'] ?? '')) !== '' ? (string) $opts['description'] : (string) ($erp->description ?? '');
-        $desc = \App\Integrations\Listings\RichDescription::forTikTok($rawDesc);
-        $leftOut = max(0, \App\Integrations\Listings\RichDescription::imageCount($rawDesc) - \App\Integrations\Listings\RichDescription::imageCount($desc));
+        $desc = \App\Channels\Listings\RichDescription::forTikTok($rawDesc);
+        $leftOut = max(0, \App\Channels\Listings\RichDescription::imageCount($rawDesc) - \App\Channels\Listings\RichDescription::imageCount($desc));
         $blank = fn (string $html): bool => trim(strip_tags($html)) === '' && stripos($html, '<img') === false;
         if ($blank($desc)) {
             $desc = $title;
         }
 
         $ttListing = \Extensions\TikTok\Models\TikTokListing::query()->where('product_id', (int) $erp->product_id)->first();
-        $desc = \App\Integrations\Listings\ListingContent::wrapDescription(
+        $desc = \App\Channels\Listings\ListingContent::wrapDescription(
             $desc, 'tiktok', (int) ($ttListing->tiktok_setting_id ?? 0), $ttListing
         );
 
@@ -95,8 +95,8 @@ class TikTokProductPush
         $desc = mb_substr($desc, 0, 10000);
 
         $weight = (float) ($ttListing?->weight ?? 0) > 0 ? (float) $ttListing->weight : (float) ($erp->weight ?? 0);
-        $side = fn (string $own, string $core): string => (string) \App\Integrations\Listings\ParcelPrecision::of(
-            $ttListing?->{$own}, $erp->{$core} ?? 0, \App\Integrations\Listings\ParcelPrecision::TIKTOK['dimension']
+        $side = fn (string $own, string $core): string => (string) \App\Channels\Listings\ParcelPrecision::of(
+            $ttListing?->{$own}, $erp->{$core} ?? 0, \App\Channels\Listings\ParcelPrecision::TIKTOK['dimension']
         );
 
         $payload = [

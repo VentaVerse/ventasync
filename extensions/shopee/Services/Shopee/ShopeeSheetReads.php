@@ -2,7 +2,7 @@
 
 namespace Extensions\Shopee\Services\Shopee;
 
-use App\Integrations\Listings\SheetReads;
+use App\Channels\Listings\SheetReads;
 use Extensions\Shopee\Controllers\ShopeeProductGroupController;
 use Extensions\Shopee\Models\ShopeeCategoryTemplate;
 use Extensions\Shopee\Models\ShopeeListing;

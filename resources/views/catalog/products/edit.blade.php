@@ -14,12 +14,12 @@
     };
 
 
-    $__productActions = app(\App\Integrations\IntegrationRegistry::class)
+    $__productActions = app(\App\Channels\ChannelRegistry::class)
         ->productActions((int) $product->product_id);
     $__user = auth()->user();
 
     $__inventoryBreakdown = null;
-    foreach (app(\App\Integrations\IntegrationRegistry::class)->productInventoryDetailContributors() as $__c) {
+    foreach (app(\App\Channels\ChannelRegistry::class)->productInventoryDetailContributors() as $__c) {
         $__line = $__c->inventoryBreakdownFor((int) $product->product_id);
         if ($__line !== null) { $__inventoryBreakdown = $__line; break; }
     }

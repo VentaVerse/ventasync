@@ -88,8 +88,8 @@ class OpenCartPushReviews extends Command
                         'rating'             => $review->rating,
                         'status'             => $autoApprove ? 1 : 0,
                         'date_added'         => $review->reviewed_at?->format('Y-m-d H:i:s') ?? now()->format('Y-m-d H:i:s'),
-                        'platform'           => $review->platform,
-                        'platform_review_id' => $review->platform_review_id,
+                        'platform'           => $review->channel,
+                        'platform_review_id' => $review->channel_review_id,
                     ]);
 
                     if ($res['ok'] ?? false) {

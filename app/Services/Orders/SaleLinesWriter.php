@@ -2,13 +2,13 @@
 
 namespace App\Services\Orders;
 
-use App\Integrations\IntegrationRegistry;
+use App\Channels\ChannelRegistry;
 use App\Services\OrderCurrencyService;
 use Illuminate\Support\Facades\DB;
 
 final class SaleLinesWriter
 {
-    public function __construct(private readonly IntegrationRegistry $registry)
+    public function __construct(private readonly ChannelRegistry $registry)
     {
     }
 

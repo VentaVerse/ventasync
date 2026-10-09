@@ -2,7 +2,7 @@
 
 namespace Extensions\TikTok\Services\TikTok;
 
-use App\Integrations\Push\PushLedger;
+use App\Channels\Push\PushLedger;
 use Extensions\TikTok\Models\TikTokApiLog;
 use Extensions\TikTok\Models\TikTokProductGroup;
 use Extensions\TikTok\Models\TikTokProductGroupProduct;
@@ -32,8 +32,8 @@ class TikTokStockPricePush
         $productIds = $pivots->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
         $erpSkus = PushLedger::erpVariationSkus($productIds, $pfx);
         $storeId = (int) (\Extensions\TikTok\Models\TikTokSetting::defaultStore()?->id ?? 0);
-        $hidden = \App\Integrations\Listings\ListingVariations::hidden('tiktok', $storeId, $productIds);
-        $soldSkus = \App\Integrations\Listings\ListingVariations::sold('tiktok', $storeId, $productIds, $pfx);
+        $hidden = \App\Channels\Listings\ListingVariations::hidden('tiktok', $storeId, $productIds);
+        $soldSkus = \App\Channels\Listings\ListingVariations::sold('tiktok', $storeId, $productIds, $pfx);
 
         foreach ($pivots as $pivot) {
             $pid = (int) $pivot->product_id;
@@ -77,7 +77,7 @@ class TikTokStockPricePush
             if (!$sku['matched'] && $sku['seller_sku'] !== '' && !empty($erpSkus[$pid])) {
                 continue;
             }
-            if (!\App\Integrations\Listings\ListingVariations::allows($hidden, $pid, (string) $sku['seller_sku'])) {
+            if (!\App\Channels\Listings\ListingVariations::allows($hidden, $pid, (string) $sku['seller_sku'])) {
                 continue;
             }
             $payload[] = $kind === 'price'

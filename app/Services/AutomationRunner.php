@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Integrations\Contracts\SteppableAutomation;
+use App\Channels\Contracts\SteppableAutomation;
 use App\Models\AutomationRun;
 use App\Models\ScheduledJob;
 use Illuminate\Support\Str;
@@ -21,7 +21,7 @@ class AutomationRunner
 
         $run = AutomationRun::create([
             'scheduled_job_id' => $job->id,
-            'integration' => (string) $job->integration,
+            'extension' => (string) $job->extension,
             'store_id' => $job->store_id !== null ? (int) $job->store_id : null,
             'label' => (string) ($named['label'] ?? 'products'),
             'units' => $units,
@@ -37,9 +37,9 @@ class AutomationRunner
         return $run;
     }
 
-    public function beginWork(string $integration, ?int $storeId, string $subject, array $units, string $label = 'products'): AutomationRun
+    public function beginWork(string $extension, ?int $storeId, string $subject, array $units, string $label = 'products'): AutomationRun
     {
-        AutomationRun::query()->where('integration', $integration)
+        AutomationRun::query()->where('extension', $extension)
             ->where(fn ($q) => $storeId === null ? $q->whereNull('store_id') : $q->where('store_id', $storeId))
             ->where('subject', $subject)->where('status', AutomationRun::RUNNING)
             ->update(['status' => AutomationRun::STOPPED]);
@@ -47,7 +47,7 @@ class AutomationRunner
         $units = array_values(array_map('strval', $units));
         $run = AutomationRun::create([
             'scheduled_job_id' => null,
-            'integration' => $integration,
+            'extension' => $extension,
             'store_id' => $storeId,
             'subject' => $subject,
             'label' => $label,
@@ -96,7 +96,7 @@ class AutomationRunner
         try {
             $answer = $work($slice);
         } catch (\Throwable $e) {
-            $answer = ['error' => \App\Support\TransportError::plain($e, Str::title((string) $run->integration))];
+            $answer = ['error' => \App\Support\TransportError::plain($e, Str::title((string) $run->extension))];
         }
         $answer = is_array($answer) ? $answer : [];
         $from = (int) $run->done + 1;

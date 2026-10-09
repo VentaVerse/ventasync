@@ -57,7 +57,7 @@ class ShopeeStockPricePush
 
         $rows = $this->resolver->resolve($links, $pfx);
 
-        $hidden = \App\Integrations\Listings\ListingVariations::hidden('shopee', (int) ($auth['store_id'] ?? 0), $productIds);
+        $hidden = \App\Channels\Listings\ListingVariations::hidden('shopee', (int) ($auth['store_id'] ?? 0), $productIds);
         $grouped = [];
         foreach ($this->sendable($rows, $erpVariationSkus, $hidden) as $row) {
             $grouped[(int) $row['item_id']][] = $row;
@@ -199,18 +199,18 @@ class ShopeeStockPricePush
                 return false;
             }
 
-            return \App\Integrations\Listings\ListingVariations::allows($hidden, $pid, (string) $row['seller_sku']);
+            return \App\Channels\Listings\ListingVariations::allows($hidden, $pid, (string) $row['seller_sku']);
         }));
     }
 
     public static function ledgerClause(array $results): string
     {
-        return \App\Integrations\Push\PushLedger::clause($results, 'Shopee');
+        return \App\Channels\Push\PushLedger::clause($results, 'Shopee');
     }
 
     private function erpVariationSkus(array $productIds, string $pfx): array
     {
-        return \App\Integrations\Push\PushLedger::erpVariationSkus($productIds, $pfx);
+        return \App\Channels\Push\PushLedger::erpVariationSkus($productIds, $pfx);
     }
 
     private function skusFor(int $productId, string $pfx, array $erpVariationSkus): array

@@ -20,10 +20,10 @@ class ShopeeVariationPush
         if ($all->isEmpty()) {
             return null;
         }
-        $hidden = \App\Integrations\Listings\ListingVariations::hidden('shopee', $storeId, [$productId]);
-        $combos = $all->filter(fn ($c) => \App\Integrations\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
+        $hidden = \App\Channels\Listings\ListingVariations::hidden('shopee', $storeId, [$productId]);
+        $combos = $all->filter(fn ($c) => \App\Channels\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
         if ($combos->isEmpty()) {
-            return \App\Integrations\Listings\ListingVariations::noneSoldMessage('Shopee');
+            return \App\Channels\Listings\ListingVariations::noneSoldMessage('Shopee');
         }
         if ($combos->count() > 50) {
             return 'Shopee accepts at most 50 variations per item; this product has ' . $combos->count() . '.';
@@ -89,8 +89,8 @@ class ShopeeVariationPush
             ->where('product_id', $productId)
             ->orderBy('sort_order')
             ->get(['id', 'sku', 'quantity', 'absolute_price', 'image']);
-        $hidden = \App\Integrations\Listings\ListingVariations::hidden('shopee', (int) ($auth['store_id'] ?? 0), [$productId]);
-        $combos = $combos->filter(fn ($c) => \App\Integrations\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
+        $hidden = \App\Channels\Listings\ListingVariations::hidden('shopee', (int) ($auth['store_id'] ?? 0), [$productId]);
+        $combos = $combos->filter(fn ($c) => \App\Channels\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
         if ($combos->isEmpty()) {
             return ['ok' => true, 'message' => 'The Master Catalog has no variations for this product; nothing to add.', 'added' => 0];
         }
@@ -450,10 +450,10 @@ class ShopeeVariationPush
         if ($all->isEmpty()) {
             return null;
         }
-        $hidden = \App\Integrations\Listings\ListingVariations::hidden('shopee', $storeId, [$productId]);
-        $combos = $all->filter(fn ($c) => \App\Integrations\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
+        $hidden = \App\Channels\Listings\ListingVariations::hidden('shopee', $storeId, [$productId]);
+        $combos = $all->filter(fn ($c) => \App\Channels\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
         if ($combos->isEmpty()) {
-            return ['refused' => \App\Integrations\Listings\ListingVariations::noneSoldMessage('Shopee')];
+            return ['refused' => \App\Channels\Listings\ListingVariations::noneSoldMessage('Shopee')];
         }
         if ($combos->count() > 50) {
             return ['refused' => 'Shopee accepts at most 50 variations per item; this product has ' . $combos->count() . '.'];

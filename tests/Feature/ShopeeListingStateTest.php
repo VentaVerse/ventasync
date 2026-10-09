@@ -3,8 +3,8 @@
 namespace Tests\Feature;
 
 use App\Extensions\ExtensionManager;
-use App\Integrations\IntegrationRegistry;
-use App\Integrations\Listings\ListingState;
+use App\Channels\ChannelRegistry;
+use App\Channels\Listings\ListingState;
 use Extensions\Shopee\Models\ShopeeCategoryTemplate;
 use Extensions\Shopee\Models\ShopeeListing;
 use Extensions\Shopee\Models\ShopeeProductLink;
@@ -166,7 +166,7 @@ class ShopeeListingStateTest extends TestCase
         $this->assertSame('Stock update refused: item is under review.', app(ShopeeListingStates::class)->errors([$pid])[$pid]);
 
         ShopeeProductLink::query()->where('product_id', $pid)->update(['last_sync_error_message' => null]);
-        $this->assertSame(\App\Integrations\Push\PushLedger::NO_REASON, app(ShopeeListingStates::class)->errors([$pid])[$pid]);
+        $this->assertSame(\App\Channels\Push\PushLedger::NO_REASON, app(ShopeeListingStates::class)->errors([$pid])[$pid]);
 
         $never = $this->product('NEVER');
         $this->assertNull(app(ShopeeListingStates::class)->errors([$never])[$never]);
@@ -183,7 +183,7 @@ class ShopeeListingStateTest extends TestCase
         $this->readyListing($pid);
         ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 910, 'shopee_model_id' => 1, 'sku' => 'EXL110-1046', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
         $storeId = (int) ShopeeSetting::defaultStore()->id;
-        \App\Integrations\Listings\ListingVariations::remember('shopee', $storeId, $pid, ['EXL110-1046', 'EXL110-0942']);
+        \App\Channels\Listings\ListingVariations::remember('shopee', $storeId, $pid, ['EXL110-1046', 'EXL110-0942']);
 
         $line = (string) app(ShopeeListingStates::class)->errors([$pid])[$pid];
         $this->assertStringContainsString('Not on Shopee:', $line);
@@ -197,7 +197,7 @@ class ShopeeListingStateTest extends TestCase
         $this->assertStringContainsString('Not on Shopee:', $html);
         $this->assertStringContainsString('EXL110-1149', $html);
 
-        DB::table(\App\Integrations\Listings\ListingVariations::TABLE)->insert([
+        DB::table(\App\Channels\Listings\ListingVariations::TABLE)->insert([
             'channel' => 'shopee', 'store_id' => $storeId, 'product_id' => $pid, 'sku' => 'exl110-1149',
         ]);
         $this->assertNull(app(ShopeeListingStates::class)->errors([$pid])[$pid]);
@@ -475,7 +475,7 @@ class ShopeeListingStateTest extends TestCase
         ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 970, 'sku' => 'VIACORE',
             'live_status' => 'NORMAL', 'live_checked_at' => now()]);
 
-        $sources = app(IntegrationRegistry::class)->listingStateSources();
+        $sources = app(ChannelRegistry::class)->listingStateSources();
         $this->assertNotEmpty($sources, 'the Shopee provider registers as a ListingStateSource');
 
         $states = collect($sources)->map(fn ($s) => $s->listingStates([$pid]))->first();
@@ -600,7 +600,7 @@ class ShopeeListingStateTest extends TestCase
         ShopeeProductLink::create(['product_id' => $missing, 'shopee_item_id' => 6001, 'shopee_model_id' => 1, 'sku' => 'MISSVAR-A',
             'live_status' => 'NORMAL', 'live_checked_at' => now()]);
         $storeId = (int) ShopeeSetting::defaultStore()->id;
-        \App\Integrations\Listings\ListingVariations::remember('shopee', $storeId, $missing, ['MISSVAR-A']);
+        \App\Channels\Listings\ListingVariations::remember('shopee', $storeId, $missing, ['MISSVAR-A']);
 
         $refused = $this->linkedProduct('PUSHERR', 6002);
         $clean = $this->linkedProduct('CLEANROW', 6003);

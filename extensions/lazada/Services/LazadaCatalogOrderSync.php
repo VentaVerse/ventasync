@@ -94,7 +94,7 @@ class LazadaCatalogOrderSync
             }
 
             if (!$catalogOrder) {
-                $catalogOrder = Order::where('marketplace_source', 'lazada')
+                $catalogOrder = Order::where('channel', 'lazada')
                     ->where('marketplace_order_id', $lazadaOrderId)
                     ->first();
             }
@@ -174,7 +174,7 @@ class LazadaCatalogOrderSync
                 'accept_language'       => '',
                 'courier_id'            => 0,
                 'tracking_number'       => $trackingNumber,
-                'marketplace_source'    => 'lazada',
+                'channel'    => 'lazada',
                 'marketplace_order_id'  => $lazadaOrderId,
                 'oe_import'             => 0,
             ];

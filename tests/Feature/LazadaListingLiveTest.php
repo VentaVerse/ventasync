@@ -1367,7 +1367,7 @@ class LazadaListingLiveTest extends TestCase
 
     private function sellHere(int $pid, array $onSkus): void
     {
-        \App\Integrations\Listings\ListingVariations::save('lazada', $this->storeId(), $pid, $onSkus);
+        \App\Channels\Listings\ListingVariations::save('lazada', $this->storeId(), $pid, $onSkus);
     }
 
     private function pushListing(int $pid): \Illuminate\Testing\TestResponse

@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Integrations\IntegrationRegistry;
+use App\Channels\ChannelRegistry;
 use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderStatus;
 use App\Models\Catalog\Product;
@@ -35,7 +35,7 @@ class OrderStockService
         }
 
         $direction = ($oldSubtract === 0 && $newSubtract === 1) ? -1 : 1;
-        $source = StockHistoryLogger::sourceFromOrder($order->marketplace_source ?? '');
+        $source = StockHistoryLogger::sourceFromOrder($order->channel ?? '');
         $orderLabel = self::label($order, $source);
 
         $order->load('products.options');
@@ -72,7 +72,7 @@ class OrderStockService
         $old = self::subtracts($oldStatusId) ? $before : [];
         $new = self::subtracts($newStatusId) ? self::snapshot($order) : [];
 
-        $source = StockHistoryLogger::sourceFromOrder($order->marketplace_source ?? '');
+        $source = StockHistoryLogger::sourceFromOrder($order->channel ?? '');
         $orderLabel = self::label($order, $source);
         $defaultWarehouse = self::resolveDefaultWarehouse();
 
@@ -224,7 +224,7 @@ class OrderStockService
         }
 
         if (!$product && $sku !== '') {
-            foreach (app(IntegrationRegistry::class)->skuResolvers() as $resolver) {
+            foreach (app(ChannelRegistry::class)->skuResolvers() as $resolver) {
                 $resolved = $resolver->resolveCatalogProduct($sku);
                 if ($resolved === null) {
                     continue;

@@ -187,7 +187,7 @@ class ControllerPermissionTest extends TestCase
         $catalog = $this->app->make(PermissionCatalog::class);
 
         foreach ([
-            \App\Http\Controllers\Integrations\IntegrationController::class,
+            \App\Http\Controllers\Channels\ChannelController::class,
             \App\Http\Controllers\AutomationsController::class,
             \App\Http\Controllers\Fulfilment\OrderPrintController::class,
         ] as $class) {
@@ -210,7 +210,7 @@ class ControllerPermissionTest extends TestCase
     public function test_every_exempt_controller_actually_checks_for_itself(): void
     {
         foreach ([
-            'app/Http/Controllers/Integrations/IntegrationController.php',
+            'app/Http/Controllers/Channels/ChannelController.php',
             'app/Http/Controllers/AutomationsController.php',
             'app/Http/Controllers/Fulfilment/OrderPrintController.php',
         ] as $file) {

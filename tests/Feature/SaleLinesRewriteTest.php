@@ -26,7 +26,7 @@ class SaleLinesRewriteTest extends TestCase
     {
         $pfx = (string) config('catalog.prefix');
         $store = DB::table('shopee_settings')->insertGetId(['mode' => 'live', 'store_name' => 'Main store', 'created_at' => now(), 'updated_at' => now()]);
-        $orderId = $this->coreOrder(['marketplace_source' => 'shopee', 'store_id' => $store, 'total' => 1438]);
+        $orderId = $this->coreOrder(['channel' => 'shopee', 'store_id' => $store, 'total' => 1438]);
         $this->coreOrderLine($orderId, 1438, 900, 1);
         DB::table($pfx . 'order_total')->insert([
             ['order_id' => $orderId, 'code' => 'sub_total', 'title' => 'Sub-Total', 'value' => 1438, 'sort_order' => 1],

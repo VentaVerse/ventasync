@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Integrations\OneGroupRule;
+use App\Channels\OneGroupRule;
 use Extensions\Shopee\Models\ShopeeProductGroup;
 use Extensions\Shopee\Models\ShopeeProductGroupProduct;
 use Extensions\Shopee\Models\ShopeeSetting;

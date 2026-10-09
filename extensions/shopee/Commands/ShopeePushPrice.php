@@ -11,7 +11,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class ShopeePushPrice extends Command implements \App\Integrations\Contracts\SteppableAutomation
+class ShopeePushPrice extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     protected $signature = 'shopee:push-price';
 

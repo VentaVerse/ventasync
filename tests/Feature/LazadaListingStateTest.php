@@ -3,8 +3,8 @@
 namespace Tests\Feature;
 
 use App\Extensions\ExtensionManager;
-use App\Integrations\IntegrationRegistry;
-use App\Integrations\Listings\ListingState;
+use App\Channels\ChannelRegistry;
+use App\Channels\Listings\ListingState;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
@@ -326,7 +326,7 @@ class LazadaListingStateTest extends TestCase
         $productId = $this->seedProduct('Contracted', 'CT-1');
         LazadaProduct::create(['product_id' => $productId, 'lazada_item_id' => '401', 'live_status' => 'active', 'live_checked_at' => now()]);
 
-        $sources = $this->app->make(IntegrationRegistry::class)->listingStateSources();
+        $sources = $this->app->make(ChannelRegistry::class)->listingStateSources();
         $lazada = collect($sources)->first(fn ($src) => $src instanceof LazadaExtension);
 
         $this->assertNotNull($lazada, 'LazadaExtension must register as a ListingStateSource');
@@ -368,14 +368,14 @@ class LazadaListingStateTest extends TestCase
         $this->threeCombos($pid, ['EXL110-1046', 'EXL110-0942', 'EXL110-1149']);
         (new LazadaProduct())->forceFill(['product_id' => $pid, 'lazada_item_id' => '555', 'live_status' => 'active'])->save();
         $storeId = (int) LazadaSetting::defaultStore()->id;
-        \App\Integrations\Listings\ListingVariations::remember('lazada', $storeId, $pid, ['EXL110-1046', 'EXL110-0942']);
+        \App\Channels\Listings\ListingVariations::remember('lazada', $storeId, $pid, ['EXL110-1046', 'EXL110-0942']);
 
         $line = (string) $this->engine()->errors([$pid])[$pid];
         $this->assertStringContainsString('Not on Lazada:', $line);
         $this->assertStringContainsString('EXL110-1149', $line);
         $this->assertStringNotContainsString('EXL110-0942', $line);
 
-        DB::table(\App\Integrations\Listings\ListingVariations::TABLE)->insert([
+        DB::table(\App\Channels\Listings\ListingVariations::TABLE)->insert([
             'channel' => 'lazada', 'store_id' => $storeId, 'product_id' => $pid, 'sku' => 'exl110-1149',
         ]);
         $this->assertNull($this->engine()->errors([$pid])[$pid]);
@@ -397,16 +397,16 @@ class LazadaListingStateTest extends TestCase
 
         $this->getResponses['/product/item/get'] = $answer(['RD-1', 'RD-2']);
         $cache->refreshListing($listing->fresh(), $setting, app(LazadaClient::class));
-        $missing = \App\Integrations\Listings\ListingVariations::missing('lazada', $storeId, [$pid]);
+        $missing = \App\Channels\Listings\ListingVariations::missing('lazada', $storeId, [$pid]);
         $this->assertSame(['RD-3'], array_column($missing[$pid] ?? [], 'sku'));
 
         $this->getResponses['/product/item/get'] = $answer(['RD-1', 'RD-2', 'RD-3']);
         $cache->fetchAndCacheVariants($listing->fresh(), $setting, app(LazadaClient::class));
-        $this->assertSame([], \App\Integrations\Listings\ListingVariations::missing('lazada', $storeId, [$pid]));
+        $this->assertSame([], \App\Channels\Listings\ListingVariations::missing('lazada', $storeId, [$pid]));
 
         $this->getResponses['/product/item/get'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 'E0001', 'message' => 'refused']];
         $cache->fetchAndCacheVariants($listing->fresh(), $setting, app(LazadaClient::class));
-        $this->assertSame([], \App\Integrations\Listings\ListingVariations::missing('lazada', $storeId, [$pid]));
+        $this->assertSame([], \App\Channels\Listings\ListingVariations::missing('lazada', $storeId, [$pid]));
     }
 
     public function test_a_group_is_a_preset_the_product_inherits(): void
@@ -427,8 +427,8 @@ class LazadaListingStateTest extends TestCase
 
         $codes = array_column(app(\Extensions\Lazada\Services\Lazada\LazadaListingReadiness::class)
             ->forListings(collect([$listing]))[$listing->id]['gaps'], 'code');
-        $this->assertNotContains(\App\Integrations\Listings\ListingState::GAP_CATEGORY, $codes);
-        $this->assertContains(\App\Integrations\Listings\ListingState::GAP_SHEET, $codes, 'the inherited category is judged like its own: its sheet is still unread');
+        $this->assertNotContains(\App\Channels\Listings\ListingState::GAP_CATEGORY, $codes);
+        $this->assertContains(\App\Channels\Listings\ListingState::GAP_SHEET, $codes, 'the inherited category is judged like its own: its sheet is still unread');
 
         $this->assertNull(\Extensions\Lazada\Models\LazadaProduct::query()->find($listing->id)->primary_category_id);
         $this->assertNull($listing->primary_category_id);

@@ -232,7 +232,7 @@ public function resolveSkuIds(LazadaProduct $listing, object $setting, LazadaCli
         }
 
         $pfx = (string) config('catalog.prefix');
-        $erpSkus = \App\Integrations\Listings\ListingVariations::sold('lazada', (int) ($listing->lazada_setting_id ?? 0), [(int) $listing->product_id], $pfx)[(int) $listing->product_id] ?? [];
+        $erpSkus = \App\Channels\Listings\ListingVariations::sold('lazada', (int) ($listing->lazada_setting_id ?? 0), [(int) $listing->product_id], $pfx)[(int) $listing->product_id] ?? [];
 
         $missingSkus = array_diff($erpSkus, array_keys($map));
         if (empty($missingSkus)) {

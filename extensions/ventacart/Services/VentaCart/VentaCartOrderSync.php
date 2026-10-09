@@ -263,7 +263,7 @@ class VentaCartOrderSync
         $statusName = trim($raw['status'] ?? '');
         $coreStatusId = $this->resolveOrderStatus($statusMap, $ventaCartStatusId, $statusName);
 
-        $marketplaceSource = 'ventacart:' . $this->setting->id;
+        $orderChannel = 'ventacart:' . $this->setting->id;
 
         $ventaCartOrder = VentaCartOrder::updateOrCreate(
             [
@@ -312,12 +312,12 @@ class VentaCartOrderSync
             return $wasCreated;
         }
 
-        $this->syncToCatalog($ventaCartOrder, $raw, $coreStatusId, $marketplaceSource, $statusMap);
+        $this->syncToCatalog($ventaCartOrder, $raw, $coreStatusId, $orderChannel, $statusMap);
 
         return $wasCreated;
     }
 
-    private function syncToCatalog(VentaCartOrder $ventaCartOrder, array $raw, int $coreStatusId, string $marketplaceSource, array $statusMap): void
+    private function syncToCatalog(VentaCartOrder $ventaCartOrder, array $raw, int $coreStatusId, string $orderChannel, array $statusMap): void
     {
         $pfx = (string) config('catalog.prefix');
         $ventaCartOrderId = (string) $ventaCartOrder->ventacart_order_id;
@@ -338,13 +338,13 @@ class VentaCartOrderSync
         $created = false;
 
         DB::transaction(function () use (
-            $raw, $pfx, $ventaCartOrderId, $coreStatusId, $marketplaceSource,
+            $raw, $pfx, $ventaCartOrderId, $coreStatusId, $orderChannel,
             $firstname, $lastname, $email, $phone,
             $shipping, $billing, $totals, $ventaCartOrder,
             &$oldStatusId, &$coreOrderId, &$created
         ) {
             $existing = DB::table($pfx . 'order')
-                ->where('marketplace_source', $marketplaceSource)
+                ->where('channel', $orderChannel)
                 ->where('marketplace_order_id', $ventaCartOrderId)
                 ->first();
 
@@ -425,7 +425,7 @@ class VentaCartOrderSync
                 'accept_language'        => '',
                 'courier_id'             => 0,
                 'tracking_number'        => $raw['tracking_number'] ?? '',
-                'marketplace_source'     => $marketplaceSource,
+                'channel'     => $orderChannel,
                 'marketplace_order_id'   => $ventaCartOrderId,
                 'oe_import'              => 0,
                 'date_modified'          => isset($raw['updated_at']) ? \Carbon\Carbon::parse($raw['updated_at'])->format('Y-m-d H:i:s') : now()->toDateTimeString(),

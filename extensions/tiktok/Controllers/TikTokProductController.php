@@ -35,7 +35,7 @@ class TikTokProductController extends Controller
         $syncStatus = (string) $request->get('sync_status', 'all');
         $syncStatus = ['listed' => 'uploaded', 'not_listed' => 'not_uploaded'][$syncStatus] ?? $syncStatus;
         if ($syncStatus !== 'error') {
-            $syncStatus = \App\Integrations\Listings\StatusMenu::stand($syncStatus);
+            $syncStatus = \App\Channels\Listings\StatusMenu::stand($syncStatus);
         }
         $failedFlag = $request->boolean('failed') || $syncStatus === 'error';
         $changeFlag = $request->boolean('change');
@@ -43,7 +43,7 @@ class TikTokProductController extends Controller
             $syncStatus = 'all';
         }
         $manufacturerFilter = (string) $request->get('manufacturer', 'all');
-        $groupFilter = \App\Integrations\Listings\StatusMenu::group($request->get('group'));
+        $groupFilter = \App\Channels\Listings\StatusMenu::group($request->get('group'));
         $erpStatus = (string) $request->get('erp_status', 'all');
         $tiktokTab = (string) $request->get('tiktok_tab', 'all');
         if (!array_key_exists($tiktokTab, TikTokLiveListing::TABS)) {
@@ -225,7 +225,7 @@ class TikTokProductController extends Controller
         }
         $groupRail[] = [
             'id' => 'none',
-            'name' => \App\Integrations\Listings\StatusMenu::UNGROUPED,
+            'name' => \App\Channels\Listings\StatusMenu::UNGROUPED,
             'count' => $applyGroup(clone $railBase, 'none')->count(),
         ];
 
@@ -239,15 +239,15 @@ class TikTokProductController extends Controller
         $applyTab($query);
 
 
-        $troubleFilter = \App\Integrations\Listings\ListingTrouble::asked($request->query('state'));
+        $troubleFilter = \App\Channels\Listings\ListingTrouble::asked($request->query('state'));
         if ($troubleFilter !== null) {
             $troubleIds = app(\Extensions\TikTok\Services\TikTok\TikTokListingStates::class)->productIdsIn($troubleFilter);
             $query->whereIn('p.product_id', $troubleIds ?: [0]);
         }
 
-        $storeId = \App\Integrations\Listings\ListingStore::id('tiktok');
+        $storeId = \App\Channels\Listings\ListingStore::id('tiktok');
         $sortMenu = \Extensions\TikTok\Services\TikTokListingSort::columns($storeId);
-        $order = \App\Integrations\Listings\ListingSort::chosen($request, 'tiktok.listings.' . $storeId);
+        $order = \App\Channels\Listings\ListingSort::chosen($request, 'tiktok.listings.' . $storeId);
         if ($request->filled('sort')) {
             $query->orderBy($sortColumns[$sort], $dir);
             if ($sortColumns[$sort] !== 'p.product_id') {
@@ -255,7 +255,7 @@ class TikTokProductController extends Controller
             }
         } else {
             \Extensions\TikTok\Services\TikTokListingSort::join($query, $storeId);
-            \App\Integrations\Listings\ListingSort::apply($query, $order, $sortMenu);
+            \App\Channels\Listings\ListingSort::apply($query, $order, $sortMenu);
         }
         $products = $query->paginate(50)->withQueryString();
         foreach ($products as $row) {
@@ -264,7 +264,7 @@ class TikTokProductController extends Controller
 
         $pageIds = $products->pluck('product_id')->map(fn ($v) => (int) $v)->all();
         $listingsByProductId = TikTokListing::query()->forStore(TikTokSetting::defaultStore())->whereIn('product_id', $pageIds ?: [0])->get()->keyBy(fn ($l) => (int) $l->product_id);
-        $rowTitles = \App\Integrations\Listings\ListingContent::rowTitles($products, $listingsByProductId);
+        $rowTitles = \App\Channels\Listings\ListingContent::rowTitles($products, $listingsByProductId);
         $pivotTruth = TikTokProductGroupProduct::query()->onStore()
             ->whereIn('product_id', $pageIds ?: [0])->whereNotNull('tiktok_product_id')
             ->orderByDesc('last_pushed_at')->get()->groupBy(fn ($p) => (int) $p->product_id)->map(fn ($rows) => $rows->first());
@@ -286,7 +286,7 @@ class TikTokProductController extends Controller
                     $answer = $live->fetch((string) $l->tiktok_product_id, $c);
                     $status = $answer['live']['status'] ?? null;
                     if ($status === null || $status === '') {
-                        session()->now('error', \App\Integrations\Listings\BlankFillRefusal::sentence('TikTok Shop', $answer['error'] ?? null));
+                        session()->now('error', \App\Channels\Listings\BlankFillRefusal::sentence('TikTok Shop', $answer['error'] ?? null));
                         break;
                     }
                     TikTokListing::query()->whereKey($l->id)->update(['live_status' => $status, 'live_checked_at' => now()]);
@@ -315,7 +315,7 @@ class TikTokProductController extends Controller
 
         return view('ext-tiktok::products.index', [
             'order' => $order,
-            'orderOptions' => \App\Integrations\Listings\ListingSort::options(array_keys($sortMenu)),
+            'orderOptions' => \App\Channels\Listings\ListingSort::options(array_keys($sortMenu)),
             'products' => $products,
             'rowTitles' => $rowTitles,
             'troubleFilter' => $troubleFilter,
@@ -342,7 +342,7 @@ class TikTokProductController extends Controller
             'failedFlag' => $failedFlag,
             'changeFlag' => $changeFlag,
             'groupSize' => ctype_digit((string) $groupFilter) ? app(\Extensions\TikTok\Controllers\TikTokProductGroupController::class)->groupSendSize((int) $groupFilter) : null,
-            'statusMenu' => \App\Integrations\Listings\StatusMenu::build([
+            'statusMenu' => \App\Channels\Listings\StatusMenu::build([
                 'url' => fn (array $params) => route('ext.tiktok.products.index', $params),
                 'query' => $request->query(),
                 'sync' => $syncStatus,
@@ -381,7 +381,7 @@ class TikTokProductController extends Controller
         $scope = DB::query()->fromSub(TikTokStoreProducts::query(), 'os')
             ->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
 
-        return $this->readinessRich = \App\Integrations\Listings\ReadinessCache::resolve(
+        return $this->readinessRich = \App\Channels\Listings\ReadinessCache::resolve(
             'tiktok', $storeId, $scope,
             fn (array $ids) => $this->tiktokReadinessStamps($ids, $storeId),
             fn (array $ids) => $this->tiktokReadinessCompute($ids),
@@ -522,7 +522,7 @@ class TikTokProductController extends Controller
 
         $groupId = (int) $request->input('group', 0);
         if ($groupId > 0) {
-            \App\Integrations\OneGroupRule::place('tiktok_product_group_products', 'tiktok_product_group_id', 'tiktok_product_groups', 'tiktok_setting_id', \App\Integrations\Listings\ListingStore::id('tiktok'), $groupId, $productId);
+            \App\Channels\OneGroupRule::place('tiktok_product_group_products', 'tiktok_product_group_id', 'tiktok_product_groups', 'tiktok_setting_id', \App\Channels\Listings\ListingStore::id('tiktok'), $groupId, $productId);
         }
 
         if ($request->wantsJson()) {
@@ -634,7 +634,7 @@ class TikTokProductController extends Controller
         }
         $checked = app(\Extensions\TikTok\Services\TikTok\TikTokLinkCheck::class)->runNext($c, (int) (\Extensions\TikTok\Models\TikTokSetting::defaultStore()?->id ?? 0));
         $sheets = app(\Extensions\TikTok\Services\TikTok\TikTokSheetReads::class)
-            ->readMissing($c, app(TikTokClient::class), \App\Integrations\Listings\SheetReads::PER_PRESS);
+            ->readMissing($c, app(TikTokClient::class), \App\Channels\Listings\SheetReads::PER_PRESS);
 
         $labels = ['ACTIVATE' => 'live', 'SELLER_DEACTIVATED' => 'unlisted', 'PLATFORM_DEACTIVATED' => 'deactivated by TikTok',
             'IN_REVIEW' => 'under review', 'PENDING' => 'under review', 'FAILED' => 'failed review', 'FREEZE' => 'frozen',
@@ -690,7 +690,7 @@ class TikTokProductController extends Controller
         $opts = $this->listingPushOptions($productId, $c);
         $readiness = app(TikTokListingReadiness::class)->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => ['a TikTok category']];
         if (!$readiness['ready']) {
-            $refusal = \App\Integrations\Listings\CatalogGaps::refusal($readiness);
+            $refusal = \App\Channels\Listings\CatalogGaps::refusal($readiness);
             $this->states($c['setting'] ?? null)->recordOutcome($productId, $refusal);
 
             return ['ok' => false, 'message' => $refusal];
@@ -723,7 +723,7 @@ class TikTokProductController extends Controller
             return redirect()->back()->with('error', 'Push failed: missing TikTok settings.');
         }
 
-        $answer = \App\Integrations\Push\BulkPushRun::over(
+        $answer = \App\Channels\Push\BulkPushRun::over(
             (array) $request->input('product_ids', []),
             'TikTok Shop',
             fn (int $productId) => $this->pushOne($productId, $c, $client)

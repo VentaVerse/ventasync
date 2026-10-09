@@ -14,7 +14,7 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth'])->group(base_path('routes/channels/web.php'));
 
 // Public because the marketplaces hold no session; each controller verifies its own channel's signature.
-Route::post('/webhooks/{channel}', [\App\Http\Controllers\Integrations\WebhookController::class, 'receive'])
+Route::post('/webhooks/{channel}', [\App\Http\Controllers\Channels\WebhookController::class, 'receive'])
     ->where('channel', '[a-z0-9_-]+')
     ->name('channels.webhooks.receive');
 

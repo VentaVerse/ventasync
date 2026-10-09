@@ -196,17 +196,17 @@ class OpenCartOrderSync
         $oldStatusId = 0;
         $coreOrderId = null;
 
-        $marketplaceSource = 'opencart:' . $this->setting->id;
+        $orderChannel = 'opencart:' . $this->setting->id;
 
-        DB::transaction(function () use ($raw, $pfx, $ocOrderId, $coreStatusId, $marketplaceSource, $statusMap, &$created, &$oldStatusId, &$coreOrderId) {
+        DB::transaction(function () use ($raw, $pfx, $ocOrderId, $coreStatusId, $orderChannel, $statusMap, &$created, &$oldStatusId, &$coreOrderId) {
             $existing = DB::table($pfx . 'order')
-                ->where('marketplace_source', $marketplaceSource)
+                ->where('channel', $orderChannel)
                 ->where('marketplace_order_id', (string) $ocOrderId)
                 ->first();
 
             if (! $existing) {
                 $existing = DB::table($pfx . 'order')
-                    ->where('marketplace_source', 'opencart')
+                    ->where('channel', 'opencart')
                     ->where('marketplace_order_id', (string) $ocOrderId)
                     ->first();
             }
@@ -291,7 +291,7 @@ class OpenCartOrderSync
                 'tracking_number'        => '',
                 'date_modified'          => (isset($raw['date_modified']) && $raw['date_modified'] !== '0000-00-00 00:00:00') ? $raw['date_modified'] : now()->toDateTimeString(),
                 'oe_import'              => 0,
-                'marketplace_source'     => $marketplaceSource,
+                'channel'     => $orderChannel,
                 'marketplace_order_id'   => (string) $ocOrderId,
             ];
 

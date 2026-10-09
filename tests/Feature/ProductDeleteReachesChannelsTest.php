@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Extensions\ExtensionManager;
-use App\Integrations\IntegrationRegistry;
+use App\Channels\ChannelRegistry;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
@@ -142,10 +142,10 @@ class ProductDeleteReachesChannelsTest extends TestCase
 
     public function test_the_three_channels_answer_the_contract(): void
     {
-        $removers = app(IntegrationRegistry::class)->productRemovers();
+        $removers = app(ChannelRegistry::class)->productRemovers();
         $this->assertCount(3, $removers);
         foreach ($removers as $r) {
-            $this->assertInstanceOf(\App\Integrations\Contracts\ProductRemover::class, $r);
+            $this->assertInstanceOf(\App\Channels\Contracts\ProductRemover::class, $r);
         }
     }
 

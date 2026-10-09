@@ -2,8 +2,8 @@
 
 namespace Extensions\Shopee\Services\Shopee;
 
-use App\Integrations\Listings\ListingVariations;
-use App\Integrations\Push\PushLedger;
+use App\Channels\Listings\ListingVariations;
+use App\Channels\Push\PushLedger;
 use Extensions\Shopee\Models\ShopeeApiLog;
 use Extensions\Shopee\Models\ShopeeItemCache;
 use Extensions\Shopee\Models\ShopeeProductLink;

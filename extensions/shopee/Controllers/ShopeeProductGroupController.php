@@ -29,7 +29,7 @@ class ShopeeProductGroupController extends Controller
 {
     use \App\Http\Controllers\Concerns\DrivesGroupSendRuns;
 
-    protected function groupSendIntegration(): string
+    protected function groupSendChannel(): string
     {
         return 'shopee';
     }
@@ -174,7 +174,7 @@ class ShopeeProductGroupController extends Controller
             'shopee_brand_id' => (int) ($data['shopee_brand_id'] ?? 0),
             'logistic_ids' => !empty($logIds) ? array_values(array_map('intval', $logIds)) : null,
             'markup_fixed' => $data['markup_fixed'] ?? null,
-            'markup_percent' => $data['markup_percent'] ?? null, 'watermark_template_id' => \App\Models\WatermarkTemplate::idOrNull($data['watermark_template_id'] ?? null, 'shopee', \App\Integrations\Listings\ListingStore::id('shopee')),
+            'markup_percent' => $data['markup_percent'] ?? null, 'watermark_template_id' => \App\Models\WatermarkTemplate::idOrNull($data['watermark_template_id'] ?? null, 'shopee', \App\Channels\Listings\ListingStore::id('shopee')),
         ]);
 
         ActivityLogger::log('created', 'Shopee Product group', $group->id, $group->name);
@@ -213,7 +213,7 @@ class ShopeeProductGroupController extends Controller
             'shopee_brand_id' => (int) ($data['shopee_brand_id'] ?? 0),
             'logistic_ids' => !empty($logIds) ? array_values(array_map('intval', $logIds)) : null,
             'markup_fixed' => $data['markup_fixed'] ?? null,
-            'markup_percent' => $data['markup_percent'] ?? null, 'watermark_template_id' => \App\Models\WatermarkTemplate::idOrNull($data['watermark_template_id'] ?? null, 'shopee', \App\Integrations\Listings\ListingStore::id('shopee')),
+            'markup_percent' => $data['markup_percent'] ?? null, 'watermark_template_id' => \App\Models\WatermarkTemplate::idOrNull($data['watermark_template_id'] ?? null, 'shopee', \App\Channels\Listings\ListingStore::id('shopee')),
         ]);
 
         ActivityLogger::log('updated', 'Shopee Product group', $group->id, $group->name);
@@ -326,11 +326,11 @@ class ShopeeProductGroupController extends Controller
             $query->whereIn('p.product_id', $tabProductIds ?: [0]);
         }
 
-        $storeId = \App\Integrations\Listings\ListingStore::id('shopee');
+        $storeId = \App\Channels\Listings\ListingStore::id('shopee');
         $sortMenu = ['added' => 'gp.id', 'pushed' => 'gp.last_pushed_at'] + \Extensions\Shopee\Services\ShopeeListingSort::columns($storeId);
-        $order = \App\Integrations\Listings\ListingSort::chosen($request, 'shopee.group.' . $group->id);
+        $order = \App\Channels\Listings\ListingSort::chosen($request, 'shopee.group.' . $group->id);
         \Extensions\Shopee\Services\ShopeeListingSort::join($query, $storeId);
-        \App\Integrations\Listings\ListingSort::apply($query, $order, $sortMenu);
+        \App\Channels\Listings\ListingSort::apply($query, $order, $sortMenu);
 
         $products = $query->paginate(50)->appends($request->except('page'));
 
@@ -358,7 +358,7 @@ class ShopeeProductGroupController extends Controller
             ->whereIn('product_id', $displayIds)
             ->get()
             ->keyBy('product_id');
-        $rowTitles = \App\Integrations\Listings\ListingContent::rowTitles($products, $listingsByProductId);
+        $rowTitles = \App\Channels\Listings\ListingContent::rowTitles($products, $listingsByProductId);
         $withVariations = ShopeeListing::withVariations($displayIds);
         $rowPrices = $products->mapWithKeys(fn ($p) => [(int) $p->product_id => ($listingsByProductId->get((int) $p->product_id) ?? new ShopeeListing())
             ->startingPrice((float) $p->price, isset($withVariations[(int) $p->product_id]))])->all();
@@ -369,7 +369,7 @@ class ShopeeProductGroupController extends Controller
         return view('ext-shopee::product-groups.products', [
             'listingStates' => $listingStates,
             'order' => $order,
-            'orderOptions' => \App\Integrations\Listings\ListingSort::options(array_keys($sortMenu)),
+            'orderOptions' => \App\Channels\Listings\ListingSort::options(array_keys($sortMenu)),
             'rowErrors' => app(\Extensions\Shopee\Services\Shopee\ShopeeListingStates::class)->errors($displayIds),
             'group' => $group,
             'failedCount' => $failedCount,
@@ -401,8 +401,8 @@ class ShopeeProductGroupController extends Controller
             ->where('product_id', $productId)
             ->orderBy('sort_order')
             ->get(['id', 'sku', 'quantity', 'absolute_price']);
-        $hidden = \App\Integrations\Listings\ListingVariations::hidden('shopee', (int) (\Extensions\Shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0), [$productId]);
-        $combos = $combos->filter(fn ($c) => \App\Integrations\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
+        $hidden = \App\Channels\Listings\ListingVariations::hidden('shopee', (int) (\Extensions\Shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0), [$productId]);
+        $combos = $combos->filter(fn ($c) => \App\Channels\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
         if ($combos->isEmpty()) {
             return ['tier_variation' => [], 'models' => []];
         }
@@ -965,7 +965,7 @@ class ShopeeProductGroupController extends Controller
         $held = [];
 
         if (! $already) {
-            $claim = \App\Integrations\OneGroupRule::claim(
+            $claim = \App\Channels\OneGroupRule::claim(
                 'shopee_product_group_products', 'shopee_product_group_id', 'shopee_product_groups', 'shopee_setting_id',
                 $group->id, [$productId], $request->boolean('move') ? [$productId] : []
             );
@@ -982,7 +982,7 @@ class ShopeeProductGroupController extends Controller
 
         if ($request->wantsJson()) {
             if (! $already && ! $added) {
-                return response()->json(['ok' => false, 'product_id' => $productId, 'message' => trim(\App\Integrations\OneGroupRule::heldClause($held))], 409);
+                return response()->json(['ok' => false, 'product_id' => $productId, 'message' => trim(\App\Channels\OneGroupRule::heldClause($held))], 409);
             }
 
             return response()->json(['ok' => true, 'product_id' => $productId, 'added' => $added, 'moved_from' => $movedFrom, 'listed' => $listedNow]);
@@ -992,7 +992,7 @@ class ShopeeProductGroupController extends Controller
             ? "Product #{$productId} is already in this product group."
             : ($added
                 ? "Product #{$productId} added to the product group." . ($movedFrom !== null ? " Moved here from '{$movedFrom}'." : '') . ($listedNow ? ' It is on this store now too.' : '')
-                : trim(\App\Integrations\OneGroupRule::heldClause($held)));
+                : trim(\App\Channels\OneGroupRule::heldClause($held)));
 
         return $this->productsRedirect($group->id)->with($added ? 'status' : 'warning', $status);
     }
@@ -1214,7 +1214,7 @@ class ShopeeProductGroupController extends Controller
 
         $already = $group->groupProducts()->whereIn('product_id', $ids)->pluck('product_id')->map(fn ($v) => (int) $v)->all();
         $wanted = array_values(array_diff($ids, $already));
-        $claim = \App\Integrations\OneGroupRule::claim('shopee_product_group_products', 'shopee_product_group_id', 'shopee_product_groups', 'shopee_setting_id', $group->id, $wanted, $wanted);
+        $claim = \App\Channels\OneGroupRule::claim('shopee_product_group_products', 'shopee_product_group_id', 'shopee_product_groups', 'shopee_setting_id', $group->id, $wanted, $wanted);
         $moved = 0;
         foreach (array_merge($claim['free'], array_keys($claim['moved'])) as $pid) {
             ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => (int) $pid]);
@@ -1476,7 +1476,7 @@ class ShopeeProductGroupController extends Controller
 
             $readiness = $readinessAll[$productId] ?? ['ready' => false, 'missing' => []];
             if (!$readiness['ready']) {
-                $refusal = \App\Integrations\Listings\CatalogGaps::refusal($readiness);
+                $refusal = \App\Channels\Listings\CatalogGaps::refusal($readiness);
                 $errors[] = "#{$productId}: {$refusal}";
                 $this->writeProductStatus($productId, ['sync_status' => 'error', 'push_error' => $refusal]);
                 $errCount++;
@@ -1513,7 +1513,7 @@ class ShopeeProductGroupController extends Controller
             if ($effCategory !== (int) $group->shopee_category_id) {
                 $this->ensureTemplate($effCategory, $client);
             }
-            $content = \App\Integrations\Listings\ListingContent::of(
+            $content = \App\Channels\Listings\ListingContent::of(
                 $ownListing,
                 html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                 \App\Support\Catalog\DescriptionText::of((string) ($product->description ?? '')),
@@ -1554,11 +1554,11 @@ class ShopeeProductGroupController extends Controller
                 'item_name' => mb_substr($itemName, 0, 255),
                 'seller_stock' => [['stock' => max(0, (int) $product->quantity)]],
                 'item_sku' => (string) ($product->sku ?? ''),
-                'weight' => \App\Integrations\Listings\ParcelPrecision::of($eff->weight, $product->weight, \App\Integrations\Listings\ParcelPrecision::SHOPEE['weight']),
+                'weight' => \App\Channels\Listings\ParcelPrecision::of($eff->weight, $product->weight, \App\Channels\Listings\ParcelPrecision::SHOPEE['weight']),
                 'dimension' => [
-                    'package_length' => \App\Integrations\Listings\ParcelPrecision::of($eff->package_length, $product->length, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
-                    'package_width' => \App\Integrations\Listings\ParcelPrecision::of($eff->package_width, $product->width, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
-                    'package_height' => \App\Integrations\Listings\ParcelPrecision::of($eff->package_height, $product->height, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
+                    'package_length' => \App\Channels\Listings\ParcelPrecision::of($eff->package_length, $product->length, \App\Channels\Listings\ParcelPrecision::SHOPEE['dimension']),
+                    'package_width' => \App\Channels\Listings\ParcelPrecision::of($eff->package_width, $product->width, \App\Channels\Listings\ParcelPrecision::SHOPEE['dimension']),
+                    'package_height' => \App\Channels\Listings\ParcelPrecision::of($eff->package_height, $product->height, \App\Channels\Listings\ParcelPrecision::SHOPEE['dimension']),
                 ],
                 'category_id' => $effCategory,
                 'image' => ['image_id_list' => $imageIds],
@@ -1767,7 +1767,7 @@ class ShopeeProductGroupController extends Controller
             }
 
             $ownListing = ShopeeListing::query()->where('product_id', (int) $productId)->first();
-            $content = \App\Integrations\Listings\ListingContent::of(
+            $content = \App\Channels\Listings\ListingContent::of(
                 $ownListing,
                 html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                 \App\Support\Catalog\DescriptionText::of((string) ($product->description ?? '')),
@@ -1793,11 +1793,11 @@ class ShopeeProductGroupController extends Controller
                 'description' => mb_substr($description, 0, 5000),
                 'item_name' => mb_substr($itemName, 0, 255),
                 'item_sku' => (string) ($product->sku ?? ''),
-                'weight' => \App\Integrations\Listings\ParcelPrecision::of($ownListing?->weight, $product->weight, \App\Integrations\Listings\ParcelPrecision::SHOPEE['weight']),
+                'weight' => \App\Channels\Listings\ParcelPrecision::of($ownListing?->weight, $product->weight, \App\Channels\Listings\ParcelPrecision::SHOPEE['weight']),
                 'dimension' => [
-                    'package_length' => \App\Integrations\Listings\ParcelPrecision::of($ownListing?->package_length, $product->length, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
-                    'package_width' => \App\Integrations\Listings\ParcelPrecision::of($ownListing?->package_width, $product->width, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
-                    'package_height' => \App\Integrations\Listings\ParcelPrecision::of($ownListing?->package_height, $product->height, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
+                    'package_length' => \App\Channels\Listings\ParcelPrecision::of($ownListing?->package_length, $product->length, \App\Channels\Listings\ParcelPrecision::SHOPEE['dimension']),
+                    'package_width' => \App\Channels\Listings\ParcelPrecision::of($ownListing?->package_width, $product->width, \App\Channels\Listings\ParcelPrecision::SHOPEE['dimension']),
+                    'package_height' => \App\Channels\Listings\ParcelPrecision::of($ownListing?->package_height, $product->height, \App\Channels\Listings\ParcelPrecision::SHOPEE['dimension']),
                 ],
             ];
 
@@ -1807,7 +1807,7 @@ class ShopeeProductGroupController extends Controller
 
             $described = (new \Extensions\Shopee\Services\Shopee\ShopeeDescription($client))->write(
                 $payload, $auth, (int) $itemId,
-                \App\Integrations\Listings\ListingContent::of(
+                \App\Channels\Listings\ListingContent::of(
                     $ownListing,
                     html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                     (string) ($product->description ?? ''),
@@ -2193,7 +2193,7 @@ class ShopeeProductGroupController extends Controller
 
     private function batchTone(int $ok, int $err): string
     {
-        return \App\Integrations\Push\PushLedger::batchTone($ok, $err);
+        return \App\Channels\Push\PushLedger::batchTone($ok, $err);
     }
 
     private function recordSyncOutcomes(int $groupId, array $outcomes): void

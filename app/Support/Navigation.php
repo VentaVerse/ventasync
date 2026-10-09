@@ -133,7 +133,7 @@ class Navigation
     {
         try {
             $user = auth()->user();
-            foreach (app(\App\Integrations\IntegrationRegistry::class)->visibleCards($user) as $card) {
+            foreach (app(\App\Channels\ChannelRegistry::class)->visibleCards($user) as $card) {
                 $add = $card->addStore ?? null;
                 if ($add && (! $add->permission || ($user && $user->hasPermission($add->permission)))) {
                     return true;
@@ -153,7 +153,7 @@ class Navigation
         ];
 
         try {
-            $registry = app(\App\Integrations\IntegrationRegistry::class);
+            $registry = app(\App\Channels\ChannelRegistry::class);
             $workspace = app(ChannelWorkspace::class);
             $user = auth()->user();
 

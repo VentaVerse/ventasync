@@ -2,9 +2,9 @@
 
 namespace Extensions\TikTok\Services\TikTok;
 
-use App\Integrations\Listings\ListingState;
-use App\Integrations\Listings\ListingVariations;
-use App\Integrations\Push\PushLedger;
+use App\Channels\Listings\ListingState;
+use App\Channels\Listings\ListingVariations;
+use App\Channels\Push\PushLedger;
 use Extensions\TikTok\Models\TikTokListing;
 use Extensions\TikTok\Models\TikTokProductGroupProduct;
 use Extensions\TikTok\Models\TikTokSetting;
@@ -125,7 +125,7 @@ class TikTokListingStates
 
     private function catalogChanges(): array
     {
-        return \App\Integrations\Listings\CatalogCopy::pending(
+        return \App\Channels\Listings\CatalogCopy::pending(
             $this->bucket('drift')->get(), 'tiktok_listings', TikTokListing::copyColumns()
         );
     }
@@ -178,7 +178,7 @@ class TikTokListingStates
             ->groupBy(fn ($p) => (int) $p->product_id)
             ->map(fn ($rows) => $rows->first());
 
-        $catalogChanges = \App\Integrations\Listings\CatalogCopy::pending($listings->values(), 'tiktok_listings', TikTokListing::copyColumns());
+        $catalogChanges = \App\Channels\Listings\CatalogCopy::pending($listings->values(), 'tiktok_listings', TikTokListing::copyColumns());
 
         $readiness = $this->readiness->forProducts($productIds);
 
@@ -271,7 +271,7 @@ class TikTokListingStates
                 ->sortByDesc('last_pushed_at')->first();
             if ($failed) {
                 $found[] = [$failed->last_pushed_at ? Carbon::parse($failed->last_pushed_at) : Carbon::createFromTimestamp(0),
-                    trim((string) $failed->push_error) ?: \App\Integrations\Push\PushLedger::NO_REASON];
+                    trim((string) $failed->push_error) ?: \App\Channels\Push\PushLedger::NO_REASON];
             }
             usort($found, fn ($a, $b) => $b[0] <=> $a[0]);
             $linked = ($listing && !empty($listing->tiktok_product_id))

@@ -3,8 +3,8 @@
 namespace Tests\Feature;
 
 use App\Extensions\ExtensionManager;
-use App\Integrations\IntegrationCard;
-use App\Integrations\IntegrationRegistry;
+use App\Channels\ChannelCard;
+use App\Channels\ChannelRegistry;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
@@ -89,17 +89,17 @@ class MultistoreWorkspaceTest extends TestCase
         return 'href="'.e(ChannelWorkspace::overviewUrl($key)).'"';
     }
 
-    private function card(string $channel): IntegrationCard
+    private function card(string $channel): ChannelCard
     {
-        foreach (app(IntegrationRegistry::class)->all() as $provider) {
-            foreach ($provider->integrationCards() as $card) {
+        foreach (app(ChannelRegistry::class)->all() as $provider) {
+            foreach ($provider->channelCards() as $card) {
                 if ($card->id === $channel) {
                     return $card;
                 }
             }
         }
 
-        $this->fail(ucfirst($channel).' did not register an IntegrationCard.');
+        $this->fail(ucfirst($channel).' did not register an ChannelCard.');
     }
 
     private function operator(string $channel): User
@@ -654,7 +654,7 @@ class MultistoreWorkspaceTest extends TestCase
         return (int) \Illuminate\Support\Facades\DB::table($prefix.'order')->insertGetId([
             'firstname' => $firstname, 'lastname' => 'Buyer',
             'email' => strtolower($firstname).'@example.test',
-            'marketplace_source' => 'opencart:'.$storeId,
+            'channel' => 'opencart:'.$storeId,
             'marketplace_order_id' => $marketplaceOrderId,
             'order_status_id' => 1, 'total' => 999.00,
             'currency_code' => 'PHP', 'currency_value' => 1,

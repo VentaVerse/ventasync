@@ -24,7 +24,7 @@ class OpenCartOrdersPanel
 
         $orders = Order::query()
             ->with(['products', 'latestHistory'])
-            ->where('marketplace_source', 'opencart:' . $storeId)
+            ->where('channel', 'opencart:' . $storeId)
             ->when($q !== '', function ($query) use ($q) {
                 $query->where(function ($sub) use ($q) {
                     $sub->where('firstname', 'like', '%' . $q . '%')

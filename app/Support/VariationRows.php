@@ -103,14 +103,14 @@ class VariationRows
         }
 
         $ids = array_map('intval', $productIds);
-        $off = \App\Integrations\Listings\ListingVariations::offOnStore($channel, $storeId, $ids);
-        $held = DB::table(\App\Integrations\Listings\ListingVariations::STORE_SKUS)
+        $off = \App\Channels\Listings\ListingVariations::offOnStore($channel, $storeId, $ids);
+        $held = DB::table(\App\Channels\Listings\ListingVariations::STORE_SKUS)
             ->where('channel', $channel)->where('store_id', $storeId)->whereIn('product_id', $ids)
             ->pluck('skus', 'product_id');
 
         return $rows->each(fn (Collection $list, $pid) => $list->each(function ($r) use ($off, $held, $pid) {
             $sku = strtolower(trim((string) ($r->sku ?? '')));
-            $r->sold_here = \App\Integrations\Listings\ListingVariations::allows($off, (int) $pid, $r->sku ?? null);
+            $r->sold_here = \App\Channels\Listings\ListingVariations::allows($off, (int) $pid, $r->sku ?? null);
             $r->missing_here = false;
             if ($r->sold_here && $sku !== '' && $held->has($pid)) {
                 $have = array_map(fn ($s) => strtolower(trim((string) $s)), (array) json_decode((string) $held->get($pid), true));

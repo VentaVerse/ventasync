@@ -7,7 +7,7 @@ use Extensions\TikTok\Models\Concerns\BelongsToTikTokStore;
 
 class TikTokListing extends Model
 {
-    use BelongsToTikTokStore, \App\Integrations\Listings\KeepsItsOwnCopy;
+    use BelongsToTikTokStore, \App\Channels\Listings\KeepsItsOwnCopy;
 
     protected $table = 'tiktok_listings';
 

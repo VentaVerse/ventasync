@@ -94,7 +94,7 @@ class ProductVideoTest extends TestCase
 
         foreach ([
             'app/Services/Media/ProductVideoFile.php',
-            'app/Integrations/Listings/ListingVideo.php',
+            'app/Channels/Listings/ListingVideo.php',
             'resources/views/partials/channel-video-card.blade.php',
             'resources/views/catalog/products/partials/video_manager.blade.php',
         ] as $file) {

@@ -242,7 +242,7 @@
                     <div class="fm-fields">
                         <x-ui.field label="Title" for="lz-item-name" name="item_name" wide>
                             <x-ui.input id="lz-item-name" name="item_name" maxlength="255"
-                                        :value="old('item_name', \App\Integrations\Listings\ListingContent::editable($listing->item_name ?? null, (string) $productName))" />
+                                        :value="old('item_name', \App\Channels\Listings\ListingContent::editable($listing->item_name ?? null, (string) $productName))" />
                         </x-ui.field>
                         @include('partials.channel-description-pick', [
                             'id' => 'lz-prefix', 'label' => 'Prefix description', 'name' => 'description_prefix_id',
@@ -251,7 +251,7 @@
                         ])
                         @include('partials.channel-description-compose', [
                             'id' => 'lz-description', 'label' => 'Description', 'name' => 'description',
-                            'value' => old('description', \App\Integrations\Listings\ListingContent::editable($listing->description ?? null, (string) $coreDescription)),
+                            'value' => old('description', \App\Channels\Listings\ListingContent::editable($listing->description ?? null, (string) $coreDescription)),
                             'rich' => true, 'disabled' => false, 'rows' => 6, 'maxlength' => 20000,
                             'prefixFor' => 'lz-prefix', 'suffixFor' => 'lz-suffix',
                             'prefix' => $listing->description_prefix_id ?? null, 'suffix' => $listing->description_suffix_id ?? null,
@@ -377,7 +377,7 @@
                         'productId' => (int) $listing->product_id,
                         'uploadUrl' => route('products.video.upload'),
                         'canManage' => true,
-                    ] + \App\Integrations\Listings\ListingVideo::cardData((int) $listing->product_id, $listing ?? null))
+                    ] + \App\Channels\Listings\ListingVideo::cardData((int) $listing->product_id, $listing ?? null))
 
                     @include('partials.listing-variations-card', [
                         'title' => 'Variations on Lazada', 'storeName' => 'Lazada', 'canManage' => true,

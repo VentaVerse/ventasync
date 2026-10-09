@@ -7,7 +7,7 @@ use Extensions\Lazada\Models\Concerns\BelongsToLazadaStore;
 
 class LazadaProduct extends Model
 {
-    use BelongsToLazadaStore, \App\Integrations\Listings\KeepsItsOwnCopy;
+    use BelongsToLazadaStore, \App\Channels\Listings\KeepsItsOwnCopy;
 
     protected $table = 'lazada_products';
 
