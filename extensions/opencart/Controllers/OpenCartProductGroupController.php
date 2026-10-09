@@ -4,7 +4,7 @@ namespace Extensions\OpenCart\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Services\ActivityLogger;
-use Extensions\OpenCart\Models\OpenCartProductLink;
+use Extensions\OpenCart\Models\OpenCartListingLink;
 use Extensions\OpenCart\Models\OpenCartProductGroup;
 use Extensions\OpenCart\Models\OpenCartProductGroupProduct;
 use Extensions\OpenCart\Models\OpenCartStore;
@@ -172,7 +172,7 @@ class OpenCartProductGroupController extends Controller
 
         $products = $query->orderBy('p.product_id', 'desc')->paginate(50)->withQueryString();
 
-        $links = OpenCartProductLink::where('store_id', $store)
+        $links = OpenCartListingLink::where('store_id', $store)
             ->whereIn('product_id', $productIds)
             ->get()
             ->keyBy('product_id');

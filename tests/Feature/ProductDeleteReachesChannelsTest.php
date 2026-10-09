@@ -7,13 +7,13 @@ use App\Channels\ChannelRegistry;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaListing;
 use Extensions\Lazada\Models\LazadaStore;
 use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Extensions\Shopee\Models\ShopeeListing;
 use Extensions\Shopee\Models\ShopeeProductGroup;
 use Extensions\Shopee\Models\ShopeeProductGroupProduct;
-use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Extensions\TikTok\Models\TikTokListing;
@@ -127,11 +127,11 @@ class ProductDeleteReachesChannelsTest extends TestCase
 
     private function listEverywhere(int $pid, string $sku): void
     {
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 111, 'sku' => $sku, 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 111, 'sku' => $sku, 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
         ShopeeListing::create(['product_id' => $pid, 'shopee_category_id' => 100]);
         $grp = ShopeeProductGroup::create(['name' => 'Delete reach ' . $pid]);
         ShopeeProductGroupProduct::create(['shopee_product_group_id' => $grp->id, 'product_id' => $pid, 'shopee_item_id' => 111, 'sync_status' => 'pushed']);
-        LazadaProduct::query()->create(['product_id' => $pid, 'lazada_item_id' => 'LZ1', 'live_status' => 'active']);
+        LazadaListing::query()->create(['product_id' => $pid, 'lazada_item_id' => 'LZ1', 'live_status' => 'active']);
         TikTokListing::create(['product_id' => $pid, 'tiktok_product_id' => 'tt-1', 'tiktok_category_id' => '900009', 'live_status' => 'ACTIVATE']);
     }
 
@@ -160,10 +160,10 @@ class ProductDeleteReachesChannelsTest extends TestCase
         $this->assertSame('Deleted. It stays on Shopee (Main store), Lazada (PH store) and TikTok Shop (TT store); remove it there when you want it gone.', $flash);
 
         $this->assertFalse($this->productExists($pid));
-        $this->assertSame(0, ShopeeProductLink::query()->where('product_id', $pid)->count());
+        $this->assertSame(0, ShopeeListingLink::query()->where('product_id', $pid)->count());
         $this->assertSame(0, ShopeeListing::query()->where('product_id', $pid)->count());
         $this->assertSame(0, ShopeeProductGroupProduct::query()->where('product_id', $pid)->count());
-        $this->assertSame(0, LazadaProduct::query()->where('product_id', $pid)->count());
+        $this->assertSame(0, LazadaListing::query()->where('product_id', $pid)->count());
         $this->assertSame(0, TikTokListing::query()->where('product_id', $pid)->count());
         $this->assertSame([], $this->calls, 'no marketplace was called');
 
@@ -174,12 +174,12 @@ class ProductDeleteReachesChannelsTest extends TestCase
     {
         ShopeeStore::query()->update(['access_token' => '', 'refresh_token' => '']);
         $pid = $this->seedProduct('Blocked before', 'BL-1');
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 222, 'sku' => 'BL-1', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 222, 'sku' => 'BL-1', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
 
         $this->actingAs($this->manager())->delete(route('products.destroy', $pid))->assertRedirect(route('products.index'));
 
         $this->assertFalse($this->productExists($pid));
-        $this->assertSame(0, ShopeeProductLink::query()->where('product_id', $pid)->count());
+        $this->assertSame(0, ShopeeListingLink::query()->where('product_id', $pid)->count());
         $this->assertSame([], $this->calls);
         $this->assertSame('Deleted. It stays on Shopee (Main store); remove it there when you want it gone.', (string) session('status'));
     }
@@ -187,12 +187,12 @@ class ProductDeleteReachesChannelsTest extends TestCase
     public function test_an_item_the_mirror_says_is_gone_is_not_named_as_staying(): void
     {
         $pid = $this->seedProduct('Gone already', 'GA-1');
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 333, 'sku' => 'GA-1', 'live_status' => 'SELLER_DELETE', 'live_checked_at' => now()]);
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 333, 'sku' => 'GA-1', 'live_status' => 'SELLER_DELETE', 'live_checked_at' => now()]);
 
         $this->actingAs($this->manager())->delete(route('products.destroy', $pid))->assertRedirect(route('products.index'));
 
         $this->assertFalse($this->productExists($pid));
-        $this->assertSame(0, ShopeeProductLink::query()->where('product_id', $pid)->count());
+        $this->assertSame(0, ShopeeListingLink::query()->where('product_id', $pid)->count());
         $this->assertSame('Deleted.', (string) session('status'));
     }
 
@@ -229,8 +229,8 @@ class ProductDeleteReachesChannelsTest extends TestCase
 
     public function test_the_orphan_queues_are_gone_from_the_listings_pages(): void
     {
-        ShopeeProductLink::create(['product_id' => 999001, 'shopee_item_id' => 999001, 'sku' => 'GONE', 'live_status' => 'NORMAL']);
-        LazadaProduct::query()->create(['product_id' => 999002, 'lazada_item_id' => 'LZ-GONE', 'live_status' => 'active']);
+        ShopeeListingLink::create(['product_id' => 999001, 'shopee_item_id' => 999001, 'sku' => 'GONE', 'live_status' => 'NORMAL']);
+        LazadaListing::query()->create(['product_id' => 999002, 'lazada_item_id' => 'LZ-GONE', 'live_status' => 'active']);
 
         $group = UserGroup::create(['name' => 'Orphan queue viewer']);
         $group->permissions()->attach(Permission::whereIn('key', ['view_shopee/product', 'view_lazada/product'])->pluck('id')->all());
@@ -244,17 +244,17 @@ class ProductDeleteReachesChannelsTest extends TestCase
 
     public function test_the_sweep_names_stranded_rows_and_forgets_them_on_apply(): void
     {
-        ShopeeProductLink::create(['product_id' => 424242, 'shopee_item_id' => 999001, 'sku' => 'STR', 'live_status' => 'NORMAL']);
+        ShopeeListingLink::create(['product_id' => 424242, 'shopee_item_id' => 999001, 'sku' => 'STR', 'live_status' => 'NORMAL']);
         TikTokListing::create(['product_id' => 424242, 'tiktok_product_id' => 'tt-gone', 'tiktok_category_id' => '900009']);
 
         $this->artisan('catalog:purge-stranded-listings')
             ->expectsOutputToContain('Deleted product #424242: still held on Shopee (Main store) item 999001, live; TikTok Shop (TT store) item tt-gone')
             ->expectsOutputToContain('the marketplace items stay where they are')
             ->assertExitCode(0);
-        $this->assertSame(1, ShopeeProductLink::query()->where('product_id', 424242)->count());
+        $this->assertSame(1, ShopeeListingLink::query()->where('product_id', 424242)->count());
 
         $this->artisan('catalog:purge-stranded-listings --apply')->assertExitCode(0);
-        $this->assertSame(0, ShopeeProductLink::query()->where('product_id', 424242)->count());
+        $this->assertSame(0, ShopeeListingLink::query()->where('product_id', 424242)->count());
         $this->assertSame(0, TikTokListing::query()->where('product_id', 424242)->count());
         $this->assertSame([], $this->calls);
     }

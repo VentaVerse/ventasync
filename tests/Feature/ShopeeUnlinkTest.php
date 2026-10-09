@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use Extensions\Shopee\Models\ShopeeItemCache;
-use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -27,7 +27,7 @@ class ShopeeUnlinkTest extends TestCase
         return (int) \Extensions\Shopee\Models\ShopeeStore::query()->orderBy('id')->value('id');
     }
 
-    private function link(): ShopeeProductLink
+    private function link(): ShopeeListingLink
     {
         ShopeeItemCache::create([
             'shopee_item_id' => self::ITEM,
@@ -35,7 +35,7 @@ class ShopeeUnlinkTest extends TestCase
             'item_name' => 'DemonFX MT-500 Strobe Tuner',
         ]);
 
-        return ShopeeProductLink::create([
+        return ShopeeListingLink::create([
             'product_id' => self::PRODUCT,
             'shopee_item_id' => self::ITEM,
             'sku' => self::SKU,
@@ -62,17 +62,17 @@ class ShopeeUnlinkTest extends TestCase
     {
         $this->link();
 
-        $removed = ShopeeProductLink::unlinkProduct(self::PRODUCT, $this->storeId());
+        $removed = ShopeeListingLink::unlinkProduct(self::PRODUCT, $this->storeId());
 
         $this->assertSame(1, $removed);
-        $this->assertDatabaseMissing('shopee_product_links', ['product_id' => self::PRODUCT]);
+        $this->assertDatabaseMissing('shopee_listing_links', ['product_id' => self::PRODUCT]);
     }
 
     public function test_unlinking_clears_the_item_cache_for_that_link(): void
     {
         $this->link();
 
-        ShopeeProductLink::unlinkProduct(self::PRODUCT, $this->storeId());
+        ShopeeListingLink::unlinkProduct(self::PRODUCT, $this->storeId());
 
         $this->assertDatabaseMissing('shopee_item_cache', [
             'shopee_item_id' => self::ITEM,
@@ -84,7 +84,7 @@ class ShopeeUnlinkTest extends TestCase
     {
         $this->link();
 
-        ShopeeProductLink::create([
+        ShopeeListingLink::create([
             'product_id' => 9999,
             'shopee_item_id' => 88888888,
             'sku' => 'other-sku',
@@ -94,9 +94,9 @@ class ShopeeUnlinkTest extends TestCase
             'sku' => 'other-sku',
         ]);
 
-        ShopeeProductLink::unlinkProduct(self::PRODUCT, $this->storeId());
+        ShopeeListingLink::unlinkProduct(self::PRODUCT, $this->storeId());
 
-        $this->assertDatabaseHas('shopee_product_links', ['product_id' => 9999]);
+        $this->assertDatabaseHas('shopee_listing_links', ['product_id' => 9999]);
         $this->assertDatabaseHas('shopee_item_cache', ['shopee_item_id' => 88888888]);
     }
 
@@ -105,7 +105,7 @@ class ShopeeUnlinkTest extends TestCase
         $this->link();
         $this->pivot(['shopee_item_id' => (string) self::ITEM, 'sync_status' => 'pushed']);
 
-        ShopeeProductLink::unlinkProduct(self::PRODUCT, $this->storeId());
+        ShopeeListingLink::unlinkProduct(self::PRODUCT, $this->storeId());
 
         $row = \DB::table('shopee_product_group_products')->where('product_id', self::PRODUCT)->first();
 
@@ -117,7 +117,7 @@ class ShopeeUnlinkTest extends TestCase
     {
         $this->pivot(['shopee_item_id' => (string) self::ITEM, 'sync_status' => 'error']);
 
-        $this->assertSame(0, ShopeeProductLink::unlinkProduct(self::PRODUCT, $this->storeId()));
+        $this->assertSame(0, ShopeeListingLink::unlinkProduct(self::PRODUCT, $this->storeId()));
 
         $row = \DB::table('shopee_product_group_products')->where('product_id', self::PRODUCT)->first();
         $this->assertNull($row->shopee_item_id, 'An orphaned pivot id survived an unlink.');
@@ -125,15 +125,15 @@ class ShopeeUnlinkTest extends TestCase
 
     public function test_unlinking_something_never_linked_reports_nothing_removed(): void
     {
-        $this->assertSame(0, ShopeeProductLink::unlinkProduct(self::PRODUCT, $this->storeId()));
+        $this->assertSame(0, ShopeeListingLink::unlinkProduct(self::PRODUCT, $this->storeId()));
     }
 
     public function test_unlinking_twice_is_safe(): void
     {
         $this->link();
 
-        $this->assertSame(1, ShopeeProductLink::unlinkProduct(self::PRODUCT, $this->storeId()));
-        $this->assertSame(0, ShopeeProductLink::unlinkProduct(self::PRODUCT, $this->storeId()));
+        $this->assertSame(1, ShopeeListingLink::unlinkProduct(self::PRODUCT, $this->storeId()));
+        $this->assertSame(0, ShopeeListingLink::unlinkProduct(self::PRODUCT, $this->storeId()));
     }
 
     public function test_every_unlink_action_goes_through_the_shared_definition(): void
@@ -147,7 +147,7 @@ class ShopeeUnlinkTest extends TestCase
             $source = file_get_contents(base_path($file));
 
             $this->assertStringContainsString(
-                'ShopeeProductLink::unlinkProduct(',
+                'ShopeeListingLink::unlinkProduct(',
                 $source,
                 $file.' unlinks without using the shared definition, so it can drift from the other caller again.'
             );

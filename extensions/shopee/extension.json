@@ -24,7 +24,7 @@
         "shopee_product_groups",
         "shopee_product_group_products",
         "shopee_product_group_attributes",
-        "shopee_product_links",
+        "shopee_listing_links",
         "shopee_returns",
         "shopee_unmatched_items"
     ],

@@ -10,7 +10,7 @@ use Extensions\Shopee\Models\ShopeeListing;
 use Extensions\Shopee\Services\ShopeeStoreProducts;
 use Extensions\Shopee\Models\ShopeeProductGroup;
 use Extensions\Shopee\Models\ShopeeProductGroupProduct;
-use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\ShopeeExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -87,7 +87,7 @@ class ShopeeAddToStoreTest extends TestCase
         $linkedOnly = $this->seedProduct('Linked only widget', 'LNK-1');
         $this->seedProduct('Catalog only widget', 'OFF-1');
         $this->onStore($onStore);
-        ShopeeProductLink::create(['store_id' => $this->store->id, 'product_id' => $linkedOnly, 'shopee_item_id' => '777', 'sku' => 'LNK-1']);
+        ShopeeListingLink::create(['store_id' => $this->store->id, 'product_id' => $linkedOnly, 'shopee_item_id' => '777', 'sku' => 'LNK-1']);
 
         $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
 
@@ -141,7 +141,7 @@ class ShopeeAddToStoreTest extends TestCase
         $linked = $this->seedProduct('Linked widget', 'LNK-1');
         $this->seedProduct('Catalog only widget', 'OFF-1');
         $this->onStore($onStore);
-        ShopeeProductLink::create(['store_id' => $this->store->id, 'product_id' => $linked, 'shopee_item_id' => '777', 'sku' => 'LNK-1']);
+        ShopeeListingLink::create(['store_id' => $this->store->id, 'product_id' => $linked, 'shopee_item_id' => '777', 'sku' => 'LNK-1']);
 
         $r = $this->actingAs($this->manager())->getJson($this->base() . '/catalog-search?all=1')->assertOk();
 
@@ -248,7 +248,7 @@ class ShopeeAddToStoreTest extends TestCase
     {
         $pid = $this->seedProduct('Live widget', 'LIVE-1');
         $this->onStore($pid);
-        ShopeeProductLink::create(['store_id' => $this->store->id, 'product_id' => $pid, 'shopee_item_id' => '901234', 'sku' => 'LIVE-1', 'live_status' => 'NORMAL']);
+        ShopeeListingLink::create(['store_id' => $this->store->id, 'product_id' => $pid, 'shopee_item_id' => '901234', 'sku' => 'LIVE-1', 'live_status' => 'NORMAL']);
         $group = ShopeeProductGroup::create(['store_id' => $this->store->id, 'name' => 'Group', 'shopee_category_id' => 100]);
         ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $pid]);
 
@@ -258,7 +258,7 @@ class ShopeeAddToStoreTest extends TestCase
             ->assertRedirect($this->base())->assertSessionHas('status');
 
         $this->assertSame(0, ShopeeListing::withoutGlobalScope('shopeeStore')->where('product_id', $pid)->count(), 'the listing record is gone');
-        $this->assertSame(0, ShopeeProductLink::withoutGlobalScope('shopeeStore')->where('product_id', $pid)->count(), 'the link rows are gone, so nothing is left to sync');
+        $this->assertSame(0, ShopeeListingLink::withoutGlobalScope('shopeeStore')->where('product_id', $pid)->count(), 'the link rows are gone, so nothing is left to sync');
         $this->assertSame(0, ShopeeProductGroupProduct::query()->where('product_id', $pid)->count(), 'its group membership went with it');
 
         $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
@@ -268,7 +268,7 @@ class ShopeeAddToStoreTest extends TestCase
     public function test_the_remove_confirm_names_the_live_listing_and_the_marketplace_door(): void
     {
         $pid = $this->seedProduct('Live widget', 'LIVE-1');
-        ShopeeProductLink::create(['store_id' => $this->store->id, 'product_id' => $pid, 'shopee_item_id' => '901234', 'sku' => 'LIVE-1', 'live_status' => 'NORMAL']);
+        ShopeeListingLink::create(['store_id' => $this->store->id, 'product_id' => $pid, 'shopee_item_id' => '901234', 'sku' => 'LIVE-1', 'live_status' => 'NORMAL']);
 
         $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
 

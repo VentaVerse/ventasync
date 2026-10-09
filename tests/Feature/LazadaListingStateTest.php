@@ -9,7 +9,7 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\Lazada\LazadaExtension;
-use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaListing;
 use Extensions\Lazada\Models\LazadaStore;
 use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Extensions\Lazada\Services\Lazada\LazadaListingStates;
@@ -121,7 +121,7 @@ class LazadaListingStateTest extends TestCase
         $n = 0;
         foreach ($expected as $raw => $_) {
             $productId = $this->seedProduct('Truth ' . $n, 'TR-' . $n);
-            LazadaProduct::create([
+            LazadaListing::create([
                 'product_id' => $productId, 'lazada_item_id' => '90' . $n,
                 'live_status' => $raw === '' ? null : $raw,
                 'live_checked_at' => $raw === '' ? null : now(),
@@ -155,7 +155,7 @@ class LazadaListingStateTest extends TestCase
     public function test_a_row_without_an_item_id_answers_from_its_own_settings(): void
     {
         $productId = $this->seedProduct('Configured', 'CF-1');
-        LazadaProduct::create(['product_id' => $productId, 'primary_category_id' => 4321]);
+        LazadaListing::create(['product_id' => $productId, 'primary_category_id' => 4321]);
 
         $s = $this->engine()->forProducts([$productId])[$productId];
 
@@ -170,13 +170,13 @@ class LazadaListingStateTest extends TestCase
         $pfx = (string) config('catalog.prefix');
 
         $inSync = $this->seedProduct('In sync', 'DR-1');
-        LazadaProduct::create([
+        LazadaListing::create([
             'product_id' => $inSync, 'lazada_item_id' => '801',
             'live_status' => 'active', 'live_checked_at' => now(),
         ]);
 
         $behind = $this->seedProduct('Behind', 'DR-2');
-        LazadaProduct::create([
+        LazadaListing::create([
             'product_id' => $behind, 'lazada_item_id' => '802',
             'live_status' => 'active', 'live_checked_at' => now(),
         ]);
@@ -184,7 +184,7 @@ class LazadaListingStateTest extends TestCase
         DB::table($pfx . 'product')->where('product_id', $behind)->update(['date_modified' => now()->addMinute()]);
 
         $savedUnchanged = $this->seedProduct('Saved unchanged', 'DR-3');
-        LazadaProduct::create([
+        LazadaListing::create([
             'product_id' => $savedUnchanged, 'lazada_item_id' => '803',
             'live_status' => 'active', 'live_checked_at' => now(),
         ]);
@@ -207,7 +207,7 @@ class LazadaListingStateTest extends TestCase
     public function test_delete_from_lazada_voids_the_mirror(): void
     {
         $productId = $this->seedProduct('Doomed', 'DE-1');
-        $listing = LazadaProduct::create([
+        $listing = LazadaListing::create([
             'product_id' => $productId, 'lazada_item_id' => '701',
             'live_status' => 'active', 'live_checked_at' => now(),
         ]);
@@ -227,7 +227,7 @@ class LazadaListingStateTest extends TestCase
     public function test_unlink_voids_the_mirror(): void
     {
         $productId = $this->seedProduct('Cut loose', 'UN-1');
-        $listing = LazadaProduct::create([
+        $listing = LazadaListing::create([
             'product_id' => $productId, 'lazada_item_id' => '702',
             'live_status' => 'inactive', 'live_checked_at' => now(),
         ]);
@@ -248,18 +248,18 @@ class LazadaListingStateTest extends TestCase
         $pfx = (string) config('catalog.prefix');
 
         $rejected = $this->seedProduct('Rejected', 'SM-1');
-        LazadaProduct::create(['product_id' => $rejected, 'lazada_item_id' => '601', 'live_status' => 'rejected', 'live_checked_at' => now()]);
+        LazadaListing::create(['product_id' => $rejected, 'lazada_item_id' => '601', 'live_status' => 'rejected', 'live_checked_at' => now()]);
 
         $vanished = $this->seedProduct('Vanished', 'SM-2');
-        LazadaProduct::create(['product_id' => $vanished, 'lazada_item_id' => '602', 'live_status' => 'missing', 'live_checked_at' => now()]);
+        LazadaListing::create(['product_id' => $vanished, 'lazada_item_id' => '602', 'live_status' => 'missing', 'live_checked_at' => now()]);
 
         $behind = $this->seedProduct('Behind', 'SM-3');
-        LazadaProduct::create(['product_id' => $behind, 'lazada_item_id' => '603', 'live_status' => 'active', 'live_checked_at' => now()]);
+        LazadaListing::create(['product_id' => $behind, 'lazada_item_id' => '603', 'live_status' => 'active', 'live_checked_at' => now()]);
         DB::table($pfx . 'product_description')->where('product_id', $behind)->update(['name' => 'Behind, renamed']);
         DB::table($pfx . 'product')->where('product_id', $behind)->update(['date_modified' => now()->addMinute()]);
 
         $unlinked = $this->seedProduct('Unlinked leftover', 'SM-4');
-        LazadaProduct::create(['product_id' => $unlinked, 'lazada_item_id' => '604', 'live_status' => 'rejected', 'live_checked_at' => now(), 'unlinked_at' => now()]);
+        LazadaListing::create(['product_id' => $unlinked, 'lazada_item_id' => '604', 'live_status' => 'rejected', 'live_checked_at' => now(), 'unlinked_at' => now()]);
 
         $sum = $this->engine()->summary();
         $this->assertSame(2, $sum['attention']);
@@ -269,7 +269,7 @@ class LazadaListingStateTest extends TestCase
     public function test_the_dashboard_chip_carries_the_listing_flags(): void
     {
         $rejected = $this->seedProduct('Rejected', 'DB-1');
-        LazadaProduct::create(['product_id' => $rejected, 'lazada_item_id' => '501', 'live_status' => 'rejected', 'live_checked_at' => now()]);
+        LazadaListing::create(['product_id' => $rejected, 'lazada_item_id' => '501', 'live_status' => 'rejected', 'live_checked_at' => now()]);
 
         $data = (new LazadaExtension(app()))->dashboardData();
 
@@ -296,14 +296,14 @@ class LazadaListingStateTest extends TestCase
     public function test_the_group_page_offers_the_toggle_the_listing_page_offers(): void
     {
         $pid = $this->seedProduct('Togglable in group', 'TGL-1');
-        $listing = LazadaProduct::create([
+        $listing = LazadaListing::create([
             'product_id' => $pid, 'lazada_item_id' => '3101',
             'live_status' => 'inactive', 'live_checked_at' => now(),
         ]);
         $grp = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Toggle group', 'lazada_category_id' => 4321]);
         \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
             'lazada_product_group_id' => $grp->id, 'product_id' => $pid,
-            'lazada_product_id' => $listing->id, 'sync_status' => 'pushed',
+            'lazada_listing_id' => $listing->id, 'sync_status' => 'pushed',
         ]);
 
         $ug = \App\Models\Admin\UserGroup::create(['name' => 'Lazada group togglers']);
@@ -324,7 +324,7 @@ class LazadaListingStateTest extends TestCase
     public function test_the_engine_is_reachable_through_the_listing_state_contract(): void
     {
         $productId = $this->seedProduct('Contracted', 'CT-1');
-        LazadaProduct::create(['product_id' => $productId, 'lazada_item_id' => '401', 'live_status' => 'active', 'live_checked_at' => now()]);
+        LazadaListing::create(['product_id' => $productId, 'lazada_item_id' => '401', 'live_status' => 'active', 'live_checked_at' => now()]);
 
         $sources = $this->app->make(ChannelRegistry::class)->listingStateSources();
         $lazada = collect($sources)->first(fn ($src) => $src instanceof LazadaExtension);
@@ -336,7 +336,7 @@ class LazadaListingStateTest extends TestCase
     public function test_the_last_push_refusal_and_the_error_line_are_one_answer(): void
     {
         $pid = $this->seedProduct('Refused one', 'RF-1');
-        \Extensions\Lazada\Models\LazadaProduct::query()->create(['product_id' => $pid]);
+        \Extensions\Lazada\Models\LazadaListing::query()->create(['product_id' => $pid]);
 
         $states = app(\Extensions\Lazada\Services\Lazada\LazadaListingStates::class);
         $states->recordOutcome($pid, 'Primary category is required before upload.');
@@ -345,7 +345,7 @@ class LazadaListingStateTest extends TestCase
         $this->assertStringContainsString('Primary category is required', (string) $states->errors([$pid])[$pid]);
 
         $states->clearErrors([$pid]);
-        \Extensions\Lazada\Models\LazadaProduct::query()->where('product_id', $pid)->update(['last_synced_at' => now()->subMinutes(5), 'last_sync_action' => 'bulk_upload_to_lazada', 'last_sync_ok' => true]);
+        \Extensions\Lazada\Models\LazadaListing::query()->where('product_id', $pid)->update(['last_synced_at' => now()->subMinutes(5), 'last_sync_action' => 'bulk_upload_to_lazada', 'last_sync_ok' => true]);
         $this->assertNull($states->errors([$pid])[$pid], 'a cleared refusal draws no error line');
         $this->assertSame([], $states->forProducts([$pid])[$pid]->reasons);
 
@@ -366,7 +366,7 @@ class LazadaListingStateTest extends TestCase
     {
         $pid = $this->seedProduct('Three sizes', 'EXL110');
         $this->threeCombos($pid, ['EXL110-1046', 'EXL110-0942', 'EXL110-1149']);
-        (new LazadaProduct())->forceFill(['product_id' => $pid, 'lazada_item_id' => '555', 'live_status' => 'active'])->save();
+        (new LazadaListing())->forceFill(['product_id' => $pid, 'lazada_item_id' => '555', 'live_status' => 'active'])->save();
         $storeId = (int) LazadaStore::defaultStore()->id;
         \App\Channels\Listings\ListingVariations::remember('lazada', $storeId, $pid, ['EXL110-1046', 'EXL110-0942']);
 
@@ -385,7 +385,7 @@ class LazadaListingStateTest extends TestCase
     {
         $pid = $this->seedProduct('Read one', 'RD');
         $this->threeCombos($pid, ['RD-1', 'RD-2', 'RD-3']);
-        $listing = new LazadaProduct();
+        $listing = new LazadaListing();
         $listing->forceFill(['product_id' => $pid, 'lazada_item_id' => '777'])->save();
         $setting = LazadaStore::defaultStore();
         $storeId = (int) $setting->id;
@@ -412,11 +412,11 @@ class LazadaListingStateTest extends TestCase
     public function test_a_group_is_a_preset_the_product_inherits(): void
     {
         $pid = $this->seedProduct('Inherits one', 'IN-1');
-        $listing = \Extensions\Lazada\Models\LazadaProduct::query()->create(['product_id' => $pid]);
+        $listing = \Extensions\Lazada\Models\LazadaListing::query()->create(['product_id' => $pid]);
         $grp = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Preset group', 'lazada_category_id' => 4321, 'brand_name_override' => 'Acme']);
         \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
             'lazada_product_group_id' => $grp->id, 'product_id' => $pid,
-            'lazada_product_id' => $listing->id, 'sync_status' => 'pending',
+            'lazada_listing_id' => $listing->id, 'sync_status' => 'pending',
         ]);
 
         $inherit = app(\Extensions\Lazada\Services\Lazada\LazadaInheritedSettings::class);
@@ -430,14 +430,14 @@ class LazadaListingStateTest extends TestCase
         $this->assertNotContains(\App\Channels\Listings\ListingState::GAP_CATEGORY, $codes);
         $this->assertContains(\App\Channels\Listings\ListingState::GAP_SHEET, $codes, 'the inherited category is judged like its own: its sheet is still unread');
 
-        $this->assertNull(\Extensions\Lazada\Models\LazadaProduct::query()->find($listing->id)->primary_category_id);
+        $this->assertNull(\Extensions\Lazada\Models\LazadaListing::query()->find($listing->id)->primary_category_id);
         $this->assertNull($listing->primary_category_id);
 
         $own = $this->seedProduct('Own one', 'OW-1');
-        $ownListing = \Extensions\Lazada\Models\LazadaProduct::query()->create(['product_id' => $own, 'primary_category_id' => 99]);
+        $ownListing = \Extensions\Lazada\Models\LazadaListing::query()->create(['product_id' => $own, 'primary_category_id' => 99]);
         \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
             'lazada_product_group_id' => $grp->id, 'product_id' => $own,
-            'lazada_product_id' => $ownListing->id, 'sync_status' => 'pending',
+            'lazada_listing_id' => $ownListing->id, 'sync_status' => 'pending',
         ]);
         $filled = $inherit->fill($ownListing, $inherit->forProducts([$own])[$own] ?? null);
         $this->assertSame(99, (int) $filled['listing']->primary_category_id);
@@ -447,19 +447,19 @@ class LazadaListingStateTest extends TestCase
     {
         $titled = $this->seedProduct('Catalog pedal name', 'TTL-1');
         $plain = $this->seedProduct('Plain catalog pedal', 'PLN-1');
-        $titledRow = LazadaProduct::create(['product_id' => $titled, 'item_name' => 'Qable IC50 Pro']);
-        $plainRow = LazadaProduct::create(['product_id' => $plain]);
+        $titledRow = LazadaListing::create(['product_id' => $titled, 'item_name' => 'Qable IC50 Pro']);
+        $plainRow = LazadaListing::create(['product_id' => $plain]);
         $other = LazadaStore::query()->create([
             'mode' => 'live', 'region' => 'ph',
             'app_key' => 'k2', 'app_secret' => 's2',
             'access_token' => 't2', 'refresh_token' => 'r2',
         ]);
-        LazadaProduct::create(['store_id' => $other->id, 'product_id' => $plain, 'item_name' => 'Qable elsewhere']);
+        LazadaListing::create(['store_id' => $other->id, 'product_id' => $plain, 'item_name' => 'Qable elsewhere']);
         $grp = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Titled pedals', 'lazada_category_id' => 4321]);
         foreach ([[$titled, $titledRow], [$plain, $plainRow]] as [$pid, $row]) {
             \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
                 'lazada_product_group_id' => $grp->id, 'product_id' => $pid,
-                'lazada_product_id' => $row->id, 'sync_status' => 'pending',
+                'lazada_listing_id' => $row->id, 'sync_status' => 'pending',
             ]);
         }
         $ug = UserGroup::create(['name' => 'Lazada titles']);

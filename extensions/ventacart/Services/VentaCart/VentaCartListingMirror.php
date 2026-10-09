@@ -3,7 +3,7 @@
 namespace Extensions\VentaCart\Services\VentaCart;
 
 use Extensions\VentaCart\Models\VentaCartListing;
-use Extensions\VentaCart\Models\VentaCartProductLink;
+use Extensions\VentaCart\Models\VentaCartListingLink;
 use Extensions\VentaCart\Models\VentaCartStore;
 use Illuminate\Support\Collection;
 
@@ -81,7 +81,7 @@ class VentaCartListingMirror
 
         $now = now();
         $counts = [];
-        $links = VentaCartProductLink::where('store_id', $this->store->id)->get();
+        $links = VentaCartListingLink::where('store_id', $this->store->id)->get();
 
         foreach ($links as $link) {
             $facts = $byId[(int) $link->ventacart_product_id]
@@ -147,7 +147,7 @@ class VentaCartListingMirror
     public function counts(): array
     {
         $store = (int) $this->store->id;
-        $linked = VentaCartProductLink::where('store_id', $store)->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+        $linked = VentaCartListingLink::where('store_id', $store)->pluck('product_id')->map(fn ($v) => (int) $v)->all();
 
         $byStatus = VentaCartListing::query()
             ->where('store_id', $store)

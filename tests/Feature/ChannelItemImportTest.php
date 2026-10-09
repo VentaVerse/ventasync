@@ -6,8 +6,8 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\Lazada\Models\LazadaProduct;
-use Extensions\Lazada\Models\LazadaProductAttribute;
+use Extensions\Lazada\Models\LazadaListing;
+use Extensions\Lazada\Models\LazadaListingAttribute;
 use Extensions\Lazada\Models\LazadaStore;
 use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Extensions\TikTok\Models\TikTokListing;
@@ -137,10 +137,10 @@ class ChannelItemImportTest extends TestCase
         $this->assertEqualsCanonicalizing(['LZI-1M', 'LZI-3M'], $combos->pluck('sku')->all());
         $this->assertSame(399.0, (float) $combos->firstWhere('sku', 'LZI-3M')->absolute_price, 'the special price wins where it exists');
 
-        $listing = LazadaProduct::where('product_id', $product->product_id)->first();
+        $listing = LazadaListing::where('product_id', $product->product_id)->first();
         $this->assertSame('5551234', (string) $listing->lazada_item_id, 'linked the moment it lands');
         $this->assertSame(10099, (int) $listing->primary_category_id);
-        $this->assertSame('Nylon', LazadaProductAttribute::where('lazada_product_id', $listing->id)->where('attribute_key', 'material')->value('value'),
+        $this->assertSame('Nylon', LazadaListingAttribute::where('lazada_listing_id', $listing->id)->where('attribute_key', 'material')->value('value'),
             'a Lazada-only field the core has no column for rides the listing record, not the floor');
 
         $this->assertTrue(\Extensions\Lazada\Models\LazadaCategoryTemplate::query()->where('primary_category_id', 10099)->exists());

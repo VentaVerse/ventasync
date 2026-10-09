@@ -14,7 +14,7 @@ use Extensions\Shopee\Models\ShopeeProductGroup;
 use Extensions\Shopee\Models\ShopeeProductGroupAttribute;
 use Extensions\Shopee\Models\ShopeeProductGroupProduct;
 use Extensions\Shopee\Models\ShopeeListing;
-use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Illuminate\Support\Str;
 use Extensions\Shopee\Models\ShopeeStore;
 use App\Services\ActivityLogger;
@@ -258,8 +258,8 @@ class ShopeeProductGroupController extends Controller
         $liveCounts = null;
         $liveCheckedAt = null;
         if ($store && $auth['complete']) {
-            $liveCounts = ShopeeProductLink::mirrorCounts($tabMap, $memberIds);
-            $liveCheckedAt = ShopeeProductLink::query()->whereIn('product_id', $memberIds ?: [0])->max('live_checked_at');
+            $liveCounts = ShopeeListingLink::mirrorCounts($tabMap, $memberIds);
+            $liveCheckedAt = ShopeeListingLink::query()->whereIn('product_id', $memberIds ?: [0])->max('live_checked_at');
             $liveCheckedAt = $liveCheckedAt ? \Illuminate\Support\Carbon::parse($liveCheckedAt) : null;
         } else {
             $shopeeTab = 'all';
@@ -302,7 +302,7 @@ class ShopeeProductGroupController extends Controller
         }
 
         $erroredIds = $this->listingStates()->erroredProductIds();
-        $linkedProductIds = DB::table('shopee_product_links')
+        $linkedProductIds = DB::table('shopee_listing_links')
             ->when(app()->bound('shopee.route-store'), fn ($q) => $q->where('store_id', app('shopee.route-store')->id))
             ->whereNotNull('shopee_item_id')
             ->select('product_id');
@@ -319,7 +319,7 @@ class ShopeeProductGroupController extends Controller
         $catalogTotal = (clone $query)->count();
 
         if ($shopeeTab !== 'all' && $liveCounts !== null) {
-            $tabProductIds = ShopeeProductLink::query()
+            $tabProductIds = ShopeeListingLink::query()
                 ->whereIn('product_id', $memberIds ?: [0])
                 ->where('live_status', $tabMap[$shopeeTab])
                 ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
@@ -349,7 +349,7 @@ class ShopeeProductGroupController extends Controller
         $failedCount = count(array_intersect($erroredIds, array_map('intval', $memberIds)));
 
         $displayIds = $products->pluck('product_id')->map(fn ($v) => (int) $v)->all();
-        $linksByProductId = ShopeeProductLink::query()
+        $linksByProductId = ShopeeListingLink::query()
             ->whereIn('product_id', $displayIds)
             ->get()
             ->groupBy(fn ($l) => (int) $l->product_id);
@@ -1001,7 +1001,7 @@ class ShopeeProductGroupController extends Controller
     {
         $group = ShopeeProductGroup::query()->findOrFail($groupId);
 
-        $removed = ShopeeProductLink::unlinkProduct($productId, (int) app('shopee.route-store')->id);
+        $removed = ShopeeListingLink::unlinkProduct($productId, (int) app('shopee.route-store')->id);
 
         return $this->productsRedirect($group->id)->with(
             'status',
@@ -1050,7 +1050,7 @@ class ShopeeProductGroupController extends Controller
 
         $erpHasOptions = !empty($optSkus);
 
-        $existingLink = ShopeeProductLink::query()
+        $existingLink = ShopeeListingLink::query()
             ->where('product_id', $productId)
             ->whereNotNull('shopee_item_id')
             ->first();
@@ -1165,7 +1165,7 @@ class ShopeeProductGroupController extends Controller
                 ->with('status', 'Product re-linked to Shopee item ' . $pivot->shopee_item_id . '.');
         }
 
-        $linkId = DB::table('shopee_product_links')
+        $linkId = DB::table('shopee_listing_links')
             ->when(app()->bound('shopee.route-store'), fn ($q) => $q->where('store_id', app('shopee.route-store')->id))
             ->where('product_id', $productId)
             ->value('shopee_item_id');
@@ -1293,7 +1293,7 @@ class ShopeeProductGroupController extends Controller
 
         $index = $this->linkCheck->skuIndex($client, $auth);
 
-        $known = ShopeeProductLink::query()
+        $known = ShopeeListingLink::query()
             ->whereNotNull('shopee_item_id')
             ->pluck('shopee_item_id')
             ->map('intval')
@@ -1469,7 +1469,7 @@ class ShopeeProductGroupController extends Controller
         $inheritedAll = $inherit->forProducts($productIds);
 
         foreach ($productIds as $productId) {
-            if (ShopeeProductLink::query()->where('product_id', $productId)->exists()) {
+            if (ShopeeListingLink::query()->where('product_id', $productId)->exists()) {
                 $skipCount++;
                 continue;
             }
@@ -1624,7 +1624,7 @@ class ShopeeProductGroupController extends Controller
                 }
 
                 $confirmItemIds[] = (int) $itemId;
-                ShopeeProductLink::create([
+                ShopeeListingLink::create([
                     'product_id' => $productId,
                     'shopee_item_id' => (int) $itemId,
                     'shopee_model_id' => null,
@@ -1739,7 +1739,7 @@ class ShopeeProductGroupController extends Controller
         $warnings = [];
 
         foreach ($productIds as $productId) {
-            $link = ShopeeProductLink::query()->where('product_id', $productId)->first();
+            $link = ShopeeListingLink::query()->where('product_id', $productId)->first();
             if (!$link || !$link->shopee_item_id) {
                 $skipCount++;
                 continue;
@@ -1869,7 +1869,7 @@ class ShopeeProductGroupController extends Controller
             $respError = is_array($body) ? ($body['error'] ?? '') : '';
 
             if (($result['ok'] ?? false) && $respError === '') {
-                $links = ShopeeProductLink::query()->where('product_id', $productId)->get();
+                $links = ShopeeListingLink::query()->where('product_id', $productId)->get();
                 $synced = [
                     $this->pushPriceForLinks($client, $auth, $pfx, $links, $group),
                     $this->pushStockForLinks($client, $auth, $pfx, $links),
@@ -2003,7 +2003,7 @@ class ShopeeProductGroupController extends Controller
         }
 
         $pfx = (string) config('catalog.prefix');
-        $links = ShopeeProductLink::query()->whereIn('product_id', $productIds)->get();
+        $links = ShopeeListingLink::query()->whereIn('product_id', $productIds)->get();
         $skip = count($productIds) - $links->pluck('product_id')->unique()->count();
 
         $results = $this->pushPriceForLinks($client, $auth, $pfx, $links, $group);
@@ -2040,7 +2040,7 @@ class ShopeeProductGroupController extends Controller
             ->toArray();
         $disabledCount = count($productIds) - count($enabledIds);
 
-        $links = ShopeeProductLink::query()->whereIn('product_id', $enabledIds)->get();
+        $links = ShopeeListingLink::query()->whereIn('product_id', $enabledIds)->get();
         $skip = count($enabledIds) - $links->pluck('product_id')->unique()->count();
 
         $results = $this->pushStockForLinks($client, $auth, $pfx, $links);
@@ -2079,7 +2079,7 @@ class ShopeeProductGroupController extends Controller
         $path = '/api/v2/product/delete_item';
 
         foreach ($productIds as $productId) {
-            $link = ShopeeProductLink::query()->where('product_id', $productId)->first();
+            $link = ShopeeListingLink::query()->where('product_id', $productId)->first();
             if (!$link || !$link->shopee_item_id) {
                 $errCount++;
                 continue;
@@ -2115,7 +2115,7 @@ class ShopeeProductGroupController extends Controller
 
             if (($result['ok'] ?? false) && $respError === '') {
                 ShopeeItemCache::query()->where('shopee_item_id', $link->shopee_item_id)->delete();
-                ShopeeProductLink::query()->where('product_id', $productId)->delete();
+                ShopeeListingLink::query()->where('product_id', $productId)->delete();
 
                 $this->writeProductStatus($productId, ['shopee_item_id' => null, 'sync_status' => 'pending']);
                 $this->listingStates()->clearErrors([$productId]);

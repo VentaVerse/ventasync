@@ -2,7 +2,7 @@
 
 namespace Extensions\VentaCart\Services\VentaCart;
 
-use Extensions\VentaCart\Models\VentaCartProductLink;
+use Extensions\VentaCart\Models\VentaCartListingLink;
 use Extensions\VentaCart\Models\VentaCartStore;
 use Illuminate\Support\Facades\DB;
 
@@ -23,7 +23,7 @@ final class VentaCartStockPricePush
         if ($ids === []) {
             return $out;
         }
-        $links = VentaCartProductLink::query()->where('store_id', $this->store->id)->whereIn('product_id', $ids)->get()->keyBy('product_id');
+        $links = VentaCartListingLink::query()->where('store_id', $this->store->id)->whereIn('product_id', $ids)->get()->keyBy('product_id');
         $products = DB::table($pfx . 'product')->whereIn('product_id', $ids)->get(['product_id', 'sku', 'quantity', 'price', 'status'])->keyBy('product_id');
         $combos = DB::table('product_option_combinations')->whereIn('product_id', $ids)->get(['product_id', 'sku', 'quantity', 'absolute_price'])->groupBy(fn ($r) => (int) $r->product_id);
         $options = DB::table($pfx . 'product_option_value')->whereIn('product_id', $ids)->whereNotNull('sku')->where('sku', '!=', '')

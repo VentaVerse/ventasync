@@ -11,7 +11,7 @@ class LazadaProductGroupProduct extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'lazada_product_group_id', 'lazada_product_id', 'product_id',
+        'lazada_product_group_id', 'lazada_listing_id', 'product_id',
         'sync_status', 'last_pushed_at', 'push_error',
     ];
 
@@ -26,7 +26,7 @@ class LazadaProductGroupProduct extends Model
 
     public function lazadaProduct()
     {
-        return $this->belongsTo(LazadaProduct::class, 'lazada_product_id');
+        return $this->belongsTo(LazadaListing::class, 'lazada_listing_id');
     }
 
     public function scopeOnStore(\Illuminate\Database\Eloquent\Builder $query, LazadaStore|int|null $store = null): \Illuminate\Database\Eloquent\Builder

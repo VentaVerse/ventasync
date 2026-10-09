@@ -8,7 +8,7 @@ use Extensions\Shopee\Models\ShopeeCategory;
 use Extensions\Shopee\Models\ShopeeCategoryTemplate;
 use Extensions\Shopee\Models\ShopeeListing;
 use Extensions\Shopee\Models\ShopeeLogistic;
-use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -30,7 +30,7 @@ class ShopeeListingReadiness
 
         $pfx = (string) config('catalog.prefix');
 
-        $linked = ShopeeProductLink::query()->whereIn('product_id', $productIds)->pluck('product_id')->map(fn ($v) => (int) $v)->flip();
+        $linked = ShopeeListingLink::query()->whereIn('product_id', $productIds)->pluck('product_id')->map(fn ($v) => (int) $v)->flip();
 
         $listings = ShopeeListing::query()
             ->whereIn('product_id', $productIds)

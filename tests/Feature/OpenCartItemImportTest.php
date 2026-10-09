@@ -6,7 +6,7 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\OpenCart\Models\OpenCartProductLink;
+use Extensions\OpenCart\Models\OpenCartListingLink;
 use Extensions\OpenCart\Models\OpenCartStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -136,7 +136,7 @@ class OpenCartItemImportTest extends TestCase
         $this->assertEqualsCanonicalizing([95.0, 110.0], $absolute,
             'relative OpenCart prices convert to absolute variation prices');
 
-        $link = OpenCartProductLink::query()->where('product_id', $product->product_id)->first();
+        $link = OpenCartListingLink::query()->where('product_id', $product->product_id)->first();
         $this->assertNotNull($link);
         $this->assertSame(12, (int) $link->oc_product_id);
     }

@@ -8,7 +8,7 @@ use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\Shopee\Models\ShopeeListing;
 use Extensions\Shopee\Models\ShopeeProductGroup;
-use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -161,7 +161,7 @@ class ShopeeListingTest extends TestCase
         $this->assertStringContainsString('a Shopee category', session('error'));
 
         $this->assertSame([], $this->sentPayloads);
-        $this->assertSame(0, ShopeeProductLink::query()->where('product_id', $productId)->count());
+        $this->assertSame(0, ShopeeListingLink::query()->where('product_id', $productId)->count());
     }
 
     public function test_a_bulk_push_sends_what_is_ready_and_names_what_is_not(): void
@@ -188,8 +188,8 @@ class ShopeeListingTest extends TestCase
         $this->assertStringContainsString('1 not pushed', $said,
             'A batch that half-succeeds must say so; one outcome for ten products is the thing this replaced.');
 
-        $this->assertSame(1, ShopeeProductLink::query()->where('product_id', $ready)->count());
-        $this->assertSame(0, ShopeeProductLink::query()->where('product_id', $notReady)->count());
+        $this->assertSame(1, ShopeeListingLink::query()->where('product_id', $ready)->count());
+        $this->assertSame(0, ShopeeListingLink::query()->where('product_id', $notReady)->count());
     }
 
     public function test_a_bulk_push_with_nothing_ticked_is_refused(): void
@@ -232,7 +232,7 @@ class ShopeeListingTest extends TestCase
         $group = $this->seedCatchAllGroup();
         \Extensions\Shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $productId]);
 
-        ShopeeProductLink::create([
+        ShopeeListingLink::create([
             'product_id' => $productId, 'shopee_item_id' => 555, 'shopee_model_id' => null, 'sku' => 'LST-SKU-1',
         ]);
 
@@ -266,7 +266,7 @@ class ShopeeListingTest extends TestCase
             'push_error' => 'At least one shipping channel must be enabled for the product.',
             'last_pushed_at' => now()->subMinutes(37),
         ]);
-        ShopeeProductLink::query()->create([
+        ShopeeListingLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LST-SKU-1',
         ]);
         ShopeeListing::query()->create([

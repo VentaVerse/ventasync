@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Schema;
 final class LazadaStoreDeleter
 {
     private const TABLES = [
-        'lazada_products',
+        'lazada_listings',
         'lazada_product_groups',
         'lazada_reverse_orders',
         'lazada_orders',
@@ -20,9 +20,9 @@ final class LazadaStoreDeleter
         return DB::transaction(function () use ($store) {
             $removed = [];
 
-            if (Schema::hasTable('lazada_products')) {
+            if (Schema::hasTable('lazada_listings')) {
                 LazadaListingStates::on((int) $store->id)->clearErrors(
-                    DB::table('lazada_products')->where('store_id', $store->id)->whereNotNull('product_id')
+                    DB::table('lazada_listings')->where('store_id', $store->id)->whereNotNull('product_id')
                         ->distinct()->pluck('product_id')->map(fn ($v) => (int) $v)->all()
                 );
             }

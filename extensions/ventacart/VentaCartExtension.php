@@ -19,7 +19,7 @@ use App\Channels\StoreLink;
 use App\Models\Catalog\OrderStatus;
 use App\Support\FulfilmentSteps;
 use Extensions\VentaCart\Models\VentaCartOrder;
-use Extensions\VentaCart\Models\VentaCartProductLink;
+use Extensions\VentaCart\Models\VentaCartListingLink;
 use Extensions\VentaCart\Models\VentaCartStore;
 use Extensions\VentaCart\Services\VentaCart\VentaCartClient;
 use Extensions\VentaCart\Services\VentaCart\VentaCartStatusPlacements;
@@ -155,11 +155,11 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
 
     public function listedProductIds(): array
     {
-        if (! Schema::hasTable('ventacart_product_links')) {
+        if (! Schema::hasTable('ventacart_listing_links')) {
             return [];
         }
 
-        return VentaCartProductLink::query()->whereNotNull('ventacart_product_id')
+        return VentaCartListingLink::query()->whereNotNull('ventacart_product_id')
             ->distinct()->pluck('product_id')->map(fn ($v) => (int) $v)->all();
     }
 
@@ -300,11 +300,11 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
 
     public function pushSkuChanges(int $productId, array $skuChanges): ?string
     {
-        if (empty($skuChanges['product_sku']) || !Schema::hasTable('ventacart_product_links')) {
+        if (empty($skuChanges['product_sku']) || !Schema::hasTable('ventacart_listing_links')) {
             return null;
         }
 
-        $links = VentaCartProductLink::where('product_id', $productId)->get();
+        $links = VentaCartListingLink::where('product_id', $productId)->get();
         if ($links->isEmpty()) {
             return null;
         }

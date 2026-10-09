@@ -2,8 +2,8 @@
 
 namespace Extensions\Lazada\Services\Lazada;
 
-use Extensions\Lazada\Models\LazadaProduct;
-use Extensions\Lazada\Models\LazadaProductAttribute;
+use Extensions\Lazada\Models\LazadaListing;
+use Extensions\Lazada\Models\LazadaListingAttribute;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -97,7 +97,7 @@ class LazadaItemImport
                     $this->writeVariations($productId, $skus, $axes, $itemId);
                 }
 
-                $listing = LazadaProduct::create([
+                $listing = LazadaListing::create([
                     'product_id' => $productId,
                     'primary_category_id' => (int) ($data['primary_category'] ?? 0) ?: null,
                     'lazada_item_id' => (string) ($data['item_id'] ?? $itemId),
@@ -109,8 +109,8 @@ class LazadaItemImport
                     if (in_array($key, ['name', 'description', 'short_description'], true) || ! is_scalar($value) || trim((string) $value) === '') {
                         continue;
                     }
-                    LazadaProductAttribute::create([
-                        'lazada_product_id' => $listing->id,
+                    LazadaListingAttribute::create([
+                        'lazada_listing_id' => $listing->id,
                         'attribute_key' => (string) $key,
                         'value' => Str::limit((string) $value, 2000, ''),
                     ]);

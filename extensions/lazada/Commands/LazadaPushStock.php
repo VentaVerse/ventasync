@@ -3,8 +3,8 @@
 namespace Extensions\Lazada\Commands;
 
 use Extensions\Lazada\Models\LazadaApiLog;
-use Extensions\Lazada\Models\LazadaProduct;
-use Extensions\Lazada\Models\LazadaProductVariant;
+use Extensions\Lazada\Models\LazadaListing;
+use Extensions\Lazada\Models\LazadaListingVariation;
 use Extensions\Lazada\Models\LazadaStore;
 use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Extensions\Lazada\Services\LazadaStockPushService;
@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Log;
 class LazadaPushStock extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     protected $signature = 'lazada:push-stock
-        {--product-ids= : Comma-separated Lazada listing IDs to push (lazada_products.id)}';
+        {--product-ids= : Comma-separated Lazada listing IDs to push (lazada_listings.id)}';
 
     protected $description = 'Push ERP product quantities to Lazada for all linked products';
 
@@ -54,7 +54,7 @@ class LazadaPushStock extends Command implements \App\Channels\Contracts\Steppab
 
         $this->resolveUnknownVariants($setting, $client, $pfx);
 
-        $query = LazadaProduct::query()
+        $query = LazadaListing::query()
             ->where('product_id', '>', 0)
             ->whereNotNull('lazada_item_id')
             ->where('lazada_item_id', '!=', '')
@@ -150,7 +150,7 @@ class LazadaPushStock extends Command implements \App\Channels\Contracts\Steppab
                     $errCode = $d['code'] ?? '';
                     $staleSkuId = $d['sku_id'] ?? null;
                     if ($errCode === 'E0207' && $staleSkuId) {
-                        LazadaProductVariant::where('sku_id', (int) $staleSkuId)->update(['sku_id' => null]);
+                        LazadaListingVariation::where('sku_id', (int) $staleSkuId)->update(['sku_id' => null]);
                         $this->warn("Invalidated stale sku_id {$staleSkuId} (SKU not exist on Lazada)");
                     }
                 }
@@ -174,7 +174,7 @@ class LazadaPushStock extends Command implements \App\Channels\Contracts\Steppab
         $maxFetches = 20;
         $fetched = 0;
 
-        $noVariants = LazadaProduct::query()
+        $noVariants = LazadaListing::query()
             ->where('product_id', '>', 0)
             ->whereNotNull('lazada_item_id')
             ->where('lazada_item_id', '!=', '')
@@ -193,7 +193,7 @@ class LazadaPushStock extends Command implements \App\Channels\Contracts\Steppab
         $remaining = $maxFetches - $fetched;
         if ($remaining <= 0) return;
 
-        $staleListings = LazadaProduct::query()
+        $staleListings = LazadaListing::query()
             ->where('product_id', '>', 0)
             ->whereNotNull('lazada_item_id')
             ->where('lazada_item_id', '!=', '')
@@ -203,7 +203,7 @@ class LazadaPushStock extends Command implements \App\Channels\Contracts\Steppab
 
         $refreshed = 0;
         foreach ($staleListings as $listing) {
-            $cachedSkus = LazadaProductVariant::where('lazada_product_id', $listing->id)
+            $cachedSkus = LazadaListingVariation::where('lazada_listing_id', $listing->id)
                 ->whereNotNull('sku_id')
                 ->pluck('seller_sku')
                 ->map(fn ($s) => trim((string) $s))
@@ -225,7 +225,7 @@ class LazadaPushStock extends Command implements \App\Channels\Contracts\Steppab
         }
     }
 
-    private function buildPushItems(string $pfx, LazadaProduct $listing, object $product): array
+    private function buildPushItems(string $pfx, LazadaListing $listing, object $product): array
     {
         $service = app(LazadaStockPushService::class);
         $rows = $service->buildPushItems($listing, $product, $pfx);

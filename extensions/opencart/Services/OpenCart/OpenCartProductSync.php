@@ -2,7 +2,7 @@
 
 namespace Extensions\OpenCart\Services\OpenCart;
 
-use Extensions\OpenCart\Models\OpenCartProductLink;
+use Extensions\OpenCart\Models\OpenCartListingLink;
 use Extensions\OpenCart\Models\OpenCartStore;
 use Extensions\OpenCart\Models\OpenCartSyncLog;
 use Illuminate\Support\Facades\DB;
@@ -231,7 +231,7 @@ class OpenCartProductSync
         $failed = 0;
         $errors = [];
 
-        $links = OpenCartProductLink::where('store_id', $this->store->id)
+        $links = OpenCartListingLink::where('store_id', $this->store->id)
             ->whereIn('product_id', $productIds)
             ->get()
             ->keyBy('product_id');
@@ -371,7 +371,7 @@ class OpenCartProductSync
         }
 
         if (!empty($staleLinks)) {
-            OpenCartProductLink::where('store_id', $this->store->id)
+            OpenCartListingLink::where('store_id', $this->store->id)
                 ->whereIn('product_id', $staleLinks)
                 ->delete();
             $toCreate = array_merge($toCreate, $staleLinks);
@@ -399,7 +399,7 @@ class OpenCartProductSync
                     $ocProductId = (int) ($resp['body']['data']['product_id'] ?? 0);
 
                     if ($ocProductId > 0) {
-                        OpenCartProductLink::updateOrCreate(
+                        OpenCartListingLink::updateOrCreate(
                             [
                                 'store_id' => $this->store->id,
                                 'oc_product_id'       => $ocProductId,
@@ -698,7 +698,7 @@ class OpenCartProductSync
                     ->first();
             }
             if (!$existing) {
-                $link = OpenCartProductLink::where('store_id', $this->store->id)
+                $link = OpenCartListingLink::where('store_id', $this->store->id)
                     ->where('oc_product_id', $ocProductId)
                     ->first();
                 if ($link) {
@@ -712,7 +712,7 @@ class OpenCartProductSync
             if ($existing) {
                 $coreProductId = (int) $existing->product_id;
 
-                $existingLink = OpenCartProductLink::where('product_id', $coreProductId)
+                $existingLink = OpenCartListingLink::where('product_id', $coreProductId)
                     ->where('store_id', '!=', $this->store->id)
                     ->exists();
 
@@ -733,7 +733,7 @@ class OpenCartProductSync
             }
         });
 
-        OpenCartProductLink::updateOrCreate(
+        OpenCartListingLink::updateOrCreate(
             [
                 'store_id' => $this->store->id,
                 'oc_product_id'       => $ocProductId,
@@ -909,7 +909,7 @@ class OpenCartProductSync
             $failed = 0;
             $errors = [];
 
-            $links = OpenCartProductLink::where('store_id', $this->store->id)
+            $links = OpenCartListingLink::where('store_id', $this->store->id)
                 ->when($onlyProductIds !== [], fn ($q) => $q->whereIn('product_id', $onlyProductIds))
                 ->get();
 
@@ -1040,7 +1040,7 @@ class OpenCartProductSync
             $failed = 0;
             $errors = [];
 
-            $links = OpenCartProductLink::where('store_id', $this->store->id)
+            $links = OpenCartListingLink::where('store_id', $this->store->id)
                 ->when($onlyProductIds !== [], fn ($q) => $q->whereIn('product_id', $onlyProductIds))
                 ->get();
             if ($links->isEmpty()) {
@@ -1163,7 +1163,7 @@ class OpenCartProductSync
             $failed = 0;
             $errors = [];
 
-            $linkMap = OpenCartProductLink::where('store_id', $this->store->id)
+            $linkMap = OpenCartListingLink::where('store_id', $this->store->id)
                 ->pluck('product_id', 'oc_product_id')
                 ->toArray();
 

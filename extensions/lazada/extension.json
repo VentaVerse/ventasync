@@ -25,9 +25,9 @@
         "lazada_product_groups",
         "lazada_product_group_products",
         "lazada_product_group_attributes",
-        "lazada_product_attributes",
-        "lazada_products",
-        "lazada_product_variants",
+        "lazada_listing_attributes",
+        "lazada_listings",
+        "lazada_listing_variations",
         "lazada_reverse_orders",
         "lazada_unmatched_items"
     ],

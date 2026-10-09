@@ -2,7 +2,7 @@
 
 namespace Extensions\Lazada\Commands;
 
-use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaListing;
 use Extensions\Lazada\Models\LazadaStore;
 use Extensions\Lazada\Services\Lazada\LazadaInheritedSettings;
 use Extensions\Lazada\Services\Lazada\LazadaPushPayload;
@@ -53,7 +53,7 @@ class LazadaPushPrice extends Command implements \App\Channels\Contracts\Steppab
             return 1;
         }
 
-        $listings = LazadaProduct::query()
+        $listings = LazadaListing::query()
             ->where('product_id', '>', 0)
             ->whereNotNull('lazada_item_id')
             ->where('lazada_item_id', '!=', '')

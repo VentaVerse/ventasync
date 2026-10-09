@@ -2,7 +2,7 @@
 
 namespace Extensions\Lazada\Services\Lazada;
 
-use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaListing;
 use Extensions\Lazada\Models\LazadaProductGroup;
 use Extensions\Lazada\Models\LazadaProductGroupProduct;
 use Illuminate\Support\Facades\DB;
@@ -15,7 +15,7 @@ class LazadaLinkCheck
 
     public function runNext(object $store, array $creds): ?array
     {
-        $linked = \Extensions\Lazada\Models\LazadaProduct::query()->whereNotNull('lazada_item_id')->whereNull('lazada_deleted_at')
+        $linked = \Extensions\Lazada\Models\LazadaListing::query()->whereNotNull('lazada_item_id')->whereNull('lazada_deleted_at')
             ->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
         $linked = \App\Channels\Support\LinkCheckCursor::rotate('lazada:' . (int) $store->id, $linked);
 
@@ -54,11 +54,11 @@ class LazadaLinkCheck
             $pivots = $pivotsByProduct->get($productId) ?? collect();
             $listing = null;
             foreach ($pivots as $p) {
-                if ($p->lazada_product_id && ($listing = LazadaProduct::find($p->lazada_product_id))) {
+                if ($p->lazada_listing_id && ($listing = LazadaListing::find($p->lazada_listing_id))) {
                     break;
                 }
             }
-            $listing ??= LazadaProduct::query()
+            $listing ??= LazadaListing::query()
                 ->withoutGlobalScope('lazadaStore')->where('store_id', (int) $store->id)
                 ->where('product_id', $productId)->first();
             $hits = [];
@@ -111,15 +111,15 @@ class LazadaLinkCheck
                 $verdicts['taken']++;
             } elseif ($hitItemId !== null) {
                 if (!$listing) {
-                    $listing = LazadaProduct::create(['product_id' => $productId]);
+                    $listing = LazadaListing::create(['product_id' => $productId]);
                 }
                 $listing->forceFill($hitMirror + ['lazada_item_id' => $hitItemId, 'lazada_deleted_at' => null, 'unlinked_at' => null] + $this->checkedStamp($listing))->save();
                 if ($pivots->isNotEmpty()) {
                     foreach ($pivots as $p) {
-                        $p->update(['lazada_product_id' => $listing->id] + (in_array($p->sync_status, ['error', 'failed'], true) ? [] : ['sync_status' => 'pushed']));
+                        $p->update(['lazada_listing_id' => $listing->id] + (in_array($p->sync_status, ['error', 'failed'], true) ? [] : ['sync_status' => 'pushed']));
                     }
                 } elseif ($group !== null && \App\Channels\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'store_id', $group->id, [(int) $productId])['free'] !== []) {
-                    LazadaProductGroupProduct::create(['lazada_product_group_id' => $group->id, 'product_id' => $productId, 'lazada_product_id' => $listing->id, 'sync_status' => 'pushed']);
+                    LazadaProductGroupProduct::create(['lazada_product_group_id' => $group->id, 'product_id' => $productId, 'lazada_listing_id' => $listing->id, 'sync_status' => 'pushed']);
                 }
                 $verdicts['linked']++;
             } else {
@@ -140,7 +140,7 @@ class LazadaLinkCheck
         return ['tone' => ($verdicts['lost'] + $verdicts['taken']) > 0 ? 'error' : 'status', 'summary' => $summary];
     }
 
-    private function checkedStamp(LazadaProduct $listing): array
+    private function checkedStamp(LazadaListing $listing): array
     {
         return $listing->last_sync_ok !== null && ! $listing->last_sync_ok
             ? []
@@ -158,7 +158,7 @@ class LazadaLinkCheck
 
     private function holderOf(object $store, string $itemId, int $productId): ?int
     {
-        $holder = LazadaProduct::query()->withoutGlobalScope('lazadaStore')
+        $holder = LazadaListing::query()->withoutGlobalScope('lazadaStore')
             ->where('store_id', (int) $store->id)
             ->where('lazada_item_id', $itemId)->where('product_id', '!=', $productId)
             ->whereNull('lazada_deleted_at')->whereNull('unlinked_at')

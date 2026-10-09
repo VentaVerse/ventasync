@@ -6,7 +6,7 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaListing;
 use Extensions\Lazada\Models\LazadaProductGroup;
 use Extensions\Lazada\Models\LazadaProductGroupProduct;
 use Extensions\Lazada\Models\LazadaStore;
@@ -116,10 +116,10 @@ class ChannelGroupToolsTest extends TestCase
         $unlisted = $this->seedProduct('GT-NEW');
         $lost = $this->seedProduct('GT-LOST');
         $group = LazadaProductGroup::create(['name' => 'Lazada tools group', 'lazada_category_id' => 10001]);
-        $newListing = LazadaProduct::create(['product_id' => $unlisted, 'primary_category_id' => 10001]);
-        LazadaProductGroupProduct::create(['lazada_product_group_id' => $group->id, 'product_id' => $unlisted, 'lazada_product_id' => $newListing->id, 'sync_status' => 'pending']);
-        $lostListing = LazadaProduct::create(['product_id' => $lost, 'primary_category_id' => 10001, 'lazada_item_id' => '9990001']);
-        LazadaProductGroupProduct::create(['lazada_product_group_id' => $group->id, 'product_id' => $lost, 'lazada_product_id' => $lostListing->id, 'sync_status' => 'pushed']);
+        $newListing = LazadaListing::create(['product_id' => $unlisted, 'primary_category_id' => 10001]);
+        LazadaProductGroupProduct::create(['lazada_product_group_id' => $group->id, 'product_id' => $unlisted, 'lazada_listing_id' => $newListing->id, 'sync_status' => 'pending']);
+        $lostListing = LazadaListing::create(['product_id' => $lost, 'primary_category_id' => 10001, 'lazada_item_id' => '9990001']);
+        LazadaProductGroupProduct::create(['lazada_product_group_id' => $group->id, 'product_id' => $lost, 'lazada_listing_id' => $lostListing->id, 'sync_status' => 'pushed']);
 
         $this->lazadaAnswers['GET /products/get'] = ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => ['products' => [
             ['item_id' => 5550001, 'status' => 'active', 'skus' => [['SellerSku' => 'GT-NEW']]],
@@ -131,8 +131,8 @@ class ChannelGroupToolsTest extends TestCase
         $r->assertSessionHas('error');
         $this->assertStringContainsString('1 linked to the item Lazada holds', session('error'));
         $this->assertStringContainsString('1 no longer on Lazada', session('error'));
-        $this->assertSame('5550001', (string) LazadaProduct::where('product_id', $unlisted)->value('lazada_item_id'));
-        $this->assertNotNull(LazadaProduct::where('product_id', $lost)->value('lazada_deleted_at'));
+        $this->assertSame('5550001', (string) LazadaListing::where('product_id', $unlisted)->value('lazada_item_id'));
+        $this->assertNotNull(LazadaListing::where('product_id', $lost)->value('lazada_deleted_at'));
         $this->assertSame('pushed', LazadaProductGroupProduct::where('product_id', $unlisted)->value('sync_status'));
         $this->assertSame('error', LazadaProductGroupProduct::where('product_id', $lost)->value('sync_status'));
     }
@@ -143,8 +143,8 @@ class ChannelGroupToolsTest extends TestCase
         $other = $this->seedProduct('GT-REST');
         $group = LazadaProductGroup::create(['name' => 'Lazada scoped group', 'lazada_category_id' => 10001]);
         foreach ([$chosen, $other] as $pid) {
-            $listing = LazadaProduct::create(['product_id' => $pid, 'primary_category_id' => 10001, 'lazada_item_id' => '777' . $pid]);
-            LazadaProductGroupProduct::create(['lazada_product_group_id' => $group->id, 'product_id' => $pid, 'lazada_product_id' => $listing->id, 'sync_status' => 'pushed']);
+            $listing = LazadaListing::create(['product_id' => $pid, 'primary_category_id' => 10001, 'lazada_item_id' => '777' . $pid]);
+            LazadaProductGroupProduct::create(['lazada_product_group_id' => $group->id, 'product_id' => $pid, 'lazada_listing_id' => $listing->id, 'sync_status' => 'pushed']);
         }
 
         $asked = [];
@@ -161,7 +161,7 @@ class ChannelGroupToolsTest extends TestCase
 
         $this->assertContains('GT-PICK', $asked);
         $this->assertNotContains('GT-REST', $asked, 'the unselected product is not asked about');
-        $this->assertNull(LazadaProduct::where('product_id', $other)->value('lazada_deleted_at'), 'and is not judged either');
+        $this->assertNull(LazadaListing::where('product_id', $other)->value('lazada_deleted_at'), 'and is not judged either');
 
         $html = $this->actingAs($manager)->get(route('ext.lazada.product-groups.products', ['store' => $this->lazadaStore->id, 'id' => $group->id]))->assertOk()->getContent();
         $this->assertStringContainsString('Link IDs', $html);
@@ -171,7 +171,7 @@ class ChannelGroupToolsTest extends TestCase
     public function test_lazada_unlinked_view_lists_what_the_shop_holds_that_nothing_points_at(): void
     {
         $known = $this->seedProduct('GT-KNOWN');
-        LazadaProduct::create(['product_id' => $known, 'primary_category_id' => 10001, 'lazada_item_id' => '5550001']);
+        LazadaListing::create(['product_id' => $known, 'primary_category_id' => 10001, 'lazada_item_id' => '5550001']);
         $group = LazadaProductGroup::create(['name' => 'Lazada orphans group', 'lazada_category_id' => 10001]);
         $this->lazadaAnswers['GET /products/get'] = ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => ['products' => [
             ['item_id' => 5550001, 'skus' => [['SellerSku' => 'GT-KNOWN']]],
@@ -216,8 +216,8 @@ class ChannelGroupToolsTest extends TestCase
     {
         $unlisted = $this->seedProduct('WB-NEW');
         $lost = $this->seedProduct('WB-LOST');
-        $newListing = LazadaProduct::create(['product_id' => $unlisted, 'primary_category_id' => 10001]);
-        $lostListing = LazadaProduct::create(['product_id' => $lost, 'primary_category_id' => 10001, 'lazada_item_id' => '9990001']);
+        $newListing = LazadaListing::create(['product_id' => $unlisted, 'primary_category_id' => 10001]);
+        $lostListing = LazadaListing::create(['product_id' => $lost, 'primary_category_id' => 10001, 'lazada_item_id' => '9990001']);
 
         $this->lazadaAnswers['GET /products/get'] = ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => ['products' => [
             ['item_id' => 5550009, 'status' => 'active', 'skus' => [['SellerSku' => 'WB-NEW']]],
@@ -229,8 +229,8 @@ class ChannelGroupToolsTest extends TestCase
         $r->assertSessionHas('error');
         $this->assertStringContainsString('1 linked to the item Lazada holds', session('error'));
         $this->assertStringContainsString('1 no longer on Lazada', session('error'));
-        $this->assertSame('5550009', (string) LazadaProduct::where('product_id', $unlisted)->value('lazada_item_id'));
-        $this->assertNotNull(LazadaProduct::where('product_id', $lost)->value('lazada_deleted_at'));
+        $this->assertSame('5550009', (string) LazadaListing::where('product_id', $unlisted)->value('lazada_item_id'));
+        $this->assertNotNull(LazadaListing::where('product_id', $lost)->value('lazada_deleted_at'));
     }
 
     public function test_the_lazada_workbench_offers_the_check_in_head_and_bulk_bar(): void

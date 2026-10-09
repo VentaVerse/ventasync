@@ -506,7 +506,7 @@ class VentaCartOrderSync
                     }
 
                     if ($resolvedProductId === 0) {
-                        $link = DB::table('ventacart_product_links')
+                        $link = DB::table('ventacart_listing_links')
                             ->where('store_id', $this->store->id)
                             ->where('sku', $sku)
                             ->first();

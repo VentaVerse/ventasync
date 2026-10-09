@@ -7,12 +7,12 @@ use App\Http\Controllers\Controller;
 use Extensions\Lazada\Models\LazadaApiLog;
 use Extensions\Lazada\Models\LazadaCategoryTemplate;
 use Extensions\Lazada\Models\LazadaCategory;
-use Extensions\Lazada\Models\LazadaProduct;
-use Extensions\Lazada\Models\LazadaProductAttribute;
+use Extensions\Lazada\Models\LazadaListing;
+use Extensions\Lazada\Models\LazadaListingAttribute;
 use Extensions\Lazada\Models\LazadaProductGroup;
 use Extensions\Lazada\Models\LazadaProductGroupAttribute;
 use Extensions\Lazada\Models\LazadaProductGroupProduct;
-use Extensions\Lazada\Models\LazadaProductVariant;
+use Extensions\Lazada\Models\LazadaListingVariation;
 use Extensions\Lazada\Models\LazadaStore;
 use App\Services\ActivityLogger;
 use Extensions\Lazada\Services\Lazada\LazadaAttributes;
@@ -44,7 +44,7 @@ class LazadaProductGroupController extends Controller
     {
         $group = LazadaProductGroup::query()->where('store_id', (int) LazadaStore::defaultStore()?->id)->findOrFail($groupId);
 
-        return $group->groupProducts()->whereIn('product_id', \Extensions\Lazada\Models\LazadaProduct::query()->whereNotNull('product_id')->select('product_id'))->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+        return $group->groupProducts()->whereIn('product_id', \Extensions\Lazada\Models\LazadaListing::query()->whereNotNull('product_id')->select('product_id'))->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->all();
     }
 
     protected function groupSendChunk(int $groupId, array $productIds): array
@@ -245,7 +245,7 @@ class LazadaProductGroupController extends Controller
     {
         $group = LazadaProductGroup::query()->findOrFail($id);
 
-        $linkedLpIds = $group->groupProducts()->pluck('lazada_product_id')->filter()->toArray();
+        $linkedLpIds = $group->groupProducts()->pluck('lazada_listing_id')->filter()->toArray();
         $memberIds = $group->groupProducts()->whereNotNull('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->all();
 
         $group->delete();
@@ -257,15 +257,15 @@ class LazadaProductGroupController extends Controller
         $kept = 0;
         if (!empty($linkedLpIds)) {
             $stillLinked = DB::table('lazada_product_group_products')
-                ->whereIn('lazada_product_id', $linkedLpIds)
-                ->pluck('lazada_product_id')
+                ->whereIn('lazada_listing_id', $linkedLpIds)
+                ->pluck('lazada_listing_id')
                 ->unique()
                 ->toArray();
 
             $orphanIds = array_diff($linkedLpIds, $stillLinked);
 
             if (!empty($orphanIds)) {
-                $removed = LazadaProduct::query()
+                $removed = LazadaListing::query()
                     ->whereIn('id', $orphanIds)
                     ->whereNull('lazada_item_id')
                     ->delete();
@@ -300,7 +300,7 @@ class LazadaProductGroupController extends Controller
                 $j->on('p.product_id', '=', 'gp.product_id')
                     ->where('gp.lazada_product_group_id', '=', $group->id);
             })
-            ->leftJoin('lazada_products as lp', 'gp.lazada_product_id', '=', 'lp.id')
+            ->leftJoin('lazada_listings as lp', 'gp.lazada_listing_id', '=', 'lp.id')
             ->leftJoin($pfx . 'brand as m', 'p.brand_id', '=', 'm.brand_id')
             ->select(
                 'p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.price',
@@ -317,7 +317,7 @@ class LazadaProductGroupController extends Controller
                 $w->where('pd.name', 'like', "%{$q}%")
                     ->orWhere('p.sku', 'like', "%{$q}%")
                     ->orWhere('p.model', 'like', "%{$q}%")
-                    ->orWhereIn('p.product_id', LazadaProduct::query()
+                    ->orWhereIn('p.product_id', LazadaListing::query()
                         ->forStore(LazadaStore::defaultStore())
                         ->where('item_name', 'like', "%{$q}%")
                         ->select('product_id'));
@@ -363,7 +363,7 @@ class LazadaProductGroupController extends Controller
 
         $manualIds = $group->groupProducts()->whereNotNull('product_id')->pluck('product_id')->toArray();
 
-        $rowTitles = \App\Channels\Listings\ListingContent::rowTitles($products, LazadaProduct::query()
+        $rowTitles = \App\Channels\Listings\ListingContent::rowTitles($products, LazadaListing::query()
             ->forStore(LazadaStore::defaultStore())
             ->whereIn('product_id', $pivotProductIds ?: [0])
             ->orderBy('id')
@@ -380,7 +380,7 @@ class LazadaProductGroupController extends Controller
                 ->forProducts(array_map('intval', $pivotProductIds)),
             'rowErrors' => $states->errors(array_map('intval', $pivotProductIds)),
             'optionRowsByProductId' => $optionRowsByProductId,
-            'lazadaIdByProductId' => LazadaProduct::query()
+            'lazadaIdByProductId' => LazadaListing::query()
                 ->whereIn('product_id', $products->pluck('product_id')->all() ?: [0])
                 ->pluck('id', 'product_id'),
             'manualIds' => $manualIds,
@@ -415,7 +415,7 @@ class LazadaProductGroupController extends Controller
             ->whereNotNull('product_id')
             ->select('product_id');
 
-        $lpPick = DB::table('lazada_products')
+        $lpPick = DB::table('lazada_listings')
             ->selectRaw('product_id, MIN(id) as pick_id')
             ->whereNotNull('product_id')
             ->when(app()->bound('lazada.route-store'), fn ($sub) => $sub->where('store_id', app('lazada.route-store')->id))
@@ -485,8 +485,8 @@ class LazadaProductGroupController extends Controller
         abort_unless($inCatalog, 404);
 
         $listedNow = false;
-        if (! LazadaProduct::query()->where('product_id', $productId)->exists()) {
-            LazadaProduct::firstOrCreate(['product_id' => $productId]);
+        if (! LazadaListing::query()->where('product_id', $productId)->exists()) {
+            LazadaListing::firstOrCreate(['product_id' => $productId]);
             $listedNow = true;
         }
 
@@ -564,7 +564,7 @@ class LazadaProductGroupController extends Controller
             return redirect()->back()->with('error', 'Product has no SKU to match against Lazada.');
         }
 
-        $lazadaProduct = LazadaProduct::find($pivot->lazada_product_id);
+        $lazadaProduct = LazadaListing::find($pivot->lazada_listing_id);
         if ($lazadaProduct && $lazadaProduct->lazada_item_id && !$lazadaProduct->unlinked_at) {
             app(LazadaItemCache::class)->refreshListing($lazadaProduct, $store, $client, 'lazada.product.item.get.cache.group');
             if (! in_array($pivot->sync_status, ['error', 'failed'], true)) {
@@ -614,7 +614,7 @@ class LazadaProductGroupController extends Controller
         }
 
         if (!$lazadaProduct) {
-            $lazadaProduct = LazadaProduct::find($pivot->lazada_product_id);
+            $lazadaProduct = LazadaListing::find($pivot->lazada_listing_id);
         }
         if ($lazadaProduct) {
             $lazadaProduct->update([
@@ -640,9 +640,9 @@ class LazadaProductGroupController extends Controller
 
         if ($pivot) {
             $hasItemId = false;
-            if ($pivot->lazada_product_id) {
-                $hasItemId = LazadaProduct::query()
-                    ->where('id', $pivot->lazada_product_id)
+            if ($pivot->lazada_listing_id) {
+                $hasItemId = LazadaListing::query()
+                    ->where('id', $pivot->lazada_listing_id)
                     ->whereNotNull('lazada_item_id')
                     ->where('lazada_item_id', '!=', '')
                     ->exists();
@@ -686,11 +686,11 @@ class LazadaProductGroupController extends Controller
         $claim = \App\Channels\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'store_id', $group->id, $wanted, $wanted);
         $moved = 0;
         foreach (array_merge($claim['free'], array_keys($claim['moved'])) as $pid) {
-            $listingId = LazadaProduct::query()->forStore($store)->where('product_id', (int) $pid)->value('id')
-                ?? LazadaProduct::create(['product_id' => (int) $pid])->id;
+            $listingId = LazadaListing::query()->forStore($store)->where('product_id', (int) $pid)->value('id')
+                ?? LazadaListing::create(['product_id' => (int) $pid])->id;
             LazadaProductGroupProduct::create([
                 'lazada_product_group_id' => $group->id,
-                'lazada_product_id' => $listingId,
+                'lazada_listing_id' => $listingId,
                 'product_id' => (int) $pid,
                 'sync_status' => 'pending',
             ]);
@@ -760,8 +760,8 @@ class LazadaProductGroupController extends Controller
 
             $listing = null;
             $groupOverrides = [];
-            if ($pivot && $pivot->lazada_product_id) {
-                $listing = LazadaProduct::find($pivot->lazada_product_id);
+            if ($pivot && $pivot->lazada_listing_id) {
+                $listing = LazadaListing::find($pivot->lazada_listing_id);
             }
 
             $isAlreadyLinked = $listing && $listing->lazada_item_id && !$listing->lazada_deleted_at;
@@ -783,7 +783,7 @@ class LazadaProductGroupController extends Controller
                 'settings' => ['primary_category_id' => $group->lazada_category_id, 'markup_fixed' => $group->markup_fixed, 'markup_percent' => $group->markup_percent],
                 'attributes' => LazadaProductGroupAttribute::where('lazada_product_group_id', $group->id)->pluck('value', 'attribute_key')->toArray(),
             ];
-            $gateRow = $listing ?: (new LazadaProduct())->forceFill(['product_id' => $productId, 'primary_category_id' => $group->lazada_category_id, 'brand_name_override' => 'No Brand']);
+            $gateRow = $listing ?: (new LazadaListing())->forceFill(['product_id' => $productId, 'primary_category_id' => $group->lazada_category_id, 'brand_name_override' => 'No Brand']);
             if ($group->lazada_category_id && !\Extensions\Lazada\Models\LazadaCategoryTemplate::query()->where('region', (string) $store->region)->where('primary_category_id', (int) $group->lazada_category_id)->whereNotNull('template_body')->exists()) {
                 app(\Extensions\Lazada\Controllers\LazadaProductController::class)->readCategoryTemplate((int) $group->lazada_category_id, $client);
             }
@@ -797,15 +797,15 @@ class LazadaProductGroupController extends Controller
             }
 
             if (!$listing) {
-                $listing = LazadaProduct::create(['product_id' => $productId]);
+                $listing = LazadaListing::create(['product_id' => $productId]);
 
                 if ($pivot) {
-                    $pivot->update(['lazada_product_id' => $listing->id]);
+                    $pivot->update(['lazada_listing_id' => $listing->id]);
                 } elseif (\App\Channels\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'store_id', $group->id, [(int) $productId])['free'] !== []) {
                     LazadaProductGroupProduct::create([
                         'lazada_product_group_id' => $group->id,
                         'product_id' => $productId,
-                        'lazada_product_id' => $listing->id,
+                        'lazada_listing_id' => $listing->id,
                         'sync_status' => 'pending',
                     ]);
                     $pivot = LazadaProductGroupProduct::query()
@@ -956,8 +956,8 @@ class LazadaProductGroupController extends Controller
                 ->first();
 
             $listing = null;
-            if ($pivot && $pivot->lazada_product_id) {
-                $listing = LazadaProduct::find($pivot->lazada_product_id);
+            if ($pivot && $pivot->lazada_listing_id) {
+                $listing = LazadaListing::find($pivot->lazada_listing_id);
             }
 
             if (!$listing || !$listing->lazada_item_id || $listing->lazada_deleted_at) {
@@ -986,7 +986,7 @@ class LazadaProductGroupController extends Controller
         return $this->productsRedirect($id)->with($okCount > 0 ? ($picturesWarned ? 'warning' : 'status') : 'error', $summary);
     }
 
-    private function updateLinked(LazadaProductGroup $group, ?LazadaProductGroupProduct $pivot, LazadaProduct $listing, int $productId, object $store, array $creds, LazadaClient $client): array
+    private function updateLinked(LazadaProductGroup $group, ?LazadaProductGroupProduct $pivot, LazadaListing $listing, int $productId, object $store, array $creds, LazadaClient $client): array
     {
             $groupOverrides = [
                 'settings' => [
@@ -1021,7 +1021,7 @@ class LazadaProductGroupController extends Controller
 
             $productPayload['Request']['Product']['ItemId'] = (int) $listing->lazada_item_id;
 
-            $variantMap = LazadaProductVariant::where('lazada_product_id', $listing->id)
+            $variantMap = LazadaListingVariation::where('lazada_listing_id', $listing->id)
                 ->whereNotNull('sku_id')
                 ->pluck('sku_id', 'seller_sku')
                 ->toArray();
@@ -1129,7 +1129,7 @@ class LazadaProductGroupController extends Controller
         }
 
         $index = $live->skuIndex($store, $creds);
-        $known = LazadaProduct::query()->whereNotNull('lazada_item_id')->where('lazada_item_id', '!=', '')
+        $known = LazadaListing::query()->whereNotNull('lazada_item_id')->where('lazada_item_id', '!=', '')
             ->pluck('lazada_item_id')->map(fn ($v) => (string) $v)->flip();
 
         $orphans = [];
@@ -1164,7 +1164,7 @@ class LazadaProductGroupController extends Controller
         }
 
         $pfx = (string) config('catalog.prefix');
-        $listings = LazadaProduct::query()->whereNotNull('product_id')->whereIn('product_id', $ids)->get();
+        $listings = LazadaListing::query()->whereNotNull('product_id')->whereIn('product_id', $ids)->get();
 
         $results = app(\Extensions\Lazada\Services\Lazada\LazadaStockPricePush::class)
             ->push('price', $store, $creds, $listings, $pfx,
@@ -1201,7 +1201,7 @@ class LazadaProductGroupController extends Controller
         }
 
         $pfx = (string) config('catalog.prefix');
-        $listings = LazadaProduct::query()->whereNotNull('product_id')->whereIn('product_id', $ids)->get();
+        $listings = LazadaListing::query()->whereNotNull('product_id')->whereIn('product_id', $ids)->get();
 
         $results = app(\Extensions\Lazada\Services\Lazada\LazadaStockPricePush::class)
             ->push('stock', $store, $creds, $listings, $pfx);
@@ -1241,8 +1241,8 @@ class LazadaProductGroupController extends Controller
         $pivotRows = LazadaProductGroupProduct::query()
             ->where('lazada_product_group_id', $group->id)
             ->whereIn('product_id', $productIds)
-            ->whereNotNull('lazada_product_id')
-            ->get(['product_id', 'lazada_product_id']);
+            ->whereNotNull('lazada_listing_id')
+            ->get(['product_id', 'lazada_listing_id']);
 
         if ($pivotRows->isEmpty()) {
             return $this->productsRedirect($id)->with('error', 'No linked Lazada products found for the selected items.');
@@ -1252,7 +1252,7 @@ class LazadaProductGroupController extends Controller
         $errCount = 0;
 
         foreach ($pivotRows as $pivotRow) {
-            $listing = LazadaProduct::find($pivotRow->lazada_product_id);
+            $listing = LazadaListing::find($pivotRow->lazada_listing_id);
             if (!$listing || !$listing->lazada_item_id) {
                 $errCount++;
                 continue;
@@ -1361,7 +1361,7 @@ class LazadaProductGroupController extends Controller
     }
 
 
-    private function persistSyncStatus(LazadaProduct $listing, string $action, bool $ok, ?string $errorCode = null, ?string $errorMessage = null): void
+    private function persistSyncStatus(LazadaListing $listing, string $action, bool $ok, ?string $errorCode = null, ?string $errorMessage = null): void
     {
         $listing->last_synced_at = now();
         $listing->last_sync_action = $action;
@@ -1422,7 +1422,7 @@ class LazadaProductGroupController extends Controller
             ->where('lazada_product_group_id', $group->id)
             ->get();
 
-        $existingLpMap = LazadaProduct::query()
+        $existingLpMap = LazadaListing::query()
             ->whereIn('product_id', $productIds)
             ->pluck('id', 'product_id');
 
@@ -1442,12 +1442,12 @@ class LazadaProductGroupController extends Controller
             $lpId = $existingLpMap->get($pid);
 
             if (!$lpId) {
-                $lpId = LazadaProduct::create(['product_id' => $pid])->id;
+                $lpId = LazadaListing::create(['product_id' => $pid])->id;
             }
 
             LazadaProductGroupProduct::create([
                 'lazada_product_group_id' => $group->id,
-                'lazada_product_id' => $lpId,
+                'lazada_listing_id' => $lpId,
                 'product_id' => $pid,
             ]);
 

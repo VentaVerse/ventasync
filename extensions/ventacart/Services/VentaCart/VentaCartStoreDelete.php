@@ -5,7 +5,7 @@ namespace Extensions\VentaCart\Services\VentaCart;
 use Extensions\VentaCart\Models\VentaCartListing;
 use Extensions\VentaCart\Models\VentaCartProductGroup;
 use Extensions\VentaCart\Models\VentaCartProductGroupProduct;
-use Extensions\VentaCart\Models\VentaCartProductLink;
+use Extensions\VentaCart\Models\VentaCartListingLink;
 use Extensions\VentaCart\Models\VentaCartStore;
 
 final class VentaCartStoreDelete
@@ -21,7 +21,7 @@ final class VentaCartStoreDelete
     {
         $ids = array_values(array_unique(array_map('intval', $productIds)));
         $out = ['deleted' => 0, 'skipped' => 0, 'errors' => []];
-        $links = VentaCartProductLink::query()->where('store_id', $this->store->id)->whereIn('product_id', $ids ?: [0])->get()->keyBy('product_id');
+        $links = VentaCartListingLink::query()->where('store_id', $this->store->id)->whereIn('product_id', $ids ?: [0])->get()->keyBy('product_id');
         $groupIds = VentaCartProductGroup::query()->where('store_id', $this->store->id)->pluck('id')->all();
         $states = VentaCartListingStates::for((int) $this->store->id);
         foreach ($ids as $pid) {

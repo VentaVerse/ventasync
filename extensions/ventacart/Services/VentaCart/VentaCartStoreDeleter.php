@@ -15,7 +15,7 @@ final class VentaCartStoreDeleter
         'ventacart_status_placements',
         'ventacart_orders',
         'ventacart_listings',
-        'ventacart_product_links',
+        'ventacart_listing_links',
         'ventacart_product_groups',
         'ventacart_categories',
         'ventacart_brands',

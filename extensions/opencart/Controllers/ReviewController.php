@@ -3,7 +3,7 @@
 namespace Extensions\OpenCart\Controllers;
 
 use Extensions\OpenCart\Models\MarketplaceReview;
-use Extensions\OpenCart\Models\OpenCartProductLink;
+use Extensions\OpenCart\Models\OpenCartListingLink;
 use Extensions\OpenCart\Models\OpenCartStore;
 use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
 use App\Http\Controllers\Controller;
@@ -124,7 +124,7 @@ class ReviewController extends Controller
             return redirect()->back()->with('error', 'Review has no mapped product.');
         }
 
-        $link = OpenCartProductLink::query()
+        $link = OpenCartListingLink::query()
             ->where('product_id', $review->product_id)
             ->first();
 
@@ -202,7 +202,7 @@ class ReviewController extends Controller
         $errors = 0;
 
         $stores = OpenCartStore::where('enabled', true)->get()->keyBy('id');
-        $linkMap = OpenCartProductLink::query()
+        $linkMap = OpenCartListingLink::query()
             ->pluck('oc_product_id', DB::raw("CONCAT(store_id, '-', product_id)"))
             ->all();
 

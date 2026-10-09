@@ -466,7 +466,7 @@ class OpenCartOrderSync
     {
         $ocProductId = (int) ($p['product_id'] ?? 0);
         if ($ocProductId > 0) {
-            $link = DB::table('opencart_product_links')
+            $link = DB::table('opencart_listing_links')
                 ->where('store_id', $this->store->id)
                 ->where('oc_product_id', $ocProductId)
                 ->select('product_id')

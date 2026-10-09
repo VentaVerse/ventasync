@@ -3,10 +3,10 @@
 namespace Extensions\Lazada\Services\Lazada;
 
 use Extensions\Lazada\Models\LazadaBrand;
-use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaListing;
 use Extensions\Lazada\Models\LazadaCategoryTemplate;
-use Extensions\Lazada\Models\LazadaProductAttribute;
-use Extensions\Lazada\Models\LazadaProductVariant;
+use Extensions\Lazada\Models\LazadaListingAttribute;
+use Extensions\Lazada\Models\LazadaListingVariation;
 use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Support\Facades\DB;
 
@@ -24,14 +24,14 @@ class LazadaPushPayload
         return round($price, 2);
     }
 
-    public static function startingPrice(?LazadaProduct $listing, float $catalogPrice): float
+    public static function startingPrice(?LazadaListing $listing, float $catalogPrice): float
     {
         $own = $listing?->price;
 
         return ($own !== null && (float) $own > 0) ? (float) $own : $catalogPrice;
     }
 
-    public static function ownParcel(LazadaProduct $listing): array
+    public static function ownParcel(LazadaListing $listing): array
     {
         $out = [];
         foreach (['package_weight' => 'weight', 'package_length' => 'package_length', 'package_width' => 'package_width', 'package_height' => 'package_height'] as $field => $column) {
@@ -44,7 +44,7 @@ class LazadaPushPayload
         return $out;
     }
 
-    public function buildLazadaProductCreatePayload(LazadaProduct $listing, ?object $store = null, ?LazadaClient $client = null, array $overrides = []): array
+    public function buildLazadaProductCreatePayload(LazadaListing $listing, ?object $store = null, ?LazadaClient $client = null, array $overrides = []): array
     {
         $listing = clone $listing;
         $settings = (array) ($overrides['settings'] ?? []);
@@ -97,8 +97,8 @@ class LazadaPushPayload
             ]);
         }
 
-        $attrs = LazadaProductAttribute::query()
-            ->where('lazada_product_id', $listing->id)
+        $attrs = LazadaListingAttribute::query()
+            ->where('lazada_listing_id', $listing->id)
             ->pluck('value', 'attribute_key')
             ->toArray();
 
@@ -156,8 +156,8 @@ class LazadaPushPayload
                 'ovd.name as option_value_name',
             ]);
 
-        $map = LazadaProductVariant::query()
-            ->where('lazada_product_id', $listing->id)
+        $map = LazadaListingVariation::query()
+            ->where('lazada_listing_id', $listing->id)
             ->get()
             ->keyBy(function ($v) {
                 return $v->product_option_value_id === null ? 'base' : (string)$v->product_option_value_id;
@@ -563,7 +563,7 @@ class LazadaPushPayload
         return [$payload, $preview];
     }
 
-    private function liveItemShape(LazadaProduct $listing, ?object $store, ?LazadaClient $client): ?array
+    private function liveItemShape(LazadaListing $listing, ?object $store, ?LazadaClient $client): ?array
     {
         $itemId = trim((string) ($listing->lazada_item_id ?? ''));
         if ($itemId === '' || !empty($listing->lazada_deleted_at) || !$store || !$client) {

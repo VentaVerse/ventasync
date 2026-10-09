@@ -16,7 +16,7 @@ use Extensions\Lazada\LazadaExtension;
 use Extensions\Lazada\Models\LazadaApiLog;
 use Extensions\Lazada\Models\LazadaBrand;
 use Extensions\Lazada\Models\LazadaCategory;
-use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaListing;
 use Extensions\Lazada\Models\LazadaProductGroup;
 use Extensions\Lazada\Models\LazadaStore;
 use Extensions\OpenCart\Models\OpenCartOrderStatusMap;
@@ -838,7 +838,7 @@ class WorkspaceInteriorsTest extends TestCase
             'markup_percent' => 7.5,
         ]);
 
-        $listing = LazadaProduct::create([
+        $listing = LazadaListing::create([
             'product_id' => 4242,
             'primary_category_id' => 9257,
             'lazada_item_id' => '778899',
@@ -1277,7 +1277,7 @@ class WorkspaceInteriorsTest extends TestCase
     {
         $this->seedLazadaSetting();
         $pid = $this->seedCatalogProduct('Sortable Strings', 'SORT-1');
-        LazadaProduct::create(['product_id' => $pid, 'lazada_item_id' => '551122']);
+        LazadaListing::create(['product_id' => $pid, 'lazada_item_id' => '551122']);
         $user = $this->lazadaManager();
 
         $html = $this->actingAs($user)

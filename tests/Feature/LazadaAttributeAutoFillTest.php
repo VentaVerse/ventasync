@@ -7,8 +7,8 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\Lazada\Models\LazadaCategoryTemplate;
-use Extensions\Lazada\Models\LazadaProduct;
-use Extensions\Lazada\Models\LazadaProductAttribute;
+use Extensions\Lazada\Models\LazadaListing;
+use Extensions\Lazada\Models\LazadaListingAttribute;
 use Extensions\Lazada\Models\LazadaStore;
 use Extensions\Lazada\Services\Lazada\LazadaListingReadiness;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -86,7 +86,7 @@ class LazadaAttributeAutoFillTest extends TestCase
     public function test_readiness_asks_only_what_the_catalog_cannot_answer(): void
     {
         $this->template();
-        $listing = LazadaProduct::query()->create([
+        $listing = LazadaListing::query()->create([
             'product_id' => $this->seedProduct('Valeton GP-5', 'GP5'),
             'primary_category_id' => 7013,
         ]);
@@ -99,8 +99,8 @@ class LazadaAttributeAutoFillTest extends TestCase
         $this->assertStringNotContainsString('name', strtolower($result['missing'][0]) === 'name' ? $result['missing'][0] : '');
         $this->assertStringNotContainsString('brand', implode(' ', $result['missing']));
 
-        LazadaProductAttribute::query()->create([
-            'lazada_product_id' => $listing->id, 'attribute_key' => 'warranty_type', 'value' => 'No Warranty',
+        LazadaListingAttribute::query()->create([
+            'lazada_listing_id' => $listing->id, 'attribute_key' => 'warranty_type', 'value' => 'No Warranty',
         ]);
         $again = app(LazadaListingReadiness::class)->forListings(collect([$listing->fresh()]))[$listing->id];
         $this->assertTrue($again['ready'], implode(' | ', $again['missing'] ?? []));
@@ -109,7 +109,7 @@ class LazadaAttributeAutoFillTest extends TestCase
     public function test_the_sheet_shows_only_the_categorys_own_questions(): void
     {
         $this->template();
-        $listing = LazadaProduct::query()->create([
+        $listing = LazadaListing::query()->create([
             'product_id' => $this->seedProduct('Valeton GP-5', 'GP5'),
             'primary_category_id' => 7013,
         ]);
@@ -127,12 +127,12 @@ class LazadaAttributeAutoFillTest extends TestCase
     public function test_a_custom_value_someone_already_typed_stays_visible_and_wins(): void
     {
         $this->template();
-        $listing = LazadaProduct::query()->create([
+        $listing = LazadaListing::query()->create([
             'product_id' => $this->seedProduct('Catalog name', 'GP5'),
             'primary_category_id' => 7013,
         ]);
-        LazadaProductAttribute::query()->create([
-            'lazada_product_id' => $listing->id, 'attribute_key' => 'name', 'value' => 'Hand-written Lazada title',
+        LazadaListingAttribute::query()->create([
+            'lazada_listing_id' => $listing->id, 'attribute_key' => 'name', 'value' => 'Hand-written Lazada title',
         ]);
 
         $this->actingAs($this->manager())->get(route('ext.lazada.products.edit', $listing->product_id))
@@ -144,7 +144,7 @@ class LazadaAttributeAutoFillTest extends TestCase
     public function test_saving_the_sheet_no_longer_demands_what_fills_itself(): void
     {
         $this->template();
-        $listing = LazadaProduct::query()->create([
+        $listing = LazadaListing::query()->create([
             'product_id' => $this->seedProduct('Valeton GP-5', 'GP5'),
             'primary_category_id' => 7013,
         ]);
@@ -157,8 +157,8 @@ class LazadaAttributeAutoFillTest extends TestCase
             ->assertRedirect(route('ext.lazada.products.edit', $listing->product_id))
             ->assertSessionHasNoErrors();
 
-        $this->assertSame('No Warranty', LazadaProductAttribute::query()
-            ->where('lazada_product_id', $listing->id)->where('attribute_key', 'warranty_type')->value('value'));
+        $this->assertSame('No Warranty', LazadaListingAttribute::query()
+            ->where('lazada_listing_id', $listing->id)->where('attribute_key', 'warranty_type')->value('value'));
     }
 
     private function fullerTemplate(int $categoryId = 7014): void
@@ -182,7 +182,7 @@ class LazadaAttributeAutoFillTest extends TestCase
     public function test_the_sheet_never_asks_the_sku_level_facts_the_payload_fills(): void
     {
         $this->fullerTemplate();
-        $listing = LazadaProduct::query()->create(['product_id' => $this->seedProduct('Valeton GP-5', 'GP5'), 'primary_category_id' => 7014]);
+        $listing = LazadaListing::query()->create(['product_id' => $this->seedProduct('Valeton GP-5', 'GP5'), 'primary_category_id' => 7014]);
 
         $page = $this->actingAs($this->manager())->get(route('ext.lazada.products.edit', $listing->product_id))->assertOk();
         $page->assertSee('name="attributes[Musical_Instrument_Type]"', false)->assertSee('name="attributes[warranty_type]"', false);
@@ -194,13 +194,13 @@ class LazadaAttributeAutoFillTest extends TestCase
     public function test_saving_one_answer_is_kept_even_while_another_required_attribute_is_blank_and_the_rest_is_named(): void
     {
         $this->fullerTemplate();
-        $listing = LazadaProduct::query()->create(['product_id' => $this->seedProduct('Valeton GP-5', 'GP5'), 'primary_category_id' => 7014]);
+        $listing = LazadaListing::query()->create(['product_id' => $this->seedProduct('Valeton GP-5', 'GP5'), 'primary_category_id' => 7014]);
 
         $this->actingAs($this->manager())
             ->put(route('ext.lazada.products.update', $listing->product_id), ['primary_category_id' => 7014, 'attributes' => ['Musical_Instrument_Type' => 'Guitar']])
             ->assertRedirect(route('ext.lazada.products.edit', $listing->product_id))
             ->assertSessionHasNoErrors();
-        $this->assertSame('Guitar', LazadaProductAttribute::query()->where('lazada_product_id', $listing->id)->where('attribute_key', 'Musical_Instrument_Type')->value('value'));
+        $this->assertSame('Guitar', LazadaListingAttribute::query()->where('lazada_listing_id', $listing->id)->where('attribute_key', 'Musical_Instrument_Type')->value('value'));
         $status = (string) session('status');
         $this->assertStringContainsString('Listing saved.', $status);
         $this->assertStringContainsString('Still needed before a push', $status);
@@ -211,7 +211,7 @@ class LazadaAttributeAutoFillTest extends TestCase
     public function test_save_and_push_keeps_the_answers_and_goes_on_to_the_upload(): void
     {
         $this->fullerTemplate();
-        $listing = LazadaProduct::query()->create(['product_id' => $this->seedProduct('Valeton GP-5', 'GP5'), 'primary_category_id' => 7014]);
+        $listing = LazadaListing::query()->create(['product_id' => $this->seedProduct('Valeton GP-5', 'GP5'), 'primary_category_id' => 7014]);
         \Illuminate\Support\Facades\Http::fake([
             '*/images/migrate*' => \Illuminate\Support\Facades\Http::response(['code' => '0', 'data' => ['images' => [['url' => 'https://ph-live.slatic.net/x.jpg', 'hash_code' => 'h']]]], 200),
             '*/image/migrate*' => \Illuminate\Support\Facades\Http::response(['code' => '0', 'data' => ['image' => ['url' => 'https://ph-live.slatic.net/x.jpg', 'hash_code' => 'h']]], 200),
@@ -222,7 +222,7 @@ class LazadaAttributeAutoFillTest extends TestCase
             ->from(route('ext.lazada.products.edit', $listing->product_id))
             ->put(route('ext.lazada.products.update', $listing->product_id), ['primary_category_id' => 7014, 'attributes' => ['Musical_Instrument_Type' => 'Guitar', 'warranty_type' => 'No Warranty'], 'push' => 1])
             ->assertRedirect();
-        $this->assertSame('Guitar', LazadaProductAttribute::query()->where('lazada_product_id', $listing->id)->where('attribute_key', 'Musical_Instrument_Type')->value('value'));
+        $this->assertSame('Guitar', LazadaListingAttribute::query()->where('lazada_listing_id', $listing->id)->where('attribute_key', 'Musical_Instrument_Type')->value('value'));
         $this->assertTrue(session()->has('status') || session()->has('error'), "the upload's outcome is what comes back, not the plain 'Listing saved.'");
         $this->assertStringNotContainsString('Listing saved.', (string) session('status'));
         \Illuminate\Support\Facades\Http::assertSent(fn ($request) => str_contains($request->url(), '/product/create'));
@@ -231,7 +231,7 @@ class LazadaAttributeAutoFillTest extends TestCase
     public function test_the_page_carries_one_form_with_the_sheet_inside_it_and_the_template_read_beside_the_category(): void
     {
         $this->template();
-        $listing = LazadaProduct::query()->create(['product_id' => $this->seedProduct('Valeton GP-5', 'GP5'), 'primary_category_id' => 7013]);
+        $listing = LazadaListing::query()->create(['product_id' => $this->seedProduct('Valeton GP-5', 'GP5'), 'primary_category_id' => 7013]);
 
         $user = $this->manager();
         $html = $this->actingAs($user)->get(route('ext.lazada.products.edit', $listing->product_id))->assertOk()->getContent();
@@ -257,8 +257,8 @@ class LazadaAttributeAutoFillTest extends TestCase
     public function test_picking_a_category_fetches_its_sheet_and_a_reread_asks_lazada(): void
     {
         $this->template(7013);
-        $listing = LazadaProduct::query()->create(['product_id' => $this->seedProduct('Valeton GP-5', 'GP5')]);
-        LazadaProductAttribute::query()->create(['lazada_product_id' => $listing->id, 'attribute_key' => 'warranty_type', 'value' => 'Local supplier warranty']);
+        $listing = LazadaListing::query()->create(['product_id' => $this->seedProduct('Valeton GP-5', 'GP5')]);
+        LazadaListingAttribute::query()->create(['lazada_listing_id' => $listing->id, 'attribute_key' => 'warranty_type', 'value' => 'Local supplier warranty']);
         $user = $this->manager();
         \Illuminate\Support\Facades\Http::fake([
             '*' => \Illuminate\Support\Facades\Http::response(['code' => '0', 'data' => ['attributes' => [
@@ -289,7 +289,7 @@ class LazadaAttributeAutoFillTest extends TestCase
     public function test_a_blank_required_row_says_so_and_a_refusal_lands_on_the_row_it_names(): void
     {
         $this->fullerTemplate();
-        $listing = LazadaProduct::query()->create(['product_id' => $this->seedProduct('Valeton GP-5', 'GP5'), 'primary_category_id' => 7014]);
+        $listing = LazadaListing::query()->create(['product_id' => $this->seedProduct('Valeton GP-5', 'GP5'), 'primary_category_id' => 7014]);
         $user = $this->manager();
 
         $html = $this->actingAs($user)->get(route('ext.lazada.products.edit', $listing->product_id))->assertOk()->getContent();
@@ -329,7 +329,7 @@ class LazadaAttributeAutoFillTest extends TestCase
     public function test_save_and_push_returns_to_the_listings_search_it_came_from(): void
     {
         $this->fullerTemplate();
-        $listing = LazadaProduct::query()->create(['product_id' => $this->seedProduct('Valeton GP-5', 'GP5'), 'primary_category_id' => 7014]);
+        $listing = LazadaListing::query()->create(['product_id' => $this->seedProduct('Valeton GP-5', 'GP5'), 'primary_category_id' => 7014]);
         \Illuminate\Support\Facades\Http::fake([
             '*/images/migrate*' => \Illuminate\Support\Facades\Http::response(['code' => '0', 'data' => ['images' => [['url' => 'https://ph-live.slatic.net/x.jpg', 'hash_code' => 'h']]]], 200),
             '*/image/migrate*' => \Illuminate\Support\Facades\Http::response(['code' => '0', 'data' => ['image' => ['url' => 'https://ph-live.slatic.net/x.jpg', 'hash_code' => 'h']]], 200),
@@ -355,7 +355,7 @@ class LazadaAttributeAutoFillTest extends TestCase
 
     public function test_a_refused_template_read_is_a_sentence(): void
     {
-        $listing = LazadaProduct::query()->create(['product_id' => $this->seedProduct('Valeton GP-5', 'GP5')]);
+        $listing = LazadaListing::query()->create(['product_id' => $this->seedProduct('Valeton GP-5', 'GP5')]);
         \Illuminate\Support\Facades\Http::fake(['*' => \Illuminate\Support\Facades\Http::response(['code' => 'IllegalAccessToken', 'message' => 'The access token is invalid'], 200)]);
 
         $r = $this->actingAs($this->manager())->postJson(route('ext.lazada.products.attributes_fetch', $listing->product_id), ['primary_category_id' => 7100])->assertStatus(422);
@@ -367,12 +367,12 @@ class LazadaAttributeAutoFillTest extends TestCase
     public function test_the_push_payload_carries_the_catalog_answers_the_operator_never_typed(): void
     {
         $this->template();
-        $listing = LazadaProduct::query()->create([
+        $listing = LazadaListing::query()->create([
             'product_id' => $this->seedProduct('Valeton GP-5 Mini Pedal', 'GP5', '<p>Tiny pedal, big sound</p>'),
             'primary_category_id' => 7013,
         ]);
-        LazadaProductAttribute::query()->create([
-            'lazada_product_id' => $listing->id, 'attribute_key' => 'warranty_type', 'value' => 'No Warranty',
+        LazadaListingAttribute::query()->create([
+            'lazada_listing_id' => $listing->id, 'attribute_key' => 'warranty_type', 'value' => 'No Warranty',
         ]);
 
         [$payload] = app(\Extensions\Lazada\Services\Lazada\LazadaPushPayload::class)

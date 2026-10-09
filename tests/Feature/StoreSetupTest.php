@@ -140,7 +140,7 @@ class StoreSetupTest extends TestCase
         TikTokStore::create(['mode' => 'production', 'store_name' => 'TT', 'app_key' => 'k', 'app_secret' => 's',
             'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3)]);
         $pid = $this->seedProduct('Bare widget', 'BARE-1');
-        \Extensions\Lazada\Models\LazadaProduct::create(['product_id' => $pid]);
+        \Extensions\Lazada\Models\LazadaListing::create(['product_id' => $pid]);
         \Extensions\TikTok\Models\TikTokListing::create(['product_id' => $pid]);
 
         $laz = app(\Extensions\Lazada\Services\Lazada\LazadaListingReadiness::class)->forProducts([$pid])[$pid]['missing'];

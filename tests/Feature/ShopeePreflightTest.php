@@ -6,7 +6,7 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -81,7 +81,7 @@ class ShopeePreflightTest extends TestCase
     public function test_a_relist_that_shopee_would_refuse_is_refused_here_first(): void
     {
         $pid = $this->seedProduct('PF-1', 0, 0);
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 700, 'live_status' => 'UNLIST']);
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 700, 'live_status' => 'UNLIST']);
 
         $r = $this->actingAs($this->manager())
             ->post(route('ext.shopee.listings.toggle', $pid), ['action' => 'list']);
@@ -95,7 +95,7 @@ class ShopeePreflightTest extends TestCase
     public function test_a_ready_relist_still_goes_through(): void
     {
         $pid = $this->seedProduct('PF-2', 0.5, 10);
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 701, 'live_status' => 'UNLIST']);
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 701, 'live_status' => 'UNLIST']);
 
         $this->actingAs($this->manager())
             ->post(route('ext.shopee.listings.toggle', $pid), ['action' => 'list']);
@@ -107,8 +107,8 @@ class ShopeePreflightTest extends TestCase
     {
         $good = $this->seedProduct('PF-3', 0.5, 10);
         $bad = $this->seedProduct('PF-4', 0, 0);
-        ShopeeProductLink::create(['product_id' => $good, 'shopee_item_id' => 702, 'live_status' => 'UNLIST']);
-        ShopeeProductLink::create(['product_id' => $bad, 'shopee_item_id' => 703, 'live_status' => 'UNLIST']);
+        ShopeeListingLink::create(['product_id' => $good, 'shopee_item_id' => 702, 'live_status' => 'UNLIST']);
+        ShopeeListingLink::create(['product_id' => $bad, 'shopee_item_id' => 703, 'live_status' => 'UNLIST']);
 
         $r = $this->actingAs($this->manager())->post(route('ext.shopee.products.bulk_toggle'), [
             'action' => 'list', 'product_ids' => [$good, $bad],
@@ -122,7 +122,7 @@ class ShopeePreflightTest extends TestCase
     public function test_the_row_menu_offers_the_fix_instead_of_the_failure(): void
     {
         $pid = $this->seedProduct('PF-5', 0, 0);
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 704, 'live_status' => 'UNLIST']);
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 704, 'live_status' => 'UNLIST']);
 
         $html = $this->actingAs($this->manager())
             ->get(route('ext.shopee.products.index', ['q' => 'PF-5']))->assertOk()->getContent();
@@ -135,7 +135,7 @@ class ShopeePreflightTest extends TestCase
     public function test_a_push_update_without_a_parcel_is_refused_before_the_call(): void
     {
         $pid = $this->seedProduct('PF-6', 0, 5);
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 705, 'live_status' => 'NORMAL']);
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 705, 'live_status' => 'NORMAL']);
 
         $r = $this->actingAs($this->manager())
             ->post(route('ext.shopee.listings.push_update', $pid));

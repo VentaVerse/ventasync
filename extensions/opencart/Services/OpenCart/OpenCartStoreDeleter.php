@@ -11,7 +11,7 @@ final class OpenCartStoreDeleter
     private const TABLES = [
         'opencart_sync_log',
         'opencart_order_status_map',
-        'opencart_product_links',
+        'opencart_listing_links',
         'opencart_product_groups',
     ];
 

@@ -9,7 +9,7 @@ use Extensions\Shopee\Models\ShopeeCategory;
 use Extensions\Shopee\Models\ShopeeItemCache;
 use Extensions\Shopee\Models\ShopeeLogistic;
 use Extensions\Shopee\Models\ShopeeListing;
-use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Extensions\Shopee\Models\ShopeeProductGroup;
 use Extensions\Shopee\Models\ShopeeStore;
 use App\Services\ActivityLogger;
@@ -80,7 +80,7 @@ class ShopeeProductController extends Controller
         $prod = DB::table($pfx . 'product')->whereIn('product_id', $ids)->pluck('date_modified', 'product_id');
         $listing = DB::table('shopee_listings')->whereIn('product_id', $ids)
             ->selectRaw('product_id, MAX(updated_at) as mu')->groupBy('product_id')->pluck('mu', 'product_id');
-        $link = DB::table('shopee_product_links')->whereIn('product_id', $ids)
+        $link = DB::table('shopee_listing_links')->whereIn('product_id', $ids)
             ->selectRaw('product_id, MAX(updated_at) as mu')->groupBy('product_id')->pluck('mu', 'product_id');
         $group = DB::table('shopee_product_group_products as gp')
             ->join('shopee_product_groups as g', 'g.id', '=', 'gp.shopee_product_group_id')
@@ -147,7 +147,7 @@ class ShopeeProductController extends Controller
         $liveCheckedAt = null;
         if ($store && $auth['complete']) {
             $liveCounts = [];
-            $liveCheckedAt = ShopeeProductLink::query()->max('live_checked_at');
+            $liveCheckedAt = ShopeeListingLink::query()->max('live_checked_at');
             $liveCheckedAt = $liveCheckedAt ? \Illuminate\Support\Carbon::parse($liveCheckedAt) : null;
         } else {
             $liveTabError = 'Missing Shopee settings.';
@@ -213,7 +213,7 @@ class ShopeeProductController extends Controller
         } else {
             $query->where(function ($sub) {
                 $sub->where('p.status', 1)
-                    ->orWhereIn('p.product_id', \Extensions\Shopee\Models\ShopeeProductLink::query()
+                    ->orWhereIn('p.product_id', \Extensions\Shopee\Models\ShopeeListingLink::query()
                         ->whereNotNull('shopee_item_id')->select('product_id'));
             });
         }
@@ -230,7 +230,7 @@ class ShopeeProductController extends Controller
             });
         }
 
-        $linkedIds = ShopeeProductLink::query()->pluck('product_id')
+        $linkedIds = ShopeeListingLink::query()->pluck('product_id')
             ->map(fn ($v) => (int) $v)->unique()->values()->all();
         $listed = fn ($query) => $query->whereIn('p.product_id', $linkedIds ?: [0]);
         $notListed = fn ($query) => $linkedIds === [] ? $query : $query->whereNotIn('p.product_id', $linkedIds);
@@ -266,12 +266,12 @@ class ShopeeProductController extends Controller
         $applyTrouble = fn ($query) => $troubleIds === null ? $query : $query->whereIn('p.product_id', $troubleIds ?: [0]);
 
         $tabProductIds = ($shopeeTab !== 'all' && $liveCounts !== null)
-            ? ShopeeProductLink::query()->where('live_status', $tabMap[$shopeeTab])
+            ? ShopeeListingLink::query()->where('live_status', $tabMap[$shopeeTab])
                 ->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all()
             : null;
         $applyTab = fn ($query) => $tabProductIds === null ? $query : $query->whereIn('p.product_id', $tabProductIds ?: [0]);
         $tabCounts = function ($query) use ($tabMap): array {
-            $byStatus = ShopeeProductLink::query()
+            $byStatus = ShopeeListingLink::query()
                 ->whereIn('product_id', (clone $query)->select('p.product_id'))
                 ->whereNotNull('live_status')
                 ->selectRaw('live_status, COUNT(DISTINCT product_id) as n')
@@ -335,7 +335,7 @@ class ShopeeProductController extends Controller
         if ($liveCounts !== null) {
             $liveCounts = $tabCounts($tabBase);
         }
-        $listedTotal = (int) ShopeeProductLink::query()->distinct()->count('product_id');
+        $listedTotal = (int) ShopeeListingLink::query()->distinct()->count('product_id');
 
         $applyMenu($query);
         $applyTrouble($query);
@@ -374,7 +374,7 @@ class ShopeeProductController extends Controller
             ->startingPrice((float) $p->price, isset($withVariations[(int) $p->product_id]))])->all();
         $shopeeLinks = collect();
         if (!empty($pageIds)) {
-            $shopeeLinks = ShopeeProductLink::query()
+            $shopeeLinks = ShopeeListingLink::query()
                 ->whereIn('product_id', $pageIds)
                 ->get()
                 ->groupBy(fn($l) => (int) $l->product_id);
@@ -628,10 +628,10 @@ class ShopeeProductController extends Controller
     {
         abort_unless(ShopeeStoreProducts::has($productId), 404);
 
-        $itemIds = ShopeeProductLink::query()->where('product_id', $productId)
+        $itemIds = ShopeeListingLink::query()->where('product_id', $productId)
             ->pluck('shopee_item_id')->filter()->unique()->values();
 
-        ShopeeProductLink::unlinkProduct($productId, (int) app('shopee.route-store')->id);
+        ShopeeListingLink::unlinkProduct($productId, (int) app('shopee.route-store')->id);
         \Extensions\Shopee\Models\ShopeeProductGroupProduct::query()
             ->where('product_id', $productId)
             ->whereIn('shopee_product_group_id', ShopeeProductGroup::query()->select('id'))
@@ -652,7 +652,7 @@ class ShopeeProductController extends Controller
             if (!ShopeeStoreProducts::has($pid)) {
                 continue;
             }
-            ShopeeProductLink::unlinkProduct($pid, (int) app('shopee.route-store')->id);
+            ShopeeListingLink::unlinkProduct($pid, (int) app('shopee.route-store')->id);
             \Extensions\Shopee\Models\ShopeeProductGroupProduct::query()->where('product_id', $pid)
                 ->whereIn('shopee_product_group_id', ShopeeProductGroup::query()->select('id'))->delete();
             ShopeeListing::query()->where('product_id', $pid)->delete();
@@ -756,7 +756,7 @@ class ShopeeProductController extends Controller
                 }
             }
             if ($done !== []) {
-                ShopeeProductLink::query()->whereIn('shopee_item_id', $done)
+                ShopeeListingLink::query()->whereIn('shopee_item_id', $done)
                     ->update(['live_status' => $unlist ? 'UNLIST' : 'NORMAL', 'live_checked_at' => now()]);
             }
         }
@@ -780,7 +780,7 @@ class ShopeeProductController extends Controller
         }
 
         $ids = array_values(array_unique(array_map('intval', (array) $request->input('product_ids'))));
-        $links = ShopeeProductLink::query()->whereIn('product_id', $ids)->get();
+        $links = ShopeeListingLink::query()->whereIn('product_id', $ids)->get();
         $notOnShopee = count($ids) - $links->count();
         if ($links->isEmpty()) {
             return redirect()->back()->with('error', 'None of the selected products is on Shopee, so there is nothing to ' . ($unlist ? 'unlist' : 'relist') . '.');
@@ -964,7 +964,7 @@ class ShopeeProductController extends Controller
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $existingLink = ShopeeProductLink::query()->where('product_id', $productId)->first();
+        $existingLink = ShopeeListingLink::query()->where('product_id', $productId)->first();
         if ($existingLink) {
             return ['ok' => false, 'message' => 'Push failed: Product already listed on Shopee (Item ID: ' . $existingLink->shopee_item_id . ').'];
         }
@@ -1060,7 +1060,7 @@ class ShopeeProductController extends Controller
             return ['ok' => false, 'message' => (string) $added['error']];
         }
 
-        ShopeeProductLink::create([
+        ShopeeListingLink::create([
             'product_id' => $productId,
             'shopee_item_id' => (int) $itemId,
             'shopee_model_id' => null,
@@ -1123,7 +1123,7 @@ class ShopeeProductController extends Controller
             $productIds,
             'Shopee',
             function (int $productId) use ($auth, $client) {
-                if (ShopeeProductLink::query()->where('product_id', $productId)->exists()) {
+                if (ShopeeListingLink::query()->where('product_id', $productId)->exists()) {
                     $r = $this->performListingUpdate($productId, $client, $auth);
 
                     return ['ok' => $r['ok'] && ($r['failure'] ?? null) === null, 'message' => (string) $r['message']];
@@ -1147,7 +1147,7 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', "Missing Shopee {$modeLabel} settings.");
         }
 
-        $links = ShopeeProductLink::query()->where('product_id', $productId)->get();
+        $links = ShopeeListingLink::query()->where('product_id', $productId)->get();
         if ($links->isEmpty()) {
             return redirect()->back()->with('error', 'Product not linked to Shopee. Sync Product IDs first.');
         }
@@ -1179,7 +1179,7 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', "Missing Shopee {$modeLabel} settings.");
         }
 
-        $links = ShopeeProductLink::query()->where('product_id', $productId)->get();
+        $links = ShopeeListingLink::query()->where('product_id', $productId)->get();
         if ($links->isEmpty()) {
             return redirect()->back()->with('error', 'Product not linked to Shopee. Sync Product IDs first.');
         }
@@ -1203,7 +1203,7 @@ class ShopeeProductController extends Controller
 
     public function unlink(int $productId)
     {
-        $deleted = ShopeeProductLink::unlinkProduct($productId, (int) app('shopee.route-store')->id);
+        $deleted = ShopeeListingLink::unlinkProduct($productId, (int) app('shopee.route-store')->id);
 
         if ($deleted === 0) {
             return redirect()->back()->with('error', 'Product was not linked to Shopee.');
@@ -1221,7 +1221,7 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', "Missing Shopee {$modeLabel} credentials. Configure Shopee settings first.");
         }
 
-        $link = ShopeeProductLink::query()->where('product_id', $productId)->first();
+        $link = ShopeeListingLink::query()->where('product_id', $productId)->first();
         if (!$link || !$link->shopee_item_id) {
             return redirect()->back()->with('error', 'Product is not linked to a Shopee item.');
         }
@@ -1257,7 +1257,7 @@ class ShopeeProductController extends Controller
 
         if (($result['ok'] ?? false) && $respError === '') {
             ShopeeItemCache::query()->where('shopee_item_id', $link->shopee_item_id)->delete();
-            ShopeeProductLink::query()->where('product_id', $productId)->delete();
+            ShopeeListingLink::query()->where('product_id', $productId)->delete();
             $this->listingStates()->clearErrors([$productId]);
 
             ActivityLogger::log('deleted', 'Shopee Product', $productId, 'Deleted item ' . $itemId . ' from Shopee');
@@ -1291,7 +1291,7 @@ class ShopeeProductController extends Controller
 
         foreach ($productIds as $productId) {
             $productId = (int) $productId;
-            $link = ShopeeProductLink::query()->where('product_id', $productId)->first();
+            $link = ShopeeListingLink::query()->where('product_id', $productId)->first();
             if (!$link || !$link->shopee_item_id) {
                 $errCount++;
                 continue;
@@ -1326,7 +1326,7 @@ class ShopeeProductController extends Controller
 
             if (($result['ok'] ?? false) && $respError === '') {
                 ShopeeItemCache::query()->where('shopee_item_id', $link->shopee_item_id)->delete();
-                ShopeeProductLink::query()->where('product_id', $productId)->delete();
+                ShopeeListingLink::query()->where('product_id', $productId)->delete();
                 $this->listingStates()->clearErrors([$productId]);
                 $okCount++;
             } else {
@@ -1476,7 +1476,7 @@ class ShopeeProductController extends Controller
             return [null, 'No items found on Shopee.'];
         }
 
-        $linkedCombos = ShopeeProductLink::query()->get(['shopee_item_id', 'shopee_model_id']);
+        $linkedCombos = ShopeeListingLink::query()->get(['shopee_item_id', 'shopee_model_id']);
         $linkedSet = [];
         foreach ($linkedCombos as $lc) {
             $key = (string) $lc->shopee_item_id . ':' . (string) ($lc->shopee_model_id ?? '');
@@ -1622,7 +1622,7 @@ class ShopeeProductController extends Controller
             ->toArray();
         $disabledCount = count($ids) - count($enabledIds);
 
-        $links = ShopeeProductLink::query()->whereIn('product_id', $enabledIds)->get();
+        $links = ShopeeListingLink::query()->whereIn('product_id', $enabledIds)->get();
 
         $skip = count($enabledIds) - $links->pluck('product_id')->unique()->count();
 
@@ -1655,7 +1655,7 @@ class ShopeeProductController extends Controller
         }
 
         $pfx = (string) config('catalog.prefix');
-        $links = ShopeeProductLink::query()->whereIn('product_id', $ids)->get();
+        $links = ShopeeListingLink::query()->whereIn('product_id', $ids)->get();
 
         $skip = count($ids) - $links->pluck('product_id')->unique()->count();
 
@@ -1684,7 +1684,7 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', "Missing Shopee {$modeLabel} settings.");
         }
 
-        $existingLink = ShopeeProductLink::query()->where('product_id', $productId)->first();
+        $existingLink = ShopeeListingLink::query()->where('product_id', $productId)->first();
         if ($existingLink) {
             return redirect()->back()->with('status', 'Product already linked to Shopee item ' . $existingLink->shopee_item_id . ' (SKU: ' . $existingLink->sku . '). Use Unlink to re-sync.');
         }
@@ -1744,7 +1744,7 @@ class ShopeeProductController extends Controller
                 }
 
                 if ($isParent) {
-                    ShopeeProductLink::create([
+                    ShopeeListingLink::create([
                         'product_id' => $productId,
                         'shopee_item_id' => (int) $hit->shopee_item_id,
                         'shopee_model_id' => null,
@@ -1755,12 +1755,12 @@ class ShopeeProductController extends Controller
                         ->with('status', "Linked to Shopee item {$hit->shopee_item_id} \"{$hit->item_name}\" (SKU: {$hit->sku}) [from cache].");
                 }
 
-                $exists = ShopeeProductLink::query()
+                $exists = ShopeeListingLink::query()
                     ->where('shopee_item_id', $hit->shopee_item_id)
                     ->where('shopee_model_id', $hit->shopee_model_id)
                     ->exists();
                 if (!$exists) {
-                    ShopeeProductLink::create([
+                    ShopeeListingLink::create([
                         'product_id' => $productId,
                         'shopee_item_id' => (int) $hit->shopee_item_id,
                         'shopee_model_id' => (int) $hit->shopee_model_id,
@@ -1837,7 +1837,7 @@ class ShopeeProductController extends Controller
                     if (in_array(strtolower($itemSku), $lcSkus)) {
                         $erpHasOptions = $hasModel && !empty($ovSkus);
                         if (!$erpHasOptions) {
-                            ShopeeProductLink::create([
+                            ShopeeListingLink::create([
                                 'product_id' => $productId, 'shopee_item_id' => $itemId,
                                 'shopee_model_id' => null, 'sku' => $itemSku,
                             ]);
@@ -1888,12 +1888,12 @@ class ShopeeProductController extends Controller
                         }
 
                         if ($modelSku !== '' && in_array(strtolower($modelSku), $lcSkus)) {
-                            $exists = ShopeeProductLink::query()
+                            $exists = ShopeeListingLink::query()
                                 ->where('shopee_item_id', $itemId)
                                 ->where('shopee_model_id', $mId)
                                 ->exists();
                             if (!$exists) {
-                                ShopeeProductLink::create([
+                                ShopeeListingLink::create([
                                     'product_id' => $productId, 'shopee_item_id' => $itemId,
                                     'shopee_model_id' => $mId, 'sku' => $modelSku,
                                 ]);
@@ -1977,7 +1977,7 @@ class ShopeeProductController extends Controller
         }
 
         $storeId = (int) (ShopeeStore::defaultStore()?->id ?? 0);
-        $scoped = fn () => ShopeeProductLink::query()->whereNull('shopee_model_id')->when($storeId > 0, fn ($q) => $q->where('store_id', $storeId));
+        $scoped = fn () => ShopeeListingLink::query()->whereNull('shopee_model_id')->when($storeId > 0, fn ($q) => $q->where('store_id', $storeId));
         $held = $scoped()->where('product_id', (int) $data['product_id'])->whereNotNull('shopee_item_id')->first();
         if ($held && (string) $held->shopee_item_id !== (string) $data['ref']) {
             return redirect()->back()->with('error', 'Master Catalog product #' . $data['product_id'] . ' is already linked to Shopee item ' . $held->shopee_item_id . '. Unlink it first.');
@@ -1987,7 +1987,7 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', 'Shopee item ' . $data['ref'] . ' is already linked to Master Catalog product #' . $taken->product_id . '. Unlink that product first.');
         }
         if (! $held) {
-            ShopeeProductLink::create([
+            ShopeeListingLink::create([
                 'product_id' => (int) $data['product_id'],
                 'shopee_item_id' => (string) $data['ref'],
                 'shopee_model_id' => null,
@@ -2003,7 +2003,7 @@ class ShopeeProductController extends Controller
         return response()->json(\App\Support\CatalogPickerSearch::items((string) $request->get('q', ''), function (array $ids) {
             $storeId = (int) (ShopeeStore::defaultStore()?->id ?? 0);
 
-            return ShopeeProductLink::query()->whereIn('product_id', $ids)->whereNotNull('shopee_item_id')
+            return ShopeeListingLink::query()->whereIn('product_id', $ids)->whereNotNull('shopee_item_id')
                 ->when($storeId > 0, fn ($q) => $q->where('store_id', $storeId))
                 ->get(['product_id', 'shopee_item_id'])
                 ->mapWithKeys(fn ($l) => [(int) $l->product_id => 'Shopee item ' . $l->shopee_item_id])->all();
@@ -2235,7 +2235,7 @@ class ShopeeProductController extends Controller
         $product->name = html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
         $listing = ShopeeListing::query()->where('product_id', $productId)->first();
-        $links = ShopeeProductLink::query()->where('product_id', $productId)->get();
+        $links = ShopeeListingLink::query()->where('product_id', $productId)->get();
         $link = $links->first();
 
         $live = null;
@@ -2252,7 +2252,7 @@ class ShopeeProductController extends Controller
                 $mirror = $live !== null ? (string) ($live['item_status'] ?? '')
                     : (str_contains((string) $liveError, 'holds no record') ? 'MISSING' : '');
                 if ($mirror !== '') {
-                    ShopeeProductLink::query()->whereKey($link->id)
+                    ShopeeListingLink::query()->whereKey($link->id)
                         ->update(['live_status' => $mirror, 'live_checked_at' => now()]);
                 }
                 if ($live !== null && (empty($live['has_model']) || ($live['models'] ?? []) !== [])) {
@@ -2399,7 +2399,7 @@ class ShopeeProductController extends Controller
 
     public function rereadVariations(int $productId)
     {
-        $link = ShopeeProductLink::query()->where('product_id', $productId)->first();
+        $link = ShopeeListingLink::query()->where('product_id', $productId)->first();
         if (!$link) {
             return redirect()->back()->with('error', 'Product not linked to Shopee. Match a Shopee ID first.');
         }
@@ -2441,7 +2441,7 @@ class ShopeeProductController extends Controller
 
     public function pushMissingVariations(int $productId, ShopeeClient $client)
     {
-        $link = ShopeeProductLink::query()->where('product_id', $productId)->first();
+        $link = ShopeeListingLink::query()->where('product_id', $productId)->first();
         if (!$link) {
             return redirect()->back()->with('error', 'Product not linked to Shopee. Match a Shopee ID first.');
         }
@@ -2600,7 +2600,7 @@ class ShopeeProductController extends Controller
         $editRoute = $back !== '' ? [$productId, 'back' => $back] : $productId;
 
         if ($request->boolean('push_after')) {
-            if (ShopeeProductLink::query()->where('product_id', $productId)->exists()) {
+            if (ShopeeListingLink::query()->where('product_id', $productId)->exists()) {
                 $store = ShopeeStore::defaultStore()?->decrypted();
                 $auth = ShopeeStore::activeAuth($store);
                 if (!$store || !$auth['complete']) {
@@ -2666,7 +2666,7 @@ class ShopeeProductController extends Controller
 
     private function sendPriceAndStock(int $productId, array $auth, array $answer): array
     {
-        $links = ShopeeProductLink::query()->where('product_id', $productId)->get();
+        $links = ShopeeListingLink::query()->where('product_id', $productId)->get();
         if ($links->isEmpty()) {
             return $answer;
         }
@@ -2696,7 +2696,7 @@ class ShopeeProductController extends Controller
 
     private function attemptListingUpdate(int $productId, ShopeeClient $client, array $auth): array
     {
-        $link = ShopeeProductLink::query()->where('product_id', $productId)->first();
+        $link = ShopeeListingLink::query()->where('product_id', $productId)->first();
         if (!$link) {
             return ['ok' => false, 'message' => 'This product is not on Shopee yet, so there is nothing to update. Push it first.'];
         }
@@ -2846,7 +2846,7 @@ class ShopeeProductController extends Controller
 
         app(\Extensions\Shopee\Services\Shopee\ShopeeLiveListing::class)->confirm(
             $auth,
-            ShopeeProductLink::query()->where('product_id', $productId)->pluck('shopee_item_id')->all()
+            ShopeeListingLink::query()->where('product_id', $productId)->pluck('shopee_item_id')->all()
         );
 
         ActivityLogger::log(
@@ -2864,7 +2864,7 @@ class ShopeeProductController extends Controller
         $request->validate(['action' => 'required|in:list,unlist']);
         $unlist = $request->input('action') === 'unlist';
 
-        $link = ShopeeProductLink::query()->where('product_id', $productId)->first();
+        $link = ShopeeListingLink::query()->where('product_id', $productId)->first();
         if (!$link) {
             return redirect()->back()->with('error', 'This product is not on Shopee, so there is nothing to ' . ($unlist ? 'unlist' : 'relist') . '.');
         }

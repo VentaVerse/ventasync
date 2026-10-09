@@ -1402,14 +1402,14 @@ $pfx = config('catalog.prefix');
                     $oldSku = trim((string) ($existingPov[$key]->sku ?? ''));
                     $newSku = $data['sku'];
                     if ($oldSku !== '' && $newSku !== $oldSku) {
-                        DB::table('shopee_product_links')
+                        DB::table('shopee_listing_links')
                             ->where('product_id', $productId)
                             ->where('sku', $oldSku)
                             ->update(['sku' => $newSku]);
 
-                        DB::table('lazada_product_variants')
-                            ->whereIn('lazada_product_id', function ($q) use ($productId) {
-                                $q->select('id')->from('lazada_products')->where('product_id', $productId);
+                        DB::table('lazada_listing_variations')
+                            ->whereIn('lazada_listing_id', function ($q) use ($productId) {
+                                $q->select('id')->from('lazada_listings')->where('product_id', $productId);
                             })
                             ->where('seller_sku', $oldSku)
                             ->update(['seller_sku' => $newSku]);
@@ -1457,7 +1457,7 @@ $pfx = config('catalog.prefix');
         }
 
         if (!empty($deletedPovIds)) {
-            DB::table('lazada_product_variants')
+            DB::table('lazada_listing_variations')
                 ->whereIn('product_option_value_id', $deletedPovIds)
                 ->update(['product_option_value_id' => null]);
         }

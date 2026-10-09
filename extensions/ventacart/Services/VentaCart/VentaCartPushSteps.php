@@ -3,7 +3,7 @@
 namespace Extensions\VentaCart\Services\VentaCart;
 
 use App\Models\ScheduledJob;
-use Extensions\VentaCart\Models\VentaCartProductLink;
+use Extensions\VentaCart\Models\VentaCartListingLink;
 use Extensions\VentaCart\Models\VentaCartStore;
 
 final class VentaCartPushSteps
@@ -16,7 +16,7 @@ final class VentaCartPushSteps
         }
         $units = [];
         foreach ($stores->orderBy('id')->get() as $store) {
-            $pids = VentaCartProductLink::query()->where('store_id', $store->id)->whereNotNull('ventacart_product_id')
+            $pids = VentaCartListingLink::query()->where('store_id', $store->id)->whereNotNull('ventacart_product_id')
                 ->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
             foreach ($pids as $pid) {
                 $units[] = $store->id . ':' . $pid;

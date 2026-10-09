@@ -7,7 +7,7 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\Shopee\Models\ShopeeListing;
-use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -130,7 +130,7 @@ class ShopeeAddModelTest extends TestCase
 
     private function linkAndRule(int $productId): void
     {
-        ShopeeProductLink::create(['product_id' => $productId, 'shopee_item_id' => 800, 'shopee_model_id' => 81, 'sku' => 'PK-5']);
+        ShopeeListingLink::create(['product_id' => $productId, 'shopee_item_id' => 800, 'shopee_model_id' => 81, 'sku' => 'PK-5']);
         ShopeeListing::create(['product_id' => $productId, 'shopee_category_id' => 100139, 'markup_percent' => 0, 'markup_fixed' => 0]);
     }
 
@@ -180,7 +180,7 @@ class ShopeeAddModelTest extends TestCase
         $this->assertSame([1], $add['body']['model_list'][0]['tier_index']);
         $this->assertSame(950.0, (float) $add['body']['model_list'][0]['original_price']);
 
-        $models = ShopeeProductLink::query()->where('product_id', $pid)
+        $models = ShopeeListingLink::query()->where('product_id', $pid)
             ->pluck('shopee_model_id')->map(fn ($v) => (int) $v)->sort()->values()->all();
         $this->assertSame([81, 82], $models);
     }
@@ -281,7 +281,7 @@ class ShopeeAddModelTest extends TestCase
 
     private function linkForUpdate(int $productId): void
     {
-        ShopeeProductLink::create(['product_id' => $productId, 'shopee_item_id' => 800, 'shopee_model_id' => 81, 'sku' => 'PK-5']);
+        ShopeeListingLink::create(['product_id' => $productId, 'shopee_item_id' => 800, 'shopee_model_id' => 81, 'sku' => 'PK-5']);
         ShopeeListing::create(['product_id' => $productId, 'shopee_category_id' => 100139, 'logistic_ids' => [8003]]);
     }
 
@@ -475,8 +475,8 @@ class ShopeeAddModelTest extends TestCase
             ['PK-5' => ['5 pcs'], 'PK-10' => ['10 pcs'], 'PK-20' => ['20 pcs']]
         );
         $this->linkForUpdate($pid);
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 800, 'shopee_model_id' => 82, 'sku' => 'PK-10']);
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 800, 'shopee_model_id' => 83, 'sku' => 'PK-20']);
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 800, 'shopee_model_id' => 82, 'sku' => 'PK-10']);
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 800, 'shopee_model_id' => 83, 'sku' => 'PK-20']);
 
         return $pid;
     }
@@ -532,7 +532,7 @@ class ShopeeAddModelTest extends TestCase
         $this->assertStringStartsWith('Update pushed.', $status);
         $this->assertStringContainsString('Removed from Shopee: 10 pcs (PK-10).', $status);
 
-        $this->assertSame([81, 83], ShopeeProductLink::query()->where('product_id', $pid)->orderBy('shopee_model_id')
+        $this->assertSame([81, 83], ShopeeListingLink::query()->where('product_id', $pid)->orderBy('shopee_model_id')
             ->pluck('shopee_model_id')->map(fn ($v) => (int) $v)->all(), 'The deleted model takes its link with it.');
         $this->assertSame(['PK-20', 'PK-5'], $this->rememberedSkus($pid), 'The item is remembered holding what is left.');
         $this->assertNull(ShopeeListing::query()->where('product_id', $pid)->value('last_push_error'));
@@ -541,7 +541,7 @@ class ShopeeAddModelTest extends TestCase
     public function test_switching_it_back_on_adds_it_through_the_add_path(): void
     {
         $pid = $this->threePacksOnTheItem();
-        ShopeeProductLink::query()->where('shopee_model_id', 82)->delete();
+        ShopeeListingLink::query()->where('shopee_model_id', 82)->delete();
         $reads = 0;
         $this->getResponses['/api/v2/product/get_model_list'] = function () use (&$reads) {
             $reads++;
@@ -570,7 +570,7 @@ class ShopeeAddModelTest extends TestCase
         $this->assertSame(2, $reads, 'One read for the update, one after the add to learn the new model.');
 
         $this->assertStringContainsString('Added to Shopee: 10 pcs (PK-10).', (string) session('status'));
-        $this->assertTrue(ShopeeProductLink::query()->where('product_id', $pid)->where('shopee_model_id', 84)->exists());
+        $this->assertTrue(ShopeeListingLink::query()->where('product_id', $pid)->where('shopee_model_id', 84)->exists());
         $this->assertSame(['PK-10', 'PK-20', 'PK-5'], $this->rememberedSkus($pid));
     }
 
@@ -598,14 +598,14 @@ class ShopeeAddModelTest extends TestCase
         $this->assertStringStartsWith('Not removed from Shopee: 10 pcs (PK-10) (', $error);
         $this->assertStringContainsString('promotion', $error, 'Shopee\'s reason is kept.');
         $this->assertStringContainsString('Update pushed.', (string) session('error'));
-        $this->assertTrue(ShopeeProductLink::query()->where('shopee_model_id', 82)->exists(), 'A model still live keeps its link.');
+        $this->assertTrue(ShopeeListingLink::query()->where('shopee_model_id', 82)->exists(), 'A model still live keeps its link.');
         $this->assertSame([], $this->sentTo('/api/v2/product/add_model'));
     }
 
     public function test_the_last_remaining_model_is_never_deleted(): void
     {
         $pid = $this->variationProduct(['Pack size' => ['5 pcs', '10 pcs']], ['PK-5' => ['5 pcs'], 'PK-10' => ['10 pcs']]);
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 800, 'shopee_model_id' => 82, 'sku' => 'PK-10']);
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 800, 'shopee_model_id' => 82, 'sku' => 'PK-10']);
         ShopeeListing::create(['product_id' => $pid, 'shopee_category_id' => 100139, 'logistic_ids' => [8003]]);
         \App\Channels\Listings\ListingVariations::save('shopee', $this->storeId(), $pid, ['PK-5']);
         $this->itemHolds([
@@ -691,7 +691,7 @@ class ShopeeAddModelTest extends TestCase
 
         $this->assertSame([['item_id' => 800, 'model_id' => 83]], $this->sentTo('/api/v2/product/delete_model'));
         $this->assertStringContainsString("#{$pid}: Removed from Shopee: 20 pcs (PK-20).", (string) session('status'));
-        $this->assertFalse(ShopeeProductLink::query()->where('shopee_model_id', 83)->exists());
+        $this->assertFalse(ShopeeListingLink::query()->where('shopee_model_id', 83)->exists());
     }
 
     public function test_a_refused_rename_call_warns_and_the_update_goes(): void

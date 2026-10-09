@@ -7,7 +7,7 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\Shopee\Models\ShopeeListing;
-use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeListingStates;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -63,10 +63,10 @@ class ShopeeListingStatusMenuTest extends TestCase
     private function store(): void
     {
         $listedOk = $this->product('Listed and fine', 'SMN-1');
-        ShopeeProductLink::query()->create(['product_id' => $listedOk, 'shopee_item_id' => 9001, 'sku' => 'SMN-1', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+        ShopeeListingLink::query()->create(['product_id' => $listedOk, 'shopee_item_id' => 9001, 'sku' => 'SMN-1', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
 
         $listedFailed = $this->product('Listed but failed', 'SMN-2');
-        ShopeeProductLink::query()->create(['product_id' => $listedFailed, 'shopee_item_id' => 9002, 'sku' => 'SMN-2', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+        ShopeeListingLink::query()->create(['product_id' => $listedFailed, 'shopee_item_id' => 9002, 'sku' => 'SMN-2', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
         app(ShopeeListingStates::class)->recordOutcome($listedFailed, 'Push failed: Category is invalid.');
 
         $this->product('Not on Shopee yet', 'SMN-3');

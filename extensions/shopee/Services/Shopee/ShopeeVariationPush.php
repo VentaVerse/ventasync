@@ -4,7 +4,7 @@ namespace Extensions\Shopee\Services\Shopee;
 
 use Extensions\Shopee\Models\ShopeeApiLog;
 use Extensions\Shopee\Models\ShopeeItemCache;
-use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Illuminate\Support\Facades\DB;
 
 class ShopeeVariationPush
@@ -288,7 +288,7 @@ class ShopeeVariationPush
         $ok = ($result['ok'] ?? false) && (($result['body']['error'] ?? '') === '' || ($result['body']['error'] ?? null) === null);
 
         if ($ok && $this->itemIsGone($client, $auth, $itemId)) {
-            ShopeeProductLink::query()->where('product_id', $productId)->where('shopee_item_id', $itemId)->delete();
+            ShopeeListingLink::query()->where('product_id', $productId)->where('shopee_item_id', $itemId)->delete();
             ShopeeItemCache::query()->where('shopee_item_id', $itemId)->delete();
         }
 
@@ -405,7 +405,7 @@ class ShopeeVariationPush
 
         $stored = 0;
         if (!empty($skuToModel)) {
-            ShopeeProductLink::query()
+            ShopeeListingLink::query()
                 ->where('product_id', $productId)
                 ->whereNull('shopee_model_id')
                 ->delete();
@@ -415,7 +415,7 @@ class ShopeeVariationPush
                 if ($modelId === null) {
                     continue;
                 }
-                ShopeeProductLink::query()->updateOrCreate(
+                ShopeeListingLink::query()->updateOrCreate(
                     ['product_id' => $productId, 'shopee_item_id' => $itemId, 'shopee_model_id' => $modelId],
                     ['sku' => $sku]
                 );

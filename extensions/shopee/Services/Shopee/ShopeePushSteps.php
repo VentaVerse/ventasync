@@ -3,7 +3,7 @@
 namespace Extensions\Shopee\Services\Shopee;
 
 use Extensions\Shopee\Commands\ShopeePushPrice;
-use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Support\Facades\DB;
 
@@ -14,7 +14,7 @@ final class ShopeePushSteps
         $pfx = (string) config('catalog.prefix');
         $units = [];
         foreach (ShopeeStore::query()->where('enabled', true)->orderBy('id')->get() as $store) {
-            $pids = ShopeeProductLink::forStore($store)->whereNotNull('shopee_item_id')->distinct()->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
+            $pids = ShopeeListingLink::forStore($store)->whereNotNull('shopee_item_id')->distinct()->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
             if ($pids === []) {
                 continue;
             }
@@ -51,7 +51,7 @@ final class ShopeePushSteps
                 if (! $auth['complete']) {
                     return ['error' => 'Store ' . ($store->store_name ?: '#' . $store->id) . ' is not connected to Shopee.'];
                 }
-                $links = ShopeeProductLink::forStore($store)->whereIn('product_id', $pids)->get();
+                $links = ShopeeListingLink::forStore($store)->whereIn('product_id', $pids)->get();
                 $results = app(ShopeeStockPricePush::class)->push($kind, $auth, $links, $pfx, $kind === 'price' ? ShopeePushPrice::priceRule($pids) : null);
                 foreach ($pids as $pid) {
                     $outcome = $results['outcomes'][$pid] ?? null;

@@ -3,7 +3,7 @@
 namespace Extensions\Shopee\Services\Shopee;
 
 use Extensions\Shopee\Models\ShopeeApiLog;
-use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Extensions\Shopee\Services\ShopeeStockPushService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -52,7 +52,7 @@ class ShopeeStockPricePush
             }
         }
         if ($itemsToHeal->isNotEmpty()) {
-            $links = ShopeeProductLink::query()->whereIn('product_id', $productIds)->get();
+            $links = ShopeeListingLink::query()->whereIn('product_id', $productIds)->get();
         }
 
         $rows = $this->resolver->resolve($links, $pfx);
@@ -132,7 +132,7 @@ class ShopeeStockPricePush
             }
             if ($healedAny) {
                 $out['healed_items'][] = $itemId;
-                $fresh = ShopeeProductLink::query()
+                $fresh = ShopeeListingLink::query()
                     ->whereIn('product_id', $pids->all())
                     ->where('shopee_item_id', $itemId)
                     ->get();

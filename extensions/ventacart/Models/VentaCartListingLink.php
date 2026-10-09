@@ -5,9 +5,9 @@ namespace Extensions\VentaCart\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class VentaCartProductLink extends Model
+class VentaCartListingLink extends Model
 {
-    protected $table = 'ventacart_product_links';
+    protected $table = 'ventacart_listing_links';
 
     protected $fillable = [
         'store_id',

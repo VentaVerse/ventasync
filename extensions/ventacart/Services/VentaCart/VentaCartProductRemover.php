@@ -4,7 +4,7 @@ namespace Extensions\VentaCart\Services\VentaCart;
 
 use Extensions\VentaCart\Models\VentaCartListing;
 use Extensions\VentaCart\Models\VentaCartProductGroupProduct;
-use Extensions\VentaCart\Models\VentaCartProductLink;
+use Extensions\VentaCart\Models\VentaCartListingLink;
 use Extensions\VentaCart\Models\VentaCartStore;
 use Illuminate\Support\Facades\DB;
 
@@ -12,7 +12,7 @@ final class VentaCartProductRemover
 {
     public function presence(array $productIds): array
     {
-        $links = VentaCartProductLink::query()->whereIn('product_id', $productIds)->get();
+        $links = VentaCartListingLink::query()->whereIn('product_id', $productIds)->get();
         if ($links->isEmpty()) {
             return [];
         }
@@ -36,7 +36,7 @@ final class VentaCartProductRemover
 
     public function remove(int $productId): array
     {
-        $links = VentaCartProductLink::query()->where('product_id', $productId)->get();
+        $links = VentaCartListingLink::query()->where('product_id', $productId)->get();
         $stores = $this->stores($links->pluck('store_id'));
         $stays = [];
         foreach ($links as $link) {
@@ -50,7 +50,7 @@ final class VentaCartProductRemover
         foreach ($storeIds as $storeId) {
             VentaCartListingStates::for($storeId)->clearErrors([$productId]);
         }
-        VentaCartProductLink::query()->where('product_id', $productId)->delete();
+        VentaCartListingLink::query()->where('product_id', $productId)->delete();
         VentaCartListing::query()->where('product_id', $productId)->delete();
         VentaCartProductGroupProduct::query()->where('product_id', $productId)->delete();
 
@@ -61,7 +61,7 @@ final class VentaCartProductRemover
     {
         $pfx = (string) config('catalog.prefix');
         $ids = [];
-        foreach (['ventacart_product_links', 'ventacart_listings', 'ventacart_product_group_products'] as $table) {
+        foreach (['ventacart_listing_links', 'ventacart_listings', 'ventacart_product_group_products'] as $table) {
             $ids = array_merge($ids, DB::table($table)
                 ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from($pfx . 'product as op')->whereColumn('op.product_id', $table . '.product_id'))
                 ->distinct()->pluck('product_id')->map(fn ($v) => (int) $v)->all());

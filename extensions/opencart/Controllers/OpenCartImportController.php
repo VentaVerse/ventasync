@@ -3,7 +3,7 @@
 namespace Extensions\OpenCart\Controllers;
 
 use App\Http\Controllers\Controller;
-use Extensions\OpenCart\Models\OpenCartProductLink;
+use Extensions\OpenCart\Models\OpenCartListingLink;
 use Extensions\OpenCart\Models\OpenCartStore;
 use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
 use Extensions\OpenCart\Services\OpenCart\OpenCartItemImport;
@@ -39,7 +39,7 @@ class OpenCartImportController extends Controller
 
         $client = new OpenCartClient($store);
         $known = $this->knownSkus();
-        $linked = OpenCartProductLink::query()
+        $linked = OpenCartListingLink::query()
             ->where('store_id', $store->id)
             ->pluck('oc_product_id')
             ->flip();
@@ -128,7 +128,7 @@ class OpenCartImportController extends Controller
             return redirect()->back()->with('error', 'That Master Catalog product does not exist.');
         }
 
-        OpenCartProductLink::updateOrCreate(
+        OpenCartListingLink::updateOrCreate(
             ['store_id' => $store, 'oc_product_id' => (int) $data['ref']],
             ['product_id' => (int) $data['product_id'], 'sku' => trim((string) ($data['sku'] ?? '')) ?: null]
         );

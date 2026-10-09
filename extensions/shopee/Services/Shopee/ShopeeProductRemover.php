@@ -5,7 +5,7 @@ namespace Extensions\Shopee\Services\Shopee;
 use Extensions\Shopee\Models\ShopeeItemCache;
 use Extensions\Shopee\Models\ShopeeListing;
 use Extensions\Shopee\Models\ShopeeProductGroupProduct;
-use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Support\Facades\DB;
 
@@ -15,7 +15,7 @@ final class ShopeeProductRemover
 
     public function presence(array $productIds): array
     {
-        $links = ShopeeProductLink::query()->whereIn('product_id', $productIds)->whereNotNull('shopee_item_id')->get();
+        $links = ShopeeListingLink::query()->whereIn('product_id', $productIds)->whereNotNull('shopee_item_id')->get();
         if ($links->isEmpty()) {
             return [];
         }
@@ -43,7 +43,7 @@ final class ShopeeProductRemover
 
     public function remove(int $productId): array
     {
-        $links = ShopeeProductLink::query()->where('product_id', $productId)->get();
+        $links = ShopeeListingLink::query()->where('product_id', $productId)->get();
         $stores = $this->stores($links->pluck('store_id'));
         $stays = [];
 
@@ -60,7 +60,7 @@ final class ShopeeProductRemover
             }
             ShopeeItemCache::query()->where('store_id', (int) $link->store_id)->where('shopee_item_id', (int) $link->shopee_item_id)->delete();
         }
-        ShopeeProductLink::query()->where('product_id', $productId)->delete();
+        ShopeeListingLink::query()->where('product_id', $productId)->delete();
         ShopeeListing::query()->where('product_id', $productId)->delete();
         ShopeeProductGroupProduct::query()->where('product_id', $productId)->delete();
 
@@ -71,7 +71,7 @@ final class ShopeeProductRemover
     {
         $pfx = (string) config('catalog.prefix');
         $ids = [];
-        foreach (['shopee_product_links', 'shopee_listings', 'shopee_product_group_products'] as $table) {
+        foreach (['shopee_listing_links', 'shopee_listings', 'shopee_product_group_products'] as $table) {
             $ids = array_merge($ids, DB::table($table)
                 ->whereNotNull('product_id')
                 ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from($pfx . 'product as op')->whereColumn('op.product_id', $table . '.product_id'))

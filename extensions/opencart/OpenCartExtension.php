@@ -17,7 +17,7 @@ use App\Channels\MenuItem;
 use App\Channels\OrderTab;
 use App\Channels\StoreLink;
 use App\Models\Catalog\OrderStatus;
-use Extensions\OpenCart\Models\OpenCartProductLink;
+use Extensions\OpenCart\Models\OpenCartListingLink;
 use Extensions\OpenCart\Models\OpenCartStore;
 use Extensions\OpenCart\Models\OpenCartSyncLog;
 use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
@@ -243,7 +243,7 @@ class OpenCartExtension extends ExtensionProvider implements ChannelProvider, Sk
 
         $results = [];
         foreach ($stores as $store) {
-            $link = OpenCartProductLink::where('store_id', $store->id)
+            $link = OpenCartListingLink::where('store_id', $store->id)
                 ->where('product_id', $productId)
                 ->first();
             if (!$link) {

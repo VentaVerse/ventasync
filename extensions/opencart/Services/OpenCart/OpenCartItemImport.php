@@ -2,7 +2,7 @@
 
 namespace Extensions\OpenCart\Services\OpenCart;
 
-use Extensions\OpenCart\Models\OpenCartProductLink;
+use Extensions\OpenCart\Models\OpenCartListingLink;
 use Extensions\OpenCart\Models\OpenCartStore;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -90,7 +90,7 @@ class OpenCartItemImport
                     $this->writeVariations($productId, $sku, (float) ($item['price'] ?? 0), $optionValues);
                 }
 
-                OpenCartProductLink::updateOrCreate(
+                OpenCartListingLink::updateOrCreate(
                     ['store_id' => $store->id, 'oc_product_id' => (int) $ocProductId],
                     ['product_id' => $productId, 'sku' => $sku ?: null]
                 );

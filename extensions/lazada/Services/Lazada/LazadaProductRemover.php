@@ -2,10 +2,10 @@
 
 namespace Extensions\Lazada\Services\Lazada;
 
-use Extensions\Lazada\Models\LazadaProduct;
-use Extensions\Lazada\Models\LazadaProductAttribute;
+use Extensions\Lazada\Models\LazadaListing;
+use Extensions\Lazada\Models\LazadaListingAttribute;
 use Extensions\Lazada\Models\LazadaProductGroupProduct;
-use Extensions\Lazada\Models\LazadaProductVariant;
+use Extensions\Lazada\Models\LazadaListingVariation;
 use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Support\Facades\DB;
 
@@ -15,7 +15,7 @@ final class LazadaProductRemover
 
     public function presence(array $productIds): array
     {
-        $rows = LazadaProduct::query()->whereIn('product_id', $productIds)
+        $rows = LazadaListing::query()->whereIn('product_id', $productIds)
             ->whereNotNull('lazada_item_id')->whereNull('lazada_deleted_at')->get();
         if ($rows->isEmpty()) {
             return [];
@@ -38,7 +38,7 @@ final class LazadaProductRemover
 
     public function remove(int $productId): array
     {
-        $rows = LazadaProduct::query()->where('product_id', $productId)->get();
+        $rows = LazadaListing::query()->where('product_id', $productId)->get();
         $stores = $this->stores($rows->pluck('store_id'));
         foreach ($rows->pluck('store_id')->filter()->unique() as $storeId) {
             LazadaListingStates::on((int) $storeId)->clearErrors([$productId]);
@@ -52,9 +52,9 @@ final class LazadaProductRemover
             if ($onLazada) {
                 $stays['Lazada (' . ($stores[$storeId] ?? 'store #' . $storeId) . ')'] = true;
             }
-            LazadaProductAttribute::query()->where('lazada_product_id', $row->id)->delete();
-            LazadaProductVariant::query()->where('lazada_product_id', $row->id)->delete();
-            LazadaProductGroupProduct::query()->where('lazada_product_id', $row->id)->delete();
+            LazadaListingAttribute::query()->where('lazada_listing_id', $row->id)->delete();
+            LazadaListingVariation::query()->where('lazada_listing_id', $row->id)->delete();
+            LazadaProductGroupProduct::query()->where('lazada_listing_id', $row->id)->delete();
             $row->delete();
         }
         LazadaProductGroupProduct::query()->where('product_id', $productId)->delete();
@@ -66,7 +66,7 @@ final class LazadaProductRemover
     {
         $pfx = (string) config('catalog.prefix');
         $ids = [];
-        foreach (['lazada_products', 'lazada_product_group_products'] as $table) {
+        foreach (['lazada_listings', 'lazada_product_group_products'] as $table) {
             $ids = array_merge($ids, DB::table($table)
                 ->whereNotNull('product_id')
                 ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from($pfx . 'product as op')->whereColumn('op.product_id', $table . '.product_id'))

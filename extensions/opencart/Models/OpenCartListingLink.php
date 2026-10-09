@@ -4,9 +4,9 @@ namespace Extensions\OpenCart\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class OpenCartProductLink extends Model
+class OpenCartListingLink extends Model
 {
-    protected $table = 'opencart_product_links';
+    protected $table = 'opencart_listing_links';
 
     protected $fillable = [
         'store_id',

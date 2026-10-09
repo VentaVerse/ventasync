@@ -6,7 +6,7 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaListing;
 use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -79,7 +79,7 @@ class CatalogChangeTest extends TestCase
     {
         $pid = $this->product('Qable Circa TRS Plug', '<p>Gold tip, black body.</p>');
 
-        $listing = LazadaProduct::query()->create(['product_id' => $pid]);
+        $listing = LazadaListing::query()->create(['product_id' => $pid]);
 
         $this->assertSame('Qable Circa TRS Plug', $listing->item_name);
         $this->assertSame('<p>Gold tip, black body.</p>', $listing->description);
@@ -91,7 +91,7 @@ class CatalogChangeTest extends TestCase
     public function test_a_catalog_edit_does_not_reach_the_listing_and_shows_a_catalog_change(): void
     {
         $pid = $this->product('Plug', '<p>First words.</p>');
-        $listing = LazadaProduct::query()->create(['product_id' => $pid]);
+        $listing = LazadaListing::query()->create(['product_id' => $pid]);
 
         $this->editCatalog($pid, ['description' => '<p>adfasfasfdasfasfasf</p>']);
 
@@ -109,7 +109,7 @@ class CatalogChangeTest extends TestCase
     public function test_the_same_values_raise_nothing_even_when_the_catalog_was_saved(): void
     {
         $pid = $this->product('Plug', '<p>Words.</p>');
-        $listing = LazadaProduct::query()->create(['product_id' => $pid]);
+        $listing = LazadaListing::query()->create(['product_id' => $pid]);
         $seen = $listing->catalog_seen_at;
 
         $this->editCatalog($pid);
@@ -127,7 +127,7 @@ class CatalogChangeTest extends TestCase
     public function test_ignore_clears_the_catalog_change_and_keeps_the_listing(): void
     {
         $pid = $this->product('Plug', '<p>First words.</p>');
-        LazadaProduct::query()->create(['product_id' => $pid]);
+        LazadaListing::query()->create(['product_id' => $pid]);
         $this->editCatalog($pid, ['name' => 'Plug, renamed']);
 
         $this->actingAs($this->user(false))
@@ -135,7 +135,7 @@ class CatalogChangeTest extends TestCase
             ->assertRedirect('/channels')
             ->assertSessionHas('status', 'Catalog change ignored.');
 
-        $listing = LazadaProduct::query()->where('product_id', $pid)->first();
+        $listing = LazadaListing::query()->where('product_id', $pid)->first();
         $this->assertSame('Plug', $listing->item_name);
         $this->assertSame([], $listing->catalogChange());
 
@@ -146,7 +146,7 @@ class CatalogChangeTest extends TestCase
     public function test_save_writes_both_sides_and_clears_the_catalog_change(): void
     {
         $pid = $this->product('Plug', '<p>First words.</p>');
-        LazadaProduct::query()->create(['product_id' => $pid]);
+        LazadaListing::query()->create(['product_id' => $pid]);
         $this->editCatalog($pid, ['description' => '<p>Catalog words.</p>']);
 
         $this->actingAs($this->user(true))->post(route('ext.lazada.products.catalog_change_save', $pid), [
@@ -163,7 +163,7 @@ class CatalogChangeTest extends TestCase
         $this->assertSame('Plug, catalog name', DB::table($pfx . 'product_description')->where('product_id', $pid)->value('name'));
         $this->assertEquals(150, (float) DB::table($pfx . 'product')->where('product_id', $pid)->value('price'));
 
-        $listing = LazadaProduct::query()->where('product_id', $pid)->first();
+        $listing = LazadaListing::query()->where('product_id', $pid)->first();
         $this->assertSame('Plug for Lazada', $listing->item_name);
         $this->assertSame('<p>Catalog words.</p>', $listing->description);
         $this->assertNull($listing->price, 'a price equal to the catalog\'s at save stays blank, so it keeps following');
@@ -175,7 +175,7 @@ class CatalogChangeTest extends TestCase
         $pid = $this->product('Plug', '<p>Words.</p>');
         $pfx = (string) config('catalog.prefix');
         DB::table($pfx . 'product')->where('product_id', $pid)->update(['weight' => 0, 'length' => 2.5]);
-        LazadaProduct::query()->create(['product_id' => $pid]);
+        LazadaListing::query()->create(['product_id' => $pid]);
         $this->editCatalog($pid, ['name' => 'Plug v2']);
 
         $page = $this->actingAs($this->user(true))->get(route('ext.lazada.products.edit', $pid))->assertOk()->getContent();
@@ -194,7 +194,7 @@ class CatalogChangeTest extends TestCase
 
         $this->assertEquals(0, (float) DB::table($pfx . 'product')->where('product_id', $pid)->value('weight'), 'an empty catalog weight saves as it was');
         $this->assertEquals(2.5, (float) DB::table($pfx . 'product')->where('product_id', $pid)->value('length'));
-        $listing = LazadaProduct::query()->where('product_id', $pid)->first();
+        $listing = LazadaListing::query()->where('product_id', $pid)->first();
         $this->assertNull($listing->package_length, 'the listing keeps following the catalog size');
         $this->assertNull($listing->weight);
         $this->assertSame([], $listing->catalogChange());
@@ -203,7 +203,7 @@ class CatalogChangeTest extends TestCase
     public function test_without_catalog_permission_save_leaves_the_catalog_alone(): void
     {
         $pid = $this->product('Plug', '<p>Words.</p>');
-        LazadaProduct::query()->create(['product_id' => $pid]);
+        LazadaListing::query()->create(['product_id' => $pid]);
         $this->editCatalog($pid, ['name' => 'Plug v2']);
 
         $this->actingAs($this->user(false))->post(route('ext.lazada.products.catalog_change_save', $pid), [
@@ -213,7 +213,7 @@ class CatalogChangeTest extends TestCase
 
         $pfx = (string) config('catalog.prefix');
         $this->assertSame('Plug v2', DB::table($pfx . 'product_description')->where('product_id', $pid)->value('name'));
-        $this->assertSame('Plug v2', LazadaProduct::query()->where('product_id', $pid)->value('item_name'));
+        $this->assertSame('Plug v2', LazadaListing::query()->where('product_id', $pid)->value('item_name'));
     }
 
     public function test_the_image_library_opens_above_the_comparison_panel(): void
@@ -231,7 +231,7 @@ class CatalogChangeTest extends TestCase
     public function test_the_listings_table_button_opens_the_comparison(): void
     {
         $pid = $this->product('Plug', '<p>Words.</p>');
-        LazadaProduct::query()->create(['product_id' => $pid]);
+        LazadaListing::query()->create(['product_id' => $pid]);
         $this->editCatalog($pid, ['name' => 'Plug v2']);
 
         $this->actingAs($this->user(false))->get(route('ext.lazada.products.index'))

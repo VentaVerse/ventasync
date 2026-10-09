@@ -79,7 +79,7 @@ class ReadRouteDoesNotWriteTest extends TestCase
             'sync_status' => 'pending',
         ]);
 
-        DB::table('shopee_product_links')->insert([
+        DB::table('shopee_listing_links')->insert([
             'store_id' => \Extensions\Shopee\Models\ShopeeStore::query()->orderBy('id')->value('id')
                 ?? \Extensions\Shopee\Models\ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store'])->id,
             'product_id' => self::PRODUCT,

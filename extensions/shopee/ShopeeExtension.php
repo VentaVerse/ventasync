@@ -22,7 +22,7 @@ use App\Channels\MenuItem;
 use App\Channels\OrderTab;
 use Extensions\Shopee\Models\ShopeeApiLog;
 use Extensions\Shopee\Models\ShopeeOrder;
-use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Support\Facades\DB;
@@ -299,7 +299,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
 
     public function pushSkuChanges(int $productId, array $skuChanges): ?string
     {
-        $links = ShopeeProductLink::where('product_id', $productId)->get();
+        $links = ShopeeListingLink::where('product_id', $productId)->get();
         if ($links->isEmpty()) {
             return null;
         }
@@ -330,7 +330,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
         return empty($results) ? null : 'Shopee: ' . implode('; ', $results);
     }
 
-    private function shopeeUpdateItemSku(ShopeeProductLink $link, int $itemId, string $newSku): ?string
+    private function shopeeUpdateItemSku(ShopeeListingLink $link, int $itemId, string $newSku): ?string
     {
         $store = ShopeeStore::defaultStore()?->decrypted();
         $auth = ShopeeStore::activeAuth($store);
@@ -832,11 +832,11 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
 
     public function listedProductIds(): array
     {
-        if (! Schema::hasTable('shopee_product_links')) {
+        if (! Schema::hasTable('shopee_listing_links')) {
             return [];
         }
 
-        return \Extensions\Shopee\Models\ShopeeProductLink::query()
+        return \Extensions\Shopee\Models\ShopeeListingLink::query()
             ->whereNotNull('shopee_item_id')
             ->distinct()->pluck('product_id')->map(fn ($v) => (int) $v)->all();
     }
@@ -946,7 +946,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
                 return 'item push without a status; nothing applied';
             }
             $store = $this->webhookStore((array) $event->payload);
-            $n = ShopeeProductLink::query()
+            $n = ShopeeListingLink::query()
                 ->when($store !== null, fn ($q) => $q->where('store_id', $store->id))
                 ->where('shopee_item_id', $itemId)
                 ->update(['live_status' => $status, 'live_checked_at' => now()]);

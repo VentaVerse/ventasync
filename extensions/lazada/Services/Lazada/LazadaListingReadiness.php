@@ -6,7 +6,7 @@ use App\Channels\Listings\CatalogGaps;
 use App\Channels\Listings\ListingState;
 use Extensions\Lazada\Models\LazadaCategory;
 use Extensions\Lazada\Models\LazadaCategoryTemplate;
-use Extensions\Lazada\Models\LazadaProductAttribute;
+use Extensions\Lazada\Models\LazadaListingAttribute;
 use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -64,10 +64,10 @@ class LazadaListingReadiness
             ->get()
             ->keyBy('primary_category_id');
 
-        $savedAttrs = LazadaProductAttribute::query()
-            ->whereIn('lazada_product_id', $listings->pluck('id')->all())
+        $savedAttrs = LazadaListingAttribute::query()
+            ->whereIn('lazada_listing_id', $listings->pluck('id')->all())
             ->get()
-            ->groupBy('lazada_product_id');
+            ->groupBy('lazada_listing_id');
 
         $povByProduct = DB::table($pfx . 'product_option_value as pov')
             ->leftJoin($pfx . 'option_description as od', function ($j) use ($langId) {

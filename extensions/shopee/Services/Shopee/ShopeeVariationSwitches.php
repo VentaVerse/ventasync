@@ -6,7 +6,7 @@ use App\Channels\Listings\ListingVariations;
 use App\Channels\Push\PushLedger;
 use Extensions\Shopee\Models\ShopeeApiLog;
 use Extensions\Shopee\Models\ShopeeItemCache;
-use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Illuminate\Support\Facades\DB;
 
 final class ShopeeVariationSwitches
@@ -213,7 +213,7 @@ final class ShopeeVariationSwitches
     private function remember(array $auth, int $productId, int $itemId, array $models, array $gone, array $addedSkus): void
     {
         if ($gone !== []) {
-            ShopeeProductLink::query()->where('product_id', $productId)->where('shopee_item_id', $itemId)
+            ShopeeListingLink::query()->where('product_id', $productId)->where('shopee_item_id', $itemId)
                 ->whereIn('shopee_model_id', $gone)->delete();
             ShopeeItemCache::query()->where('shopee_item_id', $itemId)->whereIn('shopee_model_id', $gone)->delete();
         }

@@ -110,12 +110,12 @@ class LazadaLiveListing
         foreach ($byStatus as $status => $ids) {
             $counts[$status] = 0;
             foreach (array_chunk($ids, 500) as $chunk) {
-                $counts[$status] += \Extensions\Lazada\Models\LazadaProduct::query()
+                $counts[$status] += \Extensions\Lazada\Models\LazadaListing::query()
                     ->whereIn('lazada_item_id', $chunk)
                     ->update(['live_status' => $status, 'live_checked_at' => $now]);
             }
         }
-        $missing = \Extensions\Lazada\Models\LazadaProduct::query()
+        $missing = \Extensions\Lazada\Models\LazadaListing::query()
             ->whereNotNull('lazada_item_id')->where('lazada_item_id', '!=', '')
             ->whereNotIn('lazada_item_id', array_map('strval', array_keys($statusById)) ?: ['-none-'])
             ->update(['live_status' => 'missing', 'live_checked_at' => $now]);
@@ -126,7 +126,7 @@ class LazadaLiveListing
         return [
             'error' => null,
             'counts' => array_filter($counts),
-            'links' => (int) \Extensions\Lazada\Models\LazadaProduct::query()
+            'links' => (int) \Extensions\Lazada\Models\LazadaListing::query()
                 ->whereNotNull('lazada_item_id')->where('lazada_item_id', '!=', '')->count(),
         ];
     }

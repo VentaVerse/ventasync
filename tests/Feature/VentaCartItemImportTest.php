@@ -6,7 +6,7 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\VentaCart\Models\VentaCartProductLink;
+use Extensions\VentaCart\Models\VentaCartListingLink;
 use Extensions\VentaCart\Models\VentaCartStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -134,7 +134,7 @@ class VentaCartItemImportTest extends TestCase
         $this->assertEqualsCanonicalizing(['IMP-1-RED', 'IMP-1-BLUE'], $variantSkus,
             'variants become a single Variation axis with their own SKUs');
 
-        $link = VentaCartProductLink::query()->where('product_id', $product->product_id)->first();
+        $link = VentaCartListingLink::query()->where('product_id', $product->product_id)->first();
         $this->assertNotNull($link);
         $this->assertSame(77, (int) $link->ventacart_product_id);
     }
@@ -206,7 +206,7 @@ class VentaCartItemImportTest extends TestCase
             ])
             ->assertRedirect();
 
-        $link = VentaCartProductLink::query()->where('product_id', $pid)->first();
+        $link = VentaCartListingLink::query()->where('product_id', $pid)->first();
         $this->assertNotNull($link, 'linking writes real data - the one thing this page does persist');
         $this->assertSame('STORE-SKU-9', $link->sku);
         $this->assertSame(99, (int) $link->ventacart_product_id);

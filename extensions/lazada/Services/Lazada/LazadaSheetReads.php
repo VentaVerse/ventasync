@@ -5,7 +5,7 @@ namespace Extensions\Lazada\Services\Lazada;
 use App\Channels\Listings\SheetReads;
 use Extensions\Lazada\Controllers\LazadaProductController;
 use Extensions\Lazada\Models\LazadaCategoryTemplate;
-use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaListing;
 use Extensions\Lazada\Models\LazadaProductGroup;
 
 class LazadaSheetReads
@@ -13,7 +13,7 @@ class LazadaSheetReads
     public function readMissing(object $store, LazadaClient $client, int $limit = SheetReads::PER_RUN): array
     {
         $region = (string) ($store->region ?? '');
-        $wanted = LazadaProduct::query()->whereNotNull('primary_category_id')->distinct()->pluck('primary_category_id')
+        $wanted = LazadaListing::query()->whereNotNull('primary_category_id')->distinct()->pluck('primary_category_id')
             ->merge(LazadaProductGroup::query()->whereNotNull('lazada_category_id')->distinct()->pluck('lazada_category_id'))
             ->map(fn ($v) => (int) $v)
             ->filter(fn ($v) => $v > 0)

@@ -158,11 +158,11 @@ class ProductOptionController extends Controller
                     $oldSku = trim((string) ($existing->sku ?? ''));
                     $newSku = $data['sku'];
                     if ($oldSku !== '' && $newSku !== $oldSku) {
-                        DB::table('shopee_product_links')
+                        DB::table('shopee_listing_links')
                             ->where('product_id', $id)->where('sku', $oldSku)
                             ->update(['sku' => $newSku]);
-                        DB::table('lazada_product_variants')
-                            ->whereIn('lazada_product_id', fn($q) => $q->select('id')->from('lazada_products')->where('product_id', $id))
+                        DB::table('lazada_listing_variations')
+                            ->whereIn('lazada_listing_id', fn($q) => $q->select('id')->from('lazada_listings')->where('product_id', $id))
                             ->where('seller_sku', $oldSku)
                             ->update(['seller_sku' => $newSku]);
                         $skuChanges['option_skus'][(int) $existing->product_option_value_id] = ['old' => $oldSku, 'new' => $newSku];
@@ -211,7 +211,7 @@ class ProductOptionController extends Controller
             }
 
             if (!empty($deletedPovIds)) {
-                DB::table('lazada_product_variants')
+                DB::table('lazada_listing_variations')
                     ->whereIn('product_option_value_id', $deletedPovIds)
                     ->update(['product_option_value_id' => null]);
                 $this->deleteCombinationsForPovIds($deletedPovIds);
@@ -328,7 +328,7 @@ class ProductOptionController extends Controller
             DB::table($p . 'product_option')->where('product_id', $id)->delete();
 
             if (!empty($oldPovIds)) {
-                DB::table('lazada_product_variants')
+                DB::table('lazada_listing_variations')
                     ->whereIn('product_option_value_id', $oldPovIds)
                     ->update(['product_option_value_id' => null]);
                 $this->deleteCombinationsForPovIds($oldPovIds);
@@ -617,7 +617,7 @@ class ProductOptionController extends Controller
         DB::table($p . 'product_option_value')->where('product_option_id', $productOptionId)->delete();
 
         if (!empty($povIds)) {
-            DB::table('lazada_product_variants')
+            DB::table('lazada_listing_variations')
                 ->whereIn('product_option_value_id', $povIds)
                 ->update(['product_option_value_id' => null]);
             $this->deleteCombinationsForPovIds($povIds);
@@ -639,7 +639,7 @@ class ProductOptionController extends Controller
                 DB::table($p . 'product_option')->whereIn('product_option_id', $poIds)->delete();
 
                 if (!empty($povIds)) {
-                    DB::table('lazada_product_variants')
+                    DB::table('lazada_listing_variations')
                         ->whereIn('product_option_value_id', $povIds)
                         ->update(['product_option_value_id' => null]);
                     $this->deleteCombinationsForPovIds($povIds);

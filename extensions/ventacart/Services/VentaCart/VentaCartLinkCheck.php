@@ -10,7 +10,7 @@ class VentaCartLinkCheck
 {
     public function runNext(VentaCartStore $store): ?array
     {
-        $linked = \Extensions\VentaCart\Models\VentaCartProductLink::query()->where('store_id', $store->id)
+        $linked = \Extensions\VentaCart\Models\VentaCartListingLink::query()->where('store_id', $store->id)
             ->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
         $linked = \App\Channels\Support\LinkCheckCursor::rotate('ventacart:' . (int) $store->id, $linked);
 

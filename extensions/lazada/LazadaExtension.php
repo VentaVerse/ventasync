@@ -25,8 +25,8 @@ use App\Channels\MenuItem;
 use App\Channels\OrderTab;
 use Extensions\Lazada\Models\LazadaApiLog;
 use Extensions\Lazada\Models\LazadaOrder;
-use Extensions\Lazada\Models\LazadaProduct;
-use Extensions\Lazada\Models\LazadaProductVariant;
+use Extensions\Lazada\Models\LazadaListing;
+use Extensions\Lazada\Models\LazadaListingVariation;
 use Extensions\Lazada\Models\LazadaStore;
 use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Illuminate\Support\Facades\DB;
@@ -276,16 +276,16 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
 
     public function resolveCatalogProduct(string $sku): ?array
     {
-        if ($sku === '' || !Schema::hasTable('lazada_product_variants')) {
+        if ($sku === '' || !Schema::hasTable('lazada_listing_variations')) {
             return null;
         }
 
-        $variant = LazadaProductVariant::where('seller_sku', $sku)->first();
+        $variant = LazadaListingVariation::where('seller_sku', $sku)->first();
         if (!$variant) {
             return null;
         }
 
-        $lazadaProduct = LazadaProduct::where('id', $variant->lazada_product_id)->first();
+        $lazadaProduct = LazadaListing::where('id', $variant->lazada_listing_id)->first();
         if (!$lazadaProduct || !$lazadaProduct->product_id) {
             return null;
         }
@@ -298,7 +298,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
 
     public function pushSkuChanges(int $productId, array $skuChanges): ?string
     {
-        $listing = LazadaProduct::where('product_id', $productId)->first();
+        $listing = LazadaListing::where('product_id', $productId)->first();
         if (!$listing) {
             return null;
         }
@@ -309,7 +309,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
             $old = $skuChanges['product_sku']['old'];
             $new = $skuChanges['product_sku']['new'];
 
-            $updated = LazadaProductVariant::where('lazada_product_id', $listing->id)
+            $updated = LazadaListingVariation::where('lazada_listing_id', $listing->id)
                 ->where('seller_sku', $old)
                 ->update(['seller_sku' => $new]);
 
@@ -333,7 +333,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
                 $old = $change['old'];
                 $new = $change['new'];
 
-                $variant = LazadaProductVariant::where('lazada_product_id', $listing->id)
+                $variant = LazadaListingVariation::where('lazada_listing_id', $listing->id)
                     ->where('seller_sku', $old)
                     ->first();
 
@@ -359,7 +359,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
         return empty($results) ? null : 'Lazada: ' . implode('; ', $results);
     }
 
-    private function lazadaUpdateSellerSku(LazadaProduct $listing, string $oldSku, string $newSku): ?string
+    private function lazadaUpdateSellerSku(LazadaListing $listing, string $oldSku, string $newSku): ?string
     {
         $store = LazadaStore::defaultStore()?->decrypted();
         $creds = LazadaStore::activeCredentials($store);
@@ -428,8 +428,8 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
             'lazadaSyncStatus' => null,
         ];
 
-        if (Schema::hasTable('lazada_products')) {
-            $data['lazadaProducts'] = (int) DB::table('lazada_products')->count();
+        if (Schema::hasTable('lazada_listings')) {
+            $data['lazadaProducts'] = (int) DB::table('lazada_listings')->count();
         }
 
         if (Schema::hasTable('lazada_orders')) {
@@ -875,11 +875,11 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
 
     public function listedProductIds(): array
     {
-        if (! \Illuminate\Support\Facades\Schema::hasTable('lazada_products')) {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('lazada_listings')) {
             return [];
         }
 
-        return \Extensions\Lazada\Models\LazadaProduct::query()
+        return \Extensions\Lazada\Models\LazadaListing::query()
             ->whereNotNull('lazada_item_id')->whereNull('lazada_deleted_at')
             ->distinct()->pluck('product_id')->map(fn ($v) => (int) $v)->all();
     }
@@ -887,7 +887,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
     public function listingUrls(array $productIds): array
     {
         $productIds = array_values(array_unique(array_map('intval', $productIds)));
-        $rows = LazadaProduct::query()
+        $rows = LazadaListing::query()
             ->whereIn('product_id', $productIds ?: [0])
             ->orderByRaw("(lazada_item_id IS NOT NULL AND lazada_item_id <> '' AND unlinked_at IS NULL) asc")
             ->orderBy('id')

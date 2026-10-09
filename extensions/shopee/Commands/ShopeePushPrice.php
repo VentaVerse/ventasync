@@ -3,7 +3,7 @@
 namespace Extensions\Shopee\Commands;
 
 use Extensions\Shopee\Models\ShopeeListing;
-use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeInheritedSettings;
 use Extensions\Shopee\Services\Shopee\ShopeeStockPricePush;
@@ -55,7 +55,7 @@ class ShopeePushPrice extends Command implements \App\Channels\Contracts\Steppab
             return 1;
         }
 
-        $links = ShopeeProductLink::forStore($store)->get();
+        $links = ShopeeListingLink::forStore($store)->get();
         if ($links->isEmpty()) {
             $this->warn('No Shopee product links found.');
 

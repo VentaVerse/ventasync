@@ -4,7 +4,7 @@ namespace Extensions\Shopee\Commands;
 
 use Extensions\OpenCart\Models\MarketplaceReview;
 use Extensions\Shopee\Models\ShopeeApiLog;
-use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Console\Command;
@@ -39,7 +39,7 @@ class ShopeeSyncReviews extends Command
 
         $this->info('--- Syncing Shopee product reviews ---');
 
-        $itemIds = ShopeeProductLink::query()
+        $itemIds = ShopeeListingLink::query()
             ->whereNotNull('shopee_item_id')
             ->where('shopee_item_id', '!=', '')
             ->distinct()
@@ -89,7 +89,7 @@ class ShopeeSyncReviews extends Command
 
     private function syncItemReviews(ShopeeClient $client, array $auth, string $itemId, ?int $lastSync, int $days): array
     {
-        $link = ShopeeProductLink::query()
+        $link = ShopeeListingLink::query()
             ->where('shopee_item_id', $itemId)
             ->first();
         $productId = $link?->product_id;

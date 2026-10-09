@@ -2,7 +2,7 @@
 
 namespace Extensions\VentaCart\Services\VentaCart;
 
-use Extensions\VentaCart\Models\VentaCartProductLink;
+use Extensions\VentaCart\Models\VentaCartListingLink;
 use Extensions\VentaCart\Models\VentaCartStore;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -84,7 +84,7 @@ class VentaCartItemImport
                     $this->writeVariations($productId, $sku, $variants);
                 }
 
-                VentaCartProductLink::updateOrCreate(
+                VentaCartListingLink::updateOrCreate(
                     ['store_id' => $store->id, 'product_id' => $productId],
                     ['ventacart_product_id' => $ventaCartId ?: null, 'sku' => $sku]
                 );

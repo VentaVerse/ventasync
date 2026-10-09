@@ -6,8 +6,8 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\Lazada\Models\LazadaProduct;
-use Extensions\Lazada\Models\LazadaProductVariant;
+use Extensions\Lazada\Models\LazadaListing;
+use Extensions\Lazada\Models\LazadaListingVariation;
 use Extensions\Lazada\Models\LazadaStore;
 use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -155,8 +155,8 @@ class LazadaStockPushHealTest extends TestCase
     public function test_a_failure_then_a_success_on_another_path_clears_the_line(): void
     {
         $pid = $this->comboProduct(['LZ-1' => 5]);
-        $listing = LazadaProduct::create(['product_id' => $pid, 'lazada_item_id' => '900']);
-        LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
+        $listing = LazadaListing::create(['product_id' => $pid, 'lazada_item_id' => '900']);
+        LazadaListingVariation::create(['lazada_listing_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
         $this->fakeItem(['LZ-1' => 11]);
 
         $this->actingAs($this->manager())->post(route('ext.lazada.products.upload', $pid))->assertRedirect();
@@ -171,7 +171,7 @@ class LazadaStockPushHealTest extends TestCase
     public function test_unlink_clears_the_line(): void
     {
         $pid = $this->comboProduct(['LZ-1' => 5]);
-        $listing = LazadaProduct::create(['product_id' => $pid, 'lazada_item_id' => '900']);
+        $listing = LazadaListing::create(['product_id' => $pid, 'lazada_item_id' => '900']);
         $listing->forceFill(['last_sync_ok' => false, 'last_sync_error_message' => 'Quota exceeded', 'last_synced_at' => now()])->save();
         $this->states()->recordOutcome($pid, 'Price push: LZ-1: Price is too low');
         $this->assertNotNull($this->line($pid));
@@ -189,21 +189,21 @@ class LazadaStockPushHealTest extends TestCase
         $storeId = (int) LazadaStore::defaultStore()->id;
 
         $missing = $this->named($this->comboProduct(['LZ-1' => 5, 'LZ-2' => 8]), 'Missing size product');
-        $a = LazadaProduct::create(['product_id' => $missing, 'lazada_item_id' => '900', 'live_status' => 'active']);
+        $a = LazadaListing::create(['product_id' => $missing, 'lazada_item_id' => '900', 'live_status' => 'active']);
         \App\Channels\Listings\ListingVariations::remember('lazada', $storeId, $missing, ['LZ-1']);
 
         $refused = $this->named($this->comboProduct(['LZB-1' => 3]), 'Refused price product');
-        $b = LazadaProduct::create(['product_id' => $refused, 'lazada_item_id' => '901', 'live_status' => 'active']);
+        $b = LazadaListing::create(['product_id' => $refused, 'lazada_item_id' => '901', 'live_status' => 'active']);
         $this->states()->recordOutcome($refused, 'Price push: LZB-1: Price is too low');
 
         $clean = $this->named($this->comboProduct(['LZC-1' => 3]), 'Clean quiet product');
-        $c = LazadaProduct::create(['product_id' => $clean, 'lazada_item_id' => '902', 'live_status' => 'active']);
+        $c = LazadaListing::create(['product_id' => $clean, 'lazada_item_id' => '902', 'live_status' => 'active']);
 
         $group = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Filter group', 'lazada_category_id' => 4321]);
         foreach ([$a, $b, $c] as $row) {
             \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
                 'lazada_product_group_id' => $group->id, 'product_id' => $row->product_id,
-                'lazada_product_id' => $row->id, 'sync_status' => 'pushed',
+                'lazada_listing_id' => $row->id, 'sync_status' => 'pushed',
             ]);
         }
         $user = $this->groupManager();
@@ -230,8 +230,8 @@ class LazadaStockPushHealTest extends TestCase
     public function test_a_stored_push_error_survives_a_link_check_and_a_refresh_then_a_stock_push_clears_it(): void
     {
         $pid = $this->comboProduct(['LZ-1' => 5]);
-        $listing = LazadaProduct::create(['product_id' => $pid, 'lazada_item_id' => '900']);
-        LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
+        $listing = LazadaListing::create(['product_id' => $pid, 'lazada_item_id' => '900']);
+        LazadaListingVariation::create(['lazada_listing_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
         $this->states()->recordOutcome($pid, 'Price push: LZ-1: Price is too low');
 
         $this->fakeShop(['900' => ['LZ-1']]);
@@ -251,9 +251,9 @@ class LazadaStockPushHealTest extends TestCase
     public function test_a_link_check_that_finds_the_item_taken_sets_the_line_and_adopts_nothing(): void
     {
         $holder = $this->comboProduct(['LZ-1' => 5]);
-        LazadaProduct::create(['product_id' => $holder, 'lazada_item_id' => '900']);
+        LazadaListing::create(['product_id' => $holder, 'lazada_item_id' => '900']);
         $other = $this->comboProduct(['LZX-1' => 2]);
-        $row = LazadaProduct::create(['product_id' => $other]);
+        $row = LazadaListing::create(['product_id' => $other]);
 
         $this->fakeShop(['900' => ['LZX-1']]);
         $this->actingAs($this->manager())->post(route('ext.lazada.products.check'), ['product_ids' => [$other]])->assertRedirect();
@@ -266,13 +266,13 @@ class LazadaStockPushHealTest extends TestCase
     public function test_a_group_stock_failure_shows_on_the_line_and_its_success_clears_it(): void
     {
         $pid = $this->comboProduct(['LZ-1' => 5]);
-        $listing = LazadaProduct::create(['product_id' => $pid, 'lazada_item_id' => '900']);
-        LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
+        $listing = LazadaListing::create(['product_id' => $pid, 'lazada_item_id' => '900']);
+        LazadaListingVariation::create(['lazada_listing_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
         $this->fakeItem(['LZ-1' => 11]);
         $group = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Stock group', 'lazada_category_id' => 4321]);
         $pivot = \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
             'lazada_product_group_id' => $group->id, 'product_id' => $pid,
-            'lazada_product_id' => $listing->id, 'sync_status' => 'pushed',
+            'lazada_listing_id' => $listing->id, 'sync_status' => 'pushed',
         ]);
 
         $this->postResponses['/product/price_quantity/update'] = ['ok' => true, 'status' => 200,
@@ -297,8 +297,8 @@ class LazadaStockPushHealTest extends TestCase
     public function test_a_variation_missing_from_lazada_is_left_alone_and_the_rest_go_up(): void
     {
         $pid = $this->comboProduct(['LZ-1' => 5, 'LZ-2' => 8]);
-        $listing = LazadaProduct::create(['product_id' => $pid, 'lazada_item_id' => '900']);
-        LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
+        $listing = LazadaListing::create(['product_id' => $pid, 'lazada_item_id' => '900']);
+        LazadaListingVariation::create(['lazada_listing_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
         $this->fakeItem(['LZ-1' => 11]);
 
         $this->actingAs($this->manager())
@@ -313,9 +313,9 @@ class LazadaStockPushHealTest extends TestCase
     public function test_an_orphan_variant_is_left_alone(): void
     {
         $pid = $this->comboProduct(['LZ-1' => 5]);
-        $listing = LazadaProduct::create(['product_id' => $pid, 'lazada_item_id' => '900']);
-        LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
-        LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-GONE', 'sku_id' => 12]);
+        $listing = LazadaListing::create(['product_id' => $pid, 'lazada_item_id' => '900']);
+        LazadaListingVariation::create(['lazada_listing_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
+        LazadaListingVariation::create(['lazada_listing_id' => $listing->id, 'seller_sku' => 'LZ-GONE', 'sku_id' => 12]);
 
         $this->actingAs($this->manager())
             ->post(route('ext.lazada.products.sync_quantity', $listing->product_id))
@@ -328,9 +328,9 @@ class LazadaStockPushHealTest extends TestCase
     public function test_a_variation_switched_off_for_the_store_is_not_synced(): void
     {
         $pid = $this->comboProduct(['LZ-1' => 5, 'LZ-2' => 8]);
-        $listing = LazadaProduct::create(['product_id' => $pid, 'lazada_item_id' => '900']);
-        LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
-        LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-2', 'sku_id' => 12]);
+        $listing = LazadaListing::create(['product_id' => $pid, 'lazada_item_id' => '900']);
+        LazadaListingVariation::create(['lazada_listing_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
+        LazadaListingVariation::create(['lazada_listing_id' => $listing->id, 'seller_sku' => 'LZ-2', 'sku_id' => 12]);
         \App\Channels\Listings\ListingVariations::save('lazada', (int) ($listing->store_id ?? 0), $pid, ['LZ-1']);
 
         $this->actingAs($this->manager())
@@ -344,8 +344,8 @@ class LazadaStockPushHealTest extends TestCase
     public function test_a_sku_refusal_heals_and_retries_once(): void
     {
         $pid = $this->comboProduct(['LZ-1' => 5]);
-        $listing = LazadaProduct::create(['product_id' => $pid, 'lazada_item_id' => '900']);
-        LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
+        $listing = LazadaListing::create(['product_id' => $pid, 'lazada_item_id' => '900']);
+        LazadaListingVariation::create(['lazada_listing_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
         $this->fakeItem(['LZ-1' => 77]);
 
         $attempt = 0;
@@ -367,14 +367,14 @@ class LazadaStockPushHealTest extends TestCase
         $this->assertCount(2, $calls, 'one refusal, one retry - never a loop');
         $this->assertStringContainsString('<SkuId>77</SkuId>', (string) $calls[1]['params']['payload'],
             'the retry carries the fresh sku_id');
-        $this->assertSame(77, (int) LazadaProductVariant::query()->where('lazada_product_id', $listing->id)->value('sku_id'));
+        $this->assertSame(77, (int) LazadaListingVariation::query()->where('lazada_listing_id', $listing->id)->value('sku_id'));
     }
 
     public function test_a_failure_is_honest_in_tone_and_in_the_columns(): void
     {
         $pid = $this->comboProduct(['LZ-1' => 5]);
-        $listing = LazadaProduct::create(['product_id' => $pid, 'lazada_item_id' => '900']);
-        LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
+        $listing = LazadaListing::create(['product_id' => $pid, 'lazada_item_id' => '900']);
+        LazadaListingVariation::create(['lazada_listing_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
         $this->postResponses['/product/price_quantity/update'] = ['ok' => true, 'status' => 200,
             'body' => ['code' => '901', 'message' => 'Quota exceeded for this API']];
 
@@ -394,8 +394,8 @@ class LazadaStockPushHealTest extends TestCase
     public function test_the_listing_page_carries_coverage_and_points_at_update(): void
     {
         $pid = $this->comboProduct(['LZ-1' => 5, 'LZ-2' => 8]);
-        $listing = LazadaProduct::create(['product_id' => $pid, 'lazada_item_id' => '900']);
-        LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
+        $listing = LazadaListing::create(['product_id' => $pid, 'lazada_item_id' => '900']);
+        LazadaListingVariation::create(['lazada_listing_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
         $this->fakeItem(['LZ-1' => 11]);
 
         $page = $this->actingAs($this->manager())
@@ -408,8 +408,8 @@ class LazadaStockPushHealTest extends TestCase
     public function test_a_new_combination_makes_the_cache_refetch(): void
     {
         $pid = $this->comboProduct(['LZ-1' => 5, 'LZ-NEW' => 3]);
-        $listing = LazadaProduct::create(['product_id' => $pid, 'lazada_item_id' => '900']);
-        LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
+        $listing = LazadaListing::create(['product_id' => $pid, 'lazada_item_id' => '900']);
+        LazadaListingVariation::create(['lazada_listing_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
         $this->fakeItem(['LZ-1' => 11, 'LZ-NEW' => 12]);
 
         $this->actingAs($this->manager())
@@ -425,18 +425,18 @@ class LazadaStockPushHealTest extends TestCase
     public function test_the_price_cron_prices_by_the_listing_rule_then_the_group_then_the_catalog(): void
     {
         $a = $this->comboProduct(['LA-1' => 5]);
-        $la = LazadaProduct::create(['product_id' => $a, 'lazada_item_id' => '901', 'markup_percent' => 10]);
-        LazadaProductVariant::create(['lazada_product_id' => $la->id, 'seller_sku' => 'LA-1', 'sku_id' => 11]);
+        $la = LazadaListing::create(['product_id' => $a, 'lazada_item_id' => '901', 'markup_percent' => 10]);
+        LazadaListingVariation::create(['lazada_listing_id' => $la->id, 'seller_sku' => 'LA-1', 'sku_id' => 11]);
 
         $b = $this->comboProduct(['LB-1' => 5]);
-        $lb = LazadaProduct::create(['product_id' => $b, 'lazada_item_id' => '902']);
-        LazadaProductVariant::create(['lazada_product_id' => $lb->id, 'seller_sku' => 'LB-1', 'sku_id' => 12]);
+        $lb = LazadaListing::create(['product_id' => $b, 'lazada_item_id' => '902']);
+        LazadaListingVariation::create(['lazada_listing_id' => $lb->id, 'seller_sku' => 'LB-1', 'sku_id' => 12]);
         $group = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Grouped', 'lazada_category_id' => 4321, 'markup_percent' => 20]);
-        \Extensions\Lazada\Models\LazadaProductGroupProduct::create(['lazada_product_group_id' => $group->id, 'product_id' => $b, 'lazada_product_id' => $lb->id]);
+        \Extensions\Lazada\Models\LazadaProductGroupProduct::create(['lazada_product_group_id' => $group->id, 'product_id' => $b, 'lazada_listing_id' => $lb->id]);
 
         $c = $this->comboProduct(['LC-1' => 5]);
-        $lc = LazadaProduct::create(['product_id' => $c, 'lazada_item_id' => '903']);
-        LazadaProductVariant::create(['lazada_product_id' => $lc->id, 'seller_sku' => 'LC-1', 'sku_id' => 13]);
+        $lc = LazadaListing::create(['product_id' => $c, 'lazada_item_id' => '903']);
+        LazadaListingVariation::create(['lazada_listing_id' => $lc->id, 'seller_sku' => 'LC-1', 'sku_id' => 13]);
 
         $this->artisan('lazada:push-price')->assertExitCode(0);
 

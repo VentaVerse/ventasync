@@ -83,7 +83,7 @@ class VentaCartStore extends Model
 
     public function productLinks(): HasMany
     {
-        return $this->hasMany(VentaCartProductLink::class, 'store_id');
+        return $this->hasMany(VentaCartListingLink::class, 'store_id');
     }
 
     public function syncLogs(): HasMany

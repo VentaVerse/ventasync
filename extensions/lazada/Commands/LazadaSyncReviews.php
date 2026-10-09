@@ -3,7 +3,7 @@
 namespace Extensions\Lazada\Commands;
 
 use Extensions\Lazada\Models\LazadaApiLog;
-use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaListing;
 use Extensions\Lazada\Models\LazadaStore;
 use Extensions\OpenCart\Models\MarketplaceReview;
 use Extensions\Lazada\Services\Lazada\LazadaClient;
@@ -63,7 +63,7 @@ class LazadaSyncReviews extends Command
 
         $limit = (int) $this->option('limit');
 
-        $lpQuery = LazadaProduct::query()
+        $lpQuery = LazadaListing::query()
             ->whereNotNull('lazada_item_id')
             ->where('lazada_item_id', '!=', '')
             ->orderByRaw('CAST(lazada_item_id AS UNSIGNED) DESC');

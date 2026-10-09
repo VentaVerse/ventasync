@@ -3,15 +3,15 @@
 namespace Extensions\Lazada\Services\Lazada;
 
 use Extensions\Lazada\Models\LazadaApiLog;
-use Extensions\Lazada\Models\LazadaProduct;
-use Extensions\Lazada\Models\LazadaProductVariant;
+use Extensions\Lazada\Models\LazadaListing;
+use Extensions\Lazada\Models\LazadaListingVariation;
 use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class LazadaItemCache
 {
-public function refreshListing(LazadaProduct $listing, object $store, LazadaClient $client, string $pack = 'lazada.product.item.get.cache'): ?array
+public function refreshListing(LazadaListing $listing, object $store, LazadaClient $client, string $pack = 'lazada.product.item.get.cache'): ?array
 {
     $itemId = (string) ($listing->lazada_item_id ?? '');
     if ($itemId === '') return null;
@@ -97,8 +97,8 @@ public function refreshListing(LazadaProduct $listing, object $store, LazadaClie
         $activeLazadaSkus[] = $sellerSku;
 
         try {
-            LazadaProductVariant::updateOrCreate(
-                ['lazada_product_id' => $listing->id, 'seller_sku' => $sellerSku],
+            LazadaListingVariation::updateOrCreate(
+                ['lazada_listing_id' => $listing->id, 'seller_sku' => $sellerSku],
                 [
                     'sku_id' => (int) $skuId,
                     'shop_sku' => $shopSku ? (string) $shopSku : null,
@@ -117,20 +117,20 @@ public function refreshListing(LazadaProduct $listing, object $store, LazadaClie
     }
 
     if (!empty($activeLazadaSkus)) {
-        LazadaProductVariant::where('lazada_product_id', $listing->id)
+        LazadaListingVariation::where('lazada_listing_id', $listing->id)
             ->whereNotIn('seller_sku', $activeLazadaSkus)
             ->delete();
     }
 
     DB::table('lazada_product_group_products')
-        ->where('lazada_product_id', $listing->id)
+        ->where('lazada_listing_id', $listing->id)
         ->where(fn ($q) => $q->whereNull('sync_status')->orWhereNotIn('sync_status', ['error', 'failed']))
         ->update(['sync_status' => 'synced', 'push_error' => null]);
 
     return $data;
 }
 
-public function fetchAndCacheVariants(LazadaProduct $listing, object $store, LazadaClient $client, string $pack = 'lazada.product.item.get.variants'): array
+public function fetchAndCacheVariants(LazadaListing $listing, object $store, LazadaClient $client, string $pack = 'lazada.product.item.get.variants'): array
 {
     $itemId = (string) ($listing->lazada_item_id ?? '');
     if ($itemId === '') return [];
@@ -196,8 +196,8 @@ public function fetchAndCacheVariants(LazadaProduct $listing, object $store, Laz
         ];
 
         try {
-            LazadaProductVariant::updateOrCreate(
-                ['lazada_product_id' => $listing->id, 'seller_sku' => $sellerSku],
+            LazadaListingVariation::updateOrCreate(
+                ['lazada_listing_id' => $listing->id, 'seller_sku' => $sellerSku],
                 [
                     'sku_id' => (int) $skuId,
                     'shop_sku' => $shopSku ? (string) $shopSku : null,
@@ -218,11 +218,11 @@ public function fetchAndCacheVariants(LazadaProduct $listing, object $store, Laz
     return $variants;
 }
 
-public function resolveSkuIds(LazadaProduct $listing, object $store, LazadaClient $client, string $pack = 'lazada.product.item.get.variants'): array
+public function resolveSkuIds(LazadaListing $listing, object $store, LazadaClient $client, string $pack = 'lazada.product.item.get.variants'): array
 {
     $map = [];
 
-    $cached = LazadaProductVariant::where('lazada_product_id', $listing->id)
+    $cached = LazadaListingVariation::where('lazada_listing_id', $listing->id)
         ->whereNotNull('sku_id')
         ->get(['seller_sku', 'sku_id']);
 

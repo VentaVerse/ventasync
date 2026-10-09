@@ -2,7 +2,7 @@
 
 namespace Extensions\Shopee\Commands;
 
-use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Console\Command;
@@ -189,7 +189,7 @@ class ShopeeFindDuplicates extends Command
 
     private function reportOrphans(array $items, int $storeId): void
     {
-        $linked = ShopeeProductLink::query()
+        $linked = ShopeeListingLink::query()
             ->when($this->linksAreScoped(), fn ($q) => $q->where('store_id', $storeId))
             ->pluck('shopee_item_id')->map(fn ($v) => (int) $v)->flip();
 
@@ -214,7 +214,7 @@ class ShopeeFindDuplicates extends Command
 
     private function reportLinks(int $storeId): void
     {
-        $rows = ShopeeProductLink::query()
+        $rows = ShopeeListingLink::query()
             ->withoutGlobalScope('shopeeStore')
             ->orderBy('product_id')
             ->get(['product_id', 'shopee_item_id', 'shopee_model_id', 'store_id', 'sku', 'live_status']);
@@ -317,7 +317,7 @@ class ShopeeFindDuplicates extends Command
     private function linksAreScoped(): bool
     {
         return \Illuminate\Support\Facades\Schema::hasColumn(
-            (new ShopeeProductLink())->getTable(), 'store_id'
+            (new ShopeeListingLink())->getTable(), 'store_id'
         );
     }
 }

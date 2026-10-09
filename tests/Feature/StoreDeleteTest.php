@@ -99,7 +99,7 @@ class StoreDeleteTest extends TestCase
         foreach ([$gone, $kept] as $s) {
             app()->instance('lazada.route-store', $s);
             \Extensions\Lazada\Models\LazadaOrder::create(['order_id' => 900000 + $s->id, 'region' => 'PH', 'status' => 'pending', 'raw' => []]);
-            \Extensions\Lazada\Models\LazadaProduct::create(['product_id' => 1]);
+            \Extensions\Lazada\Models\LazadaListing::create(['product_id' => 1]);
         }
         app()->forgetInstance('lazada.route-store');
 
@@ -112,7 +112,7 @@ class StoreDeleteTest extends TestCase
         $this->assertNoRowsLeft('lazada', $gone->id);
         $this->assertDatabaseHas('lazada_settings', ['id' => $kept->id]);
         $this->assertSame(1, DB::table('lazada_orders')->where('store_id', $kept->id)->count());
-        $this->assertSame(1, DB::table('lazada_products')->where('store_id', $kept->id)->count());
+        $this->assertSame(1, DB::table('lazada_listings')->where('store_id', $kept->id)->count());
         $this->assertDatabaseHas('activity_logs', ['action' => 'lazada.store.deleted', 'subject_id' => $gone->id]);
     }
 

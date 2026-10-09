@@ -19,7 +19,7 @@
         "ventacart_settings",
         "ventacart_product_groups",
         "ventacart_product_group_products",
-        "ventacart_product_links",
+        "ventacart_listing_links",
         "ventacart_orders",
         "ventacart_order_products",
         "ventacart_order_status_map",

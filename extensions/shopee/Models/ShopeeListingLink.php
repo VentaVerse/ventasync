@@ -4,11 +4,11 @@ namespace Extensions\Shopee\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class ShopeeProductLink extends Model
+class ShopeeListingLink extends Model
 {
     use \Extensions\Shopee\Models\Concerns\BelongsToShopeeStore;
 
-    protected $table = 'shopee_product_links';
+    protected $table = 'shopee_listing_links';
 
     protected $fillable = [
         'store_id',

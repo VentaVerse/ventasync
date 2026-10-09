@@ -6,7 +6,7 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -66,7 +66,7 @@ class DisabledProductsStayOutTest extends TestCase
         $hidden = $this->seedProduct('DIS-HIDE', 'Disabled and nowhere', 0);
         \Extensions\Shopee\Models\ShopeeListing::create(['product_id' => $hidden]);
         $listedDisabled = $this->seedProduct('DIS-KEEP', 'Disabled but still on Shopee', 0);
-        ShopeeProductLink::create(['product_id' => $listedDisabled, 'shopee_item_id' => 800, 'live_status' => 'NORMAL']);
+        ShopeeListingLink::create(['product_id' => $listedDisabled, 'shopee_item_id' => 800, 'live_status' => 'NORMAL']);
         $plain = $this->seedProduct('EN-1', 'Enabled and plain', 1);
         \Extensions\Shopee\Models\ShopeeListing::create(['product_id' => $plain]);
 

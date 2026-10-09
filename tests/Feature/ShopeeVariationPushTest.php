@@ -8,7 +8,7 @@ use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\Shopee\Models\ShopeeItemCache;
 use Extensions\Shopee\Models\ShopeeListing;
-use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -197,7 +197,7 @@ class ShopeeVariationPushTest extends TestCase
         $this->assertSame(14, (int) $models[0]['seller_stock'][0]['stock']);
         $this->assertSame([1], $models[1]['tier_index']);
 
-        $links = ShopeeProductLink::query()->where('product_id', $productId)->get();
+        $links = ShopeeListingLink::query()->where('product_id', $productId)->get();
         $this->assertCount(2, $links);
         $this->assertTrue($links->every(fn ($l) => $l->shopee_model_id !== null));
         $this->assertEqualsCanonicalizing([700001, 700002], $links->pluck('shopee_model_id')->map(fn ($v) => (int) $v)->all());
@@ -251,7 +251,7 @@ class ShopeeVariationPushTest extends TestCase
 
         $this->assertNotNull(collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/add_item'));
         $this->assertNull(collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/init_tier_variation'));
-        $this->assertSame(1, ShopeeProductLink::query()->where('product_id', $productId)->whereNull('shopee_model_id')->count());
+        $this->assertSame(1, ShopeeListingLink::query()->where('product_id', $productId)->whereNull('shopee_model_id')->count());
     }
 
     public function test_a_knowable_price_ratio_stops_the_push_at_the_door(): void
@@ -299,7 +299,7 @@ class ShopeeVariationPushTest extends TestCase
         $delete = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/delete_item');
         $this->assertNotNull($delete, 'the half-created item is deleted at Shopee');
         $this->assertSame(990077, (int) $delete['body']['item_id']);
-        $this->assertSame(0, ShopeeProductLink::query()->where('product_id', $productId)->count(),
+        $this->assertSame(0, ShopeeListingLink::query()->where('product_id', $productId)->count(),
             'no link row survives a rolled-back create');
     }
 }

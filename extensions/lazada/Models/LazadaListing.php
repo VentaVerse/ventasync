@@ -5,11 +5,11 @@ namespace Extensions\Lazada\Models;
 use Illuminate\Database\Eloquent\Model;
 use Extensions\Lazada\Models\Concerns\BelongsToLazadaStore;
 
-class LazadaProduct extends Model
+class LazadaListing extends Model
 {
     use BelongsToLazadaStore, \App\Channels\Listings\KeepsItsOwnCopy;
 
-    protected $table = 'lazada_products';
+    protected $table = 'lazada_listings';
 
     protected $fillable = [
                 'image_off', 'video_path', 'video_off',
@@ -63,7 +63,7 @@ class LazadaProduct extends Model
 
     public function attributes()
     {
-        return $this->hasMany(LazadaProductAttribute::class, 'lazada_product_id');
+        return $this->hasMany(LazadaListingAttribute::class, 'lazada_listing_id');
     }
 
     public function groups()
@@ -73,7 +73,7 @@ class LazadaProduct extends Model
 
     public function variants()
     {
-        return $this->hasMany(LazadaProductVariant::class, 'lazada_product_id');
+        return $this->hasMany(LazadaListingVariation::class, 'lazada_listing_id');
     }
 
     public function contentOverrides(): array

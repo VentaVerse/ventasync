@@ -4,8 +4,8 @@ namespace Extensions\Lazada\Services;
 
 use Extensions\Lazada\Models\LazadaOrder;
 use Extensions\Lazada\Models\LazadaOrderStatusMap;
-use Extensions\Lazada\Models\LazadaProduct;
-use Extensions\Lazada\Models\LazadaProductVariant;
+use Extensions\Lazada\Models\LazadaListing;
+use Extensions\Lazada\Models\LazadaListingVariation;
 use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderHistory;
 use App\Models\Catalog\OrderOption;
@@ -239,9 +239,9 @@ class LazadaCatalogOrderSync
                 $resolvedOptionValueId = 0;
                 $sellerSku = $item['sku'];
                 if ($sellerSku !== '') {
-                    $variant = LazadaProductVariant::where('seller_sku', $sellerSku)->first();
+                    $variant = LazadaListingVariation::where('seller_sku', $sellerSku)->first();
                     if ($variant) {
-                        $lzProduct = LazadaProduct::where('id', $variant->lazada_product_id)->first();
+                        $lzProduct = LazadaListing::where('id', $variant->lazada_listing_id)->first();
                         if ($lzProduct && $lzProduct->product_id > 0) {
                             $resolvedProductId = (int) $lzProduct->product_id;
                         }

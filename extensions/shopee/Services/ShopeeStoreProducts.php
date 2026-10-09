@@ -13,7 +13,7 @@ final class ShopeeStoreProducts
 
         $listings = DB::table('shopee_listings')->select('product_id')
             ->when($storeId !== null, fn (Builder $q) => $q->where('store_id', $storeId));
-        $links = DB::table('shopee_product_links')->select('product_id')
+        $links = DB::table('shopee_listing_links')->select('product_id')
             ->when($storeId !== null, fn (Builder $q) => $q->where('store_id', $storeId));
 
         return $listings->union($links);

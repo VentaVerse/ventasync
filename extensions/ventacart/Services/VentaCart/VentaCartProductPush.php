@@ -3,7 +3,7 @@
 namespace Extensions\VentaCart\Services\VentaCart;
 
 use Extensions\VentaCart\Models\VentaCartListing;
-use Extensions\VentaCart\Models\VentaCartProductLink;
+use Extensions\VentaCart\Models\VentaCartListingLink;
 use Extensions\VentaCart\Models\VentaCartStore;
 use Illuminate\Support\Facades\DB;
 
@@ -328,7 +328,7 @@ class VentaCartProductPush
     public function reconcileLink(int $productId): array
     {
         $store = (int) $this->store->id;
-        $link = VentaCartProductLink::where('store_id', $store)->where('product_id', $productId)->first();
+        $link = VentaCartListingLink::where('store_id', $store)->where('product_id', $productId)->first();
 
         $found = null;
         $foundSku = null;
@@ -401,7 +401,7 @@ class VentaCartProductPush
     {
         $store = (int) $this->store->id;
 
-        $conflict = VentaCartProductLink::where('store_id', $store)
+        $conflict = VentaCartListingLink::where('store_id', $store)
             ->where('ventacart_product_id', $ventaCartProductId)
             ->where('product_id', '!=', $productId)
             ->first();
@@ -411,7 +411,7 @@ class VentaCartProductPush
                 . "#{$conflict->product_id}. Unlink that product first, then try this one again.";
         }
 
-        VentaCartProductLink::updateOrCreate(
+        VentaCartListingLink::updateOrCreate(
             ['store_id' => $store, 'product_id' => $productId],
             ['ventacart_product_id' => $ventaCartProductId, 'sku' => $sku]
         );
@@ -443,7 +443,7 @@ class VentaCartProductPush
             return self::outcome(false, $verdict['state'], (string) $verdict['message'], null, [], $data);
         }
 
-        $link = VentaCartProductLink::where('store_id', $this->store->id)->where('product_id', $productId)->first();
+        $link = VentaCartListingLink::where('store_id', $this->store->id)->where('product_id', $productId)->first();
 
         if ($link && $link->ventacart_product_id) {
             $data = $this->withCatalogNames($prod, $data);

@@ -4,7 +4,7 @@ namespace Extensions\VentaCart\Controllers;
 
 use App\Http\Controllers\Controller;
 use Extensions\OpenCart\Models\MarketplaceReview;
-use Extensions\VentaCart\Models\VentaCartProductLink;
+use Extensions\VentaCart\Models\VentaCartListingLink;
 use Extensions\VentaCart\Models\VentaCartStore;
 use Extensions\VentaCart\Services\VentaCart\VentaCartClient;
 use Illuminate\Http\Request;
@@ -24,7 +24,7 @@ class VentaCartReviewController extends Controller
             return redirect()->back()->with('error', 'Review has no mapped product.');
         }
 
-        $link = VentaCartProductLink::query()
+        $link = VentaCartListingLink::query()
             ->where('product_id', $review->product_id)
             ->first();
 

@@ -4,7 +4,7 @@ namespace Extensions\Shopee\Services\Shopee;
 
 use App\Support\MarketplaceAnswer;
 use Extensions\Shopee\Models\ShopeeListing;
-use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -110,12 +110,12 @@ class ShopeeItemImport
                 );
 
                 $liveStatus = strtoupper((string) ($item['item_status'] ?? '')) ?: null;
-                ShopeeProductLink::updateOrCreate(
+                ShopeeListingLink::updateOrCreate(
                     ['product_id' => $productId, 'shopee_item_id' => $itemId, 'shopee_model_id' => null],
                     ['sku' => $sku ?: null, 'live_status' => $liveStatus, 'live_checked_at' => now()]
                 );
                 foreach (($models['models'] ?? []) as $m) {
-                    ShopeeProductLink::updateOrCreate(
+                    ShopeeListingLink::updateOrCreate(
                         ['product_id' => $productId, 'shopee_item_id' => $itemId, 'shopee_model_id' => (int) $m['model_id']],
                         ['sku' => trim((string) ($m['model_sku'] ?? '')) ?: null, 'live_status' => $liveStatus, 'live_checked_at' => now()]
                     );

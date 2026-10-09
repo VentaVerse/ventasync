@@ -3,7 +3,7 @@
 namespace Extensions\OpenCart\Services\OpenCart;
 
 use Extensions\OpenCart\Models\OpenCartProductGroupProduct;
-use Extensions\OpenCart\Models\OpenCartProductLink;
+use Extensions\OpenCart\Models\OpenCartListingLink;
 use Extensions\OpenCart\Models\OpenCartStore;
 use Illuminate\Support\Facades\DB;
 
@@ -11,7 +11,7 @@ final class OpenCartProductRemover
 {
     public function presence(array $productIds): array
     {
-        $links = OpenCartProductLink::query()->whereIn('product_id', $productIds)->get();
+        $links = OpenCartListingLink::query()->whereIn('product_id', $productIds)->get();
         $stores = $this->stores($links->pluck('store_id'));
         $out = [];
         foreach ($links as $link) {
@@ -28,13 +28,13 @@ final class OpenCartProductRemover
 
     public function remove(int $productId): array
     {
-        $links = OpenCartProductLink::query()->where('product_id', $productId)->get();
+        $links = OpenCartListingLink::query()->where('product_id', $productId)->get();
         $stores = $this->stores($links->pluck('store_id'));
         $stays = [];
         foreach ($links->pluck('store_id')->unique() as $storeId) {
             $stays['OpenCart (' . ($stores[(int) $storeId] ?? 'store #' . (int) $storeId) . ')'] = true;
         }
-        OpenCartProductLink::query()->where('product_id', $productId)->delete();
+        OpenCartListingLink::query()->where('product_id', $productId)->delete();
         OpenCartProductGroupProduct::query()->where('product_id', $productId)->delete();
 
         return array_keys($stays);
@@ -44,7 +44,7 @@ final class OpenCartProductRemover
     {
         $pfx = (string) config('catalog.prefix');
         $ids = [];
-        foreach (['opencart_product_links', 'opencart_product_group_products'] as $table) {
+        foreach (['opencart_listing_links', 'opencart_product_group_products'] as $table) {
             $ids = array_merge($ids, DB::table($table)
                 ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from($pfx . 'product as op')->whereColumn('op.product_id', $table . '.product_id'))
                 ->distinct()->pluck('product_id')->map(fn ($v) => (int) $v)->all());

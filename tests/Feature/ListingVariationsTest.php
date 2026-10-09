@@ -9,7 +9,7 @@ use App\Models\Admin\UserGroup;
 use App\Models\User;
 use App\Services\Catalog\ProductDeleter;
 use Extensions\Shopee\Models\ShopeeListing;
-use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Extensions\Shopee\Services\Shopee\ShopeeVariationPush;
@@ -170,8 +170,8 @@ class ListingVariationsTest extends TestCase
     public function test_the_stock_push_sends_only_what_the_store_sells(): void
     {
         $pid = $this->productWithCombinations(['VAR-A' => [100, 1], 'VAR-B' => [100, 1]]);
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 900, 'shopee_model_id' => 1, 'sku' => 'VAR-A']);
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 900, 'shopee_model_id' => 2, 'sku' => 'VAR-B']);
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 900, 'shopee_model_id' => 1, 'sku' => 'VAR-A']);
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 900, 'shopee_model_id' => 2, 'sku' => 'VAR-B']);
         ListingVariations::save('shopee', $this->storeId(), $pid, ['VAR-A']);
 
         $this->actingAs($this->manager())

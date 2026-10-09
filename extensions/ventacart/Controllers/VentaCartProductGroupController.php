@@ -8,7 +8,7 @@ use Extensions\VentaCart\Models\VentaCartBrand;
 use Extensions\VentaCart\Models\VentaCartCategory;
 use Extensions\VentaCart\Models\VentaCartProductGroup;
 use Extensions\VentaCart\Models\VentaCartProductGroupProduct;
-use Extensions\VentaCart\Models\VentaCartProductLink;
+use Extensions\VentaCart\Models\VentaCartListingLink;
 use Extensions\VentaCart\Models\VentaCartStore;
 use Extensions\VentaCart\Services\VentaCart\VentaCartClient;
 use Extensions\VentaCart\Services\VentaCart\VentaCartProductPush;
@@ -264,7 +264,7 @@ class VentaCartProductGroupController extends Controller
                     ->where('pd.language_id', '=', $langId);
             })
             ->leftJoin($pfx . 'brand as m', 'p.brand_id', '=', 'm.brand_id')
-            ->leftJoin('ventacart_product_links as vpl', function ($j) use ($store) {
+            ->leftJoin('ventacart_listing_links as vpl', function ($j) use ($store) {
                 $j->on('p.product_id', '=', 'vpl.product_id')
                     ->where('vpl.store_id', '=', $store);
             })
@@ -470,7 +470,7 @@ class VentaCartProductGroupController extends Controller
         $storeName = $setting->store_name ?: 'Unnamed store';
         $client = new VentaCartClient($setting);
 
-        $known = VentaCartProductLink::where('store_id', $store)
+        $known = VentaCartListingLink::where('store_id', $store)
             ->whereNotNull('ventacart_product_id')
             ->pluck('ventacart_product_id')
             ->map('intval')
@@ -687,7 +687,7 @@ class VentaCartProductGroupController extends Controller
 
             $this->writeProductStatus($g, $pid, ['last_confirmed_at' => now()]);
 
-            $existingLink = VentaCartProductLink::where('store_id', $store)
+            $existingLink = VentaCartListingLink::where('store_id', $store)
                 ->where('product_id', $pid)
                 ->first();
 
@@ -826,7 +826,7 @@ class VentaCartProductGroupController extends Controller
 
     private function pushFigures(VentaCartStore $setting, int $store, int $group, array $ids, bool $stock, bool $price, string $what)
     {
-        if (! VentaCartProductLink::where('store_id', $store)->whereIn('product_id', $ids)->exists()) {
+        if (! VentaCartListingLink::where('store_id', $store)->whereIn('product_id', $ids)->exists()) {
             return $this->productsRedirect($store, $group)
                 ->with('error', 'No linked VentaCart products found for the selected items.');
         }
@@ -862,7 +862,7 @@ class VentaCartProductGroupController extends Controller
         $this->store_($store);
         $g = VentaCartProductGroup::where('store_id', $store)->findOrFail($group);
 
-        $removed = VentaCartProductLink::where('store_id', $store)
+        $removed = VentaCartListingLink::where('store_id', $store)
             ->where('product_id', $product)
             ->delete();
 
@@ -887,7 +887,7 @@ class VentaCartProductGroupController extends Controller
         $skipped = 0;
         $errors = [];
 
-        $links = VentaCartProductLink::where('store_id', $store)
+        $links = VentaCartListingLink::where('store_id', $store)
             ->whereIn('product_id', $productIds)
             ->get()
             ->keyBy('product_id');
@@ -964,7 +964,7 @@ class VentaCartProductGroupController extends Controller
 
         $product = $productIds[0];
 
-        $link = VentaCartProductLink::where('store_id', $store)
+        $link = VentaCartListingLink::where('store_id', $store)
             ->where('product_id', $product)
             ->first();
 
@@ -1002,7 +1002,7 @@ class VentaCartProductGroupController extends Controller
             ->first();
 
         if ($pivot) {
-            $hasLink = VentaCartProductLink::where('store_id', $store)
+            $hasLink = VentaCartListingLink::where('store_id', $store)
                 ->where('product_id', $product)
                 ->whereNotNull('ventacart_product_id')
                 ->where('ventacart_product_id', '!=', 0)

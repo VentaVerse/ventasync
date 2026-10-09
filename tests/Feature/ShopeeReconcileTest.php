@@ -191,7 +191,7 @@ class ShopeeReconcileTest extends TestCase
         $this->assertStringContainsString("'state' => 'taken'", $body);
 
         $takenAt = strpos($body, "'state' => 'taken'");
-        $writeAt = strpos($body, 'ShopeeProductLink::updateOrCreate');
+        $writeAt = strpos($body, 'ShopeeListingLink::updateOrCreate');
 
         $this->assertNotFalse($takenAt);
         $this->assertNotFalse($writeAt);

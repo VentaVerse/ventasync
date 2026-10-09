@@ -3,7 +3,7 @@
 namespace Extensions\VentaCart\Commands;
 
 use Extensions\OpenCart\Models\MarketplaceReview;
-use Extensions\VentaCart\Models\VentaCartProductLink;
+use Extensions\VentaCart\Models\VentaCartListingLink;
 use Extensions\VentaCart\Models\VentaCartStore;
 use Extensions\VentaCart\Services\VentaCart\VentaCartClient;
 use Illuminate\Console\Command;
@@ -62,7 +62,7 @@ class VentaCartPushReviews extends Command
             $skipped = 0;
             $errors = 0;
 
-            $linkMap = VentaCartProductLink::query()
+            $linkMap = VentaCartListingLink::query()
                 ->where('store_id', $store->id)
                 ->pluck('sku', 'product_id')
                 ->all();

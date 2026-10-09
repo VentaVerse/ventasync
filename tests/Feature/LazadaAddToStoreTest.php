@@ -7,7 +7,7 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\Lazada\LazadaExtension;
-use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaListing;
 use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -71,7 +71,7 @@ class LazadaAddToStoreTest extends TestCase
     {
         $onStore = $this->seedProduct('On store widget', 'ON-1');
         $this->seedProduct('Catalog only widget', 'OFF-1');
-        LazadaProduct::create(['store_id' => $this->store->id, 'product_id' => $onStore]);
+        LazadaListing::create(['store_id' => $this->store->id, 'product_id' => $onStore]);
 
         $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
 
@@ -107,7 +107,7 @@ class LazadaAddToStoreTest extends TestCase
     {
         $onStore = $this->seedProduct('On store widget', 'ON-1');
         $this->seedProduct('Catalog only widget', 'OFF-1');
-        LazadaProduct::create(['store_id' => $this->store->id, 'product_id' => $onStore]);
+        LazadaListing::create(['store_id' => $this->store->id, 'product_id' => $onStore]);
 
         $r = $this->actingAs($this->manager())->getJson($this->base() . '/catalog-search')->assertOk();
 
@@ -121,7 +121,7 @@ class LazadaAddToStoreTest extends TestCase
     {
         $onStore = $this->seedProduct('On store widget', 'ON-1');
         $this->seedProduct('Catalog only widget', 'OFF-1');
-        LazadaProduct::create(['store_id' => $this->store->id, 'product_id' => $onStore]);
+        LazadaListing::create(['store_id' => $this->store->id, 'product_id' => $onStore]);
 
         $r = $this->actingAs($this->manager())->getJson($this->base() . '/catalog-search?all=1')->assertOk();
 
@@ -159,13 +159,13 @@ class LazadaAddToStoreTest extends TestCase
     public function test_add_to_store_over_json_puts_the_product_on_the_store(): void
     {
         $pid = $this->seedProduct('Catalog only widget', 'OFF-1');
-        $this->assertSame(0, LazadaProduct::withoutGlobalScope('lazadaStore')->where('product_id', $pid)->count());
+        $this->assertSame(0, LazadaListing::withoutGlobalScope('lazadaStore')->where('product_id', $pid)->count());
 
         $this->actingAs($this->manager())
             ->postJson($this->base() . '/' . $pid . '/add-to-store')
             ->assertOk()->assertJson(['ok' => true, 'product_id' => $pid, 'added' => true]);
 
-        $row = LazadaProduct::withoutGlobalScope('lazadaStore')->where('product_id', $pid)->first();
+        $row = LazadaListing::withoutGlobalScope('lazadaStore')->where('product_id', $pid)->first();
         $this->assertNotNull($row);
         $this->assertSame($this->store->id, (int) $row->store_id, 'the row is stamped with this store');
 
@@ -182,7 +182,7 @@ class LazadaAddToStoreTest extends TestCase
             ->post($this->base() . '/' . $pid . '/add-to-store')
             ->assertRedirect()->assertSessionHas('status');
 
-        $this->assertSame(1, LazadaProduct::withoutGlobalScope('lazadaStore')->where('product_id', $pid)->count());
+        $this->assertSame(1, LazadaListing::withoutGlobalScope('lazadaStore')->where('product_id', $pid)->count());
     }
 
     public function test_bulk_add_puts_the_selected_products_on_the_store(): void
@@ -195,19 +195,19 @@ class LazadaAddToStoreTest extends TestCase
             ->post($this->base() . '/add-to-store', ['product_ids' => [$a, $b]])
             ->assertRedirect();
 
-        $this->assertSame(2, LazadaProduct::withoutGlobalScope('lazadaStore')->whereIn('product_id', [$a, $b])->where('store_id', $this->store->id)->count());
+        $this->assertSame(2, LazadaListing::withoutGlobalScope('lazadaStore')->whereIn('product_id', [$a, $b])->where('store_id', $this->store->id)->count());
     }
 
     public function test_add_to_store_is_idempotent(): void
     {
         $pid = $this->seedProduct('Widget', 'W-1');
-        LazadaProduct::create(['store_id' => $this->store->id, 'product_id' => $pid]);
+        LazadaListing::create(['store_id' => $this->store->id, 'product_id' => $pid]);
 
         $this->actingAs($this->manager())
             ->postJson($this->base() . '/' . $pid . '/add-to-store')
             ->assertOk()->assertJson(['added' => false]);
 
-        $this->assertSame(1, LazadaProduct::withoutGlobalScope('lazadaStore')->where('product_id', $pid)->where('store_id', $this->store->id)->count(),
+        $this->assertSame(1, LazadaListing::withoutGlobalScope('lazadaStore')->where('product_id', $pid)->where('store_id', $this->store->id)->count(),
             'adding a product already on the store must not double it');
     }
 
@@ -226,7 +226,7 @@ class LazadaAddToStoreTest extends TestCase
     public function test_remove_from_store_takes_the_product_off_the_store_freely(): void
     {
         $pid = $this->seedProduct('Live widget', 'LIVE-1');
-        $listing = LazadaProduct::create([
+        $listing = LazadaListing::create([
             'store_id' => $this->store->id, 'product_id' => $pid,
             'lazada_item_id' => '901234', 'live_status' => 'active',
         ]);
@@ -238,8 +238,8 @@ class LazadaAddToStoreTest extends TestCase
             ->post($this->base() . '/' . $pid . '/remove-from-store')
             ->assertRedirect($this->base())->assertSessionHas('status');
 
-        $this->assertSame(0, LazadaProduct::withoutGlobalScope('lazadaStore')->where('id', $listing->id)->count(), 'the listing row is gone, so nothing is left to sync');
-        $this->assertSame(0, DB::table('lazada_product_group_products')->where('lazada_product_id', $listing->id)->count(), 'its group membership went with it');
+        $this->assertSame(0, LazadaListing::withoutGlobalScope('lazadaStore')->where('id', $listing->id)->count(), 'the listing row is gone, so nothing is left to sync');
+        $this->assertSame(0, DB::table('lazada_product_group_products')->where('lazada_listing_id', $listing->id)->count(), 'its group membership went with it');
 
         $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
         $this->assertStringNotContainsString('Live widget', $html);
@@ -248,7 +248,7 @@ class LazadaAddToStoreTest extends TestCase
     public function test_the_remove_confirm_names_the_live_listing_and_the_marketplace_door(): void
     {
         $pid = $this->seedProduct('Live widget', 'LIVE-1');
-        LazadaProduct::create(['store_id' => $this->store->id, 'product_id' => $pid, 'lazada_item_id' => '901234', 'live_status' => 'active']);
+        LazadaListing::create(['store_id' => $this->store->id, 'product_id' => $pid, 'lazada_item_id' => '901234', 'live_status' => 'active']);
 
         $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
 
@@ -262,13 +262,13 @@ class LazadaAddToStoreTest extends TestCase
     {
         $other = LazadaStore::create(['mode' => 'live', 'store_name' => 'Outlet']);
         $pid = $this->seedProduct('Theirs', 'T-1');
-        $theirs = LazadaProduct::create(['store_id' => $other->id, 'product_id' => $pid]);
+        $theirs = LazadaListing::create(['store_id' => $other->id, 'product_id' => $pid]);
 
         $this->actingAs($this->manager())
             ->post($this->base() . '/' . $pid . '/remove-from-store')
             ->assertNotFound();
 
-        $this->assertSame(1, LazadaProduct::withoutGlobalScope('lazadaStore')->where('id', $theirs->id)->count());
+        $this->assertSame(1, LazadaListing::withoutGlobalScope('lazadaStore')->where('id', $theirs->id)->count());
     }
 
     private function group(string $name = 'Helmets'): \Extensions\Lazada\Models\LazadaProductGroup
@@ -281,10 +281,10 @@ class LazadaAddToStoreTest extends TestCase
         return '/channels/lazada/' . $this->store->id . '/product-groups/' . $groupId;
     }
 
-    private function inGroup(\Extensions\Lazada\Models\LazadaProductGroup $group, LazadaProduct $listing): void
+    private function inGroup(\Extensions\Lazada\Models\LazadaProductGroup $group, LazadaListing $listing): void
     {
         \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
-            'lazada_product_group_id' => $group->id, 'lazada_product_id' => $listing->id, 'product_id' => $listing->product_id,
+            'lazada_product_group_id' => $group->id, 'lazada_listing_id' => $listing->id, 'product_id' => $listing->product_id,
         ]);
     }
 
@@ -304,8 +304,8 @@ class LazadaAddToStoreTest extends TestCase
     public function test_group_search_offers_only_this_stores_products_not_yet_in_the_group(): void
     {
         $group = $this->group();
-        $grouped = LazadaProduct::create(['store_id' => $this->store->id, 'product_id' => $this->seedProduct('Already grouped', 'G-1')]);
-        LazadaProduct::create(['store_id' => $this->store->id, 'product_id' => $this->seedProduct('On store free', 'S-1')]);
+        $grouped = LazadaListing::create(['store_id' => $this->store->id, 'product_id' => $this->seedProduct('Already grouped', 'G-1')]);
+        LazadaListing::create(['store_id' => $this->store->id, 'product_id' => $this->seedProduct('On store free', 'S-1')]);
         $this->seedProduct('Catalog only widget', 'OFF-1');
         $this->inGroup($group, $grouped);
 
@@ -325,7 +325,7 @@ class LazadaAddToStoreTest extends TestCase
     {
         $group = $this->group('Helmets');
         $other = $this->group('Gloves');
-        $listing = LazadaProduct::create(['store_id' => $this->store->id, 'product_id' => $this->seedProduct('Owned elsewhere', 'E-1')]);
+        $listing = LazadaListing::create(['store_id' => $this->store->id, 'product_id' => $this->seedProduct('Owned elsewhere', 'E-1')]);
         $this->inGroup($other, $listing);
 
         $r = $this->actingAs($this->manager())->getJson($this->groupBase($group->id) . '/products/search')->assertOk();
@@ -339,7 +339,7 @@ class LazadaAddToStoreTest extends TestCase
     public function test_add_to_group_over_json_puts_this_stores_product_in_the_group(): void
     {
         $group = $this->group();
-        $listing = LazadaProduct::create(['store_id' => $this->store->id, 'product_id' => $this->seedProduct('On store free', 'S-1')]);
+        $listing = LazadaListing::create(['store_id' => $this->store->id, 'product_id' => $this->seedProduct('On store free', 'S-1')]);
         $pid = $listing->product_id;
 
         $this->actingAs($this->manager())
@@ -348,8 +348,8 @@ class LazadaAddToStoreTest extends TestCase
 
         $pivot = \Extensions\Lazada\Models\LazadaProductGroupProduct::query()->where('lazada_product_group_id', $group->id)->where('product_id', $pid)->first();
         $this->assertNotNull($pivot);
-        $this->assertSame($listing->id, (int) $pivot->lazada_product_id, 'the pivot rides the store\'s existing listing row');
-        $this->assertSame(1, LazadaProduct::withoutGlobalScope('lazadaStore')->where('product_id', $pid)->count(), 'no second listing row was created');
+        $this->assertSame($listing->id, (int) $pivot->lazada_listing_id, 'the pivot rides the store\'s existing listing row');
+        $this->assertSame(1, LazadaListing::withoutGlobalScope('lazadaStore')->where('product_id', $pid)->count(), 'no second listing row was created');
 
         $this->actingAs($this->manager())
             ->postJson($this->groupBase($group->id) . '/products/' . $pid . '/add')
@@ -365,12 +365,12 @@ class LazadaAddToStoreTest extends TestCase
             ->postJson($this->groupBase($group->id) . '/products/' . $pid . '/add')
             ->assertOk()->assertJson(['ok' => true, 'added' => true, 'listed' => true]);
 
-        $row = LazadaProduct::withoutGlobalScope('lazadaStore')->where('product_id', $pid)->get();
+        $row = LazadaListing::withoutGlobalScope('lazadaStore')->where('product_id', $pid)->get();
         $this->assertCount(1, $row, 'one listing row for this store, the same the Listings page creates');
         $this->assertSame($this->store->id, (int) $row->first()->store_id);
         $pivot = \Extensions\Lazada\Models\LazadaProductGroupProduct::query()->where('lazada_product_group_id', $group->id)->where('product_id', $pid)->first();
         $this->assertNotNull($pivot);
-        $this->assertSame((int) $row->first()->id, (int) $pivot->lazada_product_id, 'the pivot rides the new listing row');
+        $this->assertSame((int) $row->first()->id, (int) $pivot->lazada_listing_id, 'the pivot rides the new listing row');
 
         $this->actingAs($this->manager())
             ->postJson($this->groupBase($group->id) . '/products/424242/add')
@@ -381,7 +381,7 @@ class LazadaAddToStoreTest extends TestCase
     {
         $group = $this->group('Helmets');
         $other = $this->group('Gloves');
-        $listing = LazadaProduct::create(['store_id' => $this->store->id, 'product_id' => $this->seedProduct('Owned elsewhere', 'E-1')]);
+        $listing = LazadaListing::create(['store_id' => $this->store->id, 'product_id' => $this->seedProduct('Owned elsewhere', 'E-1')]);
         $pid = $listing->product_id;
         $this->inGroup($other, $listing);
 
@@ -401,7 +401,7 @@ class LazadaAddToStoreTest extends TestCase
     public function test_the_edit_form_is_the_groups_settings_only(): void
     {
         $group = $this->group();
-        $listing = LazadaProduct::create(['store_id' => $this->store->id, 'product_id' => $this->seedProduct('Already grouped', 'G-1')]);
+        $listing = LazadaListing::create(['store_id' => $this->store->id, 'product_id' => $this->seedProduct('Already grouped', 'G-1')]);
         $this->inGroup($group, $listing);
 
         $html = $this->actingAs($this->manager())->get($this->groupBase($group->id) . '/edit')->assertOk()->getContent();

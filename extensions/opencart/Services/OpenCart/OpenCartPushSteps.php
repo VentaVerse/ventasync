@@ -3,7 +3,7 @@
 namespace Extensions\OpenCart\Services\OpenCart;
 
 use App\Models\ScheduledJob;
-use Extensions\OpenCart\Models\OpenCartProductLink;
+use Extensions\OpenCart\Models\OpenCartListingLink;
 use Extensions\OpenCart\Models\OpenCartStore;
 
 final class OpenCartPushSteps
@@ -16,7 +16,7 @@ final class OpenCartPushSteps
         }
         $units = [];
         foreach ($stores->orderBy('id')->get() as $store) {
-            $pids = OpenCartProductLink::query()->where('store_id', $store->id)
+            $pids = OpenCartListingLink::query()->where('store_id', $store->id)
                 ->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
             foreach ($pids as $pid) {
                 $units[] = $store->id . ':' . $pid;

@@ -190,7 +190,7 @@ class VariationWriter
         DB::table($pfx . 'product_option')->where('product_id', $productId)->delete();
 
         if (!empty($deletedPovIds)) {
-            DB::table('lazada_product_variants')
+            DB::table('lazada_listing_variations')
                 ->whereIn('product_option_value_id', $deletedPovIds)
                 ->update(['product_option_value_id' => null]);
         }
@@ -252,7 +252,7 @@ class VariationWriter
             DB::table($pfx . 'product_option')->whereIn('product_option_id', $stalePos)->delete();
 
             if (!empty($stalePovIds)) {
-                DB::table('lazada_product_variants')
+                DB::table('lazada_listing_variations')
                     ->whereIn('product_option_value_id', $stalePovIds)
                     ->update(['product_option_value_id' => null]);
             }
@@ -365,7 +365,7 @@ class VariationWriter
             }
         }
         if (!empty($deletedPovIds)) {
-            DB::table('lazada_product_variants')
+            DB::table('lazada_listing_variations')
                 ->whereIn('product_option_value_id', $deletedPovIds)
                 ->update(['product_option_value_id' => null]);
         }
@@ -445,7 +445,7 @@ class VariationWriter
             DB::table($pfx . 'product_option')->whereIn('product_option_id', $stalePos)->delete();
 
             if (!empty($stalePovIds)) {
-                DB::table('lazada_product_variants')
+                DB::table('lazada_listing_variations')
                     ->whereIn('product_option_value_id', $stalePovIds)
                     ->update(['product_option_value_id' => null]);
             }

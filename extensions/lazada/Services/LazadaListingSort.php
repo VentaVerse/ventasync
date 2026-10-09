@@ -26,7 +26,7 @@ final class LazadaListingSort
 
     public static function join(Builder $query, int $storeId): void
     {
-        ListingSort::joinStore($query, $storeId, ['table' => 'lazada_products', 'store' => 'store_id'], self::GROUP);
+        ListingSort::joinStore($query, $storeId, ['table' => 'lazada_listings', 'store' => 'store_id'], self::GROUP);
     }
 
     public static function joinGroup(Builder $query, int $storeId): void

@@ -7,7 +7,7 @@ use App\Channels\Listings\StatusMenu;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaListing;
 use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -62,14 +62,14 @@ class ListingStatusMenuTest extends TestCase
     private function store(): array
     {
         $listedOk = $this->product('Listed and fine', 'MN-1');
-        LazadaProduct::query()->create(['product_id' => $listedOk, 'lazada_item_id' => '9001', 'live_status' => 'active', 'live_checked_at' => now()]);
+        LazadaListing::query()->create(['product_id' => $listedOk, 'lazada_item_id' => '9001', 'live_status' => 'active', 'live_checked_at' => now()]);
 
         $listedFailed = $this->product('Listed but failed', 'MN-2');
-        LazadaProduct::query()->create(['product_id' => $listedFailed, 'lazada_item_id' => '9002', 'live_status' => 'active', 'live_checked_at' => now(),
+        LazadaListing::query()->create(['product_id' => $listedFailed, 'lazada_item_id' => '9002', 'live_status' => 'active', 'live_checked_at' => now(),
             'last_push_error' => 'Lazada refused the update', 'last_push_failed_at' => now()]);
 
         $notListed = $this->product('Not on Lazada yet', 'MN-3');
-        LazadaProduct::query()->create(['product_id' => $notListed]);
+        LazadaListing::query()->create(['product_id' => $notListed]);
 
         return compact('listedOk', 'listedFailed', 'notListed');
     }
@@ -200,7 +200,7 @@ class ListingStatusMenuTest extends TestCase
         \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
             'lazada_product_group_id' => $group->id,
             'product_id' => $ids['listedOk'],
-            'lazada_product_id' => LazadaProduct::query()->where('product_id', $ids['listedOk'])->value('id'),
+            'lazada_listing_id' => LazadaListing::query()->where('product_id', $ids['listedOk'])->value('id'),
             'sync_status' => 'pending',
         ]);
         $user = $this->manager();
@@ -262,7 +262,7 @@ class ListingStatusMenuTest extends TestCase
         $group = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Fuzz']);
         \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
             'lazada_product_group_id' => $group->id, 'product_id' => $ids['notListed'],
-            'lazada_product_id' => LazadaProduct::query()->where('product_id', $ids['notListed'])->value('id'),
+            'lazada_listing_id' => LazadaListing::query()->where('product_id', $ids['notListed'])->value('id'),
         ]);
         $manager = $this->manager();
         $manager->userGroup->permissions()->attach(Permission::whereIn('key', ['manage_lazada/product_group', 'view_lazada/product_group'])->pluck('id')->all());

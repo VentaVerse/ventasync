@@ -8,7 +8,7 @@ use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\Shopee\Models\ShopeeProductGroup;
 use Extensions\Shopee\Models\ShopeeProductGroupProduct;
-use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -79,9 +79,9 @@ class GroupScopeStripsTest extends TestCase
             ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $pid]);
         }
 
-        ShopeeProductLink::create(['product_id' => $member, 'shopee_item_id' => 1001, 'sku' => 'MEM-1', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
-        ShopeeProductLink::create(['product_id' => $stranger, 'shopee_item_id' => 1002, 'sku' => 'STR-1', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
-        ShopeeProductLink::create(['product_id' => $memberUnlisted, 'shopee_item_id' => 1003, 'sku' => 'MEM-2', 'live_status' => 'UNLIST', 'live_checked_at' => now()]);
+        ShopeeListingLink::create(['product_id' => $member, 'shopee_item_id' => 1001, 'sku' => 'MEM-1', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+        ShopeeListingLink::create(['product_id' => $stranger, 'shopee_item_id' => 1002, 'sku' => 'STR-1', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+        ShopeeListingLink::create(['product_id' => $memberUnlisted, 'shopee_item_id' => 1003, 'sku' => 'MEM-2', 'live_status' => 'UNLIST', 'live_checked_at' => now()]);
 
         $manager = $this->manager();
         $html = $this->actingAs($manager)

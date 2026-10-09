@@ -80,7 +80,7 @@ class VentaCartReconcileTest extends TestCase
     {
         $body = $this->methodBody('unlinkProduct');
 
-        $this->assertStringContainsString('VentaCartProductLink::where', $body,
+        $this->assertStringContainsString('VentaCartListingLink::where', $body,
             'Unlink still only flips a status flag, so the ERP goes on believing the product is on VentaCart.');
         $this->assertStringContainsString('->delete();', $body);
     }

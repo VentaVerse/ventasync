@@ -4,7 +4,7 @@ namespace Extensions\Shopee\Services\Shopee;
 
 use Extensions\Shopee\Models\ShopeeApiLog;
 use Extensions\Shopee\Models\ShopeeListing;
-use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -27,7 +27,7 @@ class ShopeeLinkCheck
             ->withoutGlobalScope('shopeeStore')->where('store_id', $storeId)
             ->pluck('product_id');
 
-        return \Extensions\Shopee\Models\ShopeeProductLink::query()
+        return \Extensions\Shopee\Models\ShopeeListingLink::query()
             ->withoutGlobalScope('shopeeStore')->where('store_id', $storeId)
             ->whereNotNull('shopee_item_id')->pluck('product_id')
             ->merge($listings)
@@ -60,7 +60,7 @@ class ShopeeLinkCheck
         $productIds = array_slice($productIds, 0, $limit);
 
         // get_item_base_info answers 50 at a time; one call per item overruns the web request time limit.
-        $knownItemIds = $this->ofThisStore(ShopeeProductLink::query())
+        $knownItemIds = $this->ofThisStore(ShopeeListingLink::query())
             ->whereIn('product_id', $productIds)
             ->whereNotNull('shopee_item_id')
             ->pluck('shopee_item_id')
@@ -406,7 +406,7 @@ class ShopeeLinkCheck
     {
         $this->actingStore = (int) ($auth['store_id'] ?? 0);
 
-        $link = $this->ofThisStore(ShopeeProductLink::query())
+        $link = $this->ofThisStore(ShopeeListingLink::query())
             ->where('product_id', $productId)
             ->whereNotNull('shopee_item_id')
             ->first();
@@ -465,7 +465,7 @@ class ShopeeLinkCheck
                     (int) ($auth['shop_id'] ?? 0), $skus, count($index['skus'])
                 );
 
-                ShopeeProductLink::unlinkProduct($productId, (int) ($auth['store_id'] ?? 0));
+                ShopeeListingLink::unlinkProduct($productId, (int) ($auth['store_id'] ?? 0));
 
                 $this->writeProductStatus($productId, [
                     'sync_status' => 'pending',
@@ -481,7 +481,7 @@ class ShopeeLinkCheck
             return ['state' => 'new', 'item_id' => null, 'message' => null];
         }
 
-        $otherHolder = $this->ofThisStore(ShopeeProductLink::query())
+        $otherHolder = $this->ofThisStore(ShopeeListingLink::query())
             ->where('shopee_item_id', $found)
             ->where('product_id', '!=', $productId)
             ->value('product_id');
@@ -498,7 +498,7 @@ class ShopeeLinkCheck
             ];
         }
 
-        ShopeeProductLink::updateOrCreate(
+        ShopeeListingLink::updateOrCreate(
             ['product_id' => $productId, 'shopee_item_id' => $found, 'shopee_model_id' => null],
             ['sku' => $skus[0] ?? null]
         );

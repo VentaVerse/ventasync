@@ -3,7 +3,7 @@
 namespace Extensions\OpenCart\Commands;
 
 use Extensions\OpenCart\Models\MarketplaceReview;
-use Extensions\OpenCart\Models\OpenCartProductLink;
+use Extensions\OpenCart\Models\OpenCartListingLink;
 use Extensions\OpenCart\Models\OpenCartStore;
 use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
 use Illuminate\Console\Command;
@@ -63,7 +63,7 @@ class OpenCartPushReviews extends Command
             $skipped = 0;
             $errors = 0;
 
-            $linkMap = OpenCartProductLink::query()
+            $linkMap = OpenCartListingLink::query()
                 ->where('store_id', $store->id)
                 ->pluck('oc_product_id', 'product_id')
                 ->all();

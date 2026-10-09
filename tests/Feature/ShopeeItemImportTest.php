@@ -7,7 +7,7 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\Shopee\Models\ShopeeListing;
-use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -109,7 +109,7 @@ class ShopeeItemImportTest extends TestCase
         $this->assertSame(101988, (int) $listing->shopee_category_id);
         $this->assertSame('Alloy', (string) data_get($listing->attribute_values, '1000'));
 
-        $this->assertSame(3, ShopeeProductLink::where('product_id', $product->product_id)->count());
+        $this->assertSame(3, ShopeeListingLink::where('product_id', $product->product_id)->count());
     }
 
     public function test_a_sku_collision_refuses_the_import_and_creates_nothing(): void

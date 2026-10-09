@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Extensions\ExtensionManager;
 use App\Models\ChannelWebhookEvent;
-use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\TikTok\Models\TikTokListing;
 use Extensions\TikTok\Models\TikTokStore;
@@ -45,7 +45,7 @@ class ChannelWebhooksTest extends TestCase
 
     public function test_a_signed_item_push_refreshes_the_mirror(): void
     {
-        $link = ShopeeProductLink::create(['product_id' => 11, 'shopee_item_id' => 700, 'shopee_model_id' => 7001, 'sku' => 'WH-1', 'live_status' => 'NORMAL', 'live_checked_at' => now()->subHour()]);
+        $link = ShopeeListingLink::create(['product_id' => 11, 'shopee_item_id' => 700, 'shopee_model_id' => 7001, 'sku' => 'WH-1', 'live_status' => 'NORMAL', 'live_checked_at' => now()->subHour()]);
 
         [$body, $sig, $url] = $this->shopeeSigned(['code' => 5, 'shop_id' => 2, 'data' => ['item_id' => 700, 'item_status' => 'BANNED']]);
 
@@ -69,8 +69,8 @@ class ChannelWebhooksTest extends TestCase
     public function test_a_push_touches_only_the_store_its_shop_id_names(): void
     {
         $two = ShopeeStore::query()->create(['mode' => 'live', 'store_name' => 'Outlet', 'partner_id' => '1', 'partner_key' => 'k2', 'shop_id' => '9', 'access_token' => 't', 'refresh_token' => 'r']);
-        $mine = ShopeeProductLink::create(['store_id' => $two->id, 'product_id' => 21, 'shopee_item_id' => 700, 'sku' => 'WH-2', 'live_status' => 'NORMAL']);
-        $other = ShopeeProductLink::create(['product_id' => 22, 'shopee_item_id' => 700, 'sku' => 'WH-3', 'live_status' => 'NORMAL']);
+        $mine = ShopeeListingLink::create(['store_id' => $two->id, 'product_id' => 21, 'shopee_item_id' => 700, 'sku' => 'WH-2', 'live_status' => 'NORMAL']);
+        $other = ShopeeListingLink::create(['product_id' => 22, 'shopee_item_id' => 700, 'sku' => 'WH-3', 'live_status' => 'NORMAL']);
 
         $body = json_encode(['code' => 5, 'shop_id' => 9, 'data' => ['item_id' => 700, 'item_status' => 'BANNED']]);
         $url = route('channels.webhooks.receive', ['channel' => 'shopee']);
@@ -91,7 +91,7 @@ class ChannelWebhooksTest extends TestCase
 
     public function test_an_unsigned_delivery_is_kept_but_never_applied(): void
     {
-        $link = ShopeeProductLink::create(['product_id' => 12, 'shopee_item_id' => 701, 'shopee_model_id' => 7002, 'sku' => 'WH-2', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+        $link = ShopeeListingLink::create(['product_id' => 12, 'shopee_item_id' => 701, 'shopee_model_id' => 7002, 'sku' => 'WH-2', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
 
         $body = json_encode(['code' => 5, 'data' => ['item_id' => 701, 'item_status' => 'BANNED']]);
         $this->call('POST', route('channels.webhooks.receive', 'shopee'), [], [], [], [

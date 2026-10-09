@@ -199,7 +199,7 @@ class VentaCartOrdersPanel
         $resolved = \App\Support\CatalogImages::forSkus($skus);
 
         $linked = [];
-        $linkIds = DB::table('ventacart_product_links')
+        $linkIds = DB::table('ventacart_listing_links')
             ->whereIn('sku', $skus)
             ->pluck('product_id', 'sku')
             ->all();

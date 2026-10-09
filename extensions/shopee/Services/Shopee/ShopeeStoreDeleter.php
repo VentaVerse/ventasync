@@ -12,7 +12,7 @@ final class ShopeeStoreDeleter
         'shopee_api_logs',
         'shopee_item_cache',
         'shopee_unmatched_items',
-        'shopee_product_links',
+        'shopee_listing_links',
         'shopee_listings',
         'shopee_product_groups',
         'shopee_logistics',
@@ -26,7 +26,7 @@ final class ShopeeStoreDeleter
             $removed = [];
 
             $productIds = DB::table('shopee_listings')->where('store_id', $store->id)->pluck('product_id')
-                ->merge(DB::table('shopee_product_links')->where('store_id', $store->id)->pluck('product_id'))
+                ->merge(DB::table('shopee_listing_links')->where('store_id', $store->id)->pluck('product_id'))
                 ->map(fn ($v) => (int) $v)->unique()->values()->all();
             app(ShopeeListingStates::class)->forStore($store)->clearErrors($productIds);
 

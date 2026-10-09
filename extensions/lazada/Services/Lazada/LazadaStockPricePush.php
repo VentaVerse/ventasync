@@ -4,7 +4,7 @@ namespace Extensions\Lazada\Services\Lazada;
 
 use App\Channels\Push\PushLedger;
 use Extensions\Lazada\Models\LazadaApiLog;
-use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaListing;
 use Extensions\Lazada\Services\LazadaStockPushService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -73,7 +73,7 @@ class LazadaStockPricePush
         return $out;
     }
 
-    private function pushListing(string $kind, object $store, array $creds, LazadaProduct $listing, object $product, string $pfx, ?callable $priceFor, array $erpSkus, array &$out, bool $mayHeal): void
+    private function pushListing(string $kind, object $store, array $creds, LazadaListing $listing, object $product, string $pfx, ?callable $priceFor, array $erpSkus, array &$out, bool $mayHeal): void
     {
         $pid = (int) $listing->product_id;
         $rows = $this->resolver->buildPushItems($listing, $product, $pfx);
@@ -172,7 +172,7 @@ class LazadaStockPricePush
         }
     }
 
-    private function stamp(LazadaProduct $listing, string $kind, bool $ok, ?string $code, ?string $message): void
+    private function stamp(LazadaListing $listing, string $kind, bool $ok, ?string $code, ?string $message): void
     {
         $listing->forceFill([
             'last_synced_at' => now(),

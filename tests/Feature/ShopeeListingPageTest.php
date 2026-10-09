@@ -7,7 +7,7 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\Shopee\Models\ShopeeListing;
-use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -320,7 +320,7 @@ class ShopeeListingPageTest extends TestCase
     {
         $productId = $this->seedProduct();
         $paths = $this->seedRealImages($productId, 3);
-        ShopeeProductLink::query()->create([
+        ShopeeListingLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1',
         ]);
         ShopeeListing::query()->create([
@@ -355,7 +355,7 @@ class ShopeeListingPageTest extends TestCase
     public function test_send_carries_the_price_and_the_stock_not_only_the_content(): void
     {
         $productId = $this->seedProduct();
-        ShopeeProductLink::query()->create([
+        ShopeeListingLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 990079, 'sku' => 'LSTP-SKU-1',
         ]);
         ShopeeListing::query()->create([
@@ -387,7 +387,7 @@ class ShopeeListingPageTest extends TestCase
     public function test_save_and_push_updates_a_live_listing_and_returns_to_the_search(): void
     {
         $productId = $this->seedProduct();
-        ShopeeProductLink::query()->create([
+        ShopeeListingLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 990078, 'sku' => 'LSTP-SKU-1',
         ]);
         ShopeeListing::query()->create([
@@ -502,7 +502,7 @@ class ShopeeListingPageTest extends TestCase
     public function test_a_linked_product_shows_shopees_live_answer(): void
     {
         $productId = $this->seedProduct();
-        ShopeeProductLink::query()->create([
+        ShopeeListingLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1',
         ]);
         $this->getResponses['/api/v2/product/get_item_base_info'] = $this->baseInfoAnswer();
@@ -512,13 +512,13 @@ class ShopeeListingPageTest extends TestCase
 
         $r->assertOk();
         $r->assertSee('Delist from Shopee');
-        $this->assertSame('NORMAL', ShopeeProductLink::query()->where('shopee_item_id', 990077)->value('live_status'));
+        $this->assertSame('NORMAL', ShopeeListingLink::query()->where('shopee_item_id', 990077)->value('live_status'));
     }
 
     public function test_when_shopee_does_not_answer_the_page_says_so_instead_of_substituting(): void
     {
         $productId = $this->seedProduct();
-        ShopeeProductLink::query()->create([
+        ShopeeListingLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1',
         ]);
         $this->getResponses['/api/v2/product/get_item_base_info'] =
@@ -534,7 +534,7 @@ class ShopeeListingPageTest extends TestCase
     public function test_the_toggle_reaches_unlist_item_with_the_asked_direction(): void
     {
         $productId = $this->seedProduct();
-        ShopeeProductLink::query()->create([
+        ShopeeListingLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1',
         ]);
 
@@ -566,7 +566,7 @@ class ShopeeListingPageTest extends TestCase
     public function test_the_index_tabs_count_the_mirror(): void
     {
         $productId = $this->seedProduct();
-        ShopeeProductLink::query()->create(['product_id' => $productId, 'shopee_item_id' => 111, 'sku' => 'A', 'live_status' => 'NORMAL']);
+        ShopeeListingLink::query()->create(['product_id' => $productId, 'shopee_item_id' => 111, 'sku' => 'A', 'live_status' => 'NORMAL']);
 
         $r = $this->actingAs($this->manager())->get(route('ext.shopee.products.index'));
 
@@ -579,7 +579,7 @@ class ShopeeListingPageTest extends TestCase
     public function test_the_page_reads_the_mirror_and_asks_shopee_for_nothing(): void
     {
         $productId = $this->seedProduct();
-        ShopeeProductLink::query()->create([
+        ShopeeListingLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 111, 'sku' => 'LSTP-SKU-1',
             'live_status' => 'UNLIST', 'live_checked_at' => '2026-08-28 08:30:00',
         ]);
@@ -604,7 +604,7 @@ class ShopeeListingPageTest extends TestCase
     public function test_a_link_never_checked_is_filled_on_first_view_and_only_once(): void
     {
         $productId = $this->seedProduct();
-        ShopeeProductLink::query()->create(['product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1']);
+        ShopeeListingLink::query()->create(['product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1']);
         $calls = 0;
         $this->getResponses['/api/v2/product/get_item_base_info'] = function () use (&$calls) {
             $calls++;
@@ -616,7 +616,7 @@ class ShopeeListingPageTest extends TestCase
         $r->assertSee('Under review');
         $r->assertDontSee('Not checked yet');
         $this->assertSame(1, $calls);
-        $this->assertSame('REVIEWING', ShopeeProductLink::where('shopee_item_id', 990077)->value('live_status'));
+        $this->assertSame('REVIEWING', ShopeeListingLink::where('shopee_item_id', 990077)->value('live_status'));
 
         $this->actingAs($this->manager())->get(route('ext.shopee.products.index'))->assertOk();
         $this->assertSame(1, $calls, 'the second view reads the mirror and asks nothing');
@@ -625,7 +625,7 @@ class ShopeeListingPageTest extends TestCase
     public function test_a_link_shopee_will_not_answer_for_reads_not_checked_yet(): void
     {
         $productId = $this->seedProduct();
-        ShopeeProductLink::query()->create(['product_id' => $productId, 'shopee_item_id' => 111, 'sku' => 'LSTP-SKU-1']);
+        ShopeeListingLink::query()->create(['product_id' => $productId, 'shopee_item_id' => 111, 'sku' => 'LSTP-SKU-1']);
 
         $r = $this->actingAs($this->manager())->get(route('ext.shopee.products.index'));
 
@@ -637,17 +637,17 @@ class ShopeeListingPageTest extends TestCase
     public function test_refresh_walks_the_shop_and_writes_every_links_status(): void
     {
         $productId = $this->seedProduct();
-        ShopeeProductLink::query()->create(['product_id' => $productId, 'shopee_item_id' => 111, 'sku' => 'LSTP-SKU-1']);
-        ShopeeProductLink::query()->create(['product_id' => $productId, 'shopee_item_id' => 424242, 'sku' => 'GONE']);
+        ShopeeListingLink::query()->create(['product_id' => $productId, 'shopee_item_id' => 111, 'sku' => 'LSTP-SKU-1']);
+        ShopeeListingLink::query()->create(['product_id' => $productId, 'shopee_item_id' => 424242, 'sku' => 'GONE']);
         $this->fakeItemList(['NORMAL' => [111, 222], 'UNLIST' => [333], 'BANNED' => [], 'REVIEWING' => [], 'SELLER_DELETE' => [], 'SHOPEE_DELETE' => []]);
 
         $r = $this->actingAs($this->manager())->post(route('ext.shopee.products.refresh_status'));
 
         $r->assertSessionHas('status');
         $this->assertStringContainsString('1 live', (string) session('status'));
-        $this->assertSame('NORMAL', ShopeeProductLink::where('shopee_item_id', 111)->value('live_status'));
-        $this->assertSame('MISSING', ShopeeProductLink::where('shopee_item_id', 424242)->value('live_status'), 'an item the shop no longer returns');
-        $this->assertNotNull(ShopeeProductLink::where('shopee_item_id', 111)->value('live_checked_at'));
+        $this->assertSame('NORMAL', ShopeeListingLink::where('shopee_item_id', 111)->value('live_status'));
+        $this->assertSame('MISSING', ShopeeListingLink::where('shopee_item_id', 424242)->value('live_status'), 'an item the shop no longer returns');
+        $this->assertNotNull(ShopeeListingLink::where('shopee_item_id', 111)->value('live_checked_at'));
     }
 
     public function test_refresh_reads_the_attribute_sheets_its_listings_need(): void
@@ -672,7 +672,7 @@ class ShopeeListingPageTest extends TestCase
     public function test_refresh_leaves_the_mirror_alone_when_shopee_does_not_answer(): void
     {
         $productId = $this->seedProduct();
-        ShopeeProductLink::query()->create([
+        ShopeeListingLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 111, 'sku' => 'LSTP-SKU-1', 'live_status' => 'NORMAL',
         ]);
 
@@ -680,14 +680,14 @@ class ShopeeListingPageTest extends TestCase
 
         $r->assertSessionHas('error');
         $this->assertStringContainsString('Shopee did not answer', (string) session('error'));
-        $this->assertSame('NORMAL', ShopeeProductLink::where('shopee_item_id', 111)->value('live_status'));
+        $this->assertSame('NORMAL', ShopeeListingLink::where('shopee_item_id', 111)->value('live_status'));
     }
 
     public function test_a_shopee_tab_narrows_the_table_by_the_mirror(): void
     {
         $inTab = $this->seedProduct();
         $pfx = (string) config('catalog.prefix');
-        ShopeeProductLink::query()->create(['product_id' => $inTab, 'shopee_item_id' => 111, 'sku' => 'TAB-IN', 'live_status' => 'NORMAL']);
+        ShopeeListingLink::query()->create(['product_id' => $inTab, 'shopee_item_id' => 111, 'sku' => 'TAB-IN', 'live_status' => 'NORMAL']);
         $outOfTab = DB::table($pfx . 'product')->insertGetId([
             'model' => 'LSTP-2', 'sku' => 'TAB-OUT', 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => '', 'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5,
@@ -699,7 +699,7 @@ class ShopeeListingPageTest extends TestCase
             'name' => 'Unlisted elsewhere product', 'description' => '',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
-        ShopeeProductLink::query()->create(['product_id' => $outOfTab, 'shopee_item_id' => 333, 'sku' => 'TAB-OUT', 'live_status' => 'UNLIST']);
+        ShopeeListingLink::query()->create(['product_id' => $outOfTab, 'shopee_item_id' => 333, 'sku' => 'TAB-OUT', 'live_status' => 'UNLIST']);
 
         $r = $this->actingAs($this->manager())->get(route('ext.shopee.products.index', ['shopee_tab' => 'live']));
 
@@ -712,13 +712,13 @@ class ShopeeListingPageTest extends TestCase
     public function test_a_toggle_writes_through_to_the_mirror(): void
     {
         $productId = $this->seedProduct();
-        ShopeeProductLink::query()->create([
+        ShopeeListingLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1', 'live_status' => 'NORMAL',
         ]);
 
         $this->actingAs($this->manager())->post(route('ext.shopee.listings.toggle', $productId), ['action' => 'unlist']);
 
-        $this->assertSame('UNLIST', ShopeeProductLink::where('shopee_item_id', 990077)->value('live_status'));
+        $this->assertSame('UNLIST', ShopeeListingLink::where('shopee_item_id', 990077)->value('live_status'));
     }
 
     public function test_bulk_toggle_unlists_the_selection_in_one_call_and_names_what_it_skipped(): void
@@ -731,8 +731,8 @@ class ShopeeListingPageTest extends TestCase
             'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        ShopeeProductLink::query()->create(['product_id' => $a, 'shopee_item_id' => 111, 'sku' => 'LSTP-SKU-1']);
-        ShopeeProductLink::query()->create(['product_id' => $b, 'shopee_item_id' => 222, 'sku' => 'LSTP-SKU-2']);
+        ShopeeListingLink::query()->create(['product_id' => $a, 'shopee_item_id' => 111, 'sku' => 'LSTP-SKU-1']);
+        ShopeeListingLink::query()->create(['product_id' => $b, 'shopee_item_id' => 222, 'sku' => 'LSTP-SKU-2']);
 
         $r = $this->actingAs($this->manager())
             ->post(route('ext.shopee.products.bulk_toggle'), ['action' => 'unlist', 'product_ids' => [$a, $b, 4040]]);
@@ -760,7 +760,7 @@ class ShopeeListingPageTest extends TestCase
     public function test_push_update_sends_the_merged_listing_onto_the_live_item(): void
     {
         $productId = $this->seedProduct();
-        ShopeeProductLink::query()->create([
+        ShopeeListingLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1',
         ]);
         ShopeeListing::query()->create([
@@ -797,7 +797,7 @@ class ShopeeListingPageTest extends TestCase
         $storeId = (int) ShopeeStore::query()->value('id');
         $prefix = \App\Models\DescriptionTemplate::query()->create(['channel' => 'shopee', 'store_id' => $storeId, 'name' => 'Returns', 'body' => 'Returns within 7 days.']);
         $suffix = \App\Models\DescriptionTemplate::query()->create(['channel' => 'shopee', 'store_id' => $storeId, 'name' => 'Warranty', 'body' => 'One year warranty.']);
-        ShopeeProductLink::query()->create([
+        ShopeeListingLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1',
         ]);
         ShopeeListing::query()->create([
@@ -830,7 +830,7 @@ class ShopeeListingPageTest extends TestCase
     private function listingWithWords(string $words): int
     {
         $productId = $this->seedProduct();
-        ShopeeProductLink::query()->create(['product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1']);
+        ShopeeListingLink::query()->create(['product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1']);
         ShopeeListing::query()->create([
             'product_id' => $productId, 'store_id' => (int) ShopeeStore::query()->value('id'),
             'shopee_category_id' => 100013, 'logistic_ids' => [8003],
@@ -866,7 +866,7 @@ class ShopeeListingPageTest extends TestCase
     private function catalogDescriptionWithTwoPictures(): int
     {
         $productId = $this->seedProduct();
-        ShopeeProductLink::query()->create(['product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1']);
+        ShopeeListingLink::query()->create(['product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1']);
 
         $disk = \Illuminate\Support\Facades\Storage::disk('public');
         $urls = [];
@@ -1047,7 +1047,7 @@ class ShopeeListingPageTest extends TestCase
     public function test_a_listing_with_a_brand_pushes_it_by_name(): void
     {
         $productId = $this->seedProduct();
-        ShopeeProductLink::query()->create([
+        ShopeeListingLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1',
         ]);
         \Extensions\Shopee\Models\ShopeeBrand::query()->create([
@@ -1093,7 +1093,7 @@ class ShopeeListingPageTest extends TestCase
     public function test_a_check_stamps_the_product_not_the_page_it_ran_from(): void
     {
         $productId = $this->seedProduct();
-        ShopeeProductLink::query()->create([
+        ShopeeListingLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1',
         ]);
         $group = \Extensions\Shopee\Models\ShopeeProductGroup::create([
@@ -1124,7 +1124,7 @@ class ShopeeListingPageTest extends TestCase
     public function test_the_workbench_check_needs_no_group(): void
     {
         $productId = $this->seedProduct();
-        ShopeeProductLink::query()->create([
+        ShopeeListingLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1',
         ]);
         $this->getResponses['/api/v2/product/get_item_base_info'] = $this->baseInfoAnswer();
@@ -1193,7 +1193,7 @@ class ShopeeListingPageTest extends TestCase
     public function test_the_item_id_links_to_the_live_listing(): void
     {
         $productId = $this->seedProduct();
-        ShopeeProductLink::query()->create([
+        ShopeeListingLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1',
         ]);
         $this->getResponses['/api/v2/product/get_item_base_info'] = $this->baseInfoAnswer();
@@ -1356,7 +1356,7 @@ class ShopeeListingPageTest extends TestCase
     public function test_push_update_sends_the_listings_own_parcel_and_the_catalogs_for_blank_fields(): void
     {
         $productId = $this->seedProduct();
-        ShopeeProductLink::query()->create(['product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1']);
+        ShopeeListingLink::query()->create(['product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1']);
         ShopeeListing::query()->create([
             'product_id' => $productId, 'shopee_category_id' => 100013, 'logistic_ids' => [8003],
             'weight' => 2.5, 'package_length' => 30,

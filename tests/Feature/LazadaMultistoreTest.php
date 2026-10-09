@@ -252,11 +252,11 @@ class LazadaMultistoreTest extends TestCase
         $y = $group($one, 'Group Y');
         $onOutlet = $group($two, 'Group Y outlet');
         $pid = 77;
-        $row = fn ($store) => tap((new \Extensions\Lazada\Models\LazadaProduct())->forceFill(['store_id' => $store->id, 'product_id' => $pid]))->save();
+        $row = fn ($store) => tap((new \Extensions\Lazada\Models\LazadaListing())->forceFill(['store_id' => $store->id, 'product_id' => $pid]))->save();
         $rowOne = $row($one);
         $rowTwo = $row($two);
         $shape = fn ($store) => ['pivot' => 'lazada_product_group_products', 'fk' => 'lazada_product_group_id', 'groups' => 'lazada_product_groups', 'storeFk' => 'store_id', 'storeId' => (int) $store->id];
-        $extra = fn ($listing) => ['lazada_product_id' => $listing->id, 'created_at' => now()];
+        $extra = fn ($listing) => ['lazada_listing_id' => $listing->id, 'created_at' => now()];
 
         \App\Channels\Listings\ListingGroup::assign($shape($one), $pid, (int) $x->id, $extra($rowOne));
         \App\Channels\Listings\ListingGroup::assign($shape($two), $pid, (int) $onOutlet->id, $extra($rowTwo));

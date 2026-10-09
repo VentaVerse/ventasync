@@ -2,7 +2,7 @@
 
 namespace Extensions\VentaCart\Commands;
 
-use Extensions\VentaCart\Models\VentaCartProductLink;
+use Extensions\VentaCart\Models\VentaCartListingLink;
 use Extensions\VentaCart\Models\VentaCartStore;
 use Extensions\VentaCart\Services\VentaCart\VentaCartStockPricePush;
 use Illuminate\Console\Command;
@@ -29,7 +29,7 @@ class VentaCartPushPrice extends Command implements \App\Channels\Contracts\Step
 
         foreach ($stores as $store) {
             $this->info("Pushing prices for: {$store->store_name} (#{$store->id})");
-            $ids = VentaCartProductLink::query()->where('store_id', $store->id)->whereNotNull('ventacart_product_id')
+            $ids = VentaCartListingLink::query()->where('store_id', $store->id)->whereNotNull('ventacart_product_id')
                 ->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
             if ($ids === []) {
                 $this->info('  No linked products. Skipping.');

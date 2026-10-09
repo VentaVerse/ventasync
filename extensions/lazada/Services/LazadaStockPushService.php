@@ -2,14 +2,14 @@
 
 namespace Extensions\Lazada\Services;
 
-use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaListing;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 // Combination rows take precedence; product_option_value is used only when none exist.
 class LazadaStockPushService
 {
-    public function buildPushItems(LazadaProduct $listing, object $product, string $pfx): array
+    public function buildPushItems(LazadaListing $listing, object $product, string $pfx): array
     {
         $lazadaVariants = $listing->variants;
         if ($lazadaVariants->isEmpty()) {

@@ -7,7 +7,7 @@ use App\Channels\Listings\ListingVariations;
 use Extensions\VentaCart\Models\VentaCartListing;
 use Extensions\VentaCart\Models\VentaCartProductGroup;
 use Extensions\VentaCart\Models\VentaCartProductGroupProduct;
-use Extensions\VentaCart\Models\VentaCartProductLink;
+use Extensions\VentaCart\Models\VentaCartListingLink;
 use Extensions\VentaCart\Models\VentaCartStore;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -71,7 +71,7 @@ class VentaCartListingStates
         if ($productIds === []) {
             return [];
         }
-        $links =VentaCartProductLink::query()->where('store_id', $this->storeId)->whereIn('product_id', $productIds)->whereNotNull('ventacart_product_id')->get()->keyBy(fn ($l) => (int) $l->product_id);
+        $links =VentaCartListingLink::query()->where('store_id', $this->storeId)->whereIn('product_id', $productIds)->whereNotNull('ventacart_product_id')->get()->keyBy(fn ($l) => (int) $l->product_id);
         $listings = VentaCartListing::query()->where('store_id', $this->storeId)->whereIn('product_id', $productIds)->get()->keyBy(fn ($l) => (int) $l->product_id);
         $catalogChanges = \App\Channels\Listings\CatalogCopy::pending($listings->values(), 'ventacart_listings', VentaCartListing::copyColumns());
         $attempts = $this->latestAttempts($productIds);
@@ -169,7 +169,7 @@ class VentaCartListingStates
         if ($groupIds === []) {
             return;
         }
-        $linked = VentaCartProductLink::query()->where('store_id', $this->storeId)->whereIn('product_id', $ids)
+        $linked = VentaCartListingLink::query()->where('store_id', $this->storeId)->whereIn('product_id', $ids)
             ->whereNotNull('ventacart_product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
         $rows = fn () => VentaCartProductGroupProduct::query()->whereIn('ventacart_product_group_id', $groupIds);
 

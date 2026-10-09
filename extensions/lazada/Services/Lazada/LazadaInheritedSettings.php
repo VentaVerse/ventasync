@@ -2,7 +2,7 @@
 
 namespace Extensions\Lazada\Services\Lazada;
 
-use Extensions\Lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaListing;
 use Extensions\Lazada\Models\LazadaProductGroup;
 use Illuminate\Support\Facades\DB;
 
@@ -50,7 +50,7 @@ final class LazadaInheritedSettings
         return $out;
     }
 
-    public function fill(LazadaProduct $listing, ?array $group): array
+    public function fill(LazadaListing $listing, ?array $group): array
     {
         $copy = clone $listing;
         $inherited = [];

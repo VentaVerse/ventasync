@@ -8,7 +8,7 @@ use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\Shopee\Models\ShopeeListing;
 use Extensions\Shopee\Models\ShopeeProductGroup;
-use Extensions\Shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -94,7 +94,7 @@ class ShopeeCoreChangedTest extends TestCase
     public function test_the_listing_page_no_longer_notes_a_catalog_change(): void
     {
         $productId = $this->seedProduct(now()->subHour());
-        ShopeeProductLink::query()->create([
+        ShopeeListingLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'CC-SKU',
         ]);
         ShopeeListing::query()->create([
@@ -113,7 +113,7 @@ class ShopeeCoreChangedTest extends TestCase
     public function test_no_note_when_the_push_is_newer_than_the_catalog(): void
     {
         $productId = $this->seedProduct(now()->subDays(3));
-        ShopeeProductLink::query()->create([
+        ShopeeListingLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'CC-SKU',
         ]);
         ShopeeListing::query()->create([
@@ -147,7 +147,7 @@ class ShopeeCoreChangedTest extends TestCase
     public function test_the_group_row_marks_a_catalog_change_since_the_push(): void
     {
         $productId = $this->seedProduct(now()->subHour());
-        ShopeeProductLink::query()->create([
+        ShopeeListingLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'CC-SKU',
         ]);
         ShopeeListing::query()->create([
