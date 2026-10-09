@@ -7,7 +7,7 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use App\Models\WatermarkTemplate;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -16,7 +16,7 @@ class WatermarkTemplateTest extends TestCase
 {
     use RefreshDatabase;
 
-    private ShopeeSetting $store;
+    private ShopeeStore $store;
 
     protected function setUp(): void
     {
@@ -29,7 +29,7 @@ class WatermarkTemplateTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        $this->store = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $this->store = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
     private function user(array $keys): User
@@ -105,7 +105,7 @@ class WatermarkTemplateTest extends TestCase
     public function test_a_store_never_sees_another_stores_templates(): void
     {
         $path = $this->mark();
-        $second = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Second store']);
+        $second = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Second store']);
 
         $mine = $this->template(['name' => 'Mine', 'image_path' => $path]);
         $theirs = WatermarkTemplate::create(['channel' => 'shopee', 'store_id' => $second->id, 'name' => 'Theirs', 'image_path' => $path]);
@@ -126,7 +126,7 @@ class WatermarkTemplateTest extends TestCase
     public function test_two_stores_may_use_the_same_name(): void
     {
         $path = $this->mark();
-        $second = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Second store']);
+        $second = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Second store']);
         WatermarkTemplate::create(['channel' => 'shopee', 'store_id' => $second->id, 'name' => 'Shop logo', 'image_path' => $path]);
 
         $this->actingAs($this->manager())->post($this->url('store'), [
@@ -249,7 +249,7 @@ class WatermarkTemplateTest extends TestCase
         $path = $this->mark();
         $own = $this->template(['name' => 'Own', 'image_path' => $path]);
         $group = $this->template(['name' => 'Group', 'image_path' => $path]);
-        $second = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Second store']);
+        $second = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Second store']);
         $foreign = WatermarkTemplate::create(['channel' => 'shopee', 'store_id' => $second->id, 'name' => 'Foreign', 'image_path' => $path]);
 
         $store = $this->store->id;

@@ -18,7 +18,7 @@ use App\Channels\OrderTab;
 use App\Channels\StoreLink;
 use App\Models\Catalog\OrderStatus;
 use Extensions\OpenCart\Models\OpenCartProductLink;
-use Extensions\OpenCart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartStore;
 use Extensions\OpenCart\Models\OpenCartSyncLog;
 use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
 use Extensions\OpenCart\Services\OpenCart\OpenCartProductSync;
@@ -114,7 +114,7 @@ class OpenCartExtension extends ExtensionProvider implements ChannelProvider, Sk
         if (!Schema::hasTable('opencart_settings')) {
             return [];
         }
-        return OpenCartSetting::where('enabled', true)->orderBy('id')->get();
+        return OpenCartStore::where('enabled', true)->orderBy('id')->get();
     }
 
     protected function allStores(): iterable
@@ -122,7 +122,7 @@ class OpenCartExtension extends ExtensionProvider implements ChannelProvider, Sk
         if (!Schema::hasTable('opencart_settings')) {
             return [];
         }
-        return OpenCartSetting::orderBy('id')->get();
+        return OpenCartStore::orderBy('id')->get();
     }
 
     protected function buildOrderTab(int $storeId, string $storeName): OrderTab
@@ -236,14 +236,14 @@ class OpenCartExtension extends ExtensionProvider implements ChannelProvider, Sk
             return null;
         }
 
-        $stores = OpenCartSetting::where('enabled', true)->get();
+        $stores = OpenCartStore::where('enabled', true)->get();
         if ($stores->isEmpty()) {
             return null;
         }
 
         $results = [];
         foreach ($stores as $setting) {
-            $link = OpenCartProductLink::where('opencart_setting_id', $setting->id)
+            $link = OpenCartProductLink::where('store_id', $setting->id)
                 ->where('product_id', $productId)
                 ->first();
             if (!$link) {
@@ -313,7 +313,7 @@ class OpenCartExtension extends ExtensionProvider implements ChannelProvider, Sk
             ->where('s.enabled', true)
             ->get(['s.id', 's.store_name', 's.last_order_sync_at', 's.last_product_sync_at'])
             ->map(function ($store) use ($pendingByStore) {
-                $lastLog = OpenCartSyncLog::where('opencart_setting_id', $store->id)
+                $lastLog = OpenCartSyncLog::where('store_id', $store->id)
                     ->orderByDesc('id')
                     ->first(['status', 'entity_type', 'completed_at', 'error_message']);
                 $store->last_status = $lastLog->status ?? null;
@@ -321,7 +321,7 @@ class OpenCartExtension extends ExtensionProvider implements ChannelProvider, Sk
                 $store->last_completed = $lastLog->completed_at ?? null;
                 $store->last_error = $lastLog->error_message ?? null;
 
-                $store->last_push_qty_at = OpenCartSyncLog::where('opencart_setting_id', $store->id)
+                $store->last_push_qty_at = OpenCartSyncLog::where('store_id', $store->id)
                     ->where('entity_type', 'product_qty')
                     ->where('direction', 'push')
                     ->where('status', 'completed')
@@ -362,7 +362,7 @@ class OpenCartExtension extends ExtensionProvider implements ChannelProvider, Sk
         if ($storeId <= 0 || !Schema::hasTable('opencart_settings')) {
             return null;
         }
-        $name = OpenCartSetting::where('id', $storeId)->value('store_name');
+        $name = OpenCartStore::where('id', $storeId)->value('store_name');
         return $name ?: ('OpenCart #' . $storeId);
     }
 
@@ -384,7 +384,7 @@ class OpenCartExtension extends ExtensionProvider implements ChannelProvider, Sk
             return [];
         }
         $palette = ['#16a34a', '#38bdf8', '#a855f7', '#f97316', '#0ea5e9', '#ec4899', '#65a30d'];
-        return OpenCartSetting::orderBy('id')->get(['id', 'store_name', 'brand_color'])
+        return OpenCartStore::orderBy('id')->get(['id', 'store_name', 'brand_color'])
             ->map(fn ($s) => [
                 'value'       => 'opencart:' . $s->id,
                 'label'       => \App\Support\StoreLabel::of('OpenCart', $s->store_name ?: ('OpenCart #' . $s->id)),
@@ -405,7 +405,7 @@ class OpenCartExtension extends ExtensionProvider implements ChannelProvider, Sk
 
     protected function credentialSettingsModel(): string
     {
-        return \Extensions\OpenCart\Models\OpenCartSetting::class;
+        return \Extensions\OpenCart\Models\OpenCartStore::class;
     }
 
     protected function credentialIsMultiStore(): bool
@@ -440,6 +440,6 @@ class OpenCartExtension extends ExtensionProvider implements ChannelProvider, Sk
 
     public function automationStoreIds(): ?array
     {
-        return \Extensions\OpenCart\Models\OpenCartSetting::query()->pluck('id')->map(fn ($id) => (int) $id)->all();
+        return \Extensions\OpenCart\Models\OpenCartStore::query()->pluck('id')->map(fn ($id) => (int) $id)->all();
     }
 }

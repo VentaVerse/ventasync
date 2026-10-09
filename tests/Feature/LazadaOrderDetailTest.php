@@ -9,7 +9,7 @@ use App\Models\User;
 use Extensions\Lazada\LazadaExtension;
 use Extensions\Lazada\Models\LazadaOrder;
 use Extensions\Lazada\Models\LazadaOrderProduct;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -18,7 +18,7 @@ class LazadaOrderDetailTest extends TestCase
 {
     use RefreshDatabase;
 
-    private LazadaSetting $lazadaStore;
+    private LazadaStore $lazadaStore;
 
     protected function setUp(): void
     {
@@ -32,7 +32,7 @@ class LazadaOrderDetailTest extends TestCase
 
         $this->app['router']->getRoutes()->refreshNameLookups();
 
-        $this->lazadaStore = LazadaSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $this->lazadaStore = LazadaStore::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
     private function viewer(): User
@@ -327,9 +327,9 @@ class LazadaOrderDetailTest extends TestCase
         $allowed->assertSessionHas('lazada_orders_last_result.ok', false);
     }
 
-    private function configureLazadaCredentials(): LazadaSetting
+    private function configureLazadaCredentials(): LazadaStore
     {
-        $s = LazadaSetting::query()->orderBy('id')->firstOrFail();
+        $s = LazadaStore::query()->orderBy('id')->firstOrFail();
         $s->fill([
             'mode' => 'live',
             'region' => 'ph',

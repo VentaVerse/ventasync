@@ -2,7 +2,7 @@
 
 namespace Extensions\VentaCart\Commands;
 
-use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Extensions\VentaCart\Services\VentaCart\VentaCartListingMirror;
 use Illuminate\Console\Command;
 
@@ -14,7 +14,7 @@ class VentaCartRefreshListingStatus extends Command
 
     public function handle(): int
     {
-        $stores = VentaCartSetting::query()->where('enabled', true);
+        $stores = VentaCartStore::query()->where('enabled', true);
         if ($this->option('store')) {
             $stores->where('id', (int) $this->option('store'));
         }

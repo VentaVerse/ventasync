@@ -4,18 +4,18 @@ namespace Extensions\VentaCart\Services\VentaCart;
 
 use Extensions\VentaCart\Models\VentaCartListing;
 use Extensions\VentaCart\Models\VentaCartProductLink;
-use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Illuminate\Support\Facades\DB;
 
 class VentaCartProductPush
 {
     public function __construct(
-        private VentaCartSetting $setting,
+        private VentaCartStore $setting,
         private VentaCartClient $client,
     ) {
     }
 
-    public static function for(VentaCartSetting $setting): self
+    public static function for(VentaCartStore $setting): self
     {
         return new self($setting, new VentaCartClient($setting));
     }
@@ -69,7 +69,7 @@ class VentaCartProductPush
         $pid = (int) $prod->product_id;
         $sku = self::skuOf($prod);
         $price = fn (float $base) => $priceFor ? round((float) $priceFor($base), 2) : $base;
-        $listing = VentaCartListing::query()->where('ventacart_setting_id', $this->setting->id)->where('product_id', $pid)->first();
+        $listing = VentaCartListing::query()->where('store_id', $this->setting->id)->where('product_id', $pid)->first();
         $start = VentaCartListing::startFor($listing, (float) $prod->price, VentaCartListing::withVariations([$pid]) !== []);
         $parcel = VentaCartListing::parcelFor($listing, $prod);
 
@@ -299,12 +299,12 @@ class VentaCartProductPush
 
     public function images(int $productId): array
     {
-        $marking = VentaCartListing::query()->where('ventacart_setting_id', $this->setting->id)->where('product_id', $productId)
+        $marking = VentaCartListing::query()->where('store_id', $this->setting->id)->where('product_id', $productId)
             ->first(['watermark_template_id', 'watermark_all_images']);
         $paths = \App\Services\Media\ListingWatermark::paths(
             \App\Support\Catalog\ProductImages::paths($productId, $this->ownImageOrder($productId)),
             $marking,
-            \App\Services\Media\ListingWatermark::groupTemplateId('ventacart_product_groups', 'ventacart_product_group_products', 'ventacart_product_group_id', $productId, 'ventacart_setting_id', (int) $this->setting->id),
+            \App\Services\Media\ListingWatermark::groupTemplateId('ventacart_product_groups', 'ventacart_product_group_products', 'ventacart_product_group_id', $productId, 'store_id', (int) $this->setting->id),
             'ventacart',
             (int) $this->setting->id
         );
@@ -315,7 +315,7 @@ class VentaCartProductPush
     private function ownImageOrder(int $productId): ?array
     {
         return VentaCartListing::query()
-            ->where('ventacart_setting_id', $this->setting->id)
+            ->where('store_id', $this->setting->id)
             ->where('product_id', $productId)
             ->value('image_order');
     }
@@ -328,7 +328,7 @@ class VentaCartProductPush
     public function reconcileLink(int $productId): array
     {
         $store = (int) $this->setting->id;
-        $link = VentaCartProductLink::where('ventacart_setting_id', $store)->where('product_id', $productId)->first();
+        $link = VentaCartProductLink::where('store_id', $store)->where('product_id', $productId)->first();
 
         $found = null;
         $foundSku = null;
@@ -401,7 +401,7 @@ class VentaCartProductPush
     {
         $store = (int) $this->setting->id;
 
-        $conflict = VentaCartProductLink::where('ventacart_setting_id', $store)
+        $conflict = VentaCartProductLink::where('store_id', $store)
             ->where('ventacart_product_id', $ventaCartProductId)
             ->where('product_id', '!=', $productId)
             ->first();
@@ -412,7 +412,7 @@ class VentaCartProductPush
         }
 
         VentaCartProductLink::updateOrCreate(
-            ['ventacart_setting_id' => $store, 'product_id' => $productId],
+            ['store_id' => $store, 'product_id' => $productId],
             ['ventacart_product_id' => $ventaCartProductId, 'sku' => $sku]
         );
 
@@ -443,7 +443,7 @@ class VentaCartProductPush
             return self::outcome(false, $verdict['state'], (string) $verdict['message'], null, [], $data);
         }
 
-        $link = VentaCartProductLink::where('ventacart_setting_id', $this->setting->id)->where('product_id', $productId)->first();
+        $link = VentaCartProductLink::where('store_id', $this->setting->id)->where('product_id', $productId)->first();
 
         if ($link && $link->ventacart_product_id) {
             $data = $this->withCatalogNames($prod, $data);

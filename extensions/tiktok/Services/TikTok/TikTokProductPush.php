@@ -43,8 +43,8 @@ class TikTokProductPush
             : \Extensions\TikTok\Models\TikTokListing::query()->where('product_id', (int) $erp->product_id)->value('image_order');
         $paths = \App\Support\Catalog\ProductImages::paths((int) $erp->product_id, $own);
         $marking = \Extensions\TikTok\Models\TikTokListing::query()->where('product_id', (int) $erp->product_id)
-            ->first(['tiktok_setting_id', 'watermark_template_id', 'watermark_all_images']);
-        $paths = \App\Services\Media\ListingWatermark::paths(\App\Channels\Listings\ListingImages::sending($paths, $marking), $marking, \App\Services\Media\ListingWatermark::groupTemplateId('tiktok_product_groups', 'tiktok_product_group_products', 'tiktok_product_group_id', (int) $erp->product_id, 'tiktok_setting_id', (int) ($marking?->tiktok_setting_id ?? 0) ?: null), 'tiktok', (int) ($marking?->tiktok_setting_id ?? 0));
+            ->first(['store_id', 'watermark_template_id', 'watermark_all_images']);
+        $paths = \App\Services\Media\ListingWatermark::paths(\App\Channels\Listings\ListingImages::sending($paths, $marking), $marking, \App\Services\Media\ListingWatermark::groupTemplateId('tiktok_product_groups', 'tiktok_product_group_products', 'tiktok_product_group_id', (int) $erp->product_id, 'store_id', (int) ($marking?->store_id ?? 0) ?: null), 'tiktok', (int) ($marking?->store_id ?? 0));
         $imageUris = [];
         foreach ($paths as $path) {
             $uri = $uploadUri($path);
@@ -81,10 +81,10 @@ class TikTokProductPush
 
         $ttListing = \Extensions\TikTok\Models\TikTokListing::query()->where('product_id', (int) $erp->product_id)->first();
         $desc = \App\Channels\Listings\ListingContent::wrapDescription(
-            $desc, 'tiktok', (int) ($ttListing->tiktok_setting_id ?? 0), $ttListing
+            $desc, 'tiktok', (int) ($ttListing->store_id ?? 0), $ttListing
         );
 
-        $store = ($c['setting'] ?? null) instanceof \Extensions\TikTok\Models\TikTokSetting ? $c['setting'] : \Extensions\TikTok\Models\TikTokSetting::defaultStore();
+        $store = ($c['setting'] ?? null) instanceof \Extensions\TikTok\Models\TikTokStore ? $c['setting'] : \Extensions\TikTok\Models\TikTokStore::defaultStore();
         $hosted = $this->descriptionImages->host($desc, $c, $client, (int) ($store?->id ?? 0));
         $desc = $hosted['html'];
         $leftOut += $hosted['left_out'];

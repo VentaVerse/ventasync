@@ -55,8 +55,8 @@ class OrderController extends Controller
             ->orderBy($sort, $dir)
             ->paginate(25);
 
-        $ocStoreNames = class_exists(\Extensions\OpenCart\Models\OpenCartSetting::class)
-            ? \Extensions\OpenCart\Models\OpenCartSetting::pluck('store_name', 'id')->toArray()
+        $ocStoreNames = class_exists(\Extensions\OpenCart\Models\OpenCartStore::class)
+            ? \Extensions\OpenCart\Models\OpenCartStore::pluck('store_name', 'id')->toArray()
             : [];
 
         $defaultCode = Money::defaultCode();
@@ -112,8 +112,8 @@ class OrderController extends Controller
 
         $productImages = $this->resolveProductImages($products);
 
-        $ocStoreNames = class_exists(\Extensions\OpenCart\Models\OpenCartSetting::class)
-            ? \Extensions\OpenCart\Models\OpenCartSetting::pluck('store_name', 'id')->toArray()
+        $ocStoreNames = class_exists(\Extensions\OpenCart\Models\OpenCartStore::class)
+            ? \Extensions\OpenCart\Models\OpenCartStore::pluck('store_name', 'id')->toArray()
             : [];
 
         return [
@@ -307,9 +307,9 @@ class OrderController extends Controller
 
             if ($enabledStoreIds->isNotEmpty()) {
                 $pendingVentaStatuses = DB::table('ventacart_order_status_map')
-                    ->whereIn('ventacart_setting_id', $enabledStoreIds)
+                    ->whereIn('store_id', $enabledStoreIds)
                     ->whereIn('order_status_id', $pendingCoreIds)
-                    ->pluck('ventacart_status_name', 'ventacart_setting_id')
+                    ->pluck('ventacart_status_name', 'store_id')
                     ->groupBy(fn ($val, $key) => $key);
 
                 foreach ($enabledStoreIds as $storeId) {
@@ -319,12 +319,12 @@ class OrderController extends Controller
 
                     if (! empty($mappedStatuses)) {
                         $ventaCartPending[(string) $storeId] = DB::table('ventacart_orders')
-                            ->where('ventacart_setting_id', $storeId)
+                            ->where('store_id', $storeId)
                             ->whereIn('status', $mappedStatuses)
                             ->count();
                     } else {
                         $ventaCartPending[(string) $storeId] = DB::table('ventacart_orders')
-                            ->where('ventacart_setting_id', $storeId)
+                            ->where('store_id', $storeId)
                             ->where(function ($q) {
                                 $q->where('status', 'like', '%pending%')
                                     ->orWhere('status', 'like', '%processing%');
@@ -341,9 +341,9 @@ class OrderController extends Controller
             'shopee_pending' => $shopeePending,
             'tiktok_pending' => $tiktokPending,
             'ventacart_pending'  => (object) $ventaCartPending,
-            'lazada_pending_by_store' => $this->waitingByStore('lazada_orders', 'lazada_settings', 'lazada_setting_id', ['pending', 'repacked']),
-            'shopee_pending_by_store' => $this->waitingByStore('shopee_orders', 'shopee_settings', 'shopee_setting_id', ['READY_TO_SHIP']),
-            'tiktok_pending_by_store' => $this->waitingByStore('tiktok_orders', 'tiktok_settings', 'tiktok_setting_id', ['AWAITING_SHIPMENT']),
+            'lazada_pending_by_store' => $this->waitingByStore('lazada_orders', 'lazada_settings', 'store_id', ['pending', 'repacked']),
+            'shopee_pending_by_store' => $this->waitingByStore('shopee_orders', 'shopee_settings', 'store_id', ['READY_TO_SHIP']),
+            'tiktok_pending_by_store' => $this->waitingByStore('tiktok_orders', 'tiktok_settings', 'store_id', ['AWAITING_SHIPMENT']),
             'to_pack_by_channel' => (object) $toPack,
             'to_pack_total' => array_sum($toPack),
         ]);

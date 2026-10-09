@@ -10,7 +10,7 @@ use Extensions\Shopee\Models\ShopeeApiLog;
 use Extensions\Shopee\Models\ShopeeOrder;
 use Extensions\Shopee\Models\ShopeeOrderProduct;
 use Extensions\Shopee\Models\ShopeeReturn;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\ShopeeExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -30,7 +30,7 @@ class ShopeeOrderDetailTest extends TestCase
 
         $this->app->register(ShopeeExtension::class);
 
-        ShopeeSetting::create(['mode' => 'production', 'store_name' => 'Main store']);
+        ShopeeStore::create(['mode' => 'production', 'store_name' => 'Main store']);
 
         $this->app['router']->getRoutes()->refreshNameLookups();
     }
@@ -312,9 +312,9 @@ class ShopeeOrderDetailTest extends TestCase
         $allowed->assertJson(['ok' => false]);
     }
 
-    private function configureShopeeCredentials(): ShopeeSetting
+    private function configureShopeeCredentials(): ShopeeStore
     {
-        $s = ShopeeSetting::query()->orderBy('id')->firstOrNew();
+        $s = ShopeeStore::query()->orderBy('id')->firstOrNew();
         $s->fill([
             'mode' => 'production',
             'partner_id' => 100001,

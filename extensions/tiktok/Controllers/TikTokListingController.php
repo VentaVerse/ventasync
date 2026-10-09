@@ -5,7 +5,7 @@ namespace Extensions\TikTok\Controllers;
 use App\Http\Controllers\Controller;
 use Extensions\TikTok\Models\TikTokApiLog;
 use Extensions\TikTok\Models\TikTokListing;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\Models\TikTokCategory;
 use Extensions\TikTok\Services\TikTok\TikTokAttributes;
 use Extensions\TikTok\Services\TikTok\TikTokClient;
@@ -54,7 +54,7 @@ class TikTokListingController extends Controller
                 }
                 if ($live !== null && ($live['skus'] ?? []) !== []) {
                     \Extensions\TikTok\Services\TikTok\TikTokListingStates::rememberHeld(
-                        (int) (TikTokSetting::defaultStore()?->id ?? 0), $productId, array_column($live['skus'], 'seller_sku')
+                        (int) (TikTokStore::defaultStore()?->id ?? 0), $productId, array_column($live['skus'], 'seller_sku')
                     );
                 }
             }
@@ -84,7 +84,7 @@ class TikTokListingController extends Controller
             ->forProducts([$productId])[$productId] ?? null;
 
         $covPfx = (string) config('catalog.prefix');
-        $covStoreId = (int) (TikTokSetting::defaultStore()?->id ?? 0);
+        $covStoreId = (int) (TikTokStore::defaultStore()?->id ?? 0);
         $covSkus = \App\Channels\Listings\ListingVariations::sold('tiktok', $covStoreId, [$productId], $covPfx)[$productId] ?? [];
         $covRaw = \Extensions\TikTok\Models\TikTokListing::query()->where('product_id', $productId)->value('tiktok_sku_id')
             ?? \Extensions\TikTok\Models\TikTokProductGroupProduct::query()->onStore($covStoreId)->where('product_id', $productId)
@@ -98,7 +98,7 @@ class TikTokListingController extends Controller
         ];
 
         $bandGroups = \Extensions\TikTok\Models\TikTokProductGroup::query()
-            ->where('tiktok_setting_id', $covStoreId)
+            ->where('store_id', $covStoreId)
             ->orderBy('name')
             ->get(['id', 'name', 'tiktok_category_id', 'markup_percent', 'markup_fixed', 'watermark_template_id']);
         $bandCategoryNames = TikTokCategory::query()
@@ -111,7 +111,7 @@ class TikTokListingController extends Controller
         $groupBand = [
             'current' => \App\Channels\Listings\ListingGroup::current([
                 'pivot' => 'tiktok_product_group_products', 'fk' => 'tiktok_product_group_id',
-                'groups' => 'tiktok_product_groups', 'storeFk' => 'tiktok_setting_id',
+                'groups' => 'tiktok_product_groups', 'storeFk' => 'store_id',
                 'storeId' => $covStoreId,
             ], $productId),
             'groups' => $bandGroups->map(fn ($g) => [
@@ -140,7 +140,7 @@ class TikTokListingController extends Controller
 
         $hasVariations = isset(\Extensions\TikTok\Services\TikTok\TikTokVariationPush::withVariations([$productId])[$productId]);
 
-        return view('ext-tiktok::listings.edit', \App\Channels\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('tiktok_product_groups', 'tiktok_product_group_products', 'tiktok_product_group_id', $productId, 'tiktok_setting_id', (int) ($listing->tiktok_setting_id ?? 0) ?: null), 'tiktok', \App\Channels\Listings\ListingStore::id('tiktok')) + [
+        return view('ext-tiktok::listings.edit', \App\Channels\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('tiktok_product_groups', 'tiktok_product_group_products', 'tiktok_product_group_id', $productId, 'store_id', (int) ($listing->store_id ?? 0) ?: null), 'tiktok', \App\Channels\Listings\ListingStore::id('tiktok')) + [
             'coverage' => $coverage,
             ...\App\Channels\Listings\ListingVariations::cardData(
                 'tiktok', $covStoreId, $productId,
@@ -162,8 +162,8 @@ class TikTokListingController extends Controller
             'readinessMissing' => $readiness['missing'],
             'readiness' => $readiness,
             'groupBand' => $groupBand,
-            'storeId' => (int) (TikTokSetting::defaultStore()?->id ?? 0),
-            'descriptionTemplates' => \App\Models\DescriptionTemplate::forStore('tiktok', (int) (TikTokSetting::defaultStore()?->id ?? 0)),
+            'storeId' => (int) (TikTokStore::defaultStore()?->id ?? 0),
+            'descriptionTemplates' => \App\Models\DescriptionTemplate::forStore('tiktok', (int) (TikTokStore::defaultStore()?->id ?? 0)),
         ]);
     }
 
@@ -209,8 +209,8 @@ class TikTokListingController extends Controller
         if ($picked['present']) {
             \App\Channels\Listings\ListingGroup::assign([
                 'pivot' => 'tiktok_product_group_products', 'fk' => 'tiktok_product_group_id',
-                'groups' => 'tiktok_product_groups', 'storeFk' => 'tiktok_setting_id',
-                'storeId' => (int) (TikTokSetting::defaultStore()?->id ?? 0),
+                'groups' => 'tiktok_product_groups', 'storeFk' => 'store_id',
+                'storeId' => (int) (TikTokStore::defaultStore()?->id ?? 0),
             ], $productId, $picked['id']);
         }
         if ($request->has('description')) {
@@ -258,7 +258,7 @@ class TikTokListingController extends Controller
         }
 
         if (($sellHere = \App\Channels\Listings\ListingVariations::submitted($request)) !== null) {
-            \App\Channels\Listings\ListingVariations::save('tiktok', (int) (TikTokSetting::defaultStore()?->id ?? 0), $productId, $sellHere);
+            \App\Channels\Listings\ListingVariations::save('tiktok', (int) (TikTokStore::defaultStore()?->id ?? 0), $productId, $sellHere);
         }
 
         $back = \App\Support\BackTo::safe($request->input('back'), '');
@@ -347,7 +347,7 @@ class TikTokListingController extends Controller
     private function states(): \Extensions\TikTok\Services\TikTok\TikTokListingStates
     {
         $engine = app(\Extensions\TikTok\Services\TikTok\TikTokListingStates::class);
-        $store = TikTokSetting::defaultStore();
+        $store = TikTokStore::defaultStore();
 
         return $store ? $engine->forStore($store) : $engine;
     }
@@ -482,7 +482,7 @@ class TikTokListingController extends Controller
 
         return DB::table('tiktok_product_group_products as tp')
             ->join('tiktok_product_groups as tg', 'tg.id', '=', 'tp.tiktok_product_group_id')
-            ->where('tg.tiktok_setting_id', (int) (TikTokSetting::defaultStore()?->id ?? 0))
+            ->where('tg.store_id', (int) (TikTokStore::defaultStore()?->id ?? 0))
             ->where('tp.product_id', $productId)
             ->whereNotNull('tp.tiktok_product_id')
             ->orderByDesc('tp.last_pushed_at')
@@ -491,7 +491,7 @@ class TikTokListingController extends Controller
 
     private function creds(): ?array
     {
-        $s = TikTokSetting::defaultStore();
+        $s = TikTokStore::defaultStore();
         if (!$s) {
             return null;
         }

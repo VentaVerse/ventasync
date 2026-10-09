@@ -2,7 +2,7 @@
 
 namespace Extensions\TikTok\Commands;
 
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\Services\TikTok\TikTokLiveListing;
 use Illuminate\Console\Command;
 
@@ -14,7 +14,7 @@ class TikTokRefreshListingStatus extends Command
 
     public function handle(TikTokLiveListing $live): int
     {
-        $stores = \Extensions\TikTok\Models\TikTokSetting::enabledStores();
+        $stores = \Extensions\TikTok\Models\TikTokStore::enabledStores();
         if ($stores->isEmpty()) { $this->error('No enabled TikTok store. Configure TikTok settings first.'); return 1; }
         $worst = 0;
         foreach ($stores as $store) {
@@ -33,9 +33,9 @@ class TikTokRefreshListingStatus extends Command
         return $worst;
     }
 
-    private function handleStore(TikTokLiveListing $live, \Extensions\TikTok\Models\TikTokSetting $store): int
+    private function handleStore(TikTokLiveListing $live, \Extensions\TikTok\Models\TikTokStore $store): int
     {
-        $c = TikTokSetting::credentials();
+        $c = TikTokStore::credentials();
         if (!$c) {
             $this->error('Missing TikTok credentials. Configure TikTok settings first.');
             return self::FAILURE;

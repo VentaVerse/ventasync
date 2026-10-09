@@ -4,7 +4,7 @@ namespace Extensions\OpenCart\Services\OpenCart;
 
 use Extensions\OpenCart\Models\OpenCartProductGroupProduct;
 use Extensions\OpenCart\Models\OpenCartProductLink;
-use Extensions\OpenCart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartStore;
 use Illuminate\Support\Facades\DB;
 
 final class OpenCartProductRemover
@@ -12,12 +12,12 @@ final class OpenCartProductRemover
     public function presence(array $productIds): array
     {
         $links = OpenCartProductLink::query()->whereIn('product_id', $productIds)->get();
-        $stores = $this->stores($links->pluck('opencart_setting_id'));
+        $stores = $this->stores($links->pluck('store_id'));
         $out = [];
         foreach ($links as $link) {
             $out[(int) $link->product_id][] = [
                 'channel' => 'OpenCart',
-                'store' => $stores[(int) $link->opencart_setting_id] ?? 'store #' . (int) $link->opencart_setting_id,
+                'store' => $stores[(int) $link->store_id] ?? 'store #' . (int) $link->store_id,
                 'item' => (string) $link->oc_product_id,
                 'live' => null,
             ];
@@ -29,9 +29,9 @@ final class OpenCartProductRemover
     public function remove(int $productId): array
     {
         $links = OpenCartProductLink::query()->where('product_id', $productId)->get();
-        $stores = $this->stores($links->pluck('opencart_setting_id'));
+        $stores = $this->stores($links->pluck('store_id'));
         $stays = [];
-        foreach ($links->pluck('opencart_setting_id')->unique() as $storeId) {
+        foreach ($links->pluck('store_id')->unique() as $storeId) {
             $stays['OpenCart (' . ($stores[(int) $storeId] ?? 'store #' . (int) $storeId) . ')'] = true;
         }
         OpenCartProductLink::query()->where('product_id', $productId)->delete();
@@ -55,7 +55,7 @@ final class OpenCartProductRemover
 
     private function stores($ids): array
     {
-        return OpenCartSetting::query()->whereIn('id', collect($ids)->filter()->unique()->all())
+        return OpenCartStore::query()->whereIn('id', collect($ids)->filter()->unique()->all())
             ->get()->mapWithKeys(fn ($s) => [(int) $s->id => (string) ($s->store_name ?: 'OpenCart store #' . $s->id)])->all();
     }
 }

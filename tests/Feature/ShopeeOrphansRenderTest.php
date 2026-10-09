@@ -8,7 +8,7 @@ use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\Shopee\Models\ShopeeProductGroup;
 use Extensions\Shopee\Models\ShopeeProductLink;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\ShopeeExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -42,7 +42,7 @@ class ShopeeOrphansRenderTest extends TestCase
 
     private function seedShop(): int
     {
-        ShopeeSetting::create([
+        ShopeeStore::create([
             'mode' => 'live',
             'partner_id' => 200123,
             'partner_key' => encrypt('live-partner-key'),

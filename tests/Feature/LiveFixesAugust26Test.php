@@ -104,11 +104,11 @@ class LiveFixesAugust26Test extends TestCase
 
     public function test_shopee_stamps_the_refresh_token_life_at_each_grant(): void
     {
-        $this->assertSame(30, \Extensions\Shopee\Models\ShopeeSetting::REFRESH_TOKEN_DAYS);
+        $this->assertSame(30, \Extensions\Shopee\Models\ShopeeStore::REFRESH_TOKEN_DAYS);
         foreach (['extensions/shopee/Controllers/ShopeeController.php', 'extensions/shopee/Commands/ShopeeRefreshToken.php'] as $file) {
             $src = file_get_contents(base_path($file));
             $this->assertNotFalse($src, $file);
-            $this->assertStringContainsString('refresh_expires_at = now()->addDays(ShopeeSetting::REFRESH_TOKEN_DAYS)', $src, $file);
+            $this->assertStringContainsString('refresh_expires_at = now()->addDays(ShopeeStore::REFRESH_TOKEN_DAYS)', $src, $file);
         }
     }
 

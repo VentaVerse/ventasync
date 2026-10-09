@@ -7,7 +7,7 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\Shopee\Models\ShopeeProductLink;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -31,7 +31,7 @@ class DisabledProductsStayOutTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
     private function operator(): User
@@ -90,8 +90,8 @@ class DisabledProductsStayOutTest extends TestCase
         $this->seedProduct('DIS-TT', 'Disabled tiktok nowhere', 0);
         $user = $this->operator();
 
-        $lazadaStore = \Extensions\Lazada\Models\LazadaSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
-        $tiktokStore = \Extensions\TikTok\Models\TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $lazadaStore = \Extensions\Lazada\Models\LazadaStore::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $tiktokStore = \Extensions\TikTok\Models\TikTokStore::create(['mode' => 'live', 'store_name' => 'Main store']);
 
         $lz = $this->actingAs($user)->get(route('ext.lazada.products.index', ['store' => $lazadaStore->id]))->assertOk()->getContent();
         $this->assertStringNotContainsString('Disabled lazada nowhere', $lz);

@@ -20,7 +20,7 @@ use App\Models\Catalog\OrderStatus;
 use App\Support\FulfilmentSteps;
 use Extensions\VentaCart\Models\VentaCartOrder;
 use Extensions\VentaCart\Models\VentaCartProductLink;
-use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Extensions\VentaCart\Services\VentaCart\VentaCartClient;
 use Extensions\VentaCart\Services\VentaCart\VentaCartStatusPlacements;
 use Illuminate\Support\Facades\DB;
@@ -168,7 +168,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
         if (!Schema::hasTable('ventacart_settings')) {
             return [];
         }
-        return VentaCartSetting::where('enabled', true)->orderBy('id')->get();
+        return VentaCartStore::where('enabled', true)->orderBy('id')->get();
     }
 
     protected function allStores(): iterable
@@ -176,7 +176,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
         if (!Schema::hasTable('ventacart_settings')) {
             return [];
         }
-        return VentaCartSetting::orderBy('id')->get();
+        return VentaCartStore::orderBy('id')->get();
     }
 
     public static function stepCounts(int $storeId): array
@@ -186,7 +186,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
         }
 
         $statusCounts = VentaCartOrder::query()
-            ->where('ventacart_setting_id', $storeId)
+            ->where('store_id', $storeId)
             ->selectRaw('status, COUNT(*) as cnt')
             ->groupBy('status')
             ->pluck('cnt', 'status');
@@ -313,10 +313,10 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
         $new = $skuChanges['product_sku']['new'];
         $results = [];
 
-        $settingsById = VentaCartSetting::query()->where('enabled', true)->get()->keyBy('id');
+        $settingsById = VentaCartStore::query()->where('enabled', true)->get()->keyBy('id');
 
         foreach ($links as $link) {
-            $setting = $settingsById->get($link->ventacart_setting_id);
+            $setting = $settingsById->get($link->store_id);
             if (!$setting) {
                 continue;
             }
@@ -357,11 +357,11 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
             return [];
         }
 
-        return VentaCartSetting::query()
+        return VentaCartStore::query()
             ->where('enabled', true)
             ->orderBy('store_name')
             ->get(['id', 'store_name'])
-            ->map(fn (VentaCartSetting $s) => [
+            ->map(fn (VentaCartStore $s) => [
                 'label' => 'Listing on ' . $s->store_name,
                 'url' => route('ext.ventacart.listings.edit', [$s->id, $productId]),
                 'icon' => 'store',
@@ -463,7 +463,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
         if ($storeId <= 0 || !Schema::hasTable('ventacart_settings')) {
             return null;
         }
-        $name = VentaCartSetting::where('id', $storeId)->value('store_name');
+        $name = VentaCartStore::where('id', $storeId)->value('store_name');
         return \App\Support\StoreLabel::of('VentaCart', $name ?: ('VentaCart #' . $storeId));
     }
 
@@ -484,7 +484,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
         if (!Schema::hasTable('ventacart_settings')) {
             return [];
         }
-        return VentaCartSetting::orderBy('id')->get(['id', 'store_name', 'brand_color'])
+        return VentaCartStore::orderBy('id')->get(['id', 'store_name', 'brand_color'])
             ->map(fn ($s) => [
                 'value'       => 'ventacart:' . $s->id,
                 'label'       => \App\Support\StoreLabel::of('VentaCart', $s->store_name ?: ('VentaCart #' . $s->id)),
@@ -505,7 +505,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
 
     protected function credentialSettingsModel(): string
     {
-        return \Extensions\VentaCart\Models\VentaCartSetting::class;
+        return \Extensions\VentaCart\Models\VentaCartStore::class;
     }
 
     protected function credentialIsMultiStore(): bool
@@ -540,6 +540,6 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
 
     public function automationStoreIds(): ?array
     {
-        return \Extensions\VentaCart\Models\VentaCartSetting::query()->pluck('id')->map(fn ($id) => (int) $id)->all();
+        return \Extensions\VentaCart\Models\VentaCartStore::query()->pluck('id')->map(fn ($id) => (int) $id)->all();
     }
 }

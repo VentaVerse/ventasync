@@ -8,7 +8,7 @@ use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\Lazada\Models\LazadaProduct;
 use Extensions\Lazada\Models\LazadaProductVariant;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -35,7 +35,7 @@ class LazadaStockPushHealTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        LazadaSetting::query()->create([
+        LazadaStore::query()->create([
             'mode' => 'live', 'region' => 'ph',
             'app_key' => 'k', 'app_secret' => 's',
             'access_token' => 't', 'refresh_token' => 'r',
@@ -186,7 +186,7 @@ class LazadaStockPushHealTest extends TestCase
 
     public function test_the_error_filter_lists_a_missing_variation_and_drops_a_cleared_error(): void
     {
-        $storeId = (int) LazadaSetting::defaultStore()->id;
+        $storeId = (int) LazadaStore::defaultStore()->id;
 
         $missing = $this->named($this->comboProduct(['LZ-1' => 5, 'LZ-2' => 8]), 'Missing size product');
         $a = LazadaProduct::create(['product_id' => $missing, 'lazada_item_id' => '900', 'live_status' => 'active']);
@@ -241,7 +241,7 @@ class LazadaStockPushHealTest extends TestCase
 
         $this->fakeItem(['LZ-1' => 11]);
         app(\Extensions\Lazada\Services\Lazada\LazadaItemCache::class)
-            ->refreshListing($listing->fresh(), LazadaSetting::defaultStore(), app(LazadaClient::class));
+            ->refreshListing($listing->fresh(), LazadaStore::defaultStore(), app(LazadaClient::class));
         $this->assertStringContainsString('Price is too low', (string) $this->line($pid));
 
         $this->actingAs($this->manager())->post(route('ext.lazada.products.sync_quantity', $pid))->assertRedirect();
@@ -331,7 +331,7 @@ class LazadaStockPushHealTest extends TestCase
         $listing = LazadaProduct::create(['product_id' => $pid, 'lazada_item_id' => '900']);
         LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
         LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-2', 'sku_id' => 12]);
-        \App\Channels\Listings\ListingVariations::save('lazada', (int) ($listing->lazada_setting_id ?? 0), $pid, ['LZ-1']);
+        \App\Channels\Listings\ListingVariations::save('lazada', (int) ($listing->store_id ?? 0), $pid, ['LZ-1']);
 
         $this->actingAs($this->manager())
             ->post(route('ext.lazada.products.sync_quantity', $listing->product_id))

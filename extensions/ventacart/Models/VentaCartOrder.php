@@ -11,7 +11,7 @@ class VentaCartOrder extends Model
     protected $table = 'ventacart_orders';
 
     protected $fillable = [
-        'ventacart_setting_id',
+        'store_id',
         'ventacart_order_id',
         'ventacart_order_number',
         'status',
@@ -56,9 +56,9 @@ class VentaCartOrder extends Model
 
     public const MANUAL_PROVIDER = 'manual';
 
-    public function setting(): BelongsTo
+    public function store(): BelongsTo
     {
-        return $this->belongsTo(VentaCartSetting::class, 'ventacart_setting_id');
+        return $this->belongsTo(VentaCartStore::class, 'store_id');
     }
 
     public function products(): HasMany

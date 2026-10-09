@@ -8,7 +8,7 @@ use Extensions\TikTok\Models\TikTokCategory;
 use Extensions\TikTok\Models\TikTokListing;
 use Extensions\TikTok\Models\TikTokProductGroup;
 use Extensions\TikTok\Models\TikTokProductGroupProduct;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\Services\TikTok\TikTokAttributes;
 use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Extensions\TikTok\Services\TikTok\TikTokListingReadiness;
@@ -76,7 +76,7 @@ class TikTokProductController extends Controller
 
         $groupsByProductId = DB::table('tiktok_product_group_products as tp')
             ->join('tiktok_product_groups as tg', 'tg.id', '=', 'tp.tiktok_product_group_id')
-            ->where('tg.tiktok_setting_id', (int) (TikTokSetting::defaultStore()?->id ?? 0))
+            ->where('tg.store_id', (int) (TikTokStore::defaultStore()?->id ?? 0))
             ->get(['tp.product_id', 'tg.id', 'tg.name'])
             ->groupBy('product_id')
             ->map(fn ($rows) => $rows->map(fn ($r) => ['id' => (int) $r->id, 'name' => (string) $r->name])->all());
@@ -126,7 +126,7 @@ class TikTokProductController extends Controller
                     ->orWhere('p.model', 'like', '%' . $q . '%')
                     ->orWhere('p.sku', 'like', '%' . $q . '%')
                     ->orWhereIn('p.product_id', TikTokListing::query()
-                        ->forStore(TikTokSetting::defaultStore())
+                        ->forStore(TikTokStore::defaultStore())
                         ->where('title', 'like', '%' . $q . '%')
                         ->select('product_id'));
             });
@@ -263,7 +263,7 @@ class TikTokProductController extends Controller
         }
 
         $pageIds = $products->pluck('product_id')->map(fn ($v) => (int) $v)->all();
-        $listingsByProductId = TikTokListing::query()->forStore(TikTokSetting::defaultStore())->whereIn('product_id', $pageIds ?: [0])->get()->keyBy(fn ($l) => (int) $l->product_id);
+        $listingsByProductId = TikTokListing::query()->forStore(TikTokStore::defaultStore())->whereIn('product_id', $pageIds ?: [0])->get()->keyBy(fn ($l) => (int) $l->product_id);
         $rowTitles = \App\Channels\Listings\ListingContent::rowTitles($products, $listingsByProductId);
         $pivotTruth = TikTokProductGroupProduct::query()->onStore()
             ->whereIn('product_id', $pageIds ?: [0])->whereNotNull('tiktok_product_id')
@@ -328,7 +328,7 @@ class TikTokProductController extends Controller
             'allManufacturers' => DB::table($pfx . 'manufacturer')->orderBy('name')->pluck('name', 'manufacturer_id'),
             'allGroups' => TikTokProductGroup::query()->orderBy('name')->pluck('name', 'id'),
             'groupsByProductId' => $groupsByProductId,
-            'optionRowsByProductId' => \App\Support\VariationRows::forListing($pageIds, 'tiktok', (int) (TikTokSetting::defaultStore()?->id ?? 0)),
+            'optionRowsByProductId' => \App\Support\VariationRows::forListing($pageIds, 'tiktok', (int) (TikTokStore::defaultStore()?->id ?? 0)),
             'listingsByProductId' => $listingsByProductId,
             'pivotTruth' => $pivotTruth,
             'lastAttempts' => $lastAttempts,
@@ -377,7 +377,7 @@ class TikTokProductController extends Controller
         if ($this->readinessRich !== null) {
             return $this->readinessRich;
         }
-        $storeId = (int) (TikTokSetting::defaultStore()?->id ?? 0);
+        $storeId = (int) (TikTokStore::defaultStore()?->id ?? 0);
         $scope = DB::query()->fromSub(TikTokStoreProducts::query(), 'os')
             ->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
 
@@ -396,7 +396,7 @@ class TikTokProductController extends Controller
             ->selectRaw('product_id, MAX(updated_at) as mu')->groupBy('product_id')->pluck('mu', 'product_id');
         $group = DB::table('tiktok_product_group_products as gp')
             ->join('tiktok_product_groups as g', 'g.id', '=', 'gp.tiktok_product_group_id')
-            ->whereIn('gp.product_id', $ids)->where('g.tiktok_setting_id', $storeId)
+            ->whereIn('gp.product_id', $ids)->where('g.store_id', $storeId)
             ->selectRaw('gp.product_id, MAX(g.updated_at) as mu')->groupBy('gp.product_id')->pluck('mu', 'product_id');
 
         $out = [];
@@ -522,7 +522,7 @@ class TikTokProductController extends Controller
 
         $groupId = (int) $request->input('group', 0);
         if ($groupId > 0) {
-            \App\Channels\OneGroupRule::place('tiktok_product_group_products', 'tiktok_product_group_id', 'tiktok_product_groups', 'tiktok_setting_id', \App\Channels\Listings\ListingStore::id('tiktok'), $groupId, $productId);
+            \App\Channels\OneGroupRule::place('tiktok_product_group_products', 'tiktok_product_group_id', 'tiktok_product_groups', 'store_id', \App\Channels\Listings\ListingStore::id('tiktok'), $groupId, $productId);
         }
 
         if ($request->wantsJson()) {
@@ -632,7 +632,7 @@ class TikTokProductController extends Controller
         if ($result['error'] !== null) {
             return redirect()->back()->with('error', $result['error'] . ' The statuses shown are from the last refresh.');
         }
-        $checked = app(\Extensions\TikTok\Services\TikTok\TikTokLinkCheck::class)->runNext($c, (int) (\Extensions\TikTok\Models\TikTokSetting::defaultStore()?->id ?? 0));
+        $checked = app(\Extensions\TikTok\Services\TikTok\TikTokLinkCheck::class)->runNext($c, (int) (\Extensions\TikTok\Models\TikTokStore::defaultStore()?->id ?? 0));
         $sheets = app(\Extensions\TikTok\Services\TikTok\TikTokSheetReads::class)
             ->readMissing($c, app(TikTokClient::class), \App\Channels\Listings\SheetReads::PER_PRESS);
 
@@ -837,7 +837,7 @@ class TikTokProductController extends Controller
         if (!$c || !preg_match('/^[A-Za-z0-9_-]{1,64}$/', $ref)) {
             return response()->json(['url' => '']);
         }
-        $key = 'tiktok:thumb:' . (int) (TikTokSetting::defaultStore()?->id ?? 0) . ':' . $ref;
+        $key = 'tiktok:thumb:' . (int) (TikTokStore::defaultStore()?->id ?? 0) . ':' . $ref;
         $url = \Illuminate\Support\Facades\Cache::remember($key, now()->addDay(), function () use ($ref, $c, $client) {
             try {
                 $r = $client->getProduct($c['app_key'], $c['app_secret'], $c['token'], $ref, $c['shop_cipher'] ?: null);
@@ -1191,17 +1191,17 @@ class TikTokProductController extends Controller
             ->first(['p.product_id', 'pd.name', 'pd.description', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.image', 'p.weight', 'p.length', 'p.width', 'p.height', 'p.status']);
     }
 
-    private function states(?TikTokSetting $store = null): \Extensions\TikTok\Services\TikTok\TikTokListingStates
+    private function states(?TikTokStore $store = null): \Extensions\TikTok\Services\TikTok\TikTokListingStates
     {
         $engine = app(\Extensions\TikTok\Services\TikTok\TikTokListingStates::class);
-        $store ??= TikTokSetting::defaultStore();
+        $store ??= TikTokStore::defaultStore();
 
         return $store ? $engine->forStore($store) : $engine;
     }
 
     private function creds(): ?array
     {
-        $s = TikTokSetting::defaultStore();
+        $s = TikTokStore::defaultStore();
         if (!$s) {
             return null;
         }

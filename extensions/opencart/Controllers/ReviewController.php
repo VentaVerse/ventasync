@@ -4,7 +4,7 @@ namespace Extensions\OpenCart\Controllers;
 
 use Extensions\OpenCart\Models\MarketplaceReview;
 use Extensions\OpenCart\Models\OpenCartProductLink;
-use Extensions\OpenCart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartStore;
 use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
@@ -132,7 +132,7 @@ class ReviewController extends Controller
             return redirect()->back()->with('error', 'Product not linked to any OpenCart store.');
         }
 
-        $setting = OpenCartSetting::find($link->opencart_setting_id);
+        $setting = OpenCartStore::find($link->store_id);
         if (!$setting || !$setting->enabled) {
             return redirect()->back()->with('error', 'OpenCart store not found or disabled.');
         }
@@ -154,7 +154,7 @@ class ReviewController extends Controller
         if ($res['ok'] ?? false) {
             $review->update([
                 'oc_sync_status'      => 'pushed',
-                'opencart_setting_id' => $setting->id,
+                'opencart_store_id' => $setting->id,
                 'oc_review_id'        => $res['body']['data']['review_id'] ?? null,
                 'oc_pushed_at'        => now(),
                 'oc_push_error'       => null,
@@ -165,7 +165,7 @@ class ReviewController extends Controller
         $error = $res['body']['error'] ?? 'Unknown error';
         $review->update([
             'oc_sync_status'      => 'error',
-            'opencart_setting_id' => $setting->id,
+            'opencart_store_id' => $setting->id,
             'oc_push_error'       => substr($error, 0, 500),
         ]);
 
@@ -201,9 +201,9 @@ class ReviewController extends Controller
         $pushed = 0;
         $errors = 0;
 
-        $stores = OpenCartSetting::where('enabled', true)->get()->keyBy('id');
+        $stores = OpenCartStore::where('enabled', true)->get()->keyBy('id');
         $linkMap = OpenCartProductLink::query()
-            ->pluck('oc_product_id', DB::raw("CONCAT(opencart_setting_id, '-', product_id)"))
+            ->pluck('oc_product_id', DB::raw("CONCAT(store_id, '-', product_id)"))
             ->all();
 
         foreach ($reviews as $review) {
@@ -230,7 +230,7 @@ class ReviewController extends Controller
                 if ($res['ok'] ?? false) {
                     $review->update([
                         'oc_sync_status'      => 'pushed',
-                        'opencart_setting_id' => $setting->id,
+                        'opencart_store_id' => $setting->id,
                         'oc_review_id'        => $res['body']['data']['review_id'] ?? null,
                         'oc_pushed_at'        => now(),
                         'oc_push_error'       => null,
@@ -270,13 +270,13 @@ class ReviewController extends Controller
         $launched = [];
 
         if ($channel === 'all' || $channel === 'shopee') {
-            \Extensions\Shopee\Models\ShopeeSetting::query()->update(['last_review_sync_at' => $from . ' 00:00:00']);
+            \Extensions\Shopee\Models\ShopeeStore::query()->update(['last_review_sync_at' => $from . ' 00:00:00']);
             Process::start([$php, $artisan, 'shopee:sync-reviews', '--days=' . $daysBack]);
             $launched[] = 'Shopee';
         }
 
         if ($channel === 'all' || $channel === 'lazada') {
-            \Extensions\Lazada\Models\LazadaSetting::query()->update(['last_review_sync_at' => $from . ' 00:00:00']);
+            \Extensions\Lazada\Models\LazadaStore::query()->update(['last_review_sync_at' => $from . ' 00:00:00']);
             Process::start([$php, $artisan, 'lazada:sync-reviews', '--days=' . $daysBack, '--limit=100']);
             $launched[] = 'Lazada';
         }
@@ -317,8 +317,8 @@ class ReviewController extends Controller
         $count = MarketplaceReview::count();
         MarketplaceReview::query()->truncate();
 
-        \Extensions\Shopee\Models\ShopeeSetting::query()->update(['last_review_sync_at' => null]);
-        \Extensions\Lazada\Models\LazadaSetting::query()->update(['last_review_sync_at' => null]);
+        \Extensions\Shopee\Models\ShopeeStore::query()->update(['last_review_sync_at' => null]);
+        \Extensions\Lazada\Models\LazadaStore::query()->update(['last_review_sync_at' => null]);
 
         return redirect()->route('ext.opencart.reviews.index')->with('review_result', [
             'ok'      => true,

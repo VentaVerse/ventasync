@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 
 use Extensions\Shopee\Models\ShopeeApiLog;
 use Extensions\Shopee\Models\ShopeeLogistic;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Http\Request;
 
@@ -26,8 +26,8 @@ class ShopeeLogisticsController extends Controller
 
     public function fetch(ShopeeClient $client)
     {
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
+        $setting = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($setting);
         if (!$setting || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->route('ext.shopee.logistics.index')

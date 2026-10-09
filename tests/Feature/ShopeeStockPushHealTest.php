@@ -9,7 +9,7 @@ use App\Models\User;
 use Extensions\Shopee\Models\ShopeeItemCache;
 use Extensions\Shopee\Models\ShopeeListing;
 use Extensions\Shopee\Models\ShopeeProductLink;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -36,7 +36,7 @@ class ShopeeStockPushHealTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        ShopeeSetting::query()->create(['mode' => 'live', 'partner_id' => '1', 'partner_key' => 'k', 'shop_id' => '2', 'access_token' => 't', 'refresh_token' => 'r']);
+        ShopeeStore::query()->create(['mode' => 'live', 'partner_id' => '1', 'partner_key' => 'k', 'shop_id' => '2', 'access_token' => 't', 'refresh_token' => 'r']);
 
         $test = $this;
         $fake = new class($test) extends ShopeeClient {
@@ -109,7 +109,7 @@ class ShopeeStockPushHealTest extends TestCase
     public function test_a_model_reread_remembers_every_model_the_item_holds(): void
     {
         $pid = $this->productWithVariations(['RR-1' => 1, 'RR-2' => 2, 'RR-3' => 3]);
-        $storeId = (int) ShopeeSetting::query()->value('id');
+        $storeId = (int) ShopeeStore::query()->value('id');
         $auth = ['mode' => 'live', 'partner_id' => 1, 'partner_key' => 'k', 'access_token' => 't', 'shop_id' => 2, 'store_id' => $storeId];
         $this->getResponses['/api/v2/product/get_model_list'] = ['ok' => true, 'status' => 200, 'body' => [
             'response' => ['model' => [
@@ -482,7 +482,7 @@ class ShopeeStockPushHealTest extends TestCase
         $this->artisan('shopee:push-price')->assertExitCode(0);
         $this->assertSame([550.0], $sent());
 
-        $storeId = (int) ShopeeSetting::query()->value('id');
+        $storeId = (int) ShopeeStore::query()->value('id');
         \Extensions\Shopee\Services\Shopee\ShopeePushSteps::step('price', [$storeId . ':' . $pid]);
         $this->assertSame([550.0], $sent());
     }

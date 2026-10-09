@@ -7,7 +7,7 @@ use App\Channels\Listings\ListingVariations;
 use App\Channels\Push\PushLedger;
 use Extensions\TikTok\Models\TikTokListing;
 use Extensions\TikTok\Models\TikTokProductGroupProduct;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -20,23 +20,23 @@ class TikTokListingStates
 
     private ?int $store = null;
 
-    public function forStore(TikTokSetting|int $store): static
+    public function forStore(TikTokStore|int $store): static
     {
         $pinned = clone $this;
-        $pinned->store = $store instanceof TikTokSetting ? (int) $store->id : (int) $store;
+        $pinned->store = $store instanceof TikTokStore ? (int) $store->id : (int) $store;
 
         return $pinned;
     }
 
     private function storeId(): int
     {
-        return $this->store ?? (int) (TikTokSetting::defaultStore()?->id ?? 0);
+        return $this->store ?? (int) (TikTokStore::defaultStore()?->id ?? 0);
     }
 
     private function listingsOnStore(): \Illuminate\Database\Eloquent\Builder
     {
         return TikTokListing::query()->withoutGlobalScope('tiktokStore')
-            ->where('tiktok_listings.tiktok_setting_id', $this->storeId());
+            ->where('tiktok_listings.store_id', $this->storeId());
     }
 
     public function recordOutcome(int $productId, ?string $failure): void
@@ -56,7 +56,7 @@ class TikTokListingStates
         if ($this->listingsOnStore()->where('product_id', $productId)->exists()) {
             $this->listingsOnStore()->where('product_id', $productId)->update($values);
         } else {
-            (new TikTokListing())->forceFill(['tiktok_setting_id' => $storeId, 'product_id' => $productId] + $values)->save();
+            (new TikTokListing())->forceFill(['store_id' => $storeId, 'product_id' => $productId] + $values)->save();
         }
     }
 

@@ -18,7 +18,7 @@ class OrderPrintListsTest extends TestCase
     {
         parent::setUp();
 
-        \Extensions\Shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        \Extensions\Shopee\Models\ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store']);
 
         $manager = $this->app->make(\App\Extensions\ExtensionManager::class);
 

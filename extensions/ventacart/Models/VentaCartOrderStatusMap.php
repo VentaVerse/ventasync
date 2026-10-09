@@ -10,14 +10,14 @@ class VentaCartOrderStatusMap extends Model
     protected $table = 'ventacart_order_status_map';
 
     protected $fillable = [
-        'ventacart_setting_id',
+        'store_id',
         'ventacart_status_id',
         'ventacart_status_name',
         'order_status_id',
     ];
 
-    public function setting(): BelongsTo
+    public function store(): BelongsTo
     {
-        return $this->belongsTo(VentaCartSetting::class, 'ventacart_setting_id');
+        return $this->belongsTo(VentaCartStore::class, 'store_id');
     }
 }

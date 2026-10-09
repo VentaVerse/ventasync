@@ -4,7 +4,7 @@ namespace Extensions\Lazada\Services\Lazada;
 
 use Extensions\Lazada\Models\LazadaBrand;
 use Extensions\Lazada\Models\LazadaCategoryTemplate;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 
 class LazadaAttributes
 {
@@ -260,7 +260,7 @@ class LazadaAttributes
 
     public function getLazadaSalePropKeys(int $primaryCategoryId, object $setting, LazadaClient $client): array
     {
-        $creds = LazadaSetting::activeCredentials($setting);
+        $creds = LazadaStore::activeCredentials($setting);
 
         if ($primaryCategoryId <= 0 || empty($creds['app_key']) || empty($creds['app_secret']) || empty($setting->region)) {
             return [];
@@ -487,7 +487,7 @@ class LazadaAttributes
 
     private function region(): string
     {
-        $setting = LazadaSetting::defaultStore();
+        $setting = LazadaStore::defaultStore();
         return (string)($setting->region ?? '');
     }
 }

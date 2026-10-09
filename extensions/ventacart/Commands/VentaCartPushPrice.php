@@ -3,7 +3,7 @@
 namespace Extensions\VentaCart\Commands;
 
 use Extensions\VentaCart\Models\VentaCartProductLink;
-use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Extensions\VentaCart\Services\VentaCart\VentaCartStockPricePush;
 use Illuminate\Console\Command;
 
@@ -16,7 +16,7 @@ class VentaCartPushPrice extends Command implements \App\Channels\Contracts\Step
 
     public function handle(): int
     {
-        $stores = VentaCartSetting::query()->where('enabled', true);
+        $stores = VentaCartStore::query()->where('enabled', true);
         if ($this->option('store')) {
             $stores->where('id', (int) $this->option('store'));
         }
@@ -29,7 +29,7 @@ class VentaCartPushPrice extends Command implements \App\Channels\Contracts\Step
 
         foreach ($stores as $setting) {
             $this->info("Pushing prices for: {$setting->store_name} (#{$setting->id})");
-            $ids = VentaCartProductLink::query()->where('ventacart_setting_id', $setting->id)->whereNotNull('ventacart_product_id')
+            $ids = VentaCartProductLink::query()->where('store_id', $setting->id)->whereNotNull('ventacart_product_id')
                 ->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
             if ($ids === []) {
                 $this->info('  No linked products. Skipping.');

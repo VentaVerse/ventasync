@@ -9,7 +9,7 @@ use App\Models\User;
 use Extensions\TikTok\Models\TikTokListing;
 use Extensions\TikTok\Models\TikTokProductGroup;
 use Extensions\TikTok\Models\TikTokProductGroupProduct;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -36,7 +36,7 @@ class TikTokStockPushHealTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        TikTokSetting::create([
+        TikTokStore::create([
             'mode' => 'production', 'app_key' => 'k', 'app_secret' => 's',
             'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3),
         ]);
@@ -114,7 +114,7 @@ class TikTokStockPushHealTest extends TestCase
     public function test_a_product_read_and_a_push_answer_remember_the_seller_skus_the_item_holds(): void
     {
         $pid = $this->comboProduct(['RM-1' => 1, 'RM-2' => 2, 'RM-3' => 3]);
-        $storeId = (int) TikTokSetting::defaultStore()->id;
+        $storeId = (int) TikTokStore::defaultStore()->id;
         $missing = fn () => array_column(\App\Channels\Listings\ListingVariations::missing('tiktok', $storeId, [$pid])[$pid] ?? [], 'sku');
         $this->getProductAnswers['tt-rm'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'data' => [
             'status' => 'ACTIVATE', 'title' => 'TT', 'skus' => [

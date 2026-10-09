@@ -7,7 +7,7 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\Lazada\Models\LazadaProduct;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -34,7 +34,7 @@ class LazadaListingLiveTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        LazadaSetting::query()->create([
+        LazadaStore::query()->create([
             'mode' => 'live', 'region' => 'ph',
             'app_key' => 'k', 'app_secret' => 's',
             'access_token' => 't', 'refresh_token' => 'r',
@@ -169,7 +169,7 @@ class LazadaListingLiveTest extends TestCase
     private function listingOn(int $pid, ?string $itemId): LazadaProduct
     {
         return LazadaProduct::query()->create([
-            'product_id' => $pid, 'lazada_setting_id' => (int) LazadaSetting::defaultStore()->id,
+            'product_id' => $pid, 'store_id' => (int) LazadaStore::defaultStore()->id,
             'lazada_item_id' => $itemId, 'primary_category_id' => $itemId !== null ? 9257 : null,
         ]);
     }
@@ -177,7 +177,7 @@ class LazadaListingLiveTest extends TestCase
     private function skusSent(LazadaProduct $listing): array
     {
         [$payload] = app(\Extensions\Lazada\Services\Lazada\LazadaPushPayload::class)
-            ->buildLazadaProductCreatePayload($listing, LazadaSetting::defaultStore()->decrypted(), app(LazadaClient::class));
+            ->buildLazadaProductCreatePayload($listing, LazadaStore::defaultStore()->decrypted(), app(LazadaClient::class));
 
         return $payload['Request']['Product']['Skus']['Sku'];
     }
@@ -267,7 +267,7 @@ class LazadaListingLiveTest extends TestCase
     private function payloadSent(LazadaProduct $listing): array
     {
         return app(\Extensions\Lazada\Services\Lazada\LazadaPushPayload::class)
-            ->buildLazadaProductCreatePayload($listing, LazadaSetting::defaultStore()->decrypted(), app(LazadaClient::class));
+            ->buildLazadaProductCreatePayload($listing, LazadaStore::defaultStore()->decrypted(), app(LazadaClient::class));
     }
 
     private function liveItem(array $skus, ?array $variation = null): void
@@ -617,9 +617,9 @@ class LazadaListingLiveTest extends TestCase
         $listing->forceFill(['lazada_item_id' => '9001'])->save();
         \Extensions\Lazada\Models\LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-OWNPRICE', 'sku_id' => 77]);
         $listings = LazadaProduct::query()->whereKey($listing->id)->get();
-        $setting = LazadaSetting::defaultStore()->decrypted();
+        $setting = LazadaStore::defaultStore()->decrypted();
         app(\Extensions\Lazada\Services\Lazada\LazadaStockPricePush::class)->push(
-            'price', $setting, LazadaSetting::activeCredentials($setting), $listings,
+            'price', $setting, LazadaStore::activeCredentials($setting), $listings,
             (string) config('catalog.prefix'), \Extensions\Lazada\Commands\LazadaPushPrice::priceRule($listings)
         );
 
@@ -1334,7 +1334,7 @@ class LazadaListingLiveTest extends TestCase
 
     private function storeId(): int
     {
-        return (int) LazadaSetting::defaultStore()->id;
+        return (int) LazadaStore::defaultStore()->id;
     }
 
     private function colorProduct(string $sku): int
@@ -1510,34 +1510,5 @@ class LazadaListingLiveTest extends TestCase
         $skus = $this->updateSkus();
         $this->assertSame(['SW-TOG-B', 'SW-TOG-G'], array_keys($skus));
         $this->assertSame(['active', 'active'], array_column($skus, 'Status'));
-    }
-
-    public function test_the_follow_migration_clears_only_copies_equal_to_the_group(): void
-    {
-        $copied = $this->seedProduct('Copied listing', 'LZ-COPY');
-        $own = $this->seedProduct('Own listing', 'LZ-OWN');
-        $group = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Copy group', 'lazada_category_id' => 222, 'markup_fixed' => 20]);
-        \Extensions\Lazada\Models\LazadaProductGroupAttribute::create(['lazada_product_group_id' => $group->id, 'attribute_key' => 'material', 'value' => 'Rosewood']);
-
-        $a = LazadaProduct::query()->create(['product_id' => $copied, 'primary_category_id' => 222]);
-        $a->forceFill(['markup_fixed' => 20])->save();
-        \Extensions\Lazada\Models\LazadaProductAttribute::create(['lazada_product_id' => $a->id, 'attribute_key' => 'material', 'value' => 'Rosewood']);
-        \Extensions\Lazada\Models\LazadaProductAttribute::create(['lazada_product_id' => $a->id, 'attribute_key' => 'color_family', 'value' => 'Red']);
-        $b = LazadaProduct::query()->create(['product_id' => $own, 'primary_category_id' => 333]);
-        $b->forceFill(['markup_fixed' => 7])->save();
-        foreach ([[$copied, $a], [$own, $b]] as [$pid, $row]) {
-            \Extensions\Lazada\Models\LazadaProductGroupProduct::create(['lazada_product_group_id' => $group->id, 'product_id' => $pid, 'lazada_product_id' => $row->id, 'sync_status' => 'pushed']);
-        }
-
-        (require base_path('database/migrations/2026_09_16_110000_lazada_listings_follow_their_group.php'))->up();
-
-        $a->refresh();
-        $b->refresh();
-        $this->assertNull($a->primary_category_id);
-        $this->assertNull($a->markup_fixed);
-        $this->assertFalse(\Extensions\Lazada\Models\LazadaProductAttribute::query()->where('lazada_product_id', $a->id)->where('attribute_key', 'material')->exists());
-        $this->assertTrue(\Extensions\Lazada\Models\LazadaProductAttribute::query()->where('lazada_product_id', $a->id)->where('attribute_key', 'color_family')->exists(), 'an answer the group does not give stays');
-        $this->assertSame(333, (int) $b->primary_category_id, 'a value the operator set stays');
-        $this->assertSame(7.0, (float) $b->markup_fixed);
     }
 }

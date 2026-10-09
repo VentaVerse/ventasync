@@ -8,7 +8,7 @@ use App\Channels\Listings\ListingState;
 use Extensions\Shopee\Models\ShopeeCategoryTemplate;
 use Extensions\Shopee\Models\ShopeeListing;
 use Extensions\Shopee\Models\ShopeeProductLink;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Extensions\Shopee\Services\Shopee\ShopeeListingStates;
 use Extensions\Shopee\Services\Shopee\ShopeeLiveListing;
@@ -32,7 +32,7 @@ class ShopeeListingStateTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        ShopeeSetting::query()->create([
+        ShopeeStore::query()->create([
             'partner_id' => 1001, 'partner_key' => 'k', 'shop_id' => 2002,
             'access_token' => 't', 'refresh_token' => 'r', 'mode' => 'production',
         ]);
@@ -182,7 +182,7 @@ class ShopeeListingStateTest extends TestCase
         }
         $this->readyListing($pid);
         ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 910, 'shopee_model_id' => 1, 'sku' => 'EXL110-1046', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
-        $storeId = (int) ShopeeSetting::defaultStore()->id;
+        $storeId = (int) ShopeeStore::defaultStore()->id;
         \App\Channels\Listings\ListingVariations::remember('shopee', $storeId, $pid, ['EXL110-1046', 'EXL110-0942']);
 
         $line = (string) app(ShopeeListingStates::class)->errors([$pid])[$pid];
@@ -599,7 +599,7 @@ class ShopeeListingStateTest extends TestCase
         $this->readyListing($missing);
         ShopeeProductLink::create(['product_id' => $missing, 'shopee_item_id' => 6001, 'shopee_model_id' => 1, 'sku' => 'MISSVAR-A',
             'live_status' => 'NORMAL', 'live_checked_at' => now()]);
-        $storeId = (int) ShopeeSetting::defaultStore()->id;
+        $storeId = (int) ShopeeStore::defaultStore()->id;
         \App\Channels\Listings\ListingVariations::remember('shopee', $storeId, $missing, ['MISSVAR-A']);
 
         $refused = $this->linkedProduct('PUSHERR', 6002);
@@ -615,7 +615,7 @@ class ShopeeListingStateTest extends TestCase
             ->assertSee('products match: Push failed', false);
 
         $grp = DB::table('shopee_product_groups')->insertGetId([
-            'shopee_setting_id' => $storeId, 'name' => 'Outcome group', 'created_at' => now(), 'updated_at' => now(),
+            'store_id' => $storeId, 'name' => 'Outcome group', 'created_at' => now(), 'updated_at' => now(),
         ]);
         foreach ([$missing, $refused, $clean] as $p) {
             DB::table('shopee_product_group_products')->insert(['shopee_product_group_id' => $grp, 'product_id' => $p]);
@@ -674,8 +674,8 @@ class ShopeeListingStateTest extends TestCase
 
     public function test_an_outcome_lands_on_the_store_it_was_about(): void
     {
-        $one = ShopeeSetting::defaultStore();
-        $two = ShopeeSetting::query()->create([
+        $one = ShopeeStore::defaultStore();
+        $two = ShopeeStore::query()->create([
             'partner_id' => 1001, 'partner_key' => 'k', 'shop_id' => 3003,
             'access_token' => 't', 'refresh_token' => 'r', 'mode' => 'production', 'store_name' => 'Second',
         ]);

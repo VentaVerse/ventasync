@@ -7,7 +7,7 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\VentaCart\Models\VentaCartProductLink;
-use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -31,9 +31,9 @@ class VentaCartItemImportTest extends TestCase
         $this->artisan('permissions:sync-catalog');
     }
 
-    private function store(): VentaCartSetting
+    private function store(): VentaCartStore
     {
-        return VentaCartSetting::query()->create([
+        return VentaCartStore::query()->create([
             'store_name' => 'One', 'enabled' => true,
             'base_url' => self::BASE, 'api_token' => 't',
         ]);

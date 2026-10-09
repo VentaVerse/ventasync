@@ -2,15 +2,15 @@
 
 namespace Extensions\OpenCart\Services\OpenCart;
 
-use Extensions\OpenCart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartStore;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Log;
 
 class OpenCartClient
 {
-    private OpenCartSetting $setting;
+    private OpenCartStore $setting;
 
-    public function __construct(OpenCartSetting $setting)
+    public function __construct(OpenCartStore $setting)
     {
         $this->setting = $setting;
     }

@@ -4,7 +4,7 @@ namespace Extensions\TikTok\Commands;
 
 use Extensions\TikTok\Models\TikTokApiLog;
 use Extensions\TikTok\Models\TikTokProductGroupProduct;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Extensions\TikTok\Services\TikTok\TikTokStockPushService;
 use Illuminate\Console\Command;
@@ -19,7 +19,7 @@ class TikTokPushStock extends Command implements \App\Channels\Contracts\Steppab
 
     public function handle(): int
     {
-        $stores = \Extensions\TikTok\Models\TikTokSetting::enabledStores();
+        $stores = \Extensions\TikTok\Models\TikTokStore::enabledStores();
         if ($stores->isEmpty()) { $this->error('No enabled TikTok store. Configure TikTok settings first.'); return 1; }
         $worst = 0;
         foreach ($stores as $store) {
@@ -38,7 +38,7 @@ class TikTokPushStock extends Command implements \App\Channels\Contracts\Steppab
         return $worst;
     }
 
-    private function handleStore(\Extensions\TikTok\Models\TikTokSetting $store): int
+    private function handleStore(\Extensions\TikTok\Models\TikTokStore $store): int
     {
         $raw = $store;
 

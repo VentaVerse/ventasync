@@ -84,7 +84,7 @@ class ShopeeLiveListing
             $counts[$status] = 0;
             foreach (array_chunk($ids, 500) as $chunk) {
                 $counts[$status] += \Extensions\Shopee\Models\ShopeeProductLink::query()
-                    ->when($settingId !== null, fn ($q) => $q->where('shopee_setting_id', $settingId))
+                    ->when($settingId !== null, fn ($q) => $q->where('store_id', $settingId))
                     ->whereIn('shopee_item_id', $chunk)
                     ->update(['live_status' => $status, 'live_checked_at' => $now]);
                 foreach ($chunk as $id) {
@@ -93,7 +93,7 @@ class ShopeeLiveListing
             }
         }
         $missing = \Extensions\Shopee\Models\ShopeeProductLink::query()
-            ->when($settingId !== null, fn ($q) => $q->where('shopee_setting_id', $settingId))
+            ->when($settingId !== null, fn ($q) => $q->where('store_id', $settingId))
             ->whereNotIn('shopee_item_id', array_keys($seen) ?: [0])
             ->update(['live_status' => 'MISSING', 'live_checked_at' => $now]);
         if ($missing > 0) {
@@ -104,7 +104,7 @@ class ShopeeLiveListing
             'error' => null,
             'counts' => array_filter($counts),
             'links' => (int) \Extensions\Shopee\Models\ShopeeProductLink::query()
-                ->when($settingId !== null, fn ($q) => $q->where('shopee_setting_id', $settingId))->count(),
+                ->when($settingId !== null, fn ($q) => $q->where('store_id', $settingId))->count(),
         ];
     }
 

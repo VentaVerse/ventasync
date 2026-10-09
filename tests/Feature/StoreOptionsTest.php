@@ -7,8 +7,8 @@ use App\Channels\ChannelRegistry;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\Lazada\Models\LazadaSetting;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Lazada\Models\LazadaStore;
+use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -31,9 +31,9 @@ class StoreOptionsTest extends TestCase
 
     public function test_every_live_store_is_an_option_paused_ones_included_and_permissions_gate_them(): void
     {
-        $a = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
-        $b = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Outlet', 'enabled' => false]);
-        LazadaSetting::create(['mode' => 'live', 'store_name' => 'Laz PH', 'region' => 'PH']);
+        $a = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $b = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Outlet', 'enabled' => false]);
+        LazadaStore::create(['mode' => 'live', 'store_name' => 'Laz PH', 'region' => 'PH']);
 
         $group = UserGroup::create(['name' => 'Shopee viewer']);
         $group->permissions()->attach(Permission::where('key', 'view_shopee/order')->pluck('id'));
@@ -50,6 +50,6 @@ class StoreOptionsTest extends TestCase
         $both = UserGroup::create(['name' => 'Both viewer']);
         $both->permissions()->attach(Permission::whereIn('key', ['view_shopee/order', 'view_lazada/order'])->pluck('id'));
         $keys = array_column(app(ChannelRegistry::class)->visibleStoreOptions(User::factory()->create(['user_group_id' => $both->id])), 'key');
-        $this->assertContains('lazada:' . LazadaSetting::query()->value('id'), $keys);
+        $this->assertContains('lazada:' . LazadaStore::query()->value('id'), $keys);
     }
 }

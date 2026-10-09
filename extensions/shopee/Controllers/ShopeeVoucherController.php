@@ -4,7 +4,7 @@ namespace Extensions\Shopee\Controllers;
 
 use App\Http\Controllers\Controller;
 use Extensions\Shopee\Models\ShopeeApiLog;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Http\Request;
 
@@ -19,8 +19,8 @@ class ShopeeVoucherController extends Controller
             $status = 'all';
         }
 
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
+        $setting = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($setting);
 
         $vouchers = null;
         $liveError = null;
@@ -73,8 +73,8 @@ class ShopeeVoucherController extends Controller
             'starts_at.after' => 'The start has to be in the future.',
         ]);
 
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
+        $setting = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($setting);
         if (!$setting || !$auth['complete']) {
             return redirect()->route('ext.shopee.vouchers.index')->with('error', 'Missing Shopee settings.');
         }
@@ -124,8 +124,8 @@ class ShopeeVoucherController extends Controller
 
     private function passThrough(ShopeeClient $client, string $path, int $voucherId, string $okWords, string $failWord)
     {
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
+        $setting = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($setting);
         if (!$setting || !$auth['complete']) {
             return redirect()->route('ext.shopee.vouchers.index')->with('error', 'Missing Shopee settings.');
         }

@@ -13,7 +13,7 @@ class LazadaProduct extends Model
 
     protected $fillable = [
                 'image_off', 'video_path', 'video_off',
-'lazada_setting_id', 'product_id', 'item_name', 'description',
+'store_id', 'product_id', 'item_name', 'description',
         'description_prefix_id', 'description_suffix_id', 'watermark_template_id', 'watermark_all_images',
         'primary_category_id', 'brand_id', 'brand_name_override', 'image_order',
         'markup_fixed', 'markup_percent',

@@ -4,7 +4,7 @@ namespace Extensions\Lazada\Controllers;
 
 use App\Http\Controllers\Controller;
 use Extensions\Lazada\Models\LazadaApiLog;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Illuminate\Http\Request;
 
@@ -144,9 +144,9 @@ class LazadaVoucherController extends Controller
 
     private function creds(): array
     {
-        $setting = LazadaSetting::defaultStore();
+        $setting = LazadaStore::defaultStore();
         $decrypted = $setting?->decrypted();
-        $creds = LazadaSetting::activeCredentials($decrypted);
+        $creds = LazadaStore::activeCredentials($decrypted);
         if ($setting && !$setting->region) {
             $creds['complete'] = false;
         }

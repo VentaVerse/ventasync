@@ -26,7 +26,7 @@ class LazadaBulkPackTest extends TestCase
 
         $this->app['router']->getRoutes()->refreshNameLookups();
 
-        \Extensions\Lazada\Models\LazadaSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        \Extensions\Lazada\Models\LazadaStore::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
     private function userWith(array $permissionKeys): User

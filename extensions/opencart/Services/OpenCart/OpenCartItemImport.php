@@ -3,7 +3,7 @@
 namespace Extensions\OpenCart\Services\OpenCart;
 
 use Extensions\OpenCart\Models\OpenCartProductLink;
-use Extensions\OpenCart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartStore;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -11,7 +11,7 @@ use Illuminate\Support\Str;
 
 class OpenCartItemImport
 {
-    public function import(OpenCartSetting $setting, int $ocProductId): array
+    public function import(OpenCartStore $setting, int $ocProductId): array
     {
         if ($refused = \App\Plans\Quota::importRefusal()) {
             return $refused;
@@ -91,7 +91,7 @@ class OpenCartItemImport
                 }
 
                 OpenCartProductLink::updateOrCreate(
-                    ['opencart_setting_id' => $setting->id, 'oc_product_id' => (int) $ocProductId],
+                    ['store_id' => $setting->id, 'oc_product_id' => (int) $ocProductId],
                     ['product_id' => $productId, 'sku' => $sku ?: null]
                 );
 

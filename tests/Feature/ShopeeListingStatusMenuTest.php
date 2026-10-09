@@ -8,7 +8,7 @@ use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\Shopee\Models\ShopeeListing;
 use Extensions\Shopee\Models\ShopeeProductLink;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeListingStates;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -29,7 +29,7 @@ class ShopeeListingStatusMenuTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        ShopeeSetting::query()->create([
+        ShopeeStore::query()->create([
             'partner_id' => 1001, 'partner_key' => 'k', 'shop_id' => 2002,
             'access_token' => 't', 'refresh_token' => 'r', 'mode' => 'production',
         ]);
@@ -178,7 +178,7 @@ class ShopeeListingStatusMenuTest extends TestCase
         $this->actingAs($manager)->get(route('ext.shopee.products.index', ['group' => $group->id, 'sync_status' => 'uploaded']))->assertOk()
             ->assertSee('Send all 2 products in Fuzz to Shopee on group settings, rather than their own?');
 
-        ShopeeSetting::query()->update(['access_token' => null]);
+        ShopeeStore::query()->update(['access_token' => null]);
         $answer = $this->actingAs($manager)->postJson(route('ext.shopee.product-groups.send_run_begin', ['id' => $group->id]))->assertOk()->json();
         $this->assertSame('failed', $answer['run']['status']);
         $this->assertSame(2, $answer['run']['total']);

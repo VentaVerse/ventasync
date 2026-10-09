@@ -3,7 +3,7 @@
 namespace Extensions\VentaCart\Services\VentaCart;
 
 use App\Support\FulfilmentSteps;
-use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -25,7 +25,7 @@ class VentaCartStatusPlacements
 
     private static array $memo = [];
 
-    public static function refresh(VentaCartSetting $setting, ?VentaCartClient $client = null): int
+    public static function refresh(VentaCartStore $setting, ?VentaCartClient $client = null): int
     {
         if (! Schema::hasTable(self::TABLE)) {
             return 0;
@@ -47,7 +47,7 @@ class VentaCartStatusPlacements
                 continue;
             }
             DB::table(self::TABLE)->updateOrInsert(
-                ['ventacart_setting_id' => (int) $setting->id, 'ventacart_status_id' => (int) $row['id']],
+                ['store_id' => (int) $setting->id, 'ventacart_status_id' => (int) $row['id']],
                 [
                     'ventacart_status_name' => mb_substr((string) ($row['name'] ?? ''), 0, 64),
                     'placement' => isset($row['placement']) && $row['placement'] !== '' ? (string) $row['placement'] : null,
@@ -92,7 +92,7 @@ class VentaCartStatusPlacements
         }
 
         $map = [];
-        $rows = DB::table(self::TABLE)->where('ventacart_setting_id', $storeId)->whereNotNull('placement')->get(['ventacart_status_name', 'placement']);
+        $rows = DB::table(self::TABLE)->where('store_id', $storeId)->whereNotNull('placement')->get(['ventacart_status_name', 'placement']);
         foreach ($rows as $row) {
             $step = self::STEP_FOR_PLACEMENT[(string) $row->placement] ?? null;
             if ($step !== null && (string) $row->ventacart_status_name !== '') {

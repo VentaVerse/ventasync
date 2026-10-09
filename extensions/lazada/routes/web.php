@@ -210,7 +210,7 @@ Route::middleware(['auth', \Extensions\Lazada\Http\ResolveLazadaStore::class])->
 
 Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::get('/lazada/{legacyPath}', function (\Illuminate\Http\Request $request, string $legacyPath) {
-        $store = \Extensions\Lazada\Models\LazadaSetting::query()->where('enabled', true)->orderBy('id')->value('id');
+        $store = \Extensions\Lazada\Models\LazadaStore::query()->where('enabled', true)->orderBy('id')->value('id');
         abort_unless($store !== null, 404);
         $qs = $request->getQueryString();
 

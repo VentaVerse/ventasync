@@ -4,7 +4,7 @@ namespace Extensions\OpenCart\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class OpenCartSetting extends Model
+class OpenCartStore extends Model
 {
     use \App\Plans\CountsAsStore;
 

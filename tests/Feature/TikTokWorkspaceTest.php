@@ -10,7 +10,7 @@ use App\Models\User;
 use App\Support\ChannelWorkspace;
 use Extensions\TikTok\Models\TikTokOrder;
 use Extensions\TikTok\Models\TikTokOrderProduct;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\TikTokExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -19,7 +19,7 @@ class TikTokWorkspaceTest extends TestCase
 {
     use RefreshDatabase;
 
-    private TikTokSetting $tiktokStore;
+    private TikTokStore $tiktokStore;
 
     private function tiktokOperator(): User
     {
@@ -59,7 +59,7 @@ class TikTokWorkspaceTest extends TestCase
 
         $this->app['router']->getRoutes()->refreshNameLookups();
 
-        $this->tiktokStore = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $this->tiktokStore = TikTokStore::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
     private function tiktokCard(): \App\Channels\ChannelCard

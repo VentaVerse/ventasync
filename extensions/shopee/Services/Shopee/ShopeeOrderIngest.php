@@ -83,7 +83,7 @@ class ShopeeOrderIngest
     private function apply(object $setting, string $region, array $auth, array $o, string $orderSn, array $invoiceMap, array &$out): void
     {
         $existing = ShopeeOrder::query()
-            ->where('shopee_setting_id', (int) $setting->id)
+            ->where('store_id', (int) $setting->id)
             ->where('order_sn', $orderSn)
             ->first();
 
@@ -119,7 +119,7 @@ class ShopeeOrderIngest
 
         try {
             $newOrder = ShopeeOrder::query()->create([
-                'shopee_setting_id' => (int) $setting->id,
+                'store_id' => (int) $setting->id,
                 'region'           => $region,
                 'order_sn'         => $orderSn,
                 'status'           => (string) ($o['order_status'] ?? ''),
@@ -176,7 +176,7 @@ class ShopeeOrderIngest
         $shopeeOrder = null;
         if ($orderSn !== '') {
             $shopeeOrder = ShopeeOrder::query()
-                ->where('shopee_setting_id', (int) $setting->id)
+                ->where('store_id', (int) $setting->id)
                 ->where('order_sn', $orderSn)
                 ->first();
         }
@@ -184,7 +184,7 @@ class ShopeeOrderIngest
         try {
             ShopeeReturn::query()->updateOrCreate(
                 [
-                    'shopee_setting_id' => (int) $setting->id,
+                    'store_id' => (int) $setting->id,
                     'return_sn' => $returnSn,
                 ],
                 [
@@ -300,7 +300,7 @@ class ShopeeOrderIngest
     {
         static $on = null;
 
-        return $on ??= \Extensions\Shopee\Models\ShopeeSetting::query()
+        return $on ??= \Extensions\Shopee\Models\ShopeeStore::query()
             ->where('enabled', true)
             ->where('apply_order_pushes', true)
             ->exists();

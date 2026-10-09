@@ -11,7 +11,7 @@ class OpenCartSyncLog extends Model
     protected $table = 'opencart_sync_log';
 
     protected $fillable = [
-        'opencart_setting_id', 'entity_type', 'direction',
+        'store_id', 'entity_type', 'direction',
         'status', 'started_at', 'details', 'completed_at',
         'records_processed', 'records_updated', 'records_failed',
         'error_message',

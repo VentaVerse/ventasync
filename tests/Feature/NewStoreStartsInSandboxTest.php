@@ -6,9 +6,9 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\Lazada\Models\LazadaSetting;
-use Extensions\Shopee\Models\ShopeeSetting;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\Lazada\Models\LazadaStore;
+use Extensions\Shopee\Models\ShopeeStore;
+use Extensions\TikTok\Models\TikTokStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -44,9 +44,9 @@ class NewStoreStartsInSandboxTest extends TestCase
         $user = $this->userWith(['manage_shopee/settings', 'manage_lazada/settings', 'manage_tiktok/settings']);
 
         foreach ([
-            'shopee' => [ShopeeSetting::class, 'ext.shopee.stores.store'],
-            'lazada' => [LazadaSetting::class, 'ext.lazada.stores.store'],
-            'tiktok' => [TikTokSetting::class, 'ext.tiktok.stores.store'],
+            'shopee' => [ShopeeStore::class, 'ext.shopee.stores.store'],
+            'lazada' => [LazadaStore::class, 'ext.lazada.stores.store'],
+            'tiktok' => [TikTokStore::class, 'ext.tiktok.stores.store'],
         ] as $channel => [$model, $route]) {
             $this->actingAs($user)->post(route($route), ['store_name' => 'First store'])->assertRedirect();
 

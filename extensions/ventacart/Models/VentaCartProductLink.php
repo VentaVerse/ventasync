@@ -10,14 +10,14 @@ class VentaCartProductLink extends Model
     protected $table = 'ventacart_product_links';
 
     protected $fillable = [
-        'ventacart_setting_id',
+        'store_id',
         'ventacart_product_id',
         'product_id',
         'sku',
     ];
 
-    public function setting(): BelongsTo
+    public function store(): BelongsTo
     {
-        return $this->belongsTo(VentaCartSetting::class, 'ventacart_setting_id');
+        return $this->belongsTo(VentaCartStore::class, 'store_id');
     }
 }

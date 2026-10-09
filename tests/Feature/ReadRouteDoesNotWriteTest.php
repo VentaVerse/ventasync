@@ -65,8 +65,8 @@ class ReadRouteDoesNotWriteTest extends TestCase
         ]);
 
         $groupId = DB::table('shopee_product_groups')->insertGetId([
-            'shopee_setting_id' => \Extensions\Shopee\Models\ShopeeSetting::query()->orderBy('id')->value('id')
-                ?? \Extensions\Shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store'])->id,
+            'store_id' => \Extensions\Shopee\Models\ShopeeStore::query()->orderBy('id')->value('id')
+                ?? \Extensions\Shopee\Models\ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store'])->id,
             'name' => 'Adoption',
             'created_at' => now(),
             'updated_at' => now(),
@@ -80,8 +80,8 @@ class ReadRouteDoesNotWriteTest extends TestCase
         ]);
 
         DB::table('shopee_product_links')->insert([
-            'shopee_setting_id' => \Extensions\Shopee\Models\ShopeeSetting::query()->orderBy('id')->value('id')
-                ?? \Extensions\Shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store'])->id,
+            'store_id' => \Extensions\Shopee\Models\ShopeeStore::query()->orderBy('id')->value('id')
+                ?? \Extensions\Shopee\Models\ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store'])->id,
             'product_id' => self::PRODUCT,
             'shopee_item_id' => self::ITEM,
             'sku' => 'ADOPT-ME',

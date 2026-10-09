@@ -3,21 +3,21 @@
 namespace Extensions\VentaCart\Services\VentaCart;
 
 use Extensions\VentaCart\Models\VentaCartProductGroup;
-use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Illuminate\Support\Facades\DB;
 
 class VentaCartLinkCheck
 {
-    public function runNext(VentaCartSetting $setting): ?array
+    public function runNext(VentaCartStore $setting): ?array
     {
-        $linked = \Extensions\VentaCart\Models\VentaCartProductLink::query()->where('ventacart_setting_id', $setting->id)
+        $linked = \Extensions\VentaCart\Models\VentaCartProductLink::query()->where('store_id', $setting->id)
             ->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
         $linked = \App\Channels\Support\LinkCheckCursor::rotate('ventacart:' . (int) $setting->id, $linked);
 
         return $linked !== [] ? $this->run($setting, $linked) : null;
     }
 
-    public function run(VentaCartSetting $setting, array $ids): array
+    public function run(VentaCartStore $setting, array $ids): array
     {
         $settingId = (int) $setting->id;
         $storeName = $setting->store_name ?: 'Unnamed store';
@@ -138,7 +138,7 @@ class VentaCartLinkCheck
         \App\Support\ChannelProductStatus::write(
             'ventacart_product_group_products',
             'ventacart_product_group_id',
-            VentaCartProductGroup::where('ventacart_setting_id', $settingId)->pluck('id')->all(),
+            VentaCartProductGroup::where('store_id', $settingId)->pluck('id')->all(),
             $productId,
             $attributes
         );

@@ -8,7 +8,7 @@ use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\TikTok\Models\TikTokProductGroup;
 use Extensions\TikTok\Models\TikTokProductGroupProduct;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -17,7 +17,7 @@ class TikTokOneTruthTest extends TestCase
 {
     use RefreshDatabase;
 
-    private TikTokSetting $tiktokStore;
+    private TikTokStore $tiktokStore;
 
     protected function setUp(): void
     {
@@ -30,7 +30,7 @@ class TikTokOneTruthTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        $this->tiktokStore = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $this->tiktokStore = TikTokStore::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
     private function manager(): User

@@ -5,7 +5,7 @@ namespace Extensions\TikTok\Controllers;
 use App\Http\Controllers\Controller;
 use Extensions\TikTok\Models\TikTokApiLog;
 use Extensions\TikTok\Models\TikTokOrderStatusMap;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,12 +17,12 @@ class TikTokController extends Controller
 
     protected function settingsTabRoute(): array
     {
-        $store = TikTokSetting::defaultStore();
+        $store = TikTokStore::defaultStore();
 
         return ['ext.tiktok.index', $store ? ['store' => $store->id] : []];
     }
 
-    private function saveTokenData(TikTokSetting $raw, bool $sandbox, array $tokenData): void
+    private function saveTokenData(TikTokStore $raw, bool $sandbox, array $tokenData): void
     {
         $access = $tokenData['access_token'] ?? null;
         $refresh = $tokenData['refresh_token'] ?? null;
@@ -61,7 +61,7 @@ class TikTokController extends Controller
 
     public function index()
     {
-        $setting = TikTokSetting::defaultStore();
+        $setting = TikTokStore::defaultStore();
 
         $logs = \App\Support\ApiLogPanel::paginate(
             TikTokApiLog::query(), 'api_path', fn ($q) => $q->where('ok', 0)
@@ -128,7 +128,7 @@ class TikTokController extends Controller
             'sandbox_app_secret' => 'nullable|string|max:255',
         ]);
 
-        $setting = TikTokSetting::defaultStore() ?? new TikTokSetting();
+        $setting = TikTokStore::defaultStore() ?? new TikTokStore();
         if (array_key_exists('store_name', $data) && $data['store_name'] !== null) {
             $setting->store_name = $data['store_name'];
         }
@@ -158,7 +158,7 @@ class TikTokController extends Controller
     public function toggleMode(Request $request)
     {
         $data = $request->validate(['mode' => 'required|in:live,sandbox']);
-        $setting = TikTokSetting::defaultStore() ?? new TikTokSetting();
+        $setting = TikTokStore::defaultStore() ?? new TikTokStore();
         $setting->mode = $data['mode'];
         $setting->save();
 
@@ -170,8 +170,8 @@ class TikTokController extends Controller
     public function redirectToAuth(Request $request, TikTokClient $client)
     {
         $raw = $request->query('store')
-            ? TikTokSetting::query()->find((int) $request->query('store'))
-            : TikTokSetting::defaultStore();
+            ? TikTokStore::query()->find((int) $request->query('store'))
+            : TikTokStore::defaultStore();
         if ($raw !== null) {
             app()->instance('tiktok.route-store', $raw);
         }
@@ -198,7 +198,7 @@ class TikTokController extends Controller
 
     private function redirectToSettings()
     {
-        $store = TikTokSetting::defaultStore();
+        $store = TikTokStore::defaultStore();
 
         return $store !== null
             ? redirect()->route('ext.tiktok.index', ['store' => $store->id])
@@ -230,7 +230,7 @@ class TikTokController extends Controller
     {
         $parsed = $this->parseOAuthState($state);
         if ($parsed !== null) {
-            $store = TikTokSetting::query()->find($parsed['store_id']);
+            $store = TikTokStore::query()->find($parsed['store_id']);
             if ($store !== null) {
                 app()->instance('tiktok.route-store', $store);
                 \Illuminate\Support\Facades\URL::defaults(['store' => (int) $store->id]);
@@ -239,7 +239,7 @@ class TikTokController extends Controller
             }
         }
 
-        return [TikTokSetting::defaultStore()?->id, (bool) session('tiktok_oauth_sandbox', false)];
+        return [TikTokStore::defaultStore()?->id, (bool) session('tiktok_oauth_sandbox', false)];
     }
 
     public function createStore(Request $request)
@@ -248,7 +248,7 @@ class TikTokController extends Controller
             'store_name' => ['required', 'string', 'max:128'],
         ]);
 
-        $setting = TikTokSetting::create([
+        $setting = TikTokStore::create([
             'store_name' => $data['store_name'],
             'enabled'    => false,
             'mode'       => 'sandbox',
@@ -282,7 +282,7 @@ class TikTokController extends Controller
         [$storeId, $sandbox] = $this->bindStoreFromState($state);
 
         $tokenResult = null;
-        $raw = TikTokSetting::defaultStore();
+        $raw = TikTokStore::defaultStore();
         $setting = $raw?->decrypted();
         $activeKey = $sandbox ? ($setting->sandbox_app_key ?? '') : ($setting->app_key ?? '');
         $activeSecret = $sandbox ? ($setting->sandbox_app_secret ?? '') : ($setting->app_secret ?? '');
@@ -300,7 +300,7 @@ class TikTokController extends Controller
                 $refreshExpiresIn = $tokenData['refresh_token_expire_in'] ?? null;
 
                 try {
-                    $this->saveTokenData($raw ?? new TikTokSetting(), $sandbox, $tokenData);
+                    $this->saveTokenData($raw ?? new TikTokStore(), $sandbox, $tokenData);
                     $saved = true;
                 } catch (\Throwable $e) {
                     $saveError = $e->getMessage();
@@ -352,7 +352,7 @@ class TikTokController extends Controller
     {
         $request->validate(['code' => 'required|string']);
 
-        $raw = TikTokSetting::defaultStore();
+        $raw = TikTokStore::defaultStore();
         $setting = $raw?->decrypted();
         $sandbox = $raw && $raw->mode === 'sandbox';
         $activeKey = $sandbox ? ($setting->sandbox_app_key ?? '') : ($setting->app_key ?? '');
@@ -396,7 +396,7 @@ class TikTokController extends Controller
 
     public function tokenRefresh(TikTokClient $client)
     {
-        $raw = TikTokSetting::defaultStore();
+        $raw = TikTokStore::defaultStore();
         $setting = $raw?->decrypted();
         $sandbox = $raw && $raw->mode === 'sandbox';
         $activeKey = $sandbox ? ($setting->sandbox_app_key ?? '') : ($setting->app_key ?? '');
@@ -441,7 +441,7 @@ class TikTokController extends Controller
 
     public function getShops(TikTokClient $client)
     {
-        $raw = TikTokSetting::defaultStore();
+        $raw = TikTokStore::defaultStore();
         $setting = $raw?->decrypted();
         $sandbox = $raw && $raw->mode === 'sandbox';
         $activeKey = $sandbox ? ($setting->sandbox_app_key ?? '') : ($setting->app_key ?? '');
@@ -520,7 +520,7 @@ class TikTokController extends Controller
 
     public function setupStep(string $step, \Extensions\TikTok\Services\TikTok\TikTokStoreSetup $setup)
     {
-        $raw = TikTokSetting::defaultStore();
+        $raw = TikTokStore::defaultStore();
         $c = $raw ? \Extensions\TikTok\Services\TikTok\TikTokStoreSetup::creds($raw) : null;
         if (! $raw || ! $c || $c['app_key'] === '' || $c['app_secret'] === '' || $c['token'] === '') {
             return response()->json(['ok' => false, 'count' => 0, 'message' => 'This store is not connected yet. Authorise it with TikTok Shop first.'], 422);
@@ -544,7 +544,7 @@ class TikTokController extends Controller
             'params_json' => 'nullable|string|max:20000',
         ]);
 
-        $setting = TikTokSetting::defaultStore()?->decrypted();
+        $setting = TikTokStore::defaultStore()?->decrypted();
         if (!$setting || !$setting->app_key || !$setting->app_secret) {
             return $this->toSettingsTab('explorer')->with('tiktok_result', [
                 'ok' => false,
@@ -595,7 +595,7 @@ class TikTokController extends Controller
 
         $shopCipher = null;
         if ($authRequired) {
-            $raw = TikTokSetting::defaultStore();
+            $raw = TikTokStore::defaultStore();
             $isSandbox = ($raw->mode ?? 'live') === 'sandbox';
             $shopCipher = $isSandbox ? ($raw->sandbox_shop_cipher ?? null) : ($raw->shop_cipher ?? null);
         }
@@ -648,7 +648,7 @@ class TikTokController extends Controller
             'pack' => 'required|in:shops,products,orders,logistics,finance,full',
         ]);
 
-        $setting = TikTokSetting::defaultStore()?->decrypted();
+        $setting = TikTokStore::defaultStore()?->decrypted();
         if (!$setting || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
             return $this->toSettingsTab('explorer')->with('tiktok_result', [
                 'ok' => false,
@@ -657,7 +657,7 @@ class TikTokController extends Controller
             ]);
         }
 
-        $raw = TikTokSetting::defaultStore();
+        $raw = TikTokStore::defaultStore();
         $shopCipher = $raw->shop_cipher ?? null;
 
         $packs = [
@@ -747,7 +747,7 @@ class TikTokController extends Controller
     public function setApiLogMode(Request $request)
     {
         $data = $request->validate(['mode' => 'required|in:' . implode(',', \App\Support\ApiLogMode::MODES)]);
-        $setting = TikTokSetting::defaultStore();
+        $setting = TikTokStore::defaultStore();
         if (!$setting) {
             return $this->toSettingsTab('logs')->with('error', 'TikTok settings not found.');
         }
@@ -769,7 +769,7 @@ class TikTokController extends Controller
     public function destroyStore(Request $request, \Extensions\TikTok\Services\TikTok\TikTokStoreDeleter $deleter)
     {
         abort_unless($request->user()?->hasPermission('manage_tiktok/settings'), 403);
-        $store = \Extensions\TikTok\Models\TikTokSetting::defaultStore();
+        $store = \Extensions\TikTok\Models\TikTokStore::defaultStore();
         abort_if(! $store, 404);
 
         $request->validate([
@@ -805,13 +805,13 @@ class TikTokController extends Controller
         $total = 0;
         foreach ($tables as $table) {
             $total += DB::table($table)
-                ->when($storeId !== null && \Illuminate\Support\Facades\Schema::hasColumn($table, 'tiktok_setting_id'), fn ($q) => $q->where('tiktok_setting_id', $storeId))
+                ->when($storeId !== null && \Illuminate\Support\Facades\Schema::hasColumn($table, 'store_id'), fn ($q) => $q->where('store_id', $storeId))
                 ->whereNotNull('raw')
                 ->where('created_at', '<', $cutoff)
                 ->update(['raw' => null]);
         }
 
-        \App\Services\ActivityLogger::log('purged', 'TikTokSetting', null, "Raw data ({$request->days} days)");
+        \App\Services\ActivityLogger::log('purged', 'TikTokStore', null, "Raw data ({$request->days} days)");
 
         return $this->toSettingsTab('logs')->with('status', "Purged raw payloads from {$total} TikTok row" . ($total === 1 ? '' : 's') . " older than {$request->days} days.");
     }

@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Extensions\ExtensionManager;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -17,7 +17,7 @@ class TikTokPayoutSyncTest extends TestCase
 
     public array $callResponses = [];
 
-    private TikTokSetting $tiktokStore;
+    private TikTokStore $tiktokStore;
 
     protected function setUp(): void
     {
@@ -28,7 +28,7 @@ class TikTokPayoutSyncTest extends TestCase
         $manager->enable('tiktok');
         $this->app->register(\Extensions\TikTok\TikTokExtension::class);
 
-        $this->tiktokStore = TikTokSetting::create([
+        $this->tiktokStore = TikTokStore::create([
             'mode' => 'production', 'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't',
             'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(5), 'enabled' => true,
         ]);
@@ -69,7 +69,7 @@ class TikTokPayoutSyncTest extends TestCase
     private function order(string $orderId, string $status, \DateTimeInterface $created, ?string $payout = null): void
     {
         DB::table('tiktok_orders')->insert([
-            'tiktok_setting_id' => $this->tiktokStore->id, 'order_id' => $orderId, 'status' => $status,
+            'store_id' => $this->tiktokStore->id, 'order_id' => $orderId, 'status' => $status,
             'order_created_at' => $created, 'order_updated_at' => $created, 'payout_status' => $payout,
             'created_at' => now(), 'updated_at' => now(),
         ]);

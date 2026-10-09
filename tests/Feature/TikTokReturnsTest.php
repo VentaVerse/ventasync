@@ -8,7 +8,7 @@ use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\TikTok\Models\TikTokOrderStatusMap;
 use Extensions\TikTok\Models\TikTokReturn;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -22,7 +22,7 @@ class TikTokReturnsTest extends TestCase
     public array $callResponses = [];
     private int $groupSeq = 0;
 
-    private TikTokSetting $tiktokStore;
+    private TikTokStore $tiktokStore;
 
     protected function setUp(): void
     {
@@ -35,7 +35,7 @@ class TikTokReturnsTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        $this->tiktokStore = TikTokSetting::create(['mode' => 'production', 'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3)]);
+        $this->tiktokStore = TikTokStore::create(['mode' => 'production', 'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3)]);
 
         $test = $this;
         $fake = new class($test) extends TikTokClient {
@@ -87,7 +87,7 @@ class TikTokReturnsTest extends TestCase
             return ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success',
                 'data' => ['return_orders' => [$this->sampleReturn()]]]];
         };
-        TikTokSetting::query()->update(['sync_last_days_returns' => 5]);
+        TikTokStore::query()->update(['sync_last_days_returns' => 5]);
 
         $this->artisan('tiktok:sync-orders --returns')->assertExitCode(0);
 
@@ -133,7 +133,7 @@ class TikTokReturnsTest extends TestCase
     {
         $pfx = (string) config('catalog.prefix');
         $catalogOrderId = DB::table($pfx . 'order')->insertGetId($this->orderColumnDefaults() + ['order_status_id' => 5, 'total' => 450]);
-        DB::table('tiktok_orders')->insert(['tiktok_setting_id' => $this->tiktokStore->id, 'region' => 'PH', 'order_id' => 'ord-1', 'status' => 'COMPLETED', 'catalog_order_id' => $catalogOrderId, 'raw' => '{}', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('tiktok_orders')->insert(['store_id' => $this->tiktokStore->id, 'region' => 'PH', 'order_id' => 'ord-1', 'status' => 'COMPLETED', 'catalog_order_id' => $catalogOrderId, 'raw' => '{}', 'created_at' => now(), 'updated_at' => now()]);
         TikTokOrderStatusMap::create(['tiktok_status' => 'RETURN_OR_REFUND_REQUEST_COMPLETE', 'context' => 'return', 'order_status_id' => 11]);
         $this->callResponses['POST /return_refund/202309/returns/search'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success',
             'data' => ['return_orders' => [$this->sampleReturn(['return_status' => 'RETURN_OR_REFUND_REQUEST_COMPLETE'])]]]];

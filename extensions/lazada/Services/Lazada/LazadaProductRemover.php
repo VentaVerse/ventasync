@@ -6,7 +6,7 @@ use Extensions\Lazada\Models\LazadaProduct;
 use Extensions\Lazada\Models\LazadaProductAttribute;
 use Extensions\Lazada\Models\LazadaProductGroupProduct;
 use Extensions\Lazada\Models\LazadaProductVariant;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Support\Facades\DB;
 
 final class LazadaProductRemover
@@ -20,14 +20,14 @@ final class LazadaProductRemover
         if ($rows->isEmpty()) {
             return [];
         }
-        $stores = $this->stores($rows->pluck('lazada_setting_id'));
+        $stores = $this->stores($rows->pluck('store_id'));
 
         $out = [];
         foreach ($rows as $row) {
             $status = strtoupper((string) ($row->live_status ?? ''));
             $out[(int) $row->product_id][] = [
                 'channel' => 'Lazada',
-                'store' => $stores[(int) $row->lazada_setting_id] ?? 'store #' . (int) $row->lazada_setting_id,
+                'store' => $stores[(int) $row->store_id] ?? 'store #' . (int) $row->store_id,
                 'item' => (string) $row->lazada_item_id,
                 'live' => $status === '' ? null : !in_array($status, self::GONE, true),
             ];
@@ -39,13 +39,13 @@ final class LazadaProductRemover
     public function remove(int $productId): array
     {
         $rows = LazadaProduct::query()->where('product_id', $productId)->get();
-        $stores = $this->stores($rows->pluck('lazada_setting_id'));
-        foreach ($rows->pluck('lazada_setting_id')->filter()->unique() as $storeId) {
+        $stores = $this->stores($rows->pluck('store_id'));
+        foreach ($rows->pluck('store_id')->filter()->unique() as $storeId) {
             LazadaListingStates::on((int) $storeId)->clearErrors([$productId]);
         }
         $stays = [];
         foreach ($rows as $row) {
-            $storeId = (int) $row->lazada_setting_id;
+            $storeId = (int) $row->store_id;
             $itemId = trim((string) ($row->lazada_item_id ?? ''));
             $onLazada = $itemId !== '' && is_null($row->lazada_deleted_at)
                 && !in_array(strtoupper((string) ($row->live_status ?? '')), self::GONE, true);
@@ -78,7 +78,7 @@ final class LazadaProductRemover
 
     private function stores($ids): array
     {
-        return LazadaSetting::query()->whereIn('id', collect($ids)->filter()->unique()->all())
+        return LazadaStore::query()->whereIn('id', collect($ids)->filter()->unique()->all())
             ->get()->mapWithKeys(fn ($s) => [(int) $s->id => (string) ($s->store_name ?: 'Lazada store #' . $s->id)])->all();
     }
 }

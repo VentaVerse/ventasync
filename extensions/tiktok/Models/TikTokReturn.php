@@ -12,7 +12,7 @@ class TikTokReturn extends Model
     protected $table = 'tiktok_returns';
 
     protected $fillable = [
-        'tiktok_setting_id', 'return_id', 'order_id', 'return_type', 'return_status', 'reason',
+        'store_id', 'return_id', 'order_id', 'return_type', 'return_status', 'reason',
         'refund_amount', 'currency', 'return_created_at', 'return_updated_at',
         'tracking_number', 'items', 'raw',
     ];

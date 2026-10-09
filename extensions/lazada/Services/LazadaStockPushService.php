@@ -55,7 +55,7 @@ class LazadaStockPushService
 
         $hasErpVariants = !empty($erpQtyBySku) || !empty($erpQtyByPov);
 
-        $hidden = \App\Channels\Listings\ListingVariations::hidden('lazada', (int) ($listing->lazada_setting_id ?? 0), [$productId]);
+        $hidden = \App\Channels\Listings\ListingVariations::hidden('lazada', (int) ($listing->store_id ?? 0), [$productId]);
 
         $items = [];
         foreach ($lazadaVariants as $variant) {

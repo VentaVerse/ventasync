@@ -9,7 +9,7 @@ use App\Models\User;
 use Extensions\TikTok\Models\TikTokCategory;
 use Extensions\TikTok\Models\TikTokCategoryTemplate;
 use Extensions\TikTok\Models\TikTokListing;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\Services\TikTok\TikTokListingStates;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -30,7 +30,7 @@ class TikTokListingStatusMenuTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        TikTokSetting::create([
+        TikTokStore::create([
             'mode' => 'production', 'app_key' => 'k', 'app_secret' => 's',
             'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3),
         ]);

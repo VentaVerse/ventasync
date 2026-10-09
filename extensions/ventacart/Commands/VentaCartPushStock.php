@@ -3,7 +3,7 @@
 namespace Extensions\VentaCart\Commands;
 
 use Extensions\VentaCart\Models\VentaCartProductLink;
-use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Extensions\VentaCart\Services\VentaCart\VentaCartStockPricePush;
 use Illuminate\Console\Command;
 
@@ -19,9 +19,9 @@ class VentaCartPushStock extends Command implements \App\Channels\Contracts\Step
         $storeId = $this->option('store');
 
         if ($storeId) {
-            $settings = VentaCartSetting::where('id', (int) $storeId)->where('enabled', true)->get();
+            $settings = VentaCartStore::where('id', (int) $storeId)->where('enabled', true)->get();
         } else {
-            $settings = VentaCartSetting::where('enabled', true)->get();
+            $settings = VentaCartStore::where('enabled', true)->get();
         }
 
         if ($settings->isEmpty()) {
@@ -32,7 +32,7 @@ class VentaCartPushStock extends Command implements \App\Channels\Contracts\Step
         foreach ($settings as $setting) {
             $this->info("Pushing stock for: {$setting->store_name} (#{$setting->id})");
 
-            $pids = VentaCartProductLink::where('ventacart_setting_id', $setting->id)
+            $pids = VentaCartProductLink::where('store_id', $setting->id)
                 ->whereNotNull('ventacart_product_id')
                 ->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
 

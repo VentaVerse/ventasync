@@ -8,7 +8,7 @@ use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\Shopee\Models\ShopeeListing;
 use Extensions\Shopee\Models\ShopeeProductLink;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -35,7 +35,7 @@ class ShopeeListingPageTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        ShopeeSetting::query()->create([
+        ShopeeStore::query()->create([
             'partner_id' => 1001, 'partner_key' => 'k', 'shop_id' => 2002,
             'access_token' => 't', 'refresh_token' => 'r', 'mode' => 'production',
         ]);
@@ -359,7 +359,7 @@ class ShopeeListingPageTest extends TestCase
             'product_id' => $productId, 'shopee_item_id' => 990079, 'sku' => 'LSTP-SKU-1',
         ]);
         ShopeeListing::query()->create([
-            'product_id' => $productId, 'shopee_setting_id' => (int) ShopeeSetting::query()->value('id'),
+            'product_id' => $productId, 'store_id' => (int) ShopeeStore::query()->value('id'),
             'shopee_category_id' => 100013, 'logistic_ids' => [8003],
         ]);
         $this->getResponses['/api/v2/product/get_item_base_info'] = $this->baseInfoAnswer();
@@ -794,14 +794,14 @@ class ShopeeListingPageTest extends TestCase
     public function test_push_update_wraps_the_description_in_the_stores_templates(): void
     {
         $productId = $this->seedProduct();
-        $storeId = (int) ShopeeSetting::query()->value('id');
+        $storeId = (int) ShopeeStore::query()->value('id');
         $prefix = \App\Models\DescriptionTemplate::query()->create(['channel' => 'shopee', 'store_id' => $storeId, 'name' => 'Returns', 'body' => 'Returns within 7 days.']);
         $suffix = \App\Models\DescriptionTemplate::query()->create(['channel' => 'shopee', 'store_id' => $storeId, 'name' => 'Warranty', 'body' => 'One year warranty.']);
         ShopeeProductLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1',
         ]);
         ShopeeListing::query()->create([
-            'product_id' => $productId, 'shopee_setting_id' => $storeId,
+            'product_id' => $productId, 'store_id' => $storeId,
             'shopee_category_id' => 100013, 'logistic_ids' => [8003],
             'description' => 'Shopee-only wording.',
             'description_prefix_id' => $prefix->id, 'description_suffix_id' => $suffix->id,
@@ -832,7 +832,7 @@ class ShopeeListingPageTest extends TestCase
         $productId = $this->seedProduct();
         ShopeeProductLink::query()->create(['product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1']);
         ShopeeListing::query()->create([
-            'product_id' => $productId, 'shopee_setting_id' => (int) ShopeeSetting::query()->value('id'),
+            'product_id' => $productId, 'store_id' => (int) ShopeeStore::query()->value('id'),
             'shopee_category_id' => 100013, 'logistic_ids' => [8003],
             'description' => $words,
         ]);
@@ -880,7 +880,7 @@ class ShopeeListingPageTest extends TestCase
                 . '<p>Middle words.</p><img src="' . e($urls[1]) . '"><p>Last words.</p>',
         ]);
         ShopeeListing::query()->create([
-            'product_id' => $productId, 'shopee_setting_id' => (int) ShopeeSetting::query()->value('id'),
+            'product_id' => $productId, 'store_id' => (int) ShopeeStore::query()->value('id'),
             'shopee_category_id' => 100013, 'logistic_ids' => [8003],
         ]);
 
@@ -1261,11 +1261,11 @@ class ShopeeListingPageTest extends TestCase
         DB::table($pfx . 'product_description')->where('product_id', $plain)->update(['name' => 'Plain catalog pedal']);
         ShopeeListing::query()->create(['product_id' => $titled, 'item_name' => 'Qable IC50 Pro']);
         ShopeeListing::query()->create(['product_id' => $plain]);
-        $other = ShopeeSetting::query()->create([
+        $other = ShopeeStore::query()->create([
             'partner_id' => 1002, 'partner_key' => 'k2', 'shop_id' => 3003,
             'access_token' => 't2', 'refresh_token' => 'r2', 'mode' => 'production',
         ]);
-        ShopeeListing::query()->create(['shopee_setting_id' => $other->id, 'product_id' => $plain, 'item_name' => 'Qable elsewhere']);
+        ShopeeListing::query()->create(['store_id' => $other->id, 'product_id' => $plain, 'item_name' => 'Qable elsewhere']);
         $group = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Titled pedals', 'shopee_category_id' => 100013, 'logistic_ids' => [8003]]);
         foreach ([$titled, $plain] as $pid) {
             \Extensions\Shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $pid, 'sync_status' => 'pending']);

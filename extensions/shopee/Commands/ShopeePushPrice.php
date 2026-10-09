@@ -4,7 +4,7 @@ namespace Extensions\Shopee\Commands;
 
 use Extensions\Shopee\Models\ShopeeListing;
 use Extensions\Shopee\Models\ShopeeProductLink;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeInheritedSettings;
 use Extensions\Shopee\Services\Shopee\ShopeeStockPricePush;
 use Illuminate\Console\Command;
@@ -19,7 +19,7 @@ class ShopeePushPrice extends Command implements \App\Channels\Contracts\Steppab
 
     public function handle(): int
     {
-        $stores = ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get();
+        $stores = ShopeeStore::query()->where('enabled', true)->orderBy('id')->get();
         if ($stores->isEmpty()) {
             $this->error('No enabled Shopee store. Configure Shopee settings first.');
 
@@ -44,10 +44,10 @@ class ShopeePushPrice extends Command implements \App\Channels\Contracts\Steppab
         return $worst;
     }
 
-    private function pushStore(ShopeeSetting $store): int
+    private function pushStore(ShopeeStore $store): int
     {
         $setting = $store->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
+        $auth = ShopeeStore::activeAuth($setting);
         if (! $auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             $this->error("Missing Shopee {$modeLabel} credentials/token for this store.");

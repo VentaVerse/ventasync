@@ -10,7 +10,7 @@ use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\Lazada\LazadaExtension;
 use Extensions\Lazada\Models\LazadaProduct;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Extensions\Lazada\Services\Lazada\LazadaListingStates;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -34,7 +34,7 @@ class LazadaListingStateTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        LazadaSetting::query()->create([
+        LazadaStore::query()->create([
             'mode' => 'live', 'region' => 'ph',
             'app_key' => 'k', 'app_secret' => 's',
             'access_token' => 't', 'refresh_token' => 'r',
@@ -367,7 +367,7 @@ class LazadaListingStateTest extends TestCase
         $pid = $this->seedProduct('Three sizes', 'EXL110');
         $this->threeCombos($pid, ['EXL110-1046', 'EXL110-0942', 'EXL110-1149']);
         (new LazadaProduct())->forceFill(['product_id' => $pid, 'lazada_item_id' => '555', 'live_status' => 'active'])->save();
-        $storeId = (int) LazadaSetting::defaultStore()->id;
+        $storeId = (int) LazadaStore::defaultStore()->id;
         \App\Channels\Listings\ListingVariations::remember('lazada', $storeId, $pid, ['EXL110-1046', 'EXL110-0942']);
 
         $line = (string) $this->engine()->errors([$pid])[$pid];
@@ -387,7 +387,7 @@ class LazadaListingStateTest extends TestCase
         $this->threeCombos($pid, ['RD-1', 'RD-2', 'RD-3']);
         $listing = new LazadaProduct();
         $listing->forceFill(['product_id' => $pid, 'lazada_item_id' => '777'])->save();
-        $setting = LazadaSetting::defaultStore();
+        $setting = LazadaStore::defaultStore();
         $storeId = (int) $setting->id;
         $answer = fn (array $skus) => ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => [
             'item_id' => 777, 'status' => 'active',
@@ -449,12 +449,12 @@ class LazadaListingStateTest extends TestCase
         $plain = $this->seedProduct('Plain catalog pedal', 'PLN-1');
         $titledRow = LazadaProduct::create(['product_id' => $titled, 'item_name' => 'Qable IC50 Pro']);
         $plainRow = LazadaProduct::create(['product_id' => $plain]);
-        $other = LazadaSetting::query()->create([
+        $other = LazadaStore::query()->create([
             'mode' => 'live', 'region' => 'ph',
             'app_key' => 'k2', 'app_secret' => 's2',
             'access_token' => 't2', 'refresh_token' => 'r2',
         ]);
-        LazadaProduct::create(['lazada_setting_id' => $other->id, 'product_id' => $plain, 'item_name' => 'Qable elsewhere']);
+        LazadaProduct::create(['store_id' => $other->id, 'product_id' => $plain, 'item_name' => 'Qable elsewhere']);
         $grp = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Titled pedals', 'lazada_category_id' => 4321]);
         foreach ([[$titled, $titledRow], [$plain, $plainRow]] as [$pid, $row]) {
             \Extensions\Lazada\Models\LazadaProductGroupProduct::create([

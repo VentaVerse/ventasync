@@ -2,7 +2,7 @@
 
 namespace Extensions\VentaCart\Commands;
 
-use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Extensions\VentaCart\Services\VentaCart\VentaCartClient;
 use Extensions\VentaCart\Services\VentaCart\VentaCartOrderSync;
 use Illuminate\Console\Command;
@@ -20,7 +20,7 @@ class VentaCartRefreshOrderFees extends Command
     {
         $from = $this->option('from') ?: '2026-02-01';
 
-        $stores = VentaCartSetting::query()->where('enabled', true)
+        $stores = VentaCartStore::query()->where('enabled', true)
             ->when($this->option('store'), fn ($q) => $q->where('id', (int) $this->option('store')))
             ->orderBy('id')->get();
 

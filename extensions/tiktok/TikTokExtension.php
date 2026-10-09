@@ -21,7 +21,7 @@ use App\Channels\OrderTab;
 use Extensions\TikTok\Models\TikTokApiLog;
 use Extensions\TikTok\Models\TikTokOrder;
 use Extensions\TikTok\Models\TikTokProductGroupProduct;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -51,7 +51,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
     {
         parent::boot();
 
-        TikTokSetting::syncUrlDefault();
+        TikTokStore::syncUrlDefault();
 
         $this->commands([
             \Extensions\TikTok\Commands\TikTokPushStock::class,
@@ -70,7 +70,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
             name: 'TikTok Shop',
             accent: '#111111',
             attention: \Extensions\TikTok\Services\TikTok\TikTokPayoutSync::attention(),
-            stores: fn () => \Extensions\TikTok\Models\TikTokSetting::enabledStores(),
+            stores: fn () => \Extensions\TikTok\Models\TikTokStore::enabledStores(),
             readBalance: fn (object $store) => app(\Extensions\TikTok\Services\TikTok\TikTokBalance::class)->read($store),
             pageRoute: 'ext.tiktok.dashboard',
         ));
@@ -138,7 +138,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
                 return [];
             }
 
-            return TikTokSetting::query()->orderBy('id')->get();
+            return TikTokStore::query()->orderBy('id')->get();
         } catch (\Throwable $e) {
             return [];
         }
@@ -149,7 +149,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
         if (! Schema::hasTable('tiktok_settings')) {
             return [];
         }
-        $stores = TikTokSetting::query()->where('enabled', true)->orderBy('id')->get(['id', 'store_name']);
+        $stores = TikTokStore::query()->where('enabled', true)->orderBy('id')->get(['id', 'store_name']);
 
         return $stores->map(fn ($store) => $this->buildOrderTab(
             (int) $store->id,
@@ -164,7 +164,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
                 return 0;
             }
 
-            return TikTokOrder::query()->where('tiktok_setting_id', $storeId)->whereIn('status', $statuses)->count();
+            return TikTokOrder::query()->where('store_id', $storeId)->whereIn('status', $statuses)->count();
         };
 
         return
@@ -181,7 +181,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
                         return 0;
                     }
                     return TikTokOrder::query()
-                        ->where('tiktok_setting_id', $storeId)
+                        ->where('store_id', $storeId)
                         ->whereIn('status', ['AWAITING_SHIPMENT', 'AWAITING_COLLECTION'])
                         ->count();
                 },
@@ -194,7 +194,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
                         return 0;
                     }
                     return TikTokOrder::query()
-                        ->where('tiktok_setting_id', $storeId)
+                        ->where('store_id', $storeId)
                         ->where('order_created_at', '>=', now()->startOfDay())
                         ->count();
                 },
@@ -204,7 +204,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
                     }
                     return (float) DB::table('tiktok_order_products as p')
                         ->join('tiktok_orders as o', 'o.id', '=', 'p.tiktok_order_id')
-                        ->where('o.tiktok_setting_id', $storeId)
+                        ->where('o.store_id', $storeId)
                         ->where('o.order_created_at', '>=', now()->startOfDay())
                         ->sum(DB::raw('p.quantity * COALESCE(p.sale_price, p.item_price)'));
                 },
@@ -214,7 +214,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
                     }
                     return DB::table('tiktok_order_products as p')
                         ->join('tiktok_orders as o', 'o.id', '=', 'p.tiktok_order_id')
-                        ->where('o.tiktok_setting_id', $storeId)
+                        ->where('o.store_id', $storeId)
                         ->where('o.order_created_at', '>=', now()->startOfDay())
                         ->whereNotNull('p.sku')
                         ->where('p.sku', '!=', '')
@@ -244,7 +244,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
                         return [];
                     }
                     $orders = TikTokOrder::query()
-                        ->where('tiktok_setting_id', $storeId)
+                        ->where('store_id', $storeId)
                         ->orderByDesc('order_created_at')
                         ->limit($limit)
                         ->get(['id', 'order_id', 'status', 'buyer_name', 'order_created_at']);
@@ -284,7 +284,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
             return null;
         }
 
-        $setting = TikTokSetting::defaultStore();
+        $setting = TikTokStore::defaultStore();
         if (!$setting || !$setting->access_token || !$setting->app_key) {
             return null;
         }
@@ -342,7 +342,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
         ];
 
         if (Schema::hasTable('tiktok_settings')) {
-            $ttSetting = TikTokSetting::defaultStore();
+            $ttSetting = TikTokStore::defaultStore();
             if ($ttSetting) {
                 $flags = null;
                 $attention = 0;
@@ -383,11 +383,11 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
             return ['channelPending' => $pending, 'channelSyncStatuses' => $statuses];
         }
 
-        foreach (TikTokSetting::query()->orderBy('id')->get() as $store) {
+        foreach (TikTokStore::query()->orderBy('id')->get() as $store) {
             $key = \App\Support\StoreKey::of('tiktok', (int) $store->id);
             if (Schema::hasTable('tiktok_orders')) {
                 $pending[$key] = (int) DB::table('tiktok_orders')
-                    ->where('tiktok_setting_id', $store->id)
+                    ->where('store_id', $store->id)
                     ->whereIn('status', ['AWAITING_SHIPMENT', 'AWAITING_COLLECTION'])
                     ->count();
             }
@@ -426,9 +426,9 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
         if ($orderChannel !== 'tiktok') {
             return null;
         }
-        $row = \Extensions\TikTok\Models\TikTokOrder::query()->withoutGlobalScope('tiktokStore')->where('order_id', $marketplaceOrderId)->first(['id', 'tiktok_setting_id']);
+        $row = \Extensions\TikTok\Models\TikTokOrder::query()->withoutGlobalScope('tiktokStore')->where('order_id', $marketplaceOrderId)->first(['id', 'store_id']);
 
-        return ['display' => $marketplaceOrderId, 'url' => $row && $row->tiktok_setting_id ? route('ext.tiktok.orders.show', ['store' => $row->tiktok_setting_id, 'id' => $row->id]) : null];
+        return ['display' => $marketplaceOrderId, 'url' => $row && $row->store_id ? route('ext.tiktok.orders.show', ['store' => $row->store_id, 'id' => $row->id]) : null];
     }
 
     public function saleLinesForOrder(int $coreOrderId, float $itemsSubtotal, float $shipping): ?array
@@ -522,9 +522,9 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
         }
 
         $storeId = $request->integer('store') ?: null;
-        $base = TikTokOrder::query()->when($storeId !== null, fn ($q) => $q->where('tiktok_setting_id', $storeId));
-        $query = TikTokOrder::query()->when($storeId !== null, fn ($q) => $q->where('tiktok_setting_id', $storeId));
-        $storeNames = TikTokSetting::query()->pluck('store_name', 'id');
+        $base = TikTokOrder::query()->when($storeId !== null, fn ($q) => $q->where('store_id', $storeId));
+        $query = TikTokOrder::query()->when($storeId !== null, fn ($q) => $q->where('store_id', $storeId));
+        $storeNames = TikTokStore::query()->pluck('store_name', 'id');
 
         if ($tab !== 'ALL') {
             $statuses = $tab === 'PENDING' && $pendingSub !== ''
@@ -563,8 +563,8 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
 
             return [
                 'id'              => $order->id,
-                'store_id'        => (int) $order->tiktok_setting_id,
-                'store_name'      => (string) ($storeNames[$order->tiktok_setting_id] ?? ''),
+                'store_id'        => (int) $order->store_id,
+                'store_name'      => (string) ($storeNames[$order->store_id] ?? ''),
                 'order_id'        => (string) $order->order_id,
                 'status'          => $order->status,
                 'buyer_name'      => $order->buyer_name ?? '',
@@ -617,8 +617,8 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
         return [
             'id'                => $order->id,
             'order_id'          => (string) $order->order_id,
-            'store_id'          => (int) $order->tiktok_setting_id,
-            'store_name'        => (string) TikTokSetting::query()->whereKey($order->tiktok_setting_id)->value('store_name'),
+            'store_id'          => (int) $order->store_id,
+            'store_name'        => (string) TikTokStore::query()->whereKey($order->store_id)->value('store_name'),
             'status'            => $order->status,
             'buyer_name'        => $order->buyer_name ?? '',
             'total_amount'      => isset($payment['total_amount']) ? (float) $payment['total_amount'] : null,
@@ -668,7 +668,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
             return [];
         }
 
-        return \Extensions\TikTok\Models\TikTokSetting::query()->orderBy('id')->get(['id', 'store_name'])->map(fn ($s) => [
+        return \Extensions\TikTok\Models\TikTokStore::query()->orderBy('id')->get(['id', 'store_name'])->map(fn ($s) => [
             'key'        => \App\Support\StoreKey::of('tiktok', (int) $s->id),
             'label'      => $s->store_name ?: ('Store #' . $s->id),
             'channel'    => 'TikTok',
@@ -705,7 +705,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
 
     protected function credentialSettingsModel(): string
     {
-        return \Extensions\TikTok\Models\TikTokSetting::class;
+        return \Extensions\TikTok\Models\TikTokStore::class;
     }
 
     public function credentialManagePermission(): string
@@ -750,7 +750,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
     // TikTok Shop signs each push HMAC-SHA256(app_secret, app_key + body) into the Authorization header.
     public function verifyWebhook(\Illuminate\Http\Request $request): bool
     {
-        $setting = TikTokSetting::defaultStore()?->decrypted();
+        $setting = TikTokStore::defaultStore()?->decrypted();
         $appKey = (string) ($setting->app_key ?? '');
         $appSecret = (string) ($setting->app_secret ?? '');
         $received = (string) $request->header('Authorization', '');

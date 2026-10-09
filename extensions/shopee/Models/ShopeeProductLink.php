@@ -11,7 +11,7 @@ class ShopeeProductLink extends Model
     protected $table = 'shopee_product_links';
 
     protected $fillable = [
-        'shopee_setting_id',
+        'store_id',
         'product_id',
         'shopee_item_id',
         'shopee_model_id',
@@ -53,7 +53,7 @@ class ShopeeProductLink extends Model
     public static function unlinkProduct(int $productId, int $storeId): int
     {
         $mine = fn () => static::query()->withoutGlobalScope('shopeeStore')
-            ->where('shopee_setting_id', $storeId)->where('product_id', $productId);
+            ->where('store_id', $storeId)->where('product_id', $productId);
 
         foreach ($mine()->get() as $link) {
             ShopeeItemCache::query()
@@ -67,7 +67,7 @@ class ShopeeProductLink extends Model
         ShopeeProductGroupProduct::query()
             ->where('product_id', $productId)
             ->whereIn('shopee_product_group_id', ShopeeProductGroup::query()
-                ->withoutGlobalScope('shopeeStore')->where('shopee_setting_id', $storeId)->select('id'))
+                ->withoutGlobalScope('shopeeStore')->where('store_id', $storeId)->select('id'))
             ->update([
                 'shopee_item_id' => null,
                 'sync_status' => 'unlinked',

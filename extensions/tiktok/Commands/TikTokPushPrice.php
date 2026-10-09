@@ -5,7 +5,7 @@ namespace Extensions\TikTok\Commands;
 use Extensions\TikTok\Models\TikTokListing;
 use Extensions\TikTok\Models\TikTokProductGroup;
 use Extensions\TikTok\Models\TikTokProductGroupProduct;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\Services\TikTok\TikTokStockPricePush;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -18,7 +18,7 @@ class TikTokPushPrice extends Command implements \App\Channels\Contracts\Steppab
 
     public function handle(): int
     {
-        $stores = TikTokSetting::enabledStores();
+        $stores = TikTokStore::enabledStores();
         if ($stores->isEmpty()) {
             $this->error('No enabled TikTok store. Configure TikTok settings first.');
 
@@ -43,7 +43,7 @@ class TikTokPushPrice extends Command implements \App\Channels\Contracts\Steppab
         return $worst;
     }
 
-    private function handleStore(TikTokSetting $raw): int
+    private function handleStore(TikTokStore $raw): int
     {
         $s = $raw->decrypted();
         $sandbox = $raw->mode === 'sandbox';
@@ -96,7 +96,7 @@ class TikTokPushPrice extends Command implements \App\Channels\Contracts\Steppab
         $pivots = collect($pivots);
         $pids = $pivots->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
         $listings = TikTokListing::query()->whereIn('product_id', $pids ?: [0])->get()->keyBy('product_id');
-        $store = TikTokSetting::defaultStore();
+        $store = TikTokStore::defaultStore();
         $groupByProduct = TikTokProductGroupProduct::query()->whereIn('product_id', $pids ?: [0])
             ->whereIn('tiktok_product_group_id', TikTokProductGroup::query()->forStore($store)->select('id'))
             ->orderBy('id')->get()

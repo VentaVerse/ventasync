@@ -4,7 +4,7 @@ namespace Extensions\TikTok\Controllers;
 
 use App\Http\Controllers\Controller;
 use Extensions\TikTok\Models\TikTokApiLog;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Illuminate\Http\Request;
 
@@ -123,7 +123,7 @@ class TikTokCouponController extends Controller
 
     private function creds(): ?array
     {
-        $s = TikTokSetting::defaultStore();
+        $s = TikTokStore::defaultStore();
         if (!$s) {
             return null;
         }

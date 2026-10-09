@@ -42,7 +42,7 @@ class LazadaLinkCheck
             $pivotQuery->where('lazada_product_group_id', $group->id);
         } else {
             $pivotQuery->whereIn('lazada_product_group_id', LazadaProductGroup::query()
-                ->withoutGlobalScope('lazadaStore')->where('lazada_setting_id', (int) $setting->id)->select('id'));
+                ->withoutGlobalScope('lazadaStore')->where('store_id', (int) $setting->id)->select('id'));
         }
         $pivotsByProduct = $pivotQuery->get()->groupBy('product_id');
 
@@ -59,7 +59,7 @@ class LazadaLinkCheck
                 }
             }
             $listing ??= LazadaProduct::query()
-                ->withoutGlobalScope('lazadaStore')->where('lazada_setting_id', (int) $setting->id)
+                ->withoutGlobalScope('lazadaStore')->where('store_id', (int) $setting->id)
                 ->where('product_id', $productId)->first();
             $hits = [];
             $hitStatuses = [];
@@ -118,7 +118,7 @@ class LazadaLinkCheck
                     foreach ($pivots as $p) {
                         $p->update(['lazada_product_id' => $listing->id] + (in_array($p->sync_status, ['error', 'failed'], true) ? [] : ['sync_status' => 'pushed']));
                     }
-                } elseif ($group !== null && \App\Channels\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'lazada_setting_id', $group->id, [(int) $productId])['free'] !== []) {
+                } elseif ($group !== null && \App\Channels\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'store_id', $group->id, [(int) $productId])['free'] !== []) {
                     LazadaProductGroupProduct::create(['lazada_product_group_id' => $group->id, 'product_id' => $productId, 'lazada_product_id' => $listing->id, 'sync_status' => 'pushed']);
                 }
                 $verdicts['linked']++;
@@ -159,7 +159,7 @@ class LazadaLinkCheck
     private function holderOf(object $setting, string $itemId, int $productId): ?int
     {
         $holder = LazadaProduct::query()->withoutGlobalScope('lazadaStore')
-            ->where('lazada_setting_id', (int) $setting->id)
+            ->where('store_id', (int) $setting->id)
             ->where('lazada_item_id', $itemId)->where('product_id', '!=', $productId)
             ->whereNull('lazada_deleted_at')->whereNull('unlinked_at')
             ->value('product_id');

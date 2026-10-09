@@ -18,7 +18,7 @@ class ShopeeItemCreate
             $listing
         );
 
-        return \App\Services\Media\ListingWatermark::paths($paths, $listing, \App\Services\Media\ListingWatermark::groupTemplateId('shopee_product_groups', 'shopee_product_group_products', 'shopee_product_group_id', (int) $product->product_id, 'shopee_setting_id', (int) ($listing?->shopee_setting_id ?? 0) ?: null), 'shopee', (int) ($listing?->shopee_setting_id ?? 0));
+        return \App\Services\Media\ListingWatermark::paths($paths, $listing, \App\Services\Media\ListingWatermark::groupTemplateId('shopee_product_groups', 'shopee_product_group_products', 'shopee_product_group_id', (int) $product->product_id, 'store_id', (int) ($listing?->store_id ?? 0) ?: null), 'shopee', (int) ($listing?->store_id ?? 0));
     }
 
     public function catalogImageCount(object $product, ?ShopeeListing $listing = null): int
@@ -141,7 +141,7 @@ class ShopeeItemCreate
         }
 
         $content = \App\Channels\Listings\ListingContent::of(
-            $listing, $itemName, $description, 'shopee', (int) ($listing->shopee_setting_id ?? 0)
+            $listing, $itemName, $description, 'shopee', (int) ($listing->store_id ?? 0)
         );
 
         $payload = [

@@ -27,7 +27,7 @@ use Extensions\Lazada\Models\LazadaApiLog;
 use Extensions\Lazada\Models\LazadaOrder;
 use Extensions\Lazada\Models\LazadaProduct;
 use Extensions\Lazada\Models\LazadaProductVariant;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -56,7 +56,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
     {
         parent::boot();
 
-        LazadaSetting::syncUrlDefault();
+        LazadaStore::syncUrlDefault();
 
         $this->commands([
             \Extensions\Lazada\Commands\LazadaPushStock::class,
@@ -75,7 +75,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
             name: 'Lazada',
             accent: '#0F146D',
             attention: \Extensions\Lazada\Services\Lazada\LazadaPayoutSync::attention(),
-            stores: fn () => \Extensions\Lazada\Models\LazadaSetting::enabledStores(),
+            stores: fn () => \Extensions\Lazada\Models\LazadaStore::enabledStores(),
             readBalance: fn (object $store) => app(\Extensions\Lazada\Services\Lazada\LazadaBalance::class)->read($store),
             pageRoute: 'ext.lazada.dashboard',
         ));
@@ -144,7 +144,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
                 return [];
             }
 
-            return LazadaSetting::query()->orderBy('id')->get();
+            return LazadaStore::query()->orderBy('id')->get();
         } catch (\Throwable $e) {
             return [];
         }
@@ -155,7 +155,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
         if (! Schema::hasTable('lazada_settings')) {
             return [];
         }
-        $stores = LazadaSetting::query()->where('enabled', true)->orderBy('id')->get(['id', 'store_name']);
+        $stores = LazadaStore::query()->where('enabled', true)->orderBy('id')->get(['id', 'store_name']);
 
         return $stores->map(fn ($store) => $this->buildOrderTab(
             (int) $store->id,
@@ -170,7 +170,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
                 return 0;
             }
 
-            return LazadaOrder::query()->where('lazada_setting_id', $storeId)->whereIn('status', $statuses)->count();
+            return LazadaOrder::query()->where('store_id', $storeId)->whereIn('status', $statuses)->count();
         };
 
         return
@@ -187,7 +187,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
                         return 0;
                     }
                     return LazadaOrder::query()
-                        ->where('lazada_setting_id', $storeId)
+                        ->where('store_id', $storeId)
                         ->whereIn('status', ['pending', 'repacked', 'packed', 'ready_to_ship'])
                         ->count();
                 },
@@ -201,7 +201,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
                         return 0;
                     }
                     return LazadaOrder::query()
-                        ->where('lazada_setting_id', $storeId)
+                        ->where('store_id', $storeId)
                         ->where('order_created_at', '>=', now()->startOfDay())
                         ->count();
                 },
@@ -211,7 +211,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
                     }
                     return (float) DB::table('lazada_order_products as p')
                         ->join('lazada_orders as o', 'o.id', '=', 'p.lazada_order_id')
-                        ->where('o.lazada_setting_id', $storeId)
+                        ->where('o.store_id', $storeId)
                         ->where('o.order_created_at', '>=', now()->startOfDay())
                         ->sum(DB::raw('p.quantity * COALESCE(p.paid_price, p.item_price)'));
                 },
@@ -221,7 +221,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
                     }
                     return DB::table('lazada_order_products as p')
                         ->join('lazada_orders as o', 'o.id', '=', 'p.lazada_order_id')
-                        ->where('o.lazada_setting_id', $storeId)
+                        ->where('o.store_id', $storeId)
                         ->where('o.order_created_at', '>=', now()->startOfDay())
                         ->whereNotNull('p.sku')
                         ->where('p.sku', '!=', '')
@@ -251,7 +251,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
                         return [];
                     }
                     $orders = LazadaOrder::query()
-                        ->where('lazada_setting_id', $storeId)
+                        ->where('store_id', $storeId)
                         ->orderByDesc('order_created_at')
                         ->limit($limit)
                         ->get(['id', 'order_id', 'status', 'order_created_at']);
@@ -321,7 +321,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
                 $apiResult = $this->lazadaUpdateSellerSku($listing, $old, $new);
                 if ($apiResult) {
                     $results[] = $apiResult;
-                    \Extensions\Lazada\Services\Lazada\LazadaListingStates::on((int) ($listing->lazada_setting_id ?? 0))
+                    \Extensions\Lazada\Services\Lazada\LazadaListingStates::on((int) ($listing->store_id ?? 0))
                         ->recordOutcome((int) $listing->product_id, $apiResult === 'API OK' ? null
                             : 'SKU change: ' . (str_starts_with($apiResult, 'API: ') ? substr($apiResult, 5) : 'Lazada did not answer.'));
                 }
@@ -361,8 +361,8 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
 
     private function lazadaUpdateSellerSku(LazadaProduct $listing, string $oldSku, string $newSku): ?string
     {
-        $setting = LazadaSetting::defaultStore()?->decrypted();
-        $creds = LazadaSetting::activeCredentials($setting);
+        $setting = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($setting);
         if (!$setting || !$creds['access_token'] || !$creds['app_key']) {
             return null;
         }
@@ -439,7 +439,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
         }
 
         if (Schema::hasTable('lazada_settings')) {
-            $lzSetting = LazadaSetting::defaultStore();
+            $lzSetting = LazadaStore::defaultStore();
             if ($lzSetting) {
                 $flags = null;
                 $attention = 0;
@@ -475,11 +475,11 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
             return ['channelPending' => $pending, 'channelSyncStatuses' => $statuses];
         }
 
-        foreach (LazadaSetting::query()->orderBy('id')->get() as $store) {
+        foreach (LazadaStore::query()->orderBy('id')->get() as $store) {
             $key = \App\Support\StoreKey::of('lazada', (int) $store->id);
             if (Schema::hasTable('lazada_orders')) {
                 $pending[$key] = (int) DB::table('lazada_orders')
-                    ->where('lazada_setting_id', $store->id)
+                    ->where('store_id', $store->id)
                     ->whereIn('status', ['pending', 'repacked', 'packed', 'ready_to_ship'])
                     ->count();
             }
@@ -607,7 +607,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
             return null;
         }
 
-        $store = LazadaOrder::query()->withoutGlobalScope('lazadaStore')->where('order_id', $marketplaceOrderId)->value('lazada_setting_id');
+        $store = LazadaOrder::query()->withoutGlobalScope('lazadaStore')->where('order_id', $marketplaceOrderId)->value('store_id');
 
         return ['display' => $marketplaceOrderId, 'url' => $store ? route('ext.lazada.orders.show', ['store' => $store, 'orderId' => $marketplaceOrderId]) : null];
     }
@@ -670,14 +670,14 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
 
         $storeId = $request->integer('store') ?: null;
         if ($storeId !== null) {
-            $base = LazadaOrder::query()->where('lazada_setting_id', $storeId);
-            $query = LazadaOrder::query()->where('lazada_setting_id', $storeId);
+            $base = LazadaOrder::query()->where('store_id', $storeId);
+            $query = LazadaOrder::query()->where('store_id', $storeId);
         } else {
-            $region = LazadaSetting::defaultStore()->region ?? 'ph';
+            $region = LazadaStore::defaultStore()->region ?? 'ph';
             $base = LazadaOrder::query()->where('region', $region);
             $query = LazadaOrder::query()->where('region', $region);
         }
-        $storeNames = LazadaSetting::query()->pluck('store_name', 'id');
+        $storeNames = LazadaStore::query()->pluck('store_name', 'id');
 
         if ($tab !== 'ALL') {
             $statuses = $tab === 'PENDING' && $pendingSub !== ''
@@ -719,8 +719,8 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
 
             return [
                 'id'              => $order->id,
-                'store_id'        => (int) $order->lazada_setting_id,
-                'store_name'      => (string) ($storeNames[$order->lazada_setting_id] ?? ''),
+                'store_id'        => (int) $order->store_id,
+                'store_name'      => (string) ($storeNames[$order->store_id] ?? ''),
                 'order_id'        => (string) $order->order_id,
                 'status'          => $order->status,
                 'buyer_name'      => $raw['customer_first_name'] ?? $raw['customer_name'] ?? $raw['buyer_name'] ?? '',
@@ -774,8 +774,8 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
         return [
             'id'                => $order->id,
             'order_id'          => (string) $order->order_id,
-            'store_id'          => (int) $order->lazada_setting_id,
-            'store_name'        => (string) LazadaSetting::query()->whereKey($order->lazada_setting_id)->value('store_name'),
+            'store_id'          => (int) $order->store_id,
+            'store_name'        => (string) LazadaStore::query()->whereKey($order->store_id)->value('store_name'),
             'status'            => $order->status,
             'buyer_name'        => $detail['customer_first_name'] ?? $detail['customer_name'] ?? $detail['buyer_name'] ?? '',
             'total_amount'      => isset($detail['price']) ? \App\Support\Money::parse($detail['price']) : null,
@@ -824,7 +824,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
             return [];
         }
 
-        return \Extensions\Lazada\Models\LazadaSetting::query()->orderBy('id')->get(['id', 'store_name'])->map(fn ($s) => [
+        return \Extensions\Lazada\Models\LazadaStore::query()->orderBy('id')->get(['id', 'store_name'])->map(fn ($s) => [
             'key'        => \App\Support\StoreKey::of('lazada', (int) $s->id),
             'label'      => $s->store_name ?: ('Store #' . $s->id),
             'channel'    => 'Lazada',
@@ -849,7 +849,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
 
     protected function credentialSettingsModel(): string
     {
-        return \Extensions\Lazada\Models\LazadaSetting::class;
+        return \Extensions\Lazada\Models\LazadaStore::class;
     }
 
     public function revealableCredentials(): array

@@ -5,7 +5,7 @@ namespace Extensions\VentaCart\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class VentaCartSetting extends Model
+class VentaCartStore extends Model
 {
     use \App\Plans\CountsAsStore;
 
@@ -68,27 +68,27 @@ class VentaCartSetting extends Model
 
     public function productGroups(): HasMany
     {
-        return $this->hasMany(VentaCartProductGroup::class, 'ventacart_setting_id');
+        return $this->hasMany(VentaCartProductGroup::class, 'store_id');
     }
 
     public function orders(): HasMany
     {
-        return $this->hasMany(VentaCartOrder::class, 'ventacart_setting_id');
+        return $this->hasMany(VentaCartOrder::class, 'store_id');
     }
 
     public function statusMaps(): HasMany
     {
-        return $this->hasMany(VentaCartOrderStatusMap::class, 'ventacart_setting_id');
+        return $this->hasMany(VentaCartOrderStatusMap::class, 'store_id');
     }
 
     public function productLinks(): HasMany
     {
-        return $this->hasMany(VentaCartProductLink::class, 'ventacart_setting_id');
+        return $this->hasMany(VentaCartProductLink::class, 'store_id');
     }
 
     public function syncLogs(): HasMany
     {
-        return $this->hasMany(VentaCartSyncLog::class, 'ventacart_setting_id');
+        return $this->hasMany(VentaCartSyncLog::class, 'store_id');
     }
 
     protected static function booted(): void

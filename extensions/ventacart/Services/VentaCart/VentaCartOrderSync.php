@@ -13,7 +13,7 @@ use App\Services\ActivityLogger;
 use Extensions\VentaCart\Models\VentaCartOrder;
 use Extensions\VentaCart\Models\VentaCartOrderProduct;
 use Extensions\VentaCart\Models\VentaCartOrderStatusMap;
-use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Extensions\VentaCart\Models\VentaCartSyncLog;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -21,12 +21,12 @@ use Illuminate\Support\Facades\Log;
 class VentaCartOrderSync
 {
     private VentaCartClient $client;
-    private VentaCartSetting $setting;
+    private VentaCartStore $setting;
     private bool $skipStockAdjust = false;
 
     private bool $feesOnly = false;
 
-    public function __construct(VentaCartClient $client, VentaCartSetting $setting)
+    public function __construct(VentaCartClient $client, VentaCartStore $setting)
     {
         $this->client = $client;
         $this->setting = $setting;
@@ -55,7 +55,7 @@ class VentaCartOrderSync
         int $startPage = 1
     ): VentaCartSyncLog {
         $log = VentaCartSyncLog::create([
-            'ventacart_setting_id' => $this->setting->id,
+            'store_id' => $this->setting->id,
             'entity_type'      => 'order',
             'direction'        => 'pull',
             'status'           => 'started',
@@ -169,7 +169,7 @@ class VentaCartOrderSync
         $langId = (int) config('catalog.default_language_id');
 
         $idMap = [];
-        $storeMap = VentaCartOrderStatusMap::where('ventacart_setting_id', $this->setting->id)->get();
+        $storeMap = VentaCartOrderStatusMap::where('store_id', $this->setting->id)->get();
         foreach ($storeMap as $row) {
             $idMap[(int) $row->ventacart_status_id] = (int) $row->order_status_id;
         }
@@ -215,7 +215,7 @@ class VentaCartOrderSync
 
         $this->upsertOrder($raw, $this->buildStatusMap());
 
-        return VentaCartOrder::where('ventacart_setting_id', $this->setting->id)
+        return VentaCartOrder::where('store_id', $this->setting->id)
             ->where('ventacart_order_id', $ventaCartOrderId)
             ->first();
     }
@@ -267,7 +267,7 @@ class VentaCartOrderSync
 
         $ventaCartOrder = VentaCartOrder::updateOrCreate(
             [
-                'ventacart_setting_id' => $this->setting->id,
+                'store_id' => $this->setting->id,
                 'ventacart_order_id'   => $ventaCartOrderId,
             ],
             [
@@ -507,7 +507,7 @@ class VentaCartOrderSync
 
                     if ($resolvedProductId === 0) {
                         $link = DB::table('ventacart_product_links')
-                            ->where('ventacart_setting_id', $this->setting->id)
+                            ->where('store_id', $this->setting->id)
                             ->where('sku', $sku)
                             ->first();
                         if ($link) {

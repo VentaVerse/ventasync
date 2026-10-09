@@ -14,7 +14,7 @@ class ShopeeApiLog extends Model
     protected $table = 'shopee_api_logs';
 
     protected $fillable = [
-        'shopee_setting_id',
+        'store_id',
         'pack',
         'method',
         'api_path',
@@ -37,7 +37,7 @@ class ShopeeApiLog extends Model
     {
         try {
             $attributes['ok'] = \App\Support\MarketplaceVerdict::ok('shopee', (bool) ($attributes['ok'] ?? true), $attributes['response_body'] ?? null);
-            $setting = ShopeeSetting::defaultStore();
+            $setting = ShopeeStore::defaultStore();
             if (! \App\Support\ApiLogMode::shouldLog($setting?->api_log_mode, (bool) ($attributes['ok'] ?? true))) {
                 return;
             }

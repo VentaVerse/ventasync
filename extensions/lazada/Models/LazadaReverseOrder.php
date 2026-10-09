@@ -12,7 +12,7 @@ class LazadaReverseOrder extends Model
     protected $table = 'lazada_reverse_orders';
 
     protected $fillable = [
-        'lazada_setting_id',
+        'store_id',
         'region',
         'reverse_order_id',
         'trade_order_id',

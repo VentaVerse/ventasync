@@ -74,7 +74,7 @@ class TikTokDescriptionImages
     private function remembered(int $storeId, string $hash): ?array
     {
         try {
-            $row = TikTokDescriptionImage::query()->where('tiktok_setting_id', $storeId)->where('content_hash', $hash)->first();
+            $row = TikTokDescriptionImage::query()->where('store_id', $storeId)->where('content_hash', $hash)->first();
         } catch (\Throwable) {
             return null;
         }
@@ -119,11 +119,11 @@ class TikTokDescriptionImages
         $held = ['url' => $url, 'width' => $width, 'height' => $height];
         try {
             TikTokDescriptionImage::query()->upsert([[
-                'tiktok_setting_id' => $storeId, 'content_hash' => $hash,
+                'store_id' => $storeId, 'content_hash' => $hash,
                 'url' => $url, 'uri' => mb_substr((string) ($data['uri'] ?? ''), 0, 512) ?: null,
                 'width' => $width, 'height' => $height,
                 'created_at' => now(), 'updated_at' => now(),
-            ]], ['tiktok_setting_id', 'content_hash'], ['url', 'uri', 'width', 'height', 'updated_at']);
+            ]], ['store_id', 'content_hash'], ['url', 'uri', 'width', 'height', 'updated_at']);
         } catch (\Throwable) {
         }
 

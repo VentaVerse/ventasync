@@ -8,7 +8,7 @@ use Extensions\VentaCart\Models\VentaCartApiLog;
 use Extensions\VentaCart\Models\VentaCartBrand;
 use Extensions\VentaCart\Models\VentaCartCategory;
 use Extensions\VentaCart\Models\VentaCartOrderStatusMap;
-use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Extensions\VentaCart\Models\VentaCartSyncLog;
 use Extensions\VentaCart\Services\VentaCart\VentaCartClient;
 use Illuminate\Http\Request;
@@ -18,7 +18,7 @@ class VentaCartController extends Controller
 {
     public function index()
     {
-        $first = VentaCartSetting::query()->orderBy('id')->first();
+        $first = VentaCartStore::query()->orderBy('id')->first();
         if ($first) {
             return redirect()->route('ext.ventacart.settings.show', ['store' => $first->id]);
         }
@@ -27,29 +27,29 @@ class VentaCartController extends Controller
 
     public function showSettings(int $store)
     {
-        $active = VentaCartSetting::findOrFail($store);
+        $active = VentaCartStore::findOrFail($store);
 
         $stores = collect([$active]);
 
         $syncLogs = VentaCartSyncLog::query()
-            ->where('ventacart_setting_id', $active->id)
+            ->where('store_id', $active->id)
             ->orderByDesc('created_at')
             ->paginate(15, ['*'], 'syncPage')
             ->withQueryString();
 
-        $syncLogCount = VentaCartSyncLog::where('ventacart_setting_id', $active->id)->count();
+        $syncLogCount = VentaCartSyncLog::where('store_id', $active->id)->count();
 
         $apiLogs = \App\Support\ApiLogPanel::paginate(
-            VentaCartApiLog::query()->where('ventacart_setting_id', $active->id),
+            VentaCartApiLog::query()->where('store_id', $active->id),
             'endpoint',
             fn ($q) => $q->where('ok', 0)
         );
 
         $orderStatusMaps = VentaCartOrderStatusMap::query()
-            ->where('ventacart_setting_id', $active->id)
+            ->where('store_id', $active->id)
             ->orderBy('ventacart_status_id')
             ->get()
-            ->groupBy('ventacart_setting_id');
+            ->groupBy('store_id');
 
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
@@ -70,7 +70,7 @@ class VentaCartController extends Controller
             'base_url'   => ['required', 'url', 'max:255', new \App\Rules\StoreAddress],
         ]);
 
-        $setting = VentaCartSetting::create([
+        $setting = VentaCartStore::create([
             'store_name'     => $data['store_name'],
             'base_url'       => rtrim($data['base_url'], '/'),
             'api_token'      => '',
@@ -88,7 +88,7 @@ class VentaCartController extends Controller
     public function save(Request $request)
     {
         $storeId = $request->input('store_id');
-        $existing = $storeId ? VentaCartSetting::findOrFail((int) $storeId) : null;
+        $existing = $storeId ? VentaCartStore::findOrFail((int) $storeId) : null;
         $hasStoredToken = $existing !== null && $existing->api_token !== null && $existing->api_token !== '';
 
         $data = $request->validate([
@@ -122,7 +122,7 @@ class VentaCartController extends Controller
             $setting->save();
             ActivityLogger::log('updated', 'VentaCart', $setting->id, $setting->store_name ?? $setting->base_url);
         } else {
-            $setting = VentaCartSetting::create([
+            $setting = VentaCartStore::create([
                 'store_name'       => $data['store_name'] ?? '',
                 'brand_color'      => $data['brand_color'] ?? null,
                 'base_url'         => $data['base_url'],
@@ -136,7 +136,7 @@ class VentaCartController extends Controller
         }
 
         $setUp = trim((string) $setting->api_token) !== ''
-            && ! VentaCartCategory::query()->where('ventacart_setting_id', $setting->id)->exists();
+            && ! VentaCartCategory::query()->where('store_id', $setting->id)->exists();
 
         return redirect()
             ->route('ext.ventacart.settings.show', ['store' => $setting->id])
@@ -146,7 +146,7 @@ class VentaCartController extends Controller
 
     public function destroy($id, \Extensions\VentaCart\Services\VentaCart\VentaCartStoreDeleter $deleter)
     {
-        $setting = VentaCartSetting::findOrFail((int) $id);
+        $setting = VentaCartStore::findOrFail((int) $id);
         $name = $setting->store_name ?? $setting->base_url;
         $removed = $deleter->delete($setting);
 
@@ -157,7 +157,7 @@ class VentaCartController extends Controller
 
     public function destroyStore(Request $request, int $store, \Extensions\VentaCart\Services\VentaCart\VentaCartStoreDeleter $deleter)
     {
-        $setting = VentaCartSetting::findOrFail($store);
+        $setting = VentaCartStore::findOrFail($store);
         $request->validate([
             'confirm_name' => ['required', 'string', function ($attribute, $value, $fail) use ($setting) {
                 if ((string) $value !== (string) $setting->store_name) {
@@ -181,15 +181,15 @@ class VentaCartController extends Controller
         $apiToken = $request->input('api_token');
 
         if (!$storeId && $baseUrl && $apiToken) {
-            $setting = new VentaCartSetting([
+            $setting = new VentaCartStore([
                 'base_url'  => $baseUrl,
                 'enabled'   => true,
             ]);
             $setting->setRawApiToken($apiToken);
         } else {
             $setting = $storeId
-                ? VentaCartSetting::find((int) $storeId)
-                : VentaCartSetting::query()->first();
+                ? VentaCartStore::find((int) $storeId)
+                : VentaCartStore::query()->first();
         }
 
         if (!$setting) {
@@ -207,7 +207,7 @@ class VentaCartController extends Controller
 
     public function setupStep(int $store, string $step, \Extensions\VentaCart\Services\VentaCart\VentaCartStoreSetup $setup)
     {
-        $setting = VentaCartSetting::findOrFail($store);
+        $setting = VentaCartStore::findOrFail($store);
         if (trim((string) $setting->api_token) === '' || trim((string) $setting->base_url) === '') {
             return response()->json(['ok' => false, 'count' => 0, 'message' => 'This store is not connected yet. Save its address and API token first.'], 422);
         }
@@ -228,7 +228,7 @@ class VentaCartController extends Controller
         if (!$storeId) {
             return response()->json(['ok' => false, 'error' => 'Store ID is required.'], 422);
         }
-        $setting = VentaCartSetting::find((int) $storeId);
+        $setting = VentaCartStore::find((int) $storeId);
         if (!$setting) {
             return response()->json(['ok' => false, 'error' => 'Store not found.'], 404);
         }
@@ -251,7 +251,7 @@ class VentaCartController extends Controller
         if (!$storeId) {
             return response()->json(['ok' => false, 'error' => 'Store ID is required.'], 422);
         }
-        $setting = VentaCartSetting::find((int) $storeId);
+        $setting = VentaCartStore::find((int) $storeId);
         if (!$setting) {
             return response()->json(['ok' => false, 'error' => 'Store not found.'], 404);
         }
@@ -269,7 +269,7 @@ class VentaCartController extends Controller
             return response()->json(['error' => 'Store ID is required.'], 422);
         }
 
-        $setting = VentaCartSetting::find((int) $storeId);
+        $setting = VentaCartStore::find((int) $storeId);
         if (!$setting) {
             return response()->json(['error' => 'Store not found.'], 404);
         }
@@ -279,7 +279,7 @@ class VentaCartController extends Controller
             return response()->json(['error' => $out['message']], str_contains($out['message'], 'no order statuses') ? 404 : 500);
         }
 
-        $persisted = VentaCartOrderStatusMap::where('ventacart_setting_id', $setting->id)
+        $persisted = VentaCartOrderStatusMap::where('store_id', $setting->id)
             ->orderBy('ventacart_status_id')
             ->get(['ventacart_status_id', 'ventacart_status_name', 'order_status_id'])
             ->map(fn ($r) => [
@@ -299,7 +299,7 @@ class VentaCartController extends Controller
             return response()->json(['error' => 'Store ID is required.'], 422);
         }
 
-        $setting = VentaCartSetting::find((int) $storeId);
+        $setting = VentaCartStore::find((int) $storeId);
         if (!$setting) {
             return response()->json(['error' => 'Store not found.'], 404);
         }
@@ -312,7 +312,7 @@ class VentaCartController extends Controller
 
             VentaCartOrderStatusMap::updateOrCreate(
                 [
-                    'ventacart_setting_id' => $setting->id,
+                    'store_id' => $setting->id,
                     'ventacart_status_id'  => $ventaCartStatusId,
                 ],
                 [
@@ -328,7 +328,7 @@ class VentaCartController extends Controller
     public function setApiLogMode(Request $request, $id)
     {
         $data = $request->validate(['mode' => 'required|in:' . implode(',', \App\Support\ApiLogMode::MODES)]);
-        $store = VentaCartSetting::findOrFail($id);
+        $store = VentaCartStore::findOrFail($id);
         $store->update(['api_log_mode' => $data['mode']]);
 
         return redirect()->route('ext.ventacart.settings.show', ['store' => $store->id, 'tab' => 'logs'])
@@ -337,7 +337,7 @@ class VentaCartController extends Controller
 
     public function setSyncLogLevel(Request $request, $id)
     {
-        $store = VentaCartSetting::findOrFail($id);
+        $store = VentaCartStore::findOrFail($id);
 
         $data = $request->validate([
             'sync_log_level' => ['nullable', 'string', 'in:' . implode(',', array_keys(\App\Support\LogRetention::LEVELS))],
@@ -354,11 +354,11 @@ class VentaCartController extends Controller
 
     public function clearSyncLogs($id)
     {
-        $store = VentaCartSetting::findOrFail($id);
-        $count = VentaCartSyncLog::where('ventacart_setting_id', $store->id)->count();
-        VentaCartSyncLog::where('ventacart_setting_id', $store->id)->delete();
+        $store = VentaCartStore::findOrFail($id);
+        $count = VentaCartSyncLog::where('store_id', $store->id)->count();
+        VentaCartSyncLog::where('store_id', $store->id)->delete();
 
-        \App\Services\ActivityLogger::log('purged', 'VentaCartSetting', $store->id, 'Sync log (' . number_format($count) . ' rows)');
+        \App\Services\ActivityLogger::log('purged', 'VentaCartStore', $store->id, 'Sync log (' . number_format($count) . ' rows)');
 
         return redirect()->route('ext.ventacart.settings.show', [$store->id, 'tab' => 'sync'])
             ->with('status', number_format($count) . ' sync log ' . \Illuminate\Support\Str::plural('row', $count) . ' deleted for ' . $store->store_name . '.');
@@ -366,9 +366,9 @@ class VentaCartController extends Controller
 
     public function clearApiLogs($id)
     {
-        $store = VentaCartSetting::findOrFail($id);
-        $count = VentaCartApiLog::where('ventacart_setting_id', $store->id)->count();
-        VentaCartApiLog::where('ventacart_setting_id', $store->id)->delete();
+        $store = VentaCartStore::findOrFail($id);
+        $count = VentaCartApiLog::where('store_id', $store->id)->count();
+        VentaCartApiLog::where('store_id', $store->id)->delete();
 
         return redirect()->route('ext.ventacart.settings.show', ['store' => $store->id, 'tab' => 'logs'])
             ->with('status', $count . ' API log(s) deleted for ' . $store->store_name . '.');

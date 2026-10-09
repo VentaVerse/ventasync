@@ -16,7 +16,7 @@ class ShopeeWriteOutcomeTest extends TestCase
     {
         parent::setUp();
 
-        \Extensions\Shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        \Extensions\Shopee\Models\ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
     private const CONTROLLER = 'extensions/shopee/Controllers/ShopeeProductGroupController.php';
@@ -209,8 +209,8 @@ class ShopeeWriteOutcomeTest extends TestCase
     private function group(): int
     {
         return DB::table('shopee_product_groups')->insertGetId([
-            'shopee_setting_id' => \Extensions\Shopee\Models\ShopeeSetting::query()->orderBy('id')->value('id')
-                ?? \Extensions\Shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store'])->id,
+            'store_id' => \Extensions\Shopee\Models\ShopeeStore::query()->orderBy('id')->value('id')
+                ?? \Extensions\Shopee\Models\ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store'])->id,
             'name' => 'Mosky',
             'created_at' => now(),
             'updated_at' => now(),

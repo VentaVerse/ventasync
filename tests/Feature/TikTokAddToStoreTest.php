@@ -10,7 +10,7 @@ use Extensions\TikTok\Models\TikTokListing;
 use Extensions\TikTok\Models\TikTokProductGroup;
 use Extensions\TikTok\Models\TikTokProductGroupProduct;
 use Extensions\TikTok\Services\TikTokStoreProducts;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\TikTokExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +20,7 @@ class TikTokAddToStoreTest extends TestCase
 {
     use RefreshDatabase;
 
-    private TikTokSetting $store;
+    private TikTokStore $store;
 
     protected function setUp(): void
     {
@@ -32,7 +32,7 @@ class TikTokAddToStoreTest extends TestCase
         $this->app->register(TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
 
-        $this->store = TikTokSetting::create([
+        $this->store = TikTokStore::create([
             'mode' => 'production', 'store_name' => 'Gearshipper', 'app_key' => 'k', 'app_secret' => 's',
             'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3),
         ]);
@@ -70,7 +70,7 @@ class TikTokAddToStoreTest extends TestCase
 
     private function onStore(int $productId, ?int $storeId = null, array $extra = []): TikTokListing
     {
-        return TikTokListing::create(array_merge(['tiktok_setting_id' => $storeId ?? $this->store->id, 'product_id' => $productId], $extra));
+        return TikTokListing::create(array_merge(['store_id' => $storeId ?? $this->store->id, 'product_id' => $productId], $extra));
     }
 
     private function base(): string
@@ -80,7 +80,7 @@ class TikTokAddToStoreTest extends TestCase
 
     private function group(string $name = 'Helmets'): TikTokProductGroup
     {
-        return TikTokProductGroup::create(['tiktok_setting_id' => $this->store->id, 'name' => $name, 'tiktok_category_id' => '900001']);
+        return TikTokProductGroup::create(['store_id' => $this->store->id, 'name' => $name, 'tiktok_category_id' => '900001']);
     }
 
     private function groupBase(int $groupId): string
@@ -181,7 +181,7 @@ class TikTokAddToStoreTest extends TestCase
 
         $row = TikTokListing::withoutGlobalScope('tiktokStore')->where('product_id', $pid)->first();
         $this->assertNotNull($row, 'the membership is a listing record for this store');
-        $this->assertSame($this->store->id, (int) $row->tiktok_setting_id);
+        $this->assertSame($this->store->id, (int) $row->store_id);
         $this->assertNull($row->tiktok_category_id, 'blank: the listing page fills it in');
 
         $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
@@ -206,7 +206,7 @@ class TikTokAddToStoreTest extends TestCase
             ->from($this->base() . '?list=add')
             ->post($this->base() . '/add-to-store', ['product_ids' => [$a, $b]])
             ->assertRedirect();
-        $this->assertSame(2, TikTokListing::withoutGlobalScope('tiktokStore')->whereIn('product_id', [$a, $b])->where('tiktok_setting_id', $this->store->id)->count());
+        $this->assertSame(2, TikTokListing::withoutGlobalScope('tiktokStore')->whereIn('product_id', [$a, $b])->where('store_id', $this->store->id)->count());
 
         $c = $this->seedProduct('Catalog only widget', 'OFF-1');
         $html = $this->actingAs($this->manager())->get($this->base() . '?list=add')->assertOk()->getContent();
@@ -242,7 +242,7 @@ class TikTokAddToStoreTest extends TestCase
 
     public function test_remove_from_store_cannot_reach_another_stores_product(): void
     {
-        $other = TikTokSetting::create([
+        $other = TikTokStore::create([
             'mode' => 'production', 'store_name' => 'Outlet', 'app_key' => 'k', 'app_secret' => 's',
             'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c2', 'expires_at' => now()->addDays(3),
         ]);

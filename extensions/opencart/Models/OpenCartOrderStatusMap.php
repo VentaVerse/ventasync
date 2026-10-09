@@ -9,14 +9,14 @@ class OpenCartOrderStatusMap extends Model
     protected $table = 'opencart_order_status_map';
 
     protected $fillable = [
-        'opencart_setting_id',
+        'store_id',
         'oc_status_id',
         'oc_status_name',
         'order_status_id',
     ];
 
-    public function openCartSetting()
+    public function store()
     {
-        return $this->belongsTo(OpenCartSetting::class);
+        return $this->belongsTo(OpenCartStore::class, 'store_id');
     }
 }

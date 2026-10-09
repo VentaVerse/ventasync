@@ -10,5 +10,5 @@ class ShopeeItemCache extends Model
 
     protected $table = 'shopee_item_cache';
 
-    protected $fillable = ['shopee_setting_id', 'shopee_item_id', 'shopee_model_id', 'sku', 'item_name', 'image_url'];
+    protected $fillable = ['store_id', 'shopee_item_id', 'shopee_model_id', 'sku', 'item_name', 'image_url'];
 }

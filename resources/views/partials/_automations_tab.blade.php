@@ -7,9 +7,9 @@
         ->get();
 
     $settingModel = match ($extension) {
-        'shopee' => \Extensions\Shopee\Models\ShopeeSetting::class,
-        'lazada' => \Extensions\Lazada\Models\LazadaSetting::class,
-        'tiktok' => \Extensions\TikTok\Models\TikTokSetting::class,
+        'shopee' => \Extensions\Shopee\Models\ShopeeStore::class,
+        'lazada' => \Extensions\Lazada\Models\LazadaStore::class,
+        'tiktok' => \Extensions\TikTok\Models\TikTokStore::class,
         default  => null,
     };
     $setting = ($settingModel && class_exists($settingModel)) ? $settingModel::query()->first() : null;

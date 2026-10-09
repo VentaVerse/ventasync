@@ -2,7 +2,7 @@
 
 namespace Extensions\Shopee\Commands;
 
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeLiveListing;
 use Illuminate\Console\Command;
 
@@ -14,7 +14,7 @@ class ShopeeRefreshListingStatus extends Command
 
     public function handle(ShopeeLiveListing $live): int
     {
-        $stores = ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get();
+        $stores = ShopeeStore::query()->where('enabled', true)->orderBy('id')->get();
         if ($stores->isEmpty()) {
             $this->error('No enabled Shopee store. Configure Shopee settings first.');
             return self::FAILURE;
@@ -23,7 +23,7 @@ class ShopeeRefreshListingStatus extends Command
         $worst = self::SUCCESS;
         foreach ($stores as $store) {
             $label = $store->store_name ?: ('#' . $store->id);
-            $auth = ShopeeSetting::activeAuth($store->decrypted());
+            $auth = ShopeeStore::activeAuth($store->decrypted());
             if (!$auth['complete']) {
                 $this->error("Store {$label}: missing Shopee credentials.");
                 $worst = self::FAILURE;

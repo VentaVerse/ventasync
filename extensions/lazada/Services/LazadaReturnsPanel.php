@@ -3,7 +3,7 @@
 namespace Extensions\Lazada\Services;
 
 use Extensions\Lazada\Models\LazadaReverseOrder;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Http\Request;
 
 class LazadaReturnsPanel
@@ -11,8 +11,8 @@ class LazadaReturnsPanel
     public function build(Request $request, ?int $storeId = null): array
     {
         $setting = $storeId !== null
-            ? LazadaSetting::query()->find($storeId)
-            : LazadaSetting::defaultStore();
+            ? LazadaStore::query()->find($storeId)
+            : LazadaStore::defaultStore();
         if ($storeId !== null && $setting !== null) {
             app()->instance('lazada.route-store', $setting);
             \Illuminate\Support\Facades\URL::defaults(['store' => (int) $setting->id]);
@@ -158,7 +158,7 @@ class LazadaReturnsPanel
         $erpMap = $tradeIds->isEmpty() ? collect() : \DB::table('lazada_orders')
             ->whereIn('order_id', $tradeIds->all())
             ->whereNotNull('catalog_order_id')
-            ->when(app()->bound('lazada.route-store'), fn ($q) => $q->where('lazada_setting_id', app('lazada.route-store')->id))
+            ->when(app()->bound('lazada.route-store'), fn ($q) => $q->where('store_id', app('lazada.route-store')->id))
             ->pluck('catalog_order_id', 'order_id');
 
         $skus = collect($orders->items())

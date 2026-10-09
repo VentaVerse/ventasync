@@ -35,7 +35,7 @@ class SaleLinesRewriteTest extends TestCase
             ['order_id' => $orderId, 'code' => 'marketplace_commission', 'title' => 'Commission', 'value' => -151, 'sort_order' => 91],
         ]);
         DB::table('shopee_orders')->insert([
-            'shopee_setting_id' => $store, 'region' => 'PH', 'order_sn' => 'SP-REWRITE', 'catalog_order_id' => $orderId,
+            'store_id' => $store, 'region' => 'PH', 'order_sn' => 'SP-REWRITE', 'catalog_order_id' => $orderId,
             'status' => 'COMPLETED', 'raw' => '{}',
             'fees' => json_encode(['order_income' => [
                 'order_original_price' => 1438, 'order_selling_price' => 1438, 'final_product_protection' => 54, 'buyer_total_amount' => 1492,

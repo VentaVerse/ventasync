@@ -8,7 +8,7 @@ use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\TikTok\Models\TikTokOrder;
 use Extensions\TikTok\Models\TikTokOrderProduct;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\TikTokExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -18,7 +18,7 @@ class TikTokOrderDetailTest extends TestCase
 {
     use RefreshDatabase;
 
-    private TikTokSetting $tiktokStore;
+    private TikTokStore $tiktokStore;
 
     protected function setUp(): void
     {
@@ -32,7 +32,7 @@ class TikTokOrderDetailTest extends TestCase
 
         $this->app['router']->getRoutes()->refreshNameLookups();
 
-        $this->tiktokStore = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $this->tiktokStore = TikTokStore::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
     private function viewer(): User
@@ -274,7 +274,7 @@ class TikTokOrderDetailTest extends TestCase
 
     public function test_view_tier_get_with_refresh_param_pulls_nothing_and_writes_nothing(): void
     {
-        TikTokSetting::query()->orderBy('id')->firstOrFail()->fill([
+        TikTokStore::query()->orderBy('id')->firstOrFail()->fill([
             'mode' => 'live',
             'app_key' => 'test-app-key',
             'app_secret' => 'test-app-secret',
@@ -299,7 +299,7 @@ class TikTokOrderDetailTest extends TestCase
 
     public function test_manage_tier_get_with_refresh_param_still_pulls_and_persists(): void
     {
-        TikTokSetting::query()->orderBy('id')->firstOrFail()->fill([
+        TikTokStore::query()->orderBy('id')->firstOrFail()->fill([
             'mode' => 'live',
             'app_key' => 'test-app-key',
             'app_secret' => 'test-app-secret',
@@ -335,7 +335,7 @@ class TikTokOrderDetailTest extends TestCase
 
     public function test_a_refusal_in_the_body_leaves_the_order_and_says_so(): void
     {
-        TikTokSetting::query()->orderBy('id')->firstOrFail()->fill([
+        TikTokStore::query()->orderBy('id')->firstOrFail()->fill([
             'mode' => 'live',
             'app_key' => 'test-app-key',
             'app_secret' => 'test-app-secret',

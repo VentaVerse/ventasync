@@ -9,7 +9,7 @@ use App\Models\User;
 use Extensions\Shopee\Models\ShopeeListing;
 use Extensions\Shopee\Models\ShopeeProductGroup;
 use Extensions\Shopee\Models\ShopeeProductLink;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -32,7 +32,7 @@ class ShopeeListingTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        ShopeeSetting::query()->create([
+        ShopeeStore::query()->create([
             'partner_id' => 1001, 'partner_key' => 'k', 'shop_id' => 2002,
             'access_token' => 't', 'refresh_token' => 'r', 'mode' => 'production',
         ]);
@@ -390,7 +390,7 @@ class ShopeeListingTest extends TestCase
         DB::table('shopee_product_group_products')->insert([
             'shopee_product_group_id' => $group->id, 'product_id' => $productId,
         ]);
-        $storeId = (int) \Extensions\Shopee\Models\ShopeeSetting::query()->orderBy('id')->value('id');
+        $storeId = (int) \Extensions\Shopee\Models\ShopeeStore::query()->orderBy('id')->value('id');
         $prefix = \App\Models\DescriptionTemplate::create([
             'channel' => 'shopee', 'store_id' => $storeId,
             'name' => 'Warranty', 'body' => 'One year warranty.',

@@ -5,7 +5,7 @@ namespace Extensions\OpenCart\Services;
 use App\Http\Controllers\Sales\OrderController;
 use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderStatus;
-use Extensions\OpenCart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartStore;
 use Illuminate\Http\Request;
 
 class OpenCartOrdersPanel
@@ -51,7 +51,7 @@ class OpenCartOrdersPanel
 
         $statuses = OrderStatus::orderBy('order_status_id')->get();
 
-        $storeLabel = (string) (OpenCartSetting::where('id', $storeId)->value('store_name')
+        $storeLabel = (string) (OpenCartStore::where('id', $storeId)->value('store_name')
             ?: ('OpenCart #' . $storeId));
 
         return [

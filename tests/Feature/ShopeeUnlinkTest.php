@@ -15,7 +15,7 @@ class ShopeeUnlinkTest extends TestCase
     {
         parent::setUp();
 
-        \Extensions\Shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        \Extensions\Shopee\Models\ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
     private const PRODUCT = 2708;
@@ -24,7 +24,7 @@ class ShopeeUnlinkTest extends TestCase
 
     private function storeId(): int
     {
-        return (int) \Extensions\Shopee\Models\ShopeeSetting::query()->orderBy('id')->value('id');
+        return (int) \Extensions\Shopee\Models\ShopeeStore::query()->orderBy('id')->value('id');
     }
 
     private function link(): ShopeeProductLink
@@ -45,8 +45,8 @@ class ShopeeUnlinkTest extends TestCase
     private function pivot(array $attrs = []): void
     {
         $group = \DB::table('shopee_product_groups')->insertGetId([
-            'shopee_setting_id' => \Extensions\Shopee\Models\ShopeeSetting::query()->orderBy('id')->value('id')
-                ?? \Extensions\Shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store'])->id,
+            'store_id' => \Extensions\Shopee\Models\ShopeeStore::query()->orderBy('id')->value('id')
+                ?? \Extensions\Shopee\Models\ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store'])->id,
             'name' => 'Group 8',
             'created_at' => now(),
             'updated_at' => now(),

@@ -8,7 +8,7 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\Lazada\LazadaExtension;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -29,7 +29,7 @@ class CredentialRevealTest extends TestCase
         $this->app->register(LazadaExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
 
-        LazadaSetting::create([
+        LazadaStore::create([
             'mode' => 'sandbox',
             'region' => 'ph',
             'app_key' => '100123',

@@ -4,19 +4,19 @@ namespace Extensions\OpenCart\Services\OpenCart;
 
 use App\Models\ScheduledJob;
 use Extensions\OpenCart\Models\OpenCartProductLink;
-use Extensions\OpenCart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartStore;
 
 final class OpenCartPushSteps
 {
     public static function units(ScheduledJob $job): array
     {
-        $stores = OpenCartSetting::query()->where('enabled', true);
+        $stores = OpenCartStore::query()->where('enabled', true);
         if ($job->getOption('store')) {
             $stores->where('id', (int) $job->getOption('store'));
         }
         $units = [];
         foreach ($stores->orderBy('id')->get() as $store) {
-            $pids = OpenCartProductLink::query()->where('opencart_setting_id', $store->id)
+            $pids = OpenCartProductLink::query()->where('store_id', $store->id)
                 ->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
             foreach ($pids as $pid) {
                 $units[] = $store->id . ':' . $pid;
@@ -37,7 +37,7 @@ final class OpenCartPushSteps
         $failed = 0;
         $notes = [];
         foreach ($byStore as $storeId => $pids) {
-            $store = OpenCartSetting::query()->where('enabled', true)->find($storeId);
+            $store = OpenCartStore::query()->where('enabled', true)->find($storeId);
             if (! $store) {
                 $failed += count($pids);
                 continue;

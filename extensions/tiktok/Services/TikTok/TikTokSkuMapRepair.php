@@ -43,7 +43,7 @@ class TikTokSkuMapRepair
             ->whereNotNull('tiktok_product_id')
             ->update(['tiktok_sku_id' => $encoded]);
         TikTokListingStates::rememberHeld(
-            is_object($c['setting'] ?? null) ? (int) $c['setting']->id : (int) (\Extensions\TikTok\Models\TikTokSetting::defaultStore()?->id ?? 0),
+            is_object($c['setting'] ?? null) ? (int) $c['setting']->id : (int) (\Extensions\TikTok\Models\TikTokStore::defaultStore()?->id ?? 0),
             $productId,
             array_keys($map)
         );

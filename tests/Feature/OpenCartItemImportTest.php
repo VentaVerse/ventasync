@@ -7,7 +7,7 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\OpenCart\Models\OpenCartProductLink;
-use Extensions\OpenCart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -31,9 +31,9 @@ class OpenCartItemImportTest extends TestCase
         $this->artisan('permissions:sync-catalog');
     }
 
-    private function store(): OpenCartSetting
+    private function store(): OpenCartStore
     {
-        return OpenCartSetting::query()->create([
+        return OpenCartStore::query()->create([
             'store_name' => 'One', 'enabled' => true,
             'base_url' => self::BASE, 'api_key' => 'k',
         ]);

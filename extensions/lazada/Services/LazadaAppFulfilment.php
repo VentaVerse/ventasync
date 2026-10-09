@@ -5,7 +5,7 @@ namespace Extensions\Lazada\Services;
 use App\Support\Fulfilment\AppFulfilment;
 use Extensions\Lazada\Controllers\LazadaOrderController;
 use Extensions\Lazada\Models\LazadaOrder;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -38,7 +38,7 @@ final class LazadaAppFulfilment
     public function handle(string $action, int $id, Request $request): Response
     {
         $order = LazadaOrder::query()->find($id);
-        $store = $order ? LazadaSetting::query()->find($order->lazada_setting_id) : null;
+        $store = $order ? LazadaStore::query()->find($order->store_id) : null;
         if ($order === null || $store === null) {
             return response()->json(['error' => 'Order not found'], 404);
         }

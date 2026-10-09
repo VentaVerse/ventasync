@@ -10,7 +10,7 @@ use App\Models\User;
 use App\Services\Catalog\ProductDeleter;
 use Extensions\Shopee\Models\ShopeeListing;
 use Extensions\Shopee\Models\ShopeeProductLink;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Extensions\Shopee\Services\Shopee\ShopeeVariationPush;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -36,7 +36,7 @@ class ListingVariationsTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        ShopeeSetting::query()->create(['mode' => 'live', 'partner_id' => '1', 'partner_key' => 'k', 'shop_id' => '2', 'access_token' => 't', 'refresh_token' => 'r']);
+        ShopeeStore::query()->create(['mode' => 'live', 'partner_id' => '1', 'partner_key' => 'k', 'shop_id' => '2', 'access_token' => 't', 'refresh_token' => 'r']);
 
         $test = $this;
         $this->app->instance(ShopeeClient::class, new class($test) extends ShopeeClient {
@@ -66,7 +66,7 @@ class ListingVariationsTest extends TestCase
 
     private function storeId(): int
     {
-        return (int) ShopeeSetting::defaultStore()->id;
+        return (int) ShopeeStore::defaultStore()->id;
     }
 
     private function productWithCombinations(array $combos): int

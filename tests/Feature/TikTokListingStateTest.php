@@ -11,7 +11,7 @@ use App\Models\User;
 use Extensions\TikTok\Models\TikTokListing;
 use Extensions\TikTok\Models\TikTokProductGroup;
 use Extensions\TikTok\Models\TikTokProductGroupProduct;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\Services\TikTok\TikTokListingStates;
 use Extensions\TikTok\TikTokExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -34,7 +34,7 @@ class TikTokListingStateTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        TikTokSetting::create([
+        TikTokStore::create([
             'mode' => 'production', 'app_key' => 'k', 'app_secret' => 's',
             'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3),
         ]);
@@ -310,7 +310,7 @@ class TikTokListingStateTest extends TestCase
             ]);
         }
         TikTokListing::query()->create(['product_id' => $pid, 'tiktok_product_id' => 'tt-9', 'live_status' => 'ACTIVATE', 'live_checked_at' => now()]);
-        $storeId = (int) TikTokSetting::defaultStore()->id;
+        $storeId = (int) TikTokStore::defaultStore()->id;
         \App\Channels\Listings\ListingVariations::remember('tiktok', $storeId, $pid, ['EXL110-1046', 'EXL110-0942']);
 
         $line = (string) $this->engine()->errors([$pid])[$pid];
@@ -469,7 +469,7 @@ class TikTokListingStateTest extends TestCase
 
     public function test_the_error_filter_lists_exactly_the_rows_with_an_error_line(): void
     {
-        $storeId = (int) TikTokSetting::defaultStore()->id;
+        $storeId = (int) TikTokStore::defaultStore()->id;
 
         $short = $this->linkedSingle('Short a variation', 'MV1', 'tt-701');
         foreach (['MV1-A', 'MV1-B'] as $i => $sku) {
@@ -508,8 +508,8 @@ class TikTokListingStateTest extends TestCase
 
     public function test_an_outcome_lands_on_the_store_it_is_about(): void
     {
-        $one = TikTokSetting::defaultStore();
-        $two = TikTokSetting::create([
+        $one = TikTokStore::defaultStore();
+        $two = TikTokStore::create([
             'mode' => 'production', 'app_key' => 'k2', 'app_secret' => 's2',
             'access_token' => 't2', 'refresh_token' => 'r2', 'shop_cipher' => 'c2', 'expires_at' => now()->addDays(3),
         ]);
@@ -553,7 +553,7 @@ class TikTokListingStateTest extends TestCase
         $pid = $this->linkedSingle('Cron cleared', 'CC-1', 'tt-401');
         $this->engine()->recordOutcome($pid, 'Update refused.');
 
-        \Extensions\TikTok\Services\TikTok\TikTokStockPricePush::recordOutcomes('stock', [$pid => ['ok' => true, 'error' => null]], TikTokSetting::defaultStore());
+        \Extensions\TikTok\Services\TikTok\TikTokStockPricePush::recordOutcomes('stock', [$pid => ['ok' => true, 'error' => null]], TikTokStore::defaultStore());
 
         $this->assertNull($this->engine()->errors([$pid])[$pid]);
         $this->assertNull(TikTokListing::query()->where('product_id', $pid)->value('last_push_error'));

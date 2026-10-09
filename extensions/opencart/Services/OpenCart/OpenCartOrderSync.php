@@ -4,7 +4,7 @@ namespace Extensions\OpenCart\Services\OpenCart;
 
 use App\Models\Catalog\Order;
 use Extensions\OpenCart\Models\OpenCartOrderStatusMap;
-use Extensions\OpenCart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartStore;
 use Extensions\OpenCart\Models\OpenCartSyncLog;
 use App\Events\OrderStatusChanged;
 use App\Services\OrderStockService;
@@ -15,10 +15,10 @@ use Illuminate\Support\Facades\Log;
 class OpenCartOrderSync
 {
     private OpenCartClient $client;
-    private OpenCartSetting $setting;
+    private OpenCartStore $setting;
     private bool $skipStockAdjust = false;
 
-    public function __construct(OpenCartClient $client, OpenCartSetting $setting)
+    public function __construct(OpenCartClient $client, OpenCartStore $setting)
     {
         $this->client = $client;
         $this->setting = $setting;
@@ -39,7 +39,7 @@ class OpenCartOrderSync
         ?string $modifiedBefore = null
     ): OpenCartSyncLog {
         $log = OpenCartSyncLog::create([
-            'opencart_setting_id' => $this->setting->id,
+            'store_id' => $this->setting->id,
             'entity_type' => 'order',
             'direction'   => 'pull',
             'status'      => 'started',
@@ -147,7 +147,7 @@ class OpenCartOrderSync
         $langId = (int) config('catalog.default_language_id');
 
         $idMap = [];
-        $storeMap = OpenCartOrderStatusMap::where('opencart_setting_id', $this->setting->id)->get();
+        $storeMap = OpenCartOrderStatusMap::where('store_id', $this->setting->id)->get();
         foreach ($storeMap as $row) {
             $idMap[(int) $row->oc_status_id] = (int) $row->order_status_id;
         }
@@ -467,7 +467,7 @@ class OpenCartOrderSync
         $ocProductId = (int) ($p['product_id'] ?? 0);
         if ($ocProductId > 0) {
             $link = DB::table('opencart_product_links')
-                ->where('opencart_setting_id', $this->setting->id)
+                ->where('store_id', $this->setting->id)
                 ->where('oc_product_id', $ocProductId)
                 ->select('product_id')
                 ->first();

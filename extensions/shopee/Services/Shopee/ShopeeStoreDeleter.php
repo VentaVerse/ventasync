@@ -2,7 +2,7 @@
 
 namespace Extensions\Shopee\Services\Shopee;
 
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -20,27 +20,27 @@ final class ShopeeStoreDeleter
         'shopee_orders',
     ];
 
-    public function delete(ShopeeSetting $store): array
+    public function delete(ShopeeStore $store): array
     {
         return DB::transaction(function () use ($store) {
             $removed = [];
 
-            $productIds = DB::table('shopee_listings')->where('shopee_setting_id', $store->id)->pluck('product_id')
-                ->merge(DB::table('shopee_product_links')->where('shopee_setting_id', $store->id)->pluck('product_id'))
+            $productIds = DB::table('shopee_listings')->where('store_id', $store->id)->pluck('product_id')
+                ->merge(DB::table('shopee_product_links')->where('store_id', $store->id)->pluck('product_id'))
                 ->map(fn ($v) => (int) $v)->unique()->values()->all();
             app(ShopeeListingStates::class)->forStore($store)->clearErrors($productIds);
 
             if (Schema::hasTable('shopee_product_group_products')) {
-                $groupIds = DB::table('shopee_product_groups')->where('shopee_setting_id', $store->id)->pluck('id');
+                $groupIds = DB::table('shopee_product_groups')->where('store_id', $store->id)->pluck('id');
                 $removed['shopee_product_group_products'] = $groupIds->isEmpty() ? 0
                     : DB::table('shopee_product_group_products')->whereIn('shopee_product_group_id', $groupIds)->delete();
             }
 
             foreach (self::TABLES as $table) {
-                if (! Schema::hasTable($table) || ! Schema::hasColumn($table, 'shopee_setting_id')) {
+                if (! Schema::hasTable($table) || ! Schema::hasColumn($table, 'store_id')) {
                     continue;
                 }
-                $removed[$table] = DB::table($table)->where('shopee_setting_id', $store->id)->delete();
+                $removed[$table] = DB::table($table)->where('store_id', $store->id)->delete();
             }
 
             $removed['scheduled_jobs'] = DB::table('scheduled_jobs')

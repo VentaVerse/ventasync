@@ -2,7 +2,7 @@
 
 namespace Extensions\VentaCart\Commands;
 
-use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Extensions\VentaCart\Services\VentaCart\VentaCartClient;
 use Extensions\VentaCart\Services\VentaCart\VentaCartOrderSync;
 use Illuminate\Console\Command;
@@ -30,7 +30,7 @@ class VentaCartSync extends Command implements \App\Channels\Contracts\Steppable
         }
 
         if ($storeId) {
-            $settings = VentaCartSetting::where('id', (int) $storeId)
+            $settings = VentaCartStore::where('id', (int) $storeId)
                 ->where('enabled', true)
                 ->get();
 
@@ -39,7 +39,7 @@ class VentaCartSync extends Command implements \App\Channels\Contracts\Steppable
                 return 1;
             }
         } else {
-            $settings = VentaCartSetting::where('enabled', true)->get();
+            $settings = VentaCartStore::where('enabled', true)->get();
 
             if ($settings->isEmpty()) {
                 $this->error('No enabled VentaCart stores configured.');
@@ -58,14 +58,14 @@ class VentaCartSync extends Command implements \App\Channels\Contracts\Steppable
         return 0;
     }
 
-    private function syncStore(VentaCartSetting $setting, string $entity): void
+    private function syncStore(VentaCartStore $setting, string $entity): void
     {
         $client = new VentaCartClient($setting);
 
         $this->syncOrders($client, $setting);
     }
 
-    private function syncOrders(VentaCartClient $client, VentaCartSetting $setting): void
+    private function syncOrders(VentaCartClient $client, VentaCartStore $setting): void
     {
         $this->info('  Syncing orders...');
 
@@ -103,7 +103,7 @@ class VentaCartSync extends Command implements \App\Channels\Contracts\Steppable
 
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
-        $stores = VentaCartSetting::query()->where('enabled', true);
+        $stores = VentaCartStore::query()->where('enabled', true);
         if ($job->getOption('store')) {
             $stores->where('id', (int) $job->getOption('store'));
         }
@@ -127,7 +127,7 @@ class VentaCartSync extends Command implements \App\Channels\Contracts\Steppable
         $notes = [];
         foreach ($units as $unit) {
             [$sid] = array_pad(explode(':', (string) $unit, 2), 2, '');
-            $store = VentaCartSetting::query()->where('enabled', true)->find((int) $sid);
+            $store = VentaCartStore::query()->where('enabled', true)->find((int) $sid);
             if (! $store) {
                 $failed++;
                 continue;

@@ -8,7 +8,7 @@ use App\Channels\Push\PushLedger;
 use Extensions\Shopee\Models\ShopeeListing;
 use Extensions\Shopee\Models\ShopeeProductGroup;
 use Extensions\Shopee\Models\ShopeeProductLink;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -21,9 +21,9 @@ class ShopeeListingStates
     {
     }
 
-    public function forStore(ShopeeSetting|int|null $store): static
+    public function forStore(ShopeeStore|int|null $store): static
     {
-        $id = $store instanceof ShopeeSetting ? (int) $store->id : (int) $store;
+        $id = $store instanceof ShopeeStore ? (int) $store->id : (int) $store;
         $copy = clone $this;
         $copy->storeId = $id > 0 ? $id : null;
 
@@ -32,7 +32,7 @@ class ShopeeListingStates
 
     private function storeId(): int
     {
-        return $this->storeId ?? (int) (ShopeeSetting::defaultStore()?->id ?? 0);
+        return $this->storeId ?? (int) (ShopeeStore::defaultStore()?->id ?? 0);
     }
 
     private function mine(string $model): \Illuminate\Database\Eloquent\Builder
@@ -41,7 +41,7 @@ class ShopeeListingStates
         $storeId = $this->storeId();
 
         return $storeId > 0
-            ? $query->withoutGlobalScope('shopeeStore')->where($query->qualifyColumn('shopee_setting_id'), $storeId)
+            ? $query->withoutGlobalScope('shopeeStore')->where($query->qualifyColumn('store_id'), $storeId)
             : $query;
     }
 
@@ -61,7 +61,7 @@ class ShopeeListingStates
         $reason = trim($failure) !== '' ? trim($failure) : PushLedger::NO_REASON;
         $listing = $this->mine(ShopeeListing::class)->firstOrCreate(
             ['product_id' => $productId],
-            ['shopee_setting_id' => $storeId]
+            ['store_id' => $storeId]
         );
         $listing->forceFill([
             'last_push_error' => Str::limit($reason, 477),
@@ -78,7 +78,7 @@ class ShopeeListingStates
         }
 
         $groupIds = ShopeeProductGroup::query()->withoutGlobalScope('shopeeStore')
-            ->where('shopee_setting_id', $storeId)->pluck('id')->map(fn ($v) => (int) $v)->all();
+            ->where('store_id', $storeId)->pluck('id')->map(fn ($v) => (int) $v)->all();
 
         foreach (array_chunk($productIds, 500) as $chunk) {
             $this->mine(ShopeeListing::class)->whereIn('product_id', $chunk)

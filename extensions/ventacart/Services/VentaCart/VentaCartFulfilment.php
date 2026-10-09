@@ -5,7 +5,7 @@ namespace Extensions\VentaCart\Services\VentaCart;
 use App\Services\ActivityLogger;
 use App\Support\FulfilmentSteps;
 use Extensions\VentaCart\Models\VentaCartOrder;
-use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Illuminate\Support\Facades\Log;
 
 class VentaCartFulfilment
@@ -26,12 +26,12 @@ class VentaCartFulfilment
     ];
 
     public function __construct(
-        private VentaCartSetting $setting,
+        private VentaCartStore $setting,
         private VentaCartClient $client,
     ) {
     }
 
-    public static function for(VentaCartSetting $setting): self
+    public static function for(VentaCartStore $setting): self
     {
         return new self($setting, new VentaCartClient($setting));
     }

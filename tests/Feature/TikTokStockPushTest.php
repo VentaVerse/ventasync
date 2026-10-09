@@ -8,7 +8,7 @@ use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\TikTok\Models\TikTokProductGroup;
 use Extensions\TikTok\Models\TikTokProductGroupProduct;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -35,7 +35,7 @@ class TikTokStockPushTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        TikTokSetting::create([
+        TikTokStore::create([
             'mode' => 'production', 'app_key' => 'k', 'app_secret' => 's',
             'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c',
             'expires_at' => now()->addDays(3),
@@ -341,13 +341,13 @@ class TikTokStockPushTest extends TestCase
 
     public function test_another_stores_group_never_reaches_this_store(): void
     {
-        $main = TikTokSetting::query()->orderBy('id')->first();
-        $outlet = TikTokSetting::create([
+        $main = TikTokStore::query()->orderBy('id')->first();
+        $outlet = TikTokStore::create([
             'mode' => 'production', 'store_name' => 'Outlet', 'app_key' => 'k2', 'app_secret' => 's2',
             'access_token' => 't2', 'refresh_token' => 'r2', 'shop_cipher' => 'c2', 'expires_at' => now()->addDays(3),
         ]);
         $pid = 424242;
-        $other = TikTokProductGroup::create(['tiktok_setting_id' => $outlet->id, 'name' => 'Outlet group', 'tiktok_category_id' => '900001', 'markup_percent' => 20]);
+        $other = TikTokProductGroup::create(['store_id' => $outlet->id, 'name' => 'Outlet group', 'tiktok_category_id' => '900001', 'markup_percent' => 20]);
         TikTokProductGroupProduct::create(['tiktok_product_group_id' => $other->id, 'product_id' => $pid, 'sync_status' => 'pending']);
 
         $this->app->instance('tiktok.route-store', $main);
@@ -357,7 +357,7 @@ class TikTokStockPushTest extends TestCase
 
         $this->assertSame([], app(\Extensions\TikTok\Services\TikTok\TikTokInheritedSettings::class)->forProducts([$pid]),
             'with no store bound, the lookup reads the default store\'s groups, not every store\'s');
-        $this->assertSame((int) $main->id, (int) TikTokSetting::defaultStore()->id);
+        $this->assertSame((int) $main->id, (int) TikTokStore::defaultStore()->id);
     }
 
     private const SKU_IDS = ['TTV-Red-S' => 's1', 'TTV-Red-M' => 's2', 'TTV-Black-S' => 's3', 'TTV-Black-M' => 's4'];

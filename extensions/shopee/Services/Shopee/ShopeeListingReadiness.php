@@ -71,7 +71,7 @@ class ShopeeListingReadiness
 
         $variations = app(ShopeeVariationPush::class);
         $withVariations = ShopeeListing::withVariations($productIds);
-        $shopeeStoreId = (int) (\Extensions\Shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0);
+        $shopeeStoreId = (int) (\Extensions\Shopee\Models\ShopeeStore::defaultStore()?->id ?? 0);
 
         $out = [];
         foreach ($productIds as $productId) {

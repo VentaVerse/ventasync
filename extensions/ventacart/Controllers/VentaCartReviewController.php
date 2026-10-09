@@ -5,7 +5,7 @@ namespace Extensions\VentaCart\Controllers;
 use App\Http\Controllers\Controller;
 use Extensions\OpenCart\Models\MarketplaceReview;
 use Extensions\VentaCart\Models\VentaCartProductLink;
-use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Extensions\VentaCart\Services\VentaCart\VentaCartClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Process;
@@ -32,7 +32,7 @@ class VentaCartReviewController extends Controller
             return redirect()->back()->with('error', 'Product not linked to any VentaCart store.');
         }
 
-        $setting = VentaCartSetting::find($link->ventacart_setting_id);
+        $setting = VentaCartStore::find($link->store_id);
         if (!$setting || !$setting->enabled) {
             return redirect()->back()->with('error', 'VentaCart store not found or disabled.');
         }
@@ -60,7 +60,7 @@ class VentaCartReviewController extends Controller
         if ($res['ok'] ?? false) {
             $review->update([
                 'ventacart_sync_status' => 'pushed',
-                'ventacart_setting_id'  => $setting->id,
+                'ventacart_store_id'  => $setting->id,
                 'ventacart_review_id'   => $res['body']['data']['review_id'] ?? $res['body']['review_id'] ?? null,
                 'ventacart_pushed_at'   => now(),
                 'ventacart_push_error'  => null,
@@ -71,7 +71,7 @@ class VentaCartReviewController extends Controller
         $error = $res['body']['error'] ?? 'Unknown error';
         $review->update([
             'ventacart_sync_status' => 'error',
-            'ventacart_setting_id'  => $setting->id,
+            'ventacart_store_id'  => $setting->id,
             'ventacart_push_error'  => substr($error, 0, 500),
         ]);
 

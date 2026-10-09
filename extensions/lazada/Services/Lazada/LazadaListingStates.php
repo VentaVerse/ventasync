@@ -7,7 +7,7 @@ use App\Channels\Listings\ListingVariations;
 use App\Channels\Push\PushLedger;
 use Extensions\Lazada\Models\LazadaProduct;
 use Extensions\Lazada\Models\LazadaProductGroupProduct;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -39,13 +39,13 @@ class LazadaListingStates
 
     private function storeId(): int
     {
-        return $this->storeId ?? (int) (LazadaSetting::defaultStore()?->id ?? 0);
+        return $this->storeId ?? (int) (LazadaStore::defaultStore()?->id ?? 0);
     }
 
     private function storeRows(): \Illuminate\Database\Eloquent\Builder
     {
         return LazadaProduct::query()->withoutGlobalScope('lazadaStore')
-            ->where('lazada_products.lazada_setting_id', $this->storeId());
+            ->where('lazada_products.store_id', $this->storeId());
     }
 
     private static function currentRow(Collection $rows): ?LazadaProduct
@@ -77,7 +77,7 @@ class LazadaListingStates
 
             return;
         }
-        (new LazadaProduct())->forceFill(['product_id' => $productId, 'lazada_setting_id' => $storeId] + $values)->save();
+        (new LazadaProduct())->forceFill(['product_id' => $productId, 'store_id' => $storeId] + $values)->save();
     }
 
     public function clearErrors(array $productIds): void

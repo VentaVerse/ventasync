@@ -5,7 +5,7 @@ namespace Extensions\Lazada\Services\Lazada;
 use App\Support\MarketplaceAnswer;
 use Extensions\Lazada\Models\LazadaApiLog;
 use Extensions\Lazada\Models\LazadaBrand;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Support\Facades\DB;
 
 class LazadaStoreSetup
@@ -14,7 +14,7 @@ class LazadaStoreSetup
     {
     }
 
-    public function categories(LazadaSetting $setting, array $creds): array
+    public function categories(LazadaStore $setting, array $creds): array
     {
         $apiPath = '/category/tree/get';
         $params = [
@@ -57,7 +57,7 @@ class LazadaStoreSetup
         return ['ok' => true, 'count' => count($rows), 'message' => number_format(count($rows)) . ' categories fetched.'];
     }
 
-    public function brands(LazadaSetting $setting, array $creds, int $maxPages = 20, int $pageSize = 200): array
+    public function brands(LazadaStore $setting, array $creds, int $maxPages = 20, int $pageSize = 200): array
     {
         $apiPath = '/category/brands/query';
         $region = (string) $setting->region;

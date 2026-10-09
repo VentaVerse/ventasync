@@ -5,7 +5,7 @@ namespace Extensions\Lazada\Controllers;
 use App\Http\Controllers\Controller;
 
 use Extensions\Lazada\Models\LazadaBrand;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -41,8 +41,8 @@ class LazadaBrandController extends Controller
 
     public function fetch(Request $request, LazadaClient $client)
     {
-        $setting = LazadaSetting::defaultStore()?->decrypted();
-        $creds = LazadaSetting::activeCredentials($setting);
+        $setting = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
             return redirect()->route('ext.lazada.brands.index')->with('error', 'Missing Lazada settings. Please configure Region, App Key, and App Secret first.');
         }
@@ -230,8 +230,8 @@ class LazadaBrandController extends Controller
 
     private function currentRegion(): ?string
     {
-        $setting = LazadaSetting::defaultStore()?->decrypted();
-        $creds = LazadaSetting::activeCredentials($setting);
+        $setting = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($setting);
         if ($setting && !empty($setting->region)) {
             return (string)$setting->region;
         }

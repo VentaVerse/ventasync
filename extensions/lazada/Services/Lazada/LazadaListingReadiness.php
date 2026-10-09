@@ -7,7 +7,7 @@ use App\Channels\Listings\ListingState;
 use Extensions\Lazada\Models\LazadaCategory;
 use Extensions\Lazada\Models\LazadaCategoryTemplate;
 use Extensions\Lazada\Models\LazadaProductAttribute;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -23,7 +23,7 @@ class LazadaListingReadiness
 
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
-        $region = (string) (LazadaSetting::defaultStore()?->region ?? '');
+        $region = (string) (LazadaStore::defaultStore()?->region ?? '');
         $attrs = app(LazadaAttributes::class);
 
         $inherit = app(LazadaInheritedSettings::class);

@@ -199,7 +199,7 @@ Route::middleware(['auth', \Extensions\Shopee\Http\ResolveShopeeStore::class])->
 
 Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::get('/shopee/{legacyPath}', function (\Illuminate\Http\Request $request, string $legacyPath) {
-        $store = \Extensions\Shopee\Models\ShopeeSetting::query()->where('enabled', true)->orderBy('id')->value('id');
+        $store = \Extensions\Shopee\Models\ShopeeStore::query()->where('enabled', true)->orderBy('id')->value('id');
         abort_unless($store !== null, 404);
         $qs = $request->getQueryString();
 

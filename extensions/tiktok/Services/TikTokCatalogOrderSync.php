@@ -99,8 +99,8 @@ class TikTokCatalogOrderSync
                 $rate = (float) $catalogOrder->currency_value;
             }
 
-            $storeId = (int) $tiktokOrder->tiktok_setting_id;
-            $storeName = mb_substr((string) (\Extensions\TikTok\Models\TikTokSetting::query()->find($storeId)?->store_name ?? ''), 0, 64);
+            $storeId = (int) $tiktokOrder->store_id;
+            $storeName = mb_substr((string) (\Extensions\TikTok\Models\TikTokStore::query()->find($storeId)?->store_name ?? ''), 0, 64);
 
             $orderData = [
                 'invoice_no'            => 0,

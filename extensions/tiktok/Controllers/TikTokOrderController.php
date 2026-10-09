@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use Extensions\TikTok\Models\TikTokApiLog;
 use Extensions\TikTok\Models\TikTokOrder;
 use Extensions\TikTok\Models\TikTokOrderProduct;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Extensions\TikTok\Services\TikTok\TikTokReturnSync;
 use Extensions\TikTok\Services\TikTokCatalogOrderSync;
@@ -24,7 +24,7 @@ class TikTokOrderController extends Controller
 
     private function creds(): array
     {
-        $s = TikTokSetting::defaultStore();
+        $s = TikTokStore::defaultStore();
         if (!$s) {
             abort(404, 'TikTok settings not configured.');
         }
@@ -149,7 +149,7 @@ class TikTokOrderController extends Controller
 
     protected function orderFetchStoreId(Request $request): ?int
     {
-        return \Extensions\TikTok\Models\TikTokSetting::defaultStore()?->id;
+        return \Extensions\TikTok\Models\TikTokStore::defaultStore()?->id;
     }
 
     public function orderFetchStep(\App\Models\OrderFetchRun $run): array
@@ -412,7 +412,7 @@ class TikTokOrderController extends Controller
     {
         $order = TikTokOrder::findOrFail($id);
         $safeOrderId = preg_replace('/[^A-Za-z0-9_-]/', '', (string) $order->order_id);
-        $awbPath = \App\Support\Fulfilment\Waybills::path('tiktok', (int) $order->tiktok_setting_id, (string) $order->order_id);
+        $awbPath = \App\Support\Fulfilment\Waybills::path('tiktok', (int) $order->store_id, (string) $order->order_id);
 
         if (file_exists($awbPath) && !$request->boolean('refresh')) {
             return response(file_get_contents($awbPath), 200)

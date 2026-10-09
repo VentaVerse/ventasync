@@ -9,9 +9,9 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use App\Support\ChannelWorkspace;
-use Extensions\OpenCart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartStore;
 use Extensions\OpenCart\OpenCartExtension;
-use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Extensions\VentaCart\VentaCartExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -45,25 +45,25 @@ class MultistoreWorkspaceTest extends TestCase
 
     private function seedStores(): void
     {
-        VentaCartSetting::updateOrCreate(
+        VentaCartStore::updateOrCreate(
             ['store_name' => 'Gear Depot'],
             ['base_url' => 'https://one.ventacart.test', 'api_token' => 'ventacart-token-one',
              'enabled' => true, 'last_order_sync_at' => now()->subMinutes(5)]
         );
 
-        VentaCartSetting::updateOrCreate(
+        VentaCartStore::updateOrCreate(
             ['store_name' => 'Switch Bazaar'],
             ['base_url' => 'https://two.ventacart.test', 'api_token' => 'ventacart-token-two',
              'enabled' => true, 'last_order_sync_at' => null]
         );
 
-        OpenCartSetting::updateOrCreate(
+        OpenCartStore::updateOrCreate(
             ['store_name' => 'Parts Yard'],
             ['base_url' => 'https://one.opencart.test', 'api_key' => 'oc-key-one',
              'enabled' => true, 'last_order_sync_at' => now()->subMinutes(5)]
         );
 
-        OpenCartSetting::updateOrCreate(
+        OpenCartStore::updateOrCreate(
             ['store_name' => 'Cable Loft'],
             ['base_url' => 'https://two.opencart.test', 'api_key' => 'oc-key-two',
              'enabled' => false, 'last_order_sync_at' => now()->subMinutes(5)]
@@ -73,8 +73,8 @@ class MultistoreWorkspaceTest extends TestCase
     private function storeId(string $channel, string $name): int
     {
         return (int) ($channel === 'ventacart'
-            ? VentaCartSetting::where('store_name', $name)->firstOrFail()->id
-            : OpenCartSetting::where('store_name', $name)->firstOrFail()->id);
+            ? VentaCartStore::where('store_name', $name)->firstOrFail()->id
+            : OpenCartStore::where('store_name', $name)->firstOrFail()->id);
     }
 
     private function storeIds(string $channel): array
@@ -207,8 +207,8 @@ class MultistoreWorkspaceTest extends TestCase
     public function test_a_channel_with_no_stores_has_no_workspace(string $channel): void
     {
         $channel === 'ventacart'
-            ? VentaCartSetting::query()->delete()
-            : OpenCartSetting::query()->delete();
+            ? VentaCartStore::query()->delete()
+            : OpenCartStore::query()->delete();
 
         $this->assertFalse(app(ChannelWorkspace::class)->hasWorkspace($this->card($channel)));
     }
@@ -635,7 +635,7 @@ class MultistoreWorkspaceTest extends TestCase
     private function ventaCartOrder(int $storeId, string $customer, string $status): \Extensions\VentaCart\Models\VentaCartOrder
     {
         return \Extensions\VentaCart\Models\VentaCartOrder::create([
-            'ventacart_setting_id'   => $storeId,
+            'store_id'   => $storeId,
             'ventacart_order_id'     => ($storeId * 100000) + random_int(1, 99999),
             'ventacart_order_number' => ($storeId * 100000) + random_int(1, 99999),
             'status'             => $status,

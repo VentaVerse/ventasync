@@ -7,7 +7,7 @@ use App\Services\ActivityLogger;
 use Extensions\OpenCart\Models\OpenCartProductLink;
 use Extensions\OpenCart\Models\OpenCartProductGroup;
 use Extensions\OpenCart\Models\OpenCartProductGroupProduct;
-use Extensions\OpenCart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartStore;
 use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
 use Extensions\OpenCart\Services\OpenCart\OpenCartProductSync;
 use Illuminate\Http\Request;
@@ -15,9 +15,9 @@ use Illuminate\Support\Facades\DB;
 
 class OpenCartProductGroupController extends Controller
 {
-    private function store_(int $storeId): OpenCartSetting
+    private function store_(int $storeId): OpenCartStore
     {
-        return OpenCartSetting::findOrFail($storeId);
+        return OpenCartStore::findOrFail($storeId);
     }
 
     public function index(int $store)
@@ -26,7 +26,7 @@ class OpenCartProductGroupController extends Controller
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $groups = OpenCartProductGroup::where('opencart_setting_id', $store)->orderByDesc('id')->get();
+        $groups = OpenCartProductGroup::where('store_id', $store)->orderByDesc('id')->get();
 
         $productCounts = [];
         foreach ($groups as $g) {
@@ -43,17 +43,17 @@ class OpenCartProductGroupController extends Controller
     public function create(int $store)
     {
         $setting = $this->store_($store);
-        return $this->form($setting, new OpenCartProductGroup(['opencart_setting_id' => $store]), 'create');
+        return $this->form($setting, new OpenCartProductGroup(['store_id' => $store]), 'create');
     }
 
     public function edit(int $store, int $group)
     {
         $setting = $this->store_($store);
-        $g = OpenCartProductGroup::where('opencart_setting_id', $store)->findOrFail($group);
+        $g = OpenCartProductGroup::where('store_id', $store)->findOrFail($group);
         return $this->form($setting, $g, 'edit');
     }
 
-    private function form(OpenCartSetting $setting, OpenCartProductGroup $group, string $mode)
+    private function form(OpenCartStore $setting, OpenCartProductGroup $group, string $mode)
     {
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
@@ -89,7 +89,7 @@ class OpenCartProductGroupController extends Controller
 
 
         $group = OpenCartProductGroup::create([
-            'opencart_setting_id' => $store,
+            'store_id' => $store,
             'name' => $data['name'],
         ]);
 
@@ -102,7 +102,7 @@ class OpenCartProductGroupController extends Controller
     public function update(Request $request, int $store, int $group)
     {
         $setting = $this->store_($store);
-        $g = OpenCartProductGroup::where('opencart_setting_id', $store)->findOrFail($group);
+        $g = OpenCartProductGroup::where('store_id', $store)->findOrFail($group);
 
         $data = $request->validate([
             'name' => 'required|string|max:255',
@@ -122,7 +122,7 @@ class OpenCartProductGroupController extends Controller
     public function destroy(int $store, int $group)
     {
         $setting = $this->store_($store);
-        $g = OpenCartProductGroup::where('opencart_setting_id', $store)->findOrFail($group);
+        $g = OpenCartProductGroup::where('store_id', $store)->findOrFail($group);
         $name = $g->name;
         $g->delete();
 
@@ -135,7 +135,7 @@ class OpenCartProductGroupController extends Controller
     public function products(Request $request, int $store, int $group)
     {
         $setting = $this->store_($store);
-        $g = OpenCartProductGroup::where('opencart_setting_id', $store)->findOrFail($group);
+        $g = OpenCartProductGroup::where('store_id', $store)->findOrFail($group);
 
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
@@ -172,7 +172,7 @@ class OpenCartProductGroupController extends Controller
 
         $products = $query->orderBy('p.product_id', 'desc')->paginate(50)->withQueryString();
 
-        $links = OpenCartProductLink::where('opencart_setting_id', $store)
+        $links = OpenCartProductLink::where('store_id', $store)
             ->whereIn('product_id', $productIds)
             ->get()
             ->keyBy('product_id');
@@ -192,7 +192,7 @@ class OpenCartProductGroupController extends Controller
     public function push(Request $request, int $store, int $group)
     {
         $setting = $this->store_($store);
-        $g = OpenCartProductGroup::where('opencart_setting_id', $store)->findOrFail($group);
+        $g = OpenCartProductGroup::where('store_id', $store)->findOrFail($group);
 
         $ids = $request->input('ids', []);
         if (empty($ids)) {
@@ -222,7 +222,7 @@ class OpenCartProductGroupController extends Controller
     public function addProducts(Request $request, int $store, int $group)
     {
         $setting = $this->store_($store);
-        $g = OpenCartProductGroup::where('opencart_setting_id', $store)->findOrFail($group);
+        $g = OpenCartProductGroup::where('store_id', $store)->findOrFail($group);
 
         $ids = $request->input('ids', []);
         if (empty($ids)) {
@@ -234,7 +234,7 @@ class OpenCartProductGroupController extends Controller
         $existing = $g->groupProducts()->pluck('product_id')->toArray();
         $ids = array_values(array_diff($ids, $existing));
 
-        $claim = \App\Channels\OneGroupRule::claim('opencart_product_group_products', 'opencart_product_group_id', 'opencart_product_groups', 'opencart_setting_id', $g->id, $ids, array_map('intval', (array) $request->input('move_ids', [])));
+        $claim = \App\Channels\OneGroupRule::claim('opencart_product_group_products', 'opencart_product_group_id', 'opencart_product_groups', 'store_id', $g->id, $ids, array_map('intval', (array) $request->input('move_ids', [])));
 
         $added = 0;
         foreach (array_merge($claim['free'], array_keys($claim['moved'])) as $pid) {
@@ -253,7 +253,7 @@ class OpenCartProductGroupController extends Controller
     public function removeProduct(int $store, int $group, int $product)
     {
         $setting = $this->store_($store);
-        $g = OpenCartProductGroup::where('opencart_setting_id', $store)->findOrFail($group);
+        $g = OpenCartProductGroup::where('store_id', $store)->findOrFail($group);
 
         OpenCartProductGroupProduct::where('opencart_product_group_id', $g->id)
             ->where('product_id', $product)
@@ -293,7 +293,7 @@ class OpenCartProductGroupController extends Controller
         $owners = DB::table('opencart_product_group_products as pv')
             ->join('opencart_product_groups as g', 'g.id', '=', 'pv.opencart_product_group_id')
             ->whereIn('pv.product_id', $rows->pluck('product_id')->all() ?: [0])
-            ->where('g.opencart_setting_id', $store)
+            ->where('g.store_id', $store)
             ->get(['pv.product_id', 'g.id as group_id', 'g.name'])
             ->keyBy('product_id');
         $rows = $rows->map(function ($r) use ($owners) {

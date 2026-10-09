@@ -91,8 +91,8 @@ class ShopeeCatalogOrderSync
                 $rate = (float) $catalogOrder->currency_value;
             }
 
-            $storeId = (int) $shopeeOrder->shopee_setting_id;
-            $storeName = mb_substr((string) (\Extensions\Shopee\Models\ShopeeSetting::query()->find($storeId)?->store_name ?? ''), 0, 64);
+            $storeId = (int) $shopeeOrder->store_id;
+            $storeName = mb_substr((string) (\Extensions\Shopee\Models\ShopeeStore::query()->find($storeId)?->store_name ?? ''), 0, 64);
 
             $orderData = [
                 'invoice_no'            => 0,

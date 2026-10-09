@@ -3,7 +3,7 @@
 namespace Extensions\VentaCart\Services\VentaCart;
 
 use Extensions\VentaCart\Models\VentaCartApiLog;
-use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
@@ -11,9 +11,9 @@ use Illuminate\Support\Facades\Log;
 
 class VentaCartClient
 {
-    private VentaCartSetting $setting;
+    private VentaCartStore $setting;
 
-    public function __construct(VentaCartSetting $setting)
+    public function __construct(VentaCartStore $setting)
     {
         $this->setting = $setting;
     }
@@ -52,7 +52,7 @@ class VentaCartClient
         }
 
         VentaCartApiLog::safeCreate([
-            'ventacart_setting_id' => $this->setting->id ?? null,
+            'store_id' => $this->setting->id ?? null,
             'method'           => $method,
             'endpoint'         => $path,
             'status_code'      => $result['status'] ?? 0,

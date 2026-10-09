@@ -8,14 +8,14 @@ class OpenCartProductGroup extends Model
 {
     protected $table = 'opencart_product_groups';
 
-    protected $fillable = ['opencart_setting_id', 'name',];
+    protected $fillable = ['store_id', 'name',];
 
     protected $casts = [
     ];
 
-    public function setting()
+    public function store()
     {
-        return $this->belongsTo(OpenCartSetting::class, 'opencart_setting_id');
+        return $this->belongsTo(OpenCartStore::class, 'store_id');
     }
 
     public function groupProducts()

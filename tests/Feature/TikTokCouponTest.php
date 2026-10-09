@@ -6,7 +6,7 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -30,7 +30,7 @@ class TikTokCouponTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        TikTokSetting::create([
+        TikTokStore::create([
             'mode' => 'production', 'app_key' => 'k', 'app_secret' => 's',
             'access_token' => 't', 'shop_cipher' => 'c',
         ]);

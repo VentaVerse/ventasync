@@ -5,7 +5,7 @@ namespace Extensions\Lazada\Services;
 use App\Support\Fulfilment\CourierTally;
 use App\Support\FulfilmentSteps;
 use Extensions\Lazada\Models\LazadaOrder;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Http\Request;
 
 class LazadaOrdersPanel
@@ -13,8 +13,8 @@ class LazadaOrdersPanel
     public function build(Request $request, ?int $storeId = null): array
     {
         $setting = $storeId !== null
-            ? LazadaSetting::query()->find($storeId)
-            : LazadaSetting::defaultStore();
+            ? LazadaStore::query()->find($storeId)
+            : LazadaStore::defaultStore();
         if ($storeId !== null && $setting !== null) {
             app()->instance('lazada.route-store', $setting);
             \Illuminate\Support\Facades\URL::defaults(['store' => (int) $setting->id]);
@@ -234,7 +234,7 @@ class LazadaOrdersPanel
         $savedAwbs = [];
         foreach ($orders as $o) {
             $oid = (string) ($o->order_id ?? '');
-            if ($oid !== '' && file_exists(\App\Support\Fulfilment\Waybills::path('lazada', (int) $o->lazada_setting_id, $oid))) {
+            if ($oid !== '' && file_exists(\App\Support\Fulfilment\Waybills::path('lazada', (int) $o->store_id, $oid))) {
                 $savedAwbs[$o->order_id] = true;
             }
         }
@@ -266,7 +266,7 @@ class LazadaOrdersPanel
         ];
     }
 
-    private function resolvePackedParcel(?LazadaSetting $setting): ?array
+    private function resolvePackedParcel(?LazadaStore $setting): ?array
     {
         $orderId = (string) session('open_pack_print_modal_order_id', '');
 

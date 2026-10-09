@@ -6,7 +6,7 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -30,7 +30,7 @@ class ShopeeVoucherTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        ShopeeSetting::query()->create([
+        ShopeeStore::query()->create([
             'partner_id' => 1001, 'partner_key' => 'k', 'shop_id' => 2002,
             'access_token' => 't', 'refresh_token' => 'r', 'mode' => 'production',
         ]);

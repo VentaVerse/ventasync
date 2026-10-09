@@ -9,7 +9,7 @@ use App\Models\Admin\UserGroup;
 use App\Models\User;
 use App\Support\ChannelWorkspace;
 use Extensions\Lazada\LazadaExtension;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -17,7 +17,7 @@ class LazadaWorkspaceTest extends TestCase
 {
     use RefreshDatabase;
 
-    private LazadaSetting $lazadaStore;
+    private LazadaStore $lazadaStore;
 
     private function lazadaOperator(): User
     {
@@ -57,7 +57,7 @@ class LazadaWorkspaceTest extends TestCase
 
         $this->app['router']->getRoutes()->refreshNameLookups();
 
-        $this->lazadaStore = LazadaSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $this->lazadaStore = LazadaStore::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
     private function lazadaCard(): \App\Channels\ChannelCard

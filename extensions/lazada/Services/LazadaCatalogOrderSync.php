@@ -106,8 +106,8 @@ class LazadaCatalogOrderSync
                 $rate = (float) $catalogOrder->currency_value;
             }
 
-            $storeId = (int) $lazadaOrder->lazada_setting_id;
-            $storeName = mb_substr((string) (\Extensions\Lazada\Models\LazadaSetting::query()->find($storeId)?->store_name ?? ''), 0, 64);
+            $storeId = (int) $lazadaOrder->store_id;
+            $storeName = mb_substr((string) (\Extensions\Lazada\Models\LazadaStore::query()->find($storeId)?->store_name ?? ''), 0, 64);
 
             $orderData = [
                 'invoice_no'            => 0,

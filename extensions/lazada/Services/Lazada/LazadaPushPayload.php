@@ -7,7 +7,7 @@ use Extensions\Lazada\Models\LazadaProduct;
 use Extensions\Lazada\Models\LazadaCategoryTemplate;
 use Extensions\Lazada\Models\LazadaProductAttribute;
 use Extensions\Lazada\Models\LazadaProductVariant;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Support\Facades\DB;
 
 class LazadaPushPayload
@@ -82,7 +82,7 @@ class LazadaPushPayload
                 (string) ($product->name ?? ''),
                 (string) ($product->description ?? ''),
                 'lazada',
-                (int) ($listing->lazada_setting_id ?? 0)
+                (int) ($listing->store_id ?? 0)
             );
             $product = clone $product;
             $product->name = $content['title'];
@@ -205,7 +205,7 @@ class LazadaPushPayload
                 ->orderBy('poc.sort_order')
                 ->get();
 
-            $soldHidden = \App\Channels\Listings\ListingVariations::hidden('lazada', (int) ($listing->lazada_setting_id ?? 0), [(int) $listing->product_id]);
+            $soldHidden = \App\Channels\Listings\ListingVariations::hidden('lazada', (int) ($listing->store_id ?? 0), [(int) $listing->product_id]);
             if ($combos->isNotEmpty()) {
                 $combos = $combos->filter(fn ($c) => \App\Channels\Listings\ListingVariations::allows($soldHidden, (int) $listing->product_id, $c->sku))->values();
                 if ($combos->isEmpty()) {
@@ -572,7 +572,7 @@ class LazadaPushPayload
 
         try {
             return (new LazadaLiveListing($client))->itemShape(
-                $setting, \Extensions\Lazada\Models\LazadaSetting::activeCredentials($setting), $itemId
+                $setting, \Extensions\Lazada\Models\LazadaStore::activeCredentials($setting), $itemId
             );
         } catch (\RuntimeException $e) {
             throw \Illuminate\Validation\ValidationException::withMessages([
@@ -942,7 +942,7 @@ public function extractCreatedItemId(array $result): ?string
 
     private function region(): string
     {
-        $setting = LazadaSetting::defaultStore();
+        $setting = LazadaStore::defaultStore();
         return (string)($setting->region ?? '');
     }
 }

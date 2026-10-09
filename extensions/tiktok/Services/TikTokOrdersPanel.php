@@ -5,7 +5,7 @@ namespace Extensions\TikTok\Services;
 use App\Support\Fulfilment\CourierTally;
 use App\Support\FulfilmentSteps;
 use Extensions\TikTok\Models\TikTokOrder;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Illuminate\Http\Request;
 
 class TikTokOrdersPanel
@@ -22,8 +22,8 @@ class TikTokOrdersPanel
     public function build(Request $request, ?int $storeId = null): array
     {
         $setting = $storeId !== null
-            ? TikTokSetting::query()->find($storeId)
-            : TikTokSetting::defaultStore();
+            ? TikTokStore::query()->find($storeId)
+            : TikTokStore::defaultStore();
         if ($storeId !== null && $setting !== null) {
             app()->instance('tiktok.route-store', $setting);
             \Illuminate\Support\Facades\URL::defaults(['store' => (int) $setting->id]);

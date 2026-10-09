@@ -9,7 +9,7 @@ class VentaCartApiLog extends Model
     protected $table = 'ventacart_api_logs';
 
     protected $fillable = [
-        'ventacart_setting_id',
+        'store_id',
         'method',
         'endpoint',
         'status_code',

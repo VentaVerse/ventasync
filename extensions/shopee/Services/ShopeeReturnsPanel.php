@@ -3,7 +3,7 @@
 namespace Extensions\Shopee\Services;
 
 use Extensions\Shopee\Models\ShopeeReturn;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Http\Request;
 
 class ShopeeReturnsPanel
@@ -11,14 +11,14 @@ class ShopeeReturnsPanel
     public function build(Request $request, ?int $storeId = null): array
     {
         $settingRaw = $storeId !== null
-            ? ShopeeSetting::query()->find($storeId)
-            : ShopeeSetting::defaultStore();
+            ? ShopeeStore::query()->find($storeId)
+            : ShopeeStore::defaultStore();
         if ($storeId !== null && $settingRaw !== null) {
             app()->instance('shopee.route-store', $settingRaw);
             \Illuminate\Support\Facades\URL::defaults(['store' => (int) $settingRaw->id]);
         }
         $setting = $settingRaw?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
+        $auth = ShopeeStore::activeAuth($setting);
         $settingId = (int) ($settingRaw?->id ?? 0);
 
         $filters = $request->validate([
@@ -65,8 +65,8 @@ class ShopeeReturnsPanel
             $tab = 'ALL';
         }
 
-        $query = ShopeeReturn::query()->where('shopee_setting_id', $settingId);
-        $baseCountQuery = ShopeeReturn::query()->where('shopee_setting_id', $settingId);
+        $query = ShopeeReturn::query()->where('store_id', $settingId);
+        $baseCountQuery = ShopeeReturn::query()->where('store_id', $settingId);
 
         if ($tab !== 'ALL') {
             $statuses = $tabStatusMap[$tab] ?? [];

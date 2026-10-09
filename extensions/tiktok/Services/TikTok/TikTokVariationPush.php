@@ -29,7 +29,7 @@ class TikTokVariationPush
             ->orderBy('sort_order')
             ->get(['id', 'sku', 'quantity', 'absolute_price', 'image', 'status']);
 
-        $hidden = \App\Channels\Listings\ListingVariations::hidden('tiktok', (int) (\Extensions\TikTok\Models\TikTokSetting::defaultStore()?->id ?? 0), [$productId]);
+        $hidden = \App\Channels\Listings\ListingVariations::hidden('tiktok', (int) (\Extensions\TikTok\Models\TikTokStore::defaultStore()?->id ?? 0), [$productId]);
         if ($combos->isNotEmpty()) {
             $combos = $combos->filter(fn ($c) => \App\Channels\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
             if ($combos->isEmpty()) {

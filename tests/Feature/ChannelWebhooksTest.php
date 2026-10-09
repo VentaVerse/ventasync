@@ -5,9 +5,9 @@ namespace Tests\Feature;
 use App\Extensions\ExtensionManager;
 use App\Models\ChannelWebhookEvent;
 use Extensions\Shopee\Models\ShopeeProductLink;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\TikTok\Models\TikTokListing;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -30,8 +30,8 @@ class ChannelWebhooksTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        ShopeeSetting::query()->create(['mode' => 'live', 'partner_id' => '1', 'partner_key' => 'k', 'shop_id' => '2', 'access_token' => 't', 'refresh_token' => 'r']);
-        TikTokSetting::create(['mode' => 'production', 'app_key' => 'ak', 'app_secret' => 'as', 'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3)]);
+        ShopeeStore::query()->create(['mode' => 'live', 'partner_id' => '1', 'partner_key' => 'k', 'shop_id' => '2', 'access_token' => 't', 'refresh_token' => 'r']);
+        TikTokStore::create(['mode' => 'production', 'app_key' => 'ak', 'app_secret' => 'as', 'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3)]);
     }
 
     private function shopeeSigned(array $payload): array
@@ -68,8 +68,8 @@ class ChannelWebhooksTest extends TestCase
 
     public function test_a_push_touches_only_the_store_its_shop_id_names(): void
     {
-        $two = ShopeeSetting::query()->create(['mode' => 'live', 'store_name' => 'Outlet', 'partner_id' => '1', 'partner_key' => 'k2', 'shop_id' => '9', 'access_token' => 't', 'refresh_token' => 'r']);
-        $mine = ShopeeProductLink::create(['shopee_setting_id' => $two->id, 'product_id' => 21, 'shopee_item_id' => 700, 'sku' => 'WH-2', 'live_status' => 'NORMAL']);
+        $two = ShopeeStore::query()->create(['mode' => 'live', 'store_name' => 'Outlet', 'partner_id' => '1', 'partner_key' => 'k2', 'shop_id' => '9', 'access_token' => 't', 'refresh_token' => 'r']);
+        $mine = ShopeeProductLink::create(['store_id' => $two->id, 'product_id' => 21, 'shopee_item_id' => 700, 'sku' => 'WH-2', 'live_status' => 'NORMAL']);
         $other = ShopeeProductLink::create(['product_id' => 22, 'shopee_item_id' => 700, 'sku' => 'WH-3', 'live_status' => 'NORMAL']);
 
         $body = json_encode(['code' => 5, 'shop_id' => 9, 'data' => ['item_id' => 700, 'item_status' => 'BANNED']]);

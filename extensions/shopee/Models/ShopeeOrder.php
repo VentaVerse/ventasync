@@ -14,7 +14,7 @@ class ShopeeOrder extends Model
     protected $table = 'shopee_orders';
 
     protected $fillable = [
-        'shopee_setting_id',
+        'store_id',
         'region',
         'order_sn',
         'status',

@@ -406,7 +406,7 @@ class ChannelWorkspace
                 'lastSyncAt' => $lastSyncRaw ? Carbon::parse($lastSyncRaw) : null,
                 'errors24h' => $loggingOn
                     ? DB::table('shopee_api_logs')
-                        ->where('shopee_setting_id', $storeId)
+                        ->where('store_id', $storeId)
                         ->where('created_at', '>=', Carbon::now()->subHours(24))
                         ->where('ok', 0)->count()
                     : null,
@@ -433,21 +433,21 @@ class ChannelWorkspace
         if ($row && $channelId === 'ventacart') {
             $errors24h = ((($row->api_log_mode ?? 'off') !== 'off'))
                 ? DB::table('ventacart_api_logs')
-                    ->where('ventacart_setting_id', $row->id)
+                    ->where('store_id', $row->id)
                     ->where('created_at', '>=', $since)
                     ->where('ok', 0)
                     ->count()
                 : null;
         } elseif ($row && $channelId === 'opencart') {
             $errors24h = DB::table('opencart_sync_log')
-                ->where('opencart_setting_id', $row->id)
+                ->where('store_id', $row->id)
                 ->where('created_at', '>=', $since)
                 ->where('status', 'failed')
                 ->count();
         } elseif ($row && $channelId === 'shopify') {
             $errors24h = ((($row->api_log_mode ?? 'off') !== 'off'))
                 ? DB::table('shopify_api_logs')
-                    ->where('shopify_setting_id', $row->id)
+                    ->where('store_id', $row->id)
                     ->where('created_at', '>=', $since)
                     ->where('ok', 0)
                     ->count()

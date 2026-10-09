@@ -7,7 +7,7 @@ use App\Http\Controllers\Controller;
 use Extensions\Lazada\Models\LazadaApiLog;
 use Extensions\Lazada\Models\LazadaCategory;
 use Extensions\Lazada\Models\LazadaCategoryTemplate;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Illuminate\Http\Request;
 
@@ -17,8 +17,8 @@ class LazadaCategoryAttributeController extends Controller
     {
         $category = LazadaCategory::query()->where('category_id', $categoryId)->firstOrFail();
 
-        $setting = LazadaSetting::defaultStore()?->decrypted();
-        $creds = LazadaSetting::activeCredentials($setting);
+        $setting = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($setting);
         $region = (string)($setting->region ?? '');
 
         $template = null;
@@ -53,8 +53,8 @@ class LazadaCategoryAttributeController extends Controller
     {
         $category = LazadaCategory::query()->where('category_id', $categoryId)->firstOrFail();
 
-        $setting = LazadaSetting::defaultStore()?->decrypted();
-        $creds = LazadaSetting::activeCredentials($setting);
+        $setting = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
             return redirect()->route('ext.lazada.categories.attributes.show', $categoryId)
                 ->with('error', 'Missing Lazada settings. Please configure Region, App Key, and App Secret first.');

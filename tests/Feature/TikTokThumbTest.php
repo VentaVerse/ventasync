@@ -6,7 +6,7 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Extensions\TikTok\TikTokExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -27,7 +27,7 @@ class TikTokThumbTest extends TestCase
         $this->app->register(TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
-        TikTokSetting::create([
+        TikTokStore::create([
             'mode' => 'production', 'app_key' => 'k', 'app_secret' => 's',
             'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3),
         ]);
@@ -57,7 +57,7 @@ class TikTokThumbTest extends TestCase
     public function test_the_thumb_reads_the_detail_once_and_answers_a_url_or_nothing(): void
     {
         $user = $this->manager();
-        $store = (int) TikTokSetting::query()->value('id');
+        $store = (int) TikTokStore::query()->value('id');
 
         $this->actingAs($user)->getJson(route('ext.tiktok.products.thumb', ['store' => $store, 'ref' => 'tt-1']))
             ->assertOk()->assertJson(['url' => 'https://p16-oec-va.tiktokcdn.com/tt-1.jpg']);

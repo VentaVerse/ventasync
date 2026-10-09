@@ -6,7 +6,7 @@ use Extensions\Shopee\Models\ShopeeItemCache;
 use Extensions\Shopee\Models\ShopeeListing;
 use Extensions\Shopee\Models\ShopeeProductGroupProduct;
 use Extensions\Shopee\Models\ShopeeProductLink;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Support\Facades\DB;
 
 final class ShopeeProductRemover
@@ -19,12 +19,12 @@ final class ShopeeProductRemover
         if ($links->isEmpty()) {
             return [];
         }
-        $stores = $this->stores($links->pluck('shopee_setting_id'));
+        $stores = $this->stores($links->pluck('store_id'));
 
         $out = [];
         $seen = [];
         foreach ($links as $link) {
-            $key = (int) $link->product_id . ':' . (int) $link->shopee_setting_id . ':' . (int) $link->shopee_item_id;
+            $key = (int) $link->product_id . ':' . (int) $link->store_id . ':' . (int) $link->shopee_item_id;
             if (isset($seen[$key])) {
                 continue;
             }
@@ -32,7 +32,7 @@ final class ShopeeProductRemover
             $status = strtoupper((string) ($link->live_status ?? ''));
             $out[(int) $link->product_id][] = [
                 'channel' => 'Shopee',
-                'store' => $stores[(int) $link->shopee_setting_id] ?? 'store #' . (int) $link->shopee_setting_id,
+                'store' => $stores[(int) $link->store_id] ?? 'store #' . (int) $link->store_id,
                 'item' => (string) $link->shopee_item_id,
                 'live' => $status === '' ? null : !in_array($status, self::GONE, true),
             ];
@@ -44,11 +44,11 @@ final class ShopeeProductRemover
     public function remove(int $productId): array
     {
         $links = ShopeeProductLink::query()->where('product_id', $productId)->get();
-        $stores = $this->stores($links->pluck('shopee_setting_id'));
+        $stores = $this->stores($links->pluck('store_id'));
         $stays = [];
 
-        $storeIds = $links->pluck('shopee_setting_id')
-            ->merge(ShopeeListing::query()->where('product_id', $productId)->pluck('shopee_setting_id'))
+        $storeIds = $links->pluck('store_id')
+            ->merge(ShopeeListing::query()->where('product_id', $productId)->pluck('store_id'))
             ->map(fn ($v) => (int) $v)->filter()->unique();
         foreach ($storeIds as $storeId) {
             app(ShopeeListingStates::class)->forStore($storeId)->clearErrors([$productId]);
@@ -56,9 +56,9 @@ final class ShopeeProductRemover
         foreach ($links->filter(fn ($l) => (int) $l->shopee_item_id > 0) as $link) {
             $gone = in_array(strtoupper((string) ($link->live_status ?? '')), self::GONE, true);
             if (!$gone) {
-                $stays['Shopee (' . ($stores[(int) $link->shopee_setting_id] ?? 'store #' . (int) $link->shopee_setting_id) . ')'] = true;
+                $stays['Shopee (' . ($stores[(int) $link->store_id] ?? 'store #' . (int) $link->store_id) . ')'] = true;
             }
-            ShopeeItemCache::query()->where('shopee_setting_id', (int) $link->shopee_setting_id)->where('shopee_item_id', (int) $link->shopee_item_id)->delete();
+            ShopeeItemCache::query()->where('store_id', (int) $link->store_id)->where('shopee_item_id', (int) $link->shopee_item_id)->delete();
         }
         ShopeeProductLink::query()->where('product_id', $productId)->delete();
         ShopeeListing::query()->where('product_id', $productId)->delete();
@@ -83,7 +83,7 @@ final class ShopeeProductRemover
 
     private function stores($ids): array
     {
-        return ShopeeSetting::query()->whereIn('id', collect($ids)->filter()->unique()->all())
+        return ShopeeStore::query()->whereIn('id', collect($ids)->filter()->unique()->all())
             ->get()->mapWithKeys(fn ($s) => [(int) $s->id => (string) ($s->store_name ?: 'Shopee store #' . $s->id)])->all();
     }
 }

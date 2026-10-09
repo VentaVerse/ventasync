@@ -3,7 +3,7 @@
 namespace Extensions\Lazada\Services\Lazada;
 
 use Carbon\Carbon;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 
 class LazadaBalance
 {
@@ -23,10 +23,10 @@ class LazadaBalance
     {
     }
 
-    public function read(LazadaSetting $store): array
+    public function read(LazadaStore $store): array
     {
         $setting = $store->decrypted();
-        $creds = LazadaSetting::activeCredentials($setting);
+        $creds = LazadaStore::activeCredentials($setting);
         if (empty($creds['complete']) || ! $setting->region) {
             return ['ok' => false, 'error' => 'This store is not connected to Lazada.'];
         }
@@ -67,7 +67,7 @@ class LazadaBalance
         } while (count($lines) === self::PAGE_SIZE && $pages < self::MAX_PAGES);
 
         $toConfirm = \Extensions\Lazada\Models\LazadaOrder::query()
-            ->where('lazada_setting_id', $store->id)
+            ->where('store_id', $store->id)
             ->where('status', 'delivered')
             ->where(fn ($q) => $q->whereNull('payout_status')->orWhere('payout_status', '!=', \App\Support\PayoutStatus::PAID))
             ->count();

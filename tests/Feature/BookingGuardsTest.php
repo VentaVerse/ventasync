@@ -8,11 +8,11 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\Lazada\Models\LazadaOrder;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Extensions\Shopee\Models\ShopeeOrder;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\TikTok\Models\TikTokOrder;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -52,11 +52,11 @@ class BookingGuardsTest extends TestCase
 
     private function shopeeOrder(string $status): array
     {
-        $store = ShopeeSetting::create([
+        $store = ShopeeStore::create([
             'mode' => 'live', 'store_name' => 'Main store', 'region' => 'ph',
             'partner_id' => 1001, 'partner_key' => encrypt('key'), 'shop_id' => 2002, 'access_token' => encrypt('token'),
         ]);
-        $order = ShopeeOrder::create(['shopee_setting_id' => $store->id, 'region' => 'ph', 'order_sn' => 'SN-GUARD-1', 'status' => $status, 'order_created_at' => now(), 'raw' => []]);
+        $order = ShopeeOrder::create(['store_id' => $store->id, 'region' => 'ph', 'order_sn' => 'SN-GUARD-1', 'status' => $status, 'order_created_at' => now(), 'raw' => []]);
 
         return [$store, $order];
     }
@@ -94,8 +94,8 @@ class BookingGuardsTest extends TestCase
 
     public function test_a_tiktok_order_already_shipped_is_not_sent_again(): void
     {
-        $store = TikTokSetting::create(['store_name' => 'Main store', 'mode' => 'production']);
-        $order = TikTokOrder::create(['tiktok_setting_id' => $store->id, 'order_id' => '770000000001', 'status' => 'AWAITING_COLLECTION', 'raw' => []]);
+        $store = TikTokStore::create(['store_name' => 'Main store', 'mode' => 'production']);
+        $order = TikTokOrder::create(['store_id' => $store->id, 'order_id' => '770000000001', 'status' => 'AWAITING_COLLECTION', 'raw' => []]);
 
         $this->actingAs($this->packer('tiktok'))
             ->post(route('ext.tiktok.orders.ship', ['store' => $store->id, 'id' => $order->id]))
@@ -105,11 +105,11 @@ class BookingGuardsTest extends TestCase
 
     public function test_a_lazada_order_already_ready_to_ship_is_not_sent_again(): void
     {
-        $store = LazadaSetting::create([
+        $store = LazadaStore::create([
             'mode' => 'live', 'store_name' => 'Main store', 'region' => 'ph',
             'app_key' => 'key', 'app_secret' => encrypt('secret'), 'access_token' => encrypt('token'),
         ]);
-        LazadaOrder::create(['lazada_setting_id' => $store->id, 'region' => 'ph', 'order_id' => '660000000001', 'status' => 'ready_to_ship', 'order_created_at' => now(), 'raw' => []]);
+        LazadaOrder::create(['store_id' => $store->id, 'region' => 'ph', 'order_id' => '660000000001', 'status' => 'ready_to_ship', 'order_created_at' => now(), 'raw' => []]);
 
         $this->actingAs($this->packer('lazada'))
             ->post(route('ext.lazada.orders.rts', ['store' => $store->id, 'orderId' => '660000000001']))

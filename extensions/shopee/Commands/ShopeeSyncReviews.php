@@ -5,7 +5,7 @@ namespace Extensions\Shopee\Commands;
 use Extensions\OpenCart\Models\MarketplaceReview;
 use Extensions\Shopee\Models\ShopeeApiLog;
 use Extensions\Shopee\Models\ShopeeProductLink;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
@@ -22,10 +22,10 @@ class ShopeeSyncReviews extends Command
 
     public function handle(ShopeeClient $client): int
     {
-        $store = ShopeeSetting::defaultStore();
+        $store = ShopeeStore::defaultStore();
         $setting = $store?->decrypted();
         $this->pauseKey = 'shopee_sync_paused' . ($store ? ':' . $store->id : '');
-        $auth = ShopeeSetting::activeAuth($setting);
+        $auth = ShopeeStore::activeAuth($setting);
         if (!$setting || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             $this->error("Missing Shopee {$modeLabel} credentials/token. Configure Shopee settings for the active mode.");

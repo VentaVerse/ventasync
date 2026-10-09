@@ -3,7 +3,7 @@
 namespace Extensions\TikTok\Services\TikTok;
 
 use Carbon\Carbon;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 
 class TikTokBalance
 {
@@ -19,7 +19,7 @@ class TikTokBalance
     {
     }
 
-    public function read(TikTokSetting $store): array
+    public function read(TikTokStore $store): array
     {
         $creds = TikTokReturnSync::credsFrom($store);
         $expiresAt = $store->mode === 'sandbox' ? $store->sandbox_expires_at : $store->expires_at;

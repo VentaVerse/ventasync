@@ -9,7 +9,7 @@ use App\Models\User;
 use Extensions\Shopee\Models\ShopeeListing;
 use Extensions\Shopee\Models\ShopeeLogistic;
 use Extensions\Shopee\Models\ShopeeOrder;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\MakesCoreOrders;
@@ -43,11 +43,12 @@ class StoreDeleteTest extends TestCase
         return User::factory()->create(['user_group_id' => $g->id]);
     }
 
-    private function assertNoRowsLeft(string $column, int $id): void
+    private function assertNoRowsLeft(string $channel, int $id): void
     {
+        $column = 'store_id';
         $tables = collect(DB::select(
-            'SELECT TABLE_NAME AS t FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND COLUMN_NAME = ?',
-            [$column]
+            'SELECT TABLE_NAME AS t FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND COLUMN_NAME = ? AND TABLE_NAME LIKE ?',
+            [$column, $channel . '\\_%']
         ))->pluck('t');
         $this->assertNotEmpty($tables);
         foreach ($tables as $t) {
@@ -57,8 +58,8 @@ class StoreDeleteTest extends TestCase
 
     public function test_deleting_a_shopee_store_empties_its_tables_and_keeps_the_other_store_and_the_core_orders(): void
     {
-        $gone = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Outlet']);
-        $kept = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $gone = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Outlet']);
+        $kept = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store']);
         foreach ([$gone, $kept] as $s) {
             app()->instance('shopee.route-store', $s);
             ShopeeOrder::create(['order_sn' => 'SN-' . $s->id, 'region' => 'PH', 'status' => 'COMPLETED', 'raw' => []]);
@@ -79,12 +80,12 @@ class StoreDeleteTest extends TestCase
             ->assertSessionHas('status', fn ($m) => str_contains($m, 'Outlet'));
 
         $this->assertDatabaseMissing('shopee_settings', ['id' => $gone->id]);
-        $this->assertNoRowsLeft('shopee_setting_id', $gone->id);
+        $this->assertNoRowsLeft('shopee', $gone->id);
         $this->assertSame(0, DB::table('scheduled_jobs')->where('extension', 'shopee')->where('store_id', $gone->id)->count());
 
         $this->assertDatabaseHas('shopee_settings', ['id' => $kept->id]);
-        $this->assertSame(1, DB::table('shopee_orders')->where('shopee_setting_id', $kept->id)->count());
-        $this->assertSame(1, DB::table('shopee_logistics')->where('shopee_setting_id', $kept->id)->count());
+        $this->assertSame(1, DB::table('shopee_orders')->where('store_id', $kept->id)->count());
+        $this->assertSame(1, DB::table('shopee_logistics')->where('store_id', $kept->id)->count());
         $this->assertSame(1, DB::table('scheduled_jobs')->where('store_id', $kept->id)->count());
 
         $this->assertSame('Outlet', DB::table(config('catalog.prefix') . 'order')->where('order_id', $coreId)->value('store_name'), 'core orders keep the name');
@@ -93,8 +94,8 @@ class StoreDeleteTest extends TestCase
 
     public function test_deleting_a_lazada_store_leaves_no_row_behind_and_keeps_the_other_store(): void
     {
-        $gone = \Extensions\Lazada\Models\LazadaSetting::create(['mode' => 'live', 'store_name' => 'Laz Outlet', 'region' => 'PH']);
-        $kept = \Extensions\Lazada\Models\LazadaSetting::create(['mode' => 'live', 'store_name' => 'Laz Main', 'region' => 'PH']);
+        $gone = \Extensions\Lazada\Models\LazadaStore::create(['mode' => 'live', 'store_name' => 'Laz Outlet', 'region' => 'PH']);
+        $kept = \Extensions\Lazada\Models\LazadaStore::create(['mode' => 'live', 'store_name' => 'Laz Main', 'region' => 'PH']);
         foreach ([$gone, $kept] as $s) {
             app()->instance('lazada.route-store', $s);
             \Extensions\Lazada\Models\LazadaOrder::create(['order_id' => 900000 + $s->id, 'region' => 'PH', 'status' => 'pending', 'raw' => []]);
@@ -108,17 +109,17 @@ class StoreDeleteTest extends TestCase
             ->assertSessionHas('status', fn ($m) => str_contains($m, 'Laz Outlet'));
 
         $this->assertDatabaseMissing('lazada_settings', ['id' => $gone->id]);
-        $this->assertNoRowsLeft('lazada_setting_id', $gone->id);
+        $this->assertNoRowsLeft('lazada', $gone->id);
         $this->assertDatabaseHas('lazada_settings', ['id' => $kept->id]);
-        $this->assertSame(1, DB::table('lazada_orders')->where('lazada_setting_id', $kept->id)->count());
-        $this->assertSame(1, DB::table('lazada_products')->where('lazada_setting_id', $kept->id)->count());
+        $this->assertSame(1, DB::table('lazada_orders')->where('store_id', $kept->id)->count());
+        $this->assertSame(1, DB::table('lazada_products')->where('store_id', $kept->id)->count());
         $this->assertDatabaseHas('activity_logs', ['action' => 'lazada.store.deleted', 'subject_id' => $gone->id]);
     }
 
     public function test_deleting_a_tiktok_store_leaves_no_row_behind_and_keeps_the_other_store(): void
     {
-        $gone = \Extensions\TikTok\Models\TikTokSetting::create(['mode' => 'production', 'store_name' => 'TT Outlet']);
-        $kept = \Extensions\TikTok\Models\TikTokSetting::create(['mode' => 'production', 'store_name' => 'TT Main']);
+        $gone = \Extensions\TikTok\Models\TikTokStore::create(['mode' => 'production', 'store_name' => 'TT Outlet']);
+        $kept = \Extensions\TikTok\Models\TikTokStore::create(['mode' => 'production', 'store_name' => 'TT Main']);
         foreach ([$gone, $kept] as $s) {
             app()->instance('tiktok.route-store', $s);
             \Extensions\TikTok\Models\TikTokOrder::create(['order_id' => 'TT-' . $s->id, 'region' => 'PH', 'status' => 'AWAITING_SHIPMENT', 'raw' => []]);
@@ -132,16 +133,16 @@ class StoreDeleteTest extends TestCase
             ->assertSessionHas('status', fn ($m) => str_contains($m, 'TT Outlet'));
 
         $this->assertDatabaseMissing('tiktok_settings', ['id' => $gone->id]);
-        $this->assertNoRowsLeft('tiktok_setting_id', $gone->id);
+        $this->assertNoRowsLeft('tiktok', $gone->id);
         $this->assertDatabaseHas('tiktok_settings', ['id' => $kept->id]);
-        $this->assertSame(1, DB::table('tiktok_orders')->where('tiktok_setting_id', $kept->id)->count());
-        $this->assertSame(1, DB::table('tiktok_listings')->where('tiktok_setting_id', $kept->id)->count());
+        $this->assertSame(1, DB::table('tiktok_orders')->where('store_id', $kept->id)->count());
+        $this->assertSame(1, DB::table('tiktok_listings')->where('store_id', $kept->id)->count());
         $this->assertDatabaseHas('activity_logs', ['action' => 'tiktok.store.deleted', 'subject_id' => $gone->id]);
     }
 
     public function test_the_wrong_name_and_the_view_tier_are_refused(): void
     {
-        $store = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Outlet']);
+        $store = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Outlet']);
 
         $this->actingAs($this->user('manage'))
             ->from(route('ext.shopee.settings.show', ['store' => $store->id]))
@@ -160,7 +161,7 @@ class StoreDeleteTest extends TestCase
 
     public function test_the_settings_page_offers_the_delete_to_managers_only(): void
     {
-        $store = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Outlet']);
+        $store = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Outlet']);
 
         $this->actingAs($this->user('manage'))->get(route('ext.shopee.settings.show', ['store' => $store->id]))
             ->assertOk()->assertSee('Delete this store')->assertSee('name="confirm_name"', false)

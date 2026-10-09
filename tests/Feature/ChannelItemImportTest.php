@@ -8,10 +8,10 @@ use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\Lazada\Models\LazadaProduct;
 use Extensions\Lazada\Models\LazadaProductAttribute;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Extensions\TikTok\Models\TikTokListing;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -22,7 +22,7 @@ class ChannelItemImportTest extends TestCase
 {
     use RefreshDatabase;
 
-    private LazadaSetting $lazadaStore;
+    private LazadaStore $lazadaStore;
 
     protected function setUp(): void
     {
@@ -38,8 +38,8 @@ class ChannelItemImportTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        $this->lazadaStore = LazadaSetting::query()->create(['mode' => 'live', 'region' => 'ph', 'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't', 'refresh_token' => 'r']);
-        TikTokSetting::create(['mode' => 'production', 'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3)]);
+        $this->lazadaStore = LazadaStore::query()->create(['mode' => 'live', 'region' => 'ph', 'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't', 'refresh_token' => 'r']);
+        TikTokStore::create(['mode' => 'production', 'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3)]);
 
         Http::fake(['*' => Http::response('fake-image-bytes', 200, ['Content-Type' => 'image/jpeg'])]);
 

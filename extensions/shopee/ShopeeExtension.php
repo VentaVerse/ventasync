@@ -23,7 +23,7 @@ use App\Channels\OrderTab;
 use Extensions\Shopee\Models\ShopeeApiLog;
 use Extensions\Shopee\Models\ShopeeOrder;
 use Extensions\Shopee\Models\ShopeeProductLink;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -58,7 +58,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
     {
         parent::boot();
 
-        \Extensions\Shopee\Models\ShopeeSetting::syncUrlDefault();
+        \Extensions\Shopee\Models\ShopeeStore::syncUrlDefault();
 
         $this->app->scoped(\Extensions\Shopee\Services\Shopee\ShopeeLinkCheck::class);
 
@@ -87,7 +87,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
             name: 'Shopee',
             accent: '#EE4D2D',
             attention: \Extensions\Shopee\Services\Shopee\ShopeePayoutSync::attention(),
-            stores: fn () => \Extensions\Shopee\Models\ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get(),
+            stores: fn () => \Extensions\Shopee\Models\ShopeeStore::query()->where('enabled', true)->orderBy('id')->get(),
             readBalance: fn (object $store) => app(\Extensions\Shopee\Services\Shopee\ShopeeBalance::class)->read($store),
             pageRoute: 'ext.shopee.dashboard',
         ));
@@ -158,7 +158,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
                 return [];
             }
 
-            return ShopeeSetting::query()->orderBy('id')->get();
+            return ShopeeStore::query()->orderBy('id')->get();
         } catch (\Throwable $e) {
             return [];
         }
@@ -169,7 +169,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
         if (! Schema::hasTable('shopee_settings')) {
             return [];
         }
-        $stores = ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get(['id', 'store_name']);
+        $stores = ShopeeStore::query()->where('enabled', true)->orderBy('id')->get(['id', 'store_name']);
 
         return $stores->map(fn ($store) => $this->buildOrderTab(
             (int) $store->id,
@@ -184,7 +184,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
                 return 0;
             }
 
-            return ShopeeOrder::query()->where('shopee_setting_id', $storeId)->whereIn('status', $statuses)->count();
+            return ShopeeOrder::query()->where('store_id', $storeId)->whereIn('status', $statuses)->count();
         };
 
         return
@@ -201,7 +201,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
                         return 0;
                     }
                     return ShopeeOrder::query()
-                        ->where('shopee_setting_id', $storeId)
+                        ->where('store_id', $storeId)
                         ->whereIn('status', ['READY_TO_SHIP', 'PROCESSED'])
                         ->count();
                 },
@@ -214,7 +214,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
                         return 0;
                     }
                     return ShopeeOrder::query()
-                        ->where('shopee_setting_id', $storeId)
+                        ->where('store_id', $storeId)
                         ->where('order_created_at', '>=', now()->startOfDay())
                         ->count();
                 },
@@ -224,7 +224,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
                     }
                     return (float) DB::table('shopee_order_products as p')
                         ->join('shopee_orders as o', 'o.id', '=', 'p.shopee_order_id')
-                        ->where('o.shopee_setting_id', $storeId)
+                        ->where('o.store_id', $storeId)
                         ->where('o.order_created_at', '>=', now()->startOfDay())
                         ->sum(DB::raw('p.quantity * p.price'));
                 },
@@ -234,7 +234,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
                     }
                     return DB::table('shopee_order_products as p')
                         ->join('shopee_orders as o', 'o.id', '=', 'p.shopee_order_id')
-                        ->where('o.shopee_setting_id', $storeId)
+                        ->where('o.store_id', $storeId)
                         ->where('o.order_created_at', '>=', now()->startOfDay())
                         ->whereNotNull('p.sku')
                         ->where('p.sku', '!=', '')
@@ -264,7 +264,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
                         return [];
                     }
                     $orders = ShopeeOrder::query()
-                        ->where('shopee_setting_id', $storeId)
+                        ->where('store_id', $storeId)
                         ->orderByDesc('order_created_at')
                         ->limit($limit)
                         ->get(['id', 'order_sn', 'status', 'order_created_at', 'raw']);
@@ -332,8 +332,8 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
 
     private function shopeeUpdateItemSku(ShopeeProductLink $link, int $itemId, string $newSku): ?string
     {
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
+        $setting = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($setting);
         if (!$setting || !$auth['complete']) {
             return null;
         }
@@ -380,7 +380,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
             ]);
             if ($isOk) {
                 app(\Extensions\Shopee\Services\Shopee\ShopeeListingStates::class)
-                    ->forStore((int) $link->shopee_setting_id)->recordOutcome((int) $link->product_id, null);
+                    ->forStore((int) $link->store_id)->recordOutcome((int) $link->product_id, null);
             }
 
             return "Item {$itemId}: " . ($isOk ? 'OK' : 'Failed');
@@ -407,7 +407,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
         }
 
         if (Schema::hasTable('shopee_settings')) {
-            $spSetting = ShopeeSetting::defaultStore();
+            $spSetting = ShopeeStore::defaultStore();
             if ($spSetting) {
                 $flags = null;
                 $attention = 0;
@@ -443,11 +443,11 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
             return ['channelPending' => $pending, 'channelSyncStatuses' => $statuses];
         }
 
-        foreach (ShopeeSetting::query()->orderBy('id')->get() as $store) {
+        foreach (ShopeeStore::query()->orderBy('id')->get() as $store) {
             $key = \App\Support\StoreKey::of('shopee', (int) $store->id);
             if (Schema::hasTable('shopee_orders')) {
                 $pending[$key] = (int) DB::table('shopee_orders')
-                    ->where('shopee_setting_id', $store->id)
+                    ->where('store_id', $store->id)
                     ->whereIn('status', ['READY_TO_SHIP', 'PROCESSED'])
                     ->count();
             }
@@ -540,7 +540,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
             return null;
         }
 
-        $store = ShopeeOrder::query()->withoutGlobalScope('shopeeStore')->where('order_sn', $marketplaceOrderId)->value('shopee_setting_id');
+        $store = ShopeeOrder::query()->withoutGlobalScope('shopeeStore')->where('order_sn', $marketplaceOrderId)->value('store_id');
 
         return ['display' => $marketplaceOrderId, 'url' => $store ? route('ext.shopee.orders.show', ['store' => $store, 'orderSn' => $marketplaceOrderId]) : null];
     }
@@ -599,14 +599,14 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
 
         $storeId = $request->integer('store') ?: null;
         if ($storeId !== null) {
-            $base = ShopeeOrder::query()->where('shopee_setting_id', $storeId);
-            $query = ShopeeOrder::query()->where('shopee_setting_id', $storeId);
+            $base = ShopeeOrder::query()->where('store_id', $storeId);
+            $query = ShopeeOrder::query()->where('store_id', $storeId);
         } else {
-            $region = ShopeeSetting::defaultStore()->region ?? 'ph';
+            $region = ShopeeStore::defaultStore()->region ?? 'ph';
             $base = ShopeeOrder::query()->where('region', $region);
             $query = ShopeeOrder::query()->where('region', $region);
         }
-        $storeNames = ShopeeSetting::query()->pluck('store_name', 'id');
+        $storeNames = ShopeeStore::query()->pluck('store_name', 'id');
 
         if ($tab !== 'ALL') {
             $statuses = $tab === 'PENDING' && $pendingSub !== ''
@@ -647,8 +647,8 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
 
             return [
                 'id'              => $order->id,
-                'store_id'        => (int) $order->shopee_setting_id,
-                'store_name'      => (string) ($storeNames[$order->shopee_setting_id] ?? ''),
+                'store_id'        => (int) $order->store_id,
+                'store_name'      => (string) ($storeNames[$order->store_id] ?? ''),
                 'order_id'        => (string) $order->order_sn,
                 'status'          => $order->status,
                 'buyer_name'      => $raw['buyer_username'] ?? $raw['buyer_user_name'] ?? '',
@@ -698,8 +698,8 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
         return [
             'id'                => $order->id,
             'order_id'          => $order->order_sn,
-            'store_id'          => (int) $order->shopee_setting_id,
-            'store_name'        => (string) ShopeeSetting::query()->whereKey($order->shopee_setting_id)->value('store_name'),
+            'store_id'          => (int) $order->store_id,
+            'store_name'        => (string) ShopeeStore::query()->whereKey($order->store_id)->value('store_name'),
             'status'            => $order->status,
             'buyer_name'        => $raw['buyer_username'] ?? $raw['buyer_user_name'] ?? '',
             'total_amount'      => isset($raw['total_amount']) ? (float) $raw['total_amount'] : null,
@@ -738,7 +738,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
 
         $paused = Cache::get('shopee_sync_paused');
         $pausedLabel = null;
-        foreach (ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get(['id', 'store_name']) as $ps) {
+        foreach (ShopeeStore::query()->where('enabled', true)->orderBy('id')->get(['id', 'store_name']) as $ps) {
             if ($storePaused = Cache::get('shopee_sync_paused:' . $ps->id)) {
                 $paused = $storePaused;
                 $pausedLabel = $ps->store_name;
@@ -767,7 +767,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
             return [];
         }
 
-        return ShopeeSetting::query()->orderBy('id')->get(['id', 'store_name'])->map(fn ($s) => [
+        return ShopeeStore::query()->orderBy('id')->get(['id', 'store_name'])->map(fn ($s) => [
             'key'        => \App\Support\StoreKey::of('shopee', (int) $s->id),
             'label'      => $s->store_name ?: ('Store #' . $s->id),
             'channel'    => 'Shopee',
@@ -816,7 +816,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
 
     protected function credentialSettingsModel(): string
     {
-        return \Extensions\Shopee\Models\ShopeeSetting::class;
+        return \Extensions\Shopee\Models\ShopeeStore::class;
     }
 
     public function credentialManagePermission(): string
@@ -867,10 +867,10 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
 
         $keys = [];
         $named = $this->webhookStore((array) json_decode((string) $request->getContent(), true));
-        $stores = ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get();
+        $stores = ShopeeStore::query()->where('enabled', true)->orderBy('id')->get();
         foreach (($named ? collect([$named])->merge($stores) : $stores) as $store) {
             $setting = $store->decrypted();
-            $auth = ShopeeSetting::activeAuth($setting);
+            $auth = ShopeeStore::activeAuth($setting);
             foreach ([$setting->push_partner_key ?? null, $setting->sandbox_push_partner_key ?? null, $auth['partner_key'] ?? null] as $key) {
                 if (is_string($key) && $key !== '') {
                     $keys[$key] = true;
@@ -895,14 +895,14 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
         return false;
     }
 
-    private function webhookStore(array $payload): ?ShopeeSetting
+    private function webhookStore(array $payload): ?ShopeeStore
     {
         $shopId = (int) ($payload['shop_id'] ?? 0);
         if ($shopId <= 0) {
             return null;
         }
 
-        return ShopeeSetting::query()
+        return ShopeeStore::query()
             ->where('shop_id', $shopId)
             ->orWhere('sandbox_shop_id', $shopId)
             ->orderBy('id')->first();
@@ -947,7 +947,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
             }
             $store = $this->webhookStore((array) $event->payload);
             $n = ShopeeProductLink::query()
-                ->when($store !== null, fn ($q) => $q->where('shopee_setting_id', $store->id))
+                ->when($store !== null, fn ($q) => $q->where('store_id', $store->id))
                 ->where('shopee_item_id', $itemId)
                 ->update(['live_status' => $status, 'live_checked_at' => now()]);
 
@@ -987,7 +987,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
         }
 
         $setting = $store->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
+        $auth = ShopeeStore::activeAuth($setting);
         if (! $auth['complete']) {
             return "{$what}: the store is not connected to Shopee; the next sync applies it";
         }

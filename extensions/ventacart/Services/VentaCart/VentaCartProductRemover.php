@@ -5,7 +5,7 @@ namespace Extensions\VentaCart\Services\VentaCart;
 use Extensions\VentaCart\Models\VentaCartListing;
 use Extensions\VentaCart\Models\VentaCartProductGroupProduct;
 use Extensions\VentaCart\Models\VentaCartProductLink;
-use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Illuminate\Support\Facades\DB;
 
 final class VentaCartProductRemover
@@ -16,16 +16,16 @@ final class VentaCartProductRemover
         if ($links->isEmpty()) {
             return [];
         }
-        $stores = $this->stores($links->pluck('ventacart_setting_id'));
+        $stores = $this->stores($links->pluck('store_id'));
         $live = VentaCartListing::query()->whereIn('product_id', $productIds)->get()
-            ->keyBy(fn ($l) => (int) $l->ventacart_setting_id . ':' . (int) $l->product_id);
+            ->keyBy(fn ($l) => (int) $l->store_id . ':' . (int) $l->product_id);
 
         $out = [];
         foreach ($links as $link) {
-            $status = strtoupper((string) ($live->get((int) $link->ventacart_setting_id . ':' . (int) $link->product_id)?->live_status ?? ''));
+            $status = strtoupper((string) ($live->get((int) $link->store_id . ':' . (int) $link->product_id)?->live_status ?? ''));
             $out[(int) $link->product_id][] = [
                 'channel' => 'VentaCart',
-                'store' => $stores[(int) $link->ventacart_setting_id] ?? 'store #' . (int) $link->ventacart_setting_id,
+                'store' => $stores[(int) $link->store_id] ?? 'store #' . (int) $link->store_id,
                 'item' => (string) ($link->ventacart_product_id ?: $link->sku),
                 'live' => $status === '' ? null : !in_array($status, ['MISSING', 'DELETED'], true),
             ];
@@ -37,15 +37,15 @@ final class VentaCartProductRemover
     public function remove(int $productId): array
     {
         $links = VentaCartProductLink::query()->where('product_id', $productId)->get();
-        $stores = $this->stores($links->pluck('ventacart_setting_id'));
+        $stores = $this->stores($links->pluck('store_id'));
         $stays = [];
         foreach ($links as $link) {
             if (trim((string) $link->sku) !== '' || $link->ventacart_product_id) {
-                $stays['VentaCart (' . ($stores[(int) $link->ventacart_setting_id] ?? 'store #' . (int) $link->ventacart_setting_id) . ')'] = true;
+                $stays['VentaCart (' . ($stores[(int) $link->store_id] ?? 'store #' . (int) $link->store_id) . ')'] = true;
             }
         }
-        $storeIds = $links->pluck('ventacart_setting_id')
-            ->merge(VentaCartListing::query()->where('product_id', $productId)->pluck('ventacart_setting_id'))
+        $storeIds = $links->pluck('store_id')
+            ->merge(VentaCartListing::query()->where('product_id', $productId)->pluck('store_id'))
             ->map(fn ($v) => (int) $v)->filter()->unique();
         foreach ($storeIds as $storeId) {
             VentaCartListingStates::for($storeId)->clearErrors([$productId]);
@@ -72,7 +72,7 @@ final class VentaCartProductRemover
 
     private function stores($ids): array
     {
-        return VentaCartSetting::query()->whereIn('id', collect($ids)->filter()->unique()->all())
+        return VentaCartStore::query()->whereIn('id', collect($ids)->filter()->unique()->all())
             ->get()->mapWithKeys(fn ($s) => [(int) $s->id => (string) ($s->store_name ?: 'VentaCart store #' . $s->id)])->all();
     }
 }

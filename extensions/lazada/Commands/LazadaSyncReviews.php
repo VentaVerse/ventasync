@@ -4,7 +4,7 @@ namespace Extensions\Lazada\Commands;
 
 use Extensions\Lazada\Models\LazadaApiLog;
 use Extensions\Lazada\Models\LazadaProduct;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Extensions\OpenCart\Models\MarketplaceReview;
 use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Illuminate\Console\Command;
@@ -21,8 +21,8 @@ class LazadaSyncReviews extends Command
 
     public function handle(LazadaClient $client): int
     {
-        $setting = LazadaSetting::defaultStore()?->decrypted();
-        $creds = LazadaSetting::activeCredentials($setting);
+        $setting = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($setting);
         if (!$setting || !$creds['complete'] || empty($creds['region']) || empty($creds['access_token'])) {
             $modeLabel = ($creds['mode'] ?? 'live') === 'sandbox' ? 'Sandbox' : 'Production';
             $this->error("Missing Lazada {$modeLabel} credentials/token. Configure Lazada settings for the active mode.");
@@ -74,7 +74,7 @@ class LazadaSyncReviews extends Command
 
         if ($lazadaProducts->isEmpty()) {
             $this->info('  No Lazada products found.');
-            LazadaSetting::defaultStore()?->forceFill(['last_review_sync_at' => now()])->save();
+            LazadaStore::defaultStore()?->forceFill(['last_review_sync_at' => now()])->save();
             return 0;
         }
 
@@ -182,7 +182,7 @@ class LazadaSyncReviews extends Command
             }
         }
 
-        LazadaSetting::defaultStore()?->forceFill(['last_review_sync_at' => now()])->save();
+        LazadaStore::defaultStore()?->forceFill(['last_review_sync_at' => now()])->save();
 
         $this->info("  Checked {$itemsChecked} item(s). Reviews: {$created} new, {$updated} updated" . ($errors > 0 ? ", {$errors} error(s)" : ''));
         $this->info('Done.');

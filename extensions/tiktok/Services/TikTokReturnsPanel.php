@@ -3,7 +3,7 @@
 namespace Extensions\TikTok\Services;
 
 use Extensions\TikTok\Models\TikTokReturn;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Illuminate\Http\Request;
 
 class TikTokReturnsPanel
@@ -45,8 +45,8 @@ class TikTokReturnsPanel
     public function build(Request $request, ?int $storeId = null): array
     {
         $setting = $storeId !== null
-            ? TikTokSetting::query()->find($storeId)
-            : TikTokSetting::defaultStore();
+            ? TikTokStore::query()->find($storeId)
+            : TikTokStore::defaultStore();
         if ($storeId !== null && $setting !== null) {
             app()->instance('tiktok.route-store', $setting);
             \Illuminate\Support\Facades\URL::defaults(['store' => (int) $setting->id]);
@@ -120,7 +120,7 @@ class TikTokReturnsPanel
         $erpMap = $orderIds->isEmpty() ? collect() : \DB::table('tiktok_orders')
             ->whereIn('order_id', $orderIds->all())
             ->whereNotNull('catalog_order_id')
-            ->when(app()->bound('tiktok.route-store'), fn ($q) => $q->where('tiktok_setting_id', app('tiktok.route-store')->id))
+            ->when(app()->bound('tiktok.route-store'), fn ($q) => $q->where('store_id', app('tiktok.route-store')->id))
             ->pluck('catalog_order_id', 'order_id');
 
         return [

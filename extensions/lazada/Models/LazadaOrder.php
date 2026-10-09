@@ -15,7 +15,7 @@ class LazadaOrder extends Model
     protected $table = 'lazada_orders';
 
     protected $fillable = [
-        'lazada_setting_id',
+        'store_id',
         'region',
         'order_id',
         'status',

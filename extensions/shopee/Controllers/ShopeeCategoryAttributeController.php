@@ -7,7 +7,7 @@ use App\Http\Controllers\Controller;
 use Extensions\Shopee\Models\ShopeeApiLog;
 use Extensions\Shopee\Models\ShopeeCategory;
 use Extensions\Shopee\Models\ShopeeCategoryTemplate;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Http\Request;
 
@@ -17,7 +17,7 @@ class ShopeeCategoryAttributeController extends Controller
     {
         $category = ShopeeCategory::query()->where('category_id', $categoryId)->firstOrFail();
 
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
+        $setting = ShopeeStore::defaultStore()?->decrypted();
         $region = (string)($setting->region ?? '');
 
         $template = ShopeeCategoryTemplate::query()
@@ -48,8 +48,8 @@ class ShopeeCategoryAttributeController extends Controller
     {
         $category = ShopeeCategory::query()->where('category_id', $categoryId)->firstOrFail();
 
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
+        $setting = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($setting);
         if (!$setting || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->route('ext.shopee.categories.attributes.show', $categoryId)

@@ -4,7 +4,7 @@ namespace Extensions\OpenCart\Controllers;
 
 use App\Http\Controllers\Controller;
 use Extensions\OpenCart\Models\OpenCartProductLink;
-use Extensions\OpenCart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartStore;
 use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
 use Extensions\OpenCart\Services\OpenCart\OpenCartItemImport;
 use Illuminate\Http\Request;
@@ -15,7 +15,7 @@ class OpenCartImportController extends Controller
 {
     public function importPage(Request $request, int $store)
     {
-        $setting = OpenCartSetting::findOrFail($store);
+        $setting = OpenCartStore::findOrFail($store);
 
         $fetched = null;
         $fetchError = null;
@@ -31,7 +31,7 @@ class OpenCartImportController extends Controller
         ]);
     }
 
-    private function fetchUnmatched(OpenCartSetting $setting): array
+    private function fetchUnmatched(OpenCartStore $setting): array
     {
         if (! $setting->enabled) {
             return [null, 'That OpenCart store is turned off, so nothing was fetched.'];
@@ -40,7 +40,7 @@ class OpenCartImportController extends Controller
         $client = new OpenCartClient($setting);
         $known = $this->knownSkus();
         $linked = OpenCartProductLink::query()
-            ->where('opencart_setting_id', $setting->id)
+            ->where('store_id', $setting->id)
             ->pluck('oc_product_id')
             ->flip();
         $base = rtrim((string) $setting->base_url, '/');
@@ -85,7 +85,7 @@ class OpenCartImportController extends Controller
     public function importOne(Request $request, int $store, OpenCartItemImport $import)
     {
         $data = $request->validate(['ref' => 'required|integer|min:1']);
-        $setting = OpenCartSetting::findOrFail($store);
+        $setting = OpenCartStore::findOrFail($store);
 
         $r = $import->import($setting, (int) $data['ref']);
 
@@ -95,7 +95,7 @@ class OpenCartImportController extends Controller
     public function importSelected(Request $request, int $store, OpenCartItemImport $import)
     {
         $data = $request->validate(['refs' => 'required|array|min:1', 'refs.*' => 'integer|min:1']);
-        $setting = OpenCartSetting::findOrFail($store);
+        $setting = OpenCartStore::findOrFail($store);
 
         $done = 0;
         $failed = [];
@@ -116,7 +116,7 @@ class OpenCartImportController extends Controller
 
     public function linkItem(Request $request, int $store)
     {
-        OpenCartSetting::findOrFail($store);
+        OpenCartStore::findOrFail($store);
         $data = $request->validate([
             'ref' => 'required|integer|min:1',
             'sku' => 'nullable|string|max:191',
@@ -129,7 +129,7 @@ class OpenCartImportController extends Controller
         }
 
         OpenCartProductLink::updateOrCreate(
-            ['opencart_setting_id' => $store, 'oc_product_id' => (int) $data['ref']],
+            ['store_id' => $store, 'oc_product_id' => (int) $data['ref']],
             ['product_id' => (int) $data['product_id'], 'sku' => trim((string) ($data['sku'] ?? '')) ?: null]
         );
 
@@ -138,7 +138,7 @@ class OpenCartImportController extends Controller
 
     public function searchCatalog(Request $request, int $store)
     {
-        OpenCartSetting::findOrFail($store);
+        OpenCartStore::findOrFail($store);
         $q = trim((string) $request->query('q', ''));
         if (strlen($q) < 2) {
             return response()->json(['items' => []]);

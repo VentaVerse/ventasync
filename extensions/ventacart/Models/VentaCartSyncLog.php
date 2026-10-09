@@ -12,7 +12,7 @@ class VentaCartSyncLog extends Model
     protected $table = 'ventacart_sync_logs';
 
     protected $fillable = [
-        'ventacart_setting_id',
+        'store_id',
         'entity_type',
         'direction',
         'status',
@@ -33,14 +33,14 @@ class VentaCartSyncLog extends Model
         'completed_at' => 'datetime',
     ];
 
-    public function setting(): BelongsTo
+    public function store(): BelongsTo
     {
-        return $this->belongsTo(VentaCartSetting::class, 'ventacart_setting_id');
+        return $this->belongsTo(VentaCartStore::class, 'store_id');
     }
 
     public function syncLogLevel(): ?string
     {
-        $id = (int) ($this->ventacart_setting_id ?? 0);
+        $id = (int) ($this->store_id ?? 0);
         if ($id <= 0) {
             return null;
         }

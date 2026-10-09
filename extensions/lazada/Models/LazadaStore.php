@@ -4,7 +4,7 @@ namespace Extensions\Lazada\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class LazadaSetting extends Model
+class LazadaStore extends Model
 {
     use \App\Plans\CountsAsStore;
 

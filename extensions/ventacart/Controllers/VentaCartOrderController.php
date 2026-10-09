@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\ActivityLogger;
 use Extensions\VentaCart\Models\VentaCartOrder;
 use Extensions\VentaCart\Models\VentaCartOrderProduct;
-use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Extensions\VentaCart\Services\VentaCart\VentaCartClient;
 use Extensions\VentaCart\Services\VentaCart\VentaCartFulfilment;
 use Extensions\VentaCart\Services\VentaCart\VentaCartOrderSync;
@@ -63,14 +63,14 @@ class VentaCartOrderController extends Controller
 
     public function pickupAddresses(int $store)
     {
-        $setting = VentaCartSetting::where('id', $store)->where('enabled', true)->firstOrFail();
+        $setting = VentaCartStore::where('id', $store)->where('enabled', true)->firstOrFail();
 
         return response()->json(VentaCartFulfilment::for($setting)->pickupAddresses());
     }
 
     public function shippingCouriers(int $store)
     {
-        $setting = VentaCartSetting::where('id', $store)->where('enabled', true)->firstOrFail();
+        $setting = VentaCartStore::where('id', $store)->where('enabled', true)->firstOrFail();
 
         return response()->json(VentaCartFulfilment::for($setting)->shippingCouriers());
     }
@@ -157,15 +157,15 @@ class VentaCartOrderController extends Controller
 
     private function storeAndOrder(int $store, int $order): array
     {
-        $setting = VentaCartSetting::where('id', $store)->where('enabled', true)->firstOrFail();
-        $ventaCartOrder = VentaCartOrder::where('ventacart_setting_id', $store)->findOrFail($order);
+        $setting = VentaCartStore::where('id', $store)->where('enabled', true)->firstOrFail();
+        $ventaCartOrder = VentaCartOrder::where('store_id', $store)->findOrFail($order);
 
         return [$setting, $ventaCartOrder];
     }
 
     public function navRedirect()
     {
-        $store = VentaCartSetting::where('enabled', true)->first();
+        $store = VentaCartStore::where('enabled', true)->first();
         if (!$store) {
             return redirect()->route('ext.ventacart.index')->with('error', 'No enabled VentaCart store. Add one first.');
         }
@@ -174,14 +174,14 @@ class VentaCartOrderController extends Controller
 
     public function index(Request $request, int $store, VentaCartOrdersPanel $panel)
     {
-        VentaCartSetting::findOrFail($store);
+        VentaCartStore::findOrFail($store);
 
         return view('ext-ventacart::orders.index', $panel->build($request, $store));
     }
 
     public function fetch(Request $request, int $store)
     {
-        $setting = VentaCartSetting::where('id', $store)->where('enabled', true)->firstOrFail();
+        $setting = VentaCartStore::where('id', $store)->where('enabled', true)->firstOrFail();
         $dateFrom = $request->filled('date_from') ? (string) $request->input('date_from') : now()->subDays(15)->format('Y-m-d');
         $dateTo = $request->filled('date_to') ? (string) $request->input('date_to') : now()->format('Y-m-d');
 
@@ -210,7 +210,7 @@ class VentaCartOrderController extends Controller
 
     public function orderFetchStep(\App\Models\OrderFetchRun $run): array
     {
-        $setting = VentaCartSetting::where('id', (int) $run->store_id)->where('enabled', true)->first();
+        $setting = VentaCartStore::where('id', (int) $run->store_id)->where('enabled', true)->first();
         if (! $setting) {
             return ['error' => 'This VentaCart store is not enabled, so nothing was fetched. Turn Syncing on under its Connection settings and try again.'];
         }
@@ -234,7 +234,7 @@ class VentaCartOrderController extends Controller
 
     public function destroy(int $store, int $order)
     {
-        $ventaCartOrder = VentaCartOrder::where('ventacart_setting_id', $store)->findOrFail($order);
+        $ventaCartOrder = VentaCartOrder::where('store_id', $store)->findOrFail($order);
         $ref = $ventaCartOrder->ventacart_order_id;
 
         VentaCartOrderProduct::where('ventacart_order_id', $ventaCartOrder->id)->delete();
@@ -252,7 +252,7 @@ class VentaCartOrderController extends Controller
             return back()->with('error', 'No orders selected.');
         }
 
-        $orders = VentaCartOrder::where('ventacart_setting_id', $store)->whereIn('id', $ids)->get();
+        $orders = VentaCartOrder::where('store_id', $store)->whereIn('id', $ids)->get();
         foreach ($orders as $o) {
             VentaCartOrderProduct::where('ventacart_order_id', $o->id)->delete();
             $o->delete();

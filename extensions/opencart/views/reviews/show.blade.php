@@ -162,10 +162,10 @@
                         <span class="od-fact__k">State</span>
                         <span class="od-fact__v">{{ ChannelStatusTone::labelFor('opencart.reviews', $review->oc_sync_status) }}</span>
                     </div>
-                    @if($review->opencart_setting_id)
+                    @if($review->store_id)
                         <div class="od-fact">
                             <span class="od-fact__k">Store</span>
-                            <span class="od-fact__v od-fact__v--mono">{{ $review->opencart_setting_id }}</span>
+                            <span class="od-fact__v od-fact__v--mono">{{ $review->store_id }}</span>
                         </div>
                     @endif
                     @if($review->oc_review_id)
@@ -196,10 +196,10 @@
                         <span class="od-fact__k">State</span>
                         <span class="od-fact__v">{{ ChannelStatusTone::labelFor('opencart.reviews', $ventaCartStatus) }}</span>
                     </div>
-                    @if($review->ventacart_setting_id)
+                    @if($review->store_id)
                         <div class="od-fact">
                             <span class="od-fact__k">Store</span>
-                            <span class="od-fact__v od-fact__v--mono">{{ $review->ventacart_setting_id }}</span>
+                            <span class="od-fact__v od-fact__v--mono">{{ $review->store_id }}</span>
                         </div>
                     @endif
                     @if($review->ventacart_review_id)
@@ -231,10 +231,10 @@
                         <span class="od-fact__k">State</span>
                         <span class="od-fact__v">{{ ChannelStatusTone::labelFor('opencart.reviews', $wcStatus) }}</span>
                     </div>
-                    @if($review->woocommerce_setting_id)
+                    @if($review->store_id)
                         <div class="od-fact">
                             <span class="od-fact__k">Store</span>
-                            <span class="od-fact__v od-fact__v--mono">{{ $review->woocommerce_setting_id }}</span>
+                            <span class="od-fact__v od-fact__v--mono">{{ $review->store_id }}</span>
                         </div>
                     @endif
                     @if($review->woocommerce_review_id)

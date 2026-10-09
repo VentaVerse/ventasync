@@ -4,7 +4,7 @@ namespace Extensions\TikTok\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class TikTokSetting extends Model
+class TikTokStore extends Model
 {
     use \App\Plans\CountsAsStore;
 

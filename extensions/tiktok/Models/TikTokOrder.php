@@ -13,7 +13,7 @@ class TikTokOrder extends Model
     protected $table = 'tiktok_orders';
 
     protected $fillable = [
-        'tiktok_setting_id', 'region',
+        'store_id', 'region',
         'order_id',
         'status',
         'order_created_at',

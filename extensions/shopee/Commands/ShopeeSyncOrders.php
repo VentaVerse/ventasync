@@ -4,7 +4,7 @@ namespace Extensions\Shopee\Commands;
 
 use Extensions\Shopee\Models\ShopeeApiLog;
 use Extensions\Shopee\Models\ShopeeOrder;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Extensions\Shopee\Services\Shopee\ShopeeOrderIngest;
 use Illuminate\Console\Command;
@@ -26,7 +26,7 @@ class ShopeeSyncOrders extends Command implements \App\Channels\Contracts\Steppa
 
     public function handle(ShopeeClient $client): int
     {
-        $stores = ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get();
+        $stores = ShopeeStore::query()->where('enabled', true)->orderBy('id')->get();
         if ($stores->isEmpty()) {
             $this->error('No enabled Shopee store. Configure Shopee settings first.');
             return 1;
@@ -49,10 +49,10 @@ class ShopeeSyncOrders extends Command implements \App\Channels\Contracts\Steppa
         return $worst;
     }
 
-    private function syncStore(ShopeeClient $client, ShopeeSetting $store): int
+    private function syncStore(ShopeeClient $client, ShopeeStore $store): int
     {
         $setting = $store->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
+        $auth = ShopeeStore::activeAuth($setting);
         if (!$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             $this->error("Missing Shopee {$modeLabel} credentials/token for this store.");
@@ -101,7 +101,7 @@ class ShopeeSyncOrders extends Command implements \App\Channels\Contracts\Steppa
             : (($setting->sync_last_days ?? null) > 0 ? (int) $setting->sync_last_days : 14);
 
         $latestUpdated = ShopeeOrder::query()
-            ->where('shopee_setting_id', (int) $setting->id)
+            ->where('store_id', (int) $setting->id)
             ->max('order_updated_at');
 
         if ($latestUpdated) {
@@ -291,7 +291,7 @@ class ShopeeSyncOrders extends Command implements \App\Channels\Contracts\Steppa
         $region = $auth['region'] ?? 'ph';
 
         $orders = ShopeeOrder::query()
-            ->where('shopee_setting_id', (int) $setting->id)
+            ->where('store_id', (int) $setting->id)
             ->whereIn('status', ['SHIPPED', 'TO_CONFIRM_RECEIVE', 'COMPLETED'])
             ->whereNull('fees')
             ->get();
@@ -320,7 +320,7 @@ class ShopeeSyncOrders extends Command implements \App\Channels\Contracts\Steppa
         $returnsOnly = ! empty($args['--returns']);
         $skipReturns = ! empty($args['--no-returns']);
         $units = [];
-        foreach (ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get() as $store) {
+        foreach (ShopeeStore::query()->where('enabled', true)->orderBy('id')->get() as $store) {
             foreach (array_values(array_filter(['orders', 'fees', 'returns'], fn ($p) => $returnsOnly ? $p === 'returns' : ($p !== 'returns' || ! $skipReturns))) as $phase) {
                 $units[] = $store->id . ':' . $phase;
             }
@@ -343,13 +343,13 @@ class ShopeeSyncOrders extends Command implements \App\Channels\Contracts\Steppa
         $notes = [];
         foreach ($units as $unit) {
             [$sid, $phase] = array_pad(explode(':', (string) $unit, 2), 2, '');
-            $store = ShopeeSetting::query()->find((int) $sid);
+            $store = ShopeeStore::query()->find((int) $sid);
             if (! $store) {
                 $failed++;
                 continue;
             }
             $setting = $store->decrypted();
-            $auth = ShopeeSetting::activeAuth($setting);
+            $auth = ShopeeStore::activeAuth($setting);
             if (! $auth['complete']) {
                 return ['error' => 'Store ' . ($store->store_name ?: '#' . $store->id) . ' is not connected to Shopee.'];
             }

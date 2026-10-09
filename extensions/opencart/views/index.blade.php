@@ -13,7 +13,7 @@
     $storeHost = parse_url((string) $store->base_url, PHP_URL_HOST) ?: $store->base_url;
 
     $statusMap = $orderStatusMaps->get($store->id, collect());
-    $storeSyncLogs = $recentLogs->where('opencart_setting_id', $store->id);
+    $storeSyncLogs = $recentLogs->where('store_id', $store->id);
 
     $importSteps = [
         ['entity' => 'categories',    'label' => 'Categories',    'note' => 'Products need somewhere to land.'],

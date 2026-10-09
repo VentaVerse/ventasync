@@ -24,7 +24,7 @@ class TikTokLinkCheck
 
     public function run(array $c, array $productIds, ?int $storeId = null): array
     {
-        $storeId ??= isset($c['setting']) ? (int) $c['setting']->id : (int) (\Extensions\TikTok\Models\TikTokSetting::defaultStore()?->id ?? 0);
+        $storeId ??= isset($c['setting']) ? (int) $c['setting']->id : (int) (\Extensions\TikTok\Models\TikTokStore::defaultStore()?->id ?? 0);
         $groupIds = TikTokProductGroupProduct::groupIdsOn($storeId);
         $states = app(TikTokListingStates::class)->forStore($storeId);
 
@@ -86,7 +86,7 @@ class TikTokLinkCheck
                         $skusByProduct[$productId] ?? [], count($shop['products'] ?? [])
                     );
                     TikTokListing::query()
-                        ->withoutGlobalScope('tiktokStore')->where('tiktok_setting_id', $storeId)
+                        ->withoutGlobalScope('tiktokStore')->where('store_id', $storeId)
                         ->where('product_id', $productId)
                         ->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null, 'last_checked_at' => now()]);
                     $this->writeProductStatus($groupIds, (int) $productId, ['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'sync_status' => 'error', 'push_error' => self::DROPPED]);
@@ -126,7 +126,7 @@ class TikTokLinkCheck
 
     private function holder(string $tiktokProductId, int $productId, int $storeId): ?int
     {
-        $held = TikTokListing::query()->withoutGlobalScope('tiktokStore')->where('tiktok_setting_id', $storeId)
+        $held = TikTokListing::query()->withoutGlobalScope('tiktokStore')->where('store_id', $storeId)
             ->where('tiktok_product_id', $tiktokProductId)->where('product_id', '!=', $productId)->value('product_id')
             ?: TikTokProductGroupProduct::query()->onStore($storeId)
                 ->where('tiktok_product_id', $tiktokProductId)->where('product_id', '!=', $productId)->value('product_id');

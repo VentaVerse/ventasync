@@ -2,7 +2,7 @@
 
 namespace Extensions\Lazada\Commands;
 
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Extensions\Lazada\Services\Lazada\LazadaLiveListing;
 use Illuminate\Console\Command;
 
@@ -14,7 +14,7 @@ class LazadaRefreshListingStatus extends Command
 
     public function handle(LazadaLiveListing $live): int
     {
-        $stores = \Extensions\Lazada\Models\LazadaSetting::enabledStores();
+        $stores = \Extensions\Lazada\Models\LazadaStore::enabledStores();
         if ($stores->isEmpty()) { $this->error('No enabled Lazada store. Configure Lazada settings first.'); return 1; }
         $worst = 0;
         foreach ($stores as $store) {
@@ -33,10 +33,10 @@ class LazadaRefreshListingStatus extends Command
         return $worst;
     }
 
-    private function handleStore(LazadaLiveListing $live, \Extensions\Lazada\Models\LazadaSetting $store): int
+    private function handleStore(LazadaLiveListing $live, \Extensions\Lazada\Models\LazadaStore $store): int
     {
         $setting = $store->decrypted();
-        $creds = LazadaSetting::activeCredentials($setting);
+        $creds = LazadaStore::activeCredentials($setting);
         if (!$setting || !$creds['complete']) {
             $this->error('Missing Lazada credentials. Configure Lazada settings first.');
             return self::FAILURE;

@@ -31,7 +31,7 @@ class TikTokStockPricePush
 
         $productIds = $pivots->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
         $erpSkus = PushLedger::erpVariationSkus($productIds, $pfx);
-        $storeId = (int) (\Extensions\TikTok\Models\TikTokSetting::defaultStore()?->id ?? 0);
+        $storeId = (int) (\Extensions\TikTok\Models\TikTokStore::defaultStore()?->id ?? 0);
         $hidden = \App\Channels\Listings\ListingVariations::hidden('tiktok', $storeId, $productIds);
         $soldSkus = \App\Channels\Listings\ListingVariations::sold('tiktok', $storeId, $productIds, $pfx);
 
@@ -166,9 +166,9 @@ class TikTokStockPricePush
         }
     }
 
-    public static function recordOutcomes(string $kind, array $outcomes, \Extensions\TikTok\Models\TikTokSetting|int|null $store = null): void
+    public static function recordOutcomes(string $kind, array $outcomes, \Extensions\TikTok\Models\TikTokStore|int|null $store = null): void
     {
-        $store ??= \Extensions\TikTok\Models\TikTokSetting::defaultStore();
+        $store ??= \Extensions\TikTok\Models\TikTokStore::defaultStore();
         if ($store === null) {
             return;
         }

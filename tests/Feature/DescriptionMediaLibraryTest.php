@@ -9,7 +9,7 @@ use App\Models\DescriptionTemplate;
 use App\Models\User;
 use App\Support\Catalog\DescriptionHtml;
 use Extensions\VentaCart\Models\VentaCartListing;
-use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -57,9 +57,9 @@ class DescriptionMediaLibraryTest extends TestCase
         ));
     }
 
-    private function store(): VentaCartSetting
+    private function store(): VentaCartStore
     {
-        return VentaCartSetting::create(['store_name' => 'Gear Depot', 'base_url' => self::BASE, 'api_token' => 't', 'enabled' => true]);
+        return VentaCartStore::create(['store_name' => 'Gear Depot', 'base_url' => self::BASE, 'api_token' => 't', 'enabled' => true]);
     }
 
     private function product(string $description): int
@@ -199,7 +199,7 @@ class DescriptionMediaLibraryTest extends TestCase
             ])
             ->assertRedirect();
 
-        $saved = (string) VentaCartListing::where('ventacart_setting_id', $store->id)->where('product_id', $pid)->value('description');
+        $saved = (string) VentaCartListing::where('store_id', $store->id)->where('product_id', $pid)->value('description');
         $this->assertStringContainsString($img, $saved);
     }
 

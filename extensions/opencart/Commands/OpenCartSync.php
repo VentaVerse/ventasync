@@ -2,7 +2,7 @@
 
 namespace Extensions\OpenCart\Commands;
 
-use Extensions\OpenCart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartStore;
 use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
 use Extensions\OpenCart\Services\OpenCart\OpenCartCategorySync;
 use Extensions\OpenCart\Services\OpenCart\OpenCartManufacturerSync;
@@ -30,7 +30,7 @@ class OpenCartSync extends Command implements \App\Channels\Contracts\SteppableA
         $entity = $this->argument('entity');
 
         if ($storeId) {
-            $settings = OpenCartSetting::where('id', (int) $storeId)
+            $settings = OpenCartStore::where('id', (int) $storeId)
                 ->where('enabled', true)
                 ->get();
 
@@ -39,7 +39,7 @@ class OpenCartSync extends Command implements \App\Channels\Contracts\SteppableA
                 return 1;
             }
         } else {
-            $settings = OpenCartSetting::where('enabled', true)->get();
+            $settings = OpenCartStore::where('enabled', true)->get();
 
             if ($settings->isEmpty()) {
                 $this->error('No enabled OpenCart stores configured.');
@@ -60,7 +60,7 @@ class OpenCartSync extends Command implements \App\Channels\Contracts\SteppableA
         return 0;
     }
 
-    private function syncStore(OpenCartSetting $setting, string $entity): int
+    private function syncStore(OpenCartStore $setting, string $entity): int
     {
         $client = new OpenCartClient($setting);
         $full = $this->option('full');
@@ -166,7 +166,7 @@ class OpenCartSync extends Command implements \App\Channels\Contracts\SteppableA
 
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
-        $stores = OpenCartSetting::query()->where('enabled', true);
+        $stores = OpenCartStore::query()->where('enabled', true);
         if ($job->getOption('store')) {
             $stores->where('id', (int) $job->getOption('store'));
         }
@@ -190,7 +190,7 @@ class OpenCartSync extends Command implements \App\Channels\Contracts\SteppableA
         $notes = [];
         foreach ($units as $unit) {
             [$sid] = array_pad(explode(':', (string) $unit, 2), 2, '');
-            $store = OpenCartSetting::query()->where('enabled', true)->find((int) $sid);
+            $store = OpenCartStore::query()->where('enabled', true)->find((int) $sid);
             if (! $store) {
                 $failed++;
                 continue;

@@ -9,7 +9,7 @@ use App\Models\User;
 use Extensions\Lazada\Models\LazadaCategoryTemplate;
 use Extensions\Lazada\Models\LazadaProduct;
 use Extensions\Lazada\Models\LazadaProductAttribute;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Extensions\Lazada\Services\Lazada\LazadaListingReadiness;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -30,7 +30,7 @@ class LazadaAttributeAutoFillTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        LazadaSetting::query()->create([
+        LazadaStore::query()->create([
             'mode' => 'live', 'region' => 'ph',
             'app_key' => 'k', 'app_secret' => 's',
             'access_token' => 't', 'refresh_token' => 'r',
@@ -336,7 +336,7 @@ class LazadaAttributeAutoFillTest extends TestCase
             '*' => \Illuminate\Support\Facades\Http::response(['code' => '0', 'data' => ['item_id' => 4242, 'sku_list' => []]], 200),
         ]);
         $user = $this->manager();
-        $search = '/channels/lazada/' . LazadaSetting::query()->value('id') . '/products?q=valeton&status=all';
+        $search = '/channels/lazada/' . LazadaStore::query()->value('id') . '/products?q=valeton&status=all';
 
         $index = $this->actingAs($user)->get(route('ext.lazada.products.index', ['q' => 'valeton', 'status' => 'all']))->assertOk()->getContent();
         $this->assertStringContainsString('back=' . urlencode($search), $index);

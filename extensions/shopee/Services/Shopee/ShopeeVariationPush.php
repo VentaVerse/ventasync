@@ -428,7 +428,7 @@ class ShopeeVariationPush
         }
         if ($answered !== []) {
             ShopeeListingStates::rememberHeld(
-                (int) ($auth['store_id'] ?? 0) ?: (int) (\Extensions\Shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0),
+                (int) ($auth['store_id'] ?? 0) ?: (int) (\Extensions\Shopee\Models\ShopeeStore::defaultStore()?->id ?? 0),
                 $productId,
                 array_map(fn ($m) => (string) ($m['model_sku'] ?? ''), $answered)
             );

@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use App\Rules\StoreAddress;
 use App\Support\Net\PublicAddress;
 use App\Support\Net\StoreRequest;
-use Extensions\OpenCart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartStore;
 use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -73,7 +73,7 @@ class StoreAddressOnTheCloudTest extends TestCase
     {
         $this->hosted();
         Http::fake();
-        $setting = OpenCartSetting::create(['store_name' => 'Inside', 'base_url' => 'http://127.0.0.1:9001', 'api_key' => 'k', 'enabled' => true]);
+        $setting = OpenCartStore::create(['store_name' => 'Inside', 'base_url' => 'http://127.0.0.1:9001', 'api_key' => 'k', 'enabled' => true]);
 
         $result = (new OpenCartClient($setting))->ping();
 

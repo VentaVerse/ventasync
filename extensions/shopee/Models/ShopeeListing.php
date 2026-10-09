@@ -12,7 +12,7 @@ class ShopeeListing extends Model
 
     protected $fillable = [
                 'image_off', 'video_path', 'video_off',
-'shopee_setting_id',
+'store_id',
         'description_prefix_id', 'description_suffix_id', 'watermark_template_id', 'watermark_all_images',
         'product_id',
         'shopee_category_id', 'shopee_brand_id', 'logistic_ids',

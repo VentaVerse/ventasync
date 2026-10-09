@@ -4,14 +4,14 @@ namespace Extensions\Lazada\Services\Lazada;
 
 use Extensions\Lazada\Commands\LazadaPushPrice;
 use Extensions\Lazada\Models\LazadaProduct;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 
 final class LazadaPushSteps
 {
     public static function units(): array
     {
         $units = [];
-        foreach (LazadaSetting::enabledStores() as $store) {
+        foreach (LazadaStore::enabledStores() as $store) {
             app()->instance('lazada.route-store', $store);
             try {
                 $pids = LazadaProduct::query()->where('product_id', '>', 0)->whereNotNull('lazada_item_id')->where('lazada_item_id', '!=', '')->whereNull('unlinked_at')
@@ -39,7 +39,7 @@ final class LazadaPushSteps
         $failed = 0;
         $notes = [];
         foreach ($byStore as $storeId => $pids) {
-            $store = LazadaSetting::query()->find($storeId);
+            $store = LazadaStore::query()->find($storeId);
             if (! $store) {
                 $failed += count($pids);
                 continue;
@@ -47,7 +47,7 @@ final class LazadaPushSteps
             app()->instance('lazada.route-store', $store);
             try {
                 $setting = $store->decrypted();
-                $creds = LazadaSetting::activeCredentials($setting);
+                $creds = LazadaStore::activeCredentials($setting);
                 if (! $setting || ! $setting->region || ! $creds['app_key'] || ! $creds['app_secret'] || ! $creds['access_token']) {
                     return ['error' => 'Store ' . ($store->store_name ?: '#' . $store->id) . ' is not connected to Lazada.'];
                 }

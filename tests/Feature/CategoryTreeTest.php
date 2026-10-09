@@ -112,7 +112,7 @@ class CategoryTreeTest extends TestCase
             [$second, 20, 0, 'Another store only'],
         ] as [$store, $id, $parent, $name]) {
             DB::table('woocommerce_categories')->insert([
-                'woocommerce_setting_id' => $store, 'woo_category_id' => $id,
+                'store_id' => $store, 'woo_category_id' => $id,
                 'parent_id' => $parent, 'name' => $name, 'slug' => strtolower($name),
             ]);
         }

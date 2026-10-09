@@ -11,7 +11,7 @@ use App\Plans\CountsAsStore;
 use App\Plans\PlanLimitReached;
 use App\Plans\Quota;
 use App\Services\Catalog\ProductCreator;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Extensions\Shopee\Services\Shopee\ShopeeItemImport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -167,18 +167,18 @@ class QuotaTest extends TestCase
 
         $this->expectException(PlanLimitReached::class);
         $this->expectExceptionMessage('Your plan allows 0 stores.');
-        ShopeeSetting::create(['store_name' => 'Second shop']);
+        ShopeeStore::create(['store_name' => 'Second shop']);
     }
 
     public function test_every_channel_store_model_counts_as_a_store(): void
     {
-        $models = glob(base_path('extensions/*/Models/*Setting.php'));
+        $models = glob(base_path('extensions/*/Models/*{Store,Setting}.php'), GLOB_BRACE);
 
         foreach ($models as $file) {
             $this->assertStringContainsString('CountsAsStore', (string) file_get_contents($file), $file . ' is a store model the plan does not count');
         }
         $this->assertCount(count($models), Counters::storeModels());
-        $this->assertContains(CountsAsStore::class, class_uses_recursive(ShopeeSetting::class));
+        $this->assertContains(CountsAsStore::class, class_uses_recursive(ShopeeStore::class));
     }
 
     public function test_an_api_app_past_the_limit_is_refused(): void

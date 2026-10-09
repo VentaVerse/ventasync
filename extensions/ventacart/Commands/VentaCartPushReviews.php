@@ -4,7 +4,7 @@ namespace Extensions\VentaCart\Commands;
 
 use Extensions\OpenCart\Models\MarketplaceReview;
 use Extensions\VentaCart\Models\VentaCartProductLink;
-use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Extensions\VentaCart\Services\VentaCart\VentaCartClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -18,7 +18,7 @@ class VentaCartPushReviews extends Command
 
     public function handle(): int
     {
-        $query = VentaCartSetting::query()->where('enabled', true);
+        $query = VentaCartStore::query()->where('enabled', true);
 
         if ($storeId = $this->option('store')) {
             $query->where('id', (int) $storeId);
@@ -63,7 +63,7 @@ class VentaCartPushReviews extends Command
             $errors = 0;
 
             $linkMap = VentaCartProductLink::query()
-                ->where('ventacart_setting_id', $setting->id)
+                ->where('store_id', $setting->id)
                 ->pluck('sku', 'product_id')
                 ->all();
 
@@ -102,7 +102,7 @@ class VentaCartPushReviews extends Command
                         $ventaCartReviewId = $res['body']['data']['review_id'] ?? null;
                         $review->update([
                             'ventacart_sync_status' => 'pushed',
-                            'ventacart_setting_id'  => $setting->id,
+                            'ventacart_store_id'  => $setting->id,
                             'ventacart_review_id'   => $ventaCartReviewId,
                             'ventacart_pushed_at'   => now(),
                             'ventacart_push_error'  => null,
@@ -112,7 +112,7 @@ class VentaCartPushReviews extends Command
                         $errorMsg = $res['body']['error'] ?? 'Unknown error';
                         $review->update([
                             'ventacart_sync_status' => 'error',
-                            'ventacart_setting_id'  => $setting->id,
+                            'ventacart_store_id'  => $setting->id,
                             'ventacart_push_error'  => substr($errorMsg, 0, 500),
                         ]);
                         $errors++;
@@ -120,7 +120,7 @@ class VentaCartPushReviews extends Command
                 } catch (\Throwable $e) {
                     $review->update([
                         'ventacart_sync_status' => 'error',
-                        'ventacart_setting_id'  => $setting->id,
+                        'ventacart_store_id'  => $setting->id,
                         'ventacart_push_error'  => substr($e->getMessage(), 0, 500),
                     ]);
                     $errors++;

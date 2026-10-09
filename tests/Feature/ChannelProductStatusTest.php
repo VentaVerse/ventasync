@@ -14,8 +14,8 @@ class ChannelProductStatusTest extends TestCase
     private function makeGroup(): int
     {
         return DB::table('shopee_product_groups')->insertGetId([
-            'shopee_setting_id' => \Extensions\Shopee\Models\ShopeeSetting::query()->orderBy('id')->value('id')
-                ?? \Extensions\Shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store'])->id,
+            'store_id' => \Extensions\Shopee\Models\ShopeeStore::query()->orderBy('id')->value('id')
+                ?? \Extensions\Shopee\Models\ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store'])->id,
             'name' => 'Group '.uniqid('', true),
             'created_at' => now(),
             'updated_at' => now(),

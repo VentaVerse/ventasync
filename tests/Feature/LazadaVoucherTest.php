@@ -6,7 +6,7 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -30,7 +30,7 @@ class LazadaVoucherTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        LazadaSetting::query()->create([
+        LazadaStore::query()->create([
             'mode' => 'live', 'region' => 'ph',
             'app_key' => 'k', 'app_secret' => 's',
             'access_token' => 't', 'refresh_token' => 'r',

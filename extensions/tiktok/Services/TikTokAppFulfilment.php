@@ -5,7 +5,7 @@ namespace Extensions\TikTok\Services;
 use App\Support\Fulfilment\AppFulfilment;
 use Extensions\TikTok\Controllers\TikTokOrderController;
 use Extensions\TikTok\Models\TikTokOrder;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -35,7 +35,7 @@ final class TikTokAppFulfilment
     public function handle(string $action, int $id, Request $request): Response
     {
         $order = TikTokOrder::query()->find($id);
-        $store = $order ? TikTokSetting::query()->find($order->tiktok_setting_id) : null;
+        $store = $order ? TikTokStore::query()->find($order->store_id) : null;
         if ($order === null || $store === null) {
             return response()->json(['error' => 'Order not found'], 404);
         }

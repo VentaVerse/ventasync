@@ -2,7 +2,7 @@
 
 namespace Extensions\OpenCart\Services\OpenCart;
 
-use Extensions\OpenCart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartStore;
 use Extensions\OpenCart\Models\OpenCartSyncLog;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -10,11 +10,11 @@ use Illuminate\Support\Facades\Log;
 class OpenCartCategorySync
 {
     private OpenCartClient $client;
-    private OpenCartSetting $setting;
+    private OpenCartStore $setting;
 
     private array $categoryMap = [];
 
-    public function __construct(OpenCartClient $client, OpenCartSetting $setting)
+    public function __construct(OpenCartClient $client, OpenCartStore $setting)
     {
         $this->client = $client;
         $this->setting = $setting;
@@ -23,7 +23,7 @@ class OpenCartCategorySync
     public function pull(?string $modifiedSince = null, bool $full = false): array
     {
         $log = OpenCartSyncLog::create([
-            'opencart_setting_id' => $this->setting->id,
+            'store_id' => $this->setting->id,
             'entity_type' => 'category',
             'direction'   => 'pull',
             'status'      => 'started',

@@ -10,7 +10,7 @@ use Extensions\VentaCart\Models\VentaCartListing;
 use Extensions\VentaCart\Models\VentaCartProductGroup;
 use Extensions\VentaCart\Models\VentaCartProductGroupProduct;
 use Extensions\VentaCart\Models\VentaCartProductLink;
-use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Extensions\VentaCart\Services\VentaCart\VentaCartListingMirror;
 use Extensions\VentaCart\VentaCartExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -53,9 +53,9 @@ class VentaCartListingsIndexTest extends TestCase
         return $this->userWith(['view_ventacart/listing', 'manage_ventacart/listing', 'view_ventacart/product_group']);
     }
 
-    private function store(): VentaCartSetting
+    private function store(): VentaCartStore
     {
-        return VentaCartSetting::create(['store_name' => 'Gear Depot', 'base_url' => self::BASE, 'api_token' => 't', 'enabled' => true]);
+        return VentaCartStore::create(['store_name' => 'Gear Depot', 'base_url' => self::BASE, 'api_token' => 't', 'enabled' => true]);
     }
 
     private function product(string $sku, string $name): int
@@ -73,18 +73,18 @@ class VentaCartListingsIndexTest extends TestCase
         return $pid;
     }
 
-    private function scope(VentaCartSetting $store): array
+    private function scope(VentaCartStore $store): array
     {
-        $group = VentaCartProductGroup::create(['ventacart_setting_id' => $store->id, 'name' => 'Pedals']);
+        $group = VentaCartProductGroup::create(['store_id' => $store->id, 'name' => 'Pedals']);
         $ids = [];
         foreach ([['A-1', 'Active pedal'], ['U-1', 'Unlisted pedal'], ['N-1', 'New pedal']] as [$sku, $name]) {
             $ids[$sku] = $this->product($sku, $name);
             VentaCartProductGroupProduct::create(['ventacart_product_group_id' => $group->id, 'product_id' => $ids[$sku], 'sync_status' => 'pending']);
         }
-        VentaCartProductLink::create(['ventacart_setting_id' => $store->id, 'product_id' => $ids['A-1'], 'ventacart_product_id' => 11, 'sku' => 'A-1']);
-        VentaCartProductLink::create(['ventacart_setting_id' => $store->id, 'product_id' => $ids['U-1'], 'ventacart_product_id' => 12, 'sku' => 'U-1']);
-        VentaCartListing::create(['ventacart_setting_id' => $store->id, 'product_id' => $ids['A-1'], 'live_status' => 'active', 'live_checked_at' => now()]);
-        VentaCartListing::create(['ventacart_setting_id' => $store->id, 'product_id' => $ids['U-1'], 'live_status' => 'inactive', 'live_checked_at' => now()]);
+        VentaCartProductLink::create(['store_id' => $store->id, 'product_id' => $ids['A-1'], 'ventacart_product_id' => 11, 'sku' => 'A-1']);
+        VentaCartProductLink::create(['store_id' => $store->id, 'product_id' => $ids['U-1'], 'ventacart_product_id' => 12, 'sku' => 'U-1']);
+        VentaCartListing::create(['store_id' => $store->id, 'product_id' => $ids['A-1'], 'live_status' => 'active', 'live_checked_at' => now()]);
+        VentaCartListing::create(['store_id' => $store->id, 'product_id' => $ids['U-1'], 'live_status' => 'inactive', 'live_checked_at' => now()]);
 
         return $ids;
     }
@@ -204,7 +204,7 @@ class VentaCartListingsIndexTest extends TestCase
         $store = $this->store();
         $ids = $this->scope($store);
         $blank = $this->product('B-1', 'Blank pedal');
-        VentaCartProductLink::create(['ventacart_setting_id' => $store->id, 'product_id' => $blank, 'ventacart_product_id' => 13, 'sku' => 'B-1']);
+        VentaCartProductLink::create(['store_id' => $store->id, 'product_id' => $blank, 'ventacart_product_id' => 13, 'sku' => 'B-1']);
 
         Http::fake([self::BASE . '/api/v1/products/B-1' => Http::response(['id' => 13, 'sku' => 'B-1', 'status' => true, 'price' => 500, 'quantity' => 2])]);
 
@@ -287,7 +287,7 @@ class VentaCartListingsIndexTest extends TestCase
         $this->assertSame('active', VentaCartListing::where('product_id', $ids['U-1'])->value('live_status'));
         $this->assertSame('missing', VentaCartListing::where('product_id', $ids['A-1'])->value('live_status'));
         $this->assertSame(['active' => 1, 'unlisted' => 0, 'missing' => 0], VentaCartListingMirror::for($store)->counts());
-        $this->assertDatabaseMissing('ventacart_product_links', ['ventacart_setting_id' => $store->id, 'product_id' => $ids['A-1']]);
+        $this->assertDatabaseMissing('ventacart_product_links', ['store_id' => $store->id, 'product_id' => $ids['A-1']]);
     }
 
     public function test_a_variation_the_store_sells_but_its_item_lacks_is_named_until_it_is_switched_off(): void
@@ -299,10 +299,10 @@ class VentaCartListingsIndexTest extends TestCase
                 'product_id' => $pid, 'sku' => $sku, 'quantity' => 3, 'absolute_price' => 500, 'status' => 1, 'sort_order' => $i,
             ]);
         }
-        $group = VentaCartProductGroup::create(['ventacart_setting_id' => $store->id, 'name' => 'Tees']);
+        $group = VentaCartProductGroup::create(['store_id' => $store->id, 'name' => 'Tees']);
         VentaCartProductGroupProduct::create(['ventacart_product_group_id' => $group->id, 'product_id' => $pid, 'sync_status' => 'pending']);
-        VentaCartProductLink::create(['ventacart_setting_id' => $store->id, 'product_id' => $pid, 'ventacart_product_id' => 21, 'sku' => 'TEE']);
-        VentaCartListing::create(['ventacart_setting_id' => $store->id, 'product_id' => $pid, 'live_status' => 'active', 'live_checked_at' => now()]);
+        VentaCartProductLink::create(['store_id' => $store->id, 'product_id' => $pid, 'ventacart_product_id' => 21, 'sku' => 'TEE']);
+        VentaCartListing::create(['store_id' => $store->id, 'product_id' => $pid, 'live_status' => 'active', 'live_checked_at' => now()]);
         \App\Channels\Listings\ListingVariations::remember('ventacart', (int) $store->id, $pid, ['TEE-S', 'TEE-M']);
         Http::fake();
 
@@ -328,7 +328,7 @@ class VentaCartListingsIndexTest extends TestCase
     public function test_the_error_filter_lists_exactly_the_rows_with_an_error_line(): void
     {
         $store = $this->store();
-        $group = VentaCartProductGroup::create(['ventacart_setting_id' => $store->id, 'name' => 'Mixed']);
+        $group = VentaCartProductGroup::create(['store_id' => $store->id, 'name' => 'Mixed']);
 
         $tee = $this->product('TEE', 'Missing tee');
         foreach (['TEE-S', 'TEE-L'] as $i => $sku) {
@@ -342,8 +342,8 @@ class VentaCartListingsIndexTest extends TestCase
 
         foreach ([[$tee, 'TEE', 31], [$errored, 'E-1', 32], [$clean, 'C-1', 33]] as [$pid, $sku, $vid]) {
             VentaCartProductGroupProduct::create(['ventacart_product_group_id' => $group->id, 'product_id' => $pid, 'sync_status' => 'pushed']);
-            VentaCartProductLink::create(['ventacart_setting_id' => $store->id, 'product_id' => $pid, 'ventacart_product_id' => $vid, 'sku' => $sku]);
-            VentaCartListing::create(['ventacart_setting_id' => $store->id, 'product_id' => $pid, 'live_status' => 'active', 'live_checked_at' => now()]);
+            VentaCartProductLink::create(['store_id' => $store->id, 'product_id' => $pid, 'ventacart_product_id' => $vid, 'sku' => $sku]);
+            VentaCartListing::create(['store_id' => $store->id, 'product_id' => $pid, 'live_status' => 'active', 'live_checked_at' => now()]);
         }
         VentaCartListing::where('product_id', $errored)->first()->forceFill(['last_push_error' => 'Stock push failed: Product not found', 'last_push_failed_at' => now()])->save();
         Http::fake([self::BASE . '/*' => Http::response(['id' => 32, 'sku' => 'E-1', 'quantity' => 3])]);
@@ -379,10 +379,10 @@ class VentaCartListingsIndexTest extends TestCase
     {
         $store = $this->store();
         $ids = $this->scope($store);
-        VentaCartListing::query()->where('ventacart_setting_id', $store->id)->where('product_id', $ids['A-1'])->update(['name' => 'Qable IC50 Pro']);
-        $other = VentaCartSetting::create(['store_name' => 'Other Depot', 'base_url' => 'https://two.ventacart.test', 'api_token' => 't', 'enabled' => true]);
-        VentaCartListing::create(['ventacart_setting_id' => $other->id, 'product_id' => $ids['U-1'], 'name' => 'Qable elsewhere']);
-        $group = VentaCartProductGroup::query()->where('ventacart_setting_id', $store->id)->where('name', 'Pedals')->firstOrFail();
+        VentaCartListing::query()->where('store_id', $store->id)->where('product_id', $ids['A-1'])->update(['name' => 'Qable IC50 Pro']);
+        $other = VentaCartStore::create(['store_name' => 'Other Depot', 'base_url' => 'https://two.ventacart.test', 'api_token' => 't', 'enabled' => true]);
+        VentaCartListing::create(['store_id' => $other->id, 'product_id' => $ids['U-1'], 'name' => 'Qable elsewhere']);
+        $group = VentaCartProductGroup::query()->where('store_id', $store->id)->where('name', 'Pedals')->firstOrFail();
         Http::fake();
 
         foreach ([route('ext.ventacart.listings.index', $store->id), route('ext.ventacart.product-groups.products', [$store->id, $group->id])] as $url) {
@@ -408,9 +408,9 @@ class VentaCartListingsIndexTest extends TestCase
         Http::fake();
         $store = $this->store();
         $pid = $this->product('MV-1', 'Movable pedal');
-        VentaCartListing::create(['ventacart_setting_id' => $store->id, 'product_id' => $pid]);
-        $groupA = VentaCartProductGroup::create(['ventacart_setting_id' => $store->id, 'name' => 'Fuzz']);
-        $groupB = VentaCartProductGroup::create(['ventacart_setting_id' => $store->id, 'name' => 'Delay']);
+        VentaCartListing::create(['store_id' => $store->id, 'product_id' => $pid]);
+        $groupA = VentaCartProductGroup::create(['store_id' => $store->id, 'name' => 'Fuzz']);
+        $groupB = VentaCartProductGroup::create(['store_id' => $store->id, 'name' => 'Delay']);
         $manager = $this->userWith(['view_ventacart/listing', 'manage_ventacart/listing', 'view_ventacart/product_group', 'manage_ventacart/product_group']);
         $listingOnly = $this->manager();
         $back = parse_url(route('ext.ventacart.listings.index', $store->id), PHP_URL_PATH);
@@ -441,9 +441,9 @@ class VentaCartListingsIndexTest extends TestCase
     {
         Http::fake();
         $store = $this->store();
-        $group = VentaCartProductGroup::create(['ventacart_setting_id' => $store->id, 'name' => 'Fuzz']);
+        $group = VentaCartProductGroup::create(['store_id' => $store->id, 'name' => 'Fuzz']);
         foreach ([$this->product('RN-1', 'Run pedal one'), $this->product('RN-2', 'Run pedal two')] as $pid) {
-            VentaCartListing::create(['ventacart_setting_id' => $store->id, 'product_id' => $pid]);
+            VentaCartListing::create(['store_id' => $store->id, 'product_id' => $pid]);
             \Extensions\VentaCart\Models\VentaCartProductGroupProduct::create(['ventacart_product_group_id' => $group->id, 'product_id' => $pid]);
         }
         $manager = $this->userWith(['view_ventacart/listing', 'manage_ventacart/listing', 'view_ventacart/product_group', 'manage_ventacart/product_group']);

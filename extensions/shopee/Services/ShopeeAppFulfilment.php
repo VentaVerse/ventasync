@@ -6,7 +6,7 @@ use App\Support\Fulfilment\AppFulfilment;
 use App\Support\Fulfilment\Waybills;
 use Extensions\Shopee\Controllers\ShopeeOrderController;
 use Extensions\Shopee\Models\ShopeeOrder;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -37,7 +37,7 @@ final class ShopeeAppFulfilment
     public function handle(string $action, int $id, Request $request): Response
     {
         $order = ShopeeOrder::query()->find($id);
-        $store = $order ? ShopeeSetting::query()->find($order->shopee_setting_id) : null;
+        $store = $order ? ShopeeStore::query()->find($order->store_id) : null;
         if ($order === null || $store === null) {
             return response()->json(['error' => 'Order not found'], 404);
         }
@@ -88,7 +88,7 @@ final class ShopeeAppFulfilment
         ]);
     }
 
-    private function waybill(Response $answer, ShopeeSetting $store, string $sn): Response
+    private function waybill(Response $answer, ShopeeStore $store, string $sn): Response
     {
         $path = Waybills::path('shopee', (int) $store->id, $sn);
         if (is_file($path)) {

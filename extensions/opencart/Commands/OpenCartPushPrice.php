@@ -2,7 +2,7 @@
 
 namespace Extensions\OpenCart\Commands;
 
-use Extensions\OpenCart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartStore;
 use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
 use Extensions\OpenCart\Services\OpenCart\OpenCartProductSync;
 use Illuminate\Console\Command;
@@ -16,7 +16,7 @@ class OpenCartPushPrice extends Command implements \App\Channels\Contracts\Stepp
 
     public function handle(): int
     {
-        $stores = OpenCartSetting::query()->where('enabled', true);
+        $stores = OpenCartStore::query()->where('enabled', true);
         if ($this->option('store')) {
             $stores->where('id', (int) $this->option('store'));
         }

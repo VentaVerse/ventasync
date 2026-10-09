@@ -9,7 +9,7 @@ class VentaCartBrand extends Model
     protected $table = 'ventacart_brands';
 
     protected $fillable = [
-        'ventacart_setting_id',
+        'store_id',
         'ventacart_brand_id',
         'name',
         'slug',

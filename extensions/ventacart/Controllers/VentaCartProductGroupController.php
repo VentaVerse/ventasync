@@ -9,7 +9,7 @@ use Extensions\VentaCart\Models\VentaCartCategory;
 use Extensions\VentaCart\Models\VentaCartProductGroup;
 use Extensions\VentaCart\Models\VentaCartProductGroupProduct;
 use Extensions\VentaCart\Models\VentaCartProductLink;
-use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Extensions\VentaCart\Services\VentaCart\VentaCartClient;
 use Extensions\VentaCart\Services\VentaCart\VentaCartProductPush;
 use Illuminate\Http\Request;
@@ -33,7 +33,7 @@ class VentaCartProductGroupController extends Controller
 
     protected function groupSendMembers(int $groupId): array
     {
-        $group = VentaCartProductGroup::query()->where('ventacart_setting_id', (int) request()->route('store'))->findOrFail($groupId);
+        $group = VentaCartProductGroup::query()->where('store_id', (int) request()->route('store'))->findOrFail($groupId);
 
         return $group->products()->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->all();
     }
@@ -46,12 +46,12 @@ class VentaCartProductGroupController extends Controller
             return ['tone' => 'error', 'summary' => 'That VentaCart store is turned off, so nothing was sent to it. Enable it in its settings first.', 'failed' => 0, 'stop' => true];
         }
 
-        return $this->sendProducts($setting, VentaCartProductGroup::where('ventacart_setting_id', $store)->findOrFail($groupId), $productIds);
+        return $this->sendProducts($setting, VentaCartProductGroup::where('store_id', $store)->findOrFail($groupId), $productIds);
     }
 
     public function navRedirect()
     {
-        $store = VentaCartSetting::where('enabled', true)->first();
+        $store = VentaCartStore::where('enabled', true)->first();
         if (!$store) {
             return redirect()->route('ext.ventacart.index')->with('error', 'No enabled VentaCart store. Add one first.');
         }
@@ -78,7 +78,7 @@ class VentaCartProductGroupController extends Controller
         \App\Support\ChannelProductStatus::write(
             'ventacart_product_group_products',
             'ventacart_product_group_id',
-            VentaCartProductGroup::where('ventacart_setting_id', $g->ventacart_setting_id)->pluck('id')->all(),
+            VentaCartProductGroup::where('store_id', $g->store_id)->pluck('id')->all(),
             $productId,
             $attributes
         );
@@ -86,7 +86,7 @@ class VentaCartProductGroupController extends Controller
 
     private function candidateSkus(string $pfx, int $productId): array
     {
-        return VentaCartProductPush::for(new VentaCartSetting())->candidateSkus($productId);
+        return VentaCartProductPush::for(new VentaCartStore())->candidateSkus($productId);
     }
 
     private function reconcileLink(VentaCartClient $client, int $store, int $productId, string $pfx): array
@@ -100,14 +100,14 @@ class VentaCartProductGroupController extends Controller
         return VentaCartProductPush::for($this->store_($store))->linkProductTo($productId, $ventaCartProductId, $sku);
     }
 
-    private function store_(int $storeId): VentaCartSetting
+    private function store_(int $storeId): VentaCartStore
     {
-        return VentaCartSetting::findOrFail($storeId);
+        return VentaCartStore::findOrFail($storeId);
     }
 
-    private function storeForWrite_(int $storeId): ?VentaCartSetting
+    private function storeForWrite_(int $storeId): ?VentaCartStore
     {
-        $setting = VentaCartSetting::findOrFail($storeId);
+        $setting = VentaCartStore::findOrFail($storeId);
 
         return $setting->enabled ? $setting : null;
     }
@@ -123,7 +123,7 @@ class VentaCartProductGroupController extends Controller
     {
         $setting = $this->store_($store);
 
-        $groups = VentaCartProductGroup::where('ventacart_setting_id', $store)->orderByDesc('id')->get();
+        $groups = VentaCartProductGroup::where('store_id', $store)->orderByDesc('id')->get();
 
         $productCounts = [];
         foreach ($groups as $g) {
@@ -140,23 +140,23 @@ class VentaCartProductGroupController extends Controller
     public function create(int $store)
     {
         $setting = $this->store_($store);
-        return $this->form($setting, new VentaCartProductGroup(['ventacart_setting_id' => $store]), 'create');
+        return $this->form($setting, new VentaCartProductGroup(['store_id' => $store]), 'create');
     }
 
     public function edit(int $store, int $group)
     {
         $setting = $this->store_($store);
-        $g = VentaCartProductGroup::where('ventacart_setting_id', $store)->findOrFail($group);
+        $g = VentaCartProductGroup::where('store_id', $store)->findOrFail($group);
         return $this->form($setting, $g, 'edit');
     }
 
-    private function form(VentaCartSetting $setting, VentaCartProductGroup $group, string $mode)
+    private function form(VentaCartStore $setting, VentaCartProductGroup $group, string $mode)
     {
         return view('ext-ventacart::product-groups.form', [
             'setting' => $setting,
             'group' => $group,
             'mode' => $mode,
-            'storeCategories' => VentaCartCategory::query()->where('ventacart_setting_id', $setting->id)
+            'storeCategories' => VentaCartCategory::query()->where('store_id', $setting->id)
                 ->orderBy('name')->get(['ventacart_category_id', 'name', 'parent_id']),
             'productCount' => $group->exists ? $group->products()->count() : 0,
         ]);
@@ -169,7 +169,7 @@ class VentaCartProductGroupController extends Controller
         $data = $request->validate($this->rules($store));
 
         $group = VentaCartProductGroup::create([
-            'ventacart_setting_id'     => $store,
+            'store_id'     => $store,
             'name'                 => $data['name'],
             'ventacart_category_id'    => $data['ventacart_category_id'] ?? null,
             'ventacart_brand_id'       => $data['ventacart_brand_id'] ?? null,
@@ -189,7 +189,7 @@ class VentaCartProductGroupController extends Controller
     {
         return [
             'name'              => 'required|string|max:255',
-            'ventacart_category_id' => ['nullable', 'integer', \Illuminate\Validation\Rule::exists('ventacart_categories', 'ventacart_category_id')->where('ventacart_setting_id', $store)],
+            'ventacart_category_id' => ['nullable', 'integer', \Illuminate\Validation\Rule::exists('ventacart_categories', 'ventacart_category_id')->where('store_id', $store)],
             'ventacart_brand_id'    => 'nullable|integer',
             'markup_percent'    => 'nullable|numeric|min:0',
             'watermark_template_id' => 'nullable|integer',
@@ -200,7 +200,7 @@ class VentaCartProductGroupController extends Controller
     public function update(Request $request, int $store, int $group)
     {
         $this->store_($store);
-        $g = VentaCartProductGroup::where('ventacart_setting_id', $store)->findOrFail($group);
+        $g = VentaCartProductGroup::where('store_id', $store)->findOrFail($group);
 
         $data = $request->validate($this->rules($store));
 
@@ -221,7 +221,7 @@ class VentaCartProductGroupController extends Controller
     public function destroy(int $store, int $group)
     {
         $this->store_($store);
-        $g = VentaCartProductGroup::where('ventacart_setting_id', $store)->findOrFail($group);
+        $g = VentaCartProductGroup::where('store_id', $store)->findOrFail($group);
         $name = $g->name;
         $members = $g->products()->pluck('product_id')->map(fn ($v) => (int) $v)->all();
         $g->delete();
@@ -236,7 +236,7 @@ class VentaCartProductGroupController extends Controller
     public function products(Request $request, int $store, int $group)
     {
         $setting = $this->store_($store);
-        $g = VentaCartProductGroup::where('ventacart_setting_id', $store)->findOrFail($group);
+        $g = VentaCartProductGroup::where('store_id', $store)->findOrFail($group);
 
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
@@ -266,7 +266,7 @@ class VentaCartProductGroupController extends Controller
             ->leftJoin($pfx . 'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
             ->leftJoin('ventacart_product_links as vpl', function ($j) use ($store) {
                 $j->on('p.product_id', '=', 'vpl.product_id')
-                    ->where('vpl.ventacart_setting_id', '=', $store);
+                    ->where('vpl.store_id', '=', $store);
             })
             ->leftJoin('ventacart_product_group_products as vpgp', function ($j) use ($g) {
                 $j->on('p.product_id', '=', 'vpgp.product_id')
@@ -297,7 +297,7 @@ class VentaCartProductGroupController extends Controller
                     ->orWhere('p.sku', 'like', "%{$q}%")
                     ->orWhere('p.model', 'like', "%{$q}%")
                     ->orWhereIn('p.product_id', \Extensions\VentaCart\Models\VentaCartListing::query()
-                        ->where('ventacart_setting_id', $store)
+                        ->where('store_id', $store)
                         ->where('name', 'like', "%{$q}%")
                         ->select('product_id'));
             });
@@ -336,7 +336,7 @@ class VentaCartProductGroupController extends Controller
         $manualIds = $g->products()->pluck('product_id')->toArray();
 
         $rowTitles = \App\Channels\Listings\ListingContent::rowTitles($products, \Extensions\VentaCart\Models\VentaCartListing::query()
-            ->where('ventacart_setting_id', $store)
+            ->where('store_id', $store)
             ->whereIn('product_id', $paginatedIds ?: [0])
             ->get());
 
@@ -365,7 +365,7 @@ class VentaCartProductGroupController extends Controller
             return redirect()->back()->with('error',
                 'That VentaCart store is turned off, so nothing was sent to it. Enable it in its settings first.');
         }
-        $g = VentaCartProductGroup::where('ventacart_setting_id', $store)->findOrFail($group);
+        $g = VentaCartProductGroup::where('store_id', $store)->findOrFail($group);
 
         $productIds = $this->getMatchingProductIds($g);
         if (!in_array($product, $productIds)) {
@@ -460,7 +460,7 @@ class VentaCartProductGroupController extends Controller
     public function orphans(Request $request, int $store, int $group)
     {
         $setting = $this->store_($store);
-        $g = VentaCartProductGroup::where('ventacart_setting_id', $store)->findOrFail($group);
+        $g = VentaCartProductGroup::where('store_id', $store)->findOrFail($group);
 
         if (! $setting->enabled) {
             return $this->productsRedirect($store, $group)->with('error',
@@ -470,7 +470,7 @@ class VentaCartProductGroupController extends Controller
         $storeName = $setting->store_name ?: 'Unnamed store';
         $client = new VentaCartClient($setting);
 
-        $known = VentaCartProductLink::where('ventacart_setting_id', $store)
+        $known = VentaCartProductLink::where('store_id', $store)
             ->whereNotNull('ventacart_product_id')
             ->pluck('ventacart_product_id')
             ->map('intval')
@@ -552,7 +552,7 @@ class VentaCartProductGroupController extends Controller
                 'That VentaCart store is turned off, so nothing could be checked. Enable it in its settings first.');
         }
 
-        $g = VentaCartProductGroup::where('ventacart_setting_id', $store)->findOrFail($group);
+        $g = VentaCartProductGroup::where('store_id', $store)->findOrFail($group);
 
         $ids = array_values(array_unique(array_map('intval', array_filter((array) $request->input('ids', [])))));
 
@@ -580,7 +580,7 @@ class VentaCartProductGroupController extends Controller
             return redirect()->back()->with('error',
                 'That VentaCart store is turned off, so nothing was sent to it. Enable it in its settings first.');
         }
-        $g = VentaCartProductGroup::where('ventacart_setting_id', $store)->findOrFail($group);
+        $g = VentaCartProductGroup::where('store_id', $store)->findOrFail($group);
 
         $ids = array_map('intval', array_filter((array) $request->input('ids', [])));
         if (empty($ids)) {
@@ -593,7 +593,7 @@ class VentaCartProductGroupController extends Controller
         return $this->productsRedirect($store, $group)->with($r['tone'], $r['summary']);
     }
 
-    public function sendProducts(VentaCartSetting $setting, VentaCartProductGroup $g, array $ids): array
+    public function sendProducts(VentaCartStore $setting, VentaCartProductGroup $g, array $ids): array
     {
         $store = (int) $setting->id;
         $group = (int) $g->id;
@@ -645,13 +645,13 @@ class VentaCartProductGroupController extends Controller
             $sku = $prod->sku ?: $prod->model;
 
             $ownWords = \App\Channels\Listings\ListingContent::of(
-                \Extensions\VentaCart\Models\VentaCartListing::query()->where('ventacart_setting_id', $store)->where('product_id', $pid)->first(),
+                \Extensions\VentaCart\Models\VentaCartListing::query()->where('store_id', $store)->where('product_id', $pid)->first(),
                 (string) ($prod->name ?? ''),
                 (string) ($prod->description ?? '')
             );
 
             $listing = \Extensions\VentaCart\Models\VentaCartListing::query()
-                ->where('ventacart_setting_id', $store)->where('product_id', $pid)->first();
+                ->where('store_id', $store)->where('product_id', $pid)->first();
 
             $priceFor = match (true) {
                 $listing && $listing->hasPriceRule() => fn (float $base) => $listing->priceFor($base),
@@ -687,7 +687,7 @@ class VentaCartProductGroupController extends Controller
 
             $this->writeProductStatus($g, $pid, ['last_confirmed_at' => now()]);
 
-            $existingLink = VentaCartProductLink::where('ventacart_setting_id', $store)
+            $existingLink = VentaCartProductLink::where('store_id', $store)
                 ->where('product_id', $pid)
                 ->first();
 
@@ -813,7 +813,7 @@ class VentaCartProductGroupController extends Controller
             return redirect()->back()->with('error',
                 'That VentaCart store is turned off, so nothing was sent to it. Enable it in its settings first.');
         }
-        $g = VentaCartProductGroup::where('ventacart_setting_id', $store)->findOrFail($group);
+        $g = VentaCartProductGroup::where('store_id', $store)->findOrFail($group);
 
         $ids = array_map('intval', array_filter((array) $request->input('ids', [])));
         if (empty($ids)) {
@@ -824,9 +824,9 @@ class VentaCartProductGroupController extends Controller
         return $this->pushFigures($setting, $store, $group, $ids, true, false, 'Stock');
     }
 
-    private function pushFigures(VentaCartSetting $setting, int $store, int $group, array $ids, bool $stock, bool $price, string $what)
+    private function pushFigures(VentaCartStore $setting, int $store, int $group, array $ids, bool $stock, bool $price, string $what)
     {
-        if (! VentaCartProductLink::where('ventacart_setting_id', $store)->whereIn('product_id', $ids)->exists()) {
+        if (! VentaCartProductLink::where('store_id', $store)->whereIn('product_id', $ids)->exists()) {
             return $this->productsRedirect($store, $group)
                 ->with('error', 'No linked VentaCart products found for the selected items.');
         }
@@ -846,7 +846,7 @@ class VentaCartProductGroupController extends Controller
             return redirect()->back()->with('error',
                 'That VentaCart store is turned off, so nothing was sent to it. Enable it in its settings first.');
         }
-        $g = VentaCartProductGroup::where('ventacart_setting_id', $store)->findOrFail($group);
+        $g = VentaCartProductGroup::where('store_id', $store)->findOrFail($group);
 
         $ids = array_map('intval', array_filter((array) $request->input('ids', [])));
         if (empty($ids)) {
@@ -860,9 +860,9 @@ class VentaCartProductGroupController extends Controller
     public function unlinkProduct(int $store, int $group, int $product)
     {
         $this->store_($store);
-        $g = VentaCartProductGroup::where('ventacart_setting_id', $store)->findOrFail($group);
+        $g = VentaCartProductGroup::where('store_id', $store)->findOrFail($group);
 
-        $removed = VentaCartProductLink::where('ventacart_setting_id', $store)
+        $removed = VentaCartProductLink::where('store_id', $store)
             ->where('product_id', $product)
             ->delete();
 
@@ -887,7 +887,7 @@ class VentaCartProductGroupController extends Controller
         $skipped = 0;
         $errors = [];
 
-        $links = VentaCartProductLink::where('ventacart_setting_id', $store)
+        $links = VentaCartProductLink::where('store_id', $store)
             ->whereIn('product_id', $productIds)
             ->get()
             ->keyBy('product_id');
@@ -948,7 +948,7 @@ class VentaCartProductGroupController extends Controller
             return redirect()->back()->with('error',
                 'That VentaCart store is turned off, so nothing was sent to it. Enable it in its settings first.');
         }
-        $g = VentaCartProductGroup::where('ventacart_setting_id', $store)->findOrFail($group);
+        $g = VentaCartProductGroup::where('store_id', $store)->findOrFail($group);
 
         $productIds = $product !== null
             ? [$product]
@@ -964,7 +964,7 @@ class VentaCartProductGroupController extends Controller
 
         $product = $productIds[0];
 
-        $link = VentaCartProductLink::where('ventacart_setting_id', $store)
+        $link = VentaCartProductLink::where('store_id', $store)
             ->where('product_id', $product)
             ->first();
 
@@ -995,14 +995,14 @@ class VentaCartProductGroupController extends Controller
     public function linkProduct(int $store, int $group, int $product)
     {
         $this->store_($store);
-        $g = VentaCartProductGroup::where('ventacart_setting_id', $store)->findOrFail($group);
+        $g = VentaCartProductGroup::where('store_id', $store)->findOrFail($group);
 
         $pivot = VentaCartProductGroupProduct::where('ventacart_product_group_id', $g->id)
             ->where('product_id', $product)
             ->first();
 
         if ($pivot) {
-            $hasLink = VentaCartProductLink::where('ventacart_setting_id', $store)
+            $hasLink = VentaCartProductLink::where('store_id', $store)
                 ->where('product_id', $product)
                 ->whereNotNull('ventacart_product_id')
                 ->where('ventacart_product_id', '!=', 0)
@@ -1027,16 +1027,16 @@ class VentaCartProductGroupController extends Controller
         $target = (string) $request->input('group', '');
         if ($target === 'none') {
             $removed = VentaCartProductGroupProduct::query()
-                ->whereIn('ventacart_product_group_id', VentaCartProductGroup::where('ventacart_setting_id', $store)->select('id'))
+                ->whereIn('ventacart_product_group_id', VentaCartProductGroup::where('store_id', $store)->select('id'))
                 ->whereIn('product_id', $ids)->delete();
 
             return redirect($back)->with('status', $removed . ' ' . \Illuminate\Support\Str::plural('product', $removed) . ' ungrouped.');
         }
-        $group = VentaCartProductGroup::where('ventacart_setting_id', $store)->findOrFail((int) $target);
+        $group = VentaCartProductGroup::where('store_id', $store)->findOrFail((int) $target);
 
         $already = $group->products()->whereIn('product_id', $ids)->pluck('product_id')->map(fn ($v) => (int) $v)->all();
         $wanted = array_values(array_diff($ids, $already));
-        $claim = \App\Channels\OneGroupRule::claim('ventacart_product_group_products', 'ventacart_product_group_id', 'ventacart_product_groups', 'ventacart_setting_id', $group->id, $wanted, $wanted);
+        $claim = \App\Channels\OneGroupRule::claim('ventacart_product_group_products', 'ventacart_product_group_id', 'ventacart_product_groups', 'store_id', $group->id, $wanted, $wanted);
         $moved = 0;
         foreach (array_merge($claim['free'], array_keys($claim['moved'])) as $pid) {
             VentaCartProductGroupProduct::create(['ventacart_product_group_id' => $group->id, 'product_id' => (int) $pid]);
@@ -1052,7 +1052,7 @@ class VentaCartProductGroupController extends Controller
     public function massRemove(Request $request, int $store, int $group)
     {
         $this->store_($store);
-        $g = VentaCartProductGroup::where('ventacart_setting_id', $store)->findOrFail($group);
+        $g = VentaCartProductGroup::where('store_id', $store)->findOrFail($group);
 
         $ids = array_map('intval', array_filter((array) $request->input('ids', [])));
 
@@ -1068,7 +1068,7 @@ class VentaCartProductGroupController extends Controller
     public function addProducts(Request $request, int $store, int $group)
     {
         $this->store_($store);
-        $g = VentaCartProductGroup::where('ventacart_setting_id', $store)->findOrFail($group);
+        $g = VentaCartProductGroup::where('store_id', $store)->findOrFail($group);
 
         $ids = $request->input('ids', []);
         if (empty($ids)) {
@@ -1080,7 +1080,7 @@ class VentaCartProductGroupController extends Controller
         $existing = $g->products()->pluck('product_id')->toArray();
         $ids = array_values(array_diff($ids, $existing));
 
-        $claim = \App\Channels\OneGroupRule::claim('ventacart_product_group_products', 'ventacart_product_group_id', 'ventacart_product_groups', 'ventacart_setting_id', $g->id, $ids, array_map('intval', (array) $request->input('move_ids', [])));
+        $claim = \App\Channels\OneGroupRule::claim('ventacart_product_group_products', 'ventacart_product_group_id', 'ventacart_product_groups', 'store_id', $g->id, $ids, array_map('intval', (array) $request->input('move_ids', [])));
 
         $added = 0;
         foreach (array_merge($claim['free'], array_keys($claim['moved'])) as $pid) {
@@ -1099,7 +1099,7 @@ class VentaCartProductGroupController extends Controller
     public function removeProduct(int $store, int $group, int $product)
     {
         $this->store_($store);
-        $g = VentaCartProductGroup::where('ventacart_setting_id', $store)->findOrFail($group);
+        $g = VentaCartProductGroup::where('store_id', $store)->findOrFail($group);
 
         VentaCartProductGroupProduct::where('ventacart_product_group_id', $g->id)
             ->where('product_id', $product)
@@ -1152,7 +1152,7 @@ class VentaCartProductGroupController extends Controller
         $owners = DB::table('ventacart_product_group_products as pv')
             ->join('ventacart_product_groups as g', 'g.id', '=', 'pv.ventacart_product_group_id')
             ->whereIn('pv.product_id', $rows->pluck('product_id')->all() ?: [0])
-            ->where('g.ventacart_setting_id', $store)
+            ->where('g.store_id', $store)
             ->get(['pv.product_id', 'g.id as group_id', 'g.name'])
             ->keyBy('product_id');
         $rows = $rows->map(function ($r) use ($owners) {
@@ -1173,7 +1173,7 @@ class VentaCartProductGroupController extends Controller
             : [];
     }
 
-    private function getProductImages(VentaCartSetting $setting, int $productId): array
+    private function getProductImages(VentaCartStore $setting, int $productId): array
     {
         return VentaCartProductPush::for($setting)->images($productId);
     }

@@ -8,16 +8,16 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\Lazada\Models\LazadaProduct;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Extensions\Shopee\Models\ShopeeListing;
 use Extensions\Shopee\Models\ShopeeProductGroup;
 use Extensions\Shopee\Models\ShopeeProductGroupProduct;
 use Extensions\Shopee\Models\ShopeeProductLink;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Extensions\TikTok\Models\TikTokListing;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -43,15 +43,15 @@ class ProductDeleteReachesChannelsTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        ShopeeSetting::query()->create([
+        ShopeeStore::query()->create([
             'store_name' => 'Main store', 'partner_id' => 1001, 'partner_key' => 'k', 'shop_id' => 2002,
             'access_token' => 't', 'refresh_token' => 'r', 'mode' => 'production',
         ]);
-        LazadaSetting::query()->create([
+        LazadaStore::query()->create([
             'store_name' => 'PH store', 'mode' => 'live', 'region' => 'ph',
             'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't', 'refresh_token' => 'r',
         ]);
-        TikTokSetting::create([
+        TikTokStore::create([
             'store_name' => 'TT store', 'mode' => 'production', 'app_key' => 'k', 'app_secret' => 's',
             'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3),
         ]);
@@ -172,7 +172,7 @@ class ProductDeleteReachesChannelsTest extends TestCase
 
     public function test_a_disconnected_or_refusing_store_cannot_block_a_delete(): void
     {
-        ShopeeSetting::query()->update(['access_token' => '', 'refresh_token' => '']);
+        ShopeeStore::query()->update(['access_token' => '', 'refresh_token' => '']);
         $pid = $this->seedProduct('Blocked before', 'BL-1');
         ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 222, 'sku' => 'BL-1', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
 
@@ -236,9 +236,9 @@ class ProductDeleteReachesChannelsTest extends TestCase
         $group->permissions()->attach(Permission::whereIn('key', ['view_shopee/product', 'view_lazada/product'])->pluck('id')->all());
         $user = User::factory()->create(['user_group_id' => $group->id]);
 
-        $this->actingAs($user)->get(route('ext.shopee.products.index', ['store' => ShopeeSetting::query()->value('id')]))->assertOk()
+        $this->actingAs($user)->get(route('ext.shopee.products.index', ['store' => ShopeeStore::query()->value('id')]))->assertOk()
             ->assertDontSee('deleted catalog product')->assertDontSee('999001');
-        $this->actingAs($user)->get(route('ext.lazada.products.index', ['store' => LazadaSetting::query()->value('id')]))->assertOk()
+        $this->actingAs($user)->get(route('ext.lazada.products.index', ['store' => LazadaStore::query()->value('id')]))->assertOk()
             ->assertDontSee('deleted catalog product')->assertDontSee('LZ-GONE');
     }
 

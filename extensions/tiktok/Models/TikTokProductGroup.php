@@ -13,7 +13,7 @@ class TikTokProductGroup extends Model
 
     protected $fillable = [
         'watermark_template_id',
-        'tiktok_setting_id', 'name', 'tiktok_category_id',
+        'store_id', 'name', 'tiktok_category_id',
         'markup_percent', 'markup_fixed',
     ];
 

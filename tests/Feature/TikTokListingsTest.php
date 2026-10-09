@@ -11,7 +11,7 @@ use Extensions\TikTok\Models\TikTokCategoryTemplate;
 use Extensions\TikTok\Models\TikTokListing;
 use Extensions\TikTok\Models\TikTokProductGroup;
 use Extensions\TikTok\Models\TikTokProductGroupProduct;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -37,7 +37,7 @@ class TikTokListingsTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        TikTokSetting::create([
+        TikTokStore::create([
             'mode' => 'production', 'app_key' => 'k', 'app_secret' => 's',
             'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3),
         ]);
@@ -505,11 +505,11 @@ class TikTokListingsTest extends TestCase
         $plain = $this->seedProduct('P');
         TikTokListing::create(['product_id' => $titled, 'title' => 'Qable IC50 Pro']);
         TikTokListing::create(['product_id' => $plain]);
-        $other = TikTokSetting::create([
+        $other = TikTokStore::create([
             'mode' => 'production', 'app_key' => 'k2', 'app_secret' => 's2',
             'access_token' => 't2', 'refresh_token' => 'r2', 'shop_cipher' => 'c2', 'expires_at' => now()->addDays(3),
         ]);
-        TikTokListing::create(['tiktok_setting_id' => $other->id, 'product_id' => $plain, 'title' => 'Qable elsewhere']);
+        TikTokListing::create(['store_id' => $other->id, 'product_id' => $plain, 'title' => 'Qable elsewhere']);
         $group = TikTokProductGroup::query()->where('name', 'Scope group')->firstOrFail();
         $user = $this->userWith(['manage_tiktok/product', 'view_tiktok/product', 'view_tiktok/product_group']);
 

@@ -170,7 +170,7 @@ Route::middleware(['auth', \Extensions\TikTok\Http\ResolveTikTokStore::class])->
 
 Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::get('/tiktok/{legacyPath}', function (\Illuminate\Http\Request $request, string $legacyPath) {
-        $store = \Extensions\TikTok\Models\TikTokSetting::query()->where('enabled', true)->orderBy('id')->value('id');
+        $store = \Extensions\TikTok\Models\TikTokStore::query()->where('enabled', true)->orderBy('id')->value('id');
         abort_unless($store !== null, 404);
         $qs = $request->getQueryString();
 

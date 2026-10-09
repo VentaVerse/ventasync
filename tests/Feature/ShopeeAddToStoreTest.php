@@ -11,7 +11,7 @@ use Extensions\Shopee\Services\ShopeeStoreProducts;
 use Extensions\Shopee\Models\ShopeeProductGroup;
 use Extensions\Shopee\Models\ShopeeProductGroupProduct;
 use Extensions\Shopee\Models\ShopeeProductLink;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\ShopeeExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +21,7 @@ class ShopeeAddToStoreTest extends TestCase
 {
     use RefreshDatabase;
 
-    private ShopeeSetting $store;
+    private ShopeeStore $store;
 
     protected function setUp(): void
     {
@@ -33,7 +33,7 @@ class ShopeeAddToStoreTest extends TestCase
         $this->app->register(ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
 
-        $this->store = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Gearshipper']);
+        $this->store = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Gearshipper']);
         $this->artisan('permissions:sync-catalog');
     }
 
@@ -68,7 +68,7 @@ class ShopeeAddToStoreTest extends TestCase
 
     private function onStore(int $productId, ?int $storeId = null): ShopeeListing
     {
-        return ShopeeListing::create(['shopee_setting_id' => $storeId ?? $this->store->id, 'product_id' => $productId]);
+        return ShopeeListing::create(['store_id' => $storeId ?? $this->store->id, 'product_id' => $productId]);
     }
 
     private function base(): string
@@ -87,7 +87,7 @@ class ShopeeAddToStoreTest extends TestCase
         $linkedOnly = $this->seedProduct('Linked only widget', 'LNK-1');
         $this->seedProduct('Catalog only widget', 'OFF-1');
         $this->onStore($onStore);
-        ShopeeProductLink::create(['shopee_setting_id' => $this->store->id, 'product_id' => $linkedOnly, 'shopee_item_id' => '777', 'sku' => 'LNK-1']);
+        ShopeeProductLink::create(['store_id' => $this->store->id, 'product_id' => $linkedOnly, 'shopee_item_id' => '777', 'sku' => 'LNK-1']);
 
         $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
 
@@ -141,7 +141,7 @@ class ShopeeAddToStoreTest extends TestCase
         $linked = $this->seedProduct('Linked widget', 'LNK-1');
         $this->seedProduct('Catalog only widget', 'OFF-1');
         $this->onStore($onStore);
-        ShopeeProductLink::create(['shopee_setting_id' => $this->store->id, 'product_id' => $linked, 'shopee_item_id' => '777', 'sku' => 'LNK-1']);
+        ShopeeProductLink::create(['store_id' => $this->store->id, 'product_id' => $linked, 'shopee_item_id' => '777', 'sku' => 'LNK-1']);
 
         $r = $this->actingAs($this->manager())->getJson($this->base() . '/catalog-search?all=1')->assertOk();
 
@@ -188,7 +188,7 @@ class ShopeeAddToStoreTest extends TestCase
 
         $row = ShopeeListing::withoutGlobalScope('shopeeStore')->where('product_id', $pid)->first();
         $this->assertNotNull($row, 'the membership is a listing record for this store');
-        $this->assertSame($this->store->id, (int) $row->shopee_setting_id, 'the record is stamped with this store');
+        $this->assertSame($this->store->id, (int) $row->store_id, 'the record is stamped with this store');
         $this->assertNull($row->shopee_category_id, 'blank: the listing editor fills it in, readiness says what is missing');
 
         $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
@@ -217,7 +217,7 @@ class ShopeeAddToStoreTest extends TestCase
             ->post($this->base() . '/add-to-store', ['product_ids' => [$a, $b]])
             ->assertRedirect();
 
-        $this->assertSame(2, ShopeeListing::withoutGlobalScope('shopeeStore')->whereIn('product_id', [$a, $b])->where('shopee_setting_id', $this->store->id)->count());
+        $this->assertSame(2, ShopeeListing::withoutGlobalScope('shopeeStore')->whereIn('product_id', [$a, $b])->where('store_id', $this->store->id)->count());
     }
 
     public function test_add_to_store_is_idempotent(): void
@@ -229,7 +229,7 @@ class ShopeeAddToStoreTest extends TestCase
             ->postJson($this->base() . '/' . $pid . '/add-to-store')
             ->assertOk()->assertJson(['added' => false]);
 
-        $this->assertSame(1, ShopeeListing::withoutGlobalScope('shopeeStore')->where('product_id', $pid)->where('shopee_setting_id', $this->store->id)->count(),
+        $this->assertSame(1, ShopeeListing::withoutGlobalScope('shopeeStore')->where('product_id', $pid)->where('store_id', $this->store->id)->count(),
             'adding a product already on the store must not double it');
     }
 
@@ -248,8 +248,8 @@ class ShopeeAddToStoreTest extends TestCase
     {
         $pid = $this->seedProduct('Live widget', 'LIVE-1');
         $this->onStore($pid);
-        ShopeeProductLink::create(['shopee_setting_id' => $this->store->id, 'product_id' => $pid, 'shopee_item_id' => '901234', 'sku' => 'LIVE-1', 'live_status' => 'NORMAL']);
-        $group = ShopeeProductGroup::create(['shopee_setting_id' => $this->store->id, 'name' => 'Group', 'shopee_category_id' => 100]);
+        ShopeeProductLink::create(['store_id' => $this->store->id, 'product_id' => $pid, 'shopee_item_id' => '901234', 'sku' => 'LIVE-1', 'live_status' => 'NORMAL']);
+        $group = ShopeeProductGroup::create(['store_id' => $this->store->id, 'name' => 'Group', 'shopee_category_id' => 100]);
         ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $pid]);
 
         $this->actingAs($this->manager())
@@ -268,7 +268,7 @@ class ShopeeAddToStoreTest extends TestCase
     public function test_the_remove_confirm_names_the_live_listing_and_the_marketplace_door(): void
     {
         $pid = $this->seedProduct('Live widget', 'LIVE-1');
-        ShopeeProductLink::create(['shopee_setting_id' => $this->store->id, 'product_id' => $pid, 'shopee_item_id' => '901234', 'sku' => 'LIVE-1', 'live_status' => 'NORMAL']);
+        ShopeeProductLink::create(['store_id' => $this->store->id, 'product_id' => $pid, 'shopee_item_id' => '901234', 'sku' => 'LIVE-1', 'live_status' => 'NORMAL']);
 
         $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
 
@@ -280,7 +280,7 @@ class ShopeeAddToStoreTest extends TestCase
 
     public function test_remove_from_store_cannot_reach_another_stores_product(): void
     {
-        $other = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Outlet']);
+        $other = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Outlet']);
         $pid = $this->seedProduct('Theirs', 'T-1');
         $this->onStore($pid, $other->id);
 
@@ -293,7 +293,7 @@ class ShopeeAddToStoreTest extends TestCase
 
     private function group(string $name = 'Helmets'): ShopeeProductGroup
     {
-        return ShopeeProductGroup::create(['shopee_setting_id' => $this->store->id, 'name' => $name, 'shopee_category_id' => 100, 'logistic_ids' => [1]]);
+        return ShopeeProductGroup::create(['store_id' => $this->store->id, 'name' => $name, 'shopee_category_id' => 100, 'logistic_ids' => [1]]);
     }
 
     public function test_the_group_page_offers_the_panel_and_not_add_a_product_by_name(): void

@@ -24,11 +24,11 @@ class ShopeeLinkCheck
     public function storeProductIds(int $storeId): array
     {
         $listings = \Extensions\Shopee\Models\ShopeeListing::query()
-            ->withoutGlobalScope('shopeeStore')->where('shopee_setting_id', $storeId)
+            ->withoutGlobalScope('shopeeStore')->where('store_id', $storeId)
             ->pluck('product_id');
 
         return \Extensions\Shopee\Models\ShopeeProductLink::query()
-            ->withoutGlobalScope('shopeeStore')->where('shopee_setting_id', $storeId)
+            ->withoutGlobalScope('shopeeStore')->where('store_id', $storeId)
             ->whereNotNull('shopee_item_id')->pluck('product_id')
             ->merge($listings)
             ->map(fn ($v) => (int) $v)->filter()->unique()->sort()->values()->all();
@@ -39,7 +39,7 @@ class ShopeeLinkCheck
     private function ofThisStore(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
         return $this->actingStore > 0
-            ? $query->withoutGlobalScope('shopeeStore')->where($query->qualifyColumn('shopee_setting_id'), $this->actingStore)
+            ? $query->withoutGlobalScope('shopeeStore')->where($query->qualifyColumn('store_id'), $this->actingStore)
             : $query;
     }
 
@@ -47,7 +47,7 @@ class ShopeeLinkCheck
     {
         return $this->actingStore > 0
             ? \Extensions\Shopee\Models\ShopeeProductGroup::query()->withoutGlobalScope('shopeeStore')
-                ->where('shopee_setting_id', $this->actingStore)->pluck('id')->map(fn ($v) => (int) $v)->all()
+                ->where('store_id', $this->actingStore)->pluck('id')->map(fn ($v) => (int) $v)->all()
             : null;
     }
 
@@ -124,7 +124,7 @@ class ShopeeLinkCheck
 
             ShopeeListing::query()->updateOrCreate(
                 $this->actingStore > 0
-                    ? ['product_id' => (int) $productId, 'shopee_setting_id' => $this->actingStore]
+                    ? ['product_id' => (int) $productId, 'store_id' => $this->actingStore]
                     : ['product_id' => (int) $productId],
                 ['last_checked_at' => now()]
             );

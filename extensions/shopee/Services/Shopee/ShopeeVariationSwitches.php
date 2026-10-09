@@ -283,7 +283,7 @@ final class ShopeeVariationSwitches
 
     private function storeId(array $auth): int
     {
-        return (int) ($auth['store_id'] ?? 0) ?: (int) (\Extensions\Shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0);
+        return (int) ($auth['store_id'] ?? 0) ?: (int) (\Extensions\Shopee\Models\ShopeeStore::defaultStore()?->id ?? 0);
     }
 
     private function key(mixed $sku): string

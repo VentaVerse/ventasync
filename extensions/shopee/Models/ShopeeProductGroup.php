@@ -12,7 +12,7 @@ class ShopeeProductGroup extends Model
 
     protected $fillable = [
         'watermark_template_id',
-        'shopee_setting_id',
+        'store_id',
         'name',
         'shopee_category_id', 'shopee_brand_id', 'logistic_ids',
         'markup_fixed', 'markup_percent',

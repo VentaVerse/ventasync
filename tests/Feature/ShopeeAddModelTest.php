@@ -8,7 +8,7 @@ use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\Shopee\Models\ShopeeListing;
 use Extensions\Shopee\Models\ShopeeProductLink;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -35,7 +35,7 @@ class ShopeeAddModelTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        ShopeeSetting::query()->create(['mode' => 'live', 'partner_id' => '1', 'partner_key' => 'k', 'shop_id' => '2', 'access_token' => 't', 'refresh_token' => 'r']);
+        ShopeeStore::query()->create(['mode' => 'live', 'partner_id' => '1', 'partner_key' => 'k', 'shop_id' => '2', 'access_token' => 't', 'refresh_token' => 'r']);
 
         $test = $this;
         $fake = new class($test) extends ShopeeClient {
@@ -373,7 +373,7 @@ class ShopeeAddModelTest extends TestCase
             ],
         ]);
         $group = \Extensions\Shopee\Models\ShopeeProductGroup::create([
-            'name' => 'Packs', 'shopee_setting_id' => (int) ShopeeSetting::query()->value('id'),
+            'name' => 'Packs', 'store_id' => (int) ShopeeStore::query()->value('id'),
             'shopee_category_id' => 100139, 'logistic_ids' => [8003],
         ]);
 
@@ -488,7 +488,7 @@ class ShopeeAddModelTest extends TestCase
 
     private function storeId(): int
     {
-        return (int) ShopeeSetting::defaultStore()->id;
+        return (int) ShopeeStore::defaultStore()->id;
     }
 
     private function sentTo(string $path): array
@@ -653,7 +653,7 @@ class ShopeeAddModelTest extends TestCase
             ],
         ]);
         $group = \Extensions\Shopee\Models\ShopeeProductGroup::create([
-            'name' => 'Packs', 'shopee_setting_id' => $this->storeId(),
+            'name' => 'Packs', 'store_id' => $this->storeId(),
             'shopee_category_id' => 100139, 'logistic_ids' => [8003],
         ]);
 
@@ -681,7 +681,7 @@ class ShopeeAddModelTest extends TestCase
             ],
         ]);
         $group = \Extensions\Shopee\Models\ShopeeProductGroup::create([
-            'name' => 'Packs', 'shopee_setting_id' => $this->storeId(),
+            'name' => 'Packs', 'store_id' => $this->storeId(),
             'shopee_category_id' => 100139, 'logistic_ids' => [8003],
         ]);
 
@@ -709,7 +709,7 @@ class ShopeeAddModelTest extends TestCase
             'error' => 'error_in_item_promotion_remove_model', 'message' => 'Can\'t change tier_variation when item is under promotion.',
         ]];
         $group = \Extensions\Shopee\Models\ShopeeProductGroup::create([
-            'name' => 'Packs', 'shopee_setting_id' => (int) ShopeeSetting::query()->value('id'),
+            'name' => 'Packs', 'store_id' => (int) ShopeeStore::query()->value('id'),
             'shopee_category_id' => 100139, 'logistic_ids' => [8003],
         ]);
 

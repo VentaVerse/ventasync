@@ -5,14 +5,14 @@ namespace Extensions\TikTok\Services\TikTok;
 use Extensions\TikTok\Commands\TikTokPushPrice;
 use Extensions\TikTok\Models\TikTokProductGroup;
 use Extensions\TikTok\Models\TikTokProductGroupProduct;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 
 final class TikTokPushSteps
 {
     public static function units(): array
     {
         $units = [];
-        foreach (TikTokSetting::enabledStores() as $store) {
+        foreach (TikTokStore::enabledStores() as $store) {
             app()->instance('tiktok.route-store', $store);
             try {
                 $pids = TikTokProductGroupProduct::query()
@@ -42,7 +42,7 @@ final class TikTokPushSteps
         $failed = 0;
         $notes = [];
         foreach ($byStore as $storeId => $pids) {
-            $raw = TikTokSetting::query()->find($storeId);
+            $raw = TikTokStore::query()->find($storeId);
             if (! $raw) {
                 $failed += count($pids);
                 continue;

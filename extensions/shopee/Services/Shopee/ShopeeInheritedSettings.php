@@ -17,7 +17,7 @@ final class ShopeeInheritedSettings
         }
 
         $rows = DB::table('shopee_product_group_products as pv')
-            ->joinSub(ShopeeProductGroup::query()->forStore(\Extensions\Shopee\Models\ShopeeSetting::defaultStore())->select(['id', 'name', 'shopee_category_id', 'shopee_brand_id', 'logistic_ids', 'markup_fixed', 'markup_percent']), 'g', 'g.id', '=', 'pv.shopee_product_group_id')
+            ->joinSub(ShopeeProductGroup::query()->forStore(\Extensions\Shopee\Models\ShopeeStore::defaultStore())->select(['id', 'name', 'shopee_category_id', 'shopee_brand_id', 'logistic_ids', 'markup_fixed', 'markup_percent']), 'g', 'g.id', '=', 'pv.shopee_product_group_id')
             ->whereIn('pv.product_id', $productIds)
             ->orderBy('pv.id')
             ->get(['pv.product_id', 'g.id as group_id', 'g.name', 'g.shopee_category_id', 'g.shopee_brand_id', 'g.logistic_ids', 'g.markup_fixed', 'g.markup_percent']);

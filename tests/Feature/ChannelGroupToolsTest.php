@@ -9,12 +9,12 @@ use App\Models\User;
 use Extensions\Lazada\Models\LazadaProduct;
 use Extensions\Lazada\Models\LazadaProductGroup;
 use Extensions\Lazada\Models\LazadaProductGroupProduct;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Extensions\TikTok\Models\TikTokListing;
 use Extensions\TikTok\Models\TikTokProductGroup;
 use Extensions\TikTok\Models\TikTokProductGroupProduct;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -29,8 +29,8 @@ class ChannelGroupToolsTest extends TestCase
     public array $tiktokAnswers = [];
     private int $groupSeq = 0;
 
-    private LazadaSetting $lazadaStore;
-    private TikTokSetting $tiktokStore;
+    private LazadaStore $lazadaStore;
+    private TikTokStore $tiktokStore;
 
     protected function setUp(): void
     {
@@ -46,8 +46,8 @@ class ChannelGroupToolsTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        $this->lazadaStore = LazadaSetting::query()->create(['mode' => 'live', 'region' => 'ph', 'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't', 'refresh_token' => 'r']);
-        $this->tiktokStore = TikTokSetting::create(['mode' => 'production', 'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3)]);
+        $this->lazadaStore = LazadaStore::query()->create(['mode' => 'live', 'region' => 'ph', 'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't', 'refresh_token' => 'r']);
+        $this->tiktokStore = TikTokStore::create(['mode' => 'production', 'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3)]);
 
         $test = $this;
         $lz = new class($test) extends LazadaClient {

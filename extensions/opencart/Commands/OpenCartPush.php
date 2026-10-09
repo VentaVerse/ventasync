@@ -2,7 +2,7 @@
 
 namespace Extensions\OpenCart\Commands;
 
-use Extensions\OpenCart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartStore;
 use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
 use Extensions\OpenCart\Services\OpenCart\OpenCartProductSync;
 use Illuminate\Console\Command;
@@ -23,7 +23,7 @@ class OpenCartPush extends Command
         $storeId = $this->option('store');
 
         if ($storeId) {
-            $settings = OpenCartSetting::where('id', (int) $storeId)
+            $settings = OpenCartStore::where('id', (int) $storeId)
                 ->where('enabled', true)
                 ->get();
 
@@ -32,7 +32,7 @@ class OpenCartPush extends Command
                 return 1;
             }
         } else {
-            $settings = OpenCartSetting::where('enabled', true)->get();
+            $settings = OpenCartStore::where('enabled', true)->get();
 
             if ($settings->isEmpty()) {
                 $this->error('No enabled OpenCart stores configured.');

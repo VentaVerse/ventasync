@@ -5,7 +5,7 @@ namespace Extensions\Lazada\Commands;
 use Extensions\Lazada\Models\LazadaApiLog;
 use Extensions\Lazada\Models\LazadaProduct;
 use Extensions\Lazada\Models\LazadaProductVariant;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Extensions\Lazada\Services\LazadaStockPushService;
 use Illuminate\Console\Command;
@@ -22,7 +22,7 @@ class LazadaPushStock extends Command implements \App\Channels\Contracts\Steppab
 
     public function handle(LazadaClient $client): int
     {
-        $stores = \Extensions\Lazada\Models\LazadaSetting::enabledStores();
+        $stores = \Extensions\Lazada\Models\LazadaStore::enabledStores();
         if ($stores->isEmpty()) { $this->error('No enabled Lazada store. Configure Lazada settings first.'); return 1; }
         $worst = 0;
         foreach ($stores as $store) {
@@ -41,10 +41,10 @@ class LazadaPushStock extends Command implements \App\Channels\Contracts\Steppab
         return $worst;
     }
 
-    private function handleStore(LazadaClient $client, \Extensions\Lazada\Models\LazadaSetting $store): int
+    private function handleStore(LazadaClient $client, \Extensions\Lazada\Models\LazadaStore $store): int
     {
         $setting = $store->decrypted();
-        $creds = LazadaSetting::activeCredentials($setting);
+        $creds = LazadaStore::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             $this->error('Missing Lazada credentials/token. Configure Lazada settings first.');
             return 1;
@@ -209,7 +209,7 @@ class LazadaPushStock extends Command implements \App\Channels\Contracts\Steppab
                 ->map(fn ($s) => trim((string) $s))
                 ->toArray();
 
-            $erpSkus = \App\Channels\Listings\ListingVariations::sold('lazada', (int) ($listing->lazada_setting_id ?? 0), [(int) $listing->product_id], $pfx)[(int) $listing->product_id] ?? [];
+            $erpSkus = \App\Channels\Listings\ListingVariations::sold('lazada', (int) ($listing->store_id ?? 0), [(int) $listing->product_id], $pfx)[(int) $listing->product_id] ?? [];
 
             if (empty($erpSkus) || empty(array_diff($erpSkus, $cachedSkus))) {
                 continue;
@@ -262,7 +262,7 @@ class LazadaPushStock extends Command implements \App\Channels\Contracts\Steppab
 
     private function pushToLazada(LazadaClient $client, object $setting, string $apiPath, string $payloadXml): array
     {
-        $creds = LazadaSetting::activeCredentials($setting);
+        $creds = LazadaStore::activeCredentials($setting);
 
         $rateKey = 'lazada_api_last_call:' . $setting->region . ':' . $creds['app_key'];
         $lockKey = 'lazada_api_lock:' . $setting->region . ':' . $creds['app_key'];

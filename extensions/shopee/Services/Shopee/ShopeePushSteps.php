@@ -4,7 +4,7 @@ namespace Extensions\Shopee\Services\Shopee;
 
 use Extensions\Shopee\Commands\ShopeePushPrice;
 use Extensions\Shopee\Models\ShopeeProductLink;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Support\Facades\DB;
 
 final class ShopeePushSteps
@@ -13,7 +13,7 @@ final class ShopeePushSteps
     {
         $pfx = (string) config('catalog.prefix');
         $units = [];
-        foreach (ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get() as $store) {
+        foreach (ShopeeStore::query()->where('enabled', true)->orderBy('id')->get() as $store) {
             $pids = ShopeeProductLink::forStore($store)->whereNotNull('shopee_item_id')->distinct()->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
             if ($pids === []) {
                 continue;
@@ -39,7 +39,7 @@ final class ShopeePushSteps
         $failed = 0;
         $notes = [];
         foreach ($byStore as $storeId => $pids) {
-            $store = ShopeeSetting::query()->find($storeId);
+            $store = ShopeeStore::query()->find($storeId);
             if (! $store) {
                 $failed += count($pids);
                 continue;
@@ -47,7 +47,7 @@ final class ShopeePushSteps
             app()->instance('shopee.route-store', $store);
             try {
                 $setting = $store->decrypted();
-                $auth = ShopeeSetting::activeAuth($setting);
+                $auth = ShopeeStore::activeAuth($setting);
                 if (! $auth['complete']) {
                     return ['error' => 'Store ' . ($store->store_name ?: '#' . $store->id) . ' is not connected to Shopee.'];
                 }

@@ -6,13 +6,13 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Extensions\Shopee\Models\ShopeeCategory;
 use Extensions\Shopee\Models\ShopeeListing;
 use Extensions\Shopee\Models\ShopeeLogistic;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\Shopee\Services\Shopee\ShopeeListingReadiness;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -63,7 +63,7 @@ class StoreSetupTest extends TestCase
 
     public function test_the_settings_page_carries_the_setup_popup_and_starts_it_after_an_authorisation(): void
     {
-        $store = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main']);
+        $store = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main']);
         $user = $this->manager('shopee');
 
         $html = $this->actingAs($user)->get(route('ext.shopee.settings.show', ['store' => $store->id]))->assertOk()->getContent();
@@ -80,7 +80,7 @@ class StoreSetupTest extends TestCase
 
     public function test_a_setup_step_on_an_unconnected_store_answers_a_plain_sentence(): void
     {
-        $store = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main']);
+        $store = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main']);
 
         $r = $this->actingAs($this->manager('shopee'))
             ->postJson('/channels/shopee/' . $store->id . '/setup/categories');
@@ -96,7 +96,7 @@ class StoreSetupTest extends TestCase
 
     public function test_a_connection_result_is_one_plain_line_and_never_a_payload(): void
     {
-        $store = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main']);
+        $store = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main']);
         $user = $this->manager('shopee');
 
         $html = $this->actingAs($user)
@@ -117,7 +117,7 @@ class StoreSetupTest extends TestCase
 
     public function test_readiness_says_when_nothing_has_been_fetched_yet(): void
     {
-        ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main']);
+        ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main']);
         $pid = $this->seedProduct('Bare widget', 'BARE-1');
         ShopeeListing::create(['product_id' => $pid]);
 
@@ -136,8 +136,8 @@ class StoreSetupTest extends TestCase
 
     public function test_lazada_and_tiktok_readiness_say_when_no_categories_were_fetched(): void
     {
-        LazadaSetting::create(['mode' => 'live', 'store_name' => 'Laz']);
-        TikTokSetting::create(['mode' => 'production', 'store_name' => 'TT', 'app_key' => 'k', 'app_secret' => 's',
+        LazadaStore::create(['mode' => 'live', 'store_name' => 'Laz']);
+        TikTokStore::create(['mode' => 'production', 'store_name' => 'TT', 'app_key' => 'k', 'app_secret' => 's',
             'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3)]);
         $pid = $this->seedProduct('Bare widget', 'BARE-1');
         \Extensions\Lazada\Models\LazadaProduct::create(['product_id' => $pid]);

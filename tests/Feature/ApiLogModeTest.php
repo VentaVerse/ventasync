@@ -5,9 +5,9 @@ namespace Tests\Feature;
 use App\Extensions\ExtensionManager;
 use App\Support\ApiLogMode;
 use Extensions\Shopee\Models\ShopeeApiLog;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Extensions\VentaCart\Models\VentaCartApiLog;
-use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Extensions\VentaCart\Services\VentaCart\VentaCartClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -45,7 +45,7 @@ class ApiLogModeTest extends TestCase
 
     public function test_errors_only_keeps_the_failure_and_drops_the_routine_call(): void
     {
-        ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main', 'api_log_mode' => 'errors']);
+        ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main', 'api_log_mode' => 'errors']);
 
         ShopeeApiLog::safeCreate(['method' => 'GET', 'api_path' => '/api/v2/order/get_order_list', 'ok' => true, 'response_status' => 200]);
         ShopeeApiLog::safeCreate(['method' => 'POST', 'api_path' => '/api/v2/product/add_item', 'ok' => false, 'response_status' => 400]);
@@ -56,7 +56,7 @@ class ApiLogModeTest extends TestCase
 
     public function test_off_records_nothing_and_all_records_everything(): void
     {
-        $setting = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main', 'api_log_mode' => 'off']);
+        $setting = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main', 'api_log_mode' => 'off']);
 
         ShopeeApiLog::safeCreate(['method' => 'POST', 'api_path' => '/x', 'ok' => false, 'response_status' => 500]);
         $this->assertSame(0, ShopeeApiLog::count(), 'off means off, even for failures');
@@ -69,7 +69,7 @@ class ApiLogModeTest extends TestCase
 
     public function test_the_panel_filters_and_pages_without_losing_the_tab(): void
     {
-        $store = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main', 'api_log_mode' => 'all']);
+        $store = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main', 'api_log_mode' => 'all']);
         for ($i = 0; $i < 55; $i++) {
             ShopeeApiLog::create(['method' => 'GET', 'api_path' => '/test/quiet_routine_fetch', 'ok' => true, 'response_status' => 200]);
         }
@@ -104,7 +104,7 @@ class ApiLogModeTest extends TestCase
 
     public function test_a_client_writer_respects_the_mode_too(): void
     {
-        $setting = VentaCartSetting::create([
+        $setting = VentaCartStore::create([
             'store_name' => 'One', 'enabled' => true,
             'base_url' => 'https://one.ventacart.test', 'api_token' => 't',
             'api_log_mode' => 'errors',

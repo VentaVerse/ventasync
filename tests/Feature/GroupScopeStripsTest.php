@@ -9,7 +9,7 @@ use App\Models\User;
 use Extensions\Shopee\Models\ShopeeProductGroup;
 use Extensions\Shopee\Models\ShopeeProductGroupProduct;
 use Extensions\Shopee\Models\ShopeeProductLink;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -29,7 +29,7 @@ class GroupScopeStripsTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        ShopeeSetting::query()->create([
+        ShopeeStore::query()->create([
             'store_name' => 'Main', 'enabled' => true, 'mode' => 'live',
             'partner_id' => 1, 'partner_key' => 'k', 'shop_id' => 2,
             'access_token' => 't', 'refresh_token' => 'r', 'region' => 'ph',

@@ -4,7 +4,7 @@ namespace Extensions\TikTok\Services\TikTok;
 
 use Extensions\TikTok\Models\TikTokListing;
 use Extensions\TikTok\Models\TikTokProductGroupProduct;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Illuminate\Support\Facades\DB;
 
 final class TikTokProductRemover
@@ -37,7 +37,7 @@ final class TikTokProductRemover
                 $stays['TikTok Shop (' . $this->storeName($h['store_id']) . ')'] = true;
             }
         }
-        foreach (TikTokSetting::allStores() as $store) {
+        foreach (TikTokStore::allStores() as $store) {
             app(TikTokListingStates::class)->forStore($store)->clearErrors([$productId]);
         }
         TikTokListing::query()->where('product_id', $productId)->delete();
@@ -77,14 +77,14 @@ final class TikTokProductRemover
         };
 
         foreach (TikTokListing::query()->whereIn('product_id', $productIds)->whereNotNull('tiktok_product_id')->get() as $l) {
-            $add((int) $l->product_id, (int) $l->tiktok_setting_id, (string) $l->tiktok_product_id, $l->live_status);
+            $add((int) $l->product_id, (int) $l->store_id, (string) $l->tiktok_product_id, $l->live_status);
         }
         $pivots = DB::table('tiktok_product_group_products as pv')
             ->join('tiktok_product_groups as g', 'g.id', '=', 'pv.tiktok_product_group_id')
             ->whereIn('pv.product_id', $productIds)->whereNotNull('pv.tiktok_product_id')
-            ->get(['pv.product_id', 'pv.tiktok_product_id', 'g.tiktok_setting_id']);
+            ->get(['pv.product_id', 'pv.tiktok_product_id', 'g.store_id']);
         foreach ($pivots as $p) {
-            $add((int) $p->product_id, (int) $p->tiktok_setting_id, (string) $p->tiktok_product_id, null);
+            $add((int) $p->product_id, (int) $p->store_id, (string) $p->tiktok_product_id, null);
         }
 
         return $out;
@@ -92,7 +92,7 @@ final class TikTokProductRemover
 
     private function storeName(int $storeId): string
     {
-        $s = TikTokSetting::query()->find($storeId);
+        $s = TikTokStore::query()->find($storeId);
 
         return (string) ($s?->store_name ?: ($s?->shop_name ?: 'TikTok store #' . $storeId));
     }

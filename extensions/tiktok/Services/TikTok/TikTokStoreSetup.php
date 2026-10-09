@@ -5,7 +5,7 @@ namespace Extensions\TikTok\Services\TikTok;
 use App\Support\MarketplaceAnswer;
 use Extensions\TikTok\Models\TikTokApiLog;
 use Extensions\TikTok\Models\TikTokCategory;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 
 class TikTokStoreSetup
 {
@@ -13,7 +13,7 @@ class TikTokStoreSetup
     {
     }
 
-    public static function creds(TikTokSetting $raw): array
+    public static function creds(TikTokStore $raw): array
     {
         $d = $raw->decrypted();
         $sandbox = $raw->mode === 'sandbox';
@@ -27,7 +27,7 @@ class TikTokStoreSetup
         ];
     }
 
-    public function shop(TikTokSetting $raw): array
+    public function shop(TikTokStore $raw): array
     {
         $c = self::creds($raw);
         $path = '/authorization/202309/shops';
@@ -61,7 +61,7 @@ class TikTokStoreSetup
         return ['ok' => true, 'count' => 1, 'message' => 'Shop ' . $name . ' fetched' . ($warehouses !== [] ? ', with its warehouse.' : '. No warehouse was reported.')];
     }
 
-    public function categories(TikTokSetting $raw): array
+    public function categories(TikTokStore $raw): array
     {
         $c = self::creds($raw);
         if ($c['shop_cipher'] === '') {

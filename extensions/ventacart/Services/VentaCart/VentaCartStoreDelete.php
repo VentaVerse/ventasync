@@ -6,13 +6,13 @@ use Extensions\VentaCart\Models\VentaCartListing;
 use Extensions\VentaCart\Models\VentaCartProductGroup;
 use Extensions\VentaCart\Models\VentaCartProductGroupProduct;
 use Extensions\VentaCart\Models\VentaCartProductLink;
-use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartStore;
 
 final class VentaCartStoreDelete
 {
-    public function __construct(private readonly VentaCartSetting $setting, private readonly VentaCartClient $client) {}
+    public function __construct(private readonly VentaCartStore $setting, private readonly VentaCartClient $client) {}
 
-    public static function for(VentaCartSetting $setting): self
+    public static function for(VentaCartStore $setting): self
     {
         return new self($setting, new VentaCartClient($setting));
     }
@@ -21,8 +21,8 @@ final class VentaCartStoreDelete
     {
         $ids = array_values(array_unique(array_map('intval', $productIds)));
         $out = ['deleted' => 0, 'skipped' => 0, 'errors' => []];
-        $links = VentaCartProductLink::query()->where('ventacart_setting_id', $this->setting->id)->whereIn('product_id', $ids ?: [0])->get()->keyBy('product_id');
-        $groupIds = VentaCartProductGroup::query()->where('ventacart_setting_id', $this->setting->id)->pluck('id')->all();
+        $links = VentaCartProductLink::query()->where('store_id', $this->setting->id)->whereIn('product_id', $ids ?: [0])->get()->keyBy('product_id');
+        $groupIds = VentaCartProductGroup::query()->where('store_id', $this->setting->id)->pluck('id')->all();
         $states = VentaCartListingStates::for((int) $this->setting->id);
         foreach ($ids as $pid) {
             $link = $links->get($pid);
@@ -43,7 +43,7 @@ final class VentaCartStoreDelete
             }
             $states->clearErrors([$pid]);
             $link->delete();
-            VentaCartListing::query()->where('ventacart_setting_id', $this->setting->id)->where('product_id', $pid)
+            VentaCartListing::query()->where('store_id', $this->setting->id)->where('product_id', $pid)
                 ->update(['live_status' => null, 'live_checked_at' => null]);
             if ($groupIds !== []) {
                 VentaCartProductGroupProduct::query()->where('product_id', $pid)->whereIn('ventacart_product_group_id', $groupIds)

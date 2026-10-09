@@ -2,7 +2,7 @@
 
 namespace Extensions\OpenCart\Commands;
 
-use Extensions\OpenCart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartStore;
 use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
 use Extensions\OpenCart\Services\OpenCart\OpenCartOrderSync;
 use Illuminate\Console\Command;
@@ -17,7 +17,7 @@ class OpenCartImportOrders extends Command
 
     public function handle(): int
     {
-        $setting = OpenCartSetting::query()->first();
+        $setting = OpenCartStore::query()->first();
 
         if (!$setting || !$setting->enabled) {
             $this->error('OpenCart connection not configured or disabled.');

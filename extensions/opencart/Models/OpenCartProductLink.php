@@ -9,14 +9,14 @@ class OpenCartProductLink extends Model
     protected $table = 'opencart_product_links';
 
     protected $fillable = [
-        'opencart_setting_id',
+        'store_id',
         'oc_product_id',
         'product_id',
         'sku',
     ];
 
-    public function setting()
+    public function store()
     {
-        return $this->belongsTo(OpenCartSetting::class, 'opencart_setting_id');
+        return $this->belongsTo(OpenCartStore::class, 'store_id');
     }
 }

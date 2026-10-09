@@ -4,7 +4,7 @@ namespace Extensions\Shopee\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class ShopeeSetting extends Model
+class ShopeeStore extends Model
 {
     use \App\Plans\CountsAsStore;
 

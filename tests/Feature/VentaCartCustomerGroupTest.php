@@ -8,7 +8,7 @@ use App\Models\Admin\UserGroup;
 use App\Models\Catalog\Order;
 use App\Models\User;
 use Extensions\VentaCart\Models\VentaCartOrder;
-use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Extensions\VentaCart\Services\VentaCart\VentaCartClient;
 use Extensions\VentaCart\Services\VentaCart\VentaCartOrderSync;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -21,7 +21,7 @@ class VentaCartCustomerGroupTest extends TestCase
 
     private function sync(): array
     {
-        $setting = VentaCartSetting::create(['store_name' => 'Group store', 'base_url' => 'https://ventacart.example.test', 'api_token' => 'secret']);
+        $setting = VentaCartStore::create(['store_name' => 'Group store', 'base_url' => 'https://ventacart.example.test', 'api_token' => 'secret']);
         $client = app(VentaCartClient::class, ['setting' => $setting]);
 
         return [new VentaCartOrderSync($client, $setting), $setting];

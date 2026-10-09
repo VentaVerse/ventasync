@@ -4,7 +4,7 @@ namespace Extensions\OpenCart\Commands;
 
 use Extensions\OpenCart\Models\MarketplaceReview;
 use Extensions\OpenCart\Models\OpenCartProductLink;
-use Extensions\OpenCart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartStore;
 use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -18,7 +18,7 @@ class OpenCartPushReviews extends Command
 
     public function handle(): int
     {
-        $query = OpenCartSetting::query()->where('enabled', true);
+        $query = OpenCartStore::query()->where('enabled', true);
 
         if ($storeId = $this->option('store')) {
             $query->where('id', (int) $storeId);
@@ -64,7 +64,7 @@ class OpenCartPushReviews extends Command
             $errors = 0;
 
             $linkMap = OpenCartProductLink::query()
-                ->where('opencart_setting_id', $setting->id)
+                ->where('store_id', $setting->id)
                 ->pluck('oc_product_id', 'product_id')
                 ->all();
 
@@ -96,7 +96,7 @@ class OpenCartPushReviews extends Command
                         $ocReviewId = $res['body']['data']['review_id'] ?? null;
                         $review->update([
                             'oc_sync_status'      => 'pushed',
-                            'opencart_setting_id' => $setting->id,
+                            'opencart_store_id' => $setting->id,
                             'oc_review_id'        => $ocReviewId,
                             'oc_pushed_at'        => now(),
                             'oc_push_error'       => null,
@@ -106,7 +106,7 @@ class OpenCartPushReviews extends Command
                         $errorMsg = $res['body']['error'] ?? 'Unknown error';
                         $review->update([
                             'oc_sync_status'      => 'error',
-                            'opencart_setting_id' => $setting->id,
+                            'opencart_store_id' => $setting->id,
                             'oc_push_error'       => substr($errorMsg, 0, 500),
                         ]);
                         $errors++;
@@ -114,7 +114,7 @@ class OpenCartPushReviews extends Command
                 } catch (\Throwable $e) {
                     $review->update([
                         'oc_sync_status'      => 'error',
-                        'opencart_setting_id' => $setting->id,
+                        'opencart_store_id' => $setting->id,
                         'oc_push_error'       => substr($e->getMessage(), 0, 500),
                     ]);
                     $errors++;

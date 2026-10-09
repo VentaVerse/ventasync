@@ -9,7 +9,7 @@ use App\Models\User;
 use Extensions\Lazada\LazadaExtension;
 use Extensions\Lazada\Models\LazadaOrder;
 use Extensions\Lazada\Models\LazadaOrderProduct;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Extensions\TikTok\Models\TikTokOrder;
 use Extensions\TikTok\TikTokExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -21,7 +21,7 @@ class HandoverCourierStripTest extends TestCase
 
     private int $groupSeq = 0;
 
-    private LazadaSetting $lazadaStore;
+    private LazadaStore $lazadaStore;
 
     protected function setUp(): void
     {
@@ -38,7 +38,7 @@ class HandoverCourierStripTest extends TestCase
 
         $this->app['router']->getRoutes()->refreshNameLookups();
 
-        $this->lazadaStore = LazadaSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $this->lazadaStore = LazadaStore::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
     private function userWith(array $permissionKeys): User
@@ -185,10 +185,10 @@ class HandoverCourierStripTest extends TestCase
 
     public function test_tiktoks_ship_names_its_wait(): void
     {
-        $tiktokStore = \Extensions\TikTok\Models\TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $tiktokStore = \Extensions\TikTok\Models\TikTokStore::create(['mode' => 'live', 'store_name' => 'Main store']);
 
         TikTokOrder::create([
-            'tiktok_setting_id' => $tiktokStore->id,
+            'store_id' => $tiktokStore->id,
             'order_id' => 'TT-1',
             'status' => 'AWAITING_SHIPMENT',
             'order_created_at' => '2026-08-01 09:00:00',

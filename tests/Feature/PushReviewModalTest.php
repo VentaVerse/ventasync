@@ -10,7 +10,7 @@ use Extensions\Shopee\Models\ShopeeCategory;
 use Extensions\Shopee\Models\ShopeeCategoryTemplate;
 use Extensions\Shopee\Models\ShopeeListing;
 use Extensions\Shopee\Models\ShopeeLogistic;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -30,7 +30,7 @@ class PushReviewModalTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        ShopeeSetting::query()->create([
+        ShopeeStore::query()->create([
             'store_name' => 'Main', 'enabled' => true, 'mode' => 'live',
             'partner_id' => 1, 'partner_key' => 'k', 'shop_id' => 2,
             'access_token' => 't', 'refresh_token' => 'r', 'region' => 'ph',
@@ -93,10 +93,10 @@ class PushReviewModalTest extends TestCase
     public function test_the_review_shows_the_description_the_push_will_send_templates_included(): void
     {
         $pid = $this->seedProduct('Ceramic Dripper', 'CD-2');
-        $storeId = (int) ShopeeSetting::query()->value('id');
+        $storeId = (int) ShopeeStore::query()->value('id');
         $prefix = \App\Models\DescriptionTemplate::query()->create(['channel' => 'shopee', 'store_id' => $storeId, 'name' => 'Returns', 'body' => 'Returns within 7 days.']);
         ShopeeListing::create([
-            'product_id' => $pid, 'shopee_setting_id' => $storeId, 'shopee_category_id' => 100200,
+            'product_id' => $pid, 'store_id' => $storeId, 'shopee_category_id' => 100200,
             'logistic_ids' => [8003], 'description_prefix_id' => $prefix->id,
         ]);
 

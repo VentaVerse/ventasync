@@ -30,8 +30,8 @@
     $csSection = in_array(request('tab'), $csKnown, true) ? request('tab') : ('connection');
 
     $csHasToken = \App\Support\Credentials::length($store->api_token ?? null) > 0 && trim((string) $store->base_url) !== '';
-    $csCategories = \Extensions\VentaCart\Models\VentaCartCategory::query()->where('ventacart_setting_id', $store->id)->count();
-    $csBrands = \Extensions\VentaCart\Models\VentaCartBrand::query()->where('ventacart_setting_id', $store->id)->count();
+    $csCategories = \Extensions\VentaCart\Models\VentaCartCategory::query()->where('store_id', $store->id)->count();
+    $csBrands = \Extensions\VentaCart\Models\VentaCartBrand::query()->where('store_id', $store->id)->count();
     $csStatuses = $statusMap->count();
     $csSetUp = $csCategories > 0 && $csStatuses > 0;
     $csSetupState = $csCategories > 0 || $csBrands > 0 || $csStatuses > 0

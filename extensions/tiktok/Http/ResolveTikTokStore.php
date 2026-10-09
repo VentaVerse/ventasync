@@ -3,7 +3,7 @@
 namespace Extensions\TikTok\Http;
 
 use Closure;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
 
@@ -13,7 +13,7 @@ class ResolveTikTokStore
     {
         $id = $request->route('store');
         if ($id !== null) {
-            $store = TikTokSetting::query()->find((int) $id);
+            $store = TikTokStore::query()->find((int) $id);
             abort_unless($store !== null, 404);
 
             app()->instance('tiktok.route-store', $store);

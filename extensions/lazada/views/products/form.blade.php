@@ -483,7 +483,7 @@
 @if(!empty($catalogChange))
     @include('partials.catalog-change-panel', [
         'listing' => $listing,
-        'storeLabel' => \App\Support\StoreLabel::of('Lazada', \Extensions\Lazada\Models\LazadaSetting::query()->find($listing->lazada_setting_id)?->store_name),
+        'storeLabel' => \App\Support\StoreLabel::of('Lazada', \Extensions\Lazada\Models\LazadaStore::query()->find($listing->store_id)?->store_name),
         'saveUrl' => route('ext.lazada.products.catalog_change_save', $listing->product_id),
         'ignoreUrl' => route('ext.lazada.products.catalog_change_ignore', $listing->product_id),
         'back' => request()->boolean('compare') ? \App\Support\BackTo::safe(request('back'), request()->getRequestUri()) : request()->getRequestUri(),

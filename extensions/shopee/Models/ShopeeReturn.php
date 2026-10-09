@@ -12,7 +12,7 @@ class ShopeeReturn extends Model
     protected $table = 'shopee_returns';
 
     protected $fillable = [
-        'shopee_setting_id',
+        'store_id',
         'region',
         'return_sn',
         'order_sn',

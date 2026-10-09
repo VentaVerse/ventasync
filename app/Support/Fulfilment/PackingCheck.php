@@ -113,12 +113,12 @@ final class PackingCheck
             'ventacart' => [(int) $request->route('order')],
             'tiktok' => [(int) $request->route('id')],
             'shopee' => \Extensions\Shopee\Models\ShopeeOrder::query()
-                ->where('shopee_setting_id', $storeId)
+                ->where('store_id', $storeId)
                 ->where('order_sn', (string) $request->route('orderSn'))
                 ->pluck('id')->all(),
             'lazada' => $request->route('orderId') !== null
                 ? \Extensions\Lazada\Models\LazadaOrder::query()
-                    ->where('lazada_setting_id', $storeId)
+                    ->where('store_id', $storeId)
                     ->where('order_id', (string) $request->route('orderId'))
                     ->pluck('id')->all()
                 : array_map('intval', (array) $request->input('ids', [])),

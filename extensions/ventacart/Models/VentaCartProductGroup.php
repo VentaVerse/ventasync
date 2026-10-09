@@ -12,7 +12,7 @@ class VentaCartProductGroup extends Model
 
     protected $fillable = [
         'watermark_template_id',
-        'ventacart_setting_id',
+        'store_id',
         'name',
         'ventacart_category_id',
         'ventacart_brand_id',
@@ -25,9 +25,9 @@ class VentaCartProductGroup extends Model
         'markup_fixed'         => 'decimal:2',
     ];
 
-    public function setting(): BelongsTo
+    public function store(): BelongsTo
     {
-        return $this->belongsTo(VentaCartSetting::class, 'ventacart_setting_id');
+        return $this->belongsTo(VentaCartStore::class, 'store_id');
     }
 
     public function products(): HasMany

@@ -6,7 +6,7 @@ use Extensions\Lazada\Models\LazadaApiLog;
 use Extensions\Lazada\Models\LazadaOrder;
 use Extensions\Lazada\Models\LazadaOrderProduct;
 use Extensions\Lazada\Models\LazadaReverseOrder;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Extensions\Lazada\Services\LazadaCatalogOrderSync;
 use Illuminate\Console\Command;
@@ -28,7 +28,7 @@ class LazadaSyncOrders extends Command implements \App\Channels\Contracts\Steppa
 
     public function handle(LazadaClient $client): int
     {
-        $stores = \Extensions\Lazada\Models\LazadaSetting::enabledStores();
+        $stores = \Extensions\Lazada\Models\LazadaStore::enabledStores();
         if ($stores->isEmpty()) { $this->error('No enabled Lazada store. Configure Lazada settings first.'); return 1; }
         $worst = 0;
         foreach ($stores as $store) {
@@ -47,10 +47,10 @@ class LazadaSyncOrders extends Command implements \App\Channels\Contracts\Steppa
         return $worst;
     }
 
-    private function handleStore(LazadaClient $client, \Extensions\Lazada\Models\LazadaSetting $store): int
+    private function handleStore(LazadaClient $client, \Extensions\Lazada\Models\LazadaStore $store): int
     {
         $setting = $store->decrypted();
-        $creds = LazadaSetting::activeCredentials($setting);
+        $creds = LazadaStore::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             $this->error('Missing Lazada credentials/token. Configure Lazada settings first.');
             return 1;
@@ -404,7 +404,7 @@ class LazadaSyncOrders extends Command implements \App\Channels\Contracts\Steppa
 
     private function runSignedApiCall(LazadaClient $client, object $setting, string $method, string $apiPath, array $customParams, ?string $pack = null): array
     {
-        $creds = LazadaSetting::activeCredentials($setting);
+        $creds = LazadaStore::activeCredentials($setting);
 
         $apiPath = trim($apiPath);
         if (!str_starts_with($apiPath, '/')) $apiPath = '/' . $apiPath;
@@ -660,7 +660,7 @@ class LazadaSyncOrders extends Command implements \App\Channels\Contracts\Steppa
         $returnsOnly = ! empty($args['--returns']);
         $skipReturns = ! empty($args['--no-returns']);
         $units = [];
-        foreach (\Extensions\Lazada\Models\LazadaSetting::enabledStores() as $store) {
+        foreach (\Extensions\Lazada\Models\LazadaStore::enabledStores() as $store) {
             foreach (array_values(array_filter(['orders', 'fees', 'returns'], fn ($p) => $returnsOnly ? $p === 'returns' : ($p !== 'returns' || ! $skipReturns))) as $phase) {
                 $units[] = $store->id . ':' . $phase;
             }
@@ -683,7 +683,7 @@ class LazadaSyncOrders extends Command implements \App\Channels\Contracts\Steppa
         $notes = [];
         foreach ($units as $unit) {
             [$sid, $phase] = array_pad(explode(':', (string) $unit, 2), 2, '');
-            $store = \Extensions\Lazada\Models\LazadaSetting::query()->find((int) $sid);
+            $store = \Extensions\Lazada\Models\LazadaStore::query()->find((int) $sid);
             if (! $store) {
                 $failed++;
                 continue;
@@ -691,7 +691,7 @@ class LazadaSyncOrders extends Command implements \App\Channels\Contracts\Steppa
             app()->instance('lazada.route-store', $store);
             try {
                 $setting = $store->decrypted();
-                $creds = LazadaSetting::activeCredentials($setting);
+                $creds = LazadaStore::activeCredentials($setting);
                 if (! $setting || ! $setting->region || ! $creds['app_key'] || ! $creds['app_secret'] || ! $creds['access_token']) {
                     return ['error' => 'Store ' . ($store->store_name ?: '#' . $store->id) . ' is not connected to Lazada.'];
                 }

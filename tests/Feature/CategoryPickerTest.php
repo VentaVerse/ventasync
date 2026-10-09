@@ -6,7 +6,7 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\Shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -15,7 +15,7 @@ class CategoryPickerTest extends TestCase
 {
     use RefreshDatabase;
 
-    private ShopeeSetting $store;
+    private ShopeeStore $store;
 
     protected function setUp(): void
     {
@@ -28,7 +28,7 @@ class CategoryPickerTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        $this->store = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $this->store = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store']);
 
         foreach ([
             [100, 0, 'Hobbies & Collections', 0],

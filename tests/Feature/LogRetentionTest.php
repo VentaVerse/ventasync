@@ -106,30 +106,30 @@ class LogRetentionTest extends TestCase
     public function test_a_store_sets_its_own_level_and_it_beats_the_default(): void
     {
         config(['logs.sync_level' => 'all']);
-        $store = \Extensions\VentaCart\Models\VentaCartSetting::create([
+        $store = \Extensions\VentaCart\Models\VentaCartStore::create([
             'store_name' => 'Loud store', 'base_url' => 'https://loud.test', 'api_token' => 't', 'enabled' => true,
         ]);
-        $quiet = \Extensions\VentaCart\Models\VentaCartSetting::create([
+        $quiet = \Extensions\VentaCart\Models\VentaCartStore::create([
             'store_name' => 'Quiet store', 'base_url' => 'https://quiet.test', 'api_token' => 't', 'enabled' => true,
             'sync_log_level' => 'off',
         ]);
 
-        $follows = VentaCartSyncLog::create(['ventacart_setting_id' => $store->id, 'entity_type' => 'order', 'direction' => 'in', 'status' => 'started']);
+        $follows = VentaCartSyncLog::create(['store_id' => $store->id, 'entity_type' => 'order', 'direction' => 'in', 'status' => 'started']);
         $follows->update(['status' => 'completed', 'completed_at' => now()]);
         $this->assertNotNull(VentaCartSyncLog::find($follows->id), 'no opinion, so it follows the default');
 
-        $own = VentaCartSyncLog::create(['ventacart_setting_id' => $quiet->id, 'entity_type' => 'order', 'direction' => 'in', 'status' => 'started']);
+        $own = VentaCartSyncLog::create(['store_id' => $quiet->id, 'entity_type' => 'order', 'direction' => 'in', 'status' => 'started']);
         $own->update(['status' => 'completed', 'completed_at' => now()]);
         $this->assertNull(VentaCartSyncLog::find($own->id), "the store's own level wins");
     }
 
     public function test_the_sync_tab_carries_the_same_controls_as_the_api_log_tab(): void
     {
-        $store = \Extensions\VentaCart\Models\VentaCartSetting::create([
+        $store = \Extensions\VentaCart\Models\VentaCartStore::create([
             'store_name' => 'Depot', 'base_url' => 'https://depot.test', 'api_token' => 't', 'enabled' => true,
         ]);
         DB::table('ventacart_sync_logs')->insert([
-            'ventacart_setting_id' => $store->id, 'entity_type' => 'order', 'direction' => 'in', 'status' => 'completed',
+            'store_id' => $store->id, 'entity_type' => 'order', 'direction' => 'in', 'status' => 'completed',
             'records_processed' => 0, 'records_created' => 0, 'records_updated' => 0, 'records_skipped' => 0, 'records_failed' => 0,
             'created_at' => now(), 'updated_at' => now(),
         ]);
@@ -150,7 +150,7 @@ class LogRetentionTest extends TestCase
         $this->assertSame('failures', $store->fresh()->sync_log_level);
 
         $this->actingAs($manager)->delete(route('ext.ventacart.clear_sync_logs', $store->id))->assertRedirect();
-        $this->assertSame(0, DB::table('ventacart_sync_logs')->where('ventacart_setting_id', $store->id)->count());
+        $this->assertSame(0, DB::table('ventacart_sync_logs')->where('store_id', $store->id)->count());
 
         $this->actingAs($manager)->post(route('ext.ventacart.set_sync_log_level', $store->id), ['sync_log_level' => ''])->assertRedirect();
         $this->assertNull($store->fresh()->sync_log_level);

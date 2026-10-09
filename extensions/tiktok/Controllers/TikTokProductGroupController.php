@@ -10,7 +10,7 @@ use Extensions\TikTok\Models\TikTokProductGroup;
 use Extensions\TikTok\Models\TikTokProductGroupProduct;
 use Extensions\TikTok\Models\TikTokProductGroupAttribute;
 use Extensions\TikTok\Models\TikTokListing;
-use Extensions\TikTok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Extensions\TikTok\Services\TikTok\TikTokStockPushService;
 use Extensions\TikTok\Services\TikTok\TikTokVariationPush;
@@ -32,12 +32,12 @@ class TikTokProductGroupController extends Controller
 
     protected function groupSendStoreId(Request $request): int
     {
-        return (int) TikTokSetting::defaultStore()?->id;
+        return (int) TikTokStore::defaultStore()?->id;
     }
 
     protected function groupSendMembers(int $groupId): array
     {
-        $group = TikTokProductGroup::query()->where('tiktok_setting_id', (int) TikTokSetting::defaultStore()?->id)->findOrFail($groupId);
+        $group = TikTokProductGroup::query()->where('store_id', (int) TikTokStore::defaultStore()?->id)->findOrFail($groupId);
 
         return $group->groupProducts()->whereIn('product_id', \Extensions\TikTok\Services\TikTokStoreProducts::query())->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->all();
     }
@@ -80,7 +80,7 @@ class TikTokProductGroupController extends Controller
 
     private function creds(): array
     {
-        $s = TikTokSetting::defaultStore();
+        $s = TikTokStore::defaultStore();
         if (!$s) {
             abort(404, 'TikTok settings not configured.');
         }
@@ -287,7 +287,7 @@ class TikTokProductGroupController extends Controller
     {
         $group = TikTokProductGroup::findOrFail($id);
         $name = $group->name;
-        $this->states((int) $group->tiktok_setting_id)->clearErrors($group->groupProducts()->pluck('product_id')->all());
+        $this->states((int) $group->store_id)->clearErrors($group->groupProducts()->pluck('product_id')->all());
         $group->delete();
 
         ActivityLogger::log('deleted', 'TikTok Product Group', $id, $name);
@@ -332,7 +332,7 @@ class TikTokProductGroupController extends Controller
 
         if ($syncStatus === 'pushed' || $syncStatus === 'pending') {
             $listedIds = DB::table('tiktok_product_group_products')
-                ->whereIn('tiktok_product_group_id', TikTokProductGroupProduct::groupIdsOn((int) $group->tiktok_setting_id))
+                ->whereIn('tiktok_product_group_id', TikTokProductGroupProduct::groupIdsOn((int) $group->store_id))
                 ->whereIn('product_id', $productIds)
                 ->whereNotNull('tiktok_product_id')
                 ->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->flip();
@@ -343,7 +343,7 @@ class TikTokProductGroupController extends Controller
                     : !$listedIds->has((int) $pid)
             ));
         } elseif ($syncStatus === 'error') {
-            $productIds = array_values(array_intersect($productIds, $this->states((int) $group->tiktok_setting_id)->erroredProductIds()));
+            $productIds = array_values(array_intersect($productIds, $this->states((int) $group->store_id)->erroredProductIds()));
         } elseif ($syncStatus === 'unlinked') {
             $productIds = array_values(array_filter($productIds, fn($pid) => ($pivotMap->get($pid)->sync_status ?? '') === 'unlinked'));
         }
@@ -378,7 +378,7 @@ class TikTokProductGroupController extends Controller
                     ->orWhere('p.sku', 'like', "%{$q}%")
                     ->orWhere('p.model', 'like', "%{$q}%")
                     ->orWhereIn('p.product_id', TikTokListing::query()
-                        ->forStore((int) $group->tiktok_setting_id)
+                        ->forStore((int) $group->store_id)
                         ->where('title', 'like', "%{$q}%")
                         ->select('product_id'));
             });
@@ -401,7 +401,7 @@ class TikTokProductGroupController extends Controller
 
         $truthByProductId = DB::table('tiktok_product_group_products as tp')
             ->join('tiktok_product_groups as tg', 'tg.id', '=', 'tp.tiktok_product_group_id')
-            ->where('tg.tiktok_setting_id', $group->tiktok_setting_id)
+            ->where('tg.store_id', $group->store_id)
             ->whereIn('tp.product_id', $products->pluck('product_id')->all() ?: [0])
             ->whereNotNull('tp.tiktok_product_id')
             ->orderByDesc('tp.last_pushed_at')
@@ -422,10 +422,10 @@ class TikTokProductGroupController extends Controller
         $manualIds = $group->groupProducts()->pluck('product_id')->toArray();
 
         $pageIds = $products->pluck('product_id')->all();
-        $optionRowsByProductId = \App\Support\VariationRows::forListing($pageIds, 'tiktok', (int) (\Extensions\TikTok\Models\TikTokSetting::defaultStore()?->id ?? 0));
+        $optionRowsByProductId = \App\Support\VariationRows::forListing($pageIds, 'tiktok', (int) (\Extensions\TikTok\Models\TikTokStore::defaultStore()?->id ?? 0));
 
         $rowTitles = \App\Channels\Listings\ListingContent::rowTitles($products, TikTokListing::query()
-            ->forStore((int) $group->tiktok_setting_id)
+            ->forStore((int) $group->store_id)
             ->whereIn('product_id', $pageIds ?: [0])
             ->get());
 
@@ -495,7 +495,7 @@ class TikTokProductGroupController extends Controller
             ->join('tiktok_product_groups as g', 'g.id', '=', 'pv.tiktok_product_group_id')
             ->whereIn('pv.product_id', $ids)
             ->where('g.id', '!=', $group->id)
-            ->where('g.tiktok_setting_id', $group->tiktok_setting_id)
+            ->where('g.store_id', $group->store_id)
             ->get(['pv.product_id', 'g.name'])
             ->keyBy('product_id');
 
@@ -539,7 +539,7 @@ class TikTokProductGroupController extends Controller
 
         if (! $already) {
             $claim = \App\Channels\OneGroupRule::claim(
-                'tiktok_product_group_products', 'tiktok_product_group_id', 'tiktok_product_groups', 'tiktok_setting_id',
+                'tiktok_product_group_products', 'tiktok_product_group_id', 'tiktok_product_groups', 'store_id',
                 $group->id, [$productId], $request->boolean('move') ? [$productId] : []
             );
             foreach (array_merge($claim['free'], array_keys($claim['moved'])) as $pid) {
@@ -576,7 +576,7 @@ class TikTokProductGroupController extends Controller
         $group = TikTokProductGroup::findOrFail($id);
 
         TikTokListing::query()->where('product_id', $product)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null]);
-        $this->writeProductStatus((int) $group->tiktok_setting_id, $product, ['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'sync_status' => 'unlinked']);
+        $this->writeProductStatus((int) $group->store_id, $product, ['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'sync_status' => 'unlinked']);
 
         return $this->productsRedirect($id)
             ->with('status', 'Product unlinked from TikTok.');
@@ -590,7 +590,7 @@ class TikTokProductGroupController extends Controller
             return redirect()->back()->with('error', 'Product not in this product group.');
         }
 
-        $raw = TikTokSetting::defaultStore();
+        $raw = TikTokStore::defaultStore();
         if (!$raw) {
             return redirect()->back()->with('error', 'TikTok settings not configured.');
         }
@@ -655,7 +655,7 @@ class TikTokProductGroupController extends Controller
         }
 
         if (!$matchedProductId) {
-            $this->states((int) $group->tiktok_setting_id)->recordOutcome($product, 'No matching product found on TikTok Shop for SKU(s): ' . implode(', ', $skus));
+            $this->states((int) $group->store_id)->recordOutcome($product, 'No matching product found on TikTok Shop for SKU(s): ' . implode(', ', $skus));
 
             return redirect()->back()->with('error', 'No matching product found on TikTok for SKU(s): ' . implode(', ', $skus));
         }
@@ -689,7 +689,7 @@ class TikTokProductGroupController extends Controller
             } else {
                 $ttId = DB::table('tiktok_product_group_products')
                     ->where('tiktok_product_group_id', '!=', $group->id)
-                    ->whereIn('tiktok_product_group_id', TikTokProductGroupProduct::groupIdsOn((int) $group->tiktok_setting_id))
+                    ->whereIn('tiktok_product_group_id', TikTokProductGroupProduct::groupIdsOn((int) $group->store_id))
                     ->where('product_id', $product)
                     ->whereNotNull('tiktok_product_id')
                     ->value('tiktok_product_id');
@@ -714,7 +714,7 @@ class TikTokProductGroupController extends Controller
         TikTokProductGroupProduct::where('tiktok_product_group_id', $group->id)
             ->where('product_id', $product)
             ->delete();
-        $this->states((int) $group->tiktok_setting_id)->clearErrors([$product]);
+        $this->states((int) $group->store_id)->clearErrors([$product]);
 
         return $this->productsRedirect($id)
             ->with('status', 'Product removed from the product group.');
@@ -737,7 +737,7 @@ class TikTokProductGroupController extends Controller
 
         $already = TikTokProductGroupProduct::where('tiktok_product_group_id', $group->id)->whereIn('product_id', $ids)->pluck('product_id')->map(fn ($v) => (int) $v)->all();
         $wanted = array_values(array_diff($ids, $already));
-        $claim = \App\Channels\OneGroupRule::claim('tiktok_product_group_products', 'tiktok_product_group_id', 'tiktok_product_groups', 'tiktok_setting_id', $group->id, $wanted, $wanted);
+        $claim = \App\Channels\OneGroupRule::claim('tiktok_product_group_products', 'tiktok_product_group_id', 'tiktok_product_groups', 'store_id', $group->id, $wanted, $wanted);
         $moved = 0;
         foreach (array_merge($claim['free'], array_keys($claim['moved'])) as $pid) {
             TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => (int) $pid, 'sync_status' => 'pending']);
@@ -763,7 +763,7 @@ class TikTokProductGroupController extends Controller
         $deleted = TikTokProductGroupProduct::where('tiktok_product_group_id', $group->id)
             ->whereIn('product_id', $ids)
             ->delete();
-        $this->states((int) $group->tiktok_setting_id)->clearErrors($ids);
+        $this->states((int) $group->store_id)->clearErrors($ids);
 
         return $this->productsRedirect($id)
             ->with('status', $deleted . ' product(s) removed from the product group.');
@@ -795,7 +795,7 @@ class TikTokProductGroupController extends Controller
         $ttIds = $pivots->pluck('tiktok_product_id')->toArray();
         $productsByTt = $pivots->groupBy(fn ($p) => (string) $p->tiktok_product_id)
             ->map(fn ($rows) => $rows->pluck('product_id')->map(fn ($v) => (int) $v)->all())->all();
-        $states = $this->states((int) $group->tiktok_setting_id);
+        $states = $this->states((int) $group->store_id);
         $deleted = 0;
         $deletedIds = [];
         $errors = [];
@@ -822,7 +822,7 @@ class TikTokProductGroupController extends Controller
             TikTokListing::query()->whereIn('product_id', $deletedIds)
                 ->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null]);
             foreach (array_unique($deletedIds) as $unlinkedId) {
-                $this->writeProductStatus((int) $group->tiktok_setting_id, (int) $unlinkedId, [
+                $this->writeProductStatus((int) $group->store_id, (int) $unlinkedId, [
                     'tiktok_product_id' => null,
                     'sync_status' => 'pending',
                     'push_error' => null,
@@ -948,7 +948,7 @@ class TikTokProductGroupController extends Controller
             return $this->productsRedirect($id)->with('error', 'Unlinked on TikTok Shop: ' . $shop['error']);
         }
         $known = TikTokListing::query()->whereNotNull('tiktok_product_id')->pluck('tiktok_product_id')->map(fn ($v) => (string) $v)
-            ->merge(TikTokProductGroupProduct::query()->onStore((int) $group->tiktok_setting_id)->whereNotNull('tiktok_product_id')->pluck('tiktok_product_id')->map(fn ($v) => (string) $v))
+            ->merge(TikTokProductGroupProduct::query()->onStore((int) $group->store_id)->whereNotNull('tiktok_product_id')->pluck('tiktok_product_id')->map(fn ($v) => (string) $v))
             ->unique()->flip();
 
         $orphans = [];
@@ -981,7 +981,7 @@ class TikTokProductGroupController extends Controller
             $existingIds = $group->groupProducts()->whereIn('product_id', $intIds)->pluck('product_id')->toArray();
             $missingIds = array_diff($intIds, $existingIds);
             $claim = \App\Channels\OneGroupRule::claim(
-                'tiktok_product_group_products', 'tiktok_product_group_id', 'tiktok_product_groups', 'tiktok_setting_id',
+                'tiktok_product_group_products', 'tiktok_product_group_id', 'tiktok_product_groups', 'store_id',
                 $group->id, $missingIds
             );
             foreach ($claim['free'] as $pid) {
@@ -1036,7 +1036,7 @@ class TikTokProductGroupController extends Controller
             $erp = $erpProducts->get($pivot->product_id);
             if (!$erp) {
                 $pivot->update(['sync_status' => 'error', 'push_error' => 'ERP product not found']);
-                $this->states((int) $group->tiktok_setting_id)->recordOutcome((int) $pivot->product_id, 'ERP product not found');
+                $this->states((int) $group->store_id)->recordOutcome((int) $pivot->product_id, 'ERP product not found');
                 $failed++;
                 continue;
             }
@@ -1060,7 +1060,7 @@ class TikTokProductGroupController extends Controller
             if (!$readiness['ready']) {
                 $refusal = \App\Channels\Listings\CatalogGaps::refusal($readiness);
                 $pivot->update(['sync_status' => 'error', 'push_error' => $refusal]);
-                $this->states((int) $group->tiktok_setting_id)->recordOutcome((int) $pivot->product_id, $refusal);
+                $this->states((int) $group->store_id)->recordOutcome((int) $pivot->product_id, $refusal);
                 $failed++;
                 continue;
             }
@@ -1074,14 +1074,14 @@ class TikTokProductGroupController extends Controller
                     'push_error'        => null,
                 ]);
                 TikTokListing::recordPush((int) $pivot->product_id, $outcome['product_id'], $outcome['sku_ids'], 'group:' . $group->name);
-                $this->states((int) $group->tiktok_setting_id)->recordOutcome((int) $pivot->product_id, null);
+                $this->states((int) $group->store_id)->recordOutcome((int) $pivot->product_id, null);
                 $created++;
                 if (!empty($outcome['pictures'])) {
                     $warnings[] = '#' . $pivot->product_id . ': ' . $outcome['pictures'];
                 }
             } else {
                 $pivot->update(['sync_status' => 'error', 'push_error' => $outcome['message']]);
-                $this->states((int) $group->tiktok_setting_id)->recordOutcome((int) $pivot->product_id, (string) $outcome['message']);
+                $this->states((int) $group->store_id)->recordOutcome((int) $pivot->product_id, (string) $outcome['message']);
                 $failed++;
             }
         }
@@ -1100,7 +1100,7 @@ class TikTokProductGroupController extends Controller
         $outcome = $pusher->edit($erp, $ttId, $existingRaw, array_merge($opts, $this->listingOptions((int) $erp->product_id, $group, $c, $client), $this->ownWords((int) $erp->product_id)), $c, $client);
         if (! $outcome['ok']) {
             $pivot->update(['sync_status' => 'error', 'push_error' => $outcome['message']]);
-            $this->states((int) $group->tiktok_setting_id)->recordOutcome((int) $pivot->product_id, (string) $outcome['message']);
+            $this->states((int) $group->store_id)->recordOutcome((int) $pivot->product_id, (string) $outcome['message']);
 
             return ['ok' => false, 'message' => (string) $outcome['message']];
         }
@@ -1112,7 +1112,7 @@ class TikTokProductGroupController extends Controller
             'tiktok_sku_id'  => $outcome['sku_ids'],
         ], fn ($v, $k) => $k !== 'tiktok_sku_id' || $v !== null, ARRAY_FILTER_USE_BOTH));
         TikTokListing::recordPush((int) $pivot->product_id, $ttId, $outcome['sku_ids'] ?? $existingRaw, 'group:' . $group->name, isset($outcome['sku_ids']));
-        $this->states((int) $group->tiktok_setting_id)->recordOutcome((int) $pivot->product_id, null);
+        $this->states((int) $group->store_id)->recordOutcome((int) $pivot->product_id, null);
 
         return ['ok' => true, 'warning' => $outcome['warning'] ?? null];
     }
@@ -1157,7 +1157,7 @@ class TikTokProductGroupController extends Controller
             $erp = $erpProducts->get($pivot->product_id);
             if (!$erp) {
                 $pivot->update(['sync_status' => 'error', 'push_error' => 'ERP product not found']);
-                $this->states((int) $group->tiktok_setting_id)->recordOutcome((int) $pivot->product_id, 'ERP product not found');
+                $this->states((int) $group->store_id)->recordOutcome((int) $pivot->product_id, 'ERP product not found');
                 $failed++;
                 continue;
             }
@@ -1221,7 +1221,7 @@ class TikTokProductGroupController extends Controller
         $fail = $results['err'];
 
         foreach ($results['outcomes'] as $pid => $outcome) {
-            $this->writeProductStatus((int) $group->tiktok_setting_id, (int) $pid, $outcome['ok']
+            $this->writeProductStatus((int) $group->store_id, (int) $pid, $outcome['ok']
                 ? ['sync_status' => 'pushed', 'push_error' => null]
                 : ['sync_status' => 'error', 'push_error' => mb_substr('' . ($what === 'price' ? 'Price push: ' : 'Stock push: ') . $outcome['error'], 0, 255)]);
         }

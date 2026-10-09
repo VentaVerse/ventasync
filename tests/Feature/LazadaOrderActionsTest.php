@@ -7,7 +7,7 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\Lazada\Models\LazadaOrder;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -20,7 +20,7 @@ class LazadaOrderActionsTest extends TestCase
 
     public array $answers = [];
 
-    private LazadaSetting $store;
+    private LazadaStore $store;
 
     protected function setUp(): void
     {
@@ -33,7 +33,7 @@ class LazadaOrderActionsTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalog');
 
-        $this->store = LazadaSetting::query()->create([
+        $this->store = LazadaStore::query()->create([
             'mode' => 'live', 'region' => 'ph',
             'app_key' => 'k', 'app_secret' => 's',
             'access_token' => 't', 'refresh_token' => 'r',
@@ -86,7 +86,7 @@ class LazadaOrderActionsTest extends TestCase
     private function order(string $status = 'pending'): LazadaOrder
     {
         return LazadaOrder::query()->create([
-            'lazada_setting_id' => $this->store->id, 'region' => 'ph', 'order_id' => '555001',
+            'store_id' => $this->store->id, 'region' => 'ph', 'order_id' => '555001',
             'status' => $status, 'raw' => json_encode(['order_id' => '555001', 'package_id' => 'FP1']),
         ]);
     }

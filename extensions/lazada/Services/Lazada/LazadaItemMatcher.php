@@ -3,7 +3,7 @@
 namespace Extensions\Lazada\Services\Lazada;
 
 use Extensions\Lazada\Models\LazadaApiLog;
-use Extensions\Lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Support\Facades\Log;
 
 class LazadaItemMatcher
@@ -114,7 +114,7 @@ class LazadaItemMatcher
 
     private function lazadaProductsGet(object $setting, LazadaClient $client, array $extra = []): array
     {
-        $creds = LazadaSetting::activeCredentials($setting);
+        $creds = LazadaStore::activeCredentials($setting);
 
         $apiPath = '/products/get';
         $timestamp = (string) round(microtime(true) * 1000);
@@ -161,7 +161,7 @@ class LazadaItemMatcher
 
     public function fetchLazadaSkuMap(object $setting, LazadaClient $client): array
     {
-        $creds = LazadaSetting::activeCredentials($setting);
+        $creds = LazadaStore::activeCredentials($setting);
 
         $skuMap = [];
         $offset = 0;

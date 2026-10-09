@@ -3,7 +3,7 @@
 namespace Extensions\VentaCart\Services\VentaCart;
 
 use Extensions\VentaCart\Models\VentaCartProductLink;
-use Extensions\VentaCart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -11,7 +11,7 @@ use Illuminate\Support\Str;
 
 class VentaCartItemImport
 {
-    public function import(VentaCartSetting $setting, string $importSku): array
+    public function import(VentaCartStore $setting, string $importSku): array
     {
         if ($refused = \App\Plans\Quota::importRefusal()) {
             return $refused;
@@ -85,7 +85,7 @@ class VentaCartItemImport
                 }
 
                 VentaCartProductLink::updateOrCreate(
-                    ['ventacart_setting_id' => $setting->id, 'product_id' => $productId],
+                    ['store_id' => $setting->id, 'product_id' => $productId],
                     ['ventacart_product_id' => $ventaCartId ?: null, 'sku' => $sku]
                 );
 
