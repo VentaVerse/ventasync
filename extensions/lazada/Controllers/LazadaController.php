@@ -89,7 +89,7 @@ class LazadaController extends Controller
 
     public function index()
     {
-        $setting = LazadaStore::defaultStore();
+        $store = LazadaStore::defaultStore();
 
         $logs = \App\Support\ApiLogPanel::paginate(
             LazadaApiLog::query(), 'api_path', fn ($q) => $q->where('ok', 0)
@@ -158,7 +158,7 @@ class LazadaController extends Controller
             ->all();
 
         return view('ext-lazada::index', [
-            'setting' => $setting?->decrypted(),
+            'setting' => $store?->decrypted(),
             'defaultRedirect' => $this->computedRedirectUri(),
             'result' => session('lazada_result'),
             'products' => $products,
@@ -231,12 +231,12 @@ class LazadaController extends Controller
     public function setApiLogMode(Request $request)
     {
         $data = $request->validate(['mode' => 'required|in:' . implode(',', \App\Support\ApiLogMode::MODES)]);
-        $setting = LazadaStore::defaultStore();
-        if (!$setting) {
+        $store = LazadaStore::defaultStore();
+        if (!$store) {
             return $this->toSettingsTab('logs')->with('error', 'Lazada settings not found.');
         }
 
-        $setting->update(['api_log_mode' => $data['mode']]);
+        $store->update(['api_log_mode' => $data['mode']]);
 
         return $this->toSettingsTab('logs')
             ->with('status', 'Lazada API log now records: ' . \App\Support\ApiLogMode::labels()[$data['mode']] . '.');
@@ -330,9 +330,9 @@ class LazadaController extends Controller
             'params_json' => 'nullable|string|max:20000',
         ]);
 
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
-        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if (!$store || !$store->region || !$creds['app_key'] || !$creds['app_secret']) {
             return $this->toSettingsTab('explorer')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
@@ -467,11 +467,11 @@ class LazadaController extends Controller
                 return null;
             };
 
-            $runAttempt = function (string $m, array $p, string $label) use ($client, $setting, $apiPath, $extractCode) {
+            $runAttempt = function (string $m, array $p, string $label) use ($client, $store, $apiPath, $extractCode) {
                 $p['sign'] = $client->sign($apiPath, $p, (string)$creds['app_secret']);
                 $res = $m === 'POST'
-                    ? $client->post((string)$setting->region, $apiPath, $p)
-                    : $client->get((string)$setting->region, $apiPath, $p);
+                    ? $client->post((string)$store->region, $apiPath, $p)
+                    : $client->get((string)$store->region, $apiPath, $p);
                 $code = $extractCode($res['body'] ?? null);
                 return [$res, $code, $p, $label, $m];
             };
@@ -575,8 +575,8 @@ class LazadaController extends Controller
             }
         } else {
             $result = $method === 'POST'
-                ? $client->post((string)$setting->region, $apiPath, $params)
-                : $client->get((string)$setting->region, $apiPath, $params);
+                ? $client->post((string)$store->region, $apiPath, $params)
+                : $client->get((string)$store->region, $apiPath, $params);
         }
 
         LazadaApiLog::safeCreate([
@@ -623,9 +623,9 @@ class LazadaController extends Controller
             }
         }
 
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
-        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if (!$store || !$store->region || !$creds['app_key'] || !$creds['app_secret']) {
             return $this->toSettingsTab('explorer')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
@@ -648,7 +648,7 @@ class LazadaController extends Controller
         foreach ($steps as $step) {
             $res = $this->runSignedApiCall(
                 $client,
-                (string)$setting->region,
+                (string)$store->region,
                 (string)$creds['app_key'],
                 (string)$creds['app_secret'],
                 (string)($creds['access_token'] ?? ''),
@@ -915,28 +915,28 @@ class LazadaController extends Controller
             'sandbox_app_secret' => 'nullable|string|max:255',
         ]);
 
-        $setting = LazadaStore::defaultStore() ?? new LazadaStore();
+        $store = LazadaStore::defaultStore() ?? new LazadaStore();
         if (array_key_exists('store_name', $data) && $data['store_name'] !== null) {
-            $setting->store_name = $data['store_name'];
+            $store->store_name = $data['store_name'];
         }
         if (array_key_exists('enabled', $data) && $data['enabled'] !== null) {
-            $setting->enabled = (bool) $data['enabled'];
+            $store->enabled = (bool) $data['enabled'];
         }
 
-        $setting->region = $data['region'] ?? null;
+        $store->region = $data['region'] ?? null;
 
         $env = $data['env'] ?? 'live';
-        $setting->mode = $env;
+        $store->mode = $env;
 
         if ($env === 'live') {
-            if (!empty($data['app_key']))    $setting->app_key = $data['app_key'];
-            if (!empty($data['app_secret'])) $setting->app_secret = encrypt(trim($data['app_secret']));
+            if (!empty($data['app_key']))    $store->app_key = $data['app_key'];
+            if (!empty($data['app_secret'])) $store->app_secret = encrypt(trim($data['app_secret']));
         } else {
-            if (!empty($data['sandbox_app_key']))    $setting->sandbox_app_key = $data['sandbox_app_key'];
-            if (!empty($data['sandbox_app_secret'])) $setting->sandbox_app_secret = encrypt(trim($data['sandbox_app_secret']));
+            if (!empty($data['sandbox_app_key']))    $store->sandbox_app_key = $data['sandbox_app_key'];
+            if (!empty($data['sandbox_app_secret'])) $store->sandbox_app_secret = encrypt(trim($data['sandbox_app_secret']));
         }
 
-        $setting->save();
+        $store->save();
 
         return $this->redirectToSettings()->with('status', ($env === 'sandbox' ? 'Sandbox' : 'Production') . ' settings saved.');
     }
@@ -944,9 +944,9 @@ class LazadaController extends Controller
     public function toggleMode(Request $request)
     {
         $data = $request->validate(['mode' => 'required|in:live,sandbox']);
-        $setting = LazadaStore::defaultStore() ?? new LazadaStore();
-        $setting->mode = $data['mode'];
-        $setting->save();
+        $store = LazadaStore::defaultStore() ?? new LazadaStore();
+        $store->mode = $data['mode'];
+        $store->save();
 
         return $this->redirectToSettings()->with('status', 'Switched to ' . ($data['mode'] === 'sandbox' ? 'Sandbox' : 'Production') . ' mode.');
     }
@@ -1040,16 +1040,16 @@ class LazadaController extends Controller
             'store_name' => ['required', 'string', 'max:128'],
         ]);
 
-        $setting = LazadaStore::create([
+        $store = LazadaStore::create([
             'store_name' => $data['store_name'],
             'enabled'    => false,
             'mode'       => 'sandbox',
         ]);
 
-        \App\Services\ActivityLogger::log('created', 'Lazada Store', $setting->id, $setting->store_name);
+        \App\Services\ActivityLogger::log('created', 'Lazada Store', $store->id, $store->store_name);
 
         return redirect()
-            ->route('ext.lazada.index', ['store' => $setting->id])
+            ->route('ext.lazada.index', ['store' => $store->id])
             ->with('status', 'Store created. Add the region and app credentials, then authorize it to start syncing.');
     }
 
@@ -1104,13 +1104,13 @@ class LazadaController extends Controller
         }
 
         $tokenResult = null;
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
-        $appKey = $isSandbox ? ($setting->sandbox_app_key ?? null) : ($creds['app_key'] ?? null);
-        $appSecret = $isSandbox ? ($setting->sandbox_app_secret ?? null) : ($creds['app_secret'] ?? null);
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        $appKey = $isSandbox ? ($store->sandbox_app_key ?? null) : ($creds['app_key'] ?? null);
+        $appSecret = $isSandbox ? ($store->sandbox_app_secret ?? null) : ($creds['app_secret'] ?? null);
 
-        if ($code !== '' && $stateOk && $setting && $setting->region && $appKey && $appSecret) {
-            $tokenResult = $this->doTokenCreate($client, (string)$setting->region, (string)$appKey, (string)$appSecret, $code, $isSandbox ? 'sandbox' : 'live');
+        if ($code !== '' && $stateOk && $store && $store->region && $appKey && $appSecret) {
+            $tokenResult = $this->doTokenCreate($client, (string)$store->region, (string)$appKey, (string)$appSecret, $code, $isSandbox ? 'sandbox' : 'live');
 
             if (($tokenResult['ok'] ?? false) && is_array($tokenResult['body'] ?? null)) {
                 $access = $tokenResult['body']['access_token'] ?? null;
@@ -1194,16 +1194,16 @@ class LazadaController extends Controller
             'sandbox' => 'nullable|in:0,1',
         ]);
 
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
         $isSandbox = $request->has('sandbox')
             ? $request->boolean('sandbox')
-            : (($setting->mode ?? 'live') === 'sandbox');
+            : (($store->mode ?? 'live') === 'sandbox');
 
-        $appKey = $isSandbox ? ($setting->sandbox_app_key ?? null) : ($creds['app_key'] ?? null);
-        $appSecret = $isSandbox ? ($setting->sandbox_app_secret ?? null) : ($creds['app_secret'] ?? null);
+        $appKey = $isSandbox ? ($store->sandbox_app_key ?? null) : ($creds['app_key'] ?? null);
+        $appSecret = $isSandbox ? ($store->sandbox_app_secret ?? null) : ($creds['app_secret'] ?? null);
 
-        if (!$setting || !$setting->region || !$appKey || !$appSecret) {
+        if (!$store || !$store->region || !$appKey || !$appSecret) {
             $modeLabel = $isSandbox ? 'Sandbox' : 'Production';
             return $this->toSettingsTab('connection')->with('lazada_result', [
                 'ok' => false,
@@ -1212,7 +1212,7 @@ class LazadaController extends Controller
             ]);
         }
 
-        $result = $this->doTokenCreate($client, (string)$setting->region, (string)$appKey, (string)$appSecret, (string)$request->input('code'), $isSandbox ? 'sandbox' : 'live');
+        $result = $this->doTokenCreate($client, (string)$store->region, (string)$appKey, (string)$appSecret, (string)$request->input('code'), $isSandbox ? 'sandbox' : 'live');
 
         if (($result['ok'] ?? false) && is_array($result['body'] ?? null)) {
             $access = $result['body']['access_token'] ?? null;
@@ -1252,17 +1252,17 @@ class LazadaController extends Controller
 
     public function tokenRefresh(Request $request, LazadaClient $client)
     {
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
         $isSandbox = $request->has('sandbox')
             ? $request->boolean('sandbox')
-            : (($setting->mode ?? 'live') === 'sandbox');
+            : (($store->mode ?? 'live') === 'sandbox');
 
-        $appKey = $isSandbox ? ($setting->sandbox_app_key ?? null) : ($creds['app_key'] ?? null);
-        $appSecret = $isSandbox ? ($setting->sandbox_app_secret ?? null) : ($creds['app_secret'] ?? null);
-        $refreshToken = $isSandbox ? ($setting->sandbox_refresh_token ?? null) : ($creds['refresh_token'] ?? null);
+        $appKey = $isSandbox ? ($store->sandbox_app_key ?? null) : ($creds['app_key'] ?? null);
+        $appSecret = $isSandbox ? ($store->sandbox_app_secret ?? null) : ($creds['app_secret'] ?? null);
+        $refreshToken = $isSandbox ? ($store->sandbox_refresh_token ?? null) : ($creds['refresh_token'] ?? null);
 
-        if (!$setting || !$setting->region || !$appKey || !$appSecret || !$refreshToken) {
+        if (!$store || !$store->region || !$appKey || !$appSecret || !$refreshToken) {
             $modeLabel = $isSandbox ? 'Sandbox' : 'Production';
             return $this->toSettingsTab('connection')->with('lazada_result', [
                 'ok' => false,
@@ -1284,7 +1284,7 @@ class LazadaController extends Controller
 
         $params['sign'] = $client->sign($apiPath, $params, (string)$appSecret);
 
-        $result = $client->post((string)$setting->region, $apiPath, $params, $isSandbox ? 'sandbox' : 'live');
+        $result = $client->post((string)$store->region, $apiPath, $params, $isSandbox ? 'sandbox' : 'live');
 
         if ($result['ok'] && is_array($result['body'])) {
             $access = $result['body']['access_token'] ?? null;
@@ -1322,12 +1322,12 @@ class LazadaController extends Controller
             'expires_in_days'      => 'nullable|integer|min:1|max:365',
         ]);
 
-        $setting = LazadaStore::defaultStore() ?? new LazadaStore();
+        $store = LazadaStore::defaultStore() ?? new LazadaStore();
 
-        $setting->mode = 'sandbox';
-        $setting->sandbox_access_token = encrypt(trim($data['sandbox_access_token']));
-        $setting->sandbox_expires_at   = now()->addDays((int) ($data['expires_in_days'] ?? 7));
-        $setting->save();
+        $store->mode = 'sandbox';
+        $store->sandbox_access_token = encrypt(trim($data['sandbox_access_token']));
+        $store->sandbox_expires_at   = now()->addDays((int) ($data['expires_in_days'] ?? 7));
+        $store->save();
 
         return $this->toSettingsTab('connection')->with('lazada_result', [
             'ok'    => true,
@@ -1342,9 +1342,9 @@ class LazadaController extends Controller
             'api_path' => 'required|string',
         ]);
 
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
-        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if (!$store || !$store->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return $this->toSettingsTab('explorer')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
@@ -1381,7 +1381,7 @@ class LazadaController extends Controller
 
         $params['sign'] = $client->sign($apiPath, $params, (string)$creds['app_secret']);
 
-        $result = $client->get((string)$setting->region, $apiPath, $params);
+        $result = $client->get((string)$store->region, $apiPath, $params);
 
         return $this->toSettingsTab('explorer')->with('lazada_result', [
             'ok' => (bool)$result['ok'],
@@ -1392,9 +1392,9 @@ class LazadaController extends Controller
 
     public function categoryTree(LazadaClient $client)
     {
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
-        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if (!$store || !$store->region || !$creds['app_key'] || !$creds['app_secret']) {
             return $this->toSettingsTab('explorer')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
@@ -1429,7 +1429,7 @@ class LazadaController extends Controller
         }
 
         $params['sign'] = $client->sign($apiPath, $params, (string)$creds['app_secret']);
-        $result = $client->get((string)$setting->region, $apiPath, $params);
+        $result = $client->get((string)$store->region, $apiPath, $params);
 
         return $this->toSettingsTab('explorer')->with('lazada_result', [
             'ok' => (bool)$result['ok'],
@@ -1444,9 +1444,9 @@ class LazadaController extends Controller
             'category_id' => 'required|integer|min:1',
         ]);
 
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
-        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if (!$store || !$store->region || !$creds['app_key'] || !$creds['app_secret']) {
             return $this->toSettingsTab('explorer')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
@@ -1482,7 +1482,7 @@ class LazadaController extends Controller
         }
 
         $params['sign'] = $client->sign($apiPath, $params, (string)$creds['app_secret']);
-        $result = $client->get((string)$setting->region, $apiPath, $params);
+        $result = $client->get((string)$store->region, $apiPath, $params);
 
         return $this->toSettingsTab('explorer')->with('lazada_result', [
             'ok' => (bool)$result['ok'],
@@ -1498,9 +1498,9 @@ class LazadaController extends Controller
             'page_size' => 'nullable|integer|min:1|max:200',
         ]);
 
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
-        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if (!$store || !$store->region || !$creds['app_key'] || !$creds['app_secret']) {
             return $this->toSettingsTab('explorer')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
@@ -1537,7 +1537,7 @@ class LazadaController extends Controller
         }
 
         $params['sign'] = $client->sign($apiPath, $params, (string)$creds['app_secret']);
-        $result = $client->get((string)$setting->region, $apiPath, $params);
+        $result = $client->get((string)$store->region, $apiPath, $params);
 
         return $this->toSettingsTab('explorer')->with('lazada_result', [
             'ok' => (bool)$result['ok'],
@@ -1552,9 +1552,9 @@ class LazadaController extends Controller
             'seller_sku' => 'required|string|max:255',
         ]);
 
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
-        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if (!$store || !$store->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return $this->toSettingsTab('explorer')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
@@ -1591,7 +1591,7 @@ class LazadaController extends Controller
         }
 
         $params['sign'] = $client->sign($apiPath, $params, (string)$creds['app_secret']);
-        $result = $client->get((string)$setting->region, $apiPath, $params);
+        $result = $client->get((string)$store->region, $apiPath, $params);
 
         return $this->toSettingsTab('explorer')->with('lazada_result', [
             'ok' => (bool)$result['ok'],
@@ -1637,9 +1637,9 @@ class LazadaController extends Controller
             'description' => 'nullable|string|max:20000',
         ]);
 
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
-        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if (!$store || !$store->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return $this->toSettingsTab('explorer')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
@@ -1684,7 +1684,7 @@ class LazadaController extends Controller
         }
 
         $params['sign'] = $client->sign($apiPath, $params, (string)$creds['app_secret']);
-        $result = $client->post((string)$setting->region, $apiPath, $params);
+        $result = $client->post((string)$store->region, $apiPath, $params);
 
         return $this->toSettingsTab('explorer')->withInput()->with('lazada_result', [
             'ok' => (bool)($result['ok'] ?? false),
@@ -1904,9 +1904,9 @@ class LazadaController extends Controller
             'offset' => 'nullable|integer|min:0|max:5000',
         ]);
 
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
-        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if (!$store || !$store->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return $this->toSettingsTab('explorer')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
@@ -1923,7 +1923,7 @@ class LazadaController extends Controller
 
         $res = $this->runSignedApiCall(
             $client,
-            (string)$setting->region,
+            (string)$store->region,
             (string)$creds['app_key'],
             (string)$creds['app_secret'],
             (string)$creds['access_token'],
@@ -1947,9 +1947,9 @@ class LazadaController extends Controller
             'order_id' => 'required|string|max:64',
         ]);
 
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
-        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if (!$store || !$store->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return $this->toSettingsTab('explorer')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
@@ -1959,7 +1959,7 @@ class LazadaController extends Controller
 
         $res = $this->runSignedApiCall(
             $client,
-            (string)$setting->region,
+            (string)$store->region,
             (string)$creds['app_key'],
             (string)$creds['app_secret'],
             (string)$creds['access_token'],
@@ -1983,9 +1983,9 @@ class LazadaController extends Controller
             'order_item_ids' => 'required|string|max:2000',
         ]);
 
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
-        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if (!$store || !$store->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return $this->toSettingsTab('explorer')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
@@ -1995,7 +1995,7 @@ class LazadaController extends Controller
 
         $res = $this->runSignedApiCall(
             $client,
-            (string)$setting->region,
+            (string)$store->region,
             (string)$creds['app_key'],
             (string)$creds['app_secret'],
             (string)$creds['access_token'],

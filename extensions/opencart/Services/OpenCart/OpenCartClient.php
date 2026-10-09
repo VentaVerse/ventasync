@@ -8,26 +8,26 @@ use Illuminate\Support\Facades\Log;
 
 class OpenCartClient
 {
-    private OpenCartStore $setting;
+    private OpenCartStore $store;
 
-    public function __construct(OpenCartStore $setting)
+    public function __construct(OpenCartStore $store)
     {
-        $this->setting = $setting;
+        $this->store = $store;
     }
 
     private function http(): PendingRequest
     {
-        return \App\Support\Net\StoreRequest::to((string) $this->setting->base_url)->timeout(30)->connectTimeout(5)
+        return \App\Support\Net\StoreRequest::to((string) $this->store->base_url)->timeout(30)->connectTimeout(5)
             ->retry(2, 300)
             ->withHeaders([
-                'X-ERP-API-Key' => $this->setting->api_key,
+                'X-ERP-API-Key' => $this->store->api_key,
                 'Accept'        => 'application/json',
             ]);
     }
 
     private function url(string $route, array $params = []): string
     {
-        $base = rtrim($this->setting->base_url, '/');
+        $base = rtrim($this->store->base_url, '/');
 
         $params['route'] = $route;
 

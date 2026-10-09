@@ -36,12 +36,12 @@ class OpenCartPushQty extends Command implements \App\Channels\Contracts\Steppab
             }
         }
 
-        foreach ($settings as $setting) {
+        foreach ($settings as $store) {
             $this->newLine();
-            $this->info("=== Pushing quantities to: {$setting->store_name} (#{$setting->id}) ===");
+            $this->info("=== Pushing quantities to: {$store->store_name} (#{$store->id}) ===");
 
             try {
-                $client = new OpenCartClient($setting);
+                $client = new OpenCartClient($store);
 
                 $ping = $client->ping();
                 if (!$ping['ok']) {
@@ -49,7 +49,7 @@ class OpenCartPushQty extends Command implements \App\Channels\Contracts\Steppab
                     continue;
                 }
 
-                $sync = new OpenCartProductSync($client, $setting);
+                $sync = new OpenCartProductSync($client, $store);
                 $log = $sync->pushQuantities();
 
                 $this->info("  Status: {$log->status}");

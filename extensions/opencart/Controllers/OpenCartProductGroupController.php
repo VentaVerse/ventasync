@@ -53,7 +53,7 @@ class OpenCartProductGroupController extends Controller
         return $this->form($setting, $g, 'edit');
     }
 
-    private function form(OpenCartStore $setting, OpenCartProductGroup $group, string $mode)
+    private function form(OpenCartStore $store, OpenCartProductGroup $group, string $mode)
     {
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
@@ -70,7 +70,7 @@ class OpenCartProductGroupController extends Controller
         $productCount = count($this->getMatchingProductIds($group));
 
         return view('ext-opencart::product-groups.form', [
-            'setting' => $setting,
+            'setting' => $store,
             'group' => $group,
             'mode' => $mode,
             'catalogCategories' => $catalogCategories,

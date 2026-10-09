@@ -174,7 +174,7 @@ class LazadaPayoutSync
         return $paid;
     }
 
-    private function linesForOrder(object $setting, array $creds, string $orderId, Carbon $from, Carbon $to): array|string
+    private function linesForOrder(object $store, array $creds, string $orderId, Carbon $from, Carbon $to): array|string
     {
         $params = [
             'app_key' => (string) $creds['app_key'],
@@ -188,7 +188,7 @@ class LazadaPayoutSync
             'offset' => '0',
         ];
         $params['sign'] = $this->client->sign(self::PATH, $params, (string) $creds['app_secret']);
-        $result = $this->client->get((string) $setting->region, self::PATH, $params);
+        $result = $this->client->get((string) $store->region, self::PATH, $params);
 
         $body = is_array($result['body'] ?? null) ? $result['body'] : [];
         if (empty($result['ok']) || (string) ($body['code'] ?? '0') !== '0') {
@@ -202,7 +202,7 @@ class LazadaPayoutSync
         return is_array($data) ? array_values(array_filter($data, 'is_array')) : [];
     }
 
-    private function creditsBetween(object $setting, array $creds, Carbon $from, Carbon $to, int $offset): array|string
+    private function creditsBetween(object $store, array $creds, Carbon $from, Carbon $to, int $offset): array|string
     {
         $params = [
             'app_key' => (string) $creds['app_key'],
@@ -216,7 +216,7 @@ class LazadaPayoutSync
             'offset' => (string) $offset,
         ];
         $params['sign'] = $this->client->sign(self::PATH, $params, (string) $creds['app_secret']);
-        $result = $this->client->get((string) $setting->region, self::PATH, $params);
+        $result = $this->client->get((string) $store->region, self::PATH, $params);
 
         $body = is_array($result['body'] ?? null) ? $result['body'] : [];
         if (empty($result['ok']) || (string) ($body['code'] ?? '0') !== '0') {

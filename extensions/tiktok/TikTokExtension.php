@@ -284,16 +284,16 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
             return null;
         }
 
-        $setting = TikTokStore::defaultStore();
-        if (!$setting || !$setting->access_token || !$setting->app_key) {
+        $store = TikTokStore::defaultStore();
+        if (!$store || !$store->access_token || !$store->app_key) {
             return null;
         }
 
         $client = new TikTokClient();
-        $appKey = (string) $setting->app_key;
-        $appSecret = (string) $setting->app_secret;
-        $token = (string) $setting->access_token;
-        $shopCipher = (string) ($setting->shop_cipher ?? '') ?: null;
+        $appKey = (string) $store->app_key;
+        $appSecret = (string) $store->app_secret;
+        $token = (string) $store->access_token;
+        $shopCipher = (string) ($store->shop_cipher ?? '') ?: null;
 
         $results = [];
         foreach ($links->groupBy('tiktok_product_id') as $tiktokProductId => $linksForProduct) {
@@ -750,9 +750,9 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
     // TikTok Shop signs each push HMAC-SHA256(app_secret, app_key + body) into the Authorization header.
     public function verifyWebhook(\Illuminate\Http\Request $request): bool
     {
-        $setting = TikTokStore::defaultStore()?->decrypted();
-        $appKey = (string) ($setting->app_key ?? '');
-        $appSecret = (string) ($setting->app_secret ?? '');
+        $store = TikTokStore::defaultStore()?->decrypted();
+        $appKey = (string) ($store->app_key ?? '');
+        $appSecret = (string) ($store->app_secret ?? '');
         $received = (string) $request->header('Authorization', '');
         if ($appKey === '' || $appSecret === '' || $received === '') {
             return false;

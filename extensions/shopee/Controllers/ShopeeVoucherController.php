@@ -19,12 +19,12 @@ class ShopeeVoucherController extends Controller
             $status = 'all';
         }
 
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
 
         $vouchers = null;
         $liveError = null;
-        if ($setting && $auth['complete']) {
+        if ($store && $auth['complete']) {
             $result = $this->voucherCall($client, $auth, 'GET', '/api/v2/voucher/get_voucher_list', [
                 'status' => $status, 'page_no' => 1, 'page_size' => 100,
             ]);
@@ -73,9 +73,9 @@ class ShopeeVoucherController extends Controller
             'starts_at.after' => 'The start has to be in the future.',
         ]);
 
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             return redirect()->route('ext.shopee.vouchers.index')->with('error', 'Missing Shopee settings.');
         }
 
@@ -124,9 +124,9 @@ class ShopeeVoucherController extends Controller
 
     private function passThrough(ShopeeClient $client, string $path, int $voucherId, string $okWords, string $failWord)
     {
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             return redirect()->route('ext.shopee.vouchers.index')->with('error', 'Missing Shopee settings.');
         }
 

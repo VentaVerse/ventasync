@@ -47,10 +47,10 @@ class VentaCartSync extends Command implements \App\Channels\Contracts\Steppable
             }
         }
 
-        foreach ($settings as $setting) {
+        foreach ($settings as $store) {
             $this->newLine();
-            $this->info("=== Store: {$setting->store_name} (#{$setting->id}) ===");
-            $this->syncStore($setting, $entity);
+            $this->info("=== Store: {$store->store_name} (#{$store->id}) ===");
+            $this->syncStore($store, $entity);
         }
 
         $this->newLine();
@@ -58,14 +58,14 @@ class VentaCartSync extends Command implements \App\Channels\Contracts\Steppable
         return 0;
     }
 
-    private function syncStore(VentaCartStore $setting, string $entity): void
+    private function syncStore(VentaCartStore $store, string $entity): void
     {
-        $client = new VentaCartClient($setting);
+        $client = new VentaCartClient($store);
 
-        $this->syncOrders($client, $setting);
+        $this->syncOrders($client, $store);
     }
 
-    private function syncOrders(VentaCartClient $client, VentaCartStore $setting): void
+    private function syncOrders(VentaCartClient $client, VentaCartStore $store): void
     {
         $this->info('  Syncing orders...');
 
@@ -73,7 +73,7 @@ class VentaCartSync extends Command implements \App\Channels\Contracts\Steppable
         $maxPages = (int) $this->option('max-pages');
         $noStock = (bool) $this->option('no-stock');
 
-        $sync = new VentaCartOrderSync($client, $setting);
+        $sync = new VentaCartOrderSync($client, $store);
 
         if ($noStock) {
             $sync->setSkipStockAdjust(true);

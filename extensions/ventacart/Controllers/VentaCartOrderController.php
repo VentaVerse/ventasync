@@ -210,11 +210,11 @@ class VentaCartOrderController extends Controller
 
     public function orderFetchStep(\App\Models\OrderFetchRun $run): array
     {
-        $setting = VentaCartStore::where('id', (int) $run->store_id)->where('enabled', true)->first();
-        if (! $setting) {
+        $store = VentaCartStore::where('id', (int) $run->store_id)->where('enabled', true)->first();
+        if (! $store) {
             return ['error' => 'This VentaCart store is not enabled, so nothing was fetched. Turn Syncing on under its Connection settings and try again.'];
         }
-        $sync = new VentaCartOrderSync(new VentaCartClient($setting), $setting);
+        $sync = new VentaCartOrderSync(new VentaCartClient($store), $store);
         if (! empty($run->options['no_stock'])) {
             $sync->setSkipStockAdjust(true);
         }

@@ -10,22 +10,22 @@ use Illuminate\Support\Facades\Log;
 class OpenCartOptionSync
 {
     private OpenCartClient $client;
-    private OpenCartStore $setting;
+    private OpenCartStore $store;
 
     private array $optionMap = [];
 
     private array $optionValueMap = [];
 
-    public function __construct(OpenCartClient $client, OpenCartStore $setting)
+    public function __construct(OpenCartClient $client, OpenCartStore $store)
     {
         $this->client = $client;
-        $this->setting = $setting;
+        $this->store = $store;
     }
 
     public function pull(): array
     {
         $log = OpenCartSyncLog::create([
-            'store_id' => $this->setting->id,
+            'store_id' => $this->store->id,
             'entity_type' => 'option',
             'direction'   => 'pull',
             'status'      => 'started',

@@ -538,9 +538,9 @@ class LazadaProductGroupController extends Controller
             return redirect()->back()->with('error', 'Product not in this product group.');
         }
 
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
-        if (!$setting || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if (!$store || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->back()->with('error', 'Missing Lazada credentials.');
         }
 
@@ -566,7 +566,7 @@ class LazadaProductGroupController extends Controller
 
         $lazadaProduct = LazadaProduct::find($pivot->lazada_product_id);
         if ($lazadaProduct && $lazadaProduct->lazada_item_id && !$lazadaProduct->unlinked_at) {
-            app(LazadaItemCache::class)->refreshListing($lazadaProduct, $setting, $client, 'lazada.product.item.get.cache.group');
+            app(LazadaItemCache::class)->refreshListing($lazadaProduct, $store, $client, 'lazada.product.item.get.cache.group');
             if (! in_array($pivot->sync_status, ['error', 'failed'], true)) {
                 $pivot->update(['sync_status' => 'synced']);
             }
@@ -588,7 +588,7 @@ class LazadaProductGroupController extends Controller
                 'offset' => '0',
             ];
             $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
-            $result = $client->get((string) $setting->region, $apiPath, $params);
+            $result = $client->get((string) $store->region, $apiPath, $params);
 
             if (!($result['ok'] ?? false)) continue;
 
@@ -623,7 +623,7 @@ class LazadaProductGroupController extends Controller
                 'unlinked_at' => null,
             ]);
 
-            app(LazadaItemCache::class)->refreshListing($lazadaProduct, $setting, $client, 'lazada.product.item.get.cache.group');
+            app(LazadaItemCache::class)->refreshListing($lazadaProduct, $store, $client, 'lazada.product.item.get.cache.group');
         }
 
         $pivot->update(['sync_status' => 'pushed']);
@@ -736,9 +736,9 @@ class LazadaProductGroupController extends Controller
             return ['tone' => 'error', 'summary' => 'This product group has no Lazada category configured. Set a category first.', 'failed' => 0, 'stop' => true];
         }
 
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
-        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if (!$store || !$store->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return ['tone' => 'error', 'summary' => 'Missing Lazada settings.', 'failed' => 0, 'stop' => true];
         }
 
@@ -766,7 +766,7 @@ class LazadaProductGroupController extends Controller
 
             $isAlreadyLinked = $listing && $listing->lazada_item_id && !$listing->lazada_deleted_at;
             if ($isAlreadyLinked) {
-                $outcome = $this->updateLinked($group, $pivot, $listing, (int) $productId, $setting, $creds, $client);
+                $outcome = $this->updateLinked($group, $pivot, $listing, (int) $productId, $store, $creds, $client);
                 if ($outcome['ok']) {
                     $updatedCount++;
                     if (!empty($outcome['warning'])) $notes[] = "#{$productId}: " . $outcome['warning'];
@@ -784,7 +784,7 @@ class LazadaProductGroupController extends Controller
                 'attributes' => LazadaProductGroupAttribute::where('lazada_product_group_id', $group->id)->pluck('value', 'attribute_key')->toArray(),
             ];
             $gateRow = $listing ?: (new LazadaProduct())->forceFill(['product_id' => $productId, 'primary_category_id' => $group->lazada_category_id, 'brand_name_override' => 'No Brand']);
-            if ($group->lazada_category_id && !\Extensions\Lazada\Models\LazadaCategoryTemplate::query()->where('region', (string) $setting->region)->where('primary_category_id', (int) $group->lazada_category_id)->whereNotNull('template_body')->exists()) {
+            if ($group->lazada_category_id && !\Extensions\Lazada\Models\LazadaCategoryTemplate::query()->where('region', (string) $store->region)->where('primary_category_id', (int) $group->lazada_category_id)->whereNotNull('template_body')->exists()) {
                 app(\Extensions\Lazada\Controllers\LazadaProductController::class)->readCategoryTemplate((int) $group->lazada_category_id, $client);
             }
             $readiness = app(\Extensions\Lazada\Services\Lazada\LazadaListingReadiness::class)->forListings(collect([$gateRow]), $gateOverrides)[(int) $gateRow->id] ?? ['ready' => false, 'missing' => []];
@@ -826,9 +826,9 @@ class LazadaProductGroupController extends Controller
             ];
 
             try {
-                [$productPayload, $preview] = $this->payload()->buildLazadaProductCreatePayload($listing, $setting, $client, $groupOverrides);
-                $productPayload = app(\Extensions\Lazada\Services\Lazada\LazadaImages::class)->ensureLazadaInlinkImages($productPayload, $setting, $client);
-                [$productPayload, $picturesLeftOut] = app(\Extensions\Lazada\Services\Lazada\LazadaImages::class)->ensureLazadaDescriptionImages($productPayload, $setting, $client);
+                [$productPayload, $preview] = $this->payload()->buildLazadaProductCreatePayload($listing, $store, $client, $groupOverrides);
+                $productPayload = app(\Extensions\Lazada\Services\Lazada\LazadaImages::class)->ensureLazadaInlinkImages($productPayload, $store, $client);
+                [$productPayload, $picturesLeftOut] = app(\Extensions\Lazada\Services\Lazada\LazadaImages::class)->ensureLazadaDescriptionImages($productPayload, $store, $client);
             } catch (\Illuminate\Validation\ValidationException $e) {
                 $msg = implode('; ', array_map(fn($m) => implode(', ', $m), $e->errors()));
                 $errors[] = "#{$productId}: {$msg}";
@@ -853,7 +853,7 @@ class LazadaProductGroupController extends Controller
             ];
             $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
 
-            $result = $client->post((string) $setting->region, $apiPath, $params);
+            $result = $client->post((string) $store->region, $apiPath, $params);
 
             LazadaApiLog::safeCreate([
                 'pack' => 'lazada.product.create.group',
@@ -877,7 +877,7 @@ class LazadaProductGroupController extends Controller
                     try { $listing->save(); } catch (\Throwable $ex) {}
                 }
 
-                app(LazadaItemCache::class)->refreshListing($listing, $setting, $client, 'lazada.product.item.get.cache.group');
+                app(LazadaItemCache::class)->refreshListing($listing, $store, $client, 'lazada.product.item.get.cache.group');
 
                 $this->persistSyncStatus($listing, 'push', true);
 
@@ -935,9 +935,9 @@ class LazadaProductGroupController extends Controller
             return $this->productsRedirect($id)->with('error', 'This product group has no Lazada category configured.');
         }
 
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
-        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if (!$store || !$store->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return $this->productsRedirect($id)->with('error', 'Missing Lazada settings.');
         }
 
@@ -965,7 +965,7 @@ class LazadaProductGroupController extends Controller
                 continue;
             }
 
-            $outcome = $this->updateLinked($group, $pivot, $listing, (int) $productId, $setting, $creds, $client);
+            $outcome = $this->updateLinked($group, $pivot, $listing, (int) $productId, $store, $creds, $client);
             if ($outcome['ok']) {
                 $okCount++;
                 if (!empty($outcome['warning'])) $notes[] = "#{$productId}: " . $outcome['warning'];
@@ -986,7 +986,7 @@ class LazadaProductGroupController extends Controller
         return $this->productsRedirect($id)->with($okCount > 0 ? ($picturesWarned ? 'warning' : 'status') : 'error', $summary);
     }
 
-    private function updateLinked(LazadaProductGroup $group, ?LazadaProductGroupProduct $pivot, LazadaProduct $listing, int $productId, object $setting, array $creds, LazadaClient $client): array
+    private function updateLinked(LazadaProductGroup $group, ?LazadaProductGroupProduct $pivot, LazadaProduct $listing, int $productId, object $store, array $creds, LazadaClient $client): array
     {
             $groupOverrides = [
                 'settings' => [
@@ -1007,9 +1007,9 @@ class LazadaProductGroupController extends Controller
             }
 
             try {
-                [$productPayload, $preview] = $this->payload()->buildLazadaProductCreatePayload($listing, $setting, $client, $groupOverrides);
-                $productPayload = app(\Extensions\Lazada\Services\Lazada\LazadaImages::class)->ensureLazadaInlinkImages($productPayload, $setting, $client);
-                [$productPayload, $picturesLeftOut] = app(\Extensions\Lazada\Services\Lazada\LazadaImages::class)->ensureLazadaDescriptionImages($productPayload, $setting, $client);
+                [$productPayload, $preview] = $this->payload()->buildLazadaProductCreatePayload($listing, $store, $client, $groupOverrides);
+                $productPayload = app(\Extensions\Lazada\Services\Lazada\LazadaImages::class)->ensureLazadaInlinkImages($productPayload, $store, $client);
+                [$productPayload, $picturesLeftOut] = app(\Extensions\Lazada\Services\Lazada\LazadaImages::class)->ensureLazadaDescriptionImages($productPayload, $store, $client);
             } catch (\Illuminate\Validation\ValidationException $e) {
                 $msg = implode('; ', array_map(fn($m) => implode(', ', $m), $e->errors()));
                 $this->recordGroupFailure($group, $pivot, $productId, $msg);
@@ -1044,7 +1044,7 @@ class LazadaProductGroupController extends Controller
             ];
             $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
 
-            $result = $client->post((string) $setting->region, $apiPath, $params);
+            $result = $client->post((string) $store->region, $apiPath, $params);
 
             LazadaApiLog::safeCreate([
                 'pack' => 'lazada.product.update.group',
@@ -1056,12 +1056,12 @@ class LazadaProductGroupController extends Controller
                 'user_id' => auth()->id(),
             ]);
 
-            $switched = app(LazadaVariationSwitch::class)->switchOff($setting, $creds, (string) $listing->lazada_item_id, $preview['variations_off'] ?? []);
+            $switched = app(LazadaVariationSwitch::class)->switchOff($store, $creds, (string) $listing->lazada_item_id, $preview['variations_off'] ?? []);
             $switchRefusal = LazadaVariationSwitch::refusal($productId, $switched['refused']);
 
             $e = $this->payload()->extractLazadaError($result);
             if ($e['ok']) {
-                $readBack = app(LazadaItemCache::class)->refreshListing($listing, $setting, $client, 'lazada.product.item.get.cache.group');
+                $readBack = app(LazadaItemCache::class)->refreshListing($listing, $store, $client, 'lazada.product.item.get.cache.group');
                 $kept = LazadaVariationSwitch::line($this->payload()->renameReadBack($preview['variation_renames'] ?? [], $readBack), $switchRefusal);
                 $switchNote = LazadaVariationSwitch::summary($productId, $switched['off'], $preview['variations_back'] ?? []);
                 $this->persistSyncStatus($listing, 'push', true);
@@ -1100,9 +1100,9 @@ class LazadaProductGroupController extends Controller
         try { @set_time_limit(0); } catch (\Throwable $e) {}
 
         $group = LazadaProductGroup::findOrFail($id);
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
-        if (!$setting || !$setting->region || !$creds['complete']) {
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if (!$store || !$store->region || !$creds['complete']) {
             return $this->productsRedirect($id)->with('error', 'Missing Lazada settings.');
         }
 
@@ -1114,7 +1114,7 @@ class LazadaProductGroupController extends Controller
             return $this->productsRedirect($id)->with('error', 'This product group has no products to check.');
         }
 
-        $r = $check->run($setting, $creds, $productIds, $group);
+        $r = $check->run($store, $creds, $productIds, $group);
 
         return $this->productsRedirect($id)->with($r['tone'], $r['summary']);
     }
@@ -1122,13 +1122,13 @@ class LazadaProductGroupController extends Controller
     public function orphans(Request $request, int $id, LazadaLiveListing $live)
     {
         $group = LazadaProductGroup::findOrFail($id);
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
-        if (!$setting || !$setting->region || !$creds['complete']) {
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if (!$store || !$store->region || !$creds['complete']) {
             return $this->productsRedirect($id)->with('error', 'Missing Lazada settings.');
         }
 
-        $index = $live->skuIndex($setting, $creds);
+        $index = $live->skuIndex($store, $creds);
         $known = LazadaProduct::query()->whereNotNull('lazada_item_id')->where('lazada_item_id', '!=', '')
             ->pluck('lazada_item_id')->map(fn ($v) => (string) $v)->flip();
 
@@ -1157,9 +1157,9 @@ class LazadaProductGroupController extends Controller
             return $this->productsRedirect($id)->with('error', 'No products selected.');
         }
 
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
-        if (!$setting || !$setting->region || !$creds['complete']) {
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if (!$store || !$store->region || !$creds['complete']) {
             return $this->productsRedirect($id)->with('error', 'Missing Lazada settings.');
         }
 
@@ -1167,7 +1167,7 @@ class LazadaProductGroupController extends Controller
         $listings = LazadaProduct::query()->whereNotNull('product_id')->whereIn('product_id', $ids)->get();
 
         $results = app(\Extensions\Lazada\Services\Lazada\LazadaStockPricePush::class)
-            ->push('price', $setting, $creds, $listings, $pfx,
+            ->push('price', $store, $creds, $listings, $pfx,
                 \Extensions\Lazada\Commands\LazadaPushPrice::priceRule($listings));
 
         foreach ($results['outcomes'] as $pid => $outcome) {
@@ -1194,9 +1194,9 @@ class LazadaProductGroupController extends Controller
             return $this->productsRedirect($id)->with('error', 'No products selected.');
         }
 
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
-        if (!$setting || !$setting->region || !$creds['complete']) {
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if (!$store || !$store->region || !$creds['complete']) {
             return $this->productsRedirect($id)->with('error', 'Missing Lazada settings.');
         }
 
@@ -1204,7 +1204,7 @@ class LazadaProductGroupController extends Controller
         $listings = LazadaProduct::query()->whereNotNull('product_id')->whereIn('product_id', $ids)->get();
 
         $results = app(\Extensions\Lazada\Services\Lazada\LazadaStockPricePush::class)
-            ->push('stock', $setting, $creds, $listings, $pfx);
+            ->push('stock', $store, $creds, $listings, $pfx);
 
         foreach ($results['outcomes'] as $pid => $outcome) {
             LazadaProductGroupProduct::query()
@@ -1230,9 +1230,9 @@ class LazadaProductGroupController extends Controller
             return $this->productsRedirect($id)->with('error', 'No products selected.');
         }
 
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
-        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if (!$store || !$store->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return $this->productsRedirect($id)->with('error', 'Missing Lazada settings.');
         }
 
@@ -1285,7 +1285,7 @@ class LazadaProductGroupController extends Controller
                 try {
                     $skuIdList = app(LazadaItemCache::class)->fetchSkuIdListByItemId(
                         $client,
-                        (string) $setting->region,
+                        (string) $store->region,
                         (string) $creds['app_key'],
                         (string) $creds['app_secret'],
                         (string) $creds['access_token'],
@@ -1310,13 +1310,13 @@ class LazadaProductGroupController extends Controller
             $params['sku_id_list'] = json_encode($skuIdList, JSON_UNESCAPED_SLASHES);
             $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
 
-            $result = $client->post((string) $setting->region, $apiPath, $params);
+            $result = $client->post((string) $store->region, $apiPath, $params);
 
             $e = $this->payload()->extractLazadaError($result);
             if (!empty($e['code']) && (string) $e['code'] === '6') {
                 $params['timestamp'] = (string) round(microtime(true) * 1000);
                 $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
-                $result = $client->post((string) $setting->region, $apiPath, $params);
+                $result = $client->post((string) $store->region, $apiPath, $params);
                 $e = $this->payload()->extractLazadaError($result);
             }
 
@@ -1380,9 +1380,9 @@ class LazadaProductGroupController extends Controller
         $lazadaCategoryId = (int) $request->input('lazada_category_id');
         $group->update(['lazada_category_id' => $lazadaCategoryId]);
 
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
-        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if (!$store || !$store->region || !$creds['app_key'] || !$creds['app_secret']) {
             return redirect()->route('ext.lazada.product-groups.edit', $group->id)
                 ->with('status', 'Missing Lazada settings.');
         }
@@ -1396,10 +1396,10 @@ class LazadaProductGroupController extends Controller
             'primary_category_id' => (string) $lazadaCategoryId,
         ];
         $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
-        $result = $client->get((string) $setting->region, $apiPath, $params);
+        $result = $client->get((string) $store->region, $apiPath, $params);
 
         LazadaCategoryTemplate::query()->updateOrCreate(
-            ['region' => (string) $setting->region, 'primary_category_id' => $lazadaCategoryId],
+            ['region' => (string) $store->region, 'primary_category_id' => $lazadaCategoryId],
             ['template_body' => $result['body'] ?? null, 'fetched_at' => now()]
         );
 
@@ -1479,9 +1479,9 @@ class LazadaProductGroupController extends Controller
 
     public function refreshCategories(LazadaClient $client)
     {
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
-        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if (!$store || !$store->region || !$creds['app_key'] || !$creds['app_secret']) {
             return response()->json(['ok' => false, 'message' => 'Missing Lazada settings.']);
         }
 
@@ -1493,7 +1493,7 @@ class LazadaProductGroupController extends Controller
         ];
         $apiPath = '/category/tree/get';
         $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
-        $result = $client->get((string) $setting->region, $apiPath, $params);
+        $result = $client->get((string) $store->region, $apiPath, $params);
         $body = $result['body'] ?? null;
 
         $nodes = [];
@@ -1561,9 +1561,9 @@ class LazadaProductGroupController extends Controller
             return response()->json(['ok' => false, 'html' => '']);
         }
 
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
-        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if (!$store || !$store->region || !$creds['app_key'] || !$creds['app_secret']) {
             return response()->json(['ok' => false, 'html' => '<div class="text-muted">Missing Lazada settings.</div>']);
         }
 
@@ -1576,10 +1576,10 @@ class LazadaProductGroupController extends Controller
             'primary_category_id' => (string) $categoryId,
         ];
         $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
-        $result = $client->get((string) $setting->region, $apiPath, $params);
+        $result = $client->get((string) $store->region, $apiPath, $params);
 
         $template = LazadaCategoryTemplate::query()->updateOrCreate(
-            ['region' => (string) $setting->region, 'primary_category_id' => $categoryId],
+            ['region' => (string) $store->region, 'primary_category_id' => $categoryId],
             ['template_body' => $result['body'] ?? null, 'fetched_at' => now()]
         );
 
@@ -1598,8 +1598,8 @@ class LazadaProductGroupController extends Controller
 
     private function region(): string
     {
-        $setting = LazadaStore::defaultStore();
-        return (string) ($setting->region ?? '');
+        $store = LazadaStore::defaultStore();
+        return (string) ($store->region ?? '');
     }
 
 

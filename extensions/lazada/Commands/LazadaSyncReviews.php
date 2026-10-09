@@ -21,9 +21,9 @@ class LazadaSyncReviews extends Command
 
     public function handle(LazadaClient $client): int
     {
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
-        if (!$setting || !$creds['complete'] || empty($creds['region']) || empty($creds['access_token'])) {
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if (!$store || !$creds['complete'] || empty($creds['region']) || empty($creds['access_token'])) {
             $modeLabel = ($creds['mode'] ?? 'live') === 'sandbox' ? 'Sandbox' : 'Production';
             $this->error("Missing Lazada {$modeLabel} credentials/token. Configure Lazada settings for the active mode.");
             return 1;
@@ -45,8 +45,8 @@ class LazadaSyncReviews extends Command
         $days = (int) $this->option('days');
         if ($days < 1) $days = 7;
 
-        $lastSync = !empty($setting->last_review_sync_at)
-            ? $setting->last_review_sync_at
+        $lastSync = !empty($store->last_review_sync_at)
+            ? $store->last_review_sync_at
             : null;
 
         $tz = new \DateTimeZone('Asia/Manila');

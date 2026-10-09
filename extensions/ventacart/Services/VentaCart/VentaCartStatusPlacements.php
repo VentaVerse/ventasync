@@ -25,13 +25,13 @@ class VentaCartStatusPlacements
 
     private static array $memo = [];
 
-    public static function refresh(VentaCartStore $setting, ?VentaCartClient $client = null): int
+    public static function refresh(VentaCartStore $store, ?VentaCartClient $client = null): int
     {
         if (! Schema::hasTable(self::TABLE)) {
             return 0;
         }
 
-        $client ??= new VentaCartClient($setting);
+        $client ??= new VentaCartClient($store);
         $res = $client->get('order-statuses');
         $body = $res['body'] ?? [];
         $rows = is_array($body['data'] ?? null) ? $body['data'] : (is_array($body) && array_is_list($body) ? $body : []);
@@ -47,7 +47,7 @@ class VentaCartStatusPlacements
                 continue;
             }
             DB::table(self::TABLE)->updateOrInsert(
-                ['store_id' => (int) $setting->id, 'ventacart_status_id' => (int) $row['id']],
+                ['store_id' => (int) $store->id, 'ventacart_status_id' => (int) $row['id']],
                 [
                     'ventacart_status_name' => mb_substr((string) ($row['name'] ?? ''), 0, 64),
                     'placement' => isset($row['placement']) && $row['placement'] !== '' ? (string) $row['placement'] : null,
@@ -59,7 +59,7 @@ class VentaCartStatusPlacements
             $count++;
         }
 
-        unset(self::$memo[(int) $setting->id]);
+        unset(self::$memo[(int) $store->id]);
 
         return $count;
     }

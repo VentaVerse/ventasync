@@ -332,9 +332,9 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
 
     private function shopeeUpdateItemSku(ShopeeProductLink $link, int $itemId, string $newSku): ?string
     {
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             return null;
         }
 

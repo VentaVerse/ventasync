@@ -44,7 +44,7 @@ class LazadaPushPayload
         return $out;
     }
 
-    public function buildLazadaProductCreatePayload(LazadaProduct $listing, ?object $setting = null, ?LazadaClient $client = null, array $overrides = []): array
+    public function buildLazadaProductCreatePayload(LazadaProduct $listing, ?object $store = null, ?LazadaClient $client = null, array $overrides = []): array
     {
         $listing = clone $listing;
         $settings = (array) ($overrides['settings'] ?? []);
@@ -250,13 +250,13 @@ class LazadaPushPayload
 
             // Never invent sale-prop keys: Lazada ignores unknown ones and rejects duplicate SKUs.
             // An item already on Lazada keeps its own keys, or an update adds a second variation type.
-            $liveItem = $this->liveItemShape($listing, $setting, $client);
+            $liveItem = $this->liveItemShape($listing, $store, $client);
             $liveKeys = $liveItem['keys'] ?? null;
             if ($liveKeys !== null && $liveKeys !== []) {
                 $variantKeys = $liveKeys;
             } else {
-                if ($setting && $client && !empty($listing->primary_category_id)) {
-                    $variantKeys = app(LazadaAttributes::class)->getLazadaSalePropKeys((int)$listing->primary_category_id, $setting, $client);
+                if ($store && $client && !empty($listing->primary_category_id)) {
+                    $variantKeys = app(LazadaAttributes::class)->getLazadaSalePropKeys((int)$listing->primary_category_id, $store, $client);
                 }
                 if (empty($variantKeys) && !empty($listing->primary_category_id)) {
                     $variantKeys = app(LazadaAttributes::class)->cachedSalePropKeys((int)$listing->primary_category_id);
@@ -563,16 +563,16 @@ class LazadaPushPayload
         return [$payload, $preview];
     }
 
-    private function liveItemShape(LazadaProduct $listing, ?object $setting, ?LazadaClient $client): ?array
+    private function liveItemShape(LazadaProduct $listing, ?object $store, ?LazadaClient $client): ?array
     {
         $itemId = trim((string) ($listing->lazada_item_id ?? ''));
-        if ($itemId === '' || !empty($listing->lazada_deleted_at) || !$setting || !$client) {
+        if ($itemId === '' || !empty($listing->lazada_deleted_at) || !$store || !$client) {
             return null;
         }
 
         try {
             return (new LazadaLiveListing($client))->itemShape(
-                $setting, \Extensions\Lazada\Models\LazadaStore::activeCredentials($setting), $itemId
+                $store, \Extensions\Lazada\Models\LazadaStore::activeCredentials($store), $itemId
             );
         } catch (\RuntimeException $e) {
             throw \Illuminate\Validation\ValidationException::withMessages([
@@ -942,7 +942,7 @@ public function extractCreatedItemId(array $result): ?string
 
     private function region(): string
     {
-        $setting = LazadaStore::defaultStore();
-        return (string)($setting->region ?? '');
+        $store = LazadaStore::defaultStore();
+        return (string)($store->region ?? '');
     }
 }

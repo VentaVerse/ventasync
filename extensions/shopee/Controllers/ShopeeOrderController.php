@@ -33,8 +33,8 @@ class ShopeeOrderController extends Controller
 
     public function returnSolutions(Request $request, ShopeeClient $client, string $returnSn)
     {
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
 
         if (!$auth || empty($auth['access_token']) || empty($auth['shop_id'])) {
             return response()->json([
@@ -111,9 +111,9 @@ class ShopeeOrderController extends Controller
 
     public function returnDetail(Request $request, string $returnSn)
     {
-        $settingRaw = ShopeeStore::defaultStore();
-        $setting = $settingRaw?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
+        $storeRaw = ShopeeStore::defaultStore();
+        $store = $storeRaw?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
         $region = $auth['region'] ?? 'ph';
 
         $return = ShopeeReturn::query()
@@ -131,7 +131,7 @@ class ShopeeOrderController extends Controller
         }
 
         return view('ext-shopee::orders.return-detail', [
-            'setting'    => $settingRaw,
+            'setting'    => $storeRaw,
             'return'     => $return,
             'raw'        => is_array($return->raw) ? $return->raw : [],
             'orderedQty' => $orderedQty,
@@ -145,9 +145,9 @@ class ShopeeOrderController extends Controller
             abort(404);
         }
 
-        $settingRaw = ShopeeStore::defaultStore();
-        $setting = $settingRaw?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
+        $storeRaw = ShopeeStore::defaultStore();
+        $store = $storeRaw?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
         $region = $auth['region'] ?? 'ph';
 
         $order = ShopeeOrder::query()
@@ -159,7 +159,7 @@ class ShopeeOrderController extends Controller
         $apiError = null;
 
         $refresh = (bool) $request->boolean('refresh');
-        $hasCreds = $setting && $auth['complete'];
+        $hasCreds = $store && $auth['complete'];
 
         $canManage = (bool) $request->user()?->hasPermission('manage_shopee/order');
 
@@ -290,9 +290,9 @@ class ShopeeOrderController extends Controller
             'no_stock' => 'nullable',
         ]);
 
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->route('ext.shopee.orders.index')->with('shopee_orders_last_result', [
                 'ok' => false,
@@ -330,9 +330,9 @@ class ShopeeOrderController extends Controller
     public function orderFetchStep(\App\Models\OrderFetchRun $run): array
     {
         $client = app(ShopeeClient::class);
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             return ['error' => 'This store is not connected to Shopee.'];
         }
         $skipStock = (bool) ($run->options['no_stock'] ?? false);
@@ -445,9 +445,9 @@ class ShopeeOrderController extends Controller
             'date_to' => 'required|date|after_or_equal:date_from',
         ]);
 
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->route('ext.shopee.orders.index')->with('shopee_orders_last_result', [
                 'ok' => false,
@@ -589,9 +589,9 @@ class ShopeeOrderController extends Controller
 
     public function getShippingAddresses(ShopeeClient $client, string $orderSn)
     {
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return response()->json(['ok' => false, 'message' => "Missing Shopee {$modeLabel} credentials."], 422);
         }
@@ -635,9 +635,9 @@ class ShopeeOrderController extends Controller
     {
         $json = $request->expectsJson();
 
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             if ($json) return response()->json(['ok' => false, 'message' => "Missing Shopee {$modeLabel} credentials/token."], 422);
             return redirect()->route('ext.shopee.orders.index')->with('shopee_orders_last_result', [
@@ -828,9 +828,9 @@ class ShopeeOrderController extends Controller
 
     public function getTrackingNumber(ShopeeClient $client, string $orderSn)
     {
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return response()->json(['ok' => false, 'message' => "Missing Shopee {$modeLabel} credentials."], 422);
         }
@@ -868,9 +868,9 @@ class ShopeeOrderController extends Controller
 
     public function getTrackingInfo(ShopeeClient $client, string $orderSn)
     {
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return response()->json(['ok' => false, 'message' => "Missing Shopee {$modeLabel} credentials."], 422);
         }
@@ -939,9 +939,9 @@ class ShopeeOrderController extends Controller
                 ->header('Content-Disposition', 'inline; filename="AWB-' . $safeOrderSn . '.pdf"');
         }
 
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             if ($json) return response()->json(['ok' => false, 'ready' => false, 'message' => "Missing Shopee {$modeLabel} credentials/token."], 422);
             return redirect()->route('ext.shopee.orders.index')->with('shopee_orders_last_result', [
@@ -1139,9 +1139,9 @@ class ShopeeOrderController extends Controller
             ]);
         }
 
-        $settingRaw = ShopeeStore::defaultStore();
-        $setting = $settingRaw?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
+        $storeRaw = ShopeeStore::defaultStore();
+        $store = $storeRaw?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
         $region = $auth['region'] ?? 'ph';
 
         try {
@@ -1169,9 +1169,9 @@ class ShopeeOrderController extends Controller
     {
         try { @set_time_limit(0); } catch (\Throwable $e) {}
 
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->route('ext.shopee.orders.index', ['tab' => 'RETURN'])->with('shopee_orders_last_result', [
                 'ok' => false,

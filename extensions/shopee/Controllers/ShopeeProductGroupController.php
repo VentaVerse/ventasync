@@ -253,11 +253,11 @@ class ShopeeProductGroupController extends Controller
             $shopeeTab = 'all';
         }
         $memberIds = $group->groupProducts()->pluck('product_id')->map(fn ($v) => (int) $v)->all();
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
         $liveCounts = null;
         $liveCheckedAt = null;
-        if ($setting && $auth['complete']) {
+        if ($store && $auth['complete']) {
             $liveCounts = ShopeeProductLink::mirrorCounts($tabMap, $memberIds);
             $liveCheckedAt = ShopeeProductLink::query()->whereIn('product_id', $memberIds ?: [0])->max('live_checked_at');
             $liveCheckedAt = $liveCheckedAt ? \Illuminate\Support\Carbon::parse($liveCheckedAt) : null;
@@ -574,9 +574,9 @@ class ShopeeProductGroupController extends Controller
         }
 
         if ($auth === null) {
-            $setting = ShopeeStore::defaultStore()?->decrypted();
-            $auth = ShopeeStore::activeAuth($setting);
-            if (!$setting) {
+            $store = ShopeeStore::defaultStore()?->decrypted();
+            $auth = ShopeeStore::activeAuth($store);
+            if (!$store) {
                 return;
             }
         }
@@ -691,9 +691,9 @@ class ShopeeProductGroupController extends Controller
             return response()->json(['ok' => true, 'complete' => true, 'read' => $read()]);
         }
 
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             return response()->json(['ok' => false, 'message' => 'This store is not connected yet. Authorise it with Shopee first.'], 412);
         }
 
@@ -789,9 +789,9 @@ class ShopeeProductGroupController extends Controller
             ]);
         }
 
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return response()->json([
                 'ok' => false,
@@ -1019,9 +1019,9 @@ class ShopeeProductGroupController extends Controller
             return redirect()->back()->with('error', 'Product not in this product group.');
         }
 
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->back()->with('error', "Missing Shopee {$modeLabel} credentials.");
         }
@@ -1252,10 +1252,10 @@ class ShopeeProductGroupController extends Controller
     {
         $group = ShopeeProductGroup::findOrFail($id);
 
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
 
-        if (! $setting || ! $auth['complete']) {
+        if (! $store || ! $auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
 
             return $this->productsRedirect($id)->with('error', "Missing Shopee {$modeLabel} settings.");
@@ -1282,10 +1282,10 @@ class ShopeeProductGroupController extends Controller
     {
         $group = ShopeeProductGroup::findOrFail($id);
 
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
 
-        if (! $setting || ! $auth['complete']) {
+        if (! $store || ! $auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
 
             return $this->productsRedirect($id)->with('error', "Missing Shopee {$modeLabel} settings.");
@@ -1338,10 +1338,10 @@ class ShopeeProductGroupController extends Controller
 
     public function sendProducts(ShopeeProductGroup $group, array $productIds, ShopeeClient $client): array
     {
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
 
-        if (! $setting || ! $auth['complete']) {
+        if (! $store || ! $auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
 
             return ['tone' => 'error', 'summary' => "Missing Shopee {$modeLabel} settings.", 'failed' => 0, 'stop' => true];
@@ -1927,9 +1927,9 @@ class ShopeeProductGroupController extends Controller
             return $this->productsRedirect($id)->with('error', 'No products selected.');
         }
 
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return $this->productsRedirect($id)->with('error', "Missing Shopee {$modeLabel} settings.");
         }
@@ -1965,9 +1965,9 @@ class ShopeeProductGroupController extends Controller
             return $this->productsRedirect($id)->with('error', 'No products selected.');
         }
 
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return $this->productsRedirect($id)->with('error', "Missing Shopee {$modeLabel} settings.");
         }
@@ -1995,9 +1995,9 @@ class ShopeeProductGroupController extends Controller
             return $this->productsRedirect($id)->with('error', 'No products selected.');
         }
 
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return $this->productsRedirect($id)->with('error', "Missing Shopee {$modeLabel} settings.");
         }
@@ -2024,9 +2024,9 @@ class ShopeeProductGroupController extends Controller
             return $this->productsRedirect($id)->with('error', 'No products selected.');
         }
 
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return $this->productsRedirect($id)->with('error', "Missing Shopee {$modeLabel} settings.");
         }
@@ -2066,9 +2066,9 @@ class ShopeeProductGroupController extends Controller
             return $this->productsRedirect($id)->with('error', 'No products selected.');
         }
 
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return $this->productsRedirect($id)->with('error', "Missing Shopee {$modeLabel} settings.");
         }
@@ -2246,9 +2246,9 @@ class ShopeeProductGroupController extends Controller
         $shopeeCategoryId = (int) $request->input('shopee_category_id');
         $group->update(['shopee_category_id' => $shopeeCategoryId]);
 
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->route('ext.shopee.product-groups.edit', $group->id)
                 ->with('error', "Missing Shopee {$modeLabel} settings.");
@@ -2360,9 +2360,9 @@ class ShopeeProductGroupController extends Controller
 
     public function refreshCategories(ShopeeClient $client)
     {
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return response()->json(['ok' => false, 'message' => "Missing Shopee {$modeLabel} settings."]);
         }
@@ -2446,9 +2446,9 @@ class ShopeeProductGroupController extends Controller
             return response()->json(['ok' => false, 'html' => '']);
         }
 
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return response()->json(['ok' => false, 'html' => '<div class="text-muted">Missing Shopee ' . $modeLabel . ' settings.</div>']);
         }

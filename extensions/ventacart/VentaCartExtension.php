@@ -316,35 +316,35 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
         $settingsById = VentaCartStore::query()->where('enabled', true)->get()->keyBy('id');
 
         foreach ($links as $link) {
-            $setting = $settingsById->get($link->store_id);
-            if (!$setting) {
+            $store = $settingsById->get($link->store_id);
+            if (!$store) {
                 continue;
             }
 
             $linkSku = (string) ($link->sku ?: $old);
             try {
-                $client = new VentaCartClient($setting);
+                $client = new VentaCartClient($store);
                 $result = $client->updateProduct($linkSku, ['sku' => $new]);
                 $ok = (bool) ($result['ok'] ?? false);
 
                 if ($ok) {
                     $link->update(['sku' => $new]);
                 }
-                \Extensions\VentaCart\Services\VentaCart\VentaCartListingStates::for((int) $setting->id)->recordOutcome($productId, $ok ? null
+                \Extensions\VentaCart\Services\VentaCart\VentaCartListingStates::for((int) $store->id)->recordOutcome($productId, $ok ? null
                     : 'SKU change to ' . $new . ' failed: ' . \Extensions\VentaCart\Services\VentaCart\VentaCartProductPush::failureText($result, $linkSku));
 
-                $results[] = $setting->store_name . ': ' . ($ok ? 'OK' : 'Failed');
+                $results[] = $store->store_name . ': ' . ($ok ? 'OK' : 'Failed');
             } catch (\Throwable $e) {
                 Log::warning('SKU sync to VentaCart failed', [
-                    'store' => $setting->store_name,
+                    'store' => $store->store_name,
                     'product_id' => $productId,
                     'sku_old' => $linkSku,
                     'sku_new' => $new,
                     'error' => $e->getMessage(),
                 ]);
-                \Extensions\VentaCart\Services\VentaCart\VentaCartListingStates::for((int) $setting->id)->recordOutcome($productId,
+                \Extensions\VentaCart\Services\VentaCart\VentaCartListingStates::for((int) $store->id)->recordOutcome($productId,
                     'SKU change to ' . $new . ' failed: ' . \App\Support\TransportError::plain($e, 'VentaCart'));
-                $results[] = $setting->store_name . ': Error';
+                $results[] = $store->store_name . ': Error';
             }
         }
 

@@ -132,13 +132,13 @@ class ReviewController extends Controller
             return redirect()->back()->with('error', 'Product not linked to any OpenCart store.');
         }
 
-        $setting = OpenCartStore::find($link->store_id);
-        if (!$setting || !$setting->enabled) {
+        $store = OpenCartStore::find($link->store_id);
+        if (!$store || !$store->enabled) {
             return redirect()->back()->with('error', 'OpenCart store not found or disabled.');
         }
 
-        $client = new OpenCartClient($setting);
-        $autoApprove = (bool) ($setting->review_auto_approve ?? true);
+        $client = new OpenCartClient($store);
+        $autoApprove = (bool) ($store->review_auto_approve ?? true);
 
         $res = $client->createReview([
             'product_id'         => $link->oc_product_id,
@@ -154,7 +154,7 @@ class ReviewController extends Controller
         if ($res['ok'] ?? false) {
             $review->update([
                 'oc_sync_status'      => 'pushed',
-                'opencart_store_id' => $setting->id,
+                'opencart_store_id' => $store->id,
                 'oc_review_id'        => $res['body']['data']['review_id'] ?? null,
                 'oc_pushed_at'        => now(),
                 'oc_push_error'       => null,
@@ -165,7 +165,7 @@ class ReviewController extends Controller
         $error = $res['body']['error'] ?? 'Unknown error';
         $review->update([
             'oc_sync_status'      => 'error',
-            'opencart_store_id' => $setting->id,
+            'opencart_store_id' => $store->id,
             'oc_push_error'       => substr($error, 0, 500),
         ]);
 
@@ -208,13 +208,13 @@ class ReviewController extends Controller
 
         foreach ($reviews as $review) {
             $pushed_this = false;
-            foreach ($stores as $setting) {
-                $key = $setting->id . '-' . $review->product_id;
+            foreach ($stores as $store) {
+                $key = $store->id . '-' . $review->product_id;
                 $ocProductId = $linkMap[$key] ?? null;
                 if (!$ocProductId) continue;
 
-                $client = new OpenCartClient($setting);
-                $autoApprove = (bool) ($setting->review_auto_approve ?? true);
+                $client = new OpenCartClient($store);
+                $autoApprove = (bool) ($store->review_auto_approve ?? true);
 
                 $res = $client->createReview([
                     'product_id'         => $ocProductId,
@@ -230,7 +230,7 @@ class ReviewController extends Controller
                 if ($res['ok'] ?? false) {
                     $review->update([
                         'oc_sync_status'      => 'pushed',
-                        'opencart_store_id' => $setting->id,
+                        'opencart_store_id' => $store->id,
                         'oc_review_id'        => $res['body']['data']['review_id'] ?? null,
                         'oc_pushed_at'        => now(),
                         'oc_push_error'       => null,

@@ -258,11 +258,11 @@ class LazadaAttributes
         return $out;
     }
 
-    public function getLazadaSalePropKeys(int $primaryCategoryId, object $setting, LazadaClient $client): array
+    public function getLazadaSalePropKeys(int $primaryCategoryId, object $store, LazadaClient $client): array
     {
-        $creds = LazadaStore::activeCredentials($setting);
+        $creds = LazadaStore::activeCredentials($store);
 
-        if ($primaryCategoryId <= 0 || empty($creds['app_key']) || empty($creds['app_secret']) || empty($setting->region)) {
+        if ($primaryCategoryId <= 0 || empty($creds['app_key']) || empty($creds['app_secret']) || empty($store->region)) {
             return [];
         }
 
@@ -276,7 +276,7 @@ class LazadaAttributes
                 'primary_category_id' => (string) $primaryCategoryId,
             ];
             $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
-            $result = $client->get((string) $setting->region, $apiPath, $params);
+            $result = $client->get((string) $store->region, $apiPath, $params);
 
             $body = $result['body'] ?? null;
             if (!is_array($body)) {
@@ -487,7 +487,7 @@ class LazadaAttributes
 
     private function region(): string
     {
-        $setting = LazadaStore::defaultStore();
-        return (string)($setting->region ?? '');
+        $store = LazadaStore::defaultStore();
+        return (string)($store->region ?? '');
     }
 }

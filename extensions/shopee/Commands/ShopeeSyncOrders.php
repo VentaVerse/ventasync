@@ -92,16 +92,16 @@ class ShopeeSyncOrders extends Command implements \App\Channels\Contracts\Steppa
         return 0;
     }
 
-    private function syncOrders(ShopeeClient $client, object $setting, array $auth): void
+    private function syncOrders(ShopeeClient $client, object $store, array $auth): void
     {
         $tz = new \DateTimeZone('Asia/Manila');
         $cliDays = $this->option('days');
         $syncDays = $cliDays !== null && $cliDays !== ''
             ? max(1, (int) $cliDays)
-            : (($setting->sync_last_days ?? null) > 0 ? (int) $setting->sync_last_days : 14);
+            : (($store->sync_last_days ?? null) > 0 ? (int) $store->sync_last_days : 14);
 
         $latestUpdated = ShopeeOrder::query()
-            ->where('store_id', (int) $setting->id)
+            ->where('store_id', (int) $store->id)
             ->max('order_updated_at');
 
         if ($latestUpdated) {
@@ -164,7 +164,7 @@ class ShopeeSyncOrders extends Command implements \App\Channels\Contracts\Steppa
                     $body = $res['body'] ?? [];
                     $msg = \App\Support\MarketplaceAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
                     $this->error("  API error: {$msg}");
-                    Cache::put('shopee_sync_paused:' . $setting->id, $msg, now()->addMinutes(10));
+                    Cache::put('shopee_sync_paused:' . $store->id, $msg, now()->addMinutes(10));
                     return;
                 }
 
@@ -191,13 +191,13 @@ class ShopeeSyncOrders extends Command implements \App\Channels\Contracts\Steppa
             $windowFrom = $windowTo;
         }
 
-        $r = app(ShopeeOrderIngest::class)->orders($setting, $auth, $allOrderSns);
+        $r = app(ShopeeOrderIngest::class)->orders($store, $auth, $allOrderSns);
         $this->info("  Synced: {$r['created']} new, {$r['updated']} updated"
             . ($r['errors'] > 0 ? ", {$r['errors']} errors" : '')
             . ($r['busy'] > 0 ? ", {$r['busy']} being written by a push" : ''));
     }
 
-    private function syncReturns(ShopeeClient $client, object $setting, array $auth): void
+    private function syncReturns(ShopeeClient $client, object $store, array $auth): void
     {
         $saved = 0;
         $errors = 0;
@@ -207,7 +207,7 @@ class ShopeeSyncOrders extends Command implements \App\Channels\Contracts\Steppa
         $cliDaysReturns = $this->option('days-returns');
         $syncDays = $cliDaysReturns !== null && $cliDaysReturns !== ''
             ? max(1, (int) $cliDaysReturns)
-            : (($setting->sync_last_days_returns ?? null) > 0 ? (int) $setting->sync_last_days_returns : 14);
+            : (($store->sync_last_days_returns ?? null) > 0 ? (int) $store->sync_last_days_returns : 14);
         $tz = new \DateTimeZone('Asia/Manila');
         $rangeStart = (new \DateTime('now', $tz))->modify("-{$syncDays} days")->getTimestamp();
         $rangeEnd = time();
@@ -264,7 +264,7 @@ class ShopeeSyncOrders extends Command implements \App\Channels\Contracts\Steppa
                 $returnSn = $ret['return_sn'] ?? null;
                 if (!$returnSn) continue;
 
-                $error = app(ShopeeOrderIngest::class)->returnBySn($setting, $auth, (string) $returnSn, is_array($ret) ? $ret : []);
+                $error = app(ShopeeOrderIngest::class)->returnBySn($store, $auth, (string) $returnSn, is_array($ret) ? $ret : []);
                 if ($error !== null) {
                     $errors++;
                     $this->warn('  ' . $error);
@@ -286,12 +286,12 @@ class ShopeeSyncOrders extends Command implements \App\Channels\Contracts\Steppa
         $this->info("  Synced: {$saved} return(s)" . ($errors > 0 ? ", {$errors} error(s)" : ''));
     }
 
-    private function backfillMissingFees(ShopeeClient $client, object $setting, array $auth): void
+    private function backfillMissingFees(ShopeeClient $client, object $store, array $auth): void
     {
         $region = $auth['region'] ?? 'ph';
 
         $orders = ShopeeOrder::query()
-            ->where('store_id', (int) $setting->id)
+            ->where('store_id', (int) $store->id)
             ->whereIn('status', ['SHIPPED', 'TO_CONFIRM_RECEIVE', 'COMPLETED'])
             ->whereNull('fees')
             ->get();

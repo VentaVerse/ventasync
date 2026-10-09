@@ -42,9 +42,9 @@ class ShopeeCategoryController extends Controller
 
     public function fetch(Request $request, ShopeeClient $client)
     {
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->route('ext.shopee.categories.index')
                 ->with('error', "Missing Shopee {$modeLabel} settings. Please configure Partner ID, Partner Key, Access Token, and Shop ID first.");

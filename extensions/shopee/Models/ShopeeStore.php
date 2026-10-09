@@ -111,9 +111,9 @@ class ShopeeStore extends Model
     {
         $base = request()->attributes->get('shopee.listing-url-base', false);
         if ($base === false) {
-            $setting = static::defaultStore()?->decrypted();
-            $auth = static::activeAuth($setting);
-            $region = strtolower(trim((string) ($setting->region ?? ''))) ?: 'ph';
+            $store = static::defaultStore()?->decrypted();
+            $auth = static::activeAuth($store);
+            $region = strtolower(trim((string) ($store->region ?? ''))) ?: 'ph';
             $base = !empty($auth['shop_id'])
                 ? 'https://shopee.' . $region . '/product/' . (int) $auth['shop_id']
                 : null;
@@ -123,9 +123,9 @@ class ShopeeStore extends Model
         return $base !== null ? $base . '/' . $itemId : null;
     }
 
-    public static function activeAuth(?object $setting): array
+    public static function activeAuth(?object $store): array
     {
-        if (!$setting) {
+        if (!$store) {
             return [
                 'mode'          => 'sandbox',
                 'store_id'      => null,
@@ -140,20 +140,20 @@ class ShopeeStore extends Model
             ];
         }
 
-        $mode = $setting->mode ?? 'sandbox';
+        $mode = $store->mode ?? 'sandbox';
         $isSandbox = $mode === 'sandbox';
 
-        $partnerId    = $isSandbox ? ($setting->sandbox_partner_id    ?? null) : ($setting->partner_id    ?? null);
-        $partnerKey   = $isSandbox ? ($setting->sandbox_partner_key   ?? null) : ($setting->partner_key   ?? null);
-        $shopId       = $isSandbox ? ($setting->sandbox_shop_id       ?? null) : ($setting->shop_id       ?? null);
-        $accessToken  = $isSandbox ? ($setting->sandbox_access_token  ?? null) : ($setting->access_token  ?? null);
-        $refreshToken = $isSandbox ? ($setting->sandbox_refresh_token ?? null) : ($setting->refresh_token ?? null);
-        $region       = $isSandbox ? ($setting->sandbox_region        ?? null) : ($setting->region        ?? null);
-        $expiresAt    = $isSandbox ? ($setting->sandbox_expires_at    ?? null) : ($setting->expires_at    ?? null);
+        $partnerId    = $isSandbox ? ($store->sandbox_partner_id    ?? null) : ($store->partner_id    ?? null);
+        $partnerKey   = $isSandbox ? ($store->sandbox_partner_key   ?? null) : ($store->partner_key   ?? null);
+        $shopId       = $isSandbox ? ($store->sandbox_shop_id       ?? null) : ($store->shop_id       ?? null);
+        $accessToken  = $isSandbox ? ($store->sandbox_access_token  ?? null) : ($store->access_token  ?? null);
+        $refreshToken = $isSandbox ? ($store->sandbox_refresh_token ?? null) : ($store->refresh_token ?? null);
+        $region       = $isSandbox ? ($store->sandbox_region        ?? null) : ($store->region        ?? null);
+        $expiresAt    = $isSandbox ? ($store->sandbox_expires_at    ?? null) : ($store->expires_at    ?? null);
 
         return [
             'mode'          => $mode,
-            'store_id'      => isset($setting->id) ? (int) $setting->id : null,
+            'store_id'      => isset($store->id) ? (int) $store->id : null,
             'partner_id'    => $partnerId,
             'partner_key'   => $partnerKey,
             'shop_id'       => $shopId,

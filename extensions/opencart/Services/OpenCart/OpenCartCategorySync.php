@@ -10,20 +10,20 @@ use Illuminate\Support\Facades\Log;
 class OpenCartCategorySync
 {
     private OpenCartClient $client;
-    private OpenCartStore $setting;
+    private OpenCartStore $store;
 
     private array $categoryMap = [];
 
-    public function __construct(OpenCartClient $client, OpenCartStore $setting)
+    public function __construct(OpenCartClient $client, OpenCartStore $store)
     {
         $this->client = $client;
-        $this->setting = $setting;
+        $this->store = $store;
     }
 
     public function pull(?string $modifiedSince = null, bool $full = false): array
     {
         $log = OpenCartSyncLog::create([
-            'store_id' => $this->setting->id,
+            'store_id' => $this->store->id,
             'entity_type' => 'category',
             'direction'   => 'pull',
             'status'      => 'started',
@@ -31,7 +31,7 @@ class OpenCartCategorySync
         ]);
 
         try {
-            $since = $full ? null : ($modifiedSince ?? $this->setting->last_category_sync_at?->toIso8601String());
+            $since = $full ? null : ($modifiedSince ?? $this->store->last_category_sync_at?->toIso8601String());
             $result = $this->client->getCategories($since);
 
             if (!$result['ok']) {
@@ -152,7 +152,7 @@ class OpenCartCategorySync
                 }
             }
 
-            $this->setting->update(['last_category_sync_at' => now()]);
+            $this->store->update(['last_category_sync_at' => now()]);
 
             $log->update([
                 'status'            => 'completed',

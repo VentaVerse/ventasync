@@ -10,14 +10,14 @@ use Illuminate\Support\Facades\DB;
 class VentaCartProductPush
 {
     public function __construct(
-        private VentaCartStore $setting,
+        private VentaCartStore $store,
         private VentaCartClient $client,
     ) {
     }
 
-    public static function for(VentaCartStore $setting): self
+    public static function for(VentaCartStore $store): self
     {
-        return new self($setting, new VentaCartClient($setting));
+        return new self($store, new VentaCartClient($store));
     }
 
     public function product(int $productId): ?object
@@ -69,7 +69,7 @@ class VentaCartProductPush
         $pid = (int) $prod->product_id;
         $sku = self::skuOf($prod);
         $price = fn (float $base) => $priceFor ? round((float) $priceFor($base), 2) : $base;
-        $listing = VentaCartListing::query()->where('store_id', $this->setting->id)->where('product_id', $pid)->first();
+        $listing = VentaCartListing::query()->where('store_id', $this->store->id)->where('product_id', $pid)->first();
         $start = VentaCartListing::startFor($listing, (float) $prod->price, VentaCartListing::withVariations([$pid]) !== []);
         $parcel = VentaCartListing::parcelFor($listing, $prod);
 
@@ -87,7 +87,7 @@ class VentaCartProductPush
             'description' => \App\Channels\Listings\ListingContent::wrapDescription(
                 (string) ($overrides['description'] ?? ($prod->description ?? '')),
                 'ventacart',
-                (int) $this->setting->id,
+                (int) $this->store->id,
                 $listing
             ),
         ];
@@ -136,7 +136,7 @@ class VentaCartProductPush
             ->orderBy('poc.sort_order')
             ->get();
 
-        $hidden = \App\Channels\Listings\ListingVariations::hidden('ventacart', (int) $this->setting->id, [$pid]);
+        $hidden = \App\Channels\Listings\ListingVariations::hidden('ventacart', (int) $this->store->id, [$pid]);
 
         if ($combos->isNotEmpty()) {
             $comboValues = DB::table('product_option_combination_values as pocv')
@@ -299,14 +299,14 @@ class VentaCartProductPush
 
     public function images(int $productId): array
     {
-        $marking = VentaCartListing::query()->where('store_id', $this->setting->id)->where('product_id', $productId)
+        $marking = VentaCartListing::query()->where('store_id', $this->store->id)->where('product_id', $productId)
             ->first(['watermark_template_id', 'watermark_all_images']);
         $paths = \App\Services\Media\ListingWatermark::paths(
             \App\Support\Catalog\ProductImages::paths($productId, $this->ownImageOrder($productId)),
             $marking,
-            \App\Services\Media\ListingWatermark::groupTemplateId('ventacart_product_groups', 'ventacart_product_group_products', 'ventacart_product_group_id', $productId, 'store_id', (int) $this->setting->id),
+            \App\Services\Media\ListingWatermark::groupTemplateId('ventacart_product_groups', 'ventacart_product_group_products', 'ventacart_product_group_id', $productId, 'store_id', (int) $this->store->id),
             'ventacart',
-            (int) $this->setting->id
+            (int) $this->store->id
         );
 
         return array_map([\App\Support\Catalog\ProductImages::class, 'url'], \App\Services\Media\ImageCache::pushPaths($paths));
@@ -315,7 +315,7 @@ class VentaCartProductPush
     private function ownImageOrder(int $productId): ?array
     {
         return VentaCartListing::query()
-            ->where('store_id', $this->setting->id)
+            ->where('store_id', $this->store->id)
             ->where('product_id', $productId)
             ->value('image_order');
     }
@@ -327,7 +327,7 @@ class VentaCartProductPush
 
     public function reconcileLink(int $productId): array
     {
-        $store = (int) $this->setting->id;
+        $store = (int) $this->store->id;
         $link = VentaCartProductLink::where('store_id', $store)->where('product_id', $productId)->first();
 
         $found = null;
@@ -399,7 +399,7 @@ class VentaCartProductPush
 
     public function linkProductTo(int $productId, $ventaCartProductId, ?string $sku): ?string
     {
-        $store = (int) $this->setting->id;
+        $store = (int) $this->store->id;
 
         $conflict = VentaCartProductLink::where('store_id', $store)
             ->where('ventacart_product_id', $ventaCartProductId)
@@ -426,8 +426,8 @@ class VentaCartProductPush
             return self::outcome(false, 'failed', 'The Master Catalog product no longer exists.');
         }
 
-        if (\App\Channels\Listings\ListingVariations::noneSold('ventacart', (int) $this->setting->id, $productId)) {
-            return self::outcome(false, 'failed', \App\Channels\Listings\ListingVariations::noneSoldMessage((string) $this->setting->store_name));
+        if (\App\Channels\Listings\ListingVariations::noneSold('ventacart', (int) $this->store->id, $productId)) {
+            return self::outcome(false, 'failed', \App\Channels\Listings\ListingVariations::noneSoldMessage((string) $this->store->store_name));
         }
 
         $readiness = VentaCartListingReadiness::forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => []];
@@ -443,7 +443,7 @@ class VentaCartProductPush
             return self::outcome(false, $verdict['state'], (string) $verdict['message'], null, [], $data);
         }
 
-        $link = VentaCartProductLink::where('store_id', $this->setting->id)->where('product_id', $productId)->first();
+        $link = VentaCartProductLink::where('store_id', $this->store->id)->where('product_id', $productId)->first();
 
         if ($link && $link->ventacart_product_id) {
             $data = $this->withCatalogNames($prod, $data);
@@ -452,10 +452,10 @@ class VentaCartProductPush
                 return self::outcome(false, 'failed', self::failureText($result, $sku), (int) $link->ventacart_product_id, [], $data);
             }
 
-            $this->setting->update(['last_product_sync_at' => now()]);
+            $this->store->update(['last_product_sync_at' => now()]);
             $this->rememberAnswer($productId, $result);
 
-            return self::outcome(true, 'updated','Updated on ' . $this->setting->store_name . '.', (int) $link->ventacart_product_id, self::imageVerdict($result), $data);
+            return self::outcome(true, 'updated','Updated on ' . $this->store->store_name . '.', (int) $link->ventacart_product_id, self::imageVerdict($result), $data);
         }
 
         $result = $this->client->createProduct($data);
@@ -468,10 +468,10 @@ class VentaCartProductPush
             return self::outcome(false, 'blocked', "Created on the store as {$ventaCartId}, but {$clash}", $ventaCartId, self::imageVerdict($result), $data);
         }
 
-        $this->setting->update(['last_product_sync_at' => now()]);
+        $this->store->update(['last_product_sync_at' => now()]);
         $this->rememberAnswer($productId, $result);
 
-        return self::outcome(true, 'created','Created on ' . $this->setting->store_name . '.', $ventaCartId, self::imageVerdict($result), $data);
+        return self::outcome(true, 'created','Created on ' . $this->store->store_name . '.', $ventaCartId, self::imageVerdict($result), $data);
     }
 
     public function rememberHeld(int $productId, iterable $skus): void
@@ -489,7 +489,7 @@ class VentaCartProductPush
                 $held[] = $sku;
             }
         }
-        \App\Channels\Listings\ListingVariations::remember('ventacart', (int) $this->setting->id, $productId, $held);
+        \App\Channels\Listings\ListingVariations::remember('ventacart', (int) $this->store->id, $productId, $held);
     }
 
     private function rememberAnswer(int $productId, array $result): void
@@ -574,8 +574,8 @@ class VentaCartProductPush
         }
 
         return ['ok' => true, 'message' => $active
-            ? 'Relisted on ' . $this->setting->store_name . '. Buyers see it again.'
-            : 'Unlisted on ' . $this->setting->store_name . '. Buyers stop seeing it; it can be relisted at any time.'];
+            ? 'Relisted on ' . $this->store->store_name . '. Buyers see it again.'
+            : 'Unlisted on ' . $this->store->store_name . '. Buyers stop seeing it; it can be relisted at any time.'];
     }
 
     public static function failureText(array $result, string $sku): string

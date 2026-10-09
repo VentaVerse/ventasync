@@ -18,14 +18,14 @@ class LazadaItemImport
     ) {
     }
 
-    public function import(object $setting, array $creds, string $itemId): array
+    public function import(object $store, array $creds, string $itemId): array
     {
         if ($refused = \App\Plans\Quota::importRefusal()) {
             return $refused;
         }
 
         try {
-            $data = $this->live->raw($setting, $creds, $itemId);
+            $data = $this->live->raw($store, $creds, $itemId);
         } catch (\RuntimeException $e) {
             return ['ok' => false, 'message' => 'Lazada did not hand the item over: ' . $e->getMessage()];
         }
@@ -57,7 +57,7 @@ class LazadaItemImport
                 }
             }
 
-            $productId = DB::transaction(function () use ($pfx, $langId, $data, $attrs, $skus, $first, $name, $sku, $price, $qty, $itemId, $axes, $hasVariations, $setting, $creds) {
+            $productId = DB::transaction(function () use ($pfx, $langId, $data, $attrs, $skus, $first, $name, $sku, $price, $qty, $itemId, $axes, $hasVariations, $store, $creds) {
                 $productId = DB::table($pfx . 'product')->insertGetId([
                     'model' => ($hasVariations ? '' : $sku) ?: ('LZD-' . $itemId),
                     'sku' => $hasVariations ? '' : $sku,
@@ -116,7 +116,7 @@ class LazadaItemImport
                     ]);
                 }
 
-                $this->itemCache->fetchAndCacheVariants($listing, $setting, $this->client, 'lazada.product.item.get.import');
+                $this->itemCache->fetchAndCacheVariants($listing, $store, $this->client, 'lazada.product.item.get.import');
 
                 return $productId;
             });

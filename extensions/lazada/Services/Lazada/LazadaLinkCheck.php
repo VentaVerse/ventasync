@@ -13,16 +13,16 @@ class LazadaLinkCheck
     {
     }
 
-    public function runNext(object $setting, array $creds): ?array
+    public function runNext(object $store, array $creds): ?array
     {
         $linked = \Extensions\Lazada\Models\LazadaProduct::query()->whereNotNull('lazada_item_id')->whereNull('lazada_deleted_at')
             ->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
-        $linked = \App\Channels\Support\LinkCheckCursor::rotate('lazada:' . (int) $setting->id, $linked);
+        $linked = \App\Channels\Support\LinkCheckCursor::rotate('lazada:' . (int) $store->id, $linked);
 
-        return $linked !== [] ? $this->run($setting, $creds, $linked) : null;
+        return $linked !== [] ? $this->run($store, $creds, $linked) : null;
     }
 
-    public function run(object $setting, array $creds, array $productIds, ?LazadaProductGroup $group = null): array
+    public function run(object $store, array $creds, array $productIds, ?LazadaProductGroup $group = null): array
     {
         $limit = 200;
         $skippedForSize = max(0, count($productIds) - $limit);
@@ -32,7 +32,7 @@ class LazadaLinkCheck
         $skusByProduct = $this->erpSkusByProduct($pfx, $productIds);
         $allSkus = array_values(array_unique(array_merge(...array_values($skusByProduct ?: [[]]))));
         try {
-            $found = $this->live->itemsBySkus($setting, $creds, $allSkus);
+            $found = $this->live->itemsBySkus($store, $creds, $allSkus);
         } catch (\RuntimeException $e) {
             return ['tone' => 'error', 'summary' => 'Check against Lazada: ' . $e->getMessage()];
         }
@@ -42,13 +42,13 @@ class LazadaLinkCheck
             $pivotQuery->where('lazada_product_group_id', $group->id);
         } else {
             $pivotQuery->whereIn('lazada_product_group_id', LazadaProductGroup::query()
-                ->withoutGlobalScope('lazadaStore')->where('store_id', (int) $setting->id)->select('id'));
+                ->withoutGlobalScope('lazadaStore')->where('store_id', (int) $store->id)->select('id'));
         }
         $pivotsByProduct = $pivotQuery->get()->groupBy('product_id');
 
         $verdicts = ['confirmed' => 0, 'linked' => 0, 'lost' => 0, 'taken' => 0, 'not_on_lazada' => 0];
         $problems = [];
-        $states = LazadaListingStates::on($setting);
+        $states = LazadaListingStates::on($store);
 
         foreach ($productIds as $productId) {
             $pivots = $pivotsByProduct->get($productId) ?? collect();
@@ -59,7 +59,7 @@ class LazadaLinkCheck
                 }
             }
             $listing ??= LazadaProduct::query()
-                ->withoutGlobalScope('lazadaStore')->where('store_id', (int) $setting->id)
+                ->withoutGlobalScope('lazadaStore')->where('store_id', (int) $store->id)
                 ->where('product_id', $productId)->first();
             $hits = [];
             $hitStatuses = [];
@@ -80,7 +80,7 @@ class LazadaLinkCheck
                     $listing->forceFill($hitMirror + $this->checkedStamp($listing))->save();
                     $this->markPushed($pivots);
                     $verdicts['confirmed']++;
-                } elseif ($hitItemId !== null && ($holder = $this->holderOf($setting, $hitItemId, (int) $productId)) !== null) {
+                } elseif ($hitItemId !== null && ($holder = $this->holderOf($store, $hitItemId, (int) $productId)) !== null) {
                     $line = "Lazada item {$hitItemId} holds this product's SKU but is linked to Master Catalog product #{$holder}.";
                     $states->recordOutcome((int) $productId, $line);
                     $problems[] = "#{$productId}: " . $line;
@@ -92,7 +92,7 @@ class LazadaLinkCheck
                 } else {
                     \App\Channels\Listings\DroppedLink::write(
                         'Lazada', 'Lazada Product', (int) $productId, (string) $listing->lazada_item_id,
-                        (int) $setting->id, $skusByProduct[$productId] ?? [], count($found)
+                        (int) $store->id, $skusByProduct[$productId] ?? [], count($found)
                     );
                     $listing->forceFill(['lazada_deleted_at' => now(), 'live_status' => 'missing', 'live_checked_at' => now(), 'last_synced_at' => now(), 'last_sync_action' => 'check', 'last_sync_ok' => false, 'last_sync_error_message' => 'Not found on Lazada'])->save();
                     foreach ($pivots as $p) $p->update(['sync_status' => 'error']);
@@ -102,7 +102,7 @@ class LazadaLinkCheck
                 continue;
             }
 
-            if ($hitItemId !== null && ($holder = $this->holderOf($setting, $hitItemId, (int) $productId)) !== null) {
+            if ($hitItemId !== null && ($holder = $this->holderOf($store, $hitItemId, (int) $productId)) !== null) {
                 $line = "Lazada item {$hitItemId} holds this product's SKU but is linked to Master Catalog product #{$holder}.";
                 if ($listing) {
                     $states->recordOutcome((int) $productId, $line);
@@ -156,10 +156,10 @@ class LazadaLinkCheck
         }
     }
 
-    private function holderOf(object $setting, string $itemId, int $productId): ?int
+    private function holderOf(object $store, string $itemId, int $productId): ?int
     {
         $holder = LazadaProduct::query()->withoutGlobalScope('lazadaStore')
-            ->where('store_id', (int) $setting->id)
+            ->where('store_id', (int) $store->id)
             ->where('lazada_item_id', $itemId)->where('product_id', '!=', $productId)
             ->whereNull('lazada_deleted_at')->whereNull('unlinked_at')
             ->value('product_id');

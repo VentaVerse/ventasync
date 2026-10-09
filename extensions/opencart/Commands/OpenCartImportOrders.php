@@ -17,20 +17,20 @@ class OpenCartImportOrders extends Command
 
     public function handle(): int
     {
-        $setting = OpenCartStore::query()->first();
+        $store = OpenCartStore::query()->first();
 
-        if (!$setting || !$setting->enabled) {
+        if (!$store || !$store->enabled) {
             $this->error('OpenCart connection not configured or disabled.');
             return 1;
         }
 
-        $client = new OpenCartClient($setting);
+        $client = new OpenCartClient($store);
         $startPage = (int) $this->option('page');
 
-        if ($startPage === 1 && $setting->last_order_page > 0) {
-            $this->warn("Previous import stopped at page {$setting->last_order_page}.");
-            if ($this->confirm("Resume from page {$setting->last_order_page}?", true)) {
-                $startPage = (int) $setting->last_order_page;
+        if ($startPage === 1 && $store->last_order_page > 0) {
+            $this->warn("Previous import stopped at page {$store->last_order_page}.");
+            if ($this->confirm("Resume from page {$store->last_order_page}?", true)) {
+                $startPage = (int) $store->last_order_page;
             }
         }
 
@@ -40,7 +40,7 @@ class OpenCartImportOrders extends Command
 
         $bar = null;
 
-        $sync = new OpenCartOrderSync($client, $setting);
+        $sync = new OpenCartOrderSync($client, $store);
         $log = $sync->pull(
             null,
             $startPage,

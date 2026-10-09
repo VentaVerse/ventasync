@@ -12,12 +12,12 @@ class LazadaOrdersPanel
 {
     public function build(Request $request, ?int $storeId = null): array
     {
-        $setting = $storeId !== null
+        $store = $storeId !== null
             ? LazadaStore::query()->find($storeId)
             : LazadaStore::defaultStore();
-        if ($storeId !== null && $setting !== null) {
-            app()->instance('lazada.route-store', $setting);
-            \Illuminate\Support\Facades\URL::defaults(['store' => (int) $setting->id]);
+        if ($storeId !== null && $store !== null) {
+            app()->instance('lazada.route-store', $store);
+            \Illuminate\Support\Facades\URL::defaults(['store' => (int) $store->id]);
         }
 
         $filters = $request->validate([
@@ -118,14 +118,14 @@ class LazadaOrdersPanel
             'to_handover' => ['ready_to_ship'],
         ];
         $courierTally = ($tab === 'TO_SHIP' && isset($subStepStatuses[$pendingSubtab]))
-            ? $this->buildToShipCourierTally($setting->region ?? 'ph', $subStepStatuses[$pendingSubtab])
+            ? $this->buildToShipCourierTally($store->region ?? 'ph', $subStepStatuses[$pendingSubtab])
             : new CourierTally();
 
         $query = LazadaOrder::query()
-            ->where('region', $setting->region ?? 'ph')
+            ->where('region', $store->region ?? 'ph')
             ->with('products');
 
-        $baseCountQuery = LazadaOrder::query()->where('region', $setting->region ?? 'ph');
+        $baseCountQuery = LazadaOrder::query()->where('region', $store->region ?? 'ph');
 
 
         if ($tab !== 'ALL') {
@@ -240,7 +240,7 @@ class LazadaOrdersPanel
         }
 
         return [
-            'setting' => $setting,
+            'setting' => $store,
             'orders' => $orders,
             'per_page' => $perPage,
             'last_result' => session('lazada_orders_last_result'),
@@ -254,7 +254,7 @@ class LazadaOrdersPanel
             'courier_tally' => $courierTally->forStrip($courierKey),
             'live_statuses' => $live_statuses,
             'savedAwbs' => $savedAwbs,
-            'pack_print_parcel' => $this->resolvePackedParcel($setting),
+            'pack_print_parcel' => $this->resolvePackedParcel($store),
             'bulk_pack' => session('lazada_bulk_pack'),
             'sort' => $sortKey,
             'filters' => [
@@ -266,16 +266,16 @@ class LazadaOrdersPanel
         ];
     }
 
-    private function resolvePackedParcel(?LazadaStore $setting): ?array
+    private function resolvePackedParcel(?LazadaStore $store): ?array
     {
         $orderId = (string) session('open_pack_print_modal_order_id', '');
 
-        if ($orderId === '' || $setting === null) {
+        if ($orderId === '' || $store === null) {
             return null;
         }
 
         $order = LazadaOrder::query()
-            ->where('region', $setting->region)
+            ->where('region', $store->region)
             ->where('order_id', $orderId)
             ->with('products')
             ->first();

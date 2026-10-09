@@ -97,13 +97,13 @@ class VentaCartListingController extends Controller
         ]);
     }
 
-    private function fetchUnmatched(VentaCartStore $setting): array
+    private function fetchUnmatched(VentaCartStore $store): array
     {
-        if (! $setting->enabled) {
+        if (! $store->enabled) {
             return [null, 'That VentaCart store is turned off, so nothing was fetched.'];
         }
 
-        $client = new \Extensions\VentaCart\Services\VentaCart\VentaCartClient($setting);
+        $client = new \Extensions\VentaCart\Services\VentaCart\VentaCartClient($store);
         $known = $this->knownSkus();
 
         $found = 0;

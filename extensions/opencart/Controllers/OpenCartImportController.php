@@ -31,19 +31,19 @@ class OpenCartImportController extends Controller
         ]);
     }
 
-    private function fetchUnmatched(OpenCartStore $setting): array
+    private function fetchUnmatched(OpenCartStore $store): array
     {
-        if (! $setting->enabled) {
+        if (! $store->enabled) {
             return [null, 'That OpenCart store is turned off, so nothing was fetched.'];
         }
 
-        $client = new OpenCartClient($setting);
+        $client = new OpenCartClient($store);
         $known = $this->knownSkus();
         $linked = OpenCartProductLink::query()
-            ->where('store_id', $setting->id)
+            ->where('store_id', $store->id)
             ->pluck('oc_product_id')
             ->flip();
-        $base = rtrim((string) $setting->base_url, '/');
+        $base = rtrim((string) $store->base_url, '/');
 
         $found = 0;
         $rows = [];

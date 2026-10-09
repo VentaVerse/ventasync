@@ -11,13 +11,13 @@ use Illuminate\Support\Str;
 
 class VentaCartItemImport
 {
-    public function import(VentaCartStore $setting, string $importSku): array
+    public function import(VentaCartStore $store, string $importSku): array
     {
         if ($refused = \App\Plans\Quota::importRefusal()) {
             return $refused;
         }
 
-        $client = new VentaCartClient($setting);
+        $client = new VentaCartClient($store);
 
         $answer = $client->getProduct($importSku);
         if (! ($answer['ok'] ?? false)) {
@@ -43,7 +43,7 @@ class VentaCartItemImport
         $ventaCartId = (int) ($item['id'] ?? 0);
 
         try {
-            $productId = DB::transaction(function () use ($pfx, $langId, $item, $variants, $name, $sku, $ventaCartId, $setting) {
+            $productId = DB::transaction(function () use ($pfx, $langId, $item, $variants, $name, $sku, $ventaCartId, $store) {
                 $productId = DB::table($pfx . 'product')->insertGetId([
                     'model' => $sku,
                     'sku' => $sku,
@@ -85,7 +85,7 @@ class VentaCartItemImport
                 }
 
                 VentaCartProductLink::updateOrCreate(
-                    ['store_id' => $setting->id, 'product_id' => $productId],
+                    ['store_id' => $store->id, 'product_id' => $productId],
                     ['ventacart_product_id' => $ventaCartId ?: null, 'sku' => $sku]
                 );
 
@@ -103,7 +103,7 @@ class VentaCartItemImport
             'product_id' => $productId,
             'message' => "Imported \"{$name}\" as Master Catalog product #{$productId}"
                 . ($variants !== [] ? ' with ' . count($variants) . ' variations' : '')
-                . ', linked to ' . ($setting->store_name ?: 'VentaCart') . '.' . (\App\Support\Catalog\SkuFallback::note($minted) !== '' ? ' ' . \App\Support\Catalog\SkuFallback::note($minted) : ''),
+                . ', linked to ' . ($store->store_name ?: 'VentaCart') . '.' . (\App\Support\Catalog\SkuFallback::note($minted) !== '' ? ' ' . \App\Support\Catalog\SkuFallback::note($minted) : ''),
         ];
     }
 

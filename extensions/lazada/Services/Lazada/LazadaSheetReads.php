@@ -10,9 +10,9 @@ use Extensions\Lazada\Models\LazadaProductGroup;
 
 class LazadaSheetReads
 {
-    public function readMissing(object $setting, LazadaClient $client, int $limit = SheetReads::PER_RUN): array
+    public function readMissing(object $store, LazadaClient $client, int $limit = SheetReads::PER_RUN): array
     {
-        $region = (string) ($setting->region ?? '');
+        $region = (string) ($store->region ?? '');
         $wanted = LazadaProduct::query()->whereNotNull('primary_category_id')->distinct()->pluck('primary_category_id')
             ->merge(LazadaProductGroup::query()->whereNotNull('lazada_category_id')->distinct()->pluck('lazada_category_id'))
             ->map(fn ($v) => (int) $v)

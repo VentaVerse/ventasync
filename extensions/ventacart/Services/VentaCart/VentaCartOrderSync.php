@@ -21,15 +21,15 @@ use Illuminate\Support\Facades\Log;
 class VentaCartOrderSync
 {
     private VentaCartClient $client;
-    private VentaCartStore $setting;
+    private VentaCartStore $store;
     private bool $skipStockAdjust = false;
 
     private bool $feesOnly = false;
 
-    public function __construct(VentaCartClient $client, VentaCartStore $setting)
+    public function __construct(VentaCartClient $client, VentaCartStore $store)
     {
         $this->client = $client;
-        $this->setting = $setting;
+        $this->store = $store;
     }
 
     public function setSkipStockAdjust(bool $skip = true): self
@@ -55,7 +55,7 @@ class VentaCartOrderSync
         int $startPage = 1
     ): VentaCartSyncLog {
         $log = VentaCartSyncLog::create([
-            'store_id' => $this->setting->id,
+            'store_id' => $this->store->id,
             'entity_type'      => 'order',
             'direction'        => 'pull',
             'status'           => 'started',
@@ -124,7 +124,7 @@ class VentaCartOrderSync
                 }
             } while ($hasMore);
 
-            $this->setting->update(['last_order_sync_at' => now()]);
+            $this->store->update(['last_order_sync_at' => now()]);
 
             $log->update([
                 'status'            => 'completed',
@@ -142,7 +142,7 @@ class VentaCartOrderSync
                 'completed_at'  => now(),
             ]);
             Log::error('VentaCart order sync failed', [
-                'store' => $this->setting->store_name,
+                'store' => $this->store->store_name,
                 'error' => $e->getMessage(),
             ]);
         }
@@ -152,12 +152,12 @@ class VentaCartOrderSync
 
     private function resolveSinceDate(): ?string
     {
-        if ($this->setting->sync_last_days && $this->setting->sync_last_days > 0) {
-            return now()->subDays($this->setting->sync_last_days)->startOfDay()->toIso8601String();
+        if ($this->store->sync_last_days && $this->store->sync_last_days > 0) {
+            return now()->subDays($this->store->sync_last_days)->startOfDay()->toIso8601String();
         }
 
-        if ($this->setting->sync_orders_from) {
-            return $this->setting->sync_orders_from->startOfDay()->toIso8601String();
+        if ($this->store->sync_orders_from) {
+            return $this->store->sync_orders_from->startOfDay()->toIso8601String();
         }
 
         return null;
@@ -169,7 +169,7 @@ class VentaCartOrderSync
         $langId = (int) config('catalog.default_language_id');
 
         $idMap = [];
-        $storeMap = VentaCartOrderStatusMap::where('store_id', $this->setting->id)->get();
+        $storeMap = VentaCartOrderStatusMap::where('store_id', $this->store->id)->get();
         foreach ($storeMap as $row) {
             $idMap[(int) $row->ventacart_status_id] = (int) $row->order_status_id;
         }
@@ -215,7 +215,7 @@ class VentaCartOrderSync
 
         $this->upsertOrder($raw, $this->buildStatusMap());
 
-        return VentaCartOrder::where('store_id', $this->setting->id)
+        return VentaCartOrder::where('store_id', $this->store->id)
             ->where('ventacart_order_id', $ventaCartOrderId)
             ->first();
     }
@@ -223,10 +223,10 @@ class VentaCartOrderSync
     private function refreshPlacements(): void
     {
         try {
-            VentaCartStatusPlacements::refresh($this->setting, $this->client);
+            VentaCartStatusPlacements::refresh($this->store, $this->client);
         } catch (\Throwable $e) {
             Log::warning('VentaCart status placements could not be refreshed', [
-                'store' => $this->setting->id,
+                'store' => $this->store->id,
                 'error' => $e->getMessage(),
             ]);
         }
@@ -263,11 +263,11 @@ class VentaCartOrderSync
         $statusName = trim($raw['status'] ?? '');
         $coreStatusId = $this->resolveOrderStatus($statusMap, $ventaCartStatusId, $statusName);
 
-        $orderChannel = 'ventacart:' . $this->setting->id;
+        $orderChannel = 'ventacart:' . $this->store->id;
 
         $ventaCartOrder = VentaCartOrder::updateOrCreate(
             [
-                'store_id' => $this->setting->id,
+                'store_id' => $this->store->id,
                 'ventacart_order_id'   => $ventaCartOrderId,
             ],
             [
@@ -363,8 +363,8 @@ class VentaCartOrderSync
                 'invoice_no'             => 0,
                 'invoice_prefix'         => '',
                 'store_id'               => 0,
-                'store_name'             => $this->setting->store_name,
-                'store_url'              => $this->setting->base_url,
+                'store_name'             => $this->store->store_name,
+                'store_url'              => $this->store->base_url,
                 'customer_id'            => 0,
                 'customer_group_id'      => 0,
                 'customer_group'         => self::customerGroupFrom($raw),
@@ -507,7 +507,7 @@ class VentaCartOrderSync
 
                     if ($resolvedProductId === 0) {
                         $link = DB::table('ventacart_product_links')
-                            ->where('store_id', $this->setting->id)
+                            ->where('store_id', $this->store->id)
                             ->where('sku', $sku)
                             ->first();
                         if ($link) {

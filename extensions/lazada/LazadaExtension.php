@@ -361,9 +361,9 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
 
     private function lazadaUpdateSellerSku(LazadaProduct $listing, string $oldSku, string $newSku): ?string
     {
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
-        if (!$setting || !$creds['access_token'] || !$creds['app_key']) {
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if (!$store || !$creds['access_token'] || !$creds['app_key']) {
             return null;
         }
 
@@ -390,7 +390,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
             ];
             $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
 
-            $result = $client->post((string) $setting->region, $apiPath, $params);
+            $result = $client->post((string) $store->region, $apiPath, $params);
 
             LazadaApiLog::safeCreate([
                 'pack'            => 'lazada.product.update.sku_sync',

@@ -242,8 +242,8 @@ class OpenCartExtension extends ExtensionProvider implements ChannelProvider, Sk
         }
 
         $results = [];
-        foreach ($stores as $setting) {
-            $link = OpenCartProductLink::where('store_id', $setting->id)
+        foreach ($stores as $store) {
+            $link = OpenCartProductLink::where('store_id', $store->id)
                 ->where('product_id', $productId)
                 ->first();
             if (!$link) {
@@ -251,18 +251,18 @@ class OpenCartExtension extends ExtensionProvider implements ChannelProvider, Sk
             }
 
             try {
-                $client = new OpenCartClient($setting);
-                $sync = new OpenCartProductSync($client, $setting);
+                $client = new OpenCartClient($store);
+                $sync = new OpenCartProductSync($client, $store);
                 $result = $sync->push([$productId]);
                 $ok = ($result['failed'] ?? 0) === 0;
-                $results[] = $setting->store_name . ': ' . ($ok ? 'OK' : 'Failed');
+                $results[] = $store->store_name . ': ' . ($ok ? 'OK' : 'Failed');
             } catch (\Throwable $e) {
                 Log::warning('SKU sync to OpenCart failed', [
-                    'store' => $setting->store_name,
+                    'store' => $store->store_name,
                     'product_id' => $productId,
                     'error' => $e->getMessage(),
                 ]);
-                $results[] = $setting->store_name . ': Error';
+                $results[] = $store->store_name . ': Error';
             }
         }
 

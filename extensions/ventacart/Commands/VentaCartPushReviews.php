@@ -47,10 +47,10 @@ class VentaCartPushReviews extends Command
         $totalSkipped = 0;
         $totalErrors = 0;
 
-        foreach ($stores as $setting) {
-            $this->info("--- Store: {$setting->store_name} (#{$setting->id}) ---");
+        foreach ($stores as $store) {
+            $this->info("--- Store: {$store->store_name} (#{$store->id}) ---");
 
-            $client = new VentaCartClient($setting);
+            $client = new VentaCartClient($store);
 
             $ping = $client->ping();
             if (!($ping['ok'] ?? false)) {
@@ -63,7 +63,7 @@ class VentaCartPushReviews extends Command
             $errors = 0;
 
             $linkMap = VentaCartProductLink::query()
-                ->where('store_id', $setting->id)
+                ->where('store_id', $store->id)
                 ->pluck('sku', 'product_id')
                 ->all();
 
@@ -102,7 +102,7 @@ class VentaCartPushReviews extends Command
                         $ventaCartReviewId = $res['body']['data']['review_id'] ?? null;
                         $review->update([
                             'ventacart_sync_status' => 'pushed',
-                            'ventacart_store_id'  => $setting->id,
+                            'ventacart_store_id'  => $store->id,
                             'ventacart_review_id'   => $ventaCartReviewId,
                             'ventacart_pushed_at'   => now(),
                             'ventacart_push_error'  => null,
@@ -112,7 +112,7 @@ class VentaCartPushReviews extends Command
                         $errorMsg = $res['body']['error'] ?? 'Unknown error';
                         $review->update([
                             'ventacart_sync_status' => 'error',
-                            'ventacart_store_id'  => $setting->id,
+                            'ventacart_store_id'  => $store->id,
                             'ventacart_push_error'  => substr($errorMsg, 0, 500),
                         ]);
                         $errors++;
@@ -120,19 +120,19 @@ class VentaCartPushReviews extends Command
                 } catch (\Throwable $e) {
                     $review->update([
                         'ventacart_sync_status' => 'error',
-                        'ventacart_store_id'  => $setting->id,
+                        'ventacart_store_id'  => $store->id,
                         'ventacart_push_error'  => substr($e->getMessage(), 0, 500),
                     ]);
                     $errors++;
                     Log::warning('VentaCart push review failed', [
                         'review_id' => $review->id,
-                        'store'     => $setting->id,
+                        'store'     => $store->id,
                         'error'     => $e->getMessage(),
                     ]);
                 }
             }
 
-            $setting->update(['last_review_push_at' => now()]);
+            $store->update(['last_review_push_at' => now()]);
 
             $this->info("  Pushed: {$pushed}, Skipped: {$skipped}" . ($errors > 0 ? ", Errors: {$errors}" : ''));
             $totalPushed += $pushed;

@@ -11,13 +11,13 @@ use Illuminate\Support\Str;
 
 class OpenCartItemImport
 {
-    public function import(OpenCartStore $setting, int $ocProductId): array
+    public function import(OpenCartStore $store, int $ocProductId): array
     {
         if ($refused = \App\Plans\Quota::importRefusal()) {
             return $refused;
         }
 
-        $client = new OpenCartClient($setting);
+        $client = new OpenCartClient($store);
 
         $answer = $client->getProducts(1, 1, null, (int) $ocProductId);
         if (! ($answer['ok'] ?? false)) {
@@ -40,7 +40,7 @@ class OpenCartItemImport
         $multiOption = count($optionNames) > 1;
 
         try {
-            $productId = DB::transaction(function () use ($pfx, $langId, $item, $optionValues, $multiOption, $name, $sku, $setting, $ocProductId) {
+            $productId = DB::transaction(function () use ($pfx, $langId, $item, $optionValues, $multiOption, $name, $sku, $store, $ocProductId) {
                 $productId = DB::table($pfx . 'product')->insertGetId([
                     'model' => trim((string) ($item['model'] ?? '')) ?: $sku,
                     'sku' => $sku,
@@ -65,7 +65,7 @@ class OpenCartItemImport
                     'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
                 ]);
 
-                $base = rtrim((string) $setting->base_url, '/');
+                $base = rtrim((string) $store->base_url, '/');
                 $urls = [];
                 if (trim((string) ($item['image'] ?? '')) !== '') {
                     $urls[] = $base . '/image/' . ltrim((string) $item['image'], '/');
@@ -91,7 +91,7 @@ class OpenCartItemImport
                 }
 
                 OpenCartProductLink::updateOrCreate(
-                    ['store_id' => $setting->id, 'oc_product_id' => (int) $ocProductId],
+                    ['store_id' => $store->id, 'oc_product_id' => (int) $ocProductId],
                     ['product_id' => $productId, 'sku' => $sku ?: null]
                 );
 
@@ -109,7 +109,7 @@ class OpenCartItemImport
             'message' => "Imported \"{$name}\" as Master Catalog product #{$productId}"
                 . ($optionValues !== [] && ! $multiOption ? ' with ' . count($optionValues) . ' variations' : '')
                 . ($multiOption ? ' (its ' . count($optionNames) . ' independent option sets could not be carried; set variations up by hand)' : '')
-                . ', linked to ' . ($setting->store_name ?: 'OpenCart') . '.' . (\App\Support\Catalog\SkuFallback::note($minted) !== '' ? ' ' . \App\Support\Catalog\SkuFallback::note($minted) : ''),
+                . ', linked to ' . ($store->store_name ?: 'OpenCart') . '.' . (\App\Support\Catalog\SkuFallback::note($minted) !== '' ? ' ' . \App\Support\Catalog\SkuFallback::note($minted) : ''),
         ];
     }
 

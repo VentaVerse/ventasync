@@ -47,11 +47,11 @@ class OpenCartSync extends Command implements \App\Channels\Contracts\SteppableA
             }
         }
 
-        foreach ($settings as $setting) {
+        foreach ($settings as $store) {
             $this->newLine();
-            $this->info("=== Store: {$setting->store_name} (#{$setting->id}) ===");
+            $this->info("=== Store: {$store->store_name} (#{$store->id}) ===");
 
-            $exitCode = $this->syncStore($setting, $entity);
+            $exitCode = $this->syncStore($store, $entity);
             if ($exitCode !== 0) return $exitCode;
         }
 
@@ -60,9 +60,9 @@ class OpenCartSync extends Command implements \App\Channels\Contracts\SteppableA
         return 0;
     }
 
-    private function syncStore(OpenCartStore $setting, string $entity): int
+    private function syncStore(OpenCartStore $store, string $entity): int
     {
-        $client = new OpenCartClient($setting);
+        $client = new OpenCartClient($store);
         $full = $this->option('full');
         $startPage = (int) $this->option('page');
         $maxPages = (int) $this->option('max-pages');
@@ -91,21 +91,21 @@ class OpenCartSync extends Command implements \App\Channels\Contracts\SteppableA
 
             switch ($e) {
                 case 'categories':
-                    $sync = new OpenCartCategorySync($client, $setting);
+                    $sync = new OpenCartCategorySync($client, $store);
                     $result = $sync->pull(null, $full);
                     $log = $result['log'];
                     $categoryMap = $result['map'];
                     break;
 
                 case 'manufacturers':
-                    $sync = new OpenCartManufacturerSync($client, $setting);
+                    $sync = new OpenCartManufacturerSync($client, $store);
                     $result = $sync->pull();
                     $log = $result['log'];
                     $manufacturerMap = $result['map'];
                     break;
 
                 case 'options':
-                    $sync = new OpenCartOptionSync($client, $setting);
+                    $sync = new OpenCartOptionSync($client, $store);
                     $result = $sync->pull();
                     $log = $result['log'];
                     $optionMap = $result['optionMap'];
@@ -113,7 +113,7 @@ class OpenCartSync extends Command implements \App\Channels\Contracts\SteppableA
                     break;
 
                 case 'products':
-                    $sync = new OpenCartProductSync($client, $setting);
+                    $sync = new OpenCartProductSync($client, $store);
                     $sync->setCategoryMap($categoryMap);
                     $sync->setManufacturerMap($manufacturerMap);
                     $sync->setOptionMap($optionMap);
@@ -123,7 +123,7 @@ class OpenCartSync extends Command implements \App\Channels\Contracts\SteppableA
                     break;
 
                 case 'orders':
-                    $sync = new OpenCartOrderSync($client, $setting);
+                    $sync = new OpenCartOrderSync($client, $store);
                     if ($this->option('no-stock')) {
                         $sync->setSkipStockAdjust(true);
                     }

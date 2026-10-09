@@ -48,12 +48,12 @@ class OpenCartPush extends Command
             return 0;
         }
 
-        foreach ($settings as $setting) {
+        foreach ($settings as $store) {
             $this->newLine();
-            $this->info("=== Pushing to: {$setting->store_name} (#{$setting->id}) ===");
+            $this->info("=== Pushing to: {$store->store_name} (#{$store->id}) ===");
             $this->info("Products: " . count($ids));
 
-            $client = new OpenCartClient($setting);
+            $client = new OpenCartClient($store);
 
             $ping = $client->ping();
             if (!$ping['ok']) {
@@ -61,7 +61,7 @@ class OpenCartPush extends Command
                 continue;
             }
 
-            $sync = new OpenCartProductSync($client, $setting);
+            $sync = new OpenCartProductSync($client, $store);
             $result = $sync->push($ids);
 
             $this->info("  Updated: {$result['updated']}, Created: {$result['created']}, Failed: {$result['failed']}");

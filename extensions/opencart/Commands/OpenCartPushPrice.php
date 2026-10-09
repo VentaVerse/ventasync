@@ -27,17 +27,17 @@ class OpenCartPushPrice extends Command implements \App\Channels\Contracts\Stepp
             return 1;
         }
 
-        foreach ($stores as $setting) {
+        foreach ($stores as $store) {
             $this->newLine();
-            $this->info("=== Pushing prices to: {$setting->store_name} (#{$setting->id}) ===");
+            $this->info("=== Pushing prices to: {$store->store_name} (#{$store->id}) ===");
             try {
-                $client = new OpenCartClient($setting);
+                $client = new OpenCartClient($store);
                 $ping = $client->ping();
                 if (! $ping['ok']) {
                     $this->error('Cannot connect: ' . json_encode($ping['body']));
                     continue;
                 }
-                $log = (new OpenCartProductSync($client, $setting))->pushPrices();
+                $log = (new OpenCartProductSync($client, $store))->pushPrices();
                 $this->info("  Status: {$log->status}");
                 $this->info("  Updated: {$log->records_updated}, Failed: {$log->records_failed}");
                 if ($log->error_message) {

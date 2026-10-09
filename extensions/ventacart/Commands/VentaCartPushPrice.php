@@ -27,16 +27,16 @@ class VentaCartPushPrice extends Command implements \App\Channels\Contracts\Step
             return 1;
         }
 
-        foreach ($stores as $setting) {
-            $this->info("Pushing prices for: {$setting->store_name} (#{$setting->id})");
-            $ids = VentaCartProductLink::query()->where('store_id', $setting->id)->whereNotNull('ventacart_product_id')
+        foreach ($stores as $store) {
+            $this->info("Pushing prices for: {$store->store_name} (#{$store->id})");
+            $ids = VentaCartProductLink::query()->where('store_id', $store->id)->whereNotNull('ventacart_product_id')
                 ->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
             if ($ids === []) {
                 $this->info('  No linked products. Skipping.');
                 continue;
             }
-            $r = VentaCartStockPricePush::for($setting)->push($ids, false, true);
-            VentaCartStockPricePush::recordOutcomes((int) $setting->id, $r['outcomes']);
+            $r = VentaCartStockPricePush::for($store)->push($ids, false, true);
+            VentaCartStockPricePush::recordOutcomes((int) $store->id, $r['outcomes']);
             $this->info("  Done. OK: {$r['ok']}, Failed: {$r['failed']}, Skipped: {$r['skipped']}");
         }
 

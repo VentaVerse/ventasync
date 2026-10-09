@@ -17,8 +17,8 @@ class ShopeeCategoryAttributeController extends Controller
     {
         $category = ShopeeCategory::query()->where('category_id', $categoryId)->firstOrFail();
 
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $region = (string)($setting->region ?? '');
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $region = (string)($store->region ?? '');
 
         $template = ShopeeCategoryTemplate::query()
             ->where('category_id', $categoryId)
@@ -48,9 +48,9 @@ class ShopeeCategoryAttributeController extends Controller
     {
         $category = ShopeeCategory::query()->where('category_id', $categoryId)->firstOrFail();
 
-        $setting = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->route('ext.shopee.categories.attributes.show', $categoryId)
                 ->with('error', "Missing Shopee {$modeLabel} settings. Please configure Partner ID, Partner Key, Access Token, and Shop ID first.");
@@ -101,7 +101,7 @@ class ShopeeCategoryAttributeController extends Controller
         ShopeeCategoryTemplate::query()->updateOrCreate(
             ['category_id' => $categoryId],
             [
-                'region' => (string)($setting->region ?? ''),
+                'region' => (string)($store->region ?? ''),
                 'attributes' => $attrList ?? ($response ?? $body),
                 'fetched_at' => now(),
             ]

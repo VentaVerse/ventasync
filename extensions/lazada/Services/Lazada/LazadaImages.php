@@ -166,9 +166,9 @@ class LazadaImages
         return $images;
     }
 
-    public function ensureLazadaInlinkImages(array $productPayload, $setting, LazadaClient $client): array
+    public function ensureLazadaInlinkImages(array $productPayload, $store, LazadaClient $client): array
     {
-        $creds = LazadaStore::activeCredentials($setting);
+        $creds = LazadaStore::activeCredentials($store);
 
         $images = data_get($productPayload, 'Request.Product.Images.Image', []);
         if (!is_array($images) || empty($images)) {
@@ -195,7 +195,7 @@ class LazadaImages
             }
         }
 
-        $region = (string) $setting->region;
+        $region = (string) $store->region;
         $inlinks = $this->migrateImagesToLazadaInlinks(
             $region,
             $images,
@@ -291,15 +291,15 @@ class LazadaImages
 
     private const LOOPBACK = ['localhost', '127.0.0.1', '0.0.0.0'];
 
-    public function ensureLazadaDescriptionImages(array $productPayload, $setting, LazadaClient $client): array
+    public function ensureLazadaDescriptionImages(array $productPayload, $store, LazadaClient $client): array
     {
         $attributes = data_get($productPayload, 'Request.Product.Attributes');
         if (!is_array($attributes)) {
             return [$productPayload, 0];
         }
 
-        $creds = LazadaStore::activeCredentials($setting);
-        $region = (string) ($setting->region ?? '');
+        $creds = LazadaStore::activeCredentials($store);
+        $region = (string) ($store->region ?? '');
         $links = [];
         $leftOut = [];
 

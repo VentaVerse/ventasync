@@ -32,12 +32,12 @@ class VentaCartReviewController extends Controller
             return redirect()->back()->with('error', 'Product not linked to any VentaCart store.');
         }
 
-        $setting = VentaCartStore::find($link->store_id);
-        if (!$setting || !$setting->enabled) {
+        $store = VentaCartStore::find($link->store_id);
+        if (!$store || !$store->enabled) {
             return redirect()->back()->with('error', 'VentaCart store not found or disabled.');
         }
 
-        $client = new VentaCartClient($setting);
+        $client = new VentaCartClient($store);
 
         $images = [];
         if (!empty($review->images) && is_array($review->images)) {
@@ -60,7 +60,7 @@ class VentaCartReviewController extends Controller
         if ($res['ok'] ?? false) {
             $review->update([
                 'ventacart_sync_status' => 'pushed',
-                'ventacart_store_id'  => $setting->id,
+                'ventacart_store_id'  => $store->id,
                 'ventacart_review_id'   => $res['body']['data']['review_id'] ?? $res['body']['review_id'] ?? null,
                 'ventacart_pushed_at'   => now(),
                 'ventacart_push_error'  => null,
@@ -71,7 +71,7 @@ class VentaCartReviewController extends Controller
         $error = $res['body']['error'] ?? 'Unknown error';
         $review->update([
             'ventacart_sync_status' => 'error',
-            'ventacart_store_id'  => $setting->id,
+            'ventacart_store_id'  => $store->id,
             'ventacart_push_error'  => substr($error, 0, 500),
         ]);
 

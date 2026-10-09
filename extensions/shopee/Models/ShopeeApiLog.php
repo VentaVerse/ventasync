@@ -37,8 +37,8 @@ class ShopeeApiLog extends Model
     {
         try {
             $attributes['ok'] = \App\Support\MarketplaceVerdict::ok('shopee', (bool) ($attributes['ok'] ?? true), $attributes['response_body'] ?? null);
-            $setting = ShopeeStore::defaultStore();
-            if (! \App\Support\ApiLogMode::shouldLog($setting?->api_log_mode, (bool) ($attributes['ok'] ?? true))) {
+            $store = ShopeeStore::defaultStore();
+            if (! \App\Support\ApiLogMode::shouldLog($store?->api_log_mode, (bool) ($attributes['ok'] ?? true))) {
                 return;
             }
 

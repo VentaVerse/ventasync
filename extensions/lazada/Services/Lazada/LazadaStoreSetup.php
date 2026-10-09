@@ -14,7 +14,7 @@ class LazadaStoreSetup
     {
     }
 
-    public function categories(LazadaStore $setting, array $creds): array
+    public function categories(LazadaStore $store, array $creds): array
     {
         $apiPath = '/category/tree/get';
         $params = [
@@ -23,7 +23,7 @@ class LazadaStoreSetup
             'timestamp' => (string) round(microtime(true) * 1000),
         ];
         $params['sign'] = $this->client->sign($apiPath, $params, (string) $creds['app_secret']);
-        $result = $this->client->get((string) $setting->region, $apiPath, $params);
+        $result = $this->client->get((string) $store->region, $apiPath, $params);
         $this->log('lazada.categories.fetch', $apiPath, $params, $result);
 
         $body = $result['body'] ?? null;
@@ -57,10 +57,10 @@ class LazadaStoreSetup
         return ['ok' => true, 'count' => count($rows), 'message' => number_format(count($rows)) . ' categories fetched.'];
     }
 
-    public function brands(LazadaStore $setting, array $creds, int $maxPages = 20, int $pageSize = 200): array
+    public function brands(LazadaStore $store, array $creds, int $maxPages = 20, int $pageSize = 200): array
     {
         $apiPath = '/category/brands/query';
-        $region = (string) $setting->region;
+        $region = (string) $store->region;
         $saved = 0;
         $lastResult = null;
         for ($pageNo = 1; $pageNo <= $maxPages; $pageNo++) {

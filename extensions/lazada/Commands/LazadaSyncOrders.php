@@ -93,7 +93,7 @@ class LazadaSyncOrders extends Command implements \App\Channels\Contracts\Steppa
         return 0;
     }
 
-    private function syncOrders(LazadaClient $client, object $setting): void
+    private function syncOrders(LazadaClient $client, object $store): void
     {
         $tz = new \DateTimeZone('Asia/Manila');
         $pageLimit = 100;
@@ -102,12 +102,12 @@ class LazadaSyncOrders extends Command implements \App\Channels\Contracts\Steppa
         $cliDays = $this->option('days');
         $syncDays = $cliDays !== null && $cliDays !== ''
             ? max(1, (int) $cliDays)
-            : (($setting->sync_last_days ?? null) > 0 ? (int) $setting->sync_last_days : 14);
+            : (($store->sync_last_days ?? null) > 0 ? (int) $store->sync_last_days : 14);
 
         $baseParams = ['limit' => $pageLimit];
 
         $latestUpdated = LazadaOrder::query()
-            ->where('region', $setting->region)
+            ->where('region', $store->region)
             ->max('order_updated_at');
 
         if ($latestUpdated) {
@@ -131,7 +131,7 @@ class LazadaSyncOrders extends Command implements \App\Channels\Contracts\Steppa
             $params = $baseParams;
             $params['offset'] = $offset;
 
-            $res = $this->runSignedApiCall($client, $setting, 'GET', '/orders/get', $params, 'lazada.orders.get');
+            $res = $this->runSignedApiCall($client, $store, 'GET', '/orders/get', $params, 'lazada.orders.get');
 
             $body = $res['body'] ?? [];
             $pageOrders = [];
@@ -171,7 +171,7 @@ class LazadaSyncOrders extends Command implements \App\Channels\Contracts\Steppa
             if (is_array($statusVal)) $statusVal = $statusVal[0] ?? null;
 
             $existing = LazadaOrder::query()
-                ->where('region', $setting->region)
+                ->where('region', $store->region)
                 ->where('order_id', $orderId)
                 ->first();
 
@@ -193,7 +193,7 @@ class LazadaSyncOrders extends Command implements \App\Channels\Contracts\Steppa
                 }
                 if ($needsProductSync) {
                     try {
-                        $this->syncOrderProducts($client, $setting, $existing);
+                        $this->syncOrderProducts($client, $store, $existing);
                     } catch (\Throwable $e) {
                         Log::warning('Lazada sync: failed to fetch items for order ' . $orderId, ['error' => $e->getMessage()]);
                     }
@@ -205,11 +205,11 @@ class LazadaSyncOrders extends Command implements \App\Channels\Contracts\Steppa
                     Log::warning('Lazada sync: catalog sync failed for order ' . $orderId, ['error' => $e->getMessage()]);
                 }
 
-                $this->fetchFeesIfReady($client, $setting, $existing);
+                $this->fetchFeesIfReady($client, $store, $existing);
             } else {
                 try {
                     $newOrder = LazadaOrder::query()->create([
-                        'region'           => $setting->region,
+                        'region'           => $store->region,
                         'order_id'         => $orderId,
                         'status'           => is_string($statusVal) ? $statusVal : null,
                         'order_created_at' => $this->parseApiDatetime($o['created_at'] ?? $o['createdAt'] ?? $o['created_time'] ?? null),
@@ -219,7 +219,7 @@ class LazadaSyncOrders extends Command implements \App\Channels\Contracts\Steppa
                     $created++;
 
                     try {
-                        $this->syncOrderProducts($client, $setting, $newOrder);
+                        $this->syncOrderProducts($client, $store, $newOrder);
                     } catch (\Throwable $e) {
                         Log::warning('Lazada sync: failed to fetch items for order ' . $orderId, ['error' => $e->getMessage()]);
                     }
@@ -230,7 +230,7 @@ class LazadaSyncOrders extends Command implements \App\Channels\Contracts\Steppa
                         Log::warning('Lazada sync: failed to sync order ' . $orderId . ' to catalog', ['error' => $e->getMessage()]);
                     }
 
-                    $this->fetchFeesIfReady($client, $setting, $newOrder);
+                    $this->fetchFeesIfReady($client, $store, $newOrder);
                 } catch (\Throwable $e) {
                     $errors++;
                     Log::error('Lazada sync: failed to create order ' . $orderId, ['error' => $e->getMessage()]);
@@ -241,12 +241,12 @@ class LazadaSyncOrders extends Command implements \App\Channels\Contracts\Steppa
         $this->info("  Synced: {$created} new, {$updated} updated" . ($errors > 0 ? ", {$errors} errors" : ''));
     }
 
-    private function syncReturns(LazadaClient $client, object $setting): void
+    private function syncReturns(LazadaClient $client, object $store): void
     {
         $cliDaysReturns = $this->option('days-returns');
         $syncDays = $cliDaysReturns !== null && $cliDaysReturns !== ''
             ? max(1, (int) $cliDaysReturns)
-            : (($setting->sync_last_days_returns ?? null) > 0 ? (int) $setting->sync_last_days_returns : 14);
+            : (($store->sync_last_days_returns ?? null) > 0 ? (int) $store->sync_last_days_returns : 14);
         $tz = new \DateTimeZone('Asia/Manila');
         $dt = (new \DateTime('now', $tz))->modify("-{$syncDays} days");
         $this->info("  Returns window: last {$syncDays} days (since " . $dt->format('Y-m-d H:i:s') . ")");
@@ -256,7 +256,7 @@ class LazadaSyncOrders extends Command implements \App\Channels\Contracts\Steppa
         $res = null;
 
         for ($pageNo = 1; $pageNo <= 20; $pageNo++) {
-            $res = $this->runSignedApiCall($client, $setting, 'GET', '/reverse/getreverseordersforseller', [
+            $res = $this->runSignedApiCall($client, $store, 'GET', '/reverse/getreverseordersforseller', [
                 'page_no' => $pageNo,
                 'page_size' => $pageSize,
                 'create_time_start' => $dt->format('Y-m-d H:i:s'),
@@ -308,7 +308,7 @@ class LazadaSyncOrders extends Command implements \App\Channels\Contracts\Steppa
             $items = is_array($lines) && !empty($lines) ? $lines : null;
 
             $payload = [
-                'region' => $setting->region,
+                'region' => $store->region,
                 'reverse_order_id' => $reverseOrderId,
                 'trade_order_id' => $tradeOrderId !== '' ? $tradeOrderId : null,
                 'reverse_status' => $reverseStatus !== '' ? $reverseStatus : null,
@@ -321,7 +321,7 @@ class LazadaSyncOrders extends Command implements \App\Channels\Contracts\Steppa
             ];
 
             $existing = LazadaReverseOrder::query()
-                ->where('region', $setting->region)
+                ->where('region', $store->region)
                 ->where('reverse_order_id', $reverseOrderId)
                 ->first();
 
@@ -341,12 +341,12 @@ class LazadaSyncOrders extends Command implements \App\Channels\Contracts\Steppa
         $this->info("  Returns: {$saved} new, {$updated} updated");
     }
 
-    private function syncOrderProducts(LazadaClient $client, object $setting, LazadaOrder $order): void
+    private function syncOrderProducts(LazadaClient $client, object $store, LazadaOrder $order): void
     {
         $oid = (string) ($order->order_id ?? '');
         if ($oid === '') return;
 
-        $res = $this->runSignedApiCall($client, $setting, 'GET', '/order/items/get', ['order_id' => $oid], 'lazada.order.items.get');
+        $res = $this->runSignedApiCall($client, $store, 'GET', '/order/items/get', ['order_id' => $oid], 'lazada.order.items.get');
 
         if (!($res['ok'] ?? false)) return;
 
@@ -402,9 +402,9 @@ class LazadaSyncOrders extends Command implements \App\Channels\Contracts\Steppa
         }
     }
 
-    private function runSignedApiCall(LazadaClient $client, object $setting, string $method, string $apiPath, array $customParams, ?string $pack = null): array
+    private function runSignedApiCall(LazadaClient $client, object $store, string $method, string $apiPath, array $customParams, ?string $pack = null): array
     {
-        $creds = LazadaStore::activeCredentials($setting);
+        $creds = LazadaStore::activeCredentials($store);
 
         $apiPath = trim($apiPath);
         if (!str_starts_with($apiPath, '/')) $apiPath = '/' . $apiPath;
@@ -423,15 +423,15 @@ class LazadaSyncOrders extends Command implements \App\Channels\Contracts\Steppa
         }
 
         $method = strtoupper($method);
-        $rateKey = 'lazada_api_last_call:' . $setting->region . ':' . $creds['app_key'];
-        $lockKey = 'lazada_api_lock:' . $setting->region . ':' . $creds['app_key'];
+        $rateKey = 'lazada_api_last_call:' . $store->region . ':' . $creds['app_key'];
+        $lockKey = 'lazada_api_lock:' . $store->region . ':' . $creds['app_key'];
         $minIntervalMs = 1200;
 
-        $callOnce = function () use ($client, $setting, $apiPath, &$params, $method, $creds) {
+        $callOnce = function () use ($client, $store, $apiPath, &$params, $method, $creds) {
             $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
             return $method === 'POST'
-                ? $client->post($setting->region, $apiPath, $params)
-                : $client->get($setting->region, $apiPath, $params);
+                ? $client->post($store->region, $apiPath, $params)
+                : $client->get($store->region, $apiPath, $params);
         };
 
         $result = null;
@@ -487,7 +487,7 @@ class LazadaSyncOrders extends Command implements \App\Channels\Contracts\Steppa
         return $result;
     }
 
-    private function fetchFeesIfReady(LazadaClient $client, object $setting, LazadaOrder $order): void
+    private function fetchFeesIfReady(LazadaClient $client, object $store, LazadaOrder $order): void
     {
         $status = strtolower(trim((string) $order->status));
 
@@ -522,7 +522,7 @@ class LazadaSyncOrders extends Command implements \App\Channels\Contracts\Steppa
         try {
             $from = $order->order_created_at ? $order->order_created_at->copy()->subDay() : now()->subDays(170);
             $to = $from->copy()->addDays(171)->min(now()->addDay());
-            $trxRes = $this->runSignedApiCall($client, $setting, 'GET', '/finance/transaction/details/get', [
+            $trxRes = $this->runSignedApiCall($client, $store, 'GET', '/finance/transaction/details/get', [
                 'trade_order_id' => (string) $order->order_id,
                 'start_time'     => $from->format('Y-m-d'),
                 'end_time'       => $to->format('Y-m-d'),
@@ -601,9 +601,9 @@ class LazadaSyncOrders extends Command implements \App\Channels\Contracts\Steppa
         }
     }
 
-    private function backfillMissingFees(LazadaClient $client, object $setting): void
+    private function backfillMissingFees(LazadaClient $client, object $store): void
     {
-        $region = $setting->region ?? 'ph';
+        $region = $store->region ?? 'ph';
 
         $orders = LazadaOrder::query()
             ->where('region', $region)
@@ -622,7 +622,7 @@ class LazadaSyncOrders extends Command implements \App\Channels\Contracts\Steppa
         $filled = 0;
         foreach ($orders as $order) {
             $before = $order->fees;
-            $this->fetchFeesIfReady($client, $setting, $order);
+            $this->fetchFeesIfReady($client, $store, $order);
             $after = $order->fresh()->fees;
             if (!empty($after) && $after !== $before) {
                 $filled++;

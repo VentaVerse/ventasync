@@ -107,9 +107,9 @@ class VentaCartProductGroupController extends Controller
 
     private function storeForWrite_(int $storeId): ?VentaCartStore
     {
-        $setting = VentaCartStore::findOrFail($storeId);
+        $store = VentaCartStore::findOrFail($storeId);
 
-        return $setting->enabled ? $setting : null;
+        return $store->enabled ? $store : null;
     }
 
     private function productsRedirect(int $store, int $group)
@@ -150,13 +150,13 @@ class VentaCartProductGroupController extends Controller
         return $this->form($setting, $g, 'edit');
     }
 
-    private function form(VentaCartStore $setting, VentaCartProductGroup $group, string $mode)
+    private function form(VentaCartStore $store, VentaCartProductGroup $group, string $mode)
     {
         return view('ext-ventacart::product-groups.form', [
-            'setting' => $setting,
+            'setting' => $store,
             'group' => $group,
             'mode' => $mode,
-            'storeCategories' => VentaCartCategory::query()->where('store_id', $setting->id)
+            'storeCategories' => VentaCartCategory::query()->where('store_id', $store->id)
                 ->orderBy('name')->get(['ventacart_category_id', 'name', 'parent_id']),
             'productCount' => $group->exists ? $group->products()->count() : 0,
         ]);
@@ -1173,9 +1173,9 @@ class VentaCartProductGroupController extends Controller
             : [];
     }
 
-    private function getProductImages(VentaCartStore $setting, int $productId): array
+    private function getProductImages(VentaCartStore $store, int $productId): array
     {
-        return VentaCartProductPush::for($setting)->images($productId);
+        return VentaCartProductPush::for($store)->images($productId);
     }
 
     private function imageUrl(string $path): string

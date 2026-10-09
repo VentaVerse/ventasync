@@ -41,14 +41,14 @@ class LazadaBrandController extends Controller
 
     public function fetch(Request $request, LazadaClient $client)
     {
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
-        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if (!$store || !$store->region || !$creds['app_key'] || !$creds['app_secret']) {
             return redirect()->route('ext.lazada.brands.index')->with('error', 'Missing Lazada settings. Please configure Region, App Key, and App Secret first.');
         }
 
         $apiPath = '/category/brands/query';
-        $region = (string)$setting->region;
+        $region = (string)$store->region;
         $pageSize = 200;
         $startRow = 0;
         $brandsById = [];
@@ -230,10 +230,10 @@ class LazadaBrandController extends Controller
 
     private function currentRegion(): ?string
     {
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
-        if ($setting && !empty($setting->region)) {
-            return (string)$setting->region;
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if ($store && !empty($store->region)) {
+            return (string)$store->region;
         }
         return null;
     }

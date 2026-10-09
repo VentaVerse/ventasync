@@ -17,9 +17,9 @@ class LazadaCategoryAttributeController extends Controller
     {
         $category = LazadaCategory::query()->where('category_id', $categoryId)->firstOrFail();
 
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
-        $region = (string)($setting->region ?? '');
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        $region = (string)($store->region ?? '');
 
         $template = null;
         $attributes = [];
@@ -53,9 +53,9 @@ class LazadaCategoryAttributeController extends Controller
     {
         $category = LazadaCategory::query()->where('category_id', $categoryId)->firstOrFail();
 
-        $setting = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($setting);
-        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if (!$store || !$store->region || !$creds['app_key'] || !$creds['app_secret']) {
             return redirect()->route('ext.lazada.categories.attributes.show', $categoryId)
                 ->with('error', 'Missing Lazada settings. Please configure Region, App Key, and App Secret first.');
         }
@@ -69,11 +69,11 @@ class LazadaCategoryAttributeController extends Controller
             'primary_category_id' => (string)$categoryId,
         ];
         $params['sign'] = $client->sign($apiPath, $params, (string)$creds['app_secret']);
-        $result = $client->get((string)$setting->region, $apiPath, $params);
+        $result = $client->get((string)$store->region, $apiPath, $params);
 
         LazadaCategoryTemplate::query()->updateOrCreate(
             [
-                'region' => (string)$setting->region,
+                'region' => (string)$store->region,
                 'primary_category_id' => $categoryId,
             ],
             [

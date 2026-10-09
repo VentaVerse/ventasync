@@ -169,7 +169,7 @@ class LazadaPushStock extends Command implements \App\Channels\Contracts\Steppab
         return $totalErr > 0 ? 1 : 0;
     }
 
-    private function resolveUnknownVariants(object $setting, LazadaClient $client, string $pfx): void
+    private function resolveUnknownVariants(object $store, LazadaClient $client, string $pfx): void
     {
         $maxFetches = 20;
         $fetched = 0;
@@ -185,7 +185,7 @@ class LazadaPushStock extends Command implements \App\Channels\Contracts\Steppab
         if ($noVariants->isNotEmpty()) {
             $this->info("Resolving variants for {$noVariants->count()} listing(s) with no cached variants...");
             foreach ($noVariants as $listing) {
-                app(\Extensions\Lazada\Services\Lazada\LazadaItemCache::class)->fetchAndCacheVariants($listing, $setting, $client, 'lazada.product.item.get.cron');
+                app(\Extensions\Lazada\Services\Lazada\LazadaItemCache::class)->fetchAndCacheVariants($listing, $store, $client, 'lazada.product.item.get.cron');
                 $fetched++;
             }
         }
@@ -215,7 +215,7 @@ class LazadaPushStock extends Command implements \App\Channels\Contracts\Steppab
                 continue;
             }
 
-            app(\Extensions\Lazada\Services\Lazada\LazadaItemCache::class)->fetchAndCacheVariants($listing, $setting, $client, 'lazada.product.item.get.cron');
+            app(\Extensions\Lazada\Services\Lazada\LazadaItemCache::class)->fetchAndCacheVariants($listing, $store, $client, 'lazada.product.item.get.cron');
             $refreshed++;
             if ($refreshed >= $remaining) break;
         }
@@ -260,12 +260,12 @@ class LazadaPushStock extends Command implements \App\Channels\Contracts\Steppab
         return '<Request><Product><Skus>' . $skuXml . '</Skus></Product></Request>';
     }
 
-    private function pushToLazada(LazadaClient $client, object $setting, string $apiPath, string $payloadXml): array
+    private function pushToLazada(LazadaClient $client, object $store, string $apiPath, string $payloadXml): array
     {
-        $creds = LazadaStore::activeCredentials($setting);
+        $creds = LazadaStore::activeCredentials($store);
 
-        $rateKey = 'lazada_api_last_call:' . $setting->region . ':' . $creds['app_key'];
-        $lockKey = 'lazada_api_lock:' . $setting->region . ':' . $creds['app_key'];
+        $rateKey = 'lazada_api_last_call:' . $store->region . ':' . $creds['app_key'];
+        $lockKey = 'lazada_api_lock:' . $store->region . ':' . $creds['app_key'];
         $minIntervalMs = 500;
 
         $params = [
@@ -276,9 +276,9 @@ class LazadaPushStock extends Command implements \App\Channels\Contracts\Steppab
             'payload'      => $payloadXml,
         ];
 
-        $callOnce = function () use ($client, $setting, $apiPath, &$params, $creds) {
+        $callOnce = function () use ($client, $store, $apiPath, &$params, $creds) {
             $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
-            return $client->post($setting->region, $apiPath, $params);
+            return $client->post($store->region, $apiPath, $params);
         };
 
         $result = null;

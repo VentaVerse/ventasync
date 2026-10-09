@@ -34,8 +34,8 @@ class LazadaApiLog extends Model
     {
         try {
             $attributes['ok'] = \App\Support\MarketplaceVerdict::ok('lazada', (bool) ($attributes['ok'] ?? true), $attributes['response_body'] ?? null);
-            $setting = LazadaStore::defaultStore();
-            if (! \App\Support\ApiLogMode::shouldLog($setting?->api_log_mode, (bool) ($attributes['ok'] ?? true))) {
+            $store = LazadaStore::defaultStore();
+            if (! \App\Support\ApiLogMode::shouldLog($store?->api_log_mode, (bool) ($attributes['ok'] ?? true))) {
                 return;
             }
 

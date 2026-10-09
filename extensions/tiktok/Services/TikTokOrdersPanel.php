@@ -21,12 +21,12 @@ class TikTokOrdersPanel
 
     public function build(Request $request, ?int $storeId = null): array
     {
-        $setting = $storeId !== null
+        $store = $storeId !== null
             ? TikTokStore::query()->find($storeId)
             : TikTokStore::defaultStore();
-        if ($storeId !== null && $setting !== null) {
-            app()->instance('tiktok.route-store', $setting);
-            \Illuminate\Support\Facades\URL::defaults(['store' => (int) $setting->id]);
+        if ($storeId !== null && $store !== null) {
+            app()->instance('tiktok.route-store', $store);
+            \Illuminate\Support\Facades\URL::defaults(['store' => (int) $store->id]);
         }
 
         $filters = $request->validate([

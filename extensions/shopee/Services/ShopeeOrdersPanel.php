@@ -242,12 +242,12 @@ class ShopeeOrdersPanel
         ];
     }
 
-    private function buildToShipCourierTally(int $settingId, array $statuses): CourierTally
+    private function buildToShipCourierTally(int $storeId, array $statuses): CourierTally
     {
         $tally = new CourierTally();
 
         ShopeeOrder::query()
-            ->where('store_id', $settingId)
+            ->where('store_id', $storeId)
             ->whereIn('status', $statuses)
             ->select(['id', 'raw'])
             ->orderBy('id')

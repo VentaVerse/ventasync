@@ -66,7 +66,7 @@ class ShopeeLiveListing
 
     public const STATUSES = ['NORMAL', 'UNLIST', 'BANNED', 'REVIEWING', 'SELLER_DELETE', 'SHOPEE_DELETE'];
 
-    public function refreshMirror(array $auth, ?int $settingId = null): array
+    public function refreshMirror(array $auth, ?int $storeId = null): array
     {
         $idsByStatus = [];
         foreach (self::STATUSES as $status) {
@@ -84,7 +84,7 @@ class ShopeeLiveListing
             $counts[$status] = 0;
             foreach (array_chunk($ids, 500) as $chunk) {
                 $counts[$status] += \Extensions\Shopee\Models\ShopeeProductLink::query()
-                    ->when($settingId !== null, fn ($q) => $q->where('store_id', $settingId))
+                    ->when($storeId !== null, fn ($q) => $q->where('store_id', $storeId))
                     ->whereIn('shopee_item_id', $chunk)
                     ->update(['live_status' => $status, 'live_checked_at' => $now]);
                 foreach ($chunk as $id) {
@@ -93,7 +93,7 @@ class ShopeeLiveListing
             }
         }
         $missing = \Extensions\Shopee\Models\ShopeeProductLink::query()
-            ->when($settingId !== null, fn ($q) => $q->where('store_id', $settingId))
+            ->when($storeId !== null, fn ($q) => $q->where('store_id', $storeId))
             ->whereNotIn('shopee_item_id', array_keys($seen) ?: [0])
             ->update(['live_status' => 'MISSING', 'live_checked_at' => $now]);
         if ($missing > 0) {
@@ -104,7 +104,7 @@ class ShopeeLiveListing
             'error' => null,
             'counts' => array_filter($counts),
             'links' => (int) \Extensions\Shopee\Models\ShopeeProductLink::query()
-                ->when($settingId !== null, fn ($q) => $q->where('store_id', $settingId))->count(),
+                ->when($storeId !== null, fn ($q) => $q->where('store_id', $storeId))->count(),
         ];
     }
 

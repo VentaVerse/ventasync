@@ -29,10 +29,10 @@ class VentaCartPushStock extends Command implements \App\Channels\Contracts\Step
             return 1;
         }
 
-        foreach ($settings as $setting) {
-            $this->info("Pushing stock for: {$setting->store_name} (#{$setting->id})");
+        foreach ($settings as $store) {
+            $this->info("Pushing stock for: {$store->store_name} (#{$store->id})");
 
-            $pids = VentaCartProductLink::where('store_id', $setting->id)
+            $pids = VentaCartProductLink::where('store_id', $store->id)
                 ->whereNotNull('ventacart_product_id')
                 ->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
 
@@ -41,10 +41,10 @@ class VentaCartPushStock extends Command implements \App\Channels\Contracts\Step
                 continue;
             }
 
-            $r = VentaCartStockPricePush::for($setting)->push($pids, true, false);
-            VentaCartStockPricePush::recordOutcomes((int) $setting->id, $r['outcomes']);
+            $r = VentaCartStockPricePush::for($store)->push($pids, true, false);
+            VentaCartStockPricePush::recordOutcomes((int) $store->id, $r['outcomes']);
 
-            $setting->update(['last_stock_push_at' => now()]);
+            $store->update(['last_stock_push_at' => now()]);
 
             $this->info("  Done. OK: {$r['ok']}, Failed: {$r['failed']}, Skipped: {$r['skipped']}");
         }

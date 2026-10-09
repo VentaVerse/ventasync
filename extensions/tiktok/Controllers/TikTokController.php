@@ -61,7 +61,7 @@ class TikTokController extends Controller
 
     public function index()
     {
-        $setting = TikTokStore::defaultStore();
+        $store = TikTokStore::defaultStore();
 
         $logs = \App\Support\ApiLogPanel::paginate(
             TikTokApiLog::query(), 'api_path', fn ($q) => $q->where('ok', 0)
@@ -97,7 +97,7 @@ class TikTokController extends Controller
             ->pluck('order_status_id', 'tiktok_status')->all();
 
         return view('ext-tiktok::index', [
-            'setting' => $setting?->decrypted(),
+            'setting' => $store?->decrypted(),
             'defaultRedirect' => $this->computedRedirectUri(),
             'result' => session('tiktok_result'),
             'logs' => $logs,
@@ -128,27 +128,27 @@ class TikTokController extends Controller
             'sandbox_app_secret' => 'nullable|string|max:255',
         ]);
 
-        $setting = TikTokStore::defaultStore() ?? new TikTokStore();
+        $store = TikTokStore::defaultStore() ?? new TikTokStore();
         if (array_key_exists('store_name', $data) && $data['store_name'] !== null) {
-            $setting->store_name = $data['store_name'];
+            $store->store_name = $data['store_name'];
         }
         if (array_key_exists('enabled', $data) && $data['enabled'] !== null) {
-            $setting->enabled = (bool) $data['enabled'];
+            $store->enabled = (bool) $data['enabled'];
         }
 
         $env = $data['env'] ?? 'live';
-        $setting->mode = $env;
+        $store->mode = $env;
 
         if ($env === 'live') {
-            if (!empty($data['app_key']))    $setting->app_key = $data['app_key'];
-            if (!empty($data['app_secret'])) $setting->app_secret = encrypt(trim($data['app_secret']));
-            if (!empty($data['region']))     $setting->region = $data['region'];
+            if (!empty($data['app_key']))    $store->app_key = $data['app_key'];
+            if (!empty($data['app_secret'])) $store->app_secret = encrypt(trim($data['app_secret']));
+            if (!empty($data['region']))     $store->region = $data['region'];
         } else {
-            if (!empty($data['sandbox_app_key']))    $setting->sandbox_app_key = $data['sandbox_app_key'];
-            if (!empty($data['sandbox_app_secret'])) $setting->sandbox_app_secret = encrypt(trim($data['sandbox_app_secret']));
+            if (!empty($data['sandbox_app_key']))    $store->sandbox_app_key = $data['sandbox_app_key'];
+            if (!empty($data['sandbox_app_secret'])) $store->sandbox_app_secret = encrypt(trim($data['sandbox_app_secret']));
         }
 
-        $setting->save();
+        $store->save();
 
         $label = $env === 'sandbox' ? 'Sandbox' : 'Production';
 
@@ -158,9 +158,9 @@ class TikTokController extends Controller
     public function toggleMode(Request $request)
     {
         $data = $request->validate(['mode' => 'required|in:live,sandbox']);
-        $setting = TikTokStore::defaultStore() ?? new TikTokStore();
-        $setting->mode = $data['mode'];
-        $setting->save();
+        $store = TikTokStore::defaultStore() ?? new TikTokStore();
+        $store->mode = $data['mode'];
+        $store->save();
 
         $label = $data['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
 
@@ -176,11 +176,11 @@ class TikTokController extends Controller
             app()->instance('tiktok.route-store', $raw);
         }
 
-        $setting = $raw?->decrypted();
+        $store = $raw?->decrypted();
         $sandbox = $raw && $raw->mode === 'sandbox';
-        $activeKey = $sandbox ? ($setting->sandbox_app_key ?? '') : ($setting->app_key ?? '');
+        $activeKey = $sandbox ? ($store->sandbox_app_key ?? '') : ($store->app_key ?? '');
 
-        if (!$setting || !$activeKey) {
+        if (!$store || !$activeKey) {
             return $this->redirectToSettings()->with('tiktok_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
@@ -248,16 +248,16 @@ class TikTokController extends Controller
             'store_name' => ['required', 'string', 'max:128'],
         ]);
 
-        $setting = TikTokStore::create([
+        $store = TikTokStore::create([
             'store_name' => $data['store_name'],
             'enabled'    => false,
             'mode'       => 'sandbox',
         ]);
 
-        \App\Services\ActivityLogger::log('created', 'TikTok Store', $setting->id, $setting->store_name);
+        \App\Services\ActivityLogger::log('created', 'TikTok Store', $store->id, $store->store_name);
 
         return redirect()
-            ->route('ext.tiktok.index', ['store' => $setting->id])
+            ->route('ext.tiktok.index', ['store' => $store->id])
             ->with('status', 'Store created. Add the app credentials and region, then authorize it to start syncing.');
     }
 
@@ -283,11 +283,11 @@ class TikTokController extends Controller
 
         $tokenResult = null;
         $raw = TikTokStore::defaultStore();
-        $setting = $raw?->decrypted();
-        $activeKey = $sandbox ? ($setting->sandbox_app_key ?? '') : ($setting->app_key ?? '');
-        $activeSecret = $sandbox ? ($setting->sandbox_app_secret ?? '') : ($setting->app_secret ?? '');
+        $store = $raw?->decrypted();
+        $activeKey = $sandbox ? ($store->sandbox_app_key ?? '') : ($store->app_key ?? '');
+        $activeSecret = $sandbox ? ($store->sandbox_app_secret ?? '') : ($store->app_secret ?? '');
 
-        if ($code !== '' && $stateOk && $setting && $activeKey && $activeSecret) {
+        if ($code !== '' && $stateOk && $store && $activeKey && $activeSecret) {
             $tokenResult = $client->getToken($activeKey, $activeSecret, $code);
 
             $body = $tokenResult['body'] ?? null;
@@ -353,12 +353,12 @@ class TikTokController extends Controller
         $request->validate(['code' => 'required|string']);
 
         $raw = TikTokStore::defaultStore();
-        $setting = $raw?->decrypted();
+        $store = $raw?->decrypted();
         $sandbox = $raw && $raw->mode === 'sandbox';
-        $activeKey = $sandbox ? ($setting->sandbox_app_key ?? '') : ($setting->app_key ?? '');
-        $activeSecret = $sandbox ? ($setting->sandbox_app_secret ?? '') : ($setting->app_secret ?? '');
+        $activeKey = $sandbox ? ($store->sandbox_app_key ?? '') : ($store->app_key ?? '');
+        $activeSecret = $sandbox ? ($store->sandbox_app_secret ?? '') : ($store->app_secret ?? '');
 
-        if (!$setting || !$activeKey || !$activeSecret) {
+        if (!$store || !$activeKey || !$activeSecret) {
             return $this->toSettingsTab('connection')->with('tiktok_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
@@ -380,7 +380,7 @@ class TikTokController extends Controller
             'method' => 'GET',
             'api_path' => '/api/v2/token/get',
             'auth_required' => false,
-            'request_params' => ['app_key' => (string) $setting->app_key, 'grant_type' => 'authorized_code'],
+            'request_params' => ['app_key' => (string) $store->app_key, 'grant_type' => 'authorized_code'],
             'response_status' => (int) ($result['status'] ?? 0),
             'ok' => (bool) ($result['ok'] ?? false),
             'response_body' => $result['body'] ?? null,
@@ -397,13 +397,13 @@ class TikTokController extends Controller
     public function tokenRefresh(TikTokClient $client)
     {
         $raw = TikTokStore::defaultStore();
-        $setting = $raw?->decrypted();
+        $store = $raw?->decrypted();
         $sandbox = $raw && $raw->mode === 'sandbox';
-        $activeKey = $sandbox ? ($setting->sandbox_app_key ?? '') : ($setting->app_key ?? '');
-        $activeSecret = $sandbox ? ($setting->sandbox_app_secret ?? '') : ($setting->app_secret ?? '');
-        $activeRefresh = $sandbox ? ($setting->sandbox_refresh_token ?? '') : ($setting->refresh_token ?? '');
+        $activeKey = $sandbox ? ($store->sandbox_app_key ?? '') : ($store->app_key ?? '');
+        $activeSecret = $sandbox ? ($store->sandbox_app_secret ?? '') : ($store->app_secret ?? '');
+        $activeRefresh = $sandbox ? ($store->sandbox_refresh_token ?? '') : ($store->refresh_token ?? '');
 
-        if (!$setting || !$activeKey || !$activeSecret || !$activeRefresh) {
+        if (!$store || !$activeKey || !$activeSecret || !$activeRefresh) {
             return $this->toSettingsTab('connection')->with('tiktok_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
@@ -425,7 +425,7 @@ class TikTokController extends Controller
             'method' => 'GET',
             'api_path' => '/api/v2/token/refresh',
             'auth_required' => false,
-            'request_params' => ['app_key' => (string) $setting->app_key, 'grant_type' => 'refresh_token'],
+            'request_params' => ['app_key' => (string) $store->app_key, 'grant_type' => 'refresh_token'],
             'response_status' => (int) ($result['status'] ?? 0),
             'ok' => (bool) ($result['ok'] ?? false),
             'response_body' => $result['body'] ?? null,
@@ -442,13 +442,13 @@ class TikTokController extends Controller
     public function getShops(TikTokClient $client)
     {
         $raw = TikTokStore::defaultStore();
-        $setting = $raw?->decrypted();
+        $store = $raw?->decrypted();
         $sandbox = $raw && $raw->mode === 'sandbox';
-        $activeKey = $sandbox ? ($setting->sandbox_app_key ?? '') : ($setting->app_key ?? '');
-        $activeSecret = $sandbox ? ($setting->sandbox_app_secret ?? '') : ($setting->app_secret ?? '');
-        $activeToken = $sandbox ? ($setting->sandbox_access_token ?? '') : ($setting->access_token ?? '');
+        $activeKey = $sandbox ? ($store->sandbox_app_key ?? '') : ($store->app_key ?? '');
+        $activeSecret = $sandbox ? ($store->sandbox_app_secret ?? '') : ($store->app_secret ?? '');
+        $activeToken = $sandbox ? ($store->sandbox_access_token ?? '') : ($store->access_token ?? '');
 
-        if (!$setting || !$activeKey || !$activeSecret || !$activeToken) {
+        if (!$store || !$activeKey || !$activeSecret || !$activeToken) {
             return $this->toSettingsTab('connection')->with('tiktok_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
@@ -504,7 +504,7 @@ class TikTokController extends Controller
             'method' => 'GET',
             'api_path' => $path,
             'auth_required' => true,
-            'request_params' => ['app_key' => (string) $setting->app_key],
+            'request_params' => ['app_key' => (string) $store->app_key],
             'response_status' => (int) ($result['status'] ?? 0),
             'ok' => (bool) ($result['ok'] ?? false),
             'response_body' => $result['body'] ?? null,
@@ -544,8 +544,8 @@ class TikTokController extends Controller
             'params_json' => 'nullable|string|max:20000',
         ]);
 
-        $setting = TikTokStore::defaultStore()?->decrypted();
-        if (!$setting || !$setting->app_key || !$setting->app_secret) {
+        $store = TikTokStore::defaultStore()?->decrypted();
+        if (!$store || !$store->app_key || !$store->app_secret) {
             return $this->toSettingsTab('explorer')->with('tiktok_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
@@ -554,7 +554,7 @@ class TikTokController extends Controller
         }
 
         $authRequired = (bool) ($data['auth_required'] ?? false);
-        if ($authRequired && !$setting->access_token) {
+        if ($authRequired && !$store->access_token) {
             return $this->toSettingsTab('explorer')->with('tiktok_result', [
                 'ok' => false,
                 'title' => 'Missing Access Token',
@@ -604,9 +604,9 @@ class TikTokController extends Controller
 
         if ($method === 'POST') {
             $result = $client->post(
-                (string) $setting->app_key,
-                (string) $setting->app_secret,
-                $authRequired ? (string) $setting->access_token : '',
+                (string) $store->app_key,
+                (string) $store->app_secret,
+                $authRequired ? (string) $store->access_token : '',
                 $apiPath,
                 $queryParams,
                 $bodyParams,
@@ -614,9 +614,9 @@ class TikTokController extends Controller
             );
         } else {
             $result = $client->get(
-                (string) $setting->app_key,
-                (string) $setting->app_secret,
-                $authRequired ? (string) $setting->access_token : '',
+                (string) $store->app_key,
+                (string) $store->app_secret,
+                $authRequired ? (string) $store->access_token : '',
                 $apiPath,
                 $queryParams,
                 $shopCipher
@@ -648,8 +648,8 @@ class TikTokController extends Controller
             'pack' => 'required|in:shops,products,orders,logistics,finance,full',
         ]);
 
-        $setting = TikTokStore::defaultStore()?->decrypted();
-        if (!$setting || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        $store = TikTokStore::defaultStore()?->decrypted();
+        if (!$store || !$store->app_key || !$store->app_secret || !$store->access_token) {
             return $this->toSettingsTab('explorer')->with('tiktok_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
@@ -698,9 +698,9 @@ class TikTokController extends Controller
         foreach ($endpoints as [$method, $path, $queryParams, $bodyParams]) {
             if ($method === 'POST') {
                 $result = $client->post(
-                    (string) $setting->app_key,
-                    (string) $setting->app_secret,
-                    (string) $setting->access_token,
+                    (string) $store->app_key,
+                    (string) $store->app_secret,
+                    (string) $store->access_token,
                     $path,
                     $queryParams,
                     $bodyParams,
@@ -708,9 +708,9 @@ class TikTokController extends Controller
                 );
             } else {
                 $result = $client->get(
-                    (string) $setting->app_key,
-                    (string) $setting->app_secret,
-                    (string) $setting->access_token,
+                    (string) $store->app_key,
+                    (string) $store->app_secret,
+                    (string) $store->access_token,
                     $path,
                     $queryParams,
                     $shopCipher
@@ -747,12 +747,12 @@ class TikTokController extends Controller
     public function setApiLogMode(Request $request)
     {
         $data = $request->validate(['mode' => 'required|in:' . implode(',', \App\Support\ApiLogMode::MODES)]);
-        $setting = TikTokStore::defaultStore();
-        if (!$setting) {
+        $store = TikTokStore::defaultStore();
+        if (!$store) {
             return $this->toSettingsTab('logs')->with('error', 'TikTok settings not found.');
         }
 
-        $setting->update(['api_log_mode' => $data['mode']]);
+        $store->update(['api_log_mode' => $data['mode']]);
 
         return $this->toSettingsTab('logs')
             ->with('status', 'TikTok API log now records: ' . \App\Support\ApiLogMode::labels()[$data['mode']] . '.');

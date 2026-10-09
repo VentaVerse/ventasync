@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 class OpenCartProductSync
 {
     private OpenCartClient $client;
-    private OpenCartStore $setting;
+    private OpenCartStore $store;
 
     private array $categoryMap = [];
 
@@ -21,10 +21,10 @@ class OpenCartProductSync
 
     private array $optionValueMap = [];
 
-    public function __construct(OpenCartClient $client, OpenCartStore $setting)
+    public function __construct(OpenCartClient $client, OpenCartStore $store)
     {
         $this->client = $client;
-        $this->setting = $setting;
+        $this->store = $store;
     }
 
     public function setCategoryMap(array $map): void
@@ -149,7 +149,7 @@ class OpenCartProductSync
     {
         $this->autoPopulateMaps();
         $log = OpenCartSyncLog::create([
-            'store_id' => $this->setting->id,
+            'store_id' => $this->store->id,
             'entity_type' => 'product',
             'direction'   => 'pull',
             'status'      => 'started',
@@ -157,7 +157,7 @@ class OpenCartProductSync
         ]);
 
         try {
-            $since = ($full || $productId) ? null : ($modifiedSince ?? $this->setting->last_product_sync_at?->toIso8601String());
+            $since = ($full || $productId) ? null : ($modifiedSince ?? $this->store->last_product_sync_at?->toIso8601String());
             $page = 1;
             $limit = 100;
             $created = 0;
@@ -198,7 +198,7 @@ class OpenCartProductSync
             } while ($hasMore);
 
             if (!$productId) {
-                $this->setting->update(['last_product_sync_at' => now()]);
+                $this->store->update(['last_product_sync_at' => now()]);
             }
 
             $log->update([
@@ -231,7 +231,7 @@ class OpenCartProductSync
         $failed = 0;
         $errors = [];
 
-        $links = OpenCartProductLink::where('store_id', $this->setting->id)
+        $links = OpenCartProductLink::where('store_id', $this->store->id)
             ->whereIn('product_id', $productIds)
             ->get()
             ->keyBy('product_id');
@@ -344,7 +344,7 @@ class OpenCartProductSync
 
                 if (empty($resp['ok'])) {
                     Log::warning('OpenCart bulk update failed, queueing for re-create', [
-                        'store' => $this->setting->id,
+                        'store' => $this->store->id,
                         'status' => $resp['status'] ?? 0,
                     ]);
                     $staleLinks = array_merge($staleLinks, array_values($chunkMap));
@@ -371,7 +371,7 @@ class OpenCartProductSync
         }
 
         if (!empty($staleLinks)) {
-            OpenCartProductLink::where('store_id', $this->setting->id)
+            OpenCartProductLink::where('store_id', $this->store->id)
                 ->whereIn('product_id', $staleLinks)
                 ->delete();
             $toCreate = array_merge($toCreate, $staleLinks);
@@ -401,7 +401,7 @@ class OpenCartProductSync
                     if ($ocProductId > 0) {
                         OpenCartProductLink::updateOrCreate(
                             [
-                                'store_id' => $this->setting->id,
+                                'store_id' => $this->store->id,
                                 'oc_product_id'       => $ocProductId,
                             ],
                             [
@@ -698,7 +698,7 @@ class OpenCartProductSync
                     ->first();
             }
             if (!$existing) {
-                $link = OpenCartProductLink::where('store_id', $this->setting->id)
+                $link = OpenCartProductLink::where('store_id', $this->store->id)
                     ->where('oc_product_id', $ocProductId)
                     ->first();
                 if ($link) {
@@ -713,7 +713,7 @@ class OpenCartProductSync
                 $coreProductId = (int) $existing->product_id;
 
                 $existingLink = OpenCartProductLink::where('product_id', $coreProductId)
-                    ->where('store_id', '!=', $this->setting->id)
+                    ->where('store_id', '!=', $this->store->id)
                     ->exists();
 
                 if ($existingLink) {
@@ -735,7 +735,7 @@ class OpenCartProductSync
 
         OpenCartProductLink::updateOrCreate(
             [
-                'store_id' => $this->setting->id,
+                'store_id' => $this->store->id,
                 'oc_product_id'       => $ocProductId,
             ],
             [
@@ -895,7 +895,7 @@ class OpenCartProductSync
     public function pushQuantities(array $onlyProductIds = []): OpenCartSyncLog
     {
         $log = OpenCartSyncLog::create([
-            'store_id' => $this->setting->id,
+            'store_id' => $this->store->id,
             'entity_type' => 'product_qty',
             'direction'   => 'push',
             'status'      => 'started',
@@ -909,7 +909,7 @@ class OpenCartProductSync
             $failed = 0;
             $errors = [];
 
-            $links = OpenCartProductLink::where('store_id', $this->setting->id)
+            $links = OpenCartProductLink::where('store_id', $this->store->id)
                 ->when($onlyProductIds !== [], fn ($q) => $q->whereIn('product_id', $onlyProductIds))
                 ->get();
 
@@ -1026,7 +1026,7 @@ class OpenCartProductSync
     public function pushPrices(array $onlyProductIds = []): OpenCartSyncLog
     {
         $log = OpenCartSyncLog::create([
-            'store_id' => $this->setting->id,
+            'store_id' => $this->store->id,
             'entity_type' => 'product_price',
             'direction'   => 'push',
             'status'      => 'started',
@@ -1040,7 +1040,7 @@ class OpenCartProductSync
             $failed = 0;
             $errors = [];
 
-            $links = OpenCartProductLink::where('store_id', $this->setting->id)
+            $links = OpenCartProductLink::where('store_id', $this->store->id)
                 ->when($onlyProductIds !== [], fn ($q) => $q->whereIn('product_id', $onlyProductIds))
                 ->get();
             if ($links->isEmpty()) {
@@ -1147,7 +1147,7 @@ class OpenCartProductSync
     public function pullQuantities(): OpenCartSyncLog
     {
         $log = OpenCartSyncLog::create([
-            'store_id' => $this->setting->id,
+            'store_id' => $this->store->id,
             'entity_type' => 'product_qty',
             'direction'   => 'pull',
             'status'      => 'started',
@@ -1163,7 +1163,7 @@ class OpenCartProductSync
             $failed = 0;
             $errors = [];
 
-            $linkMap = OpenCartProductLink::where('store_id', $this->setting->id)
+            $linkMap = OpenCartProductLink::where('store_id', $this->store->id)
                 ->pluck('product_id', 'oc_product_id')
                 ->toArray();
 

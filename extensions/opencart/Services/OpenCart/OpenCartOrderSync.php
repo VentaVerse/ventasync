@@ -15,13 +15,13 @@ use Illuminate\Support\Facades\Log;
 class OpenCartOrderSync
 {
     private OpenCartClient $client;
-    private OpenCartStore $setting;
+    private OpenCartStore $store;
     private bool $skipStockAdjust = false;
 
-    public function __construct(OpenCartClient $client, OpenCartStore $setting)
+    public function __construct(OpenCartClient $client, OpenCartStore $store)
     {
         $this->client = $client;
-        $this->setting = $setting;
+        $this->store = $store;
     }
 
     public function setSkipStockAdjust(bool $skip = true): self
@@ -39,7 +39,7 @@ class OpenCartOrderSync
         ?string $modifiedBefore = null
     ): OpenCartSyncLog {
         $log = OpenCartSyncLog::create([
-            'store_id' => $this->setting->id,
+            'store_id' => $this->store->id,
             'entity_type' => 'order',
             'direction'   => 'pull',
             'status'      => 'started',
@@ -88,7 +88,7 @@ class OpenCartOrderSync
                     }
                 }
 
-                $this->setting->update(['last_order_page' => $page]);
+                $this->store->update(['last_order_page' => $page]);
 
                 if ($onProgress) {
                     $onProgress($created + $updated + $failed, $total);
@@ -102,7 +102,7 @@ class OpenCartOrderSync
                 }
             } while ($hasMore);
 
-            $this->setting->update([
+            $this->store->update([
                 'last_order_sync_at' => now(),
                 'last_order_page'    => 0,
             ]);
@@ -130,12 +130,12 @@ class OpenCartOrderSync
 
     private function resolveSinceDate(): ?string
     {
-        if ($this->setting->sync_last_days && $this->setting->sync_last_days > 0) {
-            return now()->subDays($this->setting->sync_last_days)->startOfDay()->toDateTimeString();
+        if ($this->store->sync_last_days && $this->store->sync_last_days > 0) {
+            return now()->subDays($this->store->sync_last_days)->startOfDay()->toDateTimeString();
         }
 
-        if ($this->setting->sync_orders_from) {
-            return $this->setting->sync_orders_from->startOfDay()->toDateTimeString();
+        if ($this->store->sync_orders_from) {
+            return $this->store->sync_orders_from->startOfDay()->toDateTimeString();
         }
 
         return null;
@@ -147,7 +147,7 @@ class OpenCartOrderSync
         $langId = (int) config('catalog.default_language_id');
 
         $idMap = [];
-        $storeMap = OpenCartOrderStatusMap::where('store_id', $this->setting->id)->get();
+        $storeMap = OpenCartOrderStatusMap::where('store_id', $this->store->id)->get();
         foreach ($storeMap as $row) {
             $idMap[(int) $row->oc_status_id] = (int) $row->order_status_id;
         }
@@ -196,7 +196,7 @@ class OpenCartOrderSync
         $oldStatusId = 0;
         $coreOrderId = null;
 
-        $orderChannel = 'opencart:' . $this->setting->id;
+        $orderChannel = 'opencart:' . $this->store->id;
 
         DB::transaction(function () use ($raw, $pfx, $ocOrderId, $coreStatusId, $orderChannel, $statusMap, &$created, &$oldStatusId, &$coreOrderId) {
             $existing = DB::table($pfx . 'order')
@@ -467,7 +467,7 @@ class OpenCartOrderSync
         $ocProductId = (int) ($p['product_id'] ?? 0);
         if ($ocProductId > 0) {
             $link = DB::table('opencart_product_links')
-                ->where('store_id', $this->setting->id)
+                ->where('store_id', $this->store->id)
                 ->where('oc_product_id', $ocProductId)
                 ->select('product_id')
                 ->first();

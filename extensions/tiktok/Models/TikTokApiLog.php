@@ -34,8 +34,8 @@ class TikTokApiLog extends Model
     {
         try {
             $attributes['ok'] = \App\Support\MarketplaceVerdict::ok('tiktok', (bool) ($attributes['ok'] ?? true), $attributes['response_body'] ?? null);
-            $setting = TikTokStore::defaultStore();
-            if (! \App\Support\ApiLogMode::shouldLog($setting?->api_log_mode, (bool) ($attributes['ok'] ?? true))) {
+            $store = TikTokStore::defaultStore();
+            if (! \App\Support\ApiLogMode::shouldLog($store?->api_log_mode, (bool) ($attributes['ok'] ?? true))) {
                 return;
             }
 

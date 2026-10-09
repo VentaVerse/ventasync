@@ -10,20 +10,20 @@ use Illuminate\Support\Facades\Log;
 class OpenCartManufacturerSync
 {
     private OpenCartClient $client;
-    private OpenCartStore $setting;
+    private OpenCartStore $store;
 
     private array $manufacturerMap = [];
 
-    public function __construct(OpenCartClient $client, OpenCartStore $setting)
+    public function __construct(OpenCartClient $client, OpenCartStore $store)
     {
         $this->client = $client;
-        $this->setting = $setting;
+        $this->store = $store;
     }
 
     public function pull(): array
     {
         $log = OpenCartSyncLog::create([
-            'store_id' => $this->setting->id,
+            'store_id' => $this->store->id,
             'entity_type' => 'manufacturer',
             'direction'   => 'pull',
             'status'      => 'started',
@@ -84,7 +84,7 @@ class OpenCartManufacturerSync
                 }
             }
 
-            $this->setting->update(['last_manufacturer_sync_at' => now()]);
+            $this->store->update(['last_manufacturer_sync_at' => now()]);
 
             $log->update([
                 'status'            => 'completed',

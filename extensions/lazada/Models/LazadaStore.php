@@ -114,9 +114,9 @@ class LazadaStore extends Model
         static::deleted(fn () => static::syncUrlDefault());
     }
 
-    public static function activeCredentials(?object $setting): array
+    public static function activeCredentials(?object $store): array
     {
-        if (!$setting) {
+        if (!$store) {
             return [
                 'mode'          => 'live',
                 'region'        => null,
@@ -129,15 +129,15 @@ class LazadaStore extends Model
             ];
         }
 
-        $isSandbox = (($setting->mode ?? 'live') === 'sandbox');
+        $isSandbox = (($store->mode ?? 'live') === 'sandbox');
 
-        $appKey       = $isSandbox ? ($setting->sandbox_app_key       ?? null) : ($setting->app_key       ?? null);
-        $appSecret    = $isSandbox ? ($setting->sandbox_app_secret    ?? null) : ($setting->app_secret    ?? null);
-        $accessToken  = $isSandbox ? ($setting->sandbox_access_token  ?? null) : ($setting->access_token  ?? null);
-        $refreshToken = $isSandbox ? ($setting->sandbox_refresh_token ?? null) : ($setting->refresh_token ?? null);
-        $expiresAt    = $isSandbox ? ($setting->sandbox_expires_at    ?? null) : ($setting->expires_at    ?? null);
+        $appKey       = $isSandbox ? ($store->sandbox_app_key       ?? null) : ($store->app_key       ?? null);
+        $appSecret    = $isSandbox ? ($store->sandbox_app_secret    ?? null) : ($store->app_secret    ?? null);
+        $accessToken  = $isSandbox ? ($store->sandbox_access_token  ?? null) : ($store->access_token  ?? null);
+        $refreshToken = $isSandbox ? ($store->sandbox_refresh_token ?? null) : ($store->refresh_token ?? null);
+        $expiresAt    = $isSandbox ? ($store->sandbox_expires_at    ?? null) : ($store->expires_at    ?? null);
 
-        $region = $setting->region ?? null;
+        $region = $store->region ?? null;
 
         return [
             'mode'          => $isSandbox ? 'sandbox' : 'live',
