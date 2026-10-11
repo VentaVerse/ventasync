@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Database cleanup: plain table names and one word for each idea. Existing installs upgrade with php artisan ventasync:upgrade-database.
 - Five wrong passwords in a row lock an account for 15 minutes, on the web and in the mobile app; an admin can unlock it sooner from Settings, Users. Locks and unlocks are in the activity log.
 - On a hosted (cloud) server, store addresses must be public https addresses; private and local addresses are refused, and requests do not follow redirects. Self-hosted installs are unchanged.
 - Changing a password signs that person out everywhere else: other browsers, the mobile app and Claude or ChatGPT sign-ins. The browser where it was changed stays signed in.
