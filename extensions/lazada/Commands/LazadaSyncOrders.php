@@ -176,6 +176,7 @@ class LazadaSyncOrders extends Command implements \App\Channels\Contracts\Steppa
                 ->first();
 
             if ($existing) {
+                $statusMoved = (string) $existing->status !== (string) (is_string($statusVal) ? $statusVal : '');
                 $existing->fill([
                     'status'           => is_string($statusVal) ? $statusVal : null,
                     'order_created_at' => $this->parseApiDatetime($o['created_at'] ?? $o['createdAt'] ?? $o['created_time'] ?? null),
@@ -184,7 +185,8 @@ class LazadaSyncOrders extends Command implements \App\Channels\Contracts\Steppa
                 ])->save();
                 $updated++;
 
-                $needsProductSync = !$existing->products()->exists();
+                // An item's status, courier and tracking move with the order, so a new order status re-reads the items.
+                $needsProductSync = $statusMoved || !$existing->products()->exists();
                 if (!$needsProductSync) {
                     $firstProduct = $existing->products()->first();
                     $fpRaw = $firstProduct ? ($firstProduct->raw ?? []) : [];
