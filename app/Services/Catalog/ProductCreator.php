@@ -102,7 +102,7 @@ class ProductCreator
                 'api');
             if ($finalQty > 0) {
                 StockHistoryLogger::log(
-                    productId: $productId, optionValueId: null, orderId: null, type: 'set',
+                    productId: $productId, variationValueId: null, orderId: null, type: 'set',
                     qtyBefore: 0, qtyAfter: $finalQty, source: 'api',
                     note: $actor . ' created the product with ' . $finalQty . ' in stock. Reason: ' . $reason,
                 );
@@ -111,7 +111,7 @@ class ProductCreator
             ActivityLogger::log('created', 'Product', $productId, $name . ' (SKU: ' . $sku . ')');
             if ($finalQty > 0) {
                 StockHistoryLogger::log(
-                    productId: $productId, optionValueId: null, orderId: null, type: 'set',
+                    productId: $productId, variationValueId: null, orderId: null, type: 'set',
                     qtyBefore: 0, qtyAfter: $finalQty, source: 'manual',
                     note: "Product created: initial stock $finalQty",
                 );

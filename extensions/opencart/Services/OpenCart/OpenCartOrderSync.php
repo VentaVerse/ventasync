@@ -325,14 +325,14 @@ class OpenCartOrderSync
                     ->where('order_id', $coreOrderId)
                     ->delete();
 
-                DB::table('order_options')
+                DB::table('order_variations')
                     ->where('order_id', $coreOrderId)
                     ->delete();
 
                 foreach ($raw['products'] as $p) {
                     $coreProductId = $this->resolveProductBySku( $p);
 
-                    $resolvedOptions = [];
+                    $resolvedVariationTypes = [];
                     $firstMatchedPovId = 0;
                     if ($coreProductId > 0 && isset($p['options']) && is_array($p['options'])) {
                         foreach ($p['options'] as $opt) {
@@ -359,7 +359,7 @@ class OpenCartOrderSync
                                     }
                                 }
                             }
-                            $resolvedOptions[] = [
+                            $resolvedVariationTypes[] = [
                                 'localPovId' => $localPovId,
                                 'localPoId'  => $localPoId,
                                 'name'       => $opt['name'] ?? '',
@@ -384,8 +384,8 @@ class OpenCartOrderSync
                         'cost'       => $productCost,
                     ]);
 
-                    foreach ($resolvedOptions as $ro) {
-                        DB::table('order_options')->insert([
+                    foreach ($resolvedVariationTypes as $ro) {
+                        DB::table('order_variations')->insert([
                             'order_id'                 => $coreOrderId,
                             'order_product_id'         => $opId,
                             'product_variation_type_id'        => $ro['localPoId'],

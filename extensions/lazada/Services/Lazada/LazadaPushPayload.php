@@ -150,8 +150,8 @@ class LazadaPushPayload
                 'pov.sku',
                 'pov.quantity',
                 'pov.absolute_price',
-                'od.name as option_name',
-                'ovd.name as option_value_name',
+                'od.name as variation_type_name',
+                'ovd.name as variation_value_name',
             ]);
 
         $map = LazadaListingVariation::query()
@@ -196,7 +196,7 @@ class LazadaPushPayload
         $combos = collect();
         $comboValuesByCombo = collect();
         if ($povRows->count() > 0) {
-            $optionIds = $povRows->pluck('variation_type_id')->filter()->unique()->values();
+            $variationTypeIds = $povRows->pluck('variation_type_id')->filter()->unique()->values();
 
             $combos = DB::table('product_variations as poc')
                 ->where('poc.product_id', (int)$listing->product_id)
@@ -229,22 +229,22 @@ class LazadaPushPayload
                     ->select(
                         'pocv.product_variation_id',
                         'pov2.variation_type_id',
-                        'od.name as option_name',
+                        'od.name as variation_type_name',
                         'ovd.name as value_name'
                     )
                     ->orderBy('pocv.product_variation_id')
                     ->orderBy('pov2.variation_type_id')
                     ->get()
                     ->groupBy('product_variation_id');
-            } elseif ($optionIds->count() > 1) {
+            } elseif ($variationTypeIds->count() > 1) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    'variants' => 'This ERP product has multiple option groups but no combinations stored. Re-save the product to populate combinations, then retry.'
+                    'variants' => 'This ERP product has more than one variation type but no combinations stored. Re-save the product to populate combinations, then retry.'
                 ]);
             }
 
-            $optionNamesOrdered = $combos->isNotEmpty()
-                ? ($comboValuesByCombo->first() ?? collect())->pluck('option_name')->filter()->values()
-                : $povRows->pluck('option_name')->filter()->unique()->values();
+            $variationTypeNamesOrdered = $combos->isNotEmpty()
+                ? ($comboValuesByCombo->first() ?? collect())->pluck('variation_type_name')->filter()->values()
+                : $povRows->pluck('variation_type_name')->filter()->unique()->values();
 
             // Never invent sale-prop keys: Lazada ignores unknown ones and rejects duplicate SKUs.
             // An item already on Lazada keeps its own keys, or an update adds a second variation type.
@@ -260,14 +260,14 @@ class LazadaPushPayload
                     $variantKeys = app(LazadaAttributes::class)->cachedSalePropKeys((int)$listing->primary_category_id);
                 }
                 if (empty($variantKeys) && !$combos->isNotEmpty()) {
-                    $variantKeys = app(LazadaAttributes::class)->guessLazadaVariantKeysFromOptionName((string)($povRows->first()->option_name ?? ''));
+                    $variantKeys = app(LazadaAttributes::class)->guessLazadaVariantKeysFromVariationTypeName((string)($povRows->first()->variation_type_name ?? ''));
                 }
             }
             $variantKeys = array_values(array_filter(array_unique($variantKeys), fn ($k) => trim((string)$k) !== ''));
 
-            if ($combos->isNotEmpty() && count($variantKeys) < $optionNamesOrdered->count()) {
+            if ($combos->isNotEmpty() && count($variantKeys) < $variationTypeNamesOrdered->count()) {
                 $allowed = count($variantKeys);
-                $have = $optionNamesOrdered->count();
+                $have = $variationTypeNamesOrdered->count();
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'variants' => $liveKeys
                         ? "This item on Lazada has {$allowed} variation " . \Illuminate\Support\Str::plural('type', $allowed) . ' (' . implode(', ', $liveKeys) . "), but your product has {$have}. Remove a variation, or list the product as a new item."
@@ -276,22 +276,22 @@ class LazadaPushPayload
             }
 
             if ($combos->isNotEmpty()) {
-                $comboOptionNames = ($comboValuesByCombo->first() ?? collect())
-                    ->map(fn ($v) => trim((string) ($v->option_name ?? '')))->values()->all();
+                $comboVariationTypeNames = ($comboValuesByCombo->first() ?? collect())
+                    ->map(fn ($v) => trim((string) ($v->variation_type_name ?? '')))->values()->all();
                 $keyForPosition = $liveKeys && count($liveKeys) >= 2
-                    ? $this->pairOptionsWithLiveKeys($comboOptionNames, $liveKeys)
+                    ? $this->pairOptionsWithLiveKeys($comboVariationTypeNames, $liveKeys)
                     : $variantKeys;
-                foreach ($comboOptionNames as $i => $optionName) {
+                foreach ($comboVariationTypeNames as $i => $variationTypeName) {
                     if (isset($keyForPosition[$i])) {
-                        $namePairs[] = [$optionName, $keyForPosition[$i]];
+                        $namePairs[] = [$variationTypeName, $keyForPosition[$i]];
                     }
                 }
             } elseif ($variantKeys !== []) {
-                $namePairs[] = [trim((string) ($povRows->first()->option_name ?? '')), $variantKeys[0]];
+                $namePairs[] = [trim((string) ($povRows->first()->variation_type_name ?? '')), $variantKeys[0]];
             }
             if (!$combos->isNotEmpty() && $variantKeys === [] && $povRows->count() > 1) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    'variants' => "Lazada needs a variation type for this product's options, and neither the item nor its Lazada category names one. Pick a Lazada category that has a variation property."
+                    'variants' => "Lazada needs a variation type for this product's variations, and neither the item nor its Lazada category names one. Pick a Lazada category that has a variation property."
                 ]);
             }
         }
@@ -355,8 +355,8 @@ class LazadaPushPayload
                 $m = $map->get($key);
                 $candidate = trim((string)($r->sku ?? ''));
                 if ($candidate === '') {
-                    $label = trim((string)($r->option_name ?? ''));
-                    $valLabel = trim((string)($r->option_value_name ?? ''));
+                    $label = trim((string)($r->variation_type_name ?? ''));
+                    $valLabel = trim((string)($r->variation_value_name ?? ''));
                     $human = $label !== '' ? ($label . ($valLabel !== '' ? (': '.$valLabel) : '')) : 'Variant';
                     throw \Illuminate\Validation\ValidationException::withMessages([
                         'variants.sku' => $human . ' SKU is required before uploading to Lazada.'
@@ -381,7 +381,7 @@ class LazadaPushPayload
                     'quantity' => (int)$r->quantity,
                 ];
 
-                $optVal = trim((string)($r->option_value_name ?? ''));
+                $optVal = trim((string)($r->variation_value_name ?? ''));
                 if ($optVal !== '' && !empty($variantKeys)) {
                     $skuRow[$variantKeys[0]] = $optVal;
                 }
@@ -502,7 +502,7 @@ class LazadaPushPayload
             foreach ($skus as $s) {
                 if (!isset($s['price']) || (float)$s['price'] <= 0) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
-                        'variants' => 'Price is mandatory. Please set product price in ERP (base price) and/or option price adjustments, or fill Variant Mapping overrides.'
+                        'variants' => 'Price is mandatory. Please set product price in ERP (base price) and/or variation prices, or fill Variant Mapping overrides.'
                     ]);
                 }
             }
@@ -584,11 +584,11 @@ class LazadaPushPayload
         return mb_strtolower((string) preg_replace('/[\s_\-]+/u', '', $name));
     }
 
-    private function pairOptionsWithLiveKeys(array $optionNames, array $liveKeys): array
+    private function pairOptionsWithLiveKeys(array $variationTypeNames, array $liveKeys): array
     {
         $byName = [];
         $taken = [];
-        foreach ($optionNames as $i => $name) {
+        foreach ($variationTypeNames as $i => $name) {
             $want = self::nameKey($name);
             if ($want === '') {
                 continue;
@@ -610,7 +610,7 @@ class LazadaPushPayload
         }
 
         $pairs = [];
-        foreach ($optionNames as $i => $name) {
+        foreach ($variationTypeNames as $i => $name) {
             if (isset($byName[$i])) {
                 $pairs[$i] = $liveKeys[$byName[$i]];
                 continue;
@@ -618,7 +618,7 @@ class LazadaPushPayload
             if ($crossed || !isset($liveKeys[$i]) || isset($taken[$i])) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'variants' => 'This item on Lazada has its variations in the order ' . implode(', ', $liveKeys)
-                        . ' and your product has ' . implode(', ', array_map(fn ($n) => $n !== '' ? $n : '(unnamed)', $optionNames))
+                        . ' and your product has ' . implode(', ', array_map(fn ($n) => $n !== '' ? $n : '(unnamed)', $variationTypeNames))
                         . '; the names do not say which is which, so nothing was sent.',
                 ]);
             }
@@ -665,9 +665,9 @@ class LazadaPushPayload
             $liveNames[self::nameKey((string) $name)] = true;
         }
 
-        foreach ($namePairs as [$optionName, $liveKey]) {
-            $optionName = trim((string) $optionName);
-            $to = self::nameKey($optionName);
+        foreach ($namePairs as [$variationTypeName, $liveKey]) {
+            $variationTypeName = trim((string) $variationTypeName);
+            $to = self::nameKey($variationTypeName);
             $from = self::nameKey((string) $liveKey);
             if ($to === '' || $to === $from || isset($standard[$from])) {
                 continue;
@@ -677,7 +677,7 @@ class LazadaPushPayload
                 continue;
             }
             if (isset($liveNames[$to])) {
-                $out['skipped'][] = $optionName . ' is already a variation type on this item';
+                $out['skipped'][] = $variationTypeName . ' is already a variation type on this item';
                 continue;
             }
             $type = null;
@@ -694,13 +694,13 @@ class LazadaPushPayload
             if (!$type['customize']) {
                 continue;
             }
-            $entry = ['name' => $optionName];
+            $entry = ['name' => $variationTypeName];
             if ($type['has_image'] !== null) {
                 $entry['has_image'] = $type['has_image'];
             }
             $entry['customize'] = true;
             $out['variation']['Variation' . $type['slot']] = $entry;
-            $out['renames'][] = ['from' => $type['name'], 'to' => $optionName];
+            $out['renames'][] = ['from' => $type['name'], 'to' => $variationTypeName];
             $liveNames[$to] = true;
         }
         $out['skipped'] = array_values(array_unique($out['skipped']));

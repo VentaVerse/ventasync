@@ -98,7 +98,7 @@ class DashboardController extends Controller
                 'transaction_total'    => $o->foreign_total !== null ? (float) $o->foreign_total : null,
                 'date_added'           => $o->date_added,
                 'status_name'          => $o->status_name ?? '',
-                'marketplace_source'   => self::resolveSourceLabel($o->channel ?? '', $ocStoreNames),
+                'channel'              => self::resolveSourceLabel($o->channel ?? '', $ocStoreNames),
                 'store_name'           => (string) ($o->store_name ?? ''),
             ]),
         ]);

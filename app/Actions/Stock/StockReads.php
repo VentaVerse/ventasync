@@ -70,7 +70,7 @@ final class StockReads
             'price'         => (float) $product->price,
             'status'        => (bool) $product->status,
             'variations'    => $variations->map(fn (object $v) => [
-                'variation' => (string) $v->option_value_name,
+                'variation' => (string) $v->variation_value_name,
                 'sku'       => (string) ($v->sku ?? ''),
                 'quantity'  => (int) $v->quantity,
                 'status'    => (bool) ($v->status ?? 1),

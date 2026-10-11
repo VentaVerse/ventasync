@@ -35,14 +35,14 @@ final class CatalogVariations
                     ->join('product_variation_types as po', 'pov.product_variation_type_id', '=', 'po.product_variation_type_id')
                     ->whereIn('cv.product_variation_id', array_keys($skuByCombo))
                     ->orderBy('po.product_variation_type_id')
-                    ->get(['cv.product_variation_id', 'ovd.name as value_name', 'od.name as option_name']);
+                    ->get(['cv.product_variation_id', 'ovd.name as value_name', 'od.name as variation_type_name']);
                 foreach ($pivots as $pv) {
                     $sku = $skuByCombo[(int) $pv->product_variation_id] ?? '';
                     if ($sku === '') {
                         continue;
                     }
                     $found[$sku][] = [
-                        'name' => html_entity_decode((string) $pv->option_name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                        'name' => html_entity_decode((string) $pv->variation_type_name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                         'value' => html_entity_decode((string) $pv->value_name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                     ];
                 }
@@ -58,11 +58,11 @@ final class CatalogVariations
                         $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')->where('ovd.language_id', '=', $langId);
                     })
                     ->whereIn('pov.sku', $rest)
-                    ->get(['pov.sku', 'od.name as option_name', 'ovd.name as value_name']);
+                    ->get(['pov.sku', 'od.name as variation_type_name', 'ovd.name as value_name']);
                 foreach ($povRows as $r) {
                     $sku = trim((string) $r->sku);
                     $found[$sku] ??= [[
-                        'name' => html_entity_decode((string) $r->option_name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                        'name' => html_entity_decode((string) $r->variation_type_name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                         'value' => html_entity_decode((string) $r->value_name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                     ]];
                 }

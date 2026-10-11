@@ -340,7 +340,7 @@ class ShopeeProductGroupController extends Controller
             ->get()
             ->keyBy('product_id');
 
-        $optionRowsByProductId = \App\Support\VariationRows::forListing($pivotProductIds, 'shopee', (int) (ShopeeStore::defaultStore()?->id ?? 0));
+        $variationRowsByProductId = \App\Support\VariationRows::forListing($pivotProductIds, 'shopee', (int) (ShopeeStore::defaultStore()?->id ?? 0));
 
         $manualIds = $group->groupProducts()->pluck('product_id')->toArray();
 
@@ -367,13 +367,13 @@ class ShopeeProductGroupController extends Controller
         return view('ext-shopee::product-groups.products', [
             'listingStates' => $listingStates,
             'order' => $order,
-            'orderOptions' => \App\Channels\Listings\ListingSort::options(array_keys($sortMenu)),
+            'orderVariations' => \App\Channels\Listings\ListingSort::options(array_keys($sortMenu)),
             'rowErrors' => app(\Extensions\Shopee\Services\Shopee\ShopeeListingStates::class)->errors($displayIds),
             'group' => $group,
             'failedCount' => $failedCount,
             'products' => $products,
             'pivotMap' => $pivotMap,
-            'optionRowsByProductId' => $optionRowsByProductId,
+            'variationRowsByProductId' => $variationRowsByProductId,
             'linksByProductId' => $linksByProductId,
             'listingsByProductId' => $listingsByProductId,
             'rowTitles' => $rowTitles,
@@ -417,7 +417,7 @@ class ShopeeProductGroupController extends Controller
             ->select(
                 'pocv.product_variation_id',
                 'pov.variation_type_id',
-                'od.name as option_name',
+                'od.name as variation_type_name',
                 'ovd.name as value_name'
             )
             ->orderBy('pocv.product_variation_id')
@@ -427,27 +427,27 @@ class ShopeeProductGroupController extends Controller
             return ['tier_variation' => [], 'models' => []];
         }
 
-        $orderedOptionIds = [];
-        $optionNameById = [];
-        $valuesByOption = [];
+        $orderedVariationTypeIds = [];
+        $variationTypeNameById = [];
+        $valuesByVariationType = [];
         foreach ($values as $v) {
             $oid = (int) $v->variation_type_id;
-            if (!in_array($oid, $orderedOptionIds, true)) {
-                $orderedOptionIds[] = $oid;
-                $optionNameById[$oid] = (string) $v->option_name;
-                $valuesByOption[$oid] = [];
+            if (!in_array($oid, $orderedVariationTypeIds, true)) {
+                $orderedVariationTypeIds[] = $oid;
+                $variationTypeNameById[$oid] = (string) $v->variation_type_name;
+                $valuesByVariationType[$oid] = [];
             }
             $name = (string) $v->value_name;
-            if (!in_array($name, $valuesByOption[$oid], true)) {
-                $valuesByOption[$oid][] = $name;
+            if (!in_array($name, $valuesByVariationType[$oid], true)) {
+                $valuesByVariationType[$oid][] = $name;
             }
         }
 
         $tierVariation = [];
-        foreach ($orderedOptionIds as $oid) {
+        foreach ($orderedVariationTypeIds as $oid) {
             $tierVariation[] = [
-                'name' => $optionNameById[$oid],
-                'option_list' => array_map(fn ($v) => ['option' => $v], $valuesByOption[$oid]),
+                'name' => $variationTypeNameById[$oid],
+                'option_list' => array_map(fn ($v) => ['option' => $v], $valuesByVariationType[$oid]),
             ];
         }
 
@@ -460,12 +460,12 @@ class ShopeeProductGroupController extends Controller
         foreach ($combos as $c) {
             $cid = (int) $c->id;
             $tierIndex = [];
-            foreach ($orderedOptionIds as $oid) {
+            foreach ($orderedVariationTypeIds as $oid) {
                 $valueName = $valuesByCombo[$cid][$oid] ?? null;
                 if ($valueName === null) {
                     continue 2;
                 }
-                $idx = array_search($valueName, $valuesByOption[$oid], true);
+                $idx = array_search($valueName, $valuesByVariationType[$oid], true);
                 if ($idx === false) {
                     continue 2;
                 }
@@ -1042,7 +1042,7 @@ class ShopeeProductGroupController extends Controller
             return redirect()->back()->with('error', 'Product has no SKU to match against Shopee.');
         }
 
-        $erpHasOptions = !empty($optSkus);
+        $erpHasVariations = !empty($optSkus);
 
         $existingLink = ShopeeListingLink::query()
             ->where('product_id', $productId)
@@ -1676,9 +1676,9 @@ class ShopeeProductGroupController extends Controller
                     ->map(fn ($s) => strtolower(trim((string) $s)))
                     ->all();
                 $allSkus = array_values(array_unique(array_merge($erpSkus, $comboSkus)));
-                $erpHasOptions = !empty($allSkus);
+                $erpHasVariations = !empty($allSkus);
 
-                if ($erpHasOptions) {
+                if ($erpHasVariations) {
                     try {
                         $pivot = ShopeeProductGroupProduct::where('shopee_product_group_id', $group->id)
                             ->where('product_id', $productId)

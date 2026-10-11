@@ -43,7 +43,7 @@ final class VariationSnapshot
             }
 
             return [
-                'option_name' => $name($types[0]->name),
+                'variation_type_name' => $name($types[0]->name),
                 'values' => $values->map(function ($v) use ($comboByPov, $name) {
                     $combo = $comboByPov[(int) $v->product_variation_value_id] ?? null;
 
@@ -66,10 +66,10 @@ final class VariationSnapshot
         $valueByPov = $values->keyBy('product_variation_value_id');
 
         return [
-            'option1_name' => $name($types[0]->name),
-            'option2_name' => $name($types[1]->name),
-            'option1_values' => $values->where('product_variation_type_id', $first)->map(fn ($v) => $name($v->name))->values()->all(),
-            'option2_values' => $values->where('product_variation_type_id', $second)->map(fn ($v) => $name($v->name))->values()->all(),
+            'type1_name' => $name($types[0]->name),
+            'type2_name' => $name($types[1]->name),
+            'type1_values' => $values->where('product_variation_type_id', $first)->map(fn ($v) => $name($v->name))->values()->all(),
+            'type2_values' => $values->where('product_variation_type_id', $second)->map(fn ($v) => $name($v->name))->values()->all(),
             'combinations' => $combos->map(function ($combo) use ($pivot, $valueByPov, $first, $name) {
                 $opt1 = $opt2 = '';
                 foreach ($pivot[$combo->id] ?? [] as $link) {

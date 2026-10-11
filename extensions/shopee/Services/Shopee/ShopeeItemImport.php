@@ -182,10 +182,10 @@ class ShopeeItemImport
 
         $data = ['sku' => $parentSku];
         if (count($tiers) >= 2) {
-            $data['option1_name'] = $tierNames[0];
-            $data['option2_name'] = $tierNames[1];
-            $data['option1_values'] = $tierOptions[0];
-            $data['option2_values'] = $tierOptions[1];
+            $data['type1_name'] = $tierNames[0];
+            $data['type2_name'] = $tierNames[1];
+            $data['type1_values'] = $tierOptions[0];
+            $data['type2_values'] = $tierOptions[1];
             $combos = [];
             foreach ($models['models'] as $m) {
                 $idx = (array) ($m['tier_index'] ?? []);
@@ -202,8 +202,8 @@ class ShopeeItemImport
             }
             $data['combinations'] = $combos;
         } else {
-            $data['option_name'] = $tierNames[0] ?? 'Variation';
-            $optionImages = array_map(
+            $data['variation_type_name'] = $tierNames[0] ?? 'Variation';
+            $variationImages = array_map(
                 fn ($o) => is_array($o) ? (string) data_get($o, 'image.image_url', '') : '',
                 (array) ($tiers[0]['option_list'] ?? [])
             );
@@ -211,8 +211,8 @@ class ShopeeItemImport
             foreach ($models['models'] as $m) {
                 $idx = (int) (data_get($m, 'tier_index.0') ?? 0);
                 $imagePath = '';
-                if (($optionImages[$idx] ?? '') !== '') {
-                    $imagePath = $this->downloadImages([$optionImages[$idx]], $itemId, 'v' . $idx)[0] ?? '';
+                if (($variationImages[$idx] ?? '') !== '') {
+                    $imagePath = $this->downloadImages([$variationImages[$idx]], $itemId, 'v' . $idx)[0] ?? '';
                 }
                 $values[] = [
                     'name' => $tierOptions[0][$idx] ?? ('Variation ' . ($idx + 1)),
@@ -228,7 +228,7 @@ class ShopeeItemImport
         }
 
         app(\App\Http\Controllers\Catalog\ProductController::class)
-            ->saveAbsoluteOptions($productId, Request::create('/', 'POST', $data));
+            ->saveAbsoluteVariations($productId, Request::create('/', 'POST', $data));
     }
 
     private function downloadImages(array $urls, int $itemId, string $suffix = ''): array

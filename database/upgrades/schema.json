@@ -21317,138 +21317,6 @@
         },
         "foreign_keys": []
     },
-    "order_options": {
-        "engine": "InnoDB",
-        "collation": "utf8mb4_unicode_ci",
-        "columns": [
-            {
-                "name": "order_option_id",
-                "type": "int",
-                "nullable": false,
-                "default": null,
-                "default_current": false,
-                "on_update_current": false,
-                "auto_increment": true,
-                "collation": null,
-                "comment": ""
-            },
-            {
-                "name": "order_id",
-                "type": "int",
-                "nullable": false,
-                "default": null,
-                "default_current": false,
-                "on_update_current": false,
-                "auto_increment": false,
-                "collation": null,
-                "comment": ""
-            },
-            {
-                "name": "order_product_id",
-                "type": "int",
-                "nullable": false,
-                "default": null,
-                "default_current": false,
-                "on_update_current": false,
-                "auto_increment": false,
-                "collation": null,
-                "comment": ""
-            },
-            {
-                "name": "product_variation_type_id",
-                "type": "int",
-                "nullable": false,
-                "default": null,
-                "default_current": false,
-                "on_update_current": false,
-                "auto_increment": false,
-                "collation": null,
-                "comment": ""
-            },
-            {
-                "name": "product_variation_value_id",
-                "type": "int",
-                "nullable": false,
-                "default": "0",
-                "default_current": false,
-                "on_update_current": false,
-                "auto_increment": false,
-                "collation": null,
-                "comment": ""
-            },
-            {
-                "name": "name",
-                "type": "varchar(255)",
-                "nullable": false,
-                "default": null,
-                "default_current": false,
-                "on_update_current": false,
-                "auto_increment": false,
-                "collation": null,
-                "comment": ""
-            },
-            {
-                "name": "value",
-                "type": "text",
-                "nullable": false,
-                "default": null,
-                "default_current": false,
-                "on_update_current": false,
-                "auto_increment": false,
-                "collation": null,
-                "comment": ""
-            },
-            {
-                "name": "type",
-                "type": "varchar(32)",
-                "nullable": false,
-                "default": null,
-                "default_current": false,
-                "on_update_current": false,
-                "auto_increment": false,
-                "collation": null,
-                "comment": ""
-            }
-        ],
-        "indexes": {
-            "PRIMARY": {
-                "unique": true,
-                "type": "btree",
-                "columns": [
-                    "order_option_id"
-                ]
-            },
-            "order_options_order_id_index": {
-                "unique": false,
-                "type": "btree",
-                "columns": [
-                    "order_id"
-                ]
-            },
-            "order_options_order_product_id_index": {
-                "unique": false,
-                "type": "btree",
-                "columns": [
-                    "order_product_id"
-                ]
-            },
-            "order_options_product_variation_type_id_index": {
-                "unique": false,
-                "type": "btree",
-                "columns": [
-                    "product_variation_type_id"
-                ]
-            },
-            "order_options_product_variation_value_id_index": {
-                "unique": false,
-                "type": "btree",
-                "columns": [
-                    "product_variation_value_id"
-                ]
-            }
-        },
-        "foreign_keys": []
-    },
     "order_payments": {
         "engine": "InnoDB",
         "collation": "utf8mb4_unicode_ci",
@@ -21928,6 +21796,138 @@
                 "type": "btree",
                 "columns": [
                     "order_id"
+                ]
+            }
+        },
+        "foreign_keys": []
+    },
+    "order_variations": {
+        "engine": "InnoDB",
+        "collation": "utf8mb4_unicode_ci",
+        "columns": [
+            {
+                "name": "order_variation_id",
+                "type": "int",
+                "nullable": false,
+                "default": null,
+                "default_current": false,
+                "on_update_current": false,
+                "auto_increment": true,
+                "collation": null,
+                "comment": ""
+            },
+            {
+                "name": "order_id",
+                "type": "int",
+                "nullable": false,
+                "default": null,
+                "default_current": false,
+                "on_update_current": false,
+                "auto_increment": false,
+                "collation": null,
+                "comment": ""
+            },
+            {
+                "name": "order_product_id",
+                "type": "int",
+                "nullable": false,
+                "default": null,
+                "default_current": false,
+                "on_update_current": false,
+                "auto_increment": false,
+                "collation": null,
+                "comment": ""
+            },
+            {
+                "name": "product_variation_type_id",
+                "type": "int",
+                "nullable": false,
+                "default": null,
+                "default_current": false,
+                "on_update_current": false,
+                "auto_increment": false,
+                "collation": null,
+                "comment": ""
+            },
+            {
+                "name": "product_variation_value_id",
+                "type": "int",
+                "nullable": false,
+                "default": "0",
+                "default_current": false,
+                "on_update_current": false,
+                "auto_increment": false,
+                "collation": null,
+                "comment": ""
+            },
+            {
+                "name": "name",
+                "type": "varchar(255)",
+                "nullable": false,
+                "default": null,
+                "default_current": false,
+                "on_update_current": false,
+                "auto_increment": false,
+                "collation": null,
+                "comment": ""
+            },
+            {
+                "name": "value",
+                "type": "text",
+                "nullable": false,
+                "default": null,
+                "default_current": false,
+                "on_update_current": false,
+                "auto_increment": false,
+                "collation": null,
+                "comment": ""
+            },
+            {
+                "name": "type",
+                "type": "varchar(32)",
+                "nullable": false,
+                "default": null,
+                "default_current": false,
+                "on_update_current": false,
+                "auto_increment": false,
+                "collation": null,
+                "comment": ""
+            }
+        ],
+        "indexes": {
+            "PRIMARY": {
+                "unique": true,
+                "type": "btree",
+                "columns": [
+                    "order_variation_id"
+                ]
+            },
+            "order_variations_order_id_index": {
+                "unique": false,
+                "type": "btree",
+                "columns": [
+                    "order_id"
+                ]
+            },
+            "order_variations_order_product_id_index": {
+                "unique": false,
+                "type": "btree",
+                "columns": [
+                    "order_product_id"
+                ]
+            },
+            "order_variations_product_variation_type_id_index": {
+                "unique": false,
+                "type": "btree",
+                "columns": [
+                    "product_variation_type_id"
+                ]
+            },
+            "order_variations_product_variation_value_id_index": {
+                "unique": false,
+                "type": "btree",
+                "columns": [
+                    "product_variation_value_id"
                 ]
             }
         },

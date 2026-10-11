@@ -323,8 +323,8 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
             }
         }
 
-        if (!empty($skuChanges['option_skus'])) {
-            $results[] = 'option SKU(s) updated locally';
+        if (!empty($skuChanges['variation_skus'])) {
+            $results[] = 'variation SKU(s) updated locally';
         }
 
         return empty($results) ? null : 'Shopee: ' . implode('; ', $results);

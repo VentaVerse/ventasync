@@ -861,7 +861,7 @@
         font-weight: 650;
     }
 
-    .of-detail__options { display: flex; flex-direction: column; gap: 8px; }
+    .of-detail__variations { display: flex; flex-direction: column; gap: 8px; }
     .of-detail__label {
         font-size: var(--bl-lab-size);
         font-stretch: var(--bl-lab-stretch);

@@ -42,10 +42,10 @@ class BackfillOrderProductCosts extends Command
             $query->where('o.date_added', '>=', $from . ' 00:00:00');
         }
 
-        $variationByLine = DB::table('order_options as oo')
+        $variationByLine = DB::table('order_variations as oo')
             ->join('order_products as op', 'op.order_product_id', '=', 'oo.order_product_id')
             ->where('oo.product_variation_value_id', '>', 0)
-            ->orderBy('oo.order_option_id')
+            ->orderBy('oo.order_variation_id')
             ->pluck('oo.product_variation_value_id', 'oo.order_product_id')
             ->all();
 
@@ -61,8 +61,8 @@ class BackfillOrderProductCosts extends Command
 
         foreach ($query->select('op.order_product_id', 'op.product_id', 'op.cost')->cursor() as $line) {
             $examined++;
-            $optionValueId = (int) ($variationByLine[$line->order_product_id] ?? 0);
-            $new = LineCost::resolve((int) $line->product_id, $optionValueId);
+            $variationValueId = (int) ($variationByLine[$line->order_product_id] ?? 0);
+            $new = LineCost::resolve((int) $line->product_id, $variationValueId);
             $old = (float) $line->cost;
 
             if ($new <= 0) {

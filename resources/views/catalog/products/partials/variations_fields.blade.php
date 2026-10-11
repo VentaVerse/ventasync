@@ -1,11 +1,11 @@
 
-<div id="options-error" class="fm-vars__errors d-none" role="alert"></div>
+<div id="variations-error" class="fm-vars__errors d-none" role="alert"></div>
 
-<div class="fm-vars" id="options-root">
-    <input type="hidden" name="_options_format" value="absolute">
+<div class="fm-vars" id="variations-root">
+    <input type="hidden" name="_variations_format" value="absolute">
 
     <div class="fm-vars__row">
-        <div id="option1-group" class="d-none fm-vars__col">
+        <div id="type1-group" class="d-none fm-vars__col">
             <div class="fm-vars__card">
                 <div class="fm-vars__head">
                     <div class="fm-field">
@@ -35,7 +35,7 @@
             </x-ui.button>
         </div>
 
-        <div id="option2-group" class="d-none fm-vars__col">
+        <div id="type2-group" class="d-none fm-vars__col">
             <div class="fm-vars__card">
                 <div class="fm-vars__head">
                     <div class="fm-field">
@@ -82,8 +82,8 @@
     </div>
 </div>
 
-<div id="add-option-wrapper">
-    <x-ui.button type="button" id="add-option-btn">
+<div id="add-type-wrapper">
+    <x-ui.button type="button" id="add-type-btn">
         <x-ui.icon name="plus" size="14" /> Add a variation
     </x-ui.button>
 </div>
@@ -93,12 +93,12 @@
 'use strict';
 
 @php
-    $typedBack = ($errors ?? null)?->any() && (old('option_name') !== null || old('option1_name') !== null);
-    if ($typedBack && old('option1_name') !== null) {
-        $seedOption = (object) ['option_name' => old('option1_name')];
-        $seedOption2 = (object) ['option_name' => old('option2_name')];
-        $seedValues = collect((array) old('option1_values', []))->map(fn ($n) => (object) ['name' => (string) $n])->values();
-        $seedValues2 = collect((array) old('option2_values', []))->map(fn ($n) => (object) ['name' => (string) $n])->values();
+    $typedBack = ($errors ?? null)?->any() && (old('variation_type_name') !== null || old('type1_name') !== null);
+    if ($typedBack && old('type1_name') !== null) {
+        $seedVariationType = (object) ['variation_type_name' => old('type1_name')];
+        $seedVariationType2 = (object) ['variation_type_name' => old('type2_name')];
+        $seedValues = collect((array) old('type1_values', []))->map(fn ($n) => (object) ['name' => (string) $n])->values();
+        $seedValues2 = collect((array) old('type2_values', []))->map(fn ($n) => (object) ['name' => (string) $n])->values();
         $seedCombos = collect((array) old('combinations', []))->map(fn ($c) => (object) [
             'opt1_name' => (string) ($c['opt1'] ?? ''),
             'opt2_name' => (string) ($c['opt2'] ?? ''),
@@ -111,8 +111,8 @@
             'cost_additional' => $c['cost_additional'] ?? 0,
         ])->values();
     } elseif ($typedBack) {
-        $seedOption = (object) ['option_name' => old('option_name')];
-        $seedOption2 = null;
+        $seedVariationType = (object) ['variation_type_name' => old('variation_type_name')];
+        $seedVariationType2 = null;
         $seedValues = collect((array) old('values', []))->map(fn ($v) => (object) [
             'name' => (string) ($v['name'] ?? ''),
             'variation_value_id' => $v['variation_value_id'] ?? null,
@@ -127,15 +127,15 @@
         $seedValues2 = collect();
         $seedCombos = collect();
     } else {
-        $seedOption = $existingOptions->first() ?? null;
-        $seedOption2 = $existingOptions->count() > 1 ? $existingOptions->get(1) : null;
-        $seedValues = $seedOption ? ($seedOption->values ?? []) : [];
-        $seedValues2 = $seedOption2 ? ($seedOption2->values ?? []) : [];
+        $seedVariationType = $existingVariationTypes->first() ?? null;
+        $seedVariationType2 = $existingVariationTypes->count() > 1 ? $existingVariationTypes->get(1) : null;
+        $seedValues = $seedVariationType ? ($seedVariationType->values ?? []) : [];
+        $seedValues2 = $seedVariationType2 ? ($seedVariationType2->values ?? []) : [];
         $seedCombos = $existingCombinations ?? [];
     }
 @endphp
-const EXISTING_OPTION  = @json($seedOption);
-const EXISTING_OPTION2 = @json($seedOption2);
+const EXISTING_TYPE  = @json($seedVariationType);
+const EXISTING_TYPE2 = @json($seedVariationType2);
 const EXISTING_VALUES  = @json($seedValues);
 const EXISTING_VALUES2 = @json($seedValues2);
 const EXISTING_COMBOS  = @json($seedCombos);
@@ -148,10 +148,10 @@ let mode       = 'none';
 
 let renderedMode = 'none';
 
-const $opt1Group      = document.getElementById('option1-group');
-const $opt2Group      = document.getElementById('option2-group');
+const $opt1Group      = document.getElementById('type1-group');
+const $opt2Group      = document.getElementById('type2-group');
 const $opt2Wrapper    = document.getElementById('add-opt2-wrapper');
-const $addOptWrapper  = document.getElementById('add-option-wrapper');
+const $addTypeWrapper  = document.getElementById('add-type-wrapper');
 const $tableWrap      = document.getElementById('data-table-wrap');
 const $addRowBtn      = document.getElementById('add-row-btn');
 const $thead          = document.getElementById('data-thead');
@@ -161,7 +161,7 @@ const $opt2Name       = document.getElementById('opt2-name-input');
 const $opt1ValList    = document.getElementById('opt1-value-list');
 const $opt1ValSection = document.getElementById('opt1-values-section');
 const $opt2ValList    = document.getElementById('opt2-value-list');
-const $optionsRoot    = document.getElementById('options-root');
+const $variationsRoot    = document.getElementById('variations-root');
 
 $tbody.addEventListener('input', function(e) {
     if (e.target.classList.contains('js-price') || e.target.classList.contains('js-cost') || e.target.classList.contains('js-addl')) {
@@ -208,7 +208,7 @@ function setMode(newMode) {
     $opt1Group.classList.toggle('d-none', mode === 'none');
     $opt2Group.classList.toggle('d-none', mode !== 'two');
     $opt2Wrapper.classList.toggle('d-none', mode !== 'one');
-    $addOptWrapper.classList.toggle('d-none', mode !== 'none');
+    $addTypeWrapper.classList.toggle('d-none', mode !== 'none');
     $tableWrap.classList.toggle('d-none', mode === 'none');
     $addRowBtn.classList.toggle('d-none', mode !== 'one');
     $opt1ValSection.classList.toggle('d-none', mode !== 'two');
@@ -804,14 +804,14 @@ function recalcProductQty() {
 }
 
 function beforeSubmit() {
-    $optionsRoot.querySelectorAll('input[data-gen]').forEach(el => el.remove());
+    $variationsRoot.querySelectorAll('input[data-gen]').forEach(el => el.remove());
 
     if (mode === 'none' || opt1Values.length === 0) return;
 
     const addHidden = (name, value) => {
         const el = createEl('input', { type: 'hidden', name: name, 'data-gen': '1' });
         el.value = value;
-        $optionsRoot.appendChild(el);
+        $variationsRoot.appendChild(el);
     };
 
     const opt1Name = $opt1Name.value.trim();
@@ -821,11 +821,11 @@ function beforeSubmit() {
         const opt2Name = $opt2Name.value.trim();
         if (!opt2Name) return;
 
-        addHidden('option1_name', opt1Name);
-        addHidden('option2_name', opt2Name);
+        addHidden('type1_name', opt1Name);
+        addHidden('type2_name', opt2Name);
 
-        opt1Values.forEach((v, i) => addHidden('option1_values[' + i + ']', v.name));
-        opt2Values.forEach((v, i) => addHidden('option2_values[' + i + ']', v.name));
+        opt1Values.forEach((v, i) => addHidden('type1_values[' + i + ']', v.name));
+        opt2Values.forEach((v, i) => addHidden('type2_values[' + i + ']', v.name));
 
         const comboRows = $tbody.querySelectorAll('tr[data-combo-key]');
         let ci = 0;
@@ -843,7 +843,7 @@ function beforeSubmit() {
             ci++;
         });
     } else {
-        addHidden('option_name', opt1Name);
+        addHidden('variation_type_name', opt1Name);
 
         const rows = $tbody.querySelectorAll('tr');
         rows.forEach((row, idx) => {
@@ -867,7 +867,7 @@ function beforeSubmit() {
     }
 }
 
-document.getElementById('add-option-btn').addEventListener('click', () => {
+document.getElementById('add-type-btn').addEventListener('click', () => {
     setMode('one');
     $opt1Name.focus();
 });
@@ -1006,31 +1006,31 @@ document.getElementById('opt2-new-value').addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); handleAddOpt2(); }
 });
 
-const form = $optionsRoot.closest('form');
+const form = $variationsRoot.closest('form');
 if (form) {
-    const $optError = document.getElementById('options-error');
+    const $variationsError = document.getElementById('variations-error');
 
     function showOptError(messages) {
-        $optError.textContent = '';
+        $variationsError.textContent = '';
         messages.forEach(m => {
             const div = document.createElement('div');
             div.textContent = m;
-            $optError.appendChild(div);
+            $variationsError.appendChild(div);
         });
-        $optError.classList.remove('d-none');
-        $optError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        $variationsError.classList.remove('d-none');
+        $variationsError.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     function showOptNotice(message) {
-        $optError.textContent = '';
+        $variationsError.textContent = '';
         const div = createEl('div', { className: 'fm-note--soft' }, message);
-        $optError.appendChild(div);
-        $optError.classList.remove('d-none');
+        $variationsError.appendChild(div);
+        $variationsError.classList.remove('d-none');
     }
 
     function clearOptError() {
-        $optError.textContent = '';
-        $optError.classList.add('d-none');
+        $variationsError.textContent = '';
+        $variationsError.classList.add('d-none');
         $tbody.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
         $opt1Name.classList.remove('input-error');
         $opt2Name.classList.remove('input-error');
@@ -1043,7 +1043,7 @@ if (form) {
         beforeSubmit();
 
         if (form.requestSubmit) {
-            form._optionsValidated = true;
+            form._variationsValidated = true;
 
             setTimeout(() => form.requestSubmit(), 0);
             return;
@@ -1053,8 +1053,8 @@ if (form) {
     }
 
     form.addEventListener('submit', (e) => {
-        if (form._optionsValidated) {
-            form._optionsValidated = false;
+        if (form._variationsValidated) {
+            form._variationsValidated = false;
             return;
         }
 
@@ -1149,7 +1149,7 @@ if (form) {
                     if (skuInput) skuInput.classList.add('input-error');
                     if (!firstBadInput) firstBadInput = skuInput;
                 } else if (seenSkus[skuLower]) {
-                    errors.push('Duplicate SKU "' + sku + '" within this product\'s options.');
+                    errors.push('Duplicate SKU "' + sku + '" within this product\'s variations.');
                     if (skuInput) skuInput.classList.add('input-error');
                     if (!firstBadInput) firstBadInput = skuInput;
                 } else {
@@ -1200,7 +1200,7 @@ if (form) {
                 let remoteBad = null;
                 for (const [key, type] of Object.entries(taken)) {
                     const input = skuInputMap[key];
-                    const label = type === 'option_value' ? "another product's variation value" : 'another product';
+                    const label = type === 'variation_value' ? "another product's variation value" : 'another product';
                     remoteErrors.push('SKU "' + (input ? input.value.trim() : key) + '" is already used by ' + label + '.');
                     if (input) { input.classList.add('input-error'); if (!remoteBad) remoteBad = input; }
                 }
@@ -1217,10 +1217,10 @@ if (form) {
     });
 }
 
-if (EXISTING_OPTION) {
+if (EXISTING_TYPE) {
     EXISTING_VALUES.forEach(v => {
         opt1Values.push({
-            name: v.option_value_name || v.name,
+            name: v.variation_value_name || v.name,
             variation_value_id: v.variation_value_id,
             sku: v.sku || '',
             legacyBlankSku: !String(v.sku || '').trim(),
@@ -1233,13 +1233,13 @@ if (EXISTING_OPTION) {
         });
     });
 
-    $opt1Name.value = EXISTING_OPTION.option_name || EXISTING_OPTION.name || '';
+    $opt1Name.value = EXISTING_TYPE.variation_type_name || EXISTING_TYPE.name || '';
 
-    if (EXISTING_OPTION2) {
+    if (EXISTING_TYPE2) {
         EXISTING_VALUES2.forEach(v => {
-            opt2Values.push({ name: v.option_value_name || v.name, variation_value_id: v.variation_value_id });
+            opt2Values.push({ name: v.variation_value_name || v.name, variation_value_id: v.variation_value_id });
         });
-        $opt2Name.value = EXISTING_OPTION2.option_name || EXISTING_OPTION2.name || '';
+        $opt2Name.value = EXISTING_TYPE2.variation_type_name || EXISTING_TYPE2.name || '';
         renderOpt1List();
         renderOpt2List();
 
@@ -1300,10 +1300,10 @@ function refreshCostFormula() {
 
 refreshCostFormula();
 
-@if($errors->has('option_sku'))
+@if($errors->has('variation_sku'))
 (function() {
     const errorBySku = @json(
-        collect($errors->get('option_sku'))->mapWithKeys(function($msg) {
+        collect($errors->get('variation_sku'))->mapWithKeys(function($msg) {
             if (preg_match('/SKU "([^"]+)"/', $msg, $m)) return [strtolower($m[1]) => $msg];
             return [];
         })

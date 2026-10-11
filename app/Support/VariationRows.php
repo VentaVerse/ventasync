@@ -37,12 +37,12 @@ class VariationRows
                 ->join('product_variation_types as po', 'pov.product_variation_type_id', '=', 'po.product_variation_type_id')
                 ->whereIn('cv.product_variation_id', $comboIds)
                 ->orderBy('po.product_variation_type_id')
-                ->get(['cv.product_variation_id', 'cv.product_variation_value_id', 'ovd.name as value_name', 'od.name as option_name']);
+                ->get(['cv.product_variation_id', 'cv.product_variation_value_id', 'ovd.name as value_name', 'od.name as variation_type_name']);
 
             foreach ($pivots as $pv) {
                 $pivotData[(int) $pv->product_variation_id][] = [
                     'value_name' => html_entity_decode((string) $pv->value_name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-                    'option_name' => html_entity_decode((string) $pv->option_name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                    'variation_type_name' => html_entity_decode((string) $pv->variation_type_name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                     'variation_value_id' => (int) $pv->product_variation_value_id,
                 ];
             }
@@ -50,9 +50,9 @@ class VariationRows
 
         foreach ($comboRows as $c) {
             $entries = $pivotData[(int) $c->id] ?? [];
-            $c->option_value_name = implode(' + ', array_map(fn ($e) => $e['value_name'], $entries));
-            $c->option_name = implode(' / ', array_unique(array_map(fn ($e) => $e['option_name'], $entries)));
-            $c->option_value_ids = array_map(fn ($e) => $e['variation_value_id'], $entries);
+            $c->variation_value_name = implode(' + ', array_map(fn ($e) => $e['value_name'], $entries));
+            $c->variation_type_name = implode(' / ', array_unique(array_map(fn ($e) => $e['variation_type_name'], $entries)));
+            $c->variation_value_ids = array_map(fn ($e) => $e['variation_value_id'], $entries);
             $c->option_image = trim((string) ($c->image ?? '')) ?: null;
         }
 
@@ -75,13 +75,13 @@ class VariationRows
                 ->orderBy('pov.product_variation_value_id')
                 ->get([
                     'pov.product_id', 'pov.product_variation_value_id', 'pov.sku', 'pov.quantity', 'pov.absolute_price',
-                    'od.name as raw_option_name', 'ovd.name as raw_value_name',
+                    'od.name as raw_variation_type_name', 'ovd.name as raw_value_name',
                 ]);
 
             foreach ($povRows as $r) {
-                $r->option_value_name = html_entity_decode((string) $r->raw_value_name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                $r->option_name = html_entity_decode((string) $r->raw_option_name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                $r->option_value_ids = [(int) $r->product_variation_value_id];
+                $r->variation_value_name = html_entity_decode((string) $r->raw_value_name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $r->variation_type_name = html_entity_decode((string) $r->raw_variation_type_name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $r->variation_value_ids = [(int) $r->product_variation_value_id];
                 $r->option_image = null;
                 $r->status = 1;
             }

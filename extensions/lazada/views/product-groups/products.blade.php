@@ -74,8 +74,8 @@
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
 
-    @if(!empty($orderOptions))
-        @include('partials.listing-sort', ['options' => $orderOptions, 'chosen' => $order])
+    @if(!empty($orderVariations))
+        @include('partials.listing-sort', ['options' => $orderVariations, 'chosen' => $order])
     @endif
 
     <x-ui.button type="submit" variant="secondary">Search</x-ui.button>
@@ -165,7 +165,7 @@
                 default => '',
             };
 
-            $optRows = isset($optionRowsByProductId) ? $optionRowsByProductId->get($p->product_id) : null;
+            $optRows = isset($variationRowsByProductId) ? $variationRowsByProductId->get($p->product_id) : null;
             $variationCount = $optRows ? count($optRows) : 0;
 
             $rowState = ($listingStates ?? [])[(int) $p->product_id] ?? null;

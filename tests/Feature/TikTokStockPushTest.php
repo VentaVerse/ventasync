@@ -126,19 +126,19 @@ class TikTokStockPushTest extends TestCase
         $ovIds = [];
         $povIds = [];
         foreach (['Color' => ['Red', 'Black'], 'Size' => ['S', 'M']] as $axis => $values) {
-            $optionId = (int) DB::table('variation_types')->insertGetId(['type' => 'select', 'sort_order' => 0]);
-            DB::table('variation_type_descriptions')->insert(['variation_type_id' => $optionId, 'language_id' => $langId, 'name' => $axis]);
-            $productOptionId = (int) DB::table('product_variation_types')->insertGetId([
-                'product_id' => $productId, 'variation_type_id' => $optionId, 'value' => '', 'required' => 0,
+            $variationTypeId = (int) DB::table('variation_types')->insertGetId(['type' => 'select', 'sort_order' => 0]);
+            DB::table('variation_type_descriptions')->insert(['variation_type_id' => $variationTypeId, 'language_id' => $langId, 'name' => $axis]);
+            $productVariationTypeId = (int) DB::table('product_variation_types')->insertGetId([
+                'product_id' => $productId, 'variation_type_id' => $variationTypeId, 'value' => '', 'required' => 0,
             ]);
             foreach ($values as $i => $name) {
-                $valueId = (int) DB::table('variation_values')->insertGetId(['variation_type_id' => $optionId, 'image' => '', 'sort_order' => $i]);
+                $valueId = (int) DB::table('variation_values')->insertGetId(['variation_type_id' => $variationTypeId, 'image' => '', 'sort_order' => $i]);
                 DB::table('variation_value_descriptions')->insert([
-                    'variation_value_id' => $valueId, 'language_id' => $langId, 'variation_type_id' => $optionId, 'name' => $name,
+                    'variation_value_id' => $valueId, 'language_id' => $langId, 'variation_type_id' => $variationTypeId, 'name' => $name,
                 ]);
                 $povIds[$name] = (int) DB::table('product_variation_values')->insertGetId([
-                    'product_variation_type_id' => $productOptionId, 'product_id' => $productId,
-                    'variation_type_id' => $optionId, 'variation_value_id' => $valueId,
+                    'product_variation_type_id' => $productVariationTypeId, 'product_id' => $productId,
+                    'variation_type_id' => $variationTypeId, 'variation_value_id' => $valueId,
                     'sku' => 'TTV-' . strtoupper($name), 'quantity' => 99, 'subtract' => 1,
                     'price' => 0, 'price_prefix' => '+', 'points' => 0, 'points_prefix' => '+',
                     'weight' => 0, 'weight_prefix' => '+',

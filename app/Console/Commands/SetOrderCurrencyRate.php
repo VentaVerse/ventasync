@@ -91,7 +91,7 @@ class SetOrderCurrencyRate extends Command
             return self::SUCCESS;
         }
 
-        DB::transaction(function () use ($pfx, $orderId, $order, $products, $rate) {
+        DB::transaction(function () use ($orderId, $order, $products, $rate) {
             foreach ($products as $op) {
                 DB::table('order_products')
                     ->where('order_product_id', $op->order_product_id)
@@ -115,7 +115,7 @@ class SetOrderCurrencyRate extends Command
             DB::table('order_totals')
                 ->where('order_id', $orderId)
                 ->get()
-                ->each(function ($t) use ($pfx, $rate) {
+                ->each(function ($t) use ($rate) {
                     DB::table('order_totals')
                         ->where('order_total_id', $t->order_total_id)
                         ->update(['value' => OrderCurrencyService::toBase((float) $t->value, $rate)]);

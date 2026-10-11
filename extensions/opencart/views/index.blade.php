@@ -18,7 +18,7 @@
     $importSteps = [
         ['entity' => 'categories',    'label' => 'Categories',    'note' => 'Products need somewhere to land.'],
         ['entity' => 'brands', 'label' => 'Brands', 'note' => 'Pulled alongside categories.'],
-        ['entity' => 'options',       'label' => 'Variations',    'note' => 'Needs categories and brands first.'],
+        ['entity' => 'variations',    'label' => 'Variations',    'note' => 'Needs categories and brands first.'],
         ['entity' => 'products',      'label' => 'Products',      'note' => 'Needs variations first.'],
         ['entity' => 'status_map',    'label' => 'Order statuses','note' => 'Map them before orders arrive, or every order lands on a raw numeric status.'],
         ['entity' => 'orders',        'label' => 'Orders',        'note' => 'Last. Stock is not adjusted for a historical import.'],

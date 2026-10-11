@@ -250,7 +250,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
                     ->where('o.date_added', '>=', now()->startOfDay())
                     ->whereNotNull('p.model')
                     ->where('p.model', '!=', '')
-                    ->leftJoin(DB::raw('(SELECT order_product_id, GROUP_CONCAT(CONCAT(name, \': \', value) ORDER BY order_option_id SEPARATOR \', \') AS variation FROM `order_options` GROUP BY order_product_id) AS oo'), 'oo.order_product_id', '=', 'p.order_product_id')
+                    ->leftJoin(DB::raw('(SELECT order_product_id, GROUP_CONCAT(CONCAT(name, \': \', value) ORDER BY order_variation_id SEPARATOR \', \') AS variation FROM `order_variations` GROUP BY order_product_id) AS oo'), 'oo.order_product_id', '=', 'p.order_product_id')
                     ->groupBy('p.model', 'oo.variation')
                     ->orderByDesc('qty_sold')->orderByDesc('revenue')->orderBy('name')
                     ->limit($limit)

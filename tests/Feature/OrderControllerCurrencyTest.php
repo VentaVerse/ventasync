@@ -285,7 +285,7 @@ class OrderControllerCurrencyTest extends TestCase
         $lineBefore = DB::table('order_products')->where('order_id', $order->order_id)->first();
         $this->assertNotNull($lineBefore, 'sanity: the order must start with a line item');
 
-        $optionId = DB::table('order_options')->insertGetId([
+        $variationTypeId = DB::table('order_variations')->insertGetId([
             'order_id'                => $order->order_id,
             'order_product_id'        => $lineBefore->order_product_id,
             'product_variation_type_id'       => 0,
@@ -314,8 +314,8 @@ class OrderControllerCurrencyTest extends TestCase
         $this->assertEqualsWithDelta((float) $lineBefore->cost, (float) $lineAfter->cost, 0.0001);
         $this->assertSame((int) $lineBefore->quantity, (int) $lineAfter->quantity);
 
-        $optionAfter = DB::table('order_options')->where('order_option_id', $optionId)->first();
-        $this->assertNotNull($optionAfter, 'order_option row must survive an update that omits products');
+        $optionAfter = DB::table('order_variations')->where('order_variation_id', $variationTypeId)->first();
+        $this->assertNotNull($optionAfter, 'order_variation row must survive an update that omits products');
         $this->assertSame('Red', $optionAfter->value);
 
         $order->refresh();

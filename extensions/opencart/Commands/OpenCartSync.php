@@ -6,7 +6,7 @@ use Extensions\OpenCart\Models\OpenCartStore;
 use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
 use Extensions\OpenCart\Services\OpenCart\OpenCartCategorySync;
 use Extensions\OpenCart\Services\OpenCart\OpenCartBrandSync;
-use Extensions\OpenCart\Services\OpenCart\OpenCartOptionSync;
+use Extensions\OpenCart\Services\OpenCart\OpenCartVariationTypeSync;
 use Extensions\OpenCart\Services\OpenCart\OpenCartOrderSync;
 use Extensions\OpenCart\Services\OpenCart\OpenCartProductSync;
 use Illuminate\Console\Command;
@@ -14,7 +14,7 @@ use Illuminate\Console\Command;
 class OpenCartSync extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     protected $signature = 'opencart:sync
-        {entity : Entity to sync (products|orders|categories|brands|options|all)}
+        {entity : Entity to sync (products|orders|categories|brands|variations|all)}
         {--store= : Store ID (ch_opencart_stores.id). Omit to sync all enabled stores}
         {--full : Full sync (ignore last sync timestamp)}
         {--page=1 : Start page for resuming interrupted imports}
@@ -27,7 +27,7 @@ class OpenCartSync extends Command implements \App\Channels\Contracts\SteppableA
     public function handle(): int
     {
         $storeId = $this->option('store');
-        $entity = $this->argument('entity') === 'manufacturers' ? 'brands' : $this->argument('entity');
+        $entity = ['manufacturers' => 'brands', 'options' => 'variations'][$this->argument('entity')] ?? $this->argument('entity');
 
         if ($storeId) {
             $settings = OpenCartStore::where('id', (int) $storeId)
@@ -77,13 +77,13 @@ class OpenCartSync extends Command implements \App\Channels\Contracts\SteppableA
         $this->info('Connected. Store: ' . ($info['store'] ?? '?') . ', Version: ' . ($info['version'] ?? '?'));
 
         $entities = $entity === 'all'
-            ? ['categories', 'brands', 'options', 'products', 'orders']
+            ? ['categories', 'brands', 'variations', 'products', 'orders']
             : [$entity];
 
         $categoryMap = [];
         $brandMap = [];
-        $optionMap = [];
-        $optionValueMap = [];
+        $variationTypeMap = [];
+        $variationValueMap = [];
 
         foreach ($entities as $e) {
             $this->newLine();
@@ -104,20 +104,20 @@ class OpenCartSync extends Command implements \App\Channels\Contracts\SteppableA
                     $brandMap = $result['map'];
                     break;
 
-                case 'options':
-                    $sync = new OpenCartOptionSync($client, $store);
+                case 'variations':
+                    $sync = new OpenCartVariationTypeSync($client, $store);
                     $result = $sync->pull();
                     $log = $result['log'];
-                    $optionMap = $result['optionMap'];
-                    $optionValueMap = $result['optionValueMap'];
+                    $variationTypeMap = $result['variationTypeMap'];
+                    $variationValueMap = $result['variationValueMap'];
                     break;
 
                 case 'products':
                     $sync = new OpenCartProductSync($client, $store);
                     $sync->setCategoryMap($categoryMap);
                     $sync->setBrandMap($brandMap);
-                    $sync->setOptionMap($optionMap);
-                    $sync->setOptionValueMap($optionValueMap);
+                    $sync->setVariationTypeMap($variationTypeMap);
+                    $sync->setVariationValueMap($variationValueMap);
                     $productId = $this->option('product-id') ? (int) $this->option('product-id') : null;
                     $log = $sync->pull(null, $full, $productId);
                     break;

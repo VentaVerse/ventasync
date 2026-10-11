@@ -328,8 +328,8 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
             }
         }
 
-        if (!empty($skuChanges['option_skus'])) {
-            foreach ($skuChanges['option_skus'] as $povId => $change) {
+        if (!empty($skuChanges['variation_skus'])) {
+            foreach ($skuChanges['variation_skus'] as $povId => $change) {
                 $old = $change['old'];
                 $new = $change['new'];
 

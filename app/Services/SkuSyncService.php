@@ -9,7 +9,7 @@ class SkuSyncService
 {
     public function syncSkuChanges(int $productId, array $skuChanges): array
     {
-        if (empty($skuChanges['product_sku']) && empty($skuChanges['option_skus'])) {
+        if (empty($skuChanges['product_sku']) && empty($skuChanges['variation_skus'])) {
             return [];
         }
 

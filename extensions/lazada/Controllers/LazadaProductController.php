@@ -477,7 +477,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
         $rowTitles = \App\Channels\Listings\ListingContent::rowTitles($products, $listingsById);
 
         $productThumbsById = collect();
-        $optionRowsByProductId = collect();
+        $variationRowsByProductId = collect();
         if (!empty($pageIds)) {
             $marks = new \App\Channels\Listings\ListingMarks(
                 'lazada', \App\Channels\Listings\ListingStore::id('lazada'),
@@ -490,7 +490,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
 
                 return [(int) $r->product_id => $marked ?? $this->images()->toDisplayImageUrl($r->image ?? null)];
             });
-            $optionRowsByProductId = \App\Support\VariationRows::forListing($pageIds, 'lazada', (int) (LazadaStore::defaultStore()?->id ?? 0));
+            $variationRowsByProductId = \App\Support\VariationRows::forListing($pageIds, 'lazada', (int) (LazadaStore::defaultStore()?->id ?? 0));
         }
 
         if ($liveCounts !== null) {
@@ -547,11 +547,11 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
             'listingStates' => $listingStates,
             'rowErrors' => $rowErrors,
             'productThumbsById' => $productThumbsById,
-            'optionRowsByProductId' => $optionRowsByProductId,
+            'variationRowsByProductId' => $variationRowsByProductId,
             'allGroups' => $allGroups,
             'allBrands' => $allBrands,
             'order' => $order,
-            'orderOptions' => \App\Channels\Listings\ListingSort::options(array_keys($sortMenu)),
+            'orderVariations' => \App\Channels\Listings\ListingSort::options(array_keys($sortMenu)),
             'sort' => $sort,
             'dir' => $dir,
             'q' => $q,
@@ -1146,7 +1146,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
         }
 
         if (empty($allSkus)) {
-            $this->persistProductSyncStatus($listing, 'sync_lazada_id', ['ok' => false, 'body' => ['code' => 'MISSING_SKU', 'message' => 'ERP product has no SKU (main or option values).']]);
+            $this->persistProductSyncStatus($listing, 'sync_lazada_id', ['ok' => false, 'body' => ['code' => 'MISSING_SKU', 'message' => 'ERP product has no SKU (main or variation SKUs).']]);
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Sync Lazada ID: product has no SKU.');
         }
@@ -1709,7 +1709,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
             }
 
             if (empty($allSkus)) {
-                $this->persistProductSyncStatus($listing, 'bulk_sync_lazada_id', ['ok' => false, 'body' => ['code' => 'MISSING_SKU', 'message' => 'ERP product has no SKU (main or option values).']]);
+                $this->persistProductSyncStatus($listing, 'bulk_sync_lazada_id', ['ok' => false, 'body' => ['code' => 'MISSING_SKU', 'message' => 'ERP product has no SKU (main or variation SKUs).']]);
                 $errCount++;
                 continue;
             }
@@ -2105,8 +2105,8 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                 'pov.sku',
                 'pov.quantity',
                 'pov.absolute_price',
-                'od.name as option_name',
-                'ovd.name as option_value_name',
+                'od.name as variation_type_name',
+                'ovd.name as variation_value_name',
             ]);
 
         $variantMap = LazadaListingVariation::query()

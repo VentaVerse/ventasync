@@ -129,8 +129,8 @@ return new class extends Migration
             $table->index(['supplier_id'], 'order_products_supplier_id_index');
         });
 
-        Schema::create('order_options', function (Blueprint $table) {
-            $table->integer('order_option_id', true);
+        Schema::create('order_variations', function (Blueprint $table) {
+            $table->integer('order_variation_id', true);
             $table->integer('order_id');
             $table->integer('order_product_id');
             $table->integer('product_variation_type_id');
@@ -138,10 +138,10 @@ return new class extends Migration
             $table->string('name', 255);
             $table->text('value');
             $table->string('type', 32);
-            $table->index(['order_id'], 'order_options_order_id_index');
-            $table->index(['order_product_id'], 'order_options_order_product_id_index');
-            $table->index(['product_variation_type_id'], 'order_options_product_variation_type_id_index');
-            $table->index(['product_variation_value_id'], 'order_options_product_variation_value_id_index');
+            $table->index(['order_id'], 'order_variations_order_id_index');
+            $table->index(['order_product_id'], 'order_variations_order_product_id_index');
+            $table->index(['product_variation_type_id'], 'order_variations_product_variation_type_id_index');
+            $table->index(['product_variation_value_id'], 'order_variations_product_variation_value_id_index');
         });
 
         Schema::create('order_totals', function (Blueprint $table) {
@@ -202,7 +202,7 @@ return new class extends Migration
         Schema::dropIfExists('order_fees');
         Schema::dropIfExists('order_history');
         Schema::dropIfExists('order_totals');
-        Schema::dropIfExists('order_options');
+        Schema::dropIfExists('order_variations');
         Schema::dropIfExists('order_products');
         Schema::dropIfExists('orders');
         Schema::dropIfExists('order_statuses');

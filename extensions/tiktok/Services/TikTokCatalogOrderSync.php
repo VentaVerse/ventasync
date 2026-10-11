@@ -6,7 +6,7 @@ use Extensions\TikTok\Models\TikTokOrder;
 use Extensions\TikTok\Models\TikTokOrderStatusMap;
 use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderHistory;
-use App\Models\Catalog\OrderOption;
+use App\Models\Catalog\OrderVariation;
 use App\Models\Catalog\OrderProduct;
 use App\Models\Catalog\OrderTotal;
 use App\Services\OrderStockService;
@@ -187,7 +187,7 @@ class TikTokCatalogOrderSync
             }
 
             OrderProduct::where('order_id', $catalogOrder->order_id)->delete();
-            OrderOption::where('order_id', $catalogOrder->order_id)->delete();
+            OrderVariation::where('order_id', $catalogOrder->order_id)->delete();
 
             $subTotal = 0;
             $shippingTotal = 0;
@@ -226,7 +226,7 @@ class TikTokCatalogOrderSync
                 $lineTotalBase = \App\Services\OrderCurrencyService::toBase($lineTotal, $rate);
 
                 $resolvedProductId = 0;
-                $resolvedOptionValueId = 0;
+                $resolvedVariationValueId = 0;
                 $sellerSku = $item['sku'];
                 if ($sellerSku !== '') {
                     $pov = DB::table('product_variation_values')
@@ -234,7 +234,7 @@ class TikTokCatalogOrderSync
                         ->first();
                     if ($pov) {
                         $resolvedProductId = (int) $pov->product_id;
-                        $resolvedOptionValueId = (int) $pov->product_variation_value_id;
+                        $resolvedVariationValueId = (int) $pov->product_variation_value_id;
                     }
 
                     if ($resolvedProductId === 0) {
@@ -247,14 +247,14 @@ class TikTokCatalogOrderSync
                     }
                 }
 
-                if ($resolvedProductId > 0 && $resolvedOptionValueId === 0) {
+                if ($resolvedProductId > 0 && $resolvedVariationValueId === 0) {
                     $variation = trim($item['variation'] ?? '');
                     if ($variation !== '') {
-                        $resolvedOptionValueId = $this->resolveOptionByVariation( $resolvedProductId, $variation);
+                        $resolvedVariationValueId = $this->resolveOptionByVariation( $resolvedProductId, $variation);
                     }
                 }
 
-                $productCost = \App\Support\LineCost::resolve((int) $resolvedProductId, (int) $resolvedOptionValueId);
+                $productCost = \App\Support\LineCost::resolve((int) $resolvedProductId, (int) $resolvedVariationValueId);
 
                 $op = OrderProduct::create([
                     'order_id'      => $catalogOrder->order_id,
@@ -274,11 +274,11 @@ class TikTokCatalogOrderSync
                 ]);
 
                 if ($item['variation'] && trim($item['variation']) !== '') {
-                    OrderOption::create([
+                    OrderVariation::create([
                         'order_id'                => $catalogOrder->order_id,
                         'order_product_id'        => $op->order_product_id,
                         'product_variation_type_id'       => 0,
-                        'product_variation_value_id' => $resolvedOptionValueId,
+                        'product_variation_value_id' => $resolvedVariationValueId,
                         'name'                    => 'Variation',
                         'value'                   => $item['variation'],
                         'type'                    => 'text',

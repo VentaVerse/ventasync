@@ -283,7 +283,7 @@ class LazadaController extends Controller
         $name = (string) $store->store_name;
         $id = (int) $store->id;
         $removed = $deleter->delete($store);
-        \App\Services\ActivityLogger::log('lazada.store.deleted', 'ch_lazada_stores', $id, $name, ['removed' => $removed]);
+        \App\Services\ActivityLogger::log('lazada.store.deleted', 'Lazada Store', $id, $name, ['removed' => $removed]);
 
         return redirect()->route('channels.index')
             ->with('status', "Deleted Lazada store {$name}. Sales already imported keep its name.");
@@ -1745,20 +1745,20 @@ class LazadaController extends Controller
                 'pov.quantity',
                 'pov.price',
                 'pov.price_prefix',
-                'od.name as option_name',
-                'ovd.name as option_value_name',
+                'od.name as variation_type_name',
+                'ovd.name as variation_value_name',
             ]);
 
-        $options = [];
+        $variationTypes = [];
         foreach ($rows as $r) {
-            $optName = html_entity_decode((string)$r->option_name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            $valName = html_entity_decode((string)$r->option_value_name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $typeName = html_entity_decode((string)$r->variation_type_name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $valName = html_entity_decode((string)$r->variation_value_name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-            if (!isset($options[$optName])) {
-                $options[$optName] = [];
+            if (!isset($variationTypes[$typeName])) {
+                $variationTypes[$typeName] = [];
             }
 
-            $options[$optName][] = [
+            $variationTypes[$typeName][] = [
                 'variation_type_id' => (int)$r->variation_type_id,
                 'variation_value_id' => (int)$r->variation_value_id,
                 'name' => $valName,
@@ -1769,7 +1769,7 @@ class LazadaController extends Controller
             ];
         }
 
-        $skuRows = $this->buildVariantSkus($baseSku, $basePrice, $baseQty, $options);
+        $skuRows = $this->buildVariantSkus($baseSku, $basePrice, $baseQty, $variationTypes);
 
         return [
             'Request' => [
@@ -1789,9 +1789,9 @@ class LazadaController extends Controller
         ];
     }
 
-    private function buildVariantSkus(string $baseSku, float $basePrice, int $baseQty, array $options): array
+    private function buildVariantSkus(string $baseSku, float $basePrice, int $baseQty, array $variationTypes): array
     {
-        if (count($options) === 0) {
+        if (count($variationTypes) === 0) {
             return [[
                 'SellerSku' => $baseSku,
                 'quantity' => $baseQty,
@@ -1799,8 +1799,8 @@ class LazadaController extends Controller
             ]];
         }
 
-        $groups = array_values($options);
-        $groupNames = array_keys($options);
+        $groups = array_values($variationTypes);
+        $groupNames = array_keys($variationTypes);
 
         if (count($groups) === 1) {
             $out = [];

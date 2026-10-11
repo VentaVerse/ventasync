@@ -312,7 +312,7 @@ class TikTokProductGroupController extends Controller
                 'pivotMap'             => collect(),
                 'truthByProductId'     => collect(),
                 'manualIds'            => [],
-                'optionRowsByProductId' => collect(),
+                'variationRowsByProductId' => collect(),
                 'q'                    => '',
                 'syncStatus'           => 'all',
                 'erpStatus'            => 'all',
@@ -354,7 +354,7 @@ class TikTokProductGroupController extends Controller
                 'pivotMap'             => $pivotMap,
                 'truthByProductId'     => collect(),
                 'manualIds'            => $group->groupProducts()->pluck('product_id')->toArray(),
-                'optionRowsByProductId' => collect(),
+                'variationRowsByProductId' => collect(),
                 'q'                    => $q,
                 'syncStatus'           => $syncStatus,
                 'erpStatus'            => $erpStatus,
@@ -420,7 +420,7 @@ class TikTokProductGroupController extends Controller
         $manualIds = $group->groupProducts()->pluck('product_id')->toArray();
 
         $pageIds = $products->pluck('product_id')->all();
-        $optionRowsByProductId = \App\Support\VariationRows::forListing($pageIds, 'tiktok', (int) (\Extensions\TikTok\Models\TikTokStore::defaultStore()?->id ?? 0));
+        $variationRowsByProductId = \App\Support\VariationRows::forListing($pageIds, 'tiktok', (int) (\Extensions\TikTok\Models\TikTokStore::defaultStore()?->id ?? 0));
 
         $rowTitles = \App\Channels\Listings\ListingContent::rowTitles($products, TikTokListing::query()
             ->forStore((int) $group->store_id)
@@ -434,9 +434,9 @@ class TikTokProductGroupController extends Controller
             'pivotMap'             => $pivotMap,
             'truthByProductId'     => $truthByProductId,
             'manualIds'            => $manualIds,
-            'optionRowsByProductId' => $optionRowsByProductId,
+            'variationRowsByProductId' => $variationRowsByProductId,
             'order' => $order,
-            'orderOptions' => \App\Channels\Listings\ListingSort::options(array_keys($sortMenu)),
+            'orderVariations' => \App\Channels\Listings\ListingSort::options(array_keys($sortMenu)),
             'listingStates'        => app(\Extensions\TikTok\Services\TikTok\TikTokListingStates::class)
                 ->forProducts(array_map('intval', $pageIds)),
             'rowErrors'            => app(\Extensions\TikTok\Services\TikTok\TikTokListingStates::class)

@@ -16,10 +16,10 @@ class ProductListVariationsTest extends TestCase
     {
         $view = $this->listView();
 
-        $this->assertStringContainsString('@foreach($p->option_rows ?? [] as $or)', $view);
+        $this->assertStringContainsString('@foreach($p->variation_rows ?? [] as $or)', $view);
         $this->assertStringContainsString('<tr class="bl-varrow">', $view);
 
-        $this->assertStringContainsString('$or->option_value_name', $view);
+        $this->assertStringContainsString('$or->variation_value_name', $view);
         $this->assertStringContainsString('$or->sku', $view);
         $this->assertStringContainsString('$or->option_image', $view);
         $this->assertStringContainsString('$or->quantity', $view);

@@ -7,14 +7,14 @@ use Extensions\OpenCart\Models\OpenCartSyncLog;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class OpenCartOptionSync
+class OpenCartVariationTypeSync
 {
     private OpenCartClient $client;
     private OpenCartStore $store;
 
-    private array $optionMap = [];
+    private array $variationTypeMap = [];
 
-    private array $optionValueMap = [];
+    private array $variationValueMap = [];
 
     public function __construct(OpenCartClient $client, OpenCartStore $store)
     {
@@ -26,7 +26,7 @@ class OpenCartOptionSync
     {
         $log = OpenCartSyncLog::create([
             'store_id' => $this->store->id,
-            'entity_type' => 'option',
+            'entity_type' => 'variation',
             'direction'   => 'pull',
             'status'      => 'started',
             'started_at'  => now(),
@@ -64,29 +64,29 @@ class OpenCartOptionSync
                         ->first();
 
                     if ($existing) {
-                        $coreOptionId = (int) $existing->variation_type_id;
+                        $coreVariationTypeId = (int) $existing->variation_type_id;
                         DB::table('variation_types')
-                            ->where('variation_type_id', $coreOptionId)
+                            ->where('variation_type_id', $coreVariationTypeId)
                             ->update([
                                 'type'       => $raw['type'] ?? 'select',
                                 'sort_order' => (int) ($raw['sort_order'] ?? 0),
                             ]);
                         $updated++;
                     } else {
-                        $coreOptionId = DB::table('variation_types')->insertGetId([
+                        $coreVariationTypeId = DB::table('variation_types')->insertGetId([
                             'type'       => $raw['type'] ?? 'select',
                             'sort_order' => (int) ($raw['sort_order'] ?? 0),
                         ], 'variation_type_id');
 
                         DB::table('variation_type_descriptions')->insert([
-                            'variation_type_id'   => $coreOptionId,
+                            'variation_type_id'   => $coreVariationTypeId,
                             'language_id' => $langId,
                             'name'        => $name,
                         ]);
                         $created++;
                     }
 
-                    $this->optionMap[$ocOptionId] = $coreOptionId;
+                    $this->variationTypeMap[$ocOptionId] = $coreVariationTypeId;
 
                     $values = $raw['values'] ?? [];
                     foreach ($values as $val) {
@@ -101,7 +101,7 @@ class OpenCartOptionSync
                                 $join->on('ov.variation_value_id', '=', 'ovd.variation_value_id')
                                     ->where('ovd.language_id', '=', $langId);
                             })
-                            ->where('ov.variation_type_id', $coreOptionId)
+                            ->where('ov.variation_type_id', $coreVariationTypeId)
                             ->where('ovd.name', $valName)
                             ->select('ov.variation_value_id')
                             ->first();
@@ -116,7 +116,7 @@ class OpenCartOptionSync
                                 ]);
                         } else {
                             $coreValueId = DB::table('variation_values')->insertGetId([
-                                'variation_type_id'  => $coreOptionId,
+                                'variation_type_id'  => $coreVariationTypeId,
                                 'image'      => $val['image'] ?? '',
                                 'sort_order' => (int) ($val['sort_order'] ?? 0),
                             ], 'variation_value_id');
@@ -124,12 +124,12 @@ class OpenCartOptionSync
                             DB::table('variation_value_descriptions')->insert([
                                 'variation_value_id' => $coreValueId,
                                 'language_id'     => $langId,
-                                'variation_type_id'       => $coreOptionId,
+                                'variation_type_id'       => $coreVariationTypeId,
                                 'name'            => $valName,
                             ]);
                         }
 
-                        $this->optionValueMap[$ocValueId] = $coreValueId;
+                        $this->variationValueMap[$ocValueId] = $coreValueId;
                     }
                 } catch (\Throwable $e) {
                     $failed++;
@@ -155,23 +155,23 @@ class OpenCartOptionSync
                 'error_message' => $e->getMessage(),
                 'completed_at'  => now(),
             ]);
-            Log::error('OpenCart option sync failed', ['error' => $e->getMessage()]);
+            Log::error('OpenCart variation sync failed', ['error' => $e->getMessage()]);
         }
 
         return [
             'log'            => $log,
-            'optionMap'      => $this->optionMap,
-            'optionValueMap' => $this->optionValueMap,
+            'variationTypeMap'      => $this->variationTypeMap,
+            'variationValueMap' => $this->variationValueMap,
         ];
     }
 
-    public function getOptionMap(): array
+    public function getVariationTypeMap(): array
     {
-        return $this->optionMap;
+        return $this->variationTypeMap;
     }
 
-    public function getOptionValueMap(): array
+    public function getVariationValueMap(): array
     {
-        return $this->optionValueMap;
+        return $this->variationValueMap;
     }
 }

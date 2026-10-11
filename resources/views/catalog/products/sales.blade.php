@@ -101,10 +101,10 @@
                 <td data-label="Channel"><x-ui.badge :tone="$chanTone" :dot="false">{{ $chanLabel }}</x-ui.badge></td>
                 <td data-label="Product">
                     <div class="co-item__name">{{ $s->name }}</div>
-                    @if(count($s->options))
+                    @if(count($s->variations))
                         <div class="co-item__meta">
-                            @foreach($s->options as $opt)
-                                <span class="co-item__var">{{ $opt->name }}: {{ $opt->value }}</span>
+                            @foreach($s->variations as $variation)
+                                <span class="co-item__var">{{ $variation->name }}: {{ $variation->value }}</span>
                             @endforeach
                         </div>
                     @endif

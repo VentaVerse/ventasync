@@ -237,7 +237,7 @@ class ShopeeVariationRename
             return $fits[$best];
         }
 
-        return ['refused' => 'the item\'s SKUs do not show which of its variation types is which Master Catalog option'];
+        return ['refused' => 'the item\'s SKUs do not show which of its variation types is which Master Catalog variation type'];
     }
 
     private function orders(array $axisIds): array
@@ -275,7 +275,7 @@ class ShopeeVariationRename
             ->orderBy('pov.product_variation_value_id')
             ->get([
                 'cv.product_variation_id', 'pov.product_variation_type_id', 'pov.product_variation_value_id',
-                'ovd.name as value_name', 'od.name as option_name',
+                'ovd.name as value_name', 'od.name as variation_type_name',
             ]);
 
         $skuOf = [];
@@ -292,7 +292,7 @@ class ShopeeVariationRename
         foreach ($rows as $r) {
             $axisId = (int) $r->product_variation_type_id;
             $povId = (int) $r->product_variation_value_id;
-            $axes[$axisId] ??= html_entity_decode((string) $r->option_name, ENT_QUOTES | ENT_HTML5, 'UTF-8') ?: 'Variation';
+            $axes[$axisId] ??= html_entity_decode((string) $r->variation_type_name, ENT_QUOTES | ENT_HTML5, 'UTF-8') ?: 'Variation';
             $values[$axisId][$povId] ??= html_entity_decode((string) $r->value_name, ENT_QUOTES | ENT_HTML5, 'UTF-8') ?: 'Unnamed';
             if (isset($skuOf[(int) $r->product_variation_id])) {
                 $bySku[$skuOf[(int) $r->product_variation_id]][$axisId] = $povId;

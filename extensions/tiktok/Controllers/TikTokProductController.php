@@ -314,7 +314,7 @@ class TikTokProductController extends Controller
 
         return view('ext-tiktok::products.index', [
             'order' => $order,
-            'orderOptions' => \App\Channels\Listings\ListingSort::options(array_keys($sortMenu)),
+            'orderVariations' => \App\Channels\Listings\ListingSort::options(array_keys($sortMenu)),
             'products' => $products,
             'rowTitles' => $rowTitles,
             'troubleFilter' => $troubleFilter,
@@ -327,7 +327,7 @@ class TikTokProductController extends Controller
             'allBrands' => DB::table('brands')->orderBy('name')->pluck('name', 'brand_id'),
             'allGroups' => TikTokProductGroup::query()->orderBy('name')->pluck('name', 'id'),
             'groupsByProductId' => $groupsByProductId,
-            'optionRowsByProductId' => \App\Support\VariationRows::forListing($pageIds, 'tiktok', (int) (TikTokStore::defaultStore()?->id ?? 0)),
+            'variationRowsByProductId' => \App\Support\VariationRows::forListing($pageIds, 'tiktok', (int) (TikTokStore::defaultStore()?->id ?? 0)),
             'listingsByProductId' => $listingsByProductId,
             'pivotTruth' => $pivotTruth,
             'lastAttempts' => $lastAttempts,

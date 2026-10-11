@@ -413,8 +413,8 @@ function initRuns(root, config) {
 }
 
 const STEP_DEPENDENCIES = {
-    options: ['categories', 'brands'],
-    products: ['options'],
+    variations: ['categories', 'brands'],
+    products: ['variations'],
     status_map: ['products'],
     orders: ['status_map'],
 };

@@ -84,7 +84,7 @@ class OrderController extends Controller
                 'order_status_id'      => (int) $order->order_status_id,
                 'status_name'          => $order->status->name ?? '',
                 'date_added'           => $order->date_added,
-                'marketplace_source'   => self::resolveSourceLabel($order->channel ?? '', $ocStoreNames),
+                'channel'              => self::resolveSourceLabel($order->channel ?? '', $ocStoreNames),
                 'marketplace_order_id' => $order->marketplace_order_id ?? '',
                 'store_id'             => self::storeIdOf($order->channel ?? '', $order->store_id),
                 'store_name'           => (string) ($order->store_name ?? ''),
@@ -103,7 +103,7 @@ class OrderController extends Controller
 
     private function showPayload(Order $order): array
     {
-        $products = $order->products()->with('options')->get();
+        $products = $order->products()->with('variations')->get();
         $totals = $order->totals()->orderBy('sort_order')->get();
         $history = OrderHistory::where('order_id', (int) $order->order_id)
             ->with('status')
@@ -137,7 +137,7 @@ class OrderController extends Controller
                 'tracking_number'    => $order->tracking_number ?? '',
                 'date_added'         => $order->date_added,
                 'date_modified'      => $order->date_modified,
-                'marketplace_source'   => self::resolveSourceLabel($order->channel ?? '', $ocStoreNames),
+                'channel'              => self::resolveSourceLabel($order->channel ?? '', $ocStoreNames),
                 'marketplace_order_id' => $order->marketplace_order_id ?? '',
                 'store_id'             => self::storeIdOf($order->channel ?? '', $order->store_id),
                 'store_name'           => (string) ($order->store_name ?? ''),
@@ -152,7 +152,7 @@ class OrderController extends Controller
                     'price'    => (float) $p->price,
                     'total'    => (float) $p->total,
                     'image'    => $productImages[$p->order_product_id] ?? null,
-                    'options'  => $p->options->map(fn ($o) => [
+                    'variations' => $p->variations->map(fn ($o) => [
                         'name'  => $o->name,
                         'value' => $o->value,
                     ]),

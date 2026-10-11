@@ -154,7 +154,7 @@
                 </div>
                 <p class="fm-section__note">Add a variation and this product's quantity becomes the total of its variation quantities. Every variation needs its own SKU.</p>
 
-                @include('catalog.products.partials.options_fields')
+                @include('catalog.products.partials.variations_fields')
             </section>
         </div>
 

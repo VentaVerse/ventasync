@@ -23,6 +23,8 @@ Every channel table starts with `ch_`, so a channel's tables sit together.
 
 Marketplace ids keep the marketplace's own name, so they match its API documentation: `shopee_model_id`, `tiktok_sku_id`.
 
+An option and a variation are the same thing. "Option" is OpenCart's word, carried into VentaSync from it; VentaSync uses "variation" in its code, tables and screens because more sellers know it. `option` remains only in other systems' own field names: OpenCart's options, Shopee's tier `option_list`, the `option` of a WooCommerce or Shopify attribute, and the VentaCart storefront's `option_name`.
+
 ## Spelling and naming
 
 - American English everywhere: catalog, color, recognize, behavior. A test checks this.

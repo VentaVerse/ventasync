@@ -182,23 +182,23 @@ class TikTokItemImport
         $data = ['sku' => ''];
         if (count($axes) === 2) {
             $uniq = fn (string $axis) => array_values(array_unique(array_filter(array_map(fn ($s) => $valueOf($s, $axis), $skus))));
-            $data['option1_name'] = $axes[0];
-            $data['option2_name'] = $axes[1];
-            $data['option1_values'] = $uniq($axes[0]);
-            $data['option2_values'] = $uniq($axes[1]);
+            $data['type1_name'] = $axes[0];
+            $data['type2_name'] = $axes[1];
+            $data['type1_values'] = $uniq($axes[0]);
+            $data['type2_values'] = $uniq($axes[1]);
             $data['combinations'] = array_map(fn ($s) => $rowFor($s) + [
                 'opt1' => $valueOf($s, $axes[0]),
                 'opt2' => $valueOf($s, $axes[1]),
             ], $skus);
         } else {
-            $data['option_name'] = $axes[0];
+            $data['variation_type_name'] = $axes[0];
             $data['values'] = array_map(function ($s, $i) use ($rowFor, $valueOf, $axes) {
                 return $rowFor($s) + ['name' => $valueOf($s, $axes[0]) ?: trim((string) ($s['seller_sku'] ?? '')) ?: ('Variation ' . ($i + 1))];
             }, $skus, array_keys($skus));
         }
 
         app(\App\Http\Controllers\Catalog\ProductController::class)
-            ->saveAbsoluteOptions($productId, Request::create('/', 'POST', $data));
+            ->saveAbsoluteVariations($productId, Request::create('/', 'POST', $data));
     }
 
     private function downloadImages(array $urls, string $productId): array

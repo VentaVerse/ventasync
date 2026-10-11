@@ -121,9 +121,9 @@ class VentaCartItemImport
         }
 
         app(\App\Http\Controllers\Catalog\ProductController::class)
-            ->saveAbsoluteOptions($productId, Request::create('/', 'POST', [
+            ->saveAbsoluteVariations($productId, Request::create('/', 'POST', [
                 'sku' => $parentSku,
-                'option_name' => 'Variation',
+                'variation_type_name' => 'Variation',
                 'values' => $values,
             ]));
     }

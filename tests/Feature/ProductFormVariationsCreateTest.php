@@ -31,7 +31,7 @@ class ProductFormVariationsCreateTest extends TestCase
             'cost_amount' => '100', 'cost_percentage' => '10', 'cost_additional' => '5',
             'description' => 'A plain description.',
             'images_json' => '["catalog/demo.jpg"]',
-            '_options_format' => 'absolute',
+            '_variations_format' => 'absolute',
         ], $overrides);
     }
 
@@ -54,7 +54,7 @@ class ProductFormVariationsCreateTest extends TestCase
     public function test_the_form_saves_one_variation_type_as_before(): void
     {
         $this->actingAs($this->manager())->post(route('products.store'), $this->payload([
-            'option_name' => 'Size',
+            'variation_type_name' => 'Size',
             'values' => [
                 ['name' => 'Small', 'sku' => 'FORM-TEE-S', 'quantity' => '4', 'absolute_price' => '500',
                  'cost_amount' => '200', 'image' => 'catalog/small.jpg'],
@@ -85,8 +85,8 @@ class ProductFormVariationsCreateTest extends TestCase
             $this->assertSame(1, DB::table('product_variation_parts')->where('product_variation_id', $combo->id)->count());
         }
 
-        $optionId = (int) $povs['FORM-TEE-S']->variation_type_id;
-        $this->assertSame('Size', DB::table('variation_type_descriptions')->where('variation_type_id', $optionId)->value('name'));
+        $variationTypeId = (int) $povs['FORM-TEE-S']->variation_type_id;
+        $this->assertSame('Size', DB::table('variation_type_descriptions')->where('variation_type_id', $variationTypeId)->value('name'));
     }
 
     public function test_the_form_saves_two_variation_types_as_before(): void
@@ -96,8 +96,8 @@ class ProductFormVariationsCreateTest extends TestCase
         ];
 
         $this->actingAs($this->manager())->post(route('products.store'), $this->payload([
-            'option1_name' => 'Size', 'option2_name' => 'Color',
-            'option1_values' => ['S', 'L'], 'option2_values' => ['Red', 'Blue'],
+            'type1_name' => 'Size', 'type2_name' => 'Color',
+            'type1_values' => ['S', 'L'], 'type2_values' => ['Red', 'Blue'],
             'combinations' => [
                 $row('S', 'Red', 'FT-S-R', '1', '500') + ['image' => 'catalog/s-red.jpg'],
                 $row('S', 'Blue', 'FT-S-B', '2', '500'),
@@ -127,14 +127,14 @@ class ProductFormVariationsCreateTest extends TestCase
     {
         $this->actingAs($this->manager())->post(route('products.store'), $this->payload([
             'sku' => 'FORM-TEE-2',
-            'option_name' => 'Size',
+            'variation_type_name' => 'Size',
             'values' => [
                 ['name' => 'Small', 'sku' => 'FORM-DUP', 'quantity' => '1', 'absolute_price' => '500'],
                 ['name' => 'Large', 'sku' => 'form-dup', 'quantity' => '1', 'absolute_price' => '500'],
             ],
-        ]))->assertSessionHasErrors('option_sku');
+        ]))->assertSessionHasErrors('variation_sku');
 
-        $this->assertSame('Duplicate SKU "form-dup" within this product\'s options.', session('errors')->first('option_sku'));
+        $this->assertSame('Duplicate SKU "form-dup" within this product\'s variations.', session('errors')->first('variation_sku'));
         $this->assertSame(0, $this->productId('FORM-TEE-2'), 'nothing was created');
     }
 }

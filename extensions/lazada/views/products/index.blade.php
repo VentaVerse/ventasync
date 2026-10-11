@@ -191,8 +191,8 @@
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
 
-    @if(!empty($orderOptions))
-        @include('partials.listing-sort', ['options' => $orderOptions, 'chosen' => $order])
+    @if(!empty($orderVariations))
+        @include('partials.listing-sort', ['options' => $orderVariations, 'chosen' => $order])
     @endif
 
     <x-ui.button type="submit" variant="secondary">Search</x-ui.button>
@@ -332,7 +332,7 @@
             $hasSyncInfo = !is_null($row->last_synced_at) || !is_null($row->last_sync_ok);
             $syncFailed = $hasSyncInfo && !is_null($row->last_sync_ok) && !$row->last_sync_ok;
 
-            $optRows = isset($optionRowsByProductId) ? $optionRowsByProductId->get($pid) : null;
+            $optRows = isset($variationRowsByProductId) ? $variationRowsByProductId->get($pid) : null;
             $variationCount = $optRows ? count($optRows) : 0;
 
             $editUrl = route('ext.lazada.products.edit', ['productId' => $pid, 'back' => request()->getRequestUri()]);

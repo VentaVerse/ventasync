@@ -13,7 +13,7 @@ class ProductVariationController extends Controller
 {
     public function edit(int $id)
     {
-        return redirect()->route('products.edit', ['id' => $id, 'tab' => 'options']);
+        return redirect()->route('products.edit', ['id' => $id, 'tab' => 'variations']);
     }
 
     public function update(Request $request, int $id)
@@ -21,19 +21,19 @@ class ProductVariationController extends Controller
         Product::query()->where('product_id', $id)->firstOrFail();
         $langId = (int) config('catalog.default_language_id');
 
-        $hasCombinations = $request->has('combinations') && $request->has('option2_name');
+        $hasCombinations = $request->has('combinations') && $request->has('type2_name');
 
         if ($hasCombinations) {
-            return $this->updateTwoOption($request, $id, $langId);
+            return $this->updateTwoTypes($request, $id, $langId);
         }
 
-        return $this->updateOneOption($request, $id, $langId);
+        return $this->updateOneType($request, $id, $langId);
     }
 
-    private function updateOneOption(Request $request, int $id, int $langId)
+    private function updateOneType(Request $request, int $id, int $langId)
     {
         $validated = $request->validate([
-            'option_name' => 'nullable|string|max:128',
+            'variation_type_name' => 'nullable|string|max:128',
             'values' => 'nullable|array',
             'values.*.name' => 'required|string|max:128',
             'values.*.sku' => 'nullable|string|max:64',
@@ -45,11 +45,11 @@ class ProductVariationController extends Controller
             'values.*.variation_value_id' => 'nullable|integer',
         ]);
 
-        $optionName = trim($validated['option_name'] ?? '');
+        $variationTypeName = trim($validated['variation_type_name'] ?? '');
         $values = $validated['values'] ?? [];
 
-        if ($optionName === '' || empty($values)) {
-            return $this->removeAllOptions( $id);
+        if ($variationTypeName === '' || empty($values)) {
+            return $this->removeAllVariations( $id);
         }
 
         $parentProduct = DB::table('products')->where('product_id', $id)->first(['price', 'sku']);
@@ -71,7 +71,7 @@ class ProductVariationController extends Controller
                 continue;
             }
             if (isset($seenSkus[$skuLower])) {
-                $skuErrors[] = "Duplicate SKU \"{$sku}\" within this product's options.";
+                $skuErrors[] = "Duplicate SKU \"{$sku}\" within this product's variations.";
                 continue;
             }
             $seenSkus[$skuLower] = true;
@@ -80,53 +80,53 @@ class ProductVariationController extends Controller
             });
         }
         if (!empty($skuErrors)) {
-            throw \Illuminate\Validation\ValidationException::withMessages(['option_sku' => $skuErrors]);
+            throw \Illuminate\Validation\ValidationException::withMessages(['variation_sku' => $skuErrors]);
         }
-        $skuChanges = ['product_sku' => null, 'option_skus' => []];
+        $skuChanges = ['product_sku' => null, 'variation_skus' => []];
         $variationsBefore = \App\Services\VariationForgetService::snapshot($id);
 
-        DB::transaction(function () use ( $id, $langId, $optionName, $values, $basePrice, &$skuChanges) {
-            $optionId = $this->resolveOptionId( $langId, $optionName);
+        DB::transaction(function () use ( $id, $langId, $variationTypeName, $values, $basePrice, &$skuChanges) {
+            $variationTypeId = $this->resolveOptionId( $langId, $variationTypeName);
 
             $existingPo = DB::table('product_variation_types')
                 ->where('product_id', $id)
                 ->first();
 
-            if ($existingPo && (int) $existingPo->variation_type_id === $optionId) {
-                $productOptionId = (int) $existingPo->product_variation_type_id;
+            if ($existingPo && (int) $existingPo->variation_type_id === $variationTypeId) {
+                $productVariationTypeId = (int) $existingPo->product_variation_type_id;
             } elseif ($existingPo) {
-                $this->deleteProductOptionValues( $id, (int) $existingPo->product_variation_type_id);
+                $this->deleteProductVariationValues( $id, (int) $existingPo->product_variation_type_id);
                 DB::table('product_variation_types')->where('product_variation_type_id', $existingPo->product_variation_type_id)->delete();
-                $productOptionId = DB::table('product_variation_types')->insertGetId([
-                    'product_id' => $id, 'variation_type_id' => $optionId, 'value' => '', 'required' => 1,
+                $productVariationTypeId = DB::table('product_variation_types')->insertGetId([
+                    'product_id' => $id, 'variation_type_id' => $variationTypeId, 'value' => '', 'required' => 1,
                 ]);
             } else {
-                $productOptionId = DB::table('product_variation_types')->insertGetId([
-                    'product_id' => $id, 'variation_type_id' => $optionId, 'value' => '', 'required' => 1,
+                $productVariationTypeId = DB::table('product_variation_types')->insertGetId([
+                    'product_id' => $id, 'variation_type_id' => $variationTypeId, 'value' => '', 'required' => 1,
                 ]);
             }
 
             $existingPov = DB::table('product_variation_values')
                 ->where('product_id', $id)
-                ->where('product_variation_type_id', $productOptionId)
+                ->where('product_variation_type_id', $productVariationTypeId)
                 ->get()
                 ->keyBy('variation_value_id');
 
-            $seenOptionValueIds = [];
+            $seenVariationValueIds = [];
             $povIdMap = [];
 
             foreach ($values as $v) {
                 $valueName = trim($v['name']);
                 if ($valueName === '') continue;
 
-                $optionValueId = (int) ($v['variation_value_id'] ?? 0);
-                if ($optionValueId === 0) {
-                    $optionValueId = $this->resolveOptionValueId( $langId, $optionId, $valueName);
+                $variationValueId = (int) ($v['variation_value_id'] ?? 0);
+                if ($variationValueId === 0) {
+                    $variationValueId = $this->resolveVariationValueId( $langId, $variationTypeId, $valueName);
                 } else {
-                    $this->ensureOptionValueName( $langId, $optionValueId, $valueName);
+                    $this->ensureVariationValueName( $langId, $variationValueId, $valueName);
                 }
 
-                $seenOptionValueIds[] = $optionValueId;
+                $seenVariationValueIds[] = $variationValueId;
 
                 $absolutePrice = (float) ($v['absolute_price'] ?? 0);
                 $absoluteCost = (float) ($v['absolute_cost'] ?? 0);
@@ -150,8 +150,8 @@ class ProductVariationController extends Controller
                     'absolute_cost' => $absoluteCost,
                 ];
 
-                if (isset($existingPov[$optionValueId])) {
-                    $existing = $existingPov[$optionValueId];
+                if (isset($existingPov[$variationValueId])) {
+                    $existing = $existingPov[$variationValueId];
 
                     $oldSku = trim((string) ($existing->sku ?? ''));
                     $newSku = $data['sku'];
@@ -163,30 +163,30 @@ class ProductVariationController extends Controller
                             ->whereIn('lazada_listing_id', fn($q) => $q->select('id')->from('ch_lazada_listings')->where('product_id', $id))
                             ->where('seller_sku', $oldSku)
                             ->update(['seller_sku' => $newSku]);
-                        $skuChanges['option_skus'][(int) $existing->product_variation_value_id] = ['old' => $oldSku, 'new' => $newSku];
+                        $skuChanges['variation_skus'][(int) $existing->product_variation_value_id] = ['old' => $oldSku, 'new' => $newSku];
                     }
 
                     DB::table('product_variation_values')
                         ->where('product_variation_value_id', $existing->product_variation_value_id)
-                        ->update(array_merge($data, ['product_variation_type_id' => $productOptionId]));
+                        ->update(array_merge($data, ['product_variation_type_id' => $productVariationTypeId]));
 
-                    $povIdMap[$optionValueId] = (int) $existing->product_variation_value_id;
+                    $povIdMap[$variationValueId] = (int) $existing->product_variation_value_id;
                 } else {
                     $newPovId = DB::table('product_variation_values')->insertGetId(array_merge($data, [
-                        'product_variation_type_id' => $productOptionId,
+                        'product_variation_type_id' => $productVariationTypeId,
                         'product_id' => $id,
-                        'variation_type_id' => $optionId,
-                        'variation_value_id' => $optionValueId,
+                        'variation_type_id' => $variationTypeId,
+                        'variation_value_id' => $variationValueId,
                         'points' => 0, 'points_prefix' => '+',
                         'weight' => 0, 'weight_prefix' => '+',
                     ]));
-                    $povIdMap[$optionValueId] = $newPovId;
+                    $povIdMap[$variationValueId] = $newPovId;
                 }
             }
 
             $deletedPovIds = [];
             foreach ($existingPov as $ovId => $row) {
-                if (!in_array((int) $ovId, $seenOptionValueIds, true)) {
+                if (!in_array((int) $ovId, $seenVariationValueIds, true)) {
                     $deletedPovIds[] = (int) $row->product_variation_value_id;
                     DB::table('product_variation_values')
                         ->where('product_variation_value_id', $row->product_variation_value_id)
@@ -196,7 +196,7 @@ class ProductVariationController extends Controller
 
             $otherPo = DB::table('product_variation_types')
                 ->where('product_id', $id)
-                ->where('product_variation_type_id', '!=', $productOptionId)
+                ->where('product_variation_type_id', '!=', $productVariationTypeId)
                 ->get();
 
             foreach ($otherPo as $po) {
@@ -221,7 +221,7 @@ class ProductVariationController extends Controller
                 if ($valueName === '') continue;
                 $ovId = (int) ($v['variation_value_id'] ?? 0);
                 if ($ovId === 0) {
-                    $ovId = $this->resolveOptionValueId( $langId, $optionId, $valueName);
+                    $ovId = $this->resolveVariationValueId( $langId, $variationTypeId, $valueName);
                 }
                 $povId = $povIdMap[$ovId] ?? null;
                 if (!$povId) continue;
@@ -235,11 +235,11 @@ class ProductVariationController extends Controller
                     'absolute_cost' => (float) ($v['absolute_cost'] ?? 0),
                 ];
             }
-            $this->syncOneOptionCombinations($id, $resolvedValues);
+            $this->syncOneTypeCombinations($id, $resolvedValues);
         });
 
-        $status = 'Options saved';
-        if (!empty($skuChanges['option_skus'])) {
+        $status = 'Variations saved';
+        if (!empty($skuChanges['variation_skus'])) {
             $syncMessages = (new \App\Services\SkuSyncService())->syncSkuChanges($id, $skuChanges);
             if (!empty($syncMessages)) {
                 $status .= ' | SKU synced: ' . implode(' | ', $syncMessages);
@@ -254,15 +254,15 @@ class ProductVariationController extends Controller
         return redirect()->route('products.variations.edit', $id)->with('status', $status);
     }
 
-    private function updateTwoOption(Request $request, int $id, int $langId)
+    private function updateTwoTypes(Request $request, int $id, int $langId)
     {
         $validated = $request->validate([
-            'option1_name' => 'required|string|max:128',
-            'option1_values' => 'required|array|min:1',
-            'option1_values.*' => 'required|string|max:128',
-            'option2_name' => 'required|string|max:128',
-            'option2_values' => 'required|array|min:1',
-            'option2_values.*' => 'required|string|max:128',
+            'type1_name' => 'required|string|max:128',
+            'type1_values' => 'required|array|min:1',
+            'type1_values.*' => 'required|string|max:128',
+            'type2_name' => 'required|string|max:128',
+            'type2_values' => 'required|array|min:1',
+            'type2_values.*' => 'required|string|max:128',
             'combinations' => 'required|array|min:1',
             'combinations.*.opt1' => 'required|string|max:128',
             'combinations.*.opt2' => 'required|string|max:128',
@@ -302,17 +302,17 @@ class ProductVariationController extends Controller
             });
         }
         if (!empty($skuErrors)) {
-            throw \Illuminate\Validation\ValidationException::withMessages(['option_sku' => $skuErrors]);
+            throw \Illuminate\Validation\ValidationException::withMessages(['variation_sku' => $skuErrors]);
         }
 
         DB::transaction(function () use ( $id, $langId, $validated, $basePrice) {
-            $opt1Name = trim($validated['option1_name']);
-            $opt2Name = trim($validated['option2_name']);
-            $opt1Values = array_map('trim', $validated['option1_values']);
-            $opt2Values = array_map('trim', $validated['option2_values']);
+            $opt1Name = trim($validated['type1_name']);
+            $opt2Name = trim($validated['type2_name']);
+            $opt1Values = array_map('trim', $validated['type1_values']);
+            $opt2Values = array_map('trim', $validated['type2_values']);
 
-            $optionId1 = $this->resolveOptionId( $langId, $opt1Name);
-            $optionId2 = $this->resolveOptionId( $langId, $opt2Name);
+            $variationTypeId1 = $this->resolveOptionId( $langId, $opt1Name);
+            $variationTypeId2 = $this->resolveOptionId( $langId, $opt2Name);
 
             $existingPos = DB::table('product_variation_types')->where('product_id', $id)->get();
             $oldPovIds = [];
@@ -340,20 +340,20 @@ class ProductVariationController extends Controller
             DB::table('product_variations')->where('product_id', $id)->delete();
 
             $poId1 = DB::table('product_variation_types')->insertGetId([
-                'product_id' => $id, 'variation_type_id' => $optionId1, 'value' => '', 'required' => 1,
+                'product_id' => $id, 'variation_type_id' => $variationTypeId1, 'value' => '', 'required' => 1,
             ]);
             $poId2 = DB::table('product_variation_types')->insertGetId([
-                'product_id' => $id, 'variation_type_id' => $optionId2, 'value' => '', 'required' => 1,
+                'product_id' => $id, 'variation_type_id' => $variationTypeId2, 'value' => '', 'required' => 1,
             ]);
 
             $pov1Map = [];
             $pov2Map = [];
 
             foreach ($opt1Values as $vName) {
-                $ovId = $this->resolveOptionValueId( $langId, $optionId1, $vName);
+                $ovId = $this->resolveVariationValueId( $langId, $variationTypeId1, $vName);
                 $povId = DB::table('product_variation_values')->insertGetId([
                     'product_variation_type_id' => $poId1, 'product_id' => $id,
-                    'variation_type_id' => $optionId1, 'variation_value_id' => $ovId,
+                    'variation_type_id' => $variationTypeId1, 'variation_value_id' => $ovId,
                     'sku' => '', 'quantity' => 0, 'subtract' => 1,
                     'price' => 0, 'price_prefix' => '+', 'absolute_price' => 0,
                     'cost' => 0, 'cost_prefix' => '+', 'cost_amount' => 0,
@@ -364,10 +364,10 @@ class ProductVariationController extends Controller
             }
 
             foreach ($opt2Values as $vName) {
-                $ovId = $this->resolveOptionValueId( $langId, $optionId2, $vName);
+                $ovId = $this->resolveVariationValueId( $langId, $variationTypeId2, $vName);
                 $povId = DB::table('product_variation_values')->insertGetId([
                     'product_variation_type_id' => $poId2, 'product_id' => $id,
-                    'variation_type_id' => $optionId2, 'variation_value_id' => $ovId,
+                    'variation_type_id' => $variationTypeId2, 'variation_value_id' => $ovId,
                     'sku' => '', 'quantity' => 0, 'subtract' => 1,
                     'price' => 0, 'price_prefix' => '+', 'absolute_price' => 0,
                     'cost' => 0, 'cost_prefix' => '+', 'cost_amount' => 0,
@@ -429,9 +429,9 @@ class ProductVariationController extends Controller
             $this->backSyncPov( $pov2Agg, $basePrice);
         });
 
-        ActivityLogger::log('updated', 'Product Variations', $id, 'Product #' . $id . ': 2-option');
+        ActivityLogger::log('updated', 'Product Variations', $id, 'Product #' . $id . ': two variation types');
 
-        return redirect()->route('products.variations.edit', $id)->with('status', 'Options saved (2-option combination).');
+        return redirect()->route('products.variations.edit', $id)->with('status', 'Variations saved.');
     }
 
     private function backSyncPov( array $povAgg, float $basePrice): void
@@ -459,7 +459,7 @@ class ProductVariationController extends Controller
         }
     }
 
-    private function syncOneOptionCombinations(int $productId, array $resolvedValues): void
+    private function syncOneTypeCombinations(int $productId, array $resolvedValues): void
     {
         $now = now();
 
@@ -560,59 +560,59 @@ class ProductVariationController extends Controller
 
         if ($existing) return (int) $existing;
 
-        $optionId = DB::table('variation_types')->insertGetId([
+        $variationTypeId = DB::table('variation_types')->insertGetId([
             'type' => 'select', 'sort_order' => 0,
         ]);
 
         DB::table('variation_type_descriptions')->insert([
-            'variation_type_id' => $optionId, 'language_id' => $langId, 'name' => $name,
+            'variation_type_id' => $variationTypeId, 'language_id' => $langId, 'name' => $name,
         ]);
 
-        return $optionId;
+        return $variationTypeId;
     }
 
-    private function resolveOptionValueId( int $langId, int $optionId, string $name): int
+    private function resolveVariationValueId( int $langId, int $variationTypeId, string $name): int
     {
         $existing = DB::table('variation_values as ov')
             ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
                 $j->on('ov.variation_value_id', '=', 'ovd.variation_value_id')
                     ->where('ovd.language_id', '=', $langId);
             })
-            ->where('ov.variation_type_id', $optionId)
+            ->where('ov.variation_type_id', $variationTypeId)
             ->whereRaw('LOWER(ovd.name) = ?', [strtolower($name)])
             ->value('ov.variation_value_id');
 
         if ($existing) return (int) $existing;
 
-        $optionValueId = DB::table('variation_values')->insertGetId([
-            'variation_type_id' => $optionId, 'image' => '', 'sort_order' => 0,
+        $variationValueId = DB::table('variation_values')->insertGetId([
+            'variation_type_id' => $variationTypeId, 'image' => '', 'sort_order' => 0,
         ]);
 
         DB::table('variation_value_descriptions')->insert([
-            'variation_value_id' => $optionValueId,
+            'variation_value_id' => $variationValueId,
             'language_id' => $langId,
-            'variation_type_id' => $optionId,
+            'variation_type_id' => $variationTypeId,
             'name' => $name,
         ]);
 
-        return $optionValueId;
+        return $variationValueId;
     }
 
-    private function ensureOptionValueName( int $langId, int $optionValueId, string $name): void
+    private function ensureVariationValueName( int $langId, int $variationValueId, string $name): void
     {
         DB::table('variation_value_descriptions')
-            ->where('variation_value_id', $optionValueId)
+            ->where('variation_value_id', $variationValueId)
             ->where('language_id', $langId)
             ->update(['name' => $name]);
     }
 
-    private function deleteProductOptionValues( int $productId, int $productOptionId): void
+    private function deleteProductVariationValues( int $productId, int $productVariationTypeId): void
     {
         $povIds = DB::table('product_variation_values')
-            ->where('product_variation_type_id', $productOptionId)
+            ->where('product_variation_type_id', $productVariationTypeId)
             ->pluck('product_variation_value_id')->map(fn($v) => (int) $v)->all();
 
-        DB::table('product_variation_values')->where('product_variation_type_id', $productOptionId)->delete();
+        DB::table('product_variation_values')->where('product_variation_type_id', $productVariationTypeId)->delete();
 
         if (!empty($povIds)) {
             DB::table('ch_lazada_listing_variations')
@@ -622,7 +622,7 @@ class ProductVariationController extends Controller
         }
     }
 
-    private function removeAllOptions( int $id): \Illuminate\Http\RedirectResponse
+    private function removeAllVariations( int $id): \Illuminate\Http\RedirectResponse
     {
         DB::transaction(function () use ( $id) {
             $poIds = DB::table('product_variation_types')
@@ -652,8 +652,8 @@ class ProductVariationController extends Controller
             DB::table('product_variations')->where('product_id', $id)->delete();
         });
 
-        ActivityLogger::log('updated', 'Product Variations', $id, 'Product #' . $id . ': options removed');
+        ActivityLogger::log('updated', 'Product Variations', $id, 'Product #' . $id . ': variations removed');
 
-        return redirect()->route('products.variations.edit', $id)->with('status', 'All options removed.');
+        return redirect()->route('products.variations.edit', $id)->with('status', 'All variations removed.');
     }
 }

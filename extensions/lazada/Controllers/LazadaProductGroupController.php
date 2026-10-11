@@ -357,7 +357,7 @@ class LazadaProductGroupController extends Controller
             ->get()
             ->keyBy('product_id');
 
-        $optionRowsByProductId = \App\Support\VariationRows::forListing($pivotProductIds, 'lazada', (int) (\Extensions\Lazada\Models\LazadaStore::defaultStore()?->id ?? 0));
+        $variationRowsByProductId = \App\Support\VariationRows::forListing($pivotProductIds, 'lazada', (int) (\Extensions\Lazada\Models\LazadaStore::defaultStore()?->id ?? 0));
 
         $manualIds = $group->groupProducts()->whereNotNull('product_id')->pluck('product_id')->toArray();
 
@@ -373,11 +373,11 @@ class LazadaProductGroupController extends Controller
             'rowTitles' => $rowTitles,
             'pivotMap' => $pivotMap,
             'order' => $order,
-            'orderOptions' => \App\Channels\Listings\ListingSort::options(array_keys($sortMenu)),
+            'orderVariations' => \App\Channels\Listings\ListingSort::options(array_keys($sortMenu)),
             'listingStates' => app(\Extensions\Lazada\Services\Lazada\LazadaListingStates::class)
                 ->forProducts(array_map('intval', $pivotProductIds)),
             'rowErrors' => $states->errors(array_map('intval', $pivotProductIds)),
-            'optionRowsByProductId' => $optionRowsByProductId,
+            'variationRowsByProductId' => $variationRowsByProductId,
             'lazadaIdByProductId' => LazadaListing::query()
                 ->whereIn('product_id', $products->pluck('product_id')->all() ?: [0])
                 ->pluck('id', 'product_id'),

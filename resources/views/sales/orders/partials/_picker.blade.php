@@ -25,9 +25,9 @@
                 </div>
                 <p class="of-detail__price x-num" id="of-detail-price"></p>
 
-                <div class="of-detail__options" id="of-options" hidden>
+                <div class="of-detail__variations" id="of-variations" hidden>
                     <p class="of-detail__label">Variation</p>
-                    <div id="of-options-list"></div>
+                    <div id="of-variations-list"></div>
                 </div>
 
                 <div class="of-detail__foot">

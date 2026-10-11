@@ -44,9 +44,9 @@ export default function initProductSuppliers(root) {
     const defaultCurrency = root.dataset.defaultCurrency || '';
 
     let currencies = [];
-    let optionValues = [];
+    let variationValues = [];
     try { currencies = JSON.parse(root.dataset.currencies || '[]'); } catch (e) { currencies = []; }
-    try { optionValues = JSON.parse(root.dataset.optionValues || '[]'); } catch (e) { optionValues = []; }
+    try { variationValues = JSON.parse(root.dataset.variationValues || '[]'); } catch (e) { variationValues = []; }
 
     const descUrlTemplate = root.dataset.descUrl || '';
 
@@ -369,10 +369,10 @@ export default function initProductSuppliers(root) {
 
     const optRows = root.querySelector('[data-po-mx-opt-rows]');
     if (optRows) {
-        function buildOptionRows() {
+        function buildVariationRows() {
             optRows.textContent = '';
 
-            optionValues.forEach(function (ov) {
+            variationValues.forEach(function (ov) {
                 const row = el('div', 'po-mx-opt-row', { 'data-po-mx-opt-row': ov.id });
 
                 const what = el('span', 'po-mx-opt-row__what');
@@ -488,11 +488,11 @@ export default function initProductSuppliers(root) {
 
         if (bulkBtn) {
             bulkBtn.addEventListener('click', function () {
-                const options = [];
+                const variations = [];
 
                 optRows.querySelectorAll('[data-po-mx-opt-row]').forEach(function (row) {
                     if (!row.__supplier.value) return;
-                    options.push({
+                    variations.push({
                         product_variation_value_id: parseInt(row.dataset.poMxOptRow, 10),
                         supplier_id: parseInt(row.__supplier.value, 10),
                         currency_code: row.__currency.value,
@@ -502,7 +502,7 @@ export default function initProductSuppliers(root) {
                     });
                 });
 
-                if (!options.length) {
+                if (!variations.length) {
                     say('Pick a supplier for at least one variation.', 'fail');
                     return;
                 }
@@ -510,7 +510,7 @@ export default function initProductSuppliers(root) {
                 clearSay();
                 bulkBtn.disabled = true;
 
-                json(bulkUrl, 'POST', { options: options })
+                json(bulkUrl, 'POST', { variations: variations })
                     .then(function (res) {
                         bulkBtn.disabled = false;
                         if (!res.ok) {
@@ -536,7 +536,7 @@ export default function initProductSuppliers(root) {
             });
         }
 
-        buildOptionRows();
+        buildVariationRows();
     }
 }
 

@@ -165,7 +165,7 @@ class VentaCartProductPush
             return $variants;
         }
 
-        $optionValues = DB::table('product_variation_values as pov')
+        $variationValues = DB::table('product_variation_values as pov')
             ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
                 $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')->where('ovd.language_id', '=', $langId);
             })
@@ -178,11 +178,11 @@ class VentaCartProductPush
                 'pov.quantity as variant_qty', 'pov.price as variant_price',
                 'pov.price_prefix', 'pov.absolute_price',
                 'pov.cost as variant_cost', 'pov.cost_prefix', 'pov.absolute_cost',
-                'ovd.name as option_value_name', 'od.name as option_name',
+                'ovd.name as variation_value_name', 'od.name as variation_type_name',
             ]);
 
         $variants = [];
-        foreach ($optionValues as $ov) {
+        foreach ($variationValues as $ov) {
             if ((float) ($ov->absolute_price ?? 0) > 0) {
                 $variantPrice = (float) $ov->absolute_price;
             } else {
@@ -207,8 +207,8 @@ class VentaCartProductPush
 
             $variants[] = [
                 'sku'         => $ov->variant_sku ?: ($sku . '-' . $ov->product_variation_value_id),
-                'name'        => $ov->option_value_name,
-                'option_name' => $ov->option_name,
+                'name'        => $ov->variation_value_name,
+                'option_name' => $ov->variation_type_name,
                 'price'       => $price($variantPrice),
                 'cost'        => $variantCost,
                 'quantity'    => (int) $ov->variant_qty,
@@ -269,7 +269,7 @@ class VentaCartProductPush
                 $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')->where('ovd.language_id', '=', $langId);
             })
             ->whereIn('pocv.product_variation_id', $combos->pluck('id')->all())
-            ->get(['pocv.product_variation_id', 'pov.variation_type_id', 'od.name as option_name', 'ovd.name as value_name'])
+            ->get(['pocv.product_variation_id', 'pov.variation_type_id', 'od.name as variation_type_name', 'ovd.name as value_name'])
             ->groupBy('product_variation_id');
 
         if ($values->flatten(1)->pluck('variation_type_id')->unique()->count() !== 1) {
@@ -282,12 +282,12 @@ class VentaCartProductPush
             if (! $rows || $rows->count() !== 1) {
                 return [];
             }
-            $option = trim((string) $rows->first()->option_name);
+            $typeName = trim((string) $rows->first()->variation_type_name);
             $value = trim((string) $rows->first()->value_name);
-            if ($option === '' || $value === '') {
+            if ($typeName === '' || $value === '') {
                 return [];
             }
-            $names[$c->sku ?: ($sku . '-' . $c->id)] = ['option_name' => $option, 'name' => $value];
+            $names[$c->sku ?: ($sku . '-' . $c->id)] = ['option_name' => $typeName, 'name' => $value];
         }
 
         return $names;

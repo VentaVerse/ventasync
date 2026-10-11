@@ -74,7 +74,7 @@ class LazadaListingReadiness
             })
             ->whereIn('pov.product_id', $productIds)
             ->orderBy('pov.product_variation_value_id')
-            ->get(['pov.product_id', 'pov.product_variation_value_id', 'pov.variation_type_id', 'pov.sku', 'pov.absolute_price', 'od.name as option_name'])
+            ->get(['pov.product_id', 'pov.product_variation_value_id', 'pov.variation_type_id', 'pov.sku', 'pov.absolute_price', 'od.name as variation_type_name'])
             ->groupBy('product_id');
         $combosByProduct = DB::table('product_variations')
             ->whereIn('product_id', $productIds)
@@ -177,9 +177,9 @@ class LazadaListingReadiness
         $prices = [];
 
         if ($povRows->count() > 0) {
-            $optionIds = $povRows->pluck('variation_type_id')->filter()->unique()->values();
+            $variationTypeIds = $povRows->pluck('variation_type_id')->filter()->unique()->values();
 
-            if ($combos->isEmpty() && $optionIds->count() > 1) {
+            if ($combos->isEmpty() && $variationTypeIds->count() > 1) {
                 $gaps[] = ['code' => ListingState::GAP_VARIATIONS, 'label' => 'its variation combinations stored (re-save the product to build them)'];
             } elseif ($combos->isNotEmpty()) {
                 $keys = $template && $listing->primary_category_id

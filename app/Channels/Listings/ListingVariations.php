@@ -130,7 +130,7 @@ final class ListingVariations
             }
             $named = [];
             foreach ($names->get((int) $pid) ?? [] as $row) {
-                $named[self::key($row->sku ?? '')] = trim((string) ($row->option_value_name ?? ''));
+                $named[self::key($row->sku ?? '')] = trim((string) ($row->variation_value_name ?? ''));
             }
 
             $gap = [];

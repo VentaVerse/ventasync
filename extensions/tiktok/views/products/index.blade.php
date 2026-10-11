@@ -165,8 +165,8 @@
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
-    @if(!empty($orderOptions))
-        @include('partials.listing-sort', ['options' => $orderOptions, 'chosen' => $order])
+    @if(!empty($orderVariations))
+        @include('partials.listing-sort', ['options' => $orderVariations, 'chosen' => $order])
     @endif
 
     <x-ui.button type="submit" variant="secondary">Search</x-ui.button>
@@ -272,7 +272,7 @@
             $listed = (bool) $ttId;
             $attempt = $lastAttempts->get($pid);
             $pGroups = $groupsByProductId->get($pid, []);
-            $optRows = $optionRowsByProductId->get($pid);
+            $optRows = $variationRowsByProductId->get($pid);
             $img = trim((string) ($p->image ?? ''));
             $thumbSrc = $marks->thumb((int) $p->product_id, $img) ?? '';
             $rowLiveStatus = null;

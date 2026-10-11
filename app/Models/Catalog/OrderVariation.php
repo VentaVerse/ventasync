@@ -2,11 +2,11 @@
 
 namespace App\Models\Catalog;
 
-class OrderOption extends BaseModel
+class OrderVariation extends BaseModel
 {
-    protected $table = 'order_options';
+    protected $table = 'order_variations';
 
-    protected $primaryKey = 'order_option_id';
+    protected $primaryKey = 'order_variation_id';
 
     protected $fillable = [
         'order_id',

@@ -247,7 +247,7 @@ class VentaCartProductGroupController extends Controller
                 'group'                => $g,
                 'products'             => new \Illuminate\Pagination\LengthAwarePaginator([], 0, 50),
                 'rowTitles'            => [],
-                'optionRowsByProductId' => collect(),
+                'variationRowsByProductId' => collect(),
                 'manualIds'            => [],
             ]);
         }
@@ -329,7 +329,7 @@ class VentaCartProductGroupController extends Controller
         $products = $query->paginate(50)->withQueryString();
 
         $paginatedIds = $products->pluck('product_id')->toArray();
-        $optionRowsByProductId = \App\Support\VariationRows::forListing($paginatedIds, 'ventacart', $store);
+        $variationRowsByProductId = \App\Support\VariationRows::forListing($paginatedIds, 'ventacart', $store);
 
         $manualIds = $g->products()->pluck('product_id')->toArray();
 
@@ -343,9 +343,9 @@ class VentaCartProductGroupController extends Controller
             'group'                => $g,
             'products'             => $products,
             'rowTitles'            => $rowTitles,
-            'optionRowsByProductId' => $optionRowsByProductId,
+            'variationRowsByProductId' => $variationRowsByProductId,
             'order' => $order,
-            'orderOptions' => \App\Channels\Listings\ListingSort::options(array_keys($sortMenu)),
+            'orderVariations' => \App\Channels\Listings\ListingSort::options(array_keys($sortMenu)),
             'listingStates'        => \Extensions\VentaCart\Services\VentaCart\VentaCartListingStates::for((int) $setting->id)->forProducts(array_map('intval', $paginatedIds)),
             'rowErrors'            => \Extensions\VentaCart\Services\VentaCart\VentaCartListingStates::for((int) $setting->id)->errors(array_map('intval', $paginatedIds)),
             'manualIds'            => $manualIds,

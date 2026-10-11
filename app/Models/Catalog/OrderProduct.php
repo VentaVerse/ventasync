@@ -30,8 +30,8 @@ class OrderProduct extends BaseModel
         return $this->belongsTo(Order::class, 'order_id', 'order_id');
     }
 
-    public function options()
+    public function variations()
     {
-        return $this->hasMany(OrderOption::class, 'order_product_id', 'order_product_id');
+        return $this->hasMany(OrderVariation::class, 'order_product_id', 'order_product_id');
     }
 }

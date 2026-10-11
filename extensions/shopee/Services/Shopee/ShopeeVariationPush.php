@@ -128,7 +128,7 @@ class ShopeeVariationPush
 
         if (count($axisIds) !== count($shopeeTiers)) {
             return ['ok' => false, 'message' => 'The Master Catalog arranges this product in ' . count($axisIds)
-                . ' option ' . (count($axisIds) === 1 ? 'axis' : 'axes') . ' but the Shopee listing has ' . count($shopeeTiers)
+                . ' variation type' . (count($axisIds) === 1 ? '' : 's') . ' but the Shopee listing has ' . count($shopeeTiers)
                 . ' tier' . (count($shopeeTiers) === 1 ? '' : 's') . '. Restructuring a live listing is not safe to do blind - adjust it in Seller Centre, then press Re-read variations.', 'added' => 0];
         }
 
@@ -165,7 +165,7 @@ class ShopeeVariationPush
                 $valueName = trim((string) ($comboValues[(int) $combo->id][$axisId] ?? ''));
                 if ($valueName === '') {
                     return ['ok' => false, 'message' => 'Variation ' . trim((string) $combo->sku)
-                        . ' is missing a value on one of its option axes, so it cannot be placed on the tiers. Fix the variation in the Master Catalog first.', 'added' => 0];
+                        . ' is missing a value on one of its variation types, so it cannot be placed on the tiers. Fix the variation in the Master Catalog first.', 'added' => 0];
                 }
                 $found = null;
                 foreach ($newTiers[$tierN]['option_list'] as $i => $entry) {
@@ -470,7 +470,7 @@ class ShopeeVariationPush
             ->orderBy('pov.product_variation_value_id')
             ->get([
                 'cv.product_variation_id', 'pov.product_variation_type_id', 'pov.product_variation_value_id',
-                'ovd.name as value_name', 'od.name as option_name',
+                'ovd.name as value_name', 'od.name as variation_type_name',
             ]);
 
         $axes = [];
@@ -479,7 +479,7 @@ class ShopeeVariationPush
             $axisId = (int) $v->product_variation_type_id;
             if (!isset($axes[$axisId])) {
                 $axes[$axisId] = [
-                    'name' => html_entity_decode((string) $v->option_name, ENT_QUOTES | ENT_HTML5, 'UTF-8') ?: 'Variation',
+                    'name' => html_entity_decode((string) $v->variation_type_name, ENT_QUOTES | ENT_HTML5, 'UTF-8') ?: 'Variation',
                     'options' => [],
                 ];
             }
@@ -497,7 +497,7 @@ class ShopeeVariationPush
             return null;
         }
         if (count($axes) > 2) {
-            return ['refused' => 'Shopee supports at most two variation tiers; this product has ' . count($axes) . ' option axes.'];
+            return ['refused' => 'Shopee supports at most two variation tiers; this product has ' . count($axes) . ' variation types.'];
         }
 
         $axisIds = array_keys($axes);

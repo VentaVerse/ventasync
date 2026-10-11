@@ -41,11 +41,11 @@
                                 <option value="">Not set</option>
                                 @foreach($options as $option)
                                     @php
-                                        $optionValue = is_array($option)
+                                        $variationValue = is_array($option)
                                             ? (string) ($option['name'] ?? $option['label'] ?? $option['value'] ?? '')
                                             : (string) $option;
                                     @endphp
-                                    <option value="{{ $optionValue }}" @selected((string) $value === $optionValue)>{{ $optionValue }}</option>
+                                    <option value="{{ $variationValue }}" @selected((string) $value === $variationValue)>{{ $variationValue }}</option>
                                 @endforeach
                             </select>
                             <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />

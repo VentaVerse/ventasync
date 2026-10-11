@@ -227,7 +227,7 @@
                 </div>
                 <p class="fm-section__note">With variations, this product's quantity is the total of its variation quantities. A variation can go negative if it is oversold. Every variation needs its own SKU.</p>
 
-                @include('catalog.products.partials.options_fields')
+                @include('catalog.products.partials.variations_fields')
             </section>
         </div>
 

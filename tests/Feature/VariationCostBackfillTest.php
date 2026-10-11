@@ -28,9 +28,9 @@ class VariationCostBackfillTest extends TestCase
             'product_id' => $this->productId, 'language_id' => $langId, 'name' => 'Valeton GP-200',
             'description' => '', 'tag' => '', 'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '',
         ]);
-        $optionId = DB::table('variation_types')->insertGetId(['type' => 'select', 'sort_order' => 0]);
-        $productOptionId = DB::table('product_variation_types')->insertGetId([
-            'product_id' => $this->productId, 'variation_type_id' => $optionId, 'value' => '', 'required' => 0,
+        $variationTypeId = DB::table('variation_types')->insertGetId(['type' => 'select', 'sort_order' => 0]);
+        $productVariationTypeId = DB::table('product_variation_types')->insertGetId([
+            'product_id' => $this->productId, 'variation_type_id' => $variationTypeId, 'value' => '', 'required' => 0,
         ]);
 
         $rows = [
@@ -40,10 +40,10 @@ class VariationCostBackfillTest extends TestCase
             'old'   => ['absolute_price' => 21990, 'cost_amount' => 0, 'cost_additional' => 0, 'absolute_cost' => 9800, 'cost' => 0],
         ];
         foreach ($rows as $key => $cols) {
-            $ovId = DB::table('variation_values')->insertGetId(['variation_type_id' => $optionId, 'image' => '', 'sort_order' => 0]);
+            $ovId = DB::table('variation_values')->insertGetId(['variation_type_id' => $variationTypeId, 'image' => '', 'sort_order' => 0]);
             $this->pov[$key] = DB::table('product_variation_values')->insertGetId(array_merge([
-                'product_variation_type_id' => $productOptionId, 'product_id' => $this->productId,
-                'variation_type_id' => $optionId, 'variation_value_id' => $ovId, 'sku' => 'gp-' . $key, 'quantity' => 0,
+                'product_variation_type_id' => $productVariationTypeId, 'product_id' => $this->productId,
+                'variation_type_id' => $variationTypeId, 'variation_value_id' => $ovId, 'sku' => 'gp-' . $key, 'quantity' => 0,
                 'cost_percentage' => 0, 'cost_prefix' => '+',
             ], $cols));
             $this->combo[$key] = DB::table('product_variations')->insertGetId([

@@ -174,23 +174,23 @@ class LazadaItemImport
 
         $data = ['sku' => ''];
         if (count($axes) === 2) {
-            $data['option1_name'] = ucfirst(str_replace('_', ' ', $axes[0]));
-            $data['option2_name'] = ucfirst(str_replace('_', ' ', $axes[1]));
-            $data['option1_values'] = $axisValues($axes[0]);
-            $data['option2_values'] = $axisValues($axes[1]);
+            $data['type1_name'] = ucfirst(str_replace('_', ' ', $axes[0]));
+            $data['type2_name'] = ucfirst(str_replace('_', ' ', $axes[1]));
+            $data['type1_values'] = $axisValues($axes[0]);
+            $data['type2_values'] = $axisValues($axes[1]);
             $data['combinations'] = array_map(fn ($s) => $rowFor($s) + [
                 'opt1' => trim((string) data_get($s, 'saleProp.' . $axes[0], '')),
                 'opt2' => trim((string) data_get($s, 'saleProp.' . $axes[1], '')),
             ], $skus);
         } else {
-            $data['option_name'] = ucfirst(str_replace('_', ' ', $axes[0]));
+            $data['variation_type_name'] = ucfirst(str_replace('_', ' ', $axes[0]));
             $data['values'] = array_map(fn ($s) => $rowFor($s) + [
                 'name' => trim((string) data_get($s, 'saleProp.' . $axes[0], '')) ?: trim((string) ($s['SellerSku'] ?? '')),
             ], $skus);
         }
 
         app(\App\Http\Controllers\Catalog\ProductController::class)
-            ->saveAbsoluteOptions($productId, Request::create('/', 'POST', $data));
+            ->saveAbsoluteVariations($productId, Request::create('/', 'POST', $data));
     }
 
     private function downloadImages(array $urls, string $itemId, string $suffix = ''): array

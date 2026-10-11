@@ -4,7 +4,7 @@ namespace Extensions\VentaCart\Services\VentaCart;
 
 use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderHistory;
-use App\Models\Catalog\OrderOption;
+use App\Models\Catalog\OrderVariation;
 use App\Models\Catalog\OrderProduct;
 use App\Models\Catalog\OrderTotal;
 use App\Services\OrderStockService;
@@ -453,7 +453,7 @@ class VentaCartOrderSync
 
             $items = $raw['items'] ?? [];
             DB::table('order_products')->where('order_id', $coreOrderId)->delete();
-            DB::table('order_options')->where('order_id', $coreOrderId)->delete();
+            DB::table('order_variations')->where('order_id', $coreOrderId)->delete();
 
             $subTotal = 0;
             foreach ($items as $item) {
@@ -467,7 +467,7 @@ class VentaCartOrderSync
                 $lineTotalBase = \App\Services\OrderCurrencyService::toBase($lineTotal, $rate);
 
                 $resolvedProductId = 0;
-                $resolvedOptionValueId = 0;
+                $resolvedVariationValueId = 0;
 
                 if ($sku !== '') {
                     $pov = DB::table('product_variation_values')
@@ -475,7 +475,7 @@ class VentaCartOrderSync
                         ->first();
                     if ($pov) {
                         $resolvedProductId = (int) $pov->product_id;
-                        $resolvedOptionValueId = (int) $pov->product_variation_value_id;
+                        $resolvedVariationValueId = (int) $pov->product_variation_value_id;
                     }
 
                     if ($resolvedProductId === 0) {
@@ -488,7 +488,7 @@ class VentaCartOrderSync
                                 ->where('product_variation_id', $combo->product_variation_id)
                                 ->first(['product_variation_value_id']);
                             if ($comboValue) {
-                                $resolvedOptionValueId = (int) $comboValue->product_variation_value_id;
+                                $resolvedVariationValueId = (int) $comboValue->product_variation_value_id;
                             }
                         }
                     }
@@ -513,7 +513,7 @@ class VentaCartOrderSync
                     }
                 }
 
-                $productCost = \App\Support\LineCost::resolve((int) $resolvedProductId, (int) $resolvedOptionValueId);
+                $productCost = \App\Support\LineCost::resolve((int) $resolvedProductId, (int) $resolvedVariationValueId);
 
                 $opId = DB::table('order_products')->insertGetId([
                     'order_id'      => $coreOrderId,
@@ -532,12 +532,12 @@ class VentaCartOrderSync
 
                 $variantLabel = trim($item['variant_label'] ?? '');
                 if ($variantLabel !== '') {
-                    DB::table('order_options')->insert([
+                    DB::table('order_variations')->insert([
                         'order_id'                 => $coreOrderId,
                         'order_product_id'         => $opId,
                         'product_variation_type_id'        => 0,
-                        'product_variation_value_id'  => $resolvedOptionValueId,
-                        'name'                     => 'Option',
+                        'product_variation_value_id'  => $resolvedVariationValueId,
+                        'name'                     => 'Variation',
                         'value'                    => $variantLabel,
                         'type'                     => 'text',
                     ]);

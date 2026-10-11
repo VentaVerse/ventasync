@@ -519,7 +519,7 @@ public function buildAuthUrl(ShopeeClient $client)
         $name = (string) $store->store_name;
         $id = (int) $store->id;
         $removed = $deleter->delete($store);
-        \App\Services\ActivityLogger::log('shopee.store.deleted', 'ch_shopee_stores', $id, $name, ['removed' => $removed]);
+        \App\Services\ActivityLogger::log('shopee.store.deleted', 'Shopee Store', $id, $name, ['removed' => $removed]);
 
         return redirect()->route('channels.index')
             ->with('status', "Deleted Shopee store {$name}. Sales already imported keep its name.");

@@ -381,8 +381,8 @@
                                     @if(trim((string) $p->model) !== '')
                                         <span class="co-item__sku">{{ $p->model }}</span>
                                     @endif
-                                    @foreach($p->options as $opt)
-                                        <span class="co-item__var">{{ $opt->name }}: {{ $opt->value }}</span>
+                                    @foreach($p->variations as $variation)
+                                        <span class="co-item__var">{{ $variation->name }}: {{ $variation->value }}</span>
                                     @endforeach
                                 </div>
                             </div>

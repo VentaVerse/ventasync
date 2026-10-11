@@ -33,12 +33,12 @@ class OpenCartItemImport
         $name = trim(html_entity_decode((string) ($item['name'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?: ('OpenCart product ' . $ocProductId);
         $sku = trim((string) ($item['sku'] ?? '')) ?: trim((string) ($item['model'] ?? ''));
 
-        $optionValues = array_values((array) ($item['option_values'] ?? []));
-        $optionNames = array_values(array_unique(array_map(fn ($v) => trim((string) ($v['option_name'] ?? '')), $optionValues)));
-        $multiOption = count($optionNames) > 1;
+        $variationValues = array_values((array) ($item['option_values'] ?? []));
+        $typeNames = array_values(array_unique(array_map(fn ($v) => trim((string) ($v['option_name'] ?? '')), $variationValues)));
+        $multiType = count($typeNames) > 1;
 
         try {
-            $productId = DB::transaction(function () use ( $langId, $item, $optionValues, $multiOption, $name, $sku, $store, $ocProductId) {
+            $productId = DB::transaction(function () use ( $langId, $item, $variationValues, $multiType, $name, $sku, $store, $ocProductId) {
                 $productId = DB::table('products')->insertGetId([
                     'model' => trim((string) ($item['model'] ?? '')) ?: $sku,
                     'sku' => $sku,
@@ -84,8 +84,8 @@ class OpenCartItemImport
                     }
                 }
 
-                if ($optionValues !== [] && ! $multiOption) {
-                    $this->writeVariations($productId, $sku, (float) ($item['price'] ?? 0), $optionValues);
+                if ($variationValues !== [] && ! $multiType) {
+                    $this->writeVariations($productId, $sku, (float) ($item['price'] ?? 0), $variationValues);
                 }
 
                 OpenCartListingLink::updateOrCreate(
@@ -105,16 +105,16 @@ class OpenCartItemImport
             'ok' => true,
             'product_id' => $productId,
             'message' => "Imported \"{$name}\" as Master Catalog product #{$productId}"
-                . ($optionValues !== [] && ! $multiOption ? ' with ' . count($optionValues) . ' variations' : '')
-                . ($multiOption ? ' (its ' . count($optionNames) . ' independent option sets could not be carried; set variations up by hand)' : '')
+                . ($variationValues !== [] && ! $multiType ? ' with ' . count($variationValues) . ' variations' : '')
+                . ($multiType ? ' (its ' . count($typeNames) . ' independent option sets could not be carried; set variations up by hand)' : '')
                 . ', linked to ' . ($store->store_name ?: 'OpenCart') . '.' . (\App\Support\Catalog\SkuFallback::note($minted) !== '' ? ' ' . \App\Support\Catalog\SkuFallback::note($minted) : ''),
         ];
     }
 
-    private function writeVariations(int $productId, string $parentSku, float $basePrice, array $optionValues): void
+    private function writeVariations(int $productId, string $parentSku, float $basePrice, array $variationValues): void
     {
         $values = [];
-        foreach ($optionValues as $i => $v) {
+        foreach ($variationValues as $i => $v) {
             $delta = (float) ($v['price'] ?? 0);
             $absolute = ((string) ($v['price_prefix'] ?? '+')) === '-' ? $basePrice - $delta : $basePrice + $delta;
             $values[] = [
@@ -129,9 +129,9 @@ class OpenCartItemImport
         }
 
         app(\App\Http\Controllers\Catalog\ProductController::class)
-            ->saveAbsoluteOptions($productId, Request::create('/', 'POST', [
+            ->saveAbsoluteVariations($productId, Request::create('/', 'POST', [
                 'sku' => $parentSku,
-                'option_name' => trim((string) ($optionValues[0]['option_name'] ?? '')) ?: 'Variation',
+                'variation_type_name' => trim((string) ($variationValues[0]['option_name'] ?? '')) ?: 'Variation',
                 'values' => $values,
             ]));
     }

@@ -29,14 +29,14 @@ class UniqueSku implements ValidationRule
             return;
         }
 
-        $optionQuery = DB::table('product_variation_values as pov')
+        $variationQuery = DB::table('product_variation_values as pov')
             ->join('products as pp', 'pp.product_id', '=', 'pov.product_id')
             ->where('pov.sku', $sku);
         if ($this->excludeProductId) {
-            $optionQuery->where('pov.product_id', '!=', $this->excludeProductId);
+            $variationQuery->where('pov.product_id', '!=', $this->excludeProductId);
         }
-        if ($optionHolderId = $optionQuery->value('pov.product_id')) {
-            $fail("The SKU \"{$sku}\" is already used by a variation of " . $this->productName((int) $optionHolderId) . '.');
+        if ($variationHolderId = $variationQuery->value('pov.product_id')) {
+            $fail("The SKU \"{$sku}\" is already used by a variation of " . $this->productName((int) $variationHolderId) . '.');
             return;
         }
 

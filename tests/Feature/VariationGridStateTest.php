@@ -9,7 +9,7 @@ class VariationGridStateTest extends TestCase
 {
     private function source(): string
     {
-        return File::get(base_path('resources/views/catalog/products/partials/options_fields.blade.php'));
+        return File::get(base_path('resources/views/catalog/products/partials/variations_fields.blade.php'));
     }
 
     public function test_the_grid_is_read_back_in_the_shape_it_was_drawn(): void

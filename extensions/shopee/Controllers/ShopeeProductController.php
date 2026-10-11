@@ -378,7 +378,7 @@ class ShopeeProductController extends Controller
                 ->groupBy(fn($l) => (int) $l->product_id);
         }
 
-        $optionRowsByProductId = \App\Support\VariationRows::forListing($pageIds, 'shopee', (int) (ShopeeStore::defaultStore()?->id ?? 0));
+        $variationRowsByProductId = \App\Support\VariationRows::forListing($pageIds, 'shopee', (int) (ShopeeStore::defaultStore()?->id ?? 0));
 
         if ($liveCounts !== null && $shopeeLinks->isNotEmpty()) {
             $fillError = null;
@@ -435,7 +435,7 @@ class ShopeeProductController extends Controller
             'sort' => $sort,
             'dir' => $dir,
             'order' => $order,
-            'orderOptions' => \App\Channels\Listings\ListingSort::options(array_keys($sortMenu)),
+            'orderVariations' => \App\Channels\Listings\ListingSort::options(array_keys($sortMenu)),
             'syncStatus' => $syncStatus,
             'brandFilter' => $brandFilter,
             'groupFilter' => $groupFilter,
@@ -443,7 +443,7 @@ class ShopeeProductController extends Controller
             'allBrands' => $allBrands,
             'allGroups' => $allGroups,
             'groupsByProductId' => $pageGroupMap,
-            'optionRowsByProductId' => $optionRowsByProductId,
+            'variationRowsByProductId' => $variationRowsByProductId,
             'shopeeTab' => $shopeeTab,
             'liveCounts' => $liveCounts,
             'liveTabError' => $liveTabError,
@@ -1692,11 +1692,11 @@ class ShopeeProductController extends Controller
         if ($mainModel !== '' && !in_array($mainModel, $allSkus)) $allSkus[] = $mainModel;
         if ($mainSku !== '' && !in_array($mainSku, $allSkus)) $allSkus[] = $mainSku;
 
-        Log::info("$tag ERP product fields: model: '$mainModel', sku: '$mainSku', option_skus: " . json_encode($ovSkus));
+        Log::info("$tag ERP product fields: model: '$mainModel', sku: '$mainSku', variation_skus: " . json_encode($ovSkus));
         Log::info("$tag Looking for these SKUs: " . json_encode($allSkus));
 
         if (empty($allSkus)) {
-            return redirect()->back()->with('error', 'Product has no SKU (main or option values).');
+            return redirect()->back()->with('error', 'Product has no SKU (main or variation SKUs).');
         }
 
         $lcSkus = array_map('strtolower', $allSkus);
@@ -1706,7 +1706,7 @@ class ShopeeProductController extends Controller
             ->get();
 
         if ($cacheHits->isNotEmpty()) {
-            $hasOptions = !empty($ovSkus);
+            $hasVariations = !empty($ovSkus);
             $linkedAny = false;
             $cacheItemId = null;
             $cacheItemName = null;
@@ -1714,13 +1714,13 @@ class ShopeeProductController extends Controller
             foreach ($cacheHits as $hit) {
                 $isParent = ($hit->shopee_model_id === null);
 
-                if ($isParent && $hasOptions) {
+                if ($isParent && $hasVariations) {
                     $hasModelEntries = ShopeeItemCache::query()
                         ->where('shopee_item_id', $hit->shopee_item_id)
                         ->whereNotNull('shopee_model_id')
                         ->exists();
                     if ($hasModelEntries) {
-                        Log::info("$tag Cache: skipping parent hit (item {$hit->shopee_item_id}, sku: {$hit->sku}), ERP has option SKUs");
+                        Log::info("$tag Cache: skipping parent hit (item {$hit->shopee_item_id}, sku: {$hit->sku}), ERP has variation SKUs");
                         continue;
                     }
                 }
@@ -1817,8 +1817,8 @@ class ShopeeProductController extends Controller
                     );
 
                     if (in_array(strtolower($itemSku), $lcSkus)) {
-                        $erpHasOptions = $hasModel && !empty($ovSkus);
-                        if (!$erpHasOptions) {
+                        $erpHasVariations = $hasModel && !empty($ovSkus);
+                        if (!$erpHasVariations) {
                             ShopeeListingLink::create([
                                 'product_id' => $productId, 'shopee_item_id' => $itemId,
                                 'shopee_model_id' => null, 'sku' => $itemSku,
@@ -1827,7 +1827,7 @@ class ShopeeProductController extends Controller
                             return redirect()->back()
                                 ->with('status', "Linked to Shopee item {$itemId} \"{$itemName}\" (SKU: {$itemSku}).");
                         }
-                        Log::info("$tag item_sku '$itemSku' matches but ERP has option SKUs, deferring to model-level matching");
+                        Log::info("$tag item_sku '$itemSku' matches but ERP has variation SKUs, deferring to model-level matching");
                     }
                 }
 

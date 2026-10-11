@@ -43,7 +43,7 @@ class VariationSnapshotRoundTripTest extends TestCase
     {
         $id = $this->product('flat-patch-trs');
         app(VariationWriter::class)->save($id, [
-            'option_name' => 'Length',
+            'variation_type_name' => 'Length',
             'values' => [
                 ['name' => '15cm', 'sku' => 'flat-patch-trs-15', 'quantity' => 7, 'absolute_price' => 120, 'cost_amount' => 36.37, 'cost_additional' => 2, 'image' => 'catalog/trs-15.jpg', 'status' => 1],
                 ['name' => '30cm', 'sku' => 'flat-patch-trs-30', 'quantity' => -2, 'absolute_price' => 180, 'cost_amount' => 39.71, 'cost_additional' => 0, 'image' => '', 'status' => 0],
@@ -63,8 +63,8 @@ class VariationSnapshotRoundTripTest extends TestCase
     {
         $id = $this->product('strap');
         app(VariationWriter::class)->save($id, [
-            'option1_name' => 'Color', 'option2_name' => 'Size',
-            'option1_values' => ['Black', 'Brown'], 'option2_values' => ['S', 'L'],
+            'type1_name' => 'Color', 'type2_name' => 'Size',
+            'type1_values' => ['Black', 'Brown'], 'type2_values' => ['S', 'L'],
             'combinations' => [
                 ['opt1' => 'Black', 'opt2' => 'S', 'sku' => 'strap-bk-s', 'quantity' => 4, 'absolute_price' => 500, 'cost_amount' => 200, 'cost_additional' => 10, 'image' => 'catalog/bk.jpg', 'status' => 1],
                 ['opt1' => 'Black', 'opt2' => 'L', 'sku' => 'strap-bk-l', 'quantity' => 0, 'absolute_price' => 520, 'cost_amount' => 210, 'cost_additional' => 0, 'image' => '', 'status' => 0],
@@ -74,7 +74,7 @@ class VariationSnapshotRoundTripTest extends TestCase
         $before = $this->state($id);
 
         $wire = app(VariationSnapshot::class)->wire($id);
-        $this->assertSame('Color', $wire['option1_name']);
+        $this->assertSame('Color', $wire['type1_name']);
         $this->assertCount(3, $wire['combinations'], 'a missing pair stays missing');
 
         app(VariationWriter::class)->save($id, $wire);

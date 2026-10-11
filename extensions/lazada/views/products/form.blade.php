@@ -412,8 +412,8 @@
                                                 @php
                                                     $variantId = (string) $variant->product_variation_value_id;
                                                     $mapped = $variantMap[$variantId] ?? null;
-                                                    $variantLabel = trim((string) ($variant->option_name ?? '')) !== ''
-                                                        ? ((string) $variant->option_name) . ': ' . ((string) ($variant->option_value_name ?? ''))
+                                                    $variantLabel = trim((string) ($variant->variation_type_name ?? '')) !== ''
+                                                        ? ((string) $variant->variation_type_name) . ': ' . ((string) ($variant->variation_value_name ?? ''))
                                                         : 'Variation ' . $variantId;
                                                 @endphp
                                                 <tr>

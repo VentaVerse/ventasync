@@ -9,7 +9,7 @@ class ProductFormAccessibilityTest extends TestCase
 {
     private function grid(): string
     {
-        return File::get(base_path('resources/views/catalog/products/partials/options_fields.blade.php'));
+        return File::get(base_path('resources/views/catalog/products/partials/variations_fields.blade.php'));
     }
 
     public function test_every_variation_cell_has_an_accessible_name(): void

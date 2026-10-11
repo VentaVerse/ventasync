@@ -89,25 +89,25 @@ class ShopeeAddModelTest extends TestCase
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
 
-        $optionId = (int) DB::table('variation_types')->insertGetId(['type' => 'select', 'sort_order' => 0]);
+        $variationTypeId = (int) DB::table('variation_types')->insertGetId(['type' => 'select', 'sort_order' => 0]);
         DB::table('variation_type_descriptions')->insert([
-            'variation_type_id' => $optionId, 'language_id' => $langId, 'name' => 'Pack size',
+            'variation_type_id' => $variationTypeId, 'language_id' => $langId, 'name' => 'Pack size',
         ]);
-        $productOptionId = (int) DB::table('product_variation_types')->insertGetId([
-            'product_id' => $productId, 'variation_type_id' => $optionId, 'value' => '', 'required' => 0,
+        $productVariationTypeId = (int) DB::table('product_variation_types')->insertGetId([
+            'product_id' => $productId, 'variation_type_id' => $variationTypeId, 'value' => '', 'required' => 0,
         ]);
 
         foreach ($packs as $i => [$name, $sku, $qty, $price]) {
             $valueId = (int) DB::table('variation_values')->insertGetId([
-                'variation_type_id' => $optionId, 'image' => '', 'sort_order' => $i,
+                'variation_type_id' => $variationTypeId, 'image' => '', 'sort_order' => $i,
             ]);
             DB::table('variation_value_descriptions')->insert([
                 'variation_value_id' => $valueId, 'language_id' => $langId,
-                'variation_type_id' => $optionId, 'name' => $name,
+                'variation_type_id' => $variationTypeId, 'name' => $name,
             ]);
             $povId = (int) DB::table('product_variation_values')->insertGetId([
-                'product_variation_type_id' => $productOptionId, 'product_id' => $productId,
-                'variation_type_id' => $optionId, 'variation_value_id' => $valueId,
+                'product_variation_type_id' => $productVariationTypeId, 'product_id' => $productId,
+                'variation_type_id' => $variationTypeId, 'variation_value_id' => $valueId,
                 'sku' => $sku, 'quantity' => $qty, 'subtract' => 1,
                 'price' => 0, 'price_prefix' => '+', 'points' => 0, 'points_prefix' => '+',
                 'weight' => 0, 'weight_prefix' => '+',
@@ -231,25 +231,25 @@ class ShopeeAddModelTest extends TestCase
         ]);
 
         $povIds = [];
-        foreach ($options as $optionName => $values) {
-            $optionId = (int) DB::table('variation_types')->insertGetId(['type' => 'select', 'sort_order' => 0]);
+        foreach ($options as $variationTypeName => $values) {
+            $variationTypeId = (int) DB::table('variation_types')->insertGetId(['type' => 'select', 'sort_order' => 0]);
             DB::table('variation_type_descriptions')->insert([
-                'variation_type_id' => $optionId, 'language_id' => $langId, 'name' => $optionName,
+                'variation_type_id' => $variationTypeId, 'language_id' => $langId, 'name' => $variationTypeName,
             ]);
-            $productOptionId = (int) DB::table('product_variation_types')->insertGetId([
-                'product_id' => $productId, 'variation_type_id' => $optionId, 'value' => '', 'required' => 0,
+            $productVariationTypeId = (int) DB::table('product_variation_types')->insertGetId([
+                'product_id' => $productId, 'variation_type_id' => $variationTypeId, 'value' => '', 'required' => 0,
             ]);
             foreach ($values as $i => $valueName) {
                 $valueId = (int) DB::table('variation_values')->insertGetId([
-                    'variation_type_id' => $optionId, 'image' => '', 'sort_order' => $i,
+                    'variation_type_id' => $variationTypeId, 'image' => '', 'sort_order' => $i,
                 ]);
                 DB::table('variation_value_descriptions')->insert([
                     'variation_value_id' => $valueId, 'language_id' => $langId,
-                    'variation_type_id' => $optionId, 'name' => $valueName,
+                    'variation_type_id' => $variationTypeId, 'name' => $valueName,
                 ]);
-                $povIds[$optionName][$valueName] = (int) DB::table('product_variation_values')->insertGetId([
-                    'product_variation_type_id' => $productOptionId, 'product_id' => $productId,
-                    'variation_type_id' => $optionId, 'variation_value_id' => $valueId,
+                $povIds[$variationTypeName][$valueName] = (int) DB::table('product_variation_values')->insertGetId([
+                    'product_variation_type_id' => $productVariationTypeId, 'product_id' => $productId,
+                    'variation_type_id' => $variationTypeId, 'variation_value_id' => $valueId,
                     'sku' => '', 'quantity' => 5, 'subtract' => 1,
                     'price' => 0, 'price_prefix' => '+', 'points' => 0, 'points_prefix' => '+',
                     'weight' => 0, 'weight_prefix' => '+',
@@ -259,7 +259,7 @@ class ShopeeAddModelTest extends TestCase
             }
         }
 
-        $optionNames = array_keys($options);
+        $variationTypeNames = array_keys($options);
         $n = 0;
         foreach ($combos as $sku => $picked) {
             $comboId = (int) DB::table('product_variations')->insertGetId([
@@ -269,7 +269,7 @@ class ShopeeAddModelTest extends TestCase
             ]);
             foreach ($picked as $k => $valueName) {
                 DB::table('product_variation_parts')->insert([
-                    'product_variation_id' => $comboId, 'product_variation_value_id' => $povIds[$optionNames[$k]][$valueName],
+                    'product_variation_id' => $comboId, 'product_variation_value_id' => $povIds[$variationTypeNames[$k]][$valueName],
                 ]);
             }
         }

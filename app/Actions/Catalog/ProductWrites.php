@@ -154,7 +154,7 @@ final class ProductWrites
         if (isset($changes['sku'])) {
             $synced = (new \App\Services\SkuSyncService())->syncSkuChanges($id, [
                 'product_sku' => ['old' => $changes['sku']['old'], 'new' => $changes['sku']['new']],
-                'option_skus' => [],
+                'variation_skus' => [],
             ]);
             foreach ($synced as $line) {
                 $notes[] = 'SKU synced: ' . $line;
@@ -624,13 +624,13 @@ final class ProductWrites
             'cost_additional' => (float) ($data['cost_additional'] ?? 0),
         ];
         if (count($types) === 1) {
-            $wire['option_name'] = $names[0];
+            $wire['variation_type_name'] = $names[0];
             $wire['values'] = array_map(fn (array $combo): array => ['name' => $combo[0]] + $line($byKey[$keyOf($combo)]), $grid);
         } else {
-            $wire['option1_name'] = $names[0];
-            $wire['option2_name'] = $names[1];
-            $wire['option1_values'] = $values[0];
-            $wire['option2_values'] = $values[1];
+            $wire['type1_name'] = $names[0];
+            $wire['type2_name'] = $names[1];
+            $wire['type1_values'] = $values[0];
+            $wire['type2_values'] = $values[1];
             $wire['combinations'] = array_map(
                 fn (array $combo): array => ['opt1' => $combo[0], 'opt2' => $combo[1]] + $line($byKey[$keyOf($combo)]),
                 $grid
@@ -683,11 +683,11 @@ final class ProductWrites
         $rows = VariationRows::forProducts([(int) $product->product_id])->get((int) $product->product_id, collect());
 
         return $rows->map(function (object $v) use ($product): array {
-            $ids = array_values(array_filter((array) ($v->option_value_ids ?? []), fn ($id) => (int) $id > 0));
+            $ids = array_values(array_filter((array) ($v->variation_value_ids ?? []), fn ($id) => (int) $id > 0));
 
             return [
-                'variation' => (string) $v->option_value_name,
-                'option'    => (string) $v->option_name,
+                'variation' => (string) $v->variation_value_name,
+                'variation_type' => (string) $v->variation_type_name,
                 'sku'       => (string) ($v->sku ?? ''),
                 'quantity'  => (int) $v->quantity,
                 'price'     => (float) ($v->absolute_price ?? 0) > 0 ? (float) $v->absolute_price : (float) $product->price,

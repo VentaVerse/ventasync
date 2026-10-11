@@ -46,7 +46,7 @@ class FailedSaveKeepsTypingTest extends TestCase
             'weight' => '1', 'length' => '10', 'width' => '10', 'height' => '10',
             'brand_id' => '0', 'images_json' => '["catalog/demo.jpg"]',
             'description' => 'A dependable test product description that comfortably clears the eighty character floor the marketplaces set.',
-            '_options_format' => 'absolute',
+            '_variations_format' => 'absolute',
         ], $overrides);
     }
 
@@ -58,7 +58,7 @@ class FailedSaveKeepsTypingTest extends TestCase
 
         $editUrl = route('products.edit', $mine);
         $r = $this->actingAs($user)->from($editUrl)->put(route('products.update', $mine), $this->payload([
-            'option_name' => 'Pack size',
+            'variation_type_name' => 'Pack size',
             'values' => [
                 ['name' => '1 pc', 'sku' => 'KEEP-1PC', 'quantity' => '4', 'absolute_price' => '120', 'status' => '1', 'cost_amount' => '55', 'cost_additional' => '2'],
                 ['name' => '5 pcs', 'sku' => 'TAKEN-SKU', 'quantity' => '9', 'absolute_price' => '500', 'status' => '1', 'cost_amount' => '200', 'cost_additional' => '0'],
@@ -66,7 +66,7 @@ class FailedSaveKeepsTypingTest extends TestCase
         ]));
 
         $r->assertRedirect($editUrl);
-        $r->assertSessionHasErrors('option_sku');
+        $r->assertSessionHasErrors('variation_sku');
 
         $page = $this->actingAs($user)->get($editUrl)->assertOk()->getContent();
 
@@ -87,11 +87,11 @@ class FailedSaveKeepsTypingTest extends TestCase
         $this->actingAs($user)->from(route('products.edit', $mine))
             ->put(route('products.update', $mine), $this->payload([
                 'model' => 'KEEP-2', 'sku' => 'KEEP-2',
-                'option_name' => 'Pack size',
+                'variation_type_name' => 'Pack size',
                 'values' => [['name' => '1 pc', 'sku' => 'TAKEN-SKU', 'quantity' => '1', 'absolute_price' => '10', 'status' => '1']],
             ]));
 
-        $messages = session('errors')->get('option_sku');
+        $messages = session('errors')->get('variation_sku');
         $this->assertStringContainsString('The product already holding it', implode(' ', $messages),
             '"another product" sends the operator searching; the name lets them decide');
     }
@@ -104,19 +104,19 @@ class FailedSaveKeepsTypingTest extends TestCase
 
         $this->actingAs($user)->from($editUrl)->put(route('products.update', $mine), $this->payload([
             'model' => 'KEEP-3', 'sku' => 'KEEP-3',
-            'option1_name' => 'Color', 'option2_name' => 'Size',
-            'option1_values' => ['Red', 'Blue'], 'option2_values' => ['S'],
+            'type1_name' => 'Color', 'type2_name' => 'Size',
+            'type1_values' => ['Red', 'Blue'], 'type2_values' => ['S'],
             'combinations' => [
                 ['opt1' => 'Red', 'opt2' => 'S', 'sku' => 'KEEP-3', 'quantity' => '2', 'absolute_price' => '90', 'status' => '1'],
                 ['opt1' => 'Blue', 'opt2' => 'S', 'sku' => 'CB-2', 'quantity' => '3', 'absolute_price' => '95', 'status' => '1'],
             ],
-        ]))->assertSessionHasErrors('option_sku');
+        ]))->assertSessionHasErrors('variation_sku');
 
         $page = $this->actingAs($user)->get($editUrl)->assertOk()->getContent();
         $this->assertStringContainsString('"opt1_name":"Blue"', $page);
         $this->assertStringContainsString('"sku":"CB-2"', $page);
         $this->assertStringContainsString('"quantity":"3"', $page);
-        $this->assertStringContainsString('"option_name":"Color"', $page);
+        $this->assertStringContainsString('"variation_type_name":"Color"', $page);
     }
 
     public function test_a_successful_save_still_round_trips_through_the_database(): void
@@ -127,7 +127,7 @@ class FailedSaveKeepsTypingTest extends TestCase
 
         $this->actingAs($user)->from($editUrl)->put(route('products.update', $mine), $this->payload([
             'model' => 'KEEP-4', 'sku' => 'KEEP-4',
-            'option_name' => 'Pack size',
+            'variation_type_name' => 'Pack size',
             'values' => [['name' => '1 pc', 'sku' => 'KEEP-4PC', 'quantity' => '4', 'absolute_price' => '120', 'status' => '1']],
         ]))->assertSessionHasNoErrors();
 

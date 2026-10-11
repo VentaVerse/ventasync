@@ -46,7 +46,7 @@ class VariationWriter
                 continue;
             }
             if (isset($seenSkus[$skuLower])) {
-                $errors[] = "Duplicate SKU \"{$sku}\" within this product's options.";
+                $errors[] = "Duplicate SKU \"{$sku}\" within this product's variations.";
                 continue;
             }
             $seenSkus[$skuLower] = true;
@@ -73,30 +73,30 @@ class VariationWriter
         }
 
         if (! empty($errors)) {
-            throw ValidationException::withMessages(['option_sku' => $errors]);
+            throw ValidationException::withMessages(['variation_sku' => $errors]);
         }
     }
 
     public function save(int $productId, array $input, array &$skuChanges = []): void
     {
-        $optionName = trim($input['option_name'] ?? '');
-        $option1Name = trim($input['option1_name'] ?? '');
+        $variationTypeName = trim($input['variation_type_name'] ?? '');
+        $type1Name = trim($input['type1_name'] ?? '');
 
-        if ($optionName === '' && $option1Name === '') {
-            $this->clearProductOptions($productId);
+        if ($variationTypeName === '' && $type1Name === '') {
+            $this->clearProductVariationTypes($productId);
             return;
         }
 
         $this->validateSkus($productId, $input);
 
-        if ($option1Name !== '') {
+        if ($type1Name !== '') {
             $this->saveTwoTypes($productId, $input, $skuChanges);
         } else {
             $this->saveOneType($productId, $input, $skuChanges);
         }
     }
 
-    private function findOrCreateOption(string $name): int
+    private function findOrCreateVariationType(string $name): int
     {
         $langId = (int) config('catalog.default_language_id');
 
@@ -107,67 +107,67 @@ class VariationWriter
 
         if ($existing) return (int) $existing->variation_type_id;
 
-        $optionId = DB::table('variation_types')->insertGetId([
+        $variationTypeId = DB::table('variation_types')->insertGetId([
             'type' => 'select',
             'sort_order' => 0,
         ]);
 
         DB::table('variation_type_descriptions')->insert([
-            'variation_type_id' => $optionId,
+            'variation_type_id' => $variationTypeId,
             'language_id' => $langId,
             'name' => $name,
         ]);
 
-        return (int) $optionId;
+        return (int) $variationTypeId;
     }
 
-    private function findOrCreateOptionValue(int $optionId, string $name): int
+    private function findOrCreateVariationValue(int $variationTypeId, string $name): int
     {
         $langId = (int) config('catalog.default_language_id');
 
         $existing = DB::table('variation_value_descriptions')
-            ->where('variation_type_id', $optionId)
+            ->where('variation_type_id', $variationTypeId)
             ->where('language_id', $langId)
             ->whereRaw('LOWER(name) = ?', [strtolower($name)])
             ->first();
 
         if ($existing) return (int) $existing->variation_value_id;
 
-        $optionValueId = DB::table('variation_values')->insertGetId([
-            'variation_type_id' => $optionId,
+        $variationValueId = DB::table('variation_values')->insertGetId([
+            'variation_type_id' => $variationTypeId,
             'image' => '',
             'sort_order' => 0,
         ]);
 
         DB::table('variation_value_descriptions')->insert([
-            'variation_value_id' => $optionValueId,
-            'variation_type_id' => $optionId,
+            'variation_value_id' => $variationValueId,
+            'variation_type_id' => $variationTypeId,
             'language_id' => $langId,
             'name' => $name,
         ]);
 
-        return (int) $optionValueId;
+        return (int) $variationValueId;
     }
 
-    private function ensureProductOption(int $productId, int $optionId): int
+    private function ensureProductVariationType(int $productId, int $variationTypeId): int
     {
 
         $existing = DB::table('product_variation_types')
             ->where('product_id', $productId)
-            ->where('variation_type_id', $optionId)
+            ->where('variation_type_id', $variationTypeId)
             ->first();
 
         if ($existing) return (int) $existing->product_variation_type_id;
 
         return DB::table('product_variation_types')->insertGetId([
             'product_id' => $productId,
-            'variation_type_id' => $optionId,
+            'variation_type_id' => $variationTypeId,
             'value' => '',
             'required' => 1,
         ]);
     }
 
-    private function clearProductOptions(int $productId): void
+    private function clearProductVariationTypes(int $productId): void
     {
 
         DB::table('product_variation_parts')
@@ -226,15 +226,15 @@ class VariationWriter
 
     private function saveOneType(int $productId, array $input, array &$skuChanges = []): void
     {
-        $optionName = trim($input['option_name'] ?? '');
+        $variationTypeName = trim($input['variation_type_name'] ?? '');
         $values = $input['values'] ?? [];
         if (!is_array($values)) $values = [];
 
-        $optionId = $this->findOrCreateOption($optionName);
+        $variationTypeId = $this->findOrCreateVariationType($variationTypeName);
 
         $stalePos = DB::table('product_variation_types')
             ->where('product_id', $productId)
-            ->where('variation_type_id', '!=', $optionId)
+            ->where('variation_type_id', '!=', $variationTypeId)
             ->pluck('product_variation_type_id');
 
         if ($stalePos->isNotEmpty()) {
@@ -253,19 +253,19 @@ class VariationWriter
             }
         }
 
-        $productOptionId = $this->ensureProductOption($productId, $optionId);
+        $productVariationTypeId = $this->ensureProductVariationType($productId, $variationTypeId);
 
         $existingPovs = DB::table('product_variation_values')
-            ->where('product_variation_type_id', $productOptionId)
+            ->where('product_variation_type_id', $productVariationTypeId)
             ->get()
             ->keyBy('variation_value_id');
 
-        $seenOptionValueIds = [];
+        $seenVariationValueIds = [];
 
-        $imageByOptionValueId = [];
-        $statusByOptionValueId = [];
-        $costAmountByOptionValueId = [];
-        $costAddByOptionValueId = [];
+        $imageByVariationValueId = [];
+        $statusByVariationValueId = [];
+        $costAmountByVariationValueId = [];
+        $costAddByVariationValueId = [];
 
         [$parentPct, $parentAdd] = $this->parentCostFormula($productId, $input);
 
@@ -274,21 +274,21 @@ class VariationWriter
             $valueName = trim($v['name'] ?? '');
             if ($valueName === '') continue;
 
-            $optionValueId = !empty($v['variation_value_id'])
+            $variationValueId = !empty($v['variation_value_id'])
                 ? (int) $v['variation_value_id']
-                : $this->findOrCreateOptionValue($optionId, $valueName);
+                : $this->findOrCreateVariationValue($variationTypeId, $valueName);
 
-            $seenOptionValueIds[] = $optionValueId;
-            $imageByOptionValueId[$optionValueId] = trim((string) ($v['image'] ?? ''));
+            $seenVariationValueIds[] = $variationValueId;
+            $imageByVariationValueId[$variationValueId] = trim((string) ($v['image'] ?? ''));
             // An absent status means enabled; do not switch a variation off when the caller says nothing.
-            $statusByOptionValueId[$optionValueId] = array_key_exists('status', $v)
+            $statusByVariationValueId[$variationValueId] = array_key_exists('status', $v)
                 ? (int) (bool) $v['status']
                 : 1;
 
             $costAmount = (float) ($v['cost_amount'] ?? $v['absolute_cost'] ?? 0);
-            $costAmountByOptionValueId[$optionValueId] = $costAmount;
+            $costAmountByVariationValueId[$variationValueId] = $costAmount;
             $costAdd = $this->rowCostAdditional($v, $parentAdd);
-            $costAddByOptionValueId[$optionValueId] = $costAdd;
+            $costAddByVariationValueId[$variationValueId] = $costAdd;
 
             $data = [
                 'sku' => trim((string) ($v['sku'] ?? '')),
@@ -312,12 +312,12 @@ class VariationWriter
                 ),
             ];
 
-            if (isset($existingPovs[$optionValueId])) {
-                $old = $existingPovs[$optionValueId];
+            if (isset($existingPovs[$variationValueId])) {
+                $old = $existingPovs[$variationValueId];
 
                 $oldSku = trim((string) ($old->sku ?? ''));
                 if ($oldSku !== '' && $data['sku'] !== $oldSku) {
-                    $skuChanges['option_skus'][(int) $old->product_variation_value_id] = [
+                    $skuChanges['variation_skus'][(int) $old->product_variation_value_id] = [
                         'old' => $oldSku, 'new' => $data['sku']
                     ];
                 }
@@ -325,7 +325,7 @@ class VariationWriter
                 if ((int) ($old->quantity ?? 0) !== $data['quantity']) {
                     StockHistoryLogger::log(
                         productId: $productId,
-                        optionValueId: (int) $old->product_variation_value_id,
+                        variationValueId: (int) $old->product_variation_value_id,
                         orderId: null,
                         type: 'set',
                         qtyBefore: (int) $old->quantity,
@@ -337,13 +337,13 @@ class VariationWriter
 
                 DB::table('product_variation_values')
                     ->where('product_variation_value_id', $old->product_variation_value_id)
-                    ->update(array_merge($data, ['product_variation_type_id' => $productOptionId]));
+                    ->update(array_merge($data, ['product_variation_type_id' => $productVariationTypeId]));
             } else {
                 DB::table('product_variation_values')->insert(array_merge($data, [
-                    'product_variation_type_id' => $productOptionId,
+                    'product_variation_type_id' => $productVariationTypeId,
                     'product_id' => $productId,
-                    'variation_type_id' => $optionId,
-                    'variation_value_id' => $optionValueId,
+                    'variation_type_id' => $variationTypeId,
+                    'variation_value_id' => $variationValueId,
                     'points' => 0,
                     'points_prefix' => '+',
                 ]));
@@ -352,7 +352,7 @@ class VariationWriter
 
         $deletedPovIds = [];
         foreach ($existingPovs as $ovId => $row) {
-            if (!in_array((int) $ovId, $seenOptionValueIds, true)) {
+            if (!in_array((int) $ovId, $seenVariationValueIds, true)) {
                 $deletedPovIds[] = (int) $row->product_variation_value_id;
                 DB::table('product_variation_values')
                     ->where('product_variation_value_id', $row->product_variation_value_id)
@@ -374,15 +374,15 @@ class VariationWriter
         $now = now();
         $sort = 0;
         $povRows = DB::table('product_variation_values')
-            ->where('product_variation_type_id', $productOptionId)
+            ->where('product_variation_type_id', $productVariationTypeId)
             ->get();
 
         foreach ($povRows as $pov) {
-            $image = $imageByOptionValueId[(int) $pov->variation_value_id] ?? '';
-            $status = $statusByOptionValueId[(int) $pov->variation_value_id] ?? 1;
-            $costAmount = $costAmountByOptionValueId[(int) $pov->variation_value_id]
+            $image = $imageByVariationValueId[(int) $pov->variation_value_id] ?? '';
+            $status = $statusByVariationValueId[(int) $pov->variation_value_id] ?? 1;
+            $costAmount = $costAmountByVariationValueId[(int) $pov->variation_value_id]
                 ?? (float) ($pov->cost_amount ?? 0);
-            $costAdd = $costAddByOptionValueId[(int) $pov->variation_value_id]
+            $costAdd = $costAddByVariationValueId[(int) $pov->variation_value_id]
                 ?? (float) ($pov->cost_additional ?? 0);
 
             $comboId = DB::table('product_variations')->insertGetId([
@@ -410,23 +410,23 @@ class VariationWriter
 
     private function saveTwoTypes(int $productId, array $input, array &$skuChanges = []): void
     {
-        $opt1Name = trim($input['option1_name'] ?? '');
-        $opt2Name = trim($input['option2_name'] ?? '');
-        $opt1ValueNames = $input['option1_values'] ?? [];
-        $opt2ValueNames = $input['option2_values'] ?? [];
+        $opt1Name = trim($input['type1_name'] ?? '');
+        $opt2Name = trim($input['type2_name'] ?? '');
+        $opt1ValueNames = $input['type1_values'] ?? [];
+        $opt2ValueNames = $input['type2_values'] ?? [];
         $combinations = $input['combinations'] ?? [];
 
         if (!is_array($opt1ValueNames)) $opt1ValueNames = [];
         if (!is_array($opt2ValueNames)) $opt2ValueNames = [];
         if (!is_array($combinations)) $combinations = [];
 
-        $optionId1 = $this->findOrCreateOption($opt1Name);
-        $optionId2 = $this->findOrCreateOption($opt2Name);
+        $variationTypeId1 = $this->findOrCreateVariationType($opt1Name);
+        $variationTypeId2 = $this->findOrCreateVariationType($opt2Name);
 
-        $keepOptionIds = [$optionId1, $optionId2];
+        $keepVariationTypeIds = [$variationTypeId1, $variationTypeId2];
         $stalePos = DB::table('product_variation_types')
             ->where('product_id', $productId)
-            ->whereNotIn('variation_type_id', $keepOptionIds)
+            ->whereNotIn('variation_type_id', $keepVariationTypeIds)
             ->pluck('product_variation_type_id');
 
         if ($stalePos->isNotEmpty()) {
@@ -445,13 +445,13 @@ class VariationWriter
             }
         }
 
-        $poId1 = $this->ensureProductOption($productId, $optionId1);
-        $poId2 = $this->ensureProductOption($productId, $optionId2);
+        $poId1 = $this->ensureProductVariationType($productId, $variationTypeId1);
+        $poId2 = $this->ensureProductVariationType($productId, $variationTypeId2);
 
         [$parentPct, $parentAdd] = $this->parentCostFormula($productId, $input);
 
-        $opt1PovMap = $this->syncOptionValues($productId, $optionId1, $poId1, $opt1ValueNames);
-        $opt2PovMap = $this->syncOptionValues($productId, $optionId2, $poId2, $opt2ValueNames);
+        $opt1PovMap = $this->syncVariationValues($productId, $variationTypeId1, $poId1, $opt1ValueNames);
+        $opt2PovMap = $this->syncVariationValues($productId, $variationTypeId2, $poId2, $opt2ValueNames);
 
         DB::table('product_variation_parts')
             ->whereIn('product_variation_id', function ($q) use ($productId) {
@@ -506,30 +506,30 @@ class VariationWriter
         }
     }
 
-    private function syncOptionValues(int $productId, int $optionId, int $productOptionId, array $valueNames): array
+    private function syncVariationValues(int $productId, int $variationTypeId, int $productVariationTypeId, array $valueNames): array
     {
         $map = [];
 
         $existingPovs = DB::table('product_variation_values')
-            ->where('product_variation_type_id', $productOptionId)
+            ->where('product_variation_type_id', $productVariationTypeId)
             ->get()
             ->keyBy('variation_value_id');
 
-        $seenOptionValueIds = [];
+        $seenVariationValueIds = [];
 
         foreach ($valueNames as $name) {
             $name = trim($name);
             if ($name === '') continue;
 
-            $optionValueId = $this->findOrCreateOptionValue($optionId, $name);
-            $seenOptionValueIds[] = $optionValueId;
+            $variationValueId = $this->findOrCreateVariationValue($variationTypeId, $name);
+            $seenVariationValueIds[] = $variationValueId;
 
-            if (!isset($existingPovs[$optionValueId])) {
+            if (!isset($existingPovs[$variationValueId])) {
                 $povId = DB::table('product_variation_values')->insertGetId([
-                    'product_variation_type_id' => $productOptionId,
+                    'product_variation_type_id' => $productVariationTypeId,
                     'product_id' => $productId,
-                    'variation_type_id' => $optionId,
-                    'variation_value_id' => $optionValueId,
+                    'variation_type_id' => $variationTypeId,
+                    'variation_value_id' => $variationValueId,
                     'sku' => '',
                     'quantity' => 0,
                     'subtract' => 1,
@@ -549,12 +549,12 @@ class VariationWriter
                 ]);
                 $map[strtolower($name)] = $povId;
             } else {
-                $map[strtolower($name)] = (int) $existingPovs[$optionValueId]->product_variation_value_id;
+                $map[strtolower($name)] = (int) $existingPovs[$variationValueId]->product_variation_value_id;
             }
         }
 
         foreach ($existingPovs as $ovId => $row) {
-            if (!in_array((int) $ovId, $seenOptionValueIds, true)) {
+            if (!in_array((int) $ovId, $seenVariationValueIds, true)) {
                 DB::table('product_variation_values')
                     ->where('product_variation_value_id', $row->product_variation_value_id)
                     ->delete();

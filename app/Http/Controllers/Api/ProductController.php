@@ -30,7 +30,7 @@ class ProductController extends Controller
         }
 
         $optQtySub = DB::table('product_variation_values as pov')
-            ->select('pov.product_id', DB::raw('SUM(pov.quantity) as options_quantity'))
+            ->select('pov.product_id', DB::raw('SUM(pov.quantity) as variations_quantity'))
             ->groupBy('pov.product_id');
 
         $query = DB::table('products as p')
@@ -48,7 +48,7 @@ class ProductController extends Controller
                 'p.model',
                 'p.sku',
                 'p.quantity',
-                DB::raw('COALESCE(povsum.options_quantity, 0) as options_quantity'),
+                DB::raw('COALESCE(povsum.variations_quantity, 0) as variations_quantity'),
                 'p.price',
                 'p.status'
             );
@@ -80,7 +80,7 @@ class ProductController extends Controller
                 'model'            => $row->model ?? '',
                 'sku'              => $row->sku ?? '',
                 'quantity'         => (int) $row->quantity,
-                'options_quantity' => (int) $row->options_quantity,
+                'variations_quantity' => (int) $row->variations_quantity,
                 'price'            => (float) $row->price,
                 'status'           => (int) $row->status,
             ];
@@ -103,7 +103,7 @@ class ProductController extends Controller
             ->where('language_id', $langId)
             ->value('name') ?? '';
 
-        $optionValues = DB::table('product_variation_values as pov')
+        $variationValues = DB::table('product_variation_values as pov')
             ->join('variation_type_descriptions as od', function ($j) use ($langId) {
                 $j->on('pov.variation_type_id', '=', 'od.variation_type_id')
                     ->where('od.language_id', '=', $langId);
@@ -115,25 +115,25 @@ class ProductController extends Controller
             ->where('pov.product_id', $id)
             ->select(
                 'pov.product_variation_value_id',
-                'od.name as option_name',
-                'ovd.name as option_value_name',
+                'od.name as variation_type_name',
+                'ovd.name as variation_value_name',
                 'pov.quantity'
             )
             ->orderBy('od.name')
             ->orderBy('ovd.name')
             ->get();
 
-        $hasOptions = $optionValues->isNotEmpty();
+        $hasVariations = $variationValues->isNotEmpty();
 
         return response()->json([
             'product_id'  => (int) $product->product_id,
             'name'        => html_entity_decode((string) $name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-            'has_options'  => $hasOptions,
+            'has_variations'  => $hasVariations,
             'quantity'     => (int) $product->quantity,
-            'options'      => $hasOptions ? $optionValues->map(fn ($row) => [
+            'variations'     => $hasVariations ? $variationValues->map(fn ($row) => [
                 'product_variation_value_id' => (int) $row->product_variation_value_id,
-                'option_name'             => (string) $row->option_name,
-                'option_value_name'       => (string) $row->option_value_name,
+                'variation_type_name'             => (string) $row->variation_type_name,
+                'variation_value_name'       => (string) $row->variation_value_name,
                 'quantity'                => (int) $row->quantity,
             ])->values()->all() : [],
         ]);
@@ -159,25 +159,25 @@ class ProductController extends Controller
             return response()->json(['message' => 'Product not found'], 404);
         }
 
-        $hasOptions = DB::table('product_variation_values')
+        $hasVariations = DB::table('product_variation_values')
             ->where('product_id', $id)
             ->exists();
 
         $oldProductQty = (int) $product->quantity;
 
-        if ($hasOptions) {
+        if ($hasVariations) {
             $request->validate([
-                'options'            => 'required|array|min:1',
-                'options.*.product_variation_value_id' => 'required|integer',
-                'options.*.quantity'  => 'required|integer|min:0',
+                'variations'            => 'required|array|min:1',
+                'variations.*.product_variation_value_id' => 'required|integer',
+                'variations.*.quantity'  => 'required|integer|min:0',
             ]);
 
             $totalQty = 0;
-            foreach ($request->input('options') as $opt) {
-                $povId = (int) $opt['product_variation_value_id'];
-                $qty = (int) $opt['quantity'];
+            foreach ($request->input('variations') as $variation) {
+                $povId = (int) $variation['product_variation_value_id'];
+                $qty = (int) $variation['quantity'];
 
-                $oldOptQty = (int) DB::table('product_variation_values')
+                $oldVariationQty = (int) DB::table('product_variation_values')
                     ->where('product_variation_value_id', $povId)
                     ->where('product_id', $id)
                     ->value('quantity');
@@ -187,16 +187,16 @@ class ProductController extends Controller
                     ->where('product_id', $id)
                     ->update(['quantity' => $qty]);
 
-                if ($oldOptQty !== $qty) {
+                if ($oldVariationQty !== $qty) {
                     StockHistoryLogger::log(
                         productId: $id,
-                        optionValueId: $povId,
+                        variationValueId: $povId,
                         orderId: null,
                         type: 'set',
-                        qtyBefore: $oldOptQty,
+                        qtyBefore: $oldVariationQty,
                         qtyAfter: $qty,
                         source: 'mobile',
-                        note: "Mobile edit (option): qty {$oldOptQty} → {$qty}",
+                        note: "Mobile edit (variation): qty {$oldVariationQty} → {$qty}",
                     );
                 }
 
@@ -240,7 +240,7 @@ class ProductController extends Controller
             if ($oldProductQty !== $totalQty) {
                 StockHistoryLogger::log(
                     productId: $id,
-                    optionValueId: null,
+                    variationValueId: null,
                     orderId: null,
                     type: 'set',
                     qtyBefore: $oldProductQty,
@@ -266,7 +266,7 @@ class ProductController extends Controller
             if ($oldProductQty !== $newQty) {
                 StockHistoryLogger::log(
                     productId: $id,
-                    optionValueId: null,
+                    variationValueId: null,
                     orderId: null,
                     type: 'set',
                     qtyBefore: $oldProductQty,

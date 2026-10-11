@@ -332,13 +332,13 @@ function initPoLines(form) {
 
                         const seen = {};
                         data.forEach(function (p) {
-                            if (p.has_options && p.option_group && !seen[p.option_group]) {
-                                const group = data.filter(function (v) { return v.option_group === p.option_group; });
-                                seen[p.option_group] = group;
+                            if (p.has_variations && p.variation_group && !seen[p.variation_group]) {
+                                const group = data.filter(function (v) { return v.variation_group === p.variation_group; });
+                                seen[p.variation_group] = group;
 
                                 const baseName = p.base_name || String(p.name || '').split(' · ')[0];
                                 const all = resultButton(
-                                    'Add all ' + p.option_count + ' variations of ' + baseName,
+                                    'Add all ' + p.variation_count + ' variations of ' + baseName,
                                     null,
                                     'po-ac__item--all'
                                 );
@@ -353,7 +353,7 @@ function initPoLines(form) {
                             const btn = resultButton(
                                 p.name || '',
                                 p.sku || null,
-                                p.has_options ? 'po-ac__item--child' : null
+                                p.has_variations ? 'po-ac__item--child' : null
                             );
                             btn.addEventListener('click', function () {
                                 buildLine(p);

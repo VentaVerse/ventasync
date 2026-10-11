@@ -25,7 +25,7 @@ final class VentaCartStockPricePush
         $links = VentaCartListingLink::query()->where('store_id', $this->store->id)->whereIn('product_id', $ids)->get()->keyBy('product_id');
         $products = DB::table('products')->whereIn('product_id', $ids)->get(['product_id', 'sku', 'quantity', 'price', 'status'])->keyBy('product_id');
         $combos = DB::table('product_variations')->whereIn('product_id', $ids)->get(['product_id', 'sku', 'quantity', 'absolute_price'])->groupBy(fn ($r) => (int) $r->product_id);
-        $options = DB::table('product_variation_values')->whereIn('product_id', $ids)->whereNotNull('sku')->where('sku', '!=', '')
+        $variationValues = DB::table('product_variation_values')->whereIn('product_id', $ids)->whereNotNull('sku')->where('sku', '!=', '')
             ->get(['product_id', 'sku', 'quantity', 'price', 'price_prefix', 'absolute_price'])->groupBy(fn ($r) => (int) $r->product_id);
         $hidden = \App\Channels\Listings\ListingVariations::hidden('ventacart', (int) $this->store->id, $ids);
         $listings = \Extensions\VentaCart\Models\VentaCartListing::query()->where('store_id', $this->store->id)->whereIn('product_id', $ids)->get()->keyBy(fn ($l) => (int) $l->product_id);
@@ -46,7 +46,7 @@ final class VentaCartStockPricePush
             $sku = $link->sku ?: $product->sku;
             $fine = true;
             $why = '';
-            $allVariants = ($combos->get($pid) ?? collect())->isNotEmpty() ? $combos->get($pid) : ($options->get($pid) ?? collect());
+            $allVariants = ($combos->get($pid) ?? collect())->isNotEmpty() ? $combos->get($pid) : ($variationValues->get($pid) ?? collect());
             $variants = $allVariants->filter(fn ($v) => \App\Channels\Listings\ListingVariations::allows($hidden, $pid, (string) ($v->sku ?? '')));
             if ($allVariants->isNotEmpty() && $variants->isEmpty()) {
                 $out['skipped']++;

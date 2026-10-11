@@ -145,7 +145,7 @@ final class ProductQuantityWriter
 
         StockHistoryLogger::log(
             productId: (int) $product->product_id,
-            optionValueId: $povId,
+            variationValueId: $povId,
             orderId: null,
             type: 'set',
             qtyBefore: $before,

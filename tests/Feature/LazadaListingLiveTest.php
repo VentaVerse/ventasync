@@ -135,18 +135,18 @@ class LazadaListingLiveTest extends TestCase
     private function addOption(int $pid, string $name, array $values, array $skus = []): array
     {
         $lang = (int) config('catalog.default_language_id');
-        $optionId = ++$this->optSeq;
-        DB::table('variation_types')->insert(['variation_type_id' => $optionId, 'type' => 'select', 'sort_order' => 0]);
-        DB::table('variation_type_descriptions')->insert(['variation_type_id' => $optionId, 'language_id' => $lang, 'name' => $name]);
-        $productOptionId = DB::table('product_variation_types')->insertGetId(['product_id' => $pid, 'variation_type_id' => $optionId, 'value' => '', 'required' => 1]);
+        $variationTypeId = ++$this->optSeq;
+        DB::table('variation_types')->insert(['variation_type_id' => $variationTypeId, 'type' => 'select', 'sort_order' => 0]);
+        DB::table('variation_type_descriptions')->insert(['variation_type_id' => $variationTypeId, 'language_id' => $lang, 'name' => $name]);
+        $productVariationTypeId = DB::table('product_variation_types')->insertGetId(['product_id' => $pid, 'variation_type_id' => $variationTypeId, 'value' => '', 'required' => 1]);
 
         $out = [];
         foreach (array_values($values) as $i => $value) {
-            $valueId = $optionId * 10 + $i;
-            DB::table('variation_values')->insert(['variation_value_id' => $valueId, 'variation_type_id' => $optionId, 'image' => '', 'sort_order' => $i]);
-            DB::table('variation_value_descriptions')->insert(['variation_value_id' => $valueId, 'language_id' => $lang, 'variation_type_id' => $optionId, 'name' => $value]);
+            $valueId = $variationTypeId * 10 + $i;
+            DB::table('variation_values')->insert(['variation_value_id' => $valueId, 'variation_type_id' => $variationTypeId, 'image' => '', 'sort_order' => $i]);
+            DB::table('variation_value_descriptions')->insert(['variation_value_id' => $valueId, 'language_id' => $lang, 'variation_type_id' => $variationTypeId, 'name' => $value]);
             $out[$value] = (int) DB::table('product_variation_values')->insertGetId([
-                'product_variation_type_id' => $productOptionId, 'product_id' => $pid, 'variation_type_id' => $optionId, 'variation_value_id' => $valueId,
+                'product_variation_type_id' => $productVariationTypeId, 'product_id' => $pid, 'variation_type_id' => $variationTypeId, 'variation_value_id' => $valueId,
                 'sku' => $skus[$value] ?? '', 'quantity' => 3, 'subtract' => 1, 'price' => 0, 'price_prefix' => '+', 'absolute_price' => 100,
                 'cost' => 0, 'cost_amount' => 0, 'cost_percentage' => 0, 'cost_additional' => 0, 'absolute_cost' => 0, 'cost_prefix' => '+',
                 'points' => 0, 'points_prefix' => '+', 'weight' => 0, 'weight_prefix' => '+',
@@ -277,7 +277,7 @@ class LazadaListingLiveTest extends TestCase
         $this->getResponses['/product/item/get'] = ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => $data]];
     }
 
-    private function twoOptionProduct(string $sku, string $first, array $firstValues, string $second, string $secondValue): int
+    private function twoTypeProduct(string $sku, string $first, array $firstValues, string $second, string $secondValue): int
     {
         $pid = $this->productWithPicture($sku);
         $a = $this->addOption($pid, $first, $firstValues);
@@ -299,7 +299,7 @@ class LazadaListingLiveTest extends TestCase
 
     public function test_swapped_variation_types_pair_by_name(): void
     {
-        $pid = $this->twoOptionProduct('QB-SWAP', 'cable length', ['1ft', '3ft'], 'Color', 'Black');
+        $pid = $this->twoTypeProduct('QB-SWAP', 'cable length', ['1ft', '3ft'], 'Color', 'Black');
         $this->liveItemSkus([
             ['SkuId' => 1, 'SellerSku' => 'QB-SWAP-1ft', 'saleProp' => ['Color' => 'Black', 'Cable_Length' => '1ft']],
             ['SkuId' => 2, 'SellerSku' => 'QB-SWAP-3ft', 'saleProp' => ['Color' => 'Black', 'Cable_Length' => '3ft']],
@@ -312,7 +312,7 @@ class LazadaListingLiveTest extends TestCase
 
     public function test_orders_the_names_cannot_settle_are_refused_with_nothing_sent(): void
     {
-        $pid = $this->twoOptionProduct('QB-KNOT', 'Size', ['S', 'M'], 'Shade', 'Black');
+        $pid = $this->twoTypeProduct('QB-KNOT', 'Size', ['S', 'M'], 'Shade', 'Black');
         $this->liveItemSkus([
             ['SkuId' => 1, 'SellerSku' => 'QB-KNOT-S', 'saleProp' => ['Color' => 'Black', 'Size' => 'S']],
             ['SkuId' => 2, 'SellerSku' => 'QB-KNOT-M', 'saleProp' => ['Color' => 'Black', 'Size' => 'M']],
@@ -532,10 +532,10 @@ class LazadaListingLiveTest extends TestCase
     {
         $attributes = app(\Extensions\Lazada\Services\Lazada\LazadaAttributes::class);
 
-        $this->assertSame([], $attributes->guessLazadaVariantKeysFromOptionName(''));
-        $this->assertSame([], $attributes->guessLazadaVariantKeysFromOptionName('Finish'));
-        $this->assertSame(['color_family'], $attributes->guessLazadaVariantKeysFromOptionName('Color'));
-        $this->assertSame(['length'], $attributes->guessLazadaVariantKeysFromOptionName('Cable length'));
+        $this->assertSame([], $attributes->guessLazadaVariantKeysFromVariationTypeName(''));
+        $this->assertSame([], $attributes->guessLazadaVariantKeysFromVariationTypeName('Finish'));
+        $this->assertSame(['color_family'], $attributes->guessLazadaVariantKeysFromVariationTypeName('Color'));
+        $this->assertSame(['length'], $attributes->guessLazadaVariantKeysFromVariationTypeName('Cable length'));
     }
 
     public function test_the_listing_keeps_its_own_words_and_the_push_sends_them(): void

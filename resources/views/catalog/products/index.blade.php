@@ -180,7 +180,7 @@
                             @php
                                 $img = trim((string) ($p->image ?? ''));
                                 $thumbSrc = $img !== '' ? \App\Services\Media\ImageCache::url($img) : '';
-                                $variationCount = count($p->option_rows ?? []);
+                                $variationCount = count($p->variation_rows ?? []);
                                 $backUrl = urlencode(request()->fullUrl());
                                 $qty = (int) $p->quantity;
                                 $qtyTone = $qty < 0 ? 'text-bad' : ($qty === 0 ? 'text-attn' : '');
@@ -249,7 +249,7 @@
                                 </td>
                             </tr>
 
-                            @foreach($p->option_rows ?? [] as $or)
+                            @foreach($p->variation_rows ?? [] as $or)
                                 @php
                                     $orImg = trim((string) ($or->option_image ?? ''));
                                     $orSrc = $orImg !== '' ? \App\Services\Media\ImageCache::url($orImg) : '';
@@ -268,11 +268,11 @@
                                                 @endif
                                             </span>
                                             <span class="min-w-0">
-                                                <span class="block truncate">{{ $or->option_value_name ?: '-' }}</span>
+                                                <span class="block truncate">{{ $or->variation_value_name ?: '-' }}</span>
                                                 <span class="flex flex-wrap items-center gap-x-2.5 text-[12px] text-ink-3">
                                                     <span class="bl-mono">{{ $or->sku ?: '-' }}</span>
-                                                    @if(!empty($or->option_name))
-                                                        <span>{{ $or->option_name }}</span>
+                                                    @if(!empty($or->variation_type_name))
+                                                        <span>{{ $or->variation_type_name }}</span>
                                                     @endif
                                                 </span>
                                             </span>

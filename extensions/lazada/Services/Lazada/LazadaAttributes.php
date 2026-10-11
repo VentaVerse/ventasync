@@ -386,9 +386,9 @@ class LazadaAttributes
         return $labels;
     }
 
-    public function guessLazadaVariantKeysFromOptionName(string $optionName): array
+    public function guessLazadaVariantKeysFromVariationTypeName(string $variationTypeName): array
     {
-        $n = strtolower(trim($optionName));
+        $n = strtolower(trim($variationTypeName));
         if ($n === '') {
             return [];
         }

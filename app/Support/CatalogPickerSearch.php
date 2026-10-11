@@ -14,7 +14,7 @@ final class CatalogPickerSearch
         }
         $langId = (int) config('catalog.default_language_id');
 
-        $optionMatchIds = DB::table('product_variation_values')
+        $valueMatchIds = DB::table('product_variation_values')
             ->where('sku', 'like', '%' . $q . '%')->whereNotNull('sku')->where('sku', '!=', '')
             ->pluck('product_id')->unique()->all();
         $comboMatchIds = DB::table('product_variations')
@@ -25,11 +25,11 @@ final class CatalogPickerSearch
             ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
-            ->where(function ($sub) use ($q, $optionMatchIds, $comboMatchIds) {
+            ->where(function ($sub) use ($q, $valueMatchIds, $comboMatchIds) {
                 $sub->where('pd.name', 'like', '%' . $q . '%')
                     ->orWhere('p.model', 'like', '%' . $q . '%')
                     ->orWhere('p.sku', 'like', '%' . $q . '%');
-                $ids = array_values(array_unique(array_merge($optionMatchIds, $comboMatchIds)));
+                $ids = array_values(array_unique(array_merge($valueMatchIds, $comboMatchIds)));
                 if ($ids !== []) {
                     $sub->orWhereIn('p.product_id', $ids);
                 }
@@ -42,7 +42,7 @@ final class CatalogPickerSearch
         }
         $productIds = $rows->pluck('product_id')->map(fn ($v) => (int) $v)->all();
 
-        $options = DB::table('product_variation_values as pov')
+        $variationValues = DB::table('product_variation_values as pov')
             ->leftJoin('variation_value_descriptions as ovd', function ($j) use ($langId) {
                 $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')->where('ovd.language_id', '=', $langId);
             })
@@ -55,16 +55,16 @@ final class CatalogPickerSearch
             ->get(['product_id', 'sku'])->groupBy('product_id');
         $linked = $linkedLabelFor($productIds);
 
-        return $rows->map(function ($r) use ($options, $combos, $linked) {
+        return $rows->map(function ($r) use ($variationValues, $combos, $linked) {
             $pid = (int) $r->product_id;
-            $optionList = ($options->get($pid) ?? collect())->map(fn ($ov) => [
+            $variationList = ($variationValues->get($pid) ?? collect())->map(fn ($ov) => [
                 'sku' => (string) $ov->sku,
                 'name' => (string) ($ov->value_name ?? ''),
                 'qty' => (int) $ov->quantity,
             ])->values()->all();
             $skus = array_values(array_unique(array_filter(array_merge(
                 [trim((string) ($r->sku ?? '')), trim((string) ($r->model ?? ''))],
-                array_column($optionList, 'sku'),
+                array_column($variationList, 'sku'),
                 ($combos->get($pid) ?? collect())->pluck('sku')->map(fn ($v) => trim((string) $v))->all()
             ))));
 
@@ -74,7 +74,7 @@ final class CatalogPickerSearch
                 'model' => (string) ($r->model ?? ''),
                 'sku' => (string) ($r->sku ?? ''),
                 'image' => trim((string) ($r->image ?? '')) !== '' ? \App\Services\Media\ImageCache::url((string) $r->image) : null,
-                'options' => $optionList,
+                'variations' => $variationList,
                 'skus' => $skus,
                 'linked' => $linked[$pid] ?? null,
             ];

@@ -147,7 +147,7 @@ final class LazadaVariationSwitch
         $names = [];
         foreach (VariationRows::forProducts([$productId])->get($productId) ?? [] as $row) {
             $k = self::key($row->sku ?? '');
-            $name = trim((string) ($row->option_value_name ?? ''));
+            $name = trim((string) ($row->variation_value_name ?? ''));
             if ($k !== '' && $name !== '') {
                 $names[$k] = $name;
             }

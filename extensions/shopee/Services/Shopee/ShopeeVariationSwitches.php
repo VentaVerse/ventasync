@@ -266,7 +266,7 @@ final class ShopeeVariationSwitches
             if ($sku === '') {
                 continue;
             }
-            $name = trim((string) ($row->option_value_name ?? ''));
+            $name = trim((string) ($row->variation_value_name ?? ''));
             $out[$this->key($sku)] = $name !== '' ? $name . ' (' . $sku . ')' : $sku;
         }
 

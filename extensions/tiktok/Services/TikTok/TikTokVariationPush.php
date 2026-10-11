@@ -48,13 +48,13 @@ class TikTokVariationPush
                 ->whereIn('cv.product_variation_id', $combos->pluck('id')->all())
                 ->orderBy('pov.product_variation_type_id')
                 ->orderBy('pov.product_variation_value_id')
-                ->get(['cv.product_variation_id', 'pov.product_variation_type_id', 'ovd.name as value_name', 'od.name as option_name']);
+                ->get(['cv.product_variation_id', 'pov.product_variation_type_id', 'ovd.name as value_name', 'od.name as variation_type_name']);
 
             $axes = [];
             $comboAxes = [];
             foreach ($values as $v) {
                 $axisId = (int) $v->product_variation_type_id;
-                $axes[$axisId] ??= html_entity_decode((string) $v->option_name, ENT_QUOTES | ENT_HTML5, 'UTF-8') ?: 'Variation';
+                $axes[$axisId] ??= html_entity_decode((string) $v->variation_type_name, ENT_QUOTES | ENT_HTML5, 'UTF-8') ?: 'Variation';
                 $comboAxes[(int) $v->product_variation_id][$axisId] = html_entity_decode((string) $v->value_name, ENT_QUOTES | ENT_HTML5, 'UTF-8') ?: 'Unnamed';
             }
             if (count($axes) > self::MAX_AXES) {
@@ -94,23 +94,23 @@ class TikTokVariationPush
             return ['skus' => $skus, 'kind' => 'combos', 'keys' => $keys, 'refused' => null];
         }
 
-        $optionValues = $this->optionValues( $langId, $productId);
-        if (!empty($optionValues)) {
-            $optionValues = array_values(array_filter($optionValues, fn ($ov) => \App\Channels\Listings\ListingVariations::allows($hidden, $productId, $ov->sku)));
-            if ($optionValues === []) {
+        $variationValues = $this->variationValues( $langId, $productId);
+        if (!empty($variationValues)) {
+            $variationValues = array_values(array_filter($variationValues, fn ($ov) => \App\Channels\Listings\ListingVariations::allows($hidden, $productId, $ov->sku)));
+            if ($variationValues === []) {
                 return ['skus' => [], 'kind' => 'pov', 'keys' => [], 'refused' => \App\Channels\Listings\ListingVariations::noneSoldMessage('TikTok Shop')];
             }
         }
-        if (!empty($optionValues)) {
+        if (!empty($variationValues)) {
             $skus = [];
             $keys = [];
-            $axisName = $optionValues[0]->option_name;
-            foreach ($optionValues as $ov) {
+            $axisName = $variationValues[0]->variation_type_name;
+            foreach ($variationValues as $ov) {
                 $sellerSku = trim((string) $ov->sku) !== '' ? trim((string) $ov->sku) : ($erp->sku . '-' . $ov->variation_value_id);
                 $sku = [
                     'seller_sku' => $sellerSku,
                     'sales_attributes' => [['name' => $axisName, 'value_name' => $ov->value_name]],
-                    'price' => $money($priceFor($this->optionPrice($basePrice, $ov))),
+                    'price' => $money($priceFor($this->variationPrice($basePrice, $ov))),
                     'inventory' => $inventory((int) $ov->quantity),
                 ];
                 $id = $existing[$sellerSku] ?? $existing[(string) $ov->variation_value_id] ?? $existing[(int) $ov->variation_value_id] ?? null;
@@ -192,7 +192,7 @@ class TikTokVariationPush
         return array_fill_keys($combos->merge($values)->map(fn ($v) => (int) $v)->unique()->values()->all(), true);
     }
 
-    public function optionValues( int $langId, int $productId): array
+    public function variationValues( int $langId, int $productId): array
     {
         return DB::table('product_variation_values as pov')
             ->join('product_variation_types as po', 'po.product_variation_type_id', '=', 'pov.product_variation_type_id')
@@ -210,12 +210,12 @@ class TikTokVariationPush
             ->get([
                 'pov.product_variation_value_id', 'pov.variation_value_id', 'pov.sku', 'pov.quantity',
                 'pov.price', 'pov.price_prefix', 'pov.absolute_price',
-                'ovd.name as value_name', 'od.name as option_name',
+                'ovd.name as value_name', 'od.name as variation_type_name',
             ])
             ->all();
     }
 
-    public function optionPrice(float $basePrice, object $ov): float
+    public function variationPrice(float $basePrice, object $ov): float
     {
         if ((float) ($ov->absolute_price ?? 0) > 0) {
             return (float) $ov->absolute_price;

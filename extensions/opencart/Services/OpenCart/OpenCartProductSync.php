@@ -17,9 +17,9 @@ class OpenCartProductSync
 
     private array $brandMap = [];
 
-    private array $optionMap = [];
+    private array $variationTypeMap = [];
 
-    private array $optionValueMap = [];
+    private array $variationValueMap = [];
 
     public function __construct(OpenCartClient $client, OpenCartStore $store)
     {
@@ -37,14 +37,14 @@ class OpenCartProductSync
         $this->brandMap = $map;
     }
 
-    public function setOptionMap(array $map): void
+    public function setVariationTypeMap(array $map): void
     {
-        $this->optionMap = $map;
+        $this->variationTypeMap = $map;
     }
 
-    public function setOptionValueMap(array $map): void
+    public function setVariationValueMap(array $map): void
     {
-        $this->optionValueMap = $map;
+        $this->variationValueMap = $map;
     }
 
     private function autoPopulateMaps(): void
@@ -92,7 +92,7 @@ class OpenCartProductSync
             }
         }
 
-        if (empty($this->optionMap)) {
+        if (empty($this->variationTypeMap)) {
             $result = $this->client->getOptions();
             if ($result['ok']) {
                 $ocOptions = $result['body']['data'] ?? [];
@@ -110,7 +110,7 @@ class OpenCartProductSync
                         ->value('o.variation_type_id');
 
                     if ($local) {
-                        $this->optionMap[$ocOptionId] = (int) $local;
+                        $this->variationTypeMap[$ocOptionId] = (int) $local;
 
                         $values = $opt['values'] ?? [];
                         foreach ($values as $val) {
@@ -128,7 +128,7 @@ class OpenCartProductSync
                                 ->value('ov.variation_value_id');
 
                             if ($localVal) {
-                                $this->optionValueMap[$ocValueId] = (int) $localVal;
+                                $this->variationValueMap[$ocValueId] = (int) $localVal;
                             }
                         }
                     }
@@ -139,8 +139,8 @@ class OpenCartProductSync
         Log::info('OpenCart product sync auto-populated maps', [
             'categories'    => count($this->categoryMap),
             'brands' => count($this->brandMap),
-            'options'       => count($this->optionMap),
-            'optionValues'  => count($this->optionValueMap),
+            'variation_types' => count($this->variationTypeMap),
+            'variation_values' => count($this->variationValueMap),
         ]);
     }
 
@@ -328,9 +328,9 @@ class OpenCartProductSync
                     $productData['images'] = $imagesPayload;
                 }
 
-                $options = $this->buildOptionsPayload((int) $pid, $langId);
-                if (!empty($options)) {
-                    $productData['options'] = $options;
+                $variations = $this->buildVariationsPayload((int) $pid, $langId);
+                if (!empty($variations)) {
+                    $productData['options'] = $variations;
                 }
 
                 $products[] = $productData;
@@ -537,34 +537,34 @@ class OpenCartProductSync
             ])->toArray();
         }
 
-        $optionsPayload = $this->buildOptionsPayload($productId, $langId);
-        if (!empty($optionsPayload)) {
-            $payload['options'] = $optionsPayload;
+        $variationsPayload = $this->buildVariationsPayload($productId, $langId);
+        if (!empty($variationsPayload)) {
+            $payload['options'] = $variationsPayload;
         }
 
         return $payload;
     }
 
-    private function buildOptionsPayload(int $productId, int $langId): array
+    private function buildVariationsPayload(int $productId, int $langId): array
     {
         $basePrice = (float) DB::table('products')->where('product_id', $productId)->value('price');
 
-        $productOptions = DB::table('product_variation_types AS po')
+        $productVariationTypes = DB::table('product_variation_types AS po')
             ->join('variation_type_descriptions AS od', function ($join) use ($langId) {
                 $join->on('po.variation_type_id', '=', 'od.variation_type_id')
                     ->where('od.language_id', '=', $langId);
             })
             ->join('variation_types AS o', 'po.variation_type_id', '=', 'o.variation_type_id')
             ->where('po.product_id', $productId)
-            ->select('po.product_variation_type_id', 'po.variation_type_id', 'po.required', 'od.name AS option_name', 'o.type')
+            ->select('po.product_variation_type_id', 'po.variation_type_id', 'po.required', 'od.name AS variation_type_name', 'o.type')
             ->get();
 
-        if ($productOptions->isEmpty()) {
+        if ($productVariationTypes->isEmpty()) {
             return [];
         }
 
-        $optionsPayload = [];
-        foreach ($productOptions as $po) {
+        $variationsPayload = [];
+        foreach ($productVariationTypes as $po) {
             $values = DB::table('product_variation_values AS pov')
                 ->join('variation_value_descriptions AS ovd', function ($join) use ($langId) {
                     $join->on('pov.variation_value_id', '=', 'ovd.variation_value_id')
@@ -579,8 +579,8 @@ class OpenCartProductSync
                 )
                 ->get();
 
-            $optionsPayload[] = [
-                'option_name' => $po->option_name,
+            $variationsPayload[] = [
+                'option_name' => $po->variation_type_name,
                 'type'        => $po->type,
                 'required'    => (int) $po->required,
                 'values'      => $values->map(function ($v) use ($basePrice) {
@@ -610,7 +610,7 @@ class OpenCartProductSync
             ];
         }
 
-        return $optionsPayload;
+        return $variationsPayload;
     }
 
     private function encodeImage(string $path): ?string
@@ -777,7 +777,7 @@ class OpenCartProductSync
             }
         });
 
-        $this->syncSubTable('product_option', $coreProductId, function () use ( $coreProductId, $raw) {
+        $this->syncSubTable('product_variation_types', $coreProductId, function () use ( $coreProductId, $raw) {
             if (!isset($raw['options']) || !is_array($raw['options'])) return;
 
             DB::table('product_variation_types')
@@ -786,19 +786,19 @@ class OpenCartProductSync
 
             foreach ($raw['options'] as $po) {
                 $ocOptionId = (int) ($po['option_id'] ?? 0);
-                $coreOptionId = $this->optionMap[$ocOptionId] ?? null;
-                if ($coreOptionId === null) continue;
+                $coreVariationTypeId = $this->variationTypeMap[$ocOptionId] ?? null;
+                if ($coreVariationTypeId === null) continue;
 
                 DB::table('product_variation_types')->insert([
                     'product_id' => $coreProductId,
-                    'variation_type_id'  => $coreOptionId,
+                    'variation_type_id'  => $coreVariationTypeId,
                     'value'      => $po['value'] ?? '',
                     'required'   => (int) ($po['required'] ?? 0),
                 ]);
             }
         });
 
-        $this->syncSubTable('product_option_value', $coreProductId, function () use ( $coreProductId, $raw) {
+        $this->syncSubTable('product_variation_values', $coreProductId, function () use ( $coreProductId, $raw) {
             if (!isset($raw['option_values']) || !is_array($raw['option_values'])) return;
 
             DB::table('product_variation_values')
@@ -818,12 +818,12 @@ class OpenCartProductSync
                 $ocOptionId = (int) ($ov['option_id'] ?? 0);
                 $ocValueId = (int) ($ov['option_value_id'] ?? 0);
 
-                $coreOptionId = $this->optionMap[$ocOptionId] ?? null;
-                $coreValueId = $this->optionValueMap[$ocValueId] ?? null;
+                $coreVariationTypeId = $this->variationTypeMap[$ocOptionId] ?? null;
+                $coreValueId = $this->variationValueMap[$ocValueId] ?? null;
 
-                if ($coreOptionId === null || $coreValueId === null) continue;
+                if ($coreVariationTypeId === null || $coreValueId === null) continue;
 
-                $corePoId = $poMap[$coreOptionId] ?? 0;
+                $corePoId = $poMap[$coreVariationTypeId] ?? 0;
 
                 $basePrice    = (float) ($raw['price'] ?? 0);
                 $ovPrice      = (float) ($ov['price'] ?? 0);
@@ -833,7 +833,7 @@ class OpenCartProductSync
                 DB::table('product_variation_values')->insert([
                     'product_variation_type_id' => $corePoId,
                     'product_id'        => $coreProductId,
-                    'variation_type_id'         => $coreOptionId,
+                    'variation_type_id'         => $coreVariationTypeId,
                     'variation_value_id'   => $coreValueId,
                     'sku'               => $ov['sku'] ?? '',
                     'quantity'          => (int) ($ov['quantity'] ?? 0),
@@ -926,13 +926,13 @@ class OpenCartProductSync
                 ->toArray();
 
             $langId = (int) config('catalog.default_language_id');
-            $optionValues = DB::table('product_variation_values as pov')
+            $variationValues = DB::table('product_variation_values as pov')
                 ->leftJoin('variation_value_descriptions as ovd', function ($j) use ($langId) {
                     $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')
                         ->where('ovd.language_id', '=', $langId);
                 })
                 ->whereIn('pov.product_id', $localProductIds)
-                ->get(['pov.product_id', 'pov.product_variation_value_id', 'pov.sku', 'pov.quantity', 'ovd.name as option_value_name'])
+                ->get(['pov.product_id', 'pov.product_variation_value_id', 'pov.sku', 'pov.quantity', 'ovd.name as variation_value_name'])
                 ->groupBy('product_id');
 
             foreach ($links->chunk(50) as $chunk) {
@@ -950,11 +950,11 @@ class OpenCartProductSync
                         'quantity'   => (int) $localQty[$pid],
                     ];
 
-                    $ovRows = $optionValues->get($pid);
+                    $ovRows = $variationValues->get($pid);
                     if ($ovRows && $ovRows->count() > 0) {
                         $ovPayload = [];
                         foreach ($ovRows as $ov) {
-                            $ovName = trim((string) ($ov->option_value_name ?? ''));
+                            $ovName = trim((string) ($ov->variation_value_name ?? ''));
                             $ovSku = trim((string) $ov->sku);
                             if ($ovName === '' && $ovSku === '') continue;
 
@@ -1052,13 +1052,13 @@ class OpenCartProductSync
                 ->toArray();
 
             $langId = (int) config('catalog.default_language_id');
-            $optionValues = DB::table('product_variation_values as pov')
+            $variationValues = DB::table('product_variation_values as pov')
                 ->leftJoin('variation_value_descriptions as ovd', function ($j) use ($langId) {
                     $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')
                         ->where('ovd.language_id', '=', $langId);
                 })
                 ->whereIn('pov.product_id', $localProductIds)
-                ->get(['pov.product_id', 'pov.sku', 'pov.price', 'pov.price_prefix', 'pov.absolute_price', 'ovd.name as option_value_name'])
+                ->get(['pov.product_id', 'pov.sku', 'pov.price', 'pov.price_prefix', 'pov.absolute_price', 'ovd.name as variation_value_name'])
                 ->groupBy('product_id');
 
             foreach ($links->chunk(50) as $chunk) {
@@ -1075,11 +1075,11 @@ class OpenCartProductSync
                         'price'      => number_format($basePrice, 4, '.', ''),
                     ];
 
-                    $ovRows = $optionValues->get($pid);
+                    $ovRows = $variationValues->get($pid);
                     if ($ovRows && $ovRows->count() > 0) {
                         $ovPayload = [];
                         foreach ($ovRows as $ov) {
-                            $ovName = trim((string) ($ov->option_value_name ?? ''));
+                            $ovName = trim((string) ($ov->variation_value_name ?? ''));
                             $ovSku = trim((string) $ov->sku);
                             if ($ovName === '' && $ovSku === '') continue;
 

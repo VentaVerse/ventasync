@@ -1174,25 +1174,25 @@ class VentaCartListingPageTest extends TestCase
         $store = $this->store();
         $pid = $this->product('TEE');
 
-        $option = function (string $name) use ( $langId, $pid): array {
-            $optionId = (int) DB::table('variation_types')->insertGetId(['type' => 'select', 'sort_order' => 0]);
-            DB::table('variation_type_descriptions')->insert(['variation_type_id' => $optionId, 'language_id' => $langId, 'name' => $name]);
-            $productOptionId = (int) DB::table('product_variation_types')->insertGetId([
-                'product_id' => $pid, 'variation_type_id' => $optionId, 'value' => '', 'required' => 0,
+        $type = function (string $name) use ( $langId, $pid): array {
+            $typeId = (int) DB::table('variation_types')->insertGetId(['type' => 'select', 'sort_order' => 0]);
+            DB::table('variation_type_descriptions')->insert(['variation_type_id' => $typeId, 'language_id' => $langId, 'name' => $name]);
+            $productTypeId = (int) DB::table('product_variation_types')->insertGetId([
+                'product_id' => $pid, 'variation_type_id' => $typeId, 'value' => '', 'required' => 0,
             ]);
 
-            return [$optionId, $productOptionId];
+            return [$typeId, $productTypeId];
         };
-        $value = function (array $option, string $name, string $sku, int $sort) use ( $langId, $pid): int {
-            [$optionId, $productOptionId] = $option;
-            $valueId = (int) DB::table('variation_values')->insertGetId(['variation_type_id' => $optionId, 'image' => '', 'sort_order' => $sort]);
+        $value = function (array $type, string $name, string $sku, int $sort) use ( $langId, $pid): int {
+            [$typeId, $productTypeId] = $type;
+            $valueId = (int) DB::table('variation_values')->insertGetId(['variation_type_id' => $typeId, 'image' => '', 'sort_order' => $sort]);
             DB::table('variation_value_descriptions')->insert([
-                'variation_value_id' => $valueId, 'language_id' => $langId, 'variation_type_id' => $optionId, 'name' => $name,
+                'variation_value_id' => $valueId, 'language_id' => $langId, 'variation_type_id' => $typeId, 'name' => $name,
             ]);
 
             return (int) DB::table('product_variation_values')->insertGetId([
-                'product_variation_type_id' => $productOptionId, 'product_id' => $pid,
-                'variation_type_id' => $optionId, 'variation_value_id' => $valueId,
+                'product_variation_type_id' => $productTypeId, 'product_id' => $pid,
+                'variation_type_id' => $typeId, 'variation_value_id' => $valueId,
                 'sku' => $sku, 'quantity' => 4, 'subtract' => 1,
                 'price' => 0, 'price_prefix' => '+', 'points' => 0, 'points_prefix' => '+',
                 'weight' => 0, 'weight_prefix' => '+',
@@ -1201,8 +1201,8 @@ class VentaCartListingPageTest extends TestCase
             ]);
         };
 
-        $color = $option('Shade');
-        $sizeM = $withSize ? $value($option('Size'), 'M', '', 0) : null;
+        $color = $type('Shade');
+        $sizeM = $withSize ? $value($type('Size'), 'M', '', 0) : null;
 
         foreach ([['Crimson', 'TEE-RED'], ['Navy', 'TEE-BLU']] as $i => [$name, $sku]) {
             $povId = $value($color, $name, $sku, $i);
