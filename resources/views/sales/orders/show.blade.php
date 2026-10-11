@@ -510,7 +510,7 @@
                     <div class="od-ledger__row">
                         <span class="od-ledger__k">
                             Shipping the buyer paid
-                            <x-ui.hint label="Why the buyer's shipping counts">On your own store the buyer pays shipping to you, and you pay the courier. The buyer's shipping counts here against the shipping cost below.</x-ui.hint>
+                            <x-ui.hint label="Why the buyer's shipping counts">On your own store the buyer pays shipping to you, and you pay the courier. The buyer's shipping is your income; what you paid the courier is the shipping cost below.</x-ui.hint>
                         </span>
                         <span class="od-ledger__v od-pos">+{{ \App\Support\Money::base($orderProfit->shippingIncome()) }}</span>
                     </div>
@@ -531,11 +531,6 @@
                         </span>
                     </div>
 
-                    @if($orderProfit->shippingIncomeWaitsForCost())
-                    <div class="od-ledger__row od-ledger__row--child">
-                        <span class="od-ledger__split">The buyer paid {{ \App\Support\Money::base($orderProfit->buyerShippingCharged) }} shipping. It counts once the shipping cost you paid is recorded.</span>
-                    </div>
-                    @endif
 
                     @foreach($orderProfit->fees as $fee)
                     <div class="od-ledger__row">

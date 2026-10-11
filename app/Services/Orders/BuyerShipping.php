@@ -15,10 +15,8 @@ use Illuminate\Support\Facades\DB;
  * "shipping_paid_to_seller": true in its extension.json; the manifest is read
  * from disk so orders from a disabled channel keep the same rule.
  *
- * The buyer's shipping counts as income only on an order that records what
- * its shipping cost the seller (the order's shipping cost or the channel's
- * delivery fee). An order with no shipping cost recorded leaves shipping out
- * on both sides, which treats the buyer's payment as passed to the courier.
+ * On those channels the buyer's shipping is always the seller's income; what
+ * the seller paid the courier is a separate cost.
  */
 final class BuyerShipping
 {
@@ -50,10 +48,10 @@ final class BuyerShipping
         return in_array(self::channelId($orderChannel), $this->channels(), true);
     }
 
-    /** What the buyer's shipping adds to profit: the charge, when the order records a shipping cost; zero otherwise. */
-    public function counted(?string $orderChannel, float $charged, float $shippingCost): float
+    /** What the buyer's shipping adds to profit: the charge on a channel that pays it to the seller, zero on a marketplace. */
+    public function counted(?string $orderChannel, float $charged): float
     {
-        return $this->paidToSeller($orderChannel) && $shippingCost > 0 ? max(0.0, $charged) : 0.0;
+        return $this->paidToSeller($orderChannel) ? max(0.0, $charged) : 0.0;
     }
 
     /** SQL that reads true when an order's channel pays shipping to the seller; the channel ids are quoted in place. */

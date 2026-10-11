@@ -90,18 +90,10 @@ final class OrderProfit
         return $this->hasLines ? $this->ownShippingCost + $this->reportedShippingCost : 0.0;
     }
 
-    /** The buyer's shipping counted as income: on the seller's own channels, once a shipping cost is recorded. */
+    /** The buyer's shipping counted as income: on the seller's own channels; a marketplace keeps it. */
     public function shippingIncome(): float
     {
-        return $this->hasLines && $this->shippingPaidToSeller && $this->shippingCost() > 0
-            ? $this->buyerShippingCharged
-            : 0.0;
-    }
-
-    /** The buyer paid shipping to the seller, but no shipping cost is recorded, so neither side is counted yet. */
-    public function shippingIncomeWaitsForCost(): bool
-    {
-        return $this->hasLines && $this->shippingPaidToSeller && $this->buyerShippingCharged > 0 && $this->shippingCost() == 0.0;
+        return $this->hasLines && $this->shippingPaidToSeller ? $this->buyerShippingCharged : 0.0;
     }
 
     public function feesTotal(): float
