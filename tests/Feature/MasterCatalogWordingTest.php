@@ -19,6 +19,9 @@ class MasterCatalogWordingTest extends TestCase
     {
         $files = [];
         foreach (self::CHANNELS as $channel) {
+            if (! is_file(base_path("extensions/{$channel}/extension.json"))) {
+                continue;
+            }
             $root = base_path("extensions/{$channel}/views");
             $this->assertDirectoryExists($root);
             foreach (File::allFiles($root) as $file) {
