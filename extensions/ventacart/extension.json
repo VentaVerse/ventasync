@@ -3,6 +3,7 @@
     "name": "VentaCart",
     "version": "0.30.0",
     "description": "VentaCart ecommerce channel: multi-store order sync, inventory push, product groups, categories",
+    "shipping_paid_to_seller": true,
     "logs": {
         "ch_ventacart_sync_logs": {
             "label": "Sync runs",

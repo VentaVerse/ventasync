@@ -14,6 +14,8 @@ final class OrderProfit
         public readonly float $reportedShippingCost,
         public readonly array $fees,
         public readonly bool $hasLines,
+        public readonly float $buyerShippingCharged = 0.0,
+        public readonly bool $shippingPaidToSeller = false,
     ) {}
 
     public static function of(Order $order): self
@@ -34,6 +36,10 @@ final class OrderProfit
             ->get(['code', 'title', 'value']);
 
         $reportedShipping = 0.0;
+        $buyerShipping = (float) DB::table('order_totals')
+            ->where('order_id', $orderId)
+            ->where('code', BuyerShipping::TOTAL_CODE)
+            ->sum('value');
         $fees = [];
         $vouchers = [];
         foreach ($reported as $row) {
@@ -74,12 +80,28 @@ final class OrderProfit
             reportedShippingCost: $reportedShipping,
             fees: $fees,
             hasLines: (int) $lines->n > 0,
+            buyerShippingCharged: max(0.0, $buyerShipping),
+            shippingPaidToSeller: app(BuyerShipping::class)->paidToSeller($order->channel),
         );
     }
 
     public function shippingCost(): float
     {
         return $this->hasLines ? $this->ownShippingCost + $this->reportedShippingCost : 0.0;
+    }
+
+    /** The buyer's shipping counted as income: on the seller's own channels, once a shipping cost is recorded. */
+    public function shippingIncome(): float
+    {
+        return $this->hasLines && $this->shippingPaidToSeller && $this->shippingCost() > 0
+            ? $this->buyerShippingCharged
+            : 0.0;
+    }
+
+    /** The buyer paid shipping to the seller, but no shipping cost is recorded, so neither side is counted yet. */
+    public function shippingIncomeWaitsForCost(): bool
+    {
+        return $this->hasLines && $this->shippingPaidToSeller && $this->buyerShippingCharged > 0 && $this->shippingCost() == 0.0;
     }
 
     public function feesTotal(): float
@@ -89,7 +111,7 @@ final class OrderProfit
 
     public function netProfit(): float
     {
-        return $this->revenue - $this->cogs - $this->shippingCost() - $this->feesTotal();
+        return $this->revenue + $this->shippingIncome() - $this->cogs - $this->shippingCost() - $this->feesTotal();
     }
 
     public function margin(): float

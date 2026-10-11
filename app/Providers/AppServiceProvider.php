@@ -21,6 +21,7 @@ class AppServiceProvider extends ServiceProvider
         \Laravel\Passport\Passport::ignoreRoutes();
         $this->app->singleton(\App\Channels\ChannelRegistry::class);
         $this->app->singleton(\App\Services\Payouts\PayoutRegistry::class);
+        $this->app->singleton(\App\Services\Orders\BuyerShipping::class);
     }
 
     public function boot(): void

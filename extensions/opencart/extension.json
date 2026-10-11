@@ -3,6 +3,7 @@
     "name": "OpenCart",
     "version": "0.30.0",
     "description": "OpenCart store channel: product sync, order sync, product groups, and marketplace reviews",
+    "shipping_paid_to_seller": true,
     "logs": {
         "ch_opencart_sync_log": {
             "label": "Sync runs",
