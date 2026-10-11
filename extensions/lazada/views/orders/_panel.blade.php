@@ -387,7 +387,7 @@
             $deliveryMethod = $pick(['shipping_type', 'delivery_type']);
             $trackingNo = $pick(['tracking_code', 'tracking_number', 'tracking_code_pre']);
 
-            $awaitingShip = in_array($statusNorm, ['pending', 'confirmed', 'ready_to_ship', 'packed'], true);
+            $awaitingShip = $isToPack || $isToArrange || $isToHandover;
             $shipBy = 0;
             if ($awaitingShip) {
                 $tsRaw = $pick(['sla_time_stamp', 'promised_shipping_time']);
